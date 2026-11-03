@@ -44,6 +44,10 @@ def write_files(root: Path, files: dict[str, str], writable: bool) -> None:
             if sys.platform == "win32":
                 raise RuntimeError("Coding worker requires Linux or WSL2")
             os.chown(item, 10001, 10001)
+    else:
+        # systemd uses UMask=0077; test files must remain readable by sandbox UID10001.
+        for item in root.rglob("*"):
+            item.chmod(0o755 if item.is_dir() else 0o444)
     root.chmod(0o755)
 
 

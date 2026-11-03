@@ -18,7 +18,7 @@ from orchestrator.service import cancel_run
 from orchestrator.state import WorkflowError
 from shared.config import get_settings
 from shared.profiles import IntegrationProfile, allowed_file, model_selection
-from workers.coding import safe_path
+from workers.coding import safe_path, write_files
 
 integration = pytest.mark.skipif(
     os.getenv("ASF_INTEGRATION_TEST") != "1", reason="Disposable database required"
@@ -53,6 +53,15 @@ def test_trusted_target_and_path_validation():
         ".git/config",
     ]:
         assert not safe_path(path)
+
+
+def test_trusted_test_files_readable_with_restrictive_service_umask(tmp_path):
+    write_files(tmp_path, {"nested/test_app.py": "# immutable trusted test\n"}, False)
+    file = tmp_path / "nested/test_app.py"
+    assert file.read_text() == "# immutable trusted test\n"
+    assert file.stat().st_mode & 0o444 == 0o444
+    assert file.stat().st_mode & 0o222 == 0
+    assert (tmp_path / "nested").stat().st_mode & 0o444 == 0o444
 
 
 def test_models_require_allowed_roles_and_catalog(monkeypatch):
