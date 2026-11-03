@@ -1,0 +1,39 @@
+{
+  "project_id": "1b8f0b1c-f4db-4af8-80c6-9bb237561f06",
+  "slug": "phase1-c9bdf0e9a64a",
+  "dashboard_proxy_create": 201,
+  "duplicate_slug": 409,
+  "foreign_origin": 403,
+  "invalid_pagination": 422,
+  "direct_api_after_recreate": "pass",
+  "dashboard_list_after_recreate": "pass",
+  "dashboard_html": "pass",
+  "redis_outage_readiness": 503,
+  "observed_at": "2026-11-04T00:50:46.172634+07:00",
+  "redis_recovery_readiness": 200,
+  "tests": {
+    "pytest": {
+      "passed": 6,
+      "integration": 2
+    },
+    "ruff": "pass",
+    "mypy": "pass",
+    "dashboard_lint": "pass",
+    "dashboard_typecheck": "pass",
+    "dashboard_build_windows": "pass",
+    "container_build_api_linux": "pass",
+    "container_build_dashboard_linux": "pass"
+  },
+  "migration": {
+    "revision": "0001_platform_core",
+    "upgrade_downgrade_upgrade_disposable_database": "pass",
+    "alembic_check": "pass"
+  },
+  "binding": "127.0.0.1 only",
+  "visual_review": "not completed: browser URL verification blocked Computer Use",
+  "dependency_audit": {
+    "dashboard_runtime_vulnerabilities": 0,
+    "dashboard_dev_moderate": 16,
+    "dashboard_high_critical": 0
+  }
+}

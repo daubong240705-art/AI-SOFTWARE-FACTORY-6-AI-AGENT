@@ -18,6 +18,8 @@ Không chờ toàn bộ M0 cũ để viết code. Những kiểm tra cần để
 
 **Mục tiêu:** repo có một bộ khung API/dashboard/DB chạy được; chưa xây Agent thật.
 
+**Trạng thái 04/11/2026: đã hoàn thành V0-P1-01…06.** Build/lint, migration, 6 test với DB/Redis thật và persistence qua tạo lại container đã pass trên stack dev riêng tại `.60`. Xem [kết quả và giới hạn kiểm chứng](../docs/phase-1-completion.md); chưa nghiệm thu visual trong trình duyệt, chưa deploy `.14`.
+
 | Mã | Công việc |
 |---|---|
 | V0-P1-01 | Tạo cấu trúc `apps/api`, `apps/dashboard`, `orchestrator`, `agents`, `integrations`, `workers`, `shared`, `infrastructure`, `tests` |

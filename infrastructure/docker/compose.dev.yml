@@ -1,0 +1,93 @@
+name: asf-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-asf}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-asf-local-development}
+      POSTGRES_DB: ${POSTGRES_DB:-asf}
+    ports:
+      - "127.0.0.1:${ASF_POSTGRES_PORT:-54329}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    mem_limit: 512m
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${ASF_REDIS_PORT:-56379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    mem_limit: 128m
+
+  migrate:
+    image: asf-api:phase1-dev
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    environment: &api_environment
+      ASF_ENVIRONMENT: development
+      ASF_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-asf}:${POSTGRES_PASSWORD:-asf-local-development}@postgres:5432/${POSTGRES_DB:-asf}
+      ASF_REDIS_URL: redis://redis:6379/0
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 256m
+
+  api:
+    image: asf-api:phase1-dev
+    build:
+      context: ../..
+      dockerfile: apps/api/Dockerfile
+    environment: *api_environment
+    ports:
+      - "127.0.0.1:${ASF_API_PORT:-18000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+    mem_limit: 512m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+  dashboard:
+    build:
+      context: ../../apps/dashboard
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    ports:
+      - "127.0.0.1:${ASF_DASHBOARD_PORT:-13000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then(r => { if (!r.ok) process.exit(1); }).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+    mem_limit: 384m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+volumes:
+  postgres_data:
+  redis_data:
