@@ -1,6 +1,8 @@
 # AI Software Factory
 
-Nền tảng self-hosted điều phối sáu role PM, BA, BE, FE, TEST, DEVOPS. **Phase 3** có dashboard đăng nhập, quản lý project/run, plan/spec, phê duyệt theo phiên bản và timeline SSE từ PostgreSQL. PM/BA tạo plan/spec; BE/FE/TEST/DEVOPS chưa thực thi code/test/deploy.
+Nền tảng self-hosted điều phối sáu role PM, BA, BE, FE, TEST, DEVOPS. **ASF v0.1 / Phase 4** chạy tại <https://asf.lazy.local>, có dashboard đăng nhập, quản lý project/run, plan/spec, phê duyệt theo phiên bản và timeline SSE từ PostgreSQL. PM/BA tạo plan/spec; BE/FE/TEST/DEVOPS chưa thực thi code/test/deploy.
+
+Repo CI/deploy nội bộ: <https://gitlab.lazy.local/ai-factory/ai-software-factory>. Xem [kết quả triển khai](docs/phase-4-completion.md) và [hướng dẫn vận hành, backup/restore/rollback](docs/operations-v0.1.md). Máy truy cập cần DNS nội bộ và tin CA Caddy. Tài khoản do admin cấp, không có mật khẩu mặc định.
 
 ## Chạy dev bằng Docker
 
@@ -16,7 +18,7 @@ PowerShell dùng `Copy-Item .env.example .env` cho lệnh đầu. Giá trị m�
 - Dashboard: <http://localhost:13000>
 - OpenAPI: <http://localhost:18000/docs>
 - Liveness: `/healthz`; readiness DB/Redis/migration: `/readyz`.
-- PostgreSQL `localhost:54329`, Redis `localhost:56379`; mọi published port **chỉ bind loopback**. Triển khai HTTPS/LAN qua Caddy thuộc Phase 4.
+- PostgreSQL `localhost:54329`, Redis `localhost:56379`; mọi published port **dev chỉ bind loopback**. Bản triển khai nội bộ dùng Compose riêng, HTTPS qua Caddy và không publish DB/Redis.
 
 Compose tự chạy Alembic và migration checkpoint trước API. Dispatcher đọc outbox trong PostgreSQL rồi đưa job vào Redis/RQ; workflow worker chạy một job mỗi lần. Named volume giữ dữ liệu khi restart/down. `docker compose ... down -v` xóa dữ liệu dev; không dùng để restart thông thường. RQ worker yêu cầu Linux; trên Windows dùng Compose/VM/WSL2.
 
