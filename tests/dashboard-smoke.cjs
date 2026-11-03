@@ -4,7 +4,7 @@
  * ASF_PLAYWRIGHT_PATH=<tools-dir>/node_modules/playwright
  * ASF_SMOKE_CREDENTIALS=<outside-repo JSON: username,password>
  * ASF_SMOKE_OUTPUT=<outside-repo evidence dir> node tests/dashboard-smoke.cjs
- * Creates a synthetic project/run and viewer. Never point at production.
+ * Creates synthetic data. Production acceptance requires explicit ASF_SMOKE_DEPLOY_ACCEPTANCE=1.
  */
 const { chromium } = require(process.env.ASF_PLAYWRIGHT_PATH || "playwright");
 const fs = require("node:fs");
@@ -13,6 +13,11 @@ const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const credentials = JSON.parse(fs.readFileSync(process.env.ASF_SMOKE_CREDENTIALS, "utf8"));
 const base = process.env.ASF_SMOKE_URL || "http://127.0.0.1:13003";
+const deployed = process.env.ASF_SMOKE_DEPLOY_ACCEPTANCE === "1";
+if (new URL(base).hostname !== "127.0.0.1" && !deployed) {
+  throw new Error("Non-local acceptance requires ASF_SMOKE_DEPLOY_ACCEPTANCE=1 (creates synthetic data)");
+}
+const phase = deployed ? "Phase 4" : "Phase 3";
 const out = process.env.ASF_SMOKE_OUTPUT;
 fs.mkdirSync(out, { recursive: true });
 
@@ -37,11 +42,11 @@ fs.mkdirSync(out, { recursive: true });
     });
     await check("create project through UI", async () => {
       await page.getByRole("button", { name: "+ Tạo dự án" }).click();
-      await page.getByLabel("Tên dự án", { exact: true }).fill("Phase 3 — Dashboard acceptance");
-      await page.getByLabel("Mã dự án", { exact: true }).fill("phase3-" + suffix);
+      await page.getByLabel("Tên dự án", { exact: true }).fill(phase + " — Dashboard acceptance (synthetic)");
+      await page.getByLabel("Mã dự án", { exact: true }).fill((deployed ? "phase4-" : "phase3-") + suffix);
       await page.getByLabel("Mô tả", { exact: true }).fill("Kiểm chứng dashboard, phân quyền và phê duyệt. Dữ liệu mô phỏng.");
       await page.getByRole("button", { name: "Lưu dự án" }).click();
-      await page.getByRole("link").filter({ has: page.locator("code", { hasText: "phase3-" + suffix }) }).click();
+      await page.getByRole("link").filter({ has: page.locator("code", { hasText: (deployed ? "phase4-" : "phase3-") + suffix }) }).click();
       await page.getByRole("heading", { name: "Cấu hình dự án" }).waitFor();
       evidence.project_id = page.url().split("/").pop();
       await page.screenshot({ path: path.join(out, "project.png"), fullPage: true });

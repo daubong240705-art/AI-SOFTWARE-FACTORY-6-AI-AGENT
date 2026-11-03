@@ -119,10 +119,16 @@ def verify_images(directory: Path, sha: str):
             assert "sha256:" + hashlib.sha256(raw).hexdigest() == image["image_id"]
             assert json.loads(raw)["config"]["Labels"]["org.opencontainers.image.revision"] == sha
         command(["docker", "load", "--input", str(path)], stdout=subprocess.DEVNULL)
-        identity = subprocess.check_output(
-            ["docker", "image", "inspect", image["tag"], "--format", "{{.Id}}"], text=True
-        ).strip()
-        assert identity == image["image_id"]
+        # Docker's containerd image store may report a manifest digest as .Id.
+        # Compare the loaded config bytes instead of assuming .Id is a config digest.
+        with tempfile.TemporaryFile() as loaded:
+            command(["docker", "image", "save", image["tag"]], stdout=loaded)
+            loaded.seek(0)
+            with tarfile.open(fileobj=loaded) as archive:
+                info = json.load(archive.extractfile("manifest.json"))
+                assert len(info) == 1 and image["tag"] in info[0]["RepoTags"]
+                raw = archive.extractfile(info[0]["Config"]).read()
+                assert "sha256:" + hashlib.sha256(raw).hexdigest() == image["image_id"]
     return manifest
 
 
@@ -143,7 +149,7 @@ def health(sha: str):
 
 def activate(sha: str):
     # Only application containers are replaced; DB/Redis and volumes are independent.
-    dc(sha, "up", "-d", "postgres", "redis")
+    dc(sha, "up", "-d", "--wait", "--wait-timeout", "120", "postgres", "redis")
     dc(sha, "stop", "dispatcher", "workflow-worker", "api", "dashboard")
     dc(sha, "run", "--rm", "--no-deps", "migrate")
     dc(sha, "up", "-d", "--no-deps", "api", "dashboard", "dispatcher", "workflow-worker")
