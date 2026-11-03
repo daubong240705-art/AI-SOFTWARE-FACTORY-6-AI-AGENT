@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="ASF_", env_file=".env", extra="ignore")
 
     environment: Literal["development", "test", "staging", "production"] = "development"
+    release_sha: str = "development"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     database_url: SecretStr = SecretStr(
         "postgresql+psycopg://asf:asf-local-development@localhost:54329/asf"

@@ -1,7 +1,9 @@
 FROM python:3.12-slim-bookworm
+ARG RELEASE_SHA=development
+LABEL org.opencontainers.image.revision=$RELEASE_SHA
 ARG UV_VERSION=0.13.7
 RUN pip install --no-cache-dir "uv==${UV_VERSION}"
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PATH=/app/.venv/bin:$PATH
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PATH=/app/.venv/bin:$PATH ASF_RELEASE_SHA=$RELEASE_SHA
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY apps/api/src apps/api/src

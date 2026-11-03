@@ -92,7 +92,12 @@ async def validation_error(request: Request, _: RequestValidationError) -> JSONR
 
 @app.get("/healthz")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "asf-api", "version": app.version}
+    return {
+        "status": "ok",
+        "service": "asf-api",
+        "version": app.version,
+        "release_sha": settings.release_sha,
+    }
 
 
 @app.get("/readyz")
