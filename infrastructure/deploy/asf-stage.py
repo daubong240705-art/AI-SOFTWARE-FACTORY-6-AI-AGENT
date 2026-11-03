@@ -156,7 +156,20 @@ def main():
         (release / "manifest.json").write_text(json.dumps(expected))
         (release / "manifest.json").chmod(0o444)
         if dc("network", "inspect", "asf-validation", required=False).returncode:
-            dc("network", "create", "--internal", "asf-validation")
+            dc(
+                "network",
+                "create",
+                "--opt",
+                "com.docker.network.bridge.name=br-asf-stage",
+                "asf-validation",
+            )
+        network = json.loads(dc("network", "inspect", "asf-validation").stdout)[0]
+        if (
+            network["Internal"]
+            or network["Options"].get("com.docker.network.bridge.name") != "br-asf-stage"
+        ):
+            raise ValueError("staging_network_policy_mismatch")
+        subprocess.run(["/usr/local/sbin/asf-validation-firewall"], check=True, timeout=15)
         previous = dc("container", "inspect", "asf-validation", required=False).returncode == 0
         dc("rm", "-f", "asf-validation-previous", required=False)
         if previous:
@@ -170,6 +183,7 @@ def main():
                 "asf-validation",
                 "--restart=no",
                 "--network=asf-validation",
+                "--dns=127.0.0.1",
                 "--read-only",
                 "--user=10001:10001",
                 "--memory=128m",

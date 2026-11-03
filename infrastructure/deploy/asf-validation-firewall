@@ -4,5 +4,8 @@ iptables -w -N ASF-VALIDATION 2>/dev/null || true
 iptables -w -F ASF-VALIDATION
 iptables -w -A ASF-VALIDATION -p tcp -s 192.168.1.51 -m conntrack --ctdir ORIGINAL --ctorigdst 192.168.1.14 --ctorigdstport 18120 -j RETURN
 iptables -w -A ASF-VALIDATION -p tcp -m conntrack --ctdir ORIGINAL --ctorigdst 192.168.1.14 --ctorigdstport 18120 -j DROP
+iptables -w -A ASF-VALIDATION -i br-asf-stage -m conntrack --ctstate ESTABLISHED,RELATED -j RETURN
+iptables -w -A ASF-VALIDATION -i br-asf-stage -j DROP
 iptables -w -A ASF-VALIDATION -j RETURN
 iptables -w -C DOCKER-USER -j ASF-VALIDATION 2>/dev/null || iptables -w -I DOCKER-USER 1 -j ASF-VALIDATION
+iptables -w -C INPUT -j ASF-VALIDATION 2>/dev/null || iptables -w -I INPUT 1 -j ASF-VALIDATION
