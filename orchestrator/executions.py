@@ -98,6 +98,33 @@ def schedule(
 def start(session: Session, run: Run) -> bool:
     if run.mode != "live" or not run.config_snapshot.get("integration"):
         return False
+    # A deployment failure must not discard a tested candidate or spend another coding budget.
+    previous = session.scalar(
+        select(Execution)
+        .where(
+            Execution.run_id == run.id,
+            Execution.role == "devops",
+            Execution.state == "failed",
+            Execution.input["run_generation"].as_integer() == run.generation - 1,
+        )
+        .order_by(Execution.created_at.desc())
+    )
+    if previous:
+        tested = session.scalar(
+            select(Execution)
+            .where(Execution.run_id == run.id, Execution.role == "test")
+            .order_by(Execution.created_at.desc())
+        )
+        spec = artifact(session, run, "spec")
+        if (
+            tested
+            and tested.state == "succeeded"
+            and tested.input["candidate_sha"] == previous.input["candidate_sha"]
+            and spec
+            and tested.input["spec_hash"] == previous.input["spec_hash"] == spec.content_hash
+        ):
+            schedule(session, run, "devops", previous.input["candidate_sha"])
+            return True
     schedule(session, run, "be")
     return True
 

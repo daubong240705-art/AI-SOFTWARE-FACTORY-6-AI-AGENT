@@ -381,3 +381,37 @@ def test_release_requires_session_exact_candidate_and_current_checks(
     finally:
         with SessionLocal.begin() as session:
             session.execute(delete(ReleaseApproval).where(ReleaseApproval.execution_id == item_id))
+
+
+@integration
+def test_deploy_retry_preserves_tested_candidate_and_requires_new_release(execution_workspace):
+    from orchestrator.service import retry_run
+
+    run_id, _, _ = execution_workspace
+    with SessionLocal.begin() as session:
+        run = session.get(Run, run_id)
+        previous = session.scalar(select(Execution).where(Execution.run_id == run_id))
+        previous.role, previous.state = "devops", "failed"
+        candidate = previous.input["candidate_sha"]
+        tested = Execution(
+            run_id=run_id,
+            role="test",
+            state="succeeded",
+            attempt=1,
+            input=dict(previous.input),
+            result={"report": {"exit_code": 0}},
+        )
+        session.add(tested)
+        run.status, run.error_code = "failed", "candidate_pipeline_failed"
+        retry_run(session, run_id, "Host fixed; fresh pipeline and approval required")
+        run.status = "running"  # Dispatcher resumes the previously approved graph.
+        assert executions.start(session, run)
+        assert executions.start(session, run)  # Dispatcher redelivery is idempotent.
+    with SessionLocal() as session:
+        items = list(session.scalars(select(Execution).where(Execution.run_id == run_id)))
+        fresh = [e for e in items if e.input["run_generation"] == 2]
+        assert len(fresh) == 1
+        assert fresh[0].role == "devops" and fresh[0].state == "pending"
+        assert fresh[0].input["candidate_sha"] == candidate
+        assert "release_job_id" not in fresh[0].input
+        assert "release_pipeline_id" not in fresh[0].input

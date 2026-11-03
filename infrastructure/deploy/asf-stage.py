@@ -155,10 +155,9 @@ def main():
             target.chmod(0o444)
         (release / "manifest.json").write_text(json.dumps(expected))
         (release / "manifest.json").chmod(0o444)
-        dc("network", "inspect", "asf-validation", required=False)
         if dc("network", "inspect", "asf-validation", required=False).returncode:
             dc("network", "create", "--internal", "asf-validation")
-        previous = dc("inspect", "asf-validation", required=False).returncode == 0
+        previous = dc("container", "inspect", "asf-validation", required=False).returncode == 0
         dc("rm", "-f", "asf-validation-previous", required=False)
         if previous:
             dc("stop", "asf-validation")
