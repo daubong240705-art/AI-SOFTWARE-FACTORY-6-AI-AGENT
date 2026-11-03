@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     run_retry_limit: int = Field(default=2, ge=0, le=5)
     dispatch_lease_seconds: int = Field(default=45, ge=15, le=300)
     dispatch_recovery_limit: int = Field(default=2, ge=0, le=5)
+    session_hours: int = Field(default=8, ge=1, le=168)
+    session_cookie_secure: bool = False
+    allowed_origins: list[str] = [
+        "http://localhost:13000",
+        "http://127.0.0.1:13000",
+        "http://localhost:18000",
+        "http://127.0.0.1:18000",
+    ]
 
 
 @lru_cache

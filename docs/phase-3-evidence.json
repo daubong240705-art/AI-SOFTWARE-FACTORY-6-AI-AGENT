@@ -1,0 +1,69 @@
+{
+  "mode": "mock",
+  "browser": "isolated Chromium",
+  "checks": [
+    "unauthenticated redirect and login",
+    "create project through UI",
+    "create mock run and inspect six roles and artifacts",
+    "refresh keeps session, run and timeline",
+    "SSE reconnect after offline replays without duplicates",
+    "reject, retry creates v2 with retained v1 history",
+    "approve explicit v2 and reach integration boundary",
+    "admin creates viewer through UI",
+    "desktop and mobile layouts fit viewport",
+    "no browser runtime errors"
+  ],
+  "project_id": "3f302763-e053-463f-b383-767958cbf25a",
+  "run_id": "69d15133-5f69-4df6-bacd-f75b18aac7d8",
+  "viewer_username": "viewer-mw11j7t7",
+  "restart": {
+    "session_persisted": true,
+    "status": "waiting_integration",
+    "spec_version": 2,
+    "artifacts": 4,
+    "approvals": 2,
+    "events": 13,
+    "timeline_replayed": true
+  },
+  "proxy_sse": true,
+  "last_event_id_precedence": true,
+  "open_stream_revocation": true,
+  "date": "2026-11-04",
+  "environment": "asf-phase3-check on 192.168.1.60, loopback-only",
+  "backend_tests": {
+    "passed": 31,
+    "database": "dedicated disposable PostgreSQL",
+    "redis": "isolated database 15",
+    "production_auth_overrides": false
+  },
+  "checks_static": [
+    "ruff",
+    "mypy strict",
+    "frontend eslint",
+    "frontend typecheck",
+    "Next production build",
+    "Linux Docker builds",
+    "alembic check"
+  ],
+  "migration_roundtrip": {
+    "from": "0002_workflow",
+    "to": "0003_auth",
+    "downgrade_upgrade": true,
+    "legacy_identity_preserved": true,
+    "temporary_database_removed": true
+  },
+  "visual_review": {
+    "desktop": [
+      1440,
+      1000
+    ],
+    "mobile": [
+      390,
+      844
+    ],
+    "screenshots_inspected": true,
+    "horizontal_overflow": false
+  },
+  "model_calls_in_acceptance": 0,
+  "deployment_14": false
+}

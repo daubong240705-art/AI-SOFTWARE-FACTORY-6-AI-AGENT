@@ -9,21 +9,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from agents.contracts import ROLES
+from asf_api.auth import OperatorDep, current_user
 from asf_api.db import get_session
-from asf_api.models import Approval, Artifact, Event, ModelCall, Run, Task
+from asf_api.models import Approval, Artifact, AuditLog, Event, ModelCall, Run, Task
 from orchestrator import service
 from orchestrator.state import WorkflowError
-from shared.config import get_settings
 
-router = APIRouter(prefix="/api")
+router = APIRouter(prefix="/api", dependencies=[Depends(current_user)])
 SessionDep = Annotated[Session, Depends(get_session)]
-
-
-def dev_only() -> None:
-    if get_settings().environment not in ("development", "test"):
-        raise HTTPException(
-            403, "Phase 2 workflow requires local dev; authentication comes in Phase 3"
-        )
 
 
 class Input(BaseModel):
@@ -43,7 +36,6 @@ class Review(Comment):
     spec_version: int = Field(ge=1)
     spec_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     decision: Literal["approve", "reject"]
-    actor: str = Field(min_length=1, max_length=120)
     idempotency_key: uuid.UUID
 
 
@@ -82,18 +74,20 @@ def problem(exc: WorkflowError) -> HTTPException:
 
 @router.get("/roles")
 def roles() -> dict[str, Any]:
-    return {"roles": ROLES, "approval": "human_only", "identity": "unverified_local_dev"}
+    return {"roles": ROLES, "approval": "human_only", "identity": "authenticated_session"}
 
 
 @router.post(
     "/projects/{project_id}/runs",
     response_model=RunRead,
     status_code=201,
-    dependencies=[Depends(dev_only)],
 )
-def create(project_id: uuid.UUID, payload: RunCreate, session: SessionDep) -> Run:
+def create(
+    project_id: uuid.UUID, payload: RunCreate, session: SessionDep, actor: OperatorDep
+) -> Run:
     try:
         run = service.create_run(session, project_id, payload.requirement, payload.mode)
+        session.add(AuditLog(user_id=actor.id, action="run.created", target=str(run.id)))
         commit(session)
         return run
     except WorkflowError as exc:
@@ -173,6 +167,8 @@ def detail(run_id: uuid.UUID, session: SessionDep) -> dict[str, Any]:
                 "spec_hash": a.spec_hash,
                 "decision": a.decision,
                 "actor": a.actor,
+                "actor_user_id": str(a.actor_user_id) if a.actor_user_id else None,
+                "identity_source": a.identity_source,
                 "comment": a.comment,
                 "created_at": a.created_at.isoformat(),
             }
@@ -201,7 +197,7 @@ def detail(run_id: uuid.UUID, session: SessionDep) -> dict[str, Any]:
 def events(
     run_id: uuid.UUID,
     session: SessionDep,
-    after: Annotated[int, Query(ge=0)] = 0,
+    after: Annotated[int, Query(ge=0, le=9223372036854775807)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> dict[str, Any]:
     if not session.get(Run, run_id):
@@ -229,8 +225,10 @@ def events(
     }
 
 
-@router.post("/runs/{run_id}/approval", dependencies=[Depends(dev_only)])
-def review(run_id: uuid.UUID, payload: Review, session: SessionDep) -> dict[str, Any]:
+@router.post("/runs/{run_id}/approval")
+def review(
+    run_id: uuid.UUID, payload: Review, session: SessionDep, actor: OperatorDep
+) -> dict[str, Any]:
     try:
         decision = service.decide(
             session,
@@ -238,35 +236,41 @@ def review(run_id: uuid.UUID, payload: Review, session: SessionDep) -> dict[str,
             payload.spec_version,
             payload.spec_hash,
             payload.decision,
-            payload.actor,
+            actor.username,
             payload.comment,
             payload.idempotency_key,
+            actor.id,
+        )
+        session.add(
+            AuditLog(user_id=actor.id, action="approval." + payload.decision, target=str(run_id))
         )
         commit(session)
         return {
             "id": str(decision.id),
             "decision": decision.decision,
             "spec_version": decision.spec_version,
-            "identity_source": "unverified_local_dev",
+            "identity_source": decision.identity_source,
         }
     except WorkflowError as exc:
         raise problem(exc) from None
 
 
-@router.post("/runs/{run_id}/retry", response_model=RunRead, dependencies=[Depends(dev_only)])
-def retry(run_id: uuid.UUID, payload: Comment, session: SessionDep) -> Run:
+@router.post("/runs/{run_id}/retry", response_model=RunRead)
+def retry(run_id: uuid.UUID, payload: Comment, session: SessionDep, actor: OperatorDep) -> Run:
     try:
         run = service.retry_run(session, run_id, payload.comment)
+        session.add(AuditLog(user_id=actor.id, action="run.retried", target=str(run_id)))
         commit(session)
         return run
     except WorkflowError as exc:
         raise problem(exc) from None
 
 
-@router.post("/runs/{run_id}/cancel", response_model=RunRead, dependencies=[Depends(dev_only)])
-def cancel(run_id: uuid.UUID, payload: Comment, session: SessionDep) -> Run:
+@router.post("/runs/{run_id}/cancel", response_model=RunRead)
+def cancel(run_id: uuid.UUID, payload: Comment, session: SessionDep, actor: OperatorDep) -> Run:
     try:
         run = service.cancel_run(session, run_id, payload.comment)
+        session.add(AuditLog(user_id=actor.id, action="run.cancelled", target=str(run_id)))
         commit(session)
         return run
     except WorkflowError as exc:

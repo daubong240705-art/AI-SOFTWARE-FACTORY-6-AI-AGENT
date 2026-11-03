@@ -57,6 +57,8 @@ Workflow kiểm chứng có thể dùng dữ liệu nhập tay hoặc model mock
 
 **Mục tiêu:** thao tác trên trình duyệt, không phụ thuộc gọi API thủ công.
 
+**Trạng thái 04/11/2026: đã hoàn thành V0-P3-01…07.** Đăng nhập/phân quyền, project/run, sáu card Agent, artifact/version/hash, approval, metrics và timeline SSE đã chạy qua dashboard. 31 test backend, lint/typecheck/build, browser acceptance desktop/mobile, reconnect và persistence qua Compose down/up đạt trên stack riêng `.60`. Xem [kết quả Phase 3](../docs/phase-3-completion.md). Chưa deploy `.14`.
+
 | Mã | Công việc |
 |---|---|
 | V0-P3-01 | Đăng nhập và role viewer/approver/admin; không nhúng API/model token quản trị trong frontend |
@@ -135,6 +137,6 @@ Phase 1 Khung ứng dụng
 
 GitLab nền tảng/runner/đóng gói có thể làm cùng Phase 1–3 để tránh dồn toàn bộ vào Phase 4. Việc còn thiếu trên OpenProject hoặc template không ngăn code API/dashboard trước.
 
-**Phase 1 và Phase 2 đã hoàn thành; điểm tiếp theo là V0-P3-01 → V0-P3-03**, sau đó artifact/approval/timeline. Không khảo sát lại hạ tầng đã có bằng chứng, không tạo repo demo/template trước các phần nền tảng tiếp theo.
+**Phase 1, Phase 2 và Phase 3 đã hoàn thành; điểm tiếp theo là Phase 4 — triển khai ASF v0.1 lên `.14`.** Không khảo sát lại hạ tầng đã có bằng chứng, không tạo repo demo/template trước các phần nền tảng tiếp theo.
 
 Lộ trình này chưa gán deadline vì chưa có thông tin thời gian/nhân lực. Không coi việc cập nhật kế hoạch là đã hoàn thành code hoặc deploy v0.1.

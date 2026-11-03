@@ -11,7 +11,16 @@ from pydantic import ValidationError
 from shared.logging import JsonFormatter
 
 
-def test_validation_does_not_echo_credentials() -> None:
+def test_validation_does_not_echo_credentials(monkeypatch) -> None:
+    import uuid
+
+    from asf_api.auth import Principal, current_user
+
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        current_user,
+        lambda: Principal(uuid.uuid4(), "validation-test", "admin"),
+    )
     with TestClient(app) as client:
         response = client.post(
             "/api/projects",

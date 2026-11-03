@@ -19,11 +19,13 @@ pytestmark = [
 ]
 
 
-def test_project_api_and_persistence() -> None:
+def test_project_api_and_persistence(authenticated) -> None:
     slug = "test-" + uuid.uuid4().hex
     project_id = None
     try:
-        with TestClient(app) as client:
+        with TestClient(
+            app, cookies=authenticated.cookies, headers=authenticated.headers
+        ) as client:
             assert client.get("/readyz").status_code == 200
             response = client.post(
                 "/api/projects", json={"name": "Dá»± Ã¡n kiá»ƒm chá»©ng", "slug": slug}
@@ -40,7 +42,7 @@ def test_project_api_and_persistence() -> None:
             assert client.get(f"/api/projects/{uuid.uuid4()}").status_code == 404
         engine.dispose()
         # New client and new DB connections must retain the persisted record.
-        with TestClient(app) as restarted:
+        with TestClient(app, cookies=authenticated.cookies) as restarted:
             assert restarted.get(f"/api/projects/{project_id}").json()["slug"] == slug
     finally:
         if project_id:

@@ -56,12 +56,12 @@ def test_invalid_transition(source: str, target: str) -> None:
 
 
 @pytest.fixture
-def workspace():
-    with TestClient(app) as client:
-        project = client.post(
-            "/api/projects", json={"name": "Workflow check", "slug": "wf-" + uuid.uuid4().hex}
-        ).json()
-        yield client, project["id"]
+def workspace(authenticated):
+    client = authenticated
+    project = client.post(
+        "/api/projects", json={"name": "Workflow check", "slug": "wf-" + uuid.uuid4().hex}
+    ).json()
+    yield client, project["id"]
     with SessionLocal.begin() as session:
         ids = list(session.scalars(select(Run.id).where(Run.project_id == project["id"])))
         session.execute(delete(Project).where(Project.id == project["id"]))
@@ -105,7 +105,6 @@ def review_payload(detail, decision="approve") -> dict[str, Any]:
         "spec_version": version,
         "spec_hash": spec["content_hash"],
         "decision": decision,
-        "actor": "local-reviewer",
         "comment": "Reviewed current spec",
         "idempotency_key": str(uuid.uuid4()),
     }
@@ -413,14 +412,14 @@ def test_structured_model_usage_and_invalid_output(workspace, monkeypatch):
     assert len(detail["artifacts"]) == 1 and not detail["artifacts"][0]["simulated"]
 
 
-def test_workflow_mutations_disabled_outside_dev(monkeypatch):
+def test_workflow_mutations_require_authentication(monkeypatch):
     monkeypatch.setattr(get_settings(), "environment", "staging")
     with TestClient(app) as client:
         assert (
             client.post(
                 f"/api/projects/{uuid.uuid4()}/runs", json={"requirement": "Denied"}
             ).status_code
-            == 403
+            == 401
         )
 
 

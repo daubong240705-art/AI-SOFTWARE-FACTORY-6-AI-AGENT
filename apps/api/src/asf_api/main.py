@@ -14,10 +14,13 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from asf_api.auth import OperatorDep, UserDep
+from asf_api.auth_routes import router as auth_router
 from asf_api.db import engine, get_session
-from asf_api.models import Project
+from asf_api.models import AuditLog, Project
 from asf_api.run_routes import router
 from asf_api.schemas import ProjectCreate, ProjectList, ProjectRead
+from asf_api.stream import router as stream_router
 from shared.config import get_settings
 from shared.logging import configure_logging
 
@@ -37,6 +40,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="AI Software Factory", version="0.1.0", lifespan=lifespan)
+app.include_router(auth_router)
+app.include_router(stream_router)
 app.include_router(router)
 SessionDep = Annotated[Session, Depends(get_session)]
 
@@ -60,6 +65,7 @@ async def request_context(request: Request, call_next: Any) -> Any:
     except Exception:
         logger.exception("Unhandled request error", extra={"request_id": request.state.request_id})
         response = error_response(request, 500, "internal_error", "An unexpected error occurred")
+    response.headers["Cache-Control"] = "no-store"
     response.headers["X-Request-ID"] = request.state.request_id
     # Log method/path only: query strings and request bodies can contain secrets.
     logger.info(
@@ -100,7 +106,7 @@ def readiness() -> JSONResponse:
             checkpoints = connection.execute(
                 text("SELECT to_regclass('asf_checkpoints.checkpoints') IS NOT NULL")
             ).scalar()
-            checks["schema"] = version == "0002_workflow" and bool(checkpoints)
+            checks["schema"] = version == "0003_auth" and bool(checkpoints)
     except Exception:
         logger.warning("Database readiness check failed")
     try:
@@ -115,9 +121,10 @@ def readiness() -> JSONResponse:
 
 
 @app.post("/api/projects", response_model=ProjectRead, status_code=201)
-def create_project(payload: ProjectCreate, session: SessionDep) -> Project:
+def create_project(payload: ProjectCreate, session: SessionDep, actor: OperatorDep) -> Project:
     project = Project(**payload.model_dump())
     session.add(project)
+    session.add(AuditLog(user_id=actor.id, action="project.created", target=project.slug))
     try:
         session.commit()
     except IntegrityError as exc:
@@ -131,6 +138,7 @@ def create_project(payload: ProjectCreate, session: SessionDep) -> Project:
 @app.get("/api/projects", response_model=ProjectList)
 def list_projects(
     session: SessionDep,
+    _: UserDep,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> dict[str, Any]:
@@ -142,7 +150,7 @@ def list_projects(
 
 
 @app.get("/api/projects/{project_id}", response_model=ProjectRead)
-def get_project(project_id: uuid.UUID, session: SessionDep) -> Project:
+def get_project(project_id: uuid.UUID, session: SessionDep, _: UserDep) -> Project:
     project = session.get(Project, project_id)
     if project is None:
         raise HTTPException(404, "Project not found")

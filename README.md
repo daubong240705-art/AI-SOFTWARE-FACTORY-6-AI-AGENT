@@ -1,6 +1,6 @@
 # AI Software Factory
 
-Nền tảng self-hosted điều phối sáu role PM, BA, BE, FE, TEST, DEVOPS. **Phase 2** bổ sung API run, RQ worker, LangGraph checkpoint PostgreSQL, plan/spec PM/BA và phê duyệt theo phiên bản. BE/FE/TEST/DEVOPS chưa thực thi. Dashboard hiện quản lý project; giao diện run/phê duyệt và đăng nhập ở Phase 3.
+Nền tảng self-hosted điều phối sáu role PM, BA, BE, FE, TEST, DEVOPS. **Phase 3** có dashboard đăng nhập, quản lý project/run, plan/spec, phê duyệt theo phiên bản và timeline SSE từ PostgreSQL. PM/BA tạo plan/spec; BE/FE/TEST/DEVOPS chưa thực thi code/test/deploy.
 
 ## Chạy dev bằng Docker
 
@@ -16,9 +16,19 @@ PowerShell dùng `Copy-Item .env.example .env` cho lệnh đầu. Giá trị m�
 - Dashboard: <http://localhost:13000>
 - OpenAPI: <http://localhost:18000/docs>
 - Liveness: `/healthz`; readiness DB/Redis/migration: `/readyz`.
-- PostgreSQL `localhost:54329`, Redis `localhost:56379`; mọi published port **chỉ bind loopback**. Chưa mở dashboard/API ra LAN/Internet vì đăng nhập được triển khai ở Phase 3.
+- PostgreSQL `localhost:54329`, Redis `localhost:56379`; mọi published port **chỉ bind loopback**. Triển khai HTTPS/LAN qua Caddy thuộc Phase 4.
 
 Compose tự chạy Alembic và migration checkpoint trước API. Dispatcher đọc outbox trong PostgreSQL rồi đưa job vào Redis/RQ; workflow worker chạy một job mỗi lần. Named volume giữ dữ liệu khi restart/down. `docker compose ... down -v` xóa dữ liệu dev; không dùng để restart thông thường. RQ worker yêu cầu Linux; trên Windows dùng Compose/VM/WSL2.
+
+Tạo admin đầu tiên (không có tài khoản/mật khẩu mặc định):
+
+```sh
+docker compose --env-file .env -f infrastructure/docker/compose.dev.yml exec api python -m asf_api.manage --username admin --role admin
+```
+
+Lệnh hỏi mật khẩu 12–128 ký tự, không đưa mật khẩu vào argument/log. Ngoài container dùng `uv run python -m asf_api.manage`. `--stdin-json` dành cho tự động hóa qua stdin bảo mật. CLI chỉ tạo mới; tài khoản trùng bị từ chối. Sau đó vào dashboard, đăng nhập và mở **Tài khoản** để cấp viewer/approver/admin. Viewer chỉ xem; approver tạo project/run và approve/reject/retry/cancel; admin có thêm quản lý tài khoản. Không có đăng ký công khai hay reset mật khẩu qua email; khi cần khôi phục admin, người vận hành có quyền máy chủ tạo admin tên mới qua CLI rồi khóa tài khoản cũ.
+
+Phiên lưu trong PostgreSQL (chỉ hash token); cookie HttpOnly, SameSite=Lax, hết hạn mặc định 8 giờ. Thao tác ghi yêu cầu `X-CSRF-Token` lấy từ login/me; Origin phải thuộc `ASF_ALLOWED_ORIGINS`. Đổi cổng/domain phải cập nhật JSON allowlist. `staging/production` bắt buộc Secure cookie, cần HTTPS. Đổi quyền/khóa tài khoản thu hồi các phiên hiện có; đăng xuất thu hồi phiên hiện tại. Login giới hạn 10 lần/tài khoản và 100 lần/backend peer mỗi 5 phút; phía sau proxy peer là tổng lượt qua proxy. Redis lỗi thì login tạm ngừng; phiên đã cấp vẫn xác thực bằng DB.
 
 ```sh
 docker compose --env-file .env -f infrastructure/docker/compose.dev.yml logs -f api dashboard
@@ -69,14 +79,17 @@ Slug trùng trả 409; input sai 422; không tìm thấy 404. Error envelope có
 | GET | `/api/projects/{id}/runs` | Danh sách phân trang |
 | GET | `/api/runs/{id}` | Run, task, artifact/version/hash, approval và usage |
 | GET | `/api/runs/{id}/events?after=0&limit=50` | Lịch sử DB, cursor theo event ID |
-| POST | `/api/runs/{id}/approval` | Quyết định gắn `spec_version`, `spec_hash`, `decision`, `actor`, `comment`, `idempotency_key` UUID |
+| POST | `/api/runs/{id}/approval` | Quyết định gắn `spec_version`, `spec_hash`, `decision`, `comment`, `idempotency_key` UUID; danh tính lấy từ phiên |
+| GET | `/api/runs/{id}/stream?after=0` | SSE replay từ DB; hỗ trợ Last-Event-ID, heartbeat, reconnect |
 | POST | `/api/runs/{id}/retry` | Retry failed/rejected, yêu cầu `comment` |
 | POST | `/api/runs/{id}/cancel` | Hủy và chặn kết quả worker cũ, yêu cầu `comment` |
 | GET | `/api/roles` | Ma trận quyền và vai trò đã/chưa triển khai |
 
 Luồng: `created → planning → waiting_approval → running → waiting_integration`. Chỉ một run active toàn nền tảng; trạng thái chờ duyệt vẫn giữ slot. Reject giữ lịch sử, retry tạo spec version mới. Retry lỗi kỹ thuật tiếp tục checkpoint/version cũ. Không tự duyệt; chỉ quyết định đã lưu đúng version/hash mới mở gate. **`waiting_integration` là ranh giới chưa có development, không phải completed/deployed.**
 
-Các thao tác workflow chỉ bật ở `ASF_ENVIRONMENT=development/test`, loopback. `actor` là danh tính tự khai báo cho audit dev, chưa phải người dùng đã xác thực. Không dùng API này như approval có phân quyền production.
+Mọi API nghiệp vụ yêu cầu phiên đăng nhập, ở tất cả environment. `/healthz` và `/readyz` công khai cho kiểm tra vận hành. `/api/auth/login`, `/api/auth/me`, `/api/auth/logout` quản lý phiên; `/api/users` (GET/POST) và `/api/users/{id}` (PATCH role/active) chỉ cho admin. Backend từ chối trường `actor` tự khai báo. Approval lưu username, user ID và nguồn danh tính; bản ghi Phase 2 được đánh dấu `legacy_unverified_dev` và không trở thành quyết định đã xác thực sau migration.
+
+Trên dashboard: tạo project → mở project → nhập yêu cầu/chế độ → tạo run → xem artifact → nhập nhận xét → duyệt/từ chối → xác nhận version/hash. Timeline reconnect bằng cursor và khử trùng ID; dự phòng tải dữ liệu mỗi 10 giây khi SSE gián đoạn. Luồng SSE kiểm tra phiên mỗi lượt poll; Next.js chuyển tiếp stream và cookie, không buffer toàn bộ response hay đưa model token vào browser.
 
 Mặc định chạy mock, không tốn token và artifact/event có `simulated=true`. Muốn gọi 9Router thật: trong `.env` đặt `ASF_LIVE_MODE_ENABLED=true`, nạp `ASF_ROUTER_API_KEY` và chọn `mode=live`. Compose chỉ đưa key vào worker; API/frontend không nhận key. `caddy-root.crt` được mount read-only và xác minh TLS; chạy worker ngoài Compose đặt `ASF_ROUTER_CA_FILE` về cert này. Có thể đổi gateway/model qua `ASF_ROUTER_URL`/`ASF_ROUTER_MODEL`; không đưa credential vào URL. Sau đổi config chạy lại Compose để recreate service.
 
@@ -103,6 +116,8 @@ Chỉ chạy integration trên DB dev dùng riêng, đã migrate, không DB đan
 ASF_INTEGRATION_TEST=1 ASF_QUEUE_NAME=asf-test uv run pytest -m integration
 ```
 
+Dừng dispatcher/worker của DB kiểm thử khi chạy suite (tests tự drive job). Kiểm chứng UI tập trung nằm ở `tests/dashboard-smoke.cjs`, dùng Playwright trong browser riêng và tài khoản admin của stack disposable; xem hướng dẫn biến môi trường đầu file. Credential, browser storage state và ảnh bằng chứng để ngoài repo. Đây là acceptance Phase 3; bộ e2e/template đầy đủ vẫn ở Phase 6.
+
 Migration: `uv run alembic current`, `uv run alembic upgrade head`, rồi `uv run python -m orchestrator.checkpoints`. Alembic quản lý public schema; LangGraph quản lý schema `asf_checkpoints`. Dừng dispatcher/worker trước downgrade. `downgrade base` **xóa dữ liệu**, chỉ kiểm chứng trên DB disposable. Không dùng `Base.metadata.create_all()` thay migration.
 
 ## Lộ trình và hạ tầng
@@ -110,6 +125,7 @@ Migration: `uv run alembic current`, `uv run alembic upgrade head`, rồi `uv ru
 - [Lộ trình code hiện hành](plan/lo-trinh-code-v0.md)
 - [Kết quả Phase 1](docs/phase-1-completion.md)
 - [Kết quả Phase 2](docs/phase-2-completion.md)
+- [Kết quả Phase 3](docs/phase-3-completion.md)
 - [Kiểm kê hạ tầng](docs/infra-inventory.md), [worker .60](docs/worker-bootstrap-2026-11-04.md)
 - `.14` dành cho bản staging sau Phase 4; kiểm chứng hiện tại chạy stack dev riêng trên `.60`.
 - Không có API key/mật khẩu hạ tầng trong code, image hoặc frontend. Gateway key chỉ nạp lúc chạy worker; GitLab/OpenProject dùng identity giới hạn quyền ở phase tích hợp sau.

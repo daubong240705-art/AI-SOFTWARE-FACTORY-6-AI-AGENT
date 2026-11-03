@@ -39,6 +39,9 @@ services:
       dockerfile: apps/api/Dockerfile
     environment: &api_environment
       ASF_ENVIRONMENT: development
+      ASF_ALLOWED_ORIGINS: ${ASF_ALLOWED_ORIGINS:-["http://localhost:13000","http://127.0.0.1:13000","http://localhost:18000","http://127.0.0.1:18000"]}
+      ASF_SESSION_COOKIE_SECURE: ${ASF_SESSION_COOKIE_SECURE:-false}
+      ASF_SESSION_HOURS: ${ASF_SESSION_HOURS:-8}
       ASF_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-asf}:${POSTGRES_PASSWORD:-asf-local-development}@postgres:5432/${POSTGRES_DB:-asf}
       ASF_REDIS_URL: redis://redis:6379/0
       ASF_LIVE_MODE_ENABLED: ${ASF_LIVE_MODE_ENABLED:-false}

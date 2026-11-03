@@ -146,6 +146,7 @@ def decide(
     actor: str,
     comment: str,
     key: uuid.UUID,
+    actor_user_id: uuid.UUID | None = None,
 ) -> Approval:
     run = get_run(session, run_id)
     previous = session.scalar(select(Approval).where(Approval.idempotency_key == key))
@@ -157,7 +158,8 @@ def decide(
             previous.decision,
             previous.actor,
             previous.comment,
-        ) == (run_id, version, spec_hash, decision, actor, comment):
+            previous.actor_user_id,
+        ) == (run_id, version, spec_hash, decision, actor, comment, actor_user_id):
             return previous
         raise WorkflowError("idempotency_conflict")
     spec = artifact(session, run, "spec")
@@ -172,6 +174,8 @@ def decide(
         spec_hash=spec_hash,
         decision=decision,
         actor=actor,
+        actor_user_id=actor_user_id,
+        identity_source="authenticated_session" if actor_user_id else "legacy_unverified_dev",
         comment=comment,
         idempotency_key=key,
     )
@@ -190,7 +194,8 @@ def decide(
             "decision": decision,
             "actor": actor,
             "comment": comment,
-            "identity_source": "unverified_local_dev",
+            "identity_source": approval.identity_source,
+            "actor_user_id": str(actor_user_id) if actor_user_id else None,
         },
     )
     session.flush()
