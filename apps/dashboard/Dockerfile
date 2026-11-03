@@ -9,6 +9,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 FROM node:22-bookworm-slim AS runtime
+ARG RELEASE_SHA=development
+LABEL org.opencontainers.image.revision=$RELEASE_SHA
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 RUN groupadd --gid 10001 asf && useradd --uid 10001 --gid asf --create-home asf
