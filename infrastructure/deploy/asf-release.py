@@ -143,7 +143,7 @@ def health(sha: str):
 
 def activate(sha: str):
     # Only application containers are replaced; DB/Redis and volumes are independent.
-    dc(sha, "up", "-d", "postgres", "redis")
+    dc(sha, "up", "-d", "--wait", "--wait-timeout", "120", "postgres", "redis")
     dc(sha, "stop", "dispatcher", "workflow-worker", "api", "dashboard")
     dc(sha, "run", "--rm", "--no-deps", "migrate")
     dc(sha, "up", "-d", "--no-deps", "api", "dashboard", "dispatcher", "workflow-worker")

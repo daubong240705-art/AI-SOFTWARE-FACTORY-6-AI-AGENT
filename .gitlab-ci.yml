@@ -32,7 +32,7 @@ backend_checks:
   script:
     - pip install uv==0.13.7
     - uv sync --frozen
-    - uv run ruff check apps/api shared agents integrations orchestrator workers infrastructure/migrations infrastructure/ci tests
+    - uv run ruff check apps/api shared agents integrations orchestrator workers infrastructure/migrations infrastructure/ci infrastructure/deploy tests
     - uv run mypy
     - uv run alembic upgrade head
     - uv run python -m orchestrator.checkpoints
