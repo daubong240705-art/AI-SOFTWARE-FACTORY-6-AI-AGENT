@@ -4,6 +4,8 @@ Khảo sát ngày **03/11/2026**, múi giờ Asia/Saigon. Phạm vi: workspace h
 
 > **Cập nhật sau khảo sát cùng ngày:** đã xóa `btl-httt` và dọn cache trên `.14`, dung lượng trống tăng lên **42.50 GiB**; đã cài CA hệ thống/Omnibus và sửa DNS `.local` trên `.13`, HTTPS verified. Các bảng dưới đây giữ baseline khảo sát ban đầu; hiện trạng sau sửa xem [nhật ký bảo trì](maintenance-2026-11-03.md). Worker được phép đặt trên máy cá nhân hoặc VM theo [phương án cập nhật](worker-options.md).
 
+> **Cập nhật Phase 4, 04/11/2026:** đã có repo GitLab ASF, runner project Docker `.60`, pipeline và deployment qua Caddy lên `.14`. Registry vẫn tắt, dùng archive/checksum theo SHA. Hiện trạng và giới hạn mới xem [kết quả Phase 4](phase-4-completion.md); các bảng bên dưới là baseline khảo sát, không phải trạng thái triển khai mới nhất.
+
 ## 1. Kết luận
 
 Hạ tầng đủ cho control plane và staging MVP trên `.14`. **Chưa đạt mốc M0**: còn thiếu worker/runner build cô lập, Registry, tài khoản dịch vụ giới hạn quyền và các spike ghi dữ liệu/CI/deploy/webhook. Không dùng runner shell hiện tại để chạy code Agent sinh ra.

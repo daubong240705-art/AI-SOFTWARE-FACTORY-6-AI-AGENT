@@ -77,6 +77,8 @@ Workflow kiểm chứng có thể dùng dữ liệu nhập tay hoặc model mock
 
 **Mục tiêu:** phát hành **v0.1**, có URL nội bộ truy cập được từ LAN/NetBird.
 
+**Trạng thái 04/11/2026: đã hoàn thành V0-P4-01…07.** ASF v0.1 được deploy trên `.14` tại <https://asf.lazy.local>; pipeline GitLab, HTTPS, phân quyền, PM/BA live, restart/persistence, backup off-host và restore/rollback đã kiểm chứng. Truy cập từ LAN đạt; client NetBird ngoài LAN chưa được thử trực tiếp. Xem [kết quả Phase 4](../docs/phase-4-completion.md) và [runbook vận hành](../docs/operations-v0.1.md).
+
 | Mã | Công việc |
 |---|---|
 | V0-P4-01 | Tạo/chốt GitLab repo nền tảng và protected main; đăng ký Runner `.60` đúng scope, Docker executor và concurrency 1 |
@@ -137,6 +139,6 @@ Phase 1 Khung ứng dụng
 
 GitLab nền tảng/runner/đóng gói có thể làm cùng Phase 1–3 để tránh dồn toàn bộ vào Phase 4. Việc còn thiếu trên OpenProject hoặc template không ngăn code API/dashboard trước.
 
-**Phase 1, Phase 2 và Phase 3 đã hoàn thành; điểm tiếp theo là Phase 4 — triển khai ASF v0.1 lên `.14`.** Không khảo sát lại hạ tầng đã có bằng chứng, không tạo repo demo/template trước các phần nền tảng tiếp theo.
+**Phase 1–4 đã hoàn thành; điểm tiếp theo là Phase 5 — tích hợp và triển khai Agent thật trên ASF v0.1 đã chạy.** Không khảo sát lại hạ tầng đã có bằng chứng, không tạo repo demo/template trước các phần nền tảng tiếp theo.
 
 Lộ trình này chưa gán deadline vì chưa có thông tin thời gian/nhân lực. Không coi việc cập nhật kế hoạch là đã hoàn thành code hoặc deploy v0.1.

@@ -2,6 +2,8 @@
 
 Hoàn tất kiểm tra ngày **04/11/2026**, Asia/Saigon. Người dùng cấp VM và quyền SSH để xử lý dung lượng, chuẩn bị worker; chưa yêu cầu bắt đầu viết ứng dụng trong lượt này.
 
+> Cập nhật sau bootstrap: Phase 1–4 đã được triển khai theo [lộ trình mới](../plan/lo-trinh-code-v0.md). Runner `.60` đã đăng ký project ASF và chạy pipeline thật, builder không privileged/socket; [kết quả Phase 4](phase-4-completion.md) ghi trạng thái mới. Các mục “còn thiếu” phía dưới giữ bối cảnh trước khi code, không phải checklist hiện tại.
+
 ## 1. Dung lượng đã sửa
 
 Đĩa `/dev/sda` đã là **60 GiB**; `/dev/sda3` chiếm gần 58 GiB. Không thiếu disk ở hypervisor và không cần mở partition. Volume group `ubuntu-vg` còn 29 GiB chưa cấp; root LV mới là 29 GiB.
