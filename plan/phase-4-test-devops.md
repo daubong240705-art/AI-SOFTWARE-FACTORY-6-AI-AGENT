@@ -1,5 +1,7 @@
 # Phase 4 — TEST Agent + DEVOPS Agent
 
+> **Backlog tham khảo:** theo [lộ trình code v0](lo-trinh-code-v0.md), Phase 4 mới triển khai chính ASF v0.1. TEST/DEVOPS Agent thật làm ở Phase 5 mới; thực nghiệm test/fix/deploy trên project template làm ở Phase 6. Kiểm tra startup/build/data/auth cơ bản vẫn làm trước phát hành.
+
 > **Thời lượng gợi ý:** 2–3 tuần  
 > **Phụ thuộc:** Phase 3 (có ứng viên tích hợp); spike S4 (runner), S5 (staging), S6 (webhook) ở Phase 0  
 > **Làm song song được:** runner, pipeline khung, Dockerfile, staging có thể bắt đầu từ Phase 2–3 (mục 4.1)  

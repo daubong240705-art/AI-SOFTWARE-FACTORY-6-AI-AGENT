@@ -1,0 +1,92 @@
+{
+  "date": "2026-11-03",
+  "timezone": "Asia/Saigon",
+  "scope": "Infrastructure survey; no server configuration changes or application deployment",
+  "openproject": {
+    "transport": "MCP over SSH forwarding",
+    "server": "openproject_mcp",
+    "mcp_version": "1.0.0",
+    "source_version": "18.0.0",
+    "project_id": 6,
+    "project_identifier": "itcare-2026",
+    "pages": 6,
+    "unique_work_packages": 214
+  },
+  "gitlab": {
+    "version": "19.3.1",
+    "edition": "CE",
+    "registry_enabled": false,
+    "local_webhooks_allowed": true,
+    "runner_version": "19.5.2",
+    "runner_host": "192.168.1.14",
+    "runners": [
+      {"id": 1, "executor": "shell", "online": true, "tags": ["ci/cd-server"]},
+      {"id": 3, "executor": "shell", "online": true, "tags": ["shared", "docker", "deploy"]}
+    ],
+    "gitlab_host_local_dns_passed": false,
+    "gitlab_host_caddy_tls_trust_passed": false
+  },
+  "gateway_script_verification": {
+    "base_url": "https://ai.lazy.local/v1",
+    "requested_model": "coding-main",
+    "listed_model_count": 68,
+    "probes": [
+      {
+        "name": "chat",
+        "passed": true,
+        "http_status": 200,
+        "latency_s": 2.98,
+        "resolved_model": "gpt-6.1-sol",
+        "usage": {"prompt_tokens": 2493, "completion_tokens": 5, "total_tokens": 2498}
+      },
+      {
+        "name": "structured",
+        "passed": true,
+        "http_status": 200,
+        "latency_s": 3.46,
+        "usage": {"input_tokens": 2516, "output_tokens": 12, "total_tokens": 2528}
+      },
+      {
+        "name": "tools",
+        "passed": true,
+        "http_status": 200,
+        "latency_s": 1.92,
+        "usage": {"input_tokens": 2608, "output_tokens": 18, "total_tokens": 2626}
+      }
+    ]
+  },
+  "cli_script_verification": {
+    "os": "Windows",
+    "cli": "OpenCode",
+    "version": "1.19.5",
+    "exit_code": 0,
+    "artifact_verified": true,
+    "expected_file_content": "ASF_CLI_OK\n",
+    "latency_s": 9.81,
+    "linux_container_s7_completed": false,
+    "codex_initial_probe": {
+      "version": "0.166.0",
+      "gateway_call_completed": true,
+      "exit_code": 0,
+      "artifact_verified": false,
+      "reported_issue": "read-only environment; root cause not established"
+    }
+  },
+  "disposable_container_network_probe": {
+    "host": "192.168.1.14",
+    "image": "node:22-alpine",
+    "pull_policy": "never",
+    "read_only": true,
+    "capabilities_dropped": "ALL",
+    "docker_socket_mounted": false,
+    "public_ca_mounted_read_only": true,
+    "gitlab_https_status": 200,
+    "gateway_health_https_status": 200,
+    "exit_code": 0,
+    "removed_on_exit": true
+  },
+  "public_caddy_root_file_sha256": "364fc6615c952a558360a13f8cf09fa991d87792b5bec91e69952de5c3643aa4",
+  "public_caddy_root_matches_server": true,
+  "netbird_management_acl_verified": false,
+  "phase0_m0_completed": false
+}

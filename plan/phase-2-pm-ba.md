@@ -1,5 +1,7 @@
 # Phase 2 — PM Agent + BA Agent
 
+> **Backlog tham khảo:** thứ tự hiện hành theo [lộ trình code v0](lo-trinh-code-v0.md). PM/BA nền tảng làm trước deploy đầu; tích hợp ghi OpenProject thật hoàn thiện ở Phase 5 mới.
+
 > **Thời lượng gợi ý:** 2 tuần  
 > **Phụ thuộc:** Phase 1; spike S2 (OpenProject) và S3 (GitLab API) ở Phase 0  
 > **Tham chiếu tài liệu kiến trúc:** mục 3 (Sáu Agent), 4 và 4.1 (Quy trình, song song), 4.2 quy tắc 6 (đổi contract), 5.1 (Hỏi–đáp qua Orchestrator), 8.1 (Nguồn dữ liệu), 8.3 (Specification Gate)

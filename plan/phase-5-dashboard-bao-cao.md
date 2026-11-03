@@ -1,5 +1,7 @@
 # Phase 5 — Dashboard, thực nghiệm và báo cáo
 
+> **Backlog tham khảo:** theo [lộ trình code v0](lo-trinh-code-v0.md), dashboard được làm ở Phase 3 mới trước deploy ASF v0.1; thực nghiệm/template/báo cáo chuyển sang Phase 6 mới. Không chờ đủ dữ liệu từ sáu Agent thật để bắt đầu giao diện nền tảng.
+
 > **Thời lượng gợi ý:** 2 tuần (khung dashboard có thể bắt đầu từ cuối Phase 1)  
 > **Phụ thuộc:** API và SSE của Phase 1; dữ liệu đầy đủ từ Phase 2–4  
 > **Tham chiếu tài liệu kiến trúc:** mục 9 (API), 10 (Dashboard), 12 (MVP), 13 (Demo và thực nghiệm)

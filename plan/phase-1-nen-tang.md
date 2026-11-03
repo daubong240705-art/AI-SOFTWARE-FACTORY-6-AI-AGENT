@@ -1,5 +1,7 @@
 # Phase 1 — Nền tảng Orchestrator
 
+> **Tài liệu backlog tham khảo:** theo yêu cầu ngày 04/11/2026, việc thi công dùng [lộ trình code v0](lo-trinh-code-v0.md). Khung API/data bắt đầu ở Phase 1 mới, orchestration sang Phase 2 mới, dashboard làm trước deploy đầu; không cần hoàn tất mọi điều kiện Phase 0 cũ để code local.
+
 > **Thời lượng gợi ý:** 2 tuần  
 > **Phụ thuộc:** Phase 0 (spike S1 với 9Router, quyết định stack, phân bố hạ tầng)  
 > **Tham chiếu tài liệu kiến trúc:** mục 2 (Kiến trúc), 3.2 (Cấu hình Agent), 5 (Giao tiếp & Shared State), 6.1 (Ma trận quyền), 8 (Dữ liệu), 9 (API), 11 (Cấu trúc repo)

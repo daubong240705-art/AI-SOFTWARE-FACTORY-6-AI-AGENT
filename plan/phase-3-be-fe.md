@@ -1,5 +1,7 @@
 # Phase 3 — BE Agent + FE Agent
 
+> **Backlog tham khảo:** theo [lộ trình code v0](lo-trinh-code-v0.md), coding Agent thật chuyển sang Phase 5 mới; template/module Mini Helpdesk và thực nghiệm chuyển sang Phase 6, sau deploy ASF v0.1.
+
 > **Thời lượng gợi ý:** 3 tuần  
 > **Phụ thuộc:** Phase 2 (contract v1 đã freeze); spike S3 (GitLab API) và S7 (coding tool) ở Phase 0  
 > **Tham chiếu tài liệu kiến trúc:** mục 3.1 (Phân biệt trách nhiệm), 4.1 (Song song), 4.2 (Quy tắc tích hợp mã nguồn), 6.2 (Sandbox), 7.1 (Phân bố)
