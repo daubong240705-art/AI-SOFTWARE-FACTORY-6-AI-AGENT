@@ -36,3 +36,5 @@ Backup `pg_dump -Fc` của DB smoke schema0004 được restore vào DB tạm m�
 - Worker smoke systemd không enable boot; đã stop và revoke token, xóa file model/admin/lease tạm; admin thử nghiệm bị disable, session dev đã xóa. PAT admin bootstrap cũng được revoke khi kết thúc công việc. Hai container ITCare vẫn giữ dừng theo yêu cầu; các stack khác không bị restart.
 
 Phase5 chưa kết thúc: quota vật lý cho OpenCode/gateway, capability probe model, UI quản lý worker, browser/BFF đầy đủ và chiến lược production schema rollback còn ở mốc sau. Reserve20k/execution không phải hard cap token/request thực tế.
+
+Sau khi lưu bằng chứng, đã dừng `asf-p5-api`, `asf-p5-db`, `asf-p5-redis` và worker thử nghiệm trên VM60; volume/data và bot secret hạn quyền được giữ. Đã bỏ route Caddy `/phase5-api/` và tắt pipeline events của webhook dev để tránh gọi vào stack đã dừng; giữ `/validation/healthz`. Đã xóa chain INPUT API thử nghiệm trên VM60 sau khi dừng container. Muốn chạy smoke mới phải khởi động lại stack và tái thiết lập route/firewall, cấp worker/admin tạm mới; không tái sử dụng token đã revoke. Host staging sẽ fail closed khi API authorization không hoạt động.

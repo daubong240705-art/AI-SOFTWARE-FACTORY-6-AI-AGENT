@@ -527,6 +527,10 @@
     "disposable_browser_sessions": "cleared",
     "model_admin_worker_lease_files": "removed",
     "restricted_bot_credentials": "retained root-only for later validation",
-    "staging_container": "running with restart=no"
+    "staging_container": "running with restart=no",
+    "isolated_api_db_redis": "stopped; persistent data retained",
+    "temporary_caddy_api_route": "removed",
+    "dev_webhook": "pipeline events disabled",
+    "temporary_api_firewall_chain": "removed after API stop"
   }
 }
