@@ -1,0 +1,36 @@
+{
+  "run_id": "95bf9d50-0fb1-43fe-acae-f685497507ec",
+  "project_id": "1cf80468-61ef-49a2-a557-d3f8401baf59",
+  "status": "waiting_approval",
+  "error": null,
+  "artifact_count": 2,
+  "all_real": true,
+  "usage": {
+    "calls": 2,
+    "charged_tokens": 1519,
+    "input_tokens": 700,
+    "output_tokens": 819,
+    "cost": null
+  },
+  "model_calls": [
+    {
+      "role": "pm",
+      "model": "coding-main",
+      "status": "succeeded",
+      "input_tokens": 188,
+      "output_tokens": 296,
+      "latency_ms": 10983
+    },
+    {
+      "role": "ba",
+      "model": "coding-main",
+      "status": "succeeded",
+      "input_tokens": 512,
+      "output_tokens": 523,
+      "latency_ms": 11063
+    }
+  ],
+  "observed_at": "2026-11-04T01:22:54.330084+07:00",
+  "final_state": "cancelled_after_gate_verification",
+  "execution_driver": "Windows calling gateway; PostgreSQL/Redis over SSH tunnel"
+}

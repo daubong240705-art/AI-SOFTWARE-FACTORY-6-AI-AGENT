@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from asf_api.db import engine, get_session
 from asf_api.models import Project
+from asf_api.run_routes import router
 from asf_api.schemas import ProjectCreate, ProjectList, ProjectRead
 from shared.config import get_settings
 from shared.logging import configure_logging
@@ -36,6 +37,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="AI Software Factory", version="0.1.0", lifespan=lifespan)
+app.include_router(router)
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
@@ -95,7 +97,10 @@ def readiness() -> JSONResponse:
             connection.execute(text("SELECT 1"))
             checks["database"] = True
             version = connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
-            checks["schema"] = version == "0001_platform_core"
+            checkpoints = connection.execute(
+                text("SELECT to_regclass('asf_checkpoints.checkpoints') IS NOT NULL")
+            ).scalar()
+            checks["schema"] = version == "0002_workflow" and bool(checkpoints)
     except Exception:
         logger.warning("Database readiness check failed")
     try:

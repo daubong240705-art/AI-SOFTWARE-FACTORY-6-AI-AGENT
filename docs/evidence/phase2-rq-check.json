@@ -1,0 +1,27 @@
+{
+  "project_id": "db14e461-f0ac-46ca-a763-9036e60eaf6b",
+  "run_id": "c44a3d32-cfcc-4c6c-9c14-362aedc28018",
+  "before_restart": "waiting_approval",
+  "artifact_ids": [
+    "e75c25ea-a0fa-47ef-9214-652e51bbec4d",
+    "baca0bfc-b868-4541-abdd-2ea10e96173e"
+  ],
+  "mode": "mock",
+  "observed_at": "2026-11-04T01:20:19.652696+07:00",
+  "after_full_recreate": "waiting_approval",
+  "artifact_ids_preserved": true,
+  "approval_replay_same_id": true,
+  "after_test_fixture_approval": "waiting_integration",
+  "event_count": 7,
+  "all_events_simulated": true,
+  "pytest_passed": 27,
+  "dashboard_html_and_readiness": "pass",
+  "migration_roundtrip_preserves_project": true,
+  "alembic_check_linux": "pass",
+  "loopback_ports": [
+    13002,
+    18002,
+    54332,
+    56382
+  ]
+}

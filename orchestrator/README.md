@@ -1,1 +1,1 @@
-Orchestration, state machine and LangGraph checkpoints are implemented in Phase 2.
+`state.py` defines transitions, `service.py` enforces versioned approval and run ownership, and `graph.py` implements PM → BA → durable interrupt → development boundary. Checkpoints store IDs/version only in PostgreSQL schema `asf_checkpoints`. Full artifacts and audit history live in application tables. Run `python -m orchestrator.checkpoints` after Alembic to initialize framework-owned migrations.

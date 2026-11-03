@@ -37,6 +37,8 @@ Không chờ toàn bộ M0 cũ để viết code. Những kiểm tra cần để
 
 **Mục tiêu:** yêu cầu của người dùng đi qua workflow có trạng thái, lịch sử và checkpoint.
 
+**Trạng thái 04/11/2026: đã hoàn thành V0-P2-01…07.** API run, PM/BA, RQ/outbox, checkpoint, approval/version/hash và retry/cancel đã có implementation; 27 test, gateway live và RQ worker/restart container đã được kiểm chứng. Xem [kết quả Phase 2 và giới hạn dev](../docs/phase-2-completion.md). Dashboard thao tác run và xác thực tiếp tục ở Phase 3.
+
 | Mã | Công việc |
 |---|---|
 | V0-P2-01 | API project/run; danh sách, chi tiết, yêu cầu đầu vào và giới hạn một run hoạt động ban đầu |
@@ -133,6 +135,6 @@ Phase 1 Khung ứng dụng
 
 GitLab nền tảng/runner/đóng gói có thể làm cùng Phase 1–3 để tránh dồn toàn bộ vào Phase 4. Việc còn thiếu trên OpenProject hoặc template không ngăn code API/dashboard trước.
 
-**Bắt đầu ngay tại V0-P1-01 → V0-P1-04**, sau đó hoàn thiện migration project/run và dashboard khung. Không khảo sát lại hạ tầng đã có bằng chứng, không tạo repo demo/template hoặc yêu cầu chốt toàn bộ lịch thực nghiệm trước scaffold.
+**Phase 1 và Phase 2 đã hoàn thành; điểm tiếp theo là V0-P3-01 → V0-P3-03**, sau đó artifact/approval/timeline. Không khảo sát lại hạ tầng đã có bằng chứng, không tạo repo demo/template trước các phần nền tảng tiếp theo.
 
 Lộ trình này chưa gán deadline vì chưa có thông tin thời gian/nhân lực. Không coi việc cập nhật kế hoạch là đã hoàn thành code hoặc deploy v0.1.

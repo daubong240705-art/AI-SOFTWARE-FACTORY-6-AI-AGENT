@@ -178,7 +178,7 @@ export default function Workspace() {
             Nền tảng điều phối
             <br />6 AI Agent.
           </p>
-          <span className="version">v0.1 / Phase 1</span>
+          <span className="version">v0.1 / Phase 2</span>
         </div>
         <div className="sidebar-footer">
           <span className="avatar">L</span>
@@ -221,12 +221,12 @@ export default function Workspace() {
           </section>
 
           <div className="phase-banner">
-            <span className="phase-chip">PHASE 01</span>
+            <span className="phase-chip">PHASE 02</span>
             <span>
-              Đang xây dựng nền tảng. Quản lý dự án đã sẵn sàng; workflow Agent
-              sẽ được bổ sung tiếp theo.
+              Workflow PM/BA và phê duyệt đã có API; giao diện vận hành sẽ được
+              bổ sung ở Phase 3.
             </span>
-            <span className="banner-number">01 / 06</span>
+            <span className="banner-number">02 / 06</span>
           </div>
 
           <section className="metrics" aria-label="Tổng quan hệ thống">
@@ -267,7 +267,7 @@ export default function Workspace() {
               <strong>
                 06 <small>vai trò</small>
               </strong>
-              <p>Chưa kích hoạt thực thi</p>
+              <p>PM/BA qua API · 4 vai trò chưa triển khai</p>
             </article>
           </section>
 
@@ -412,7 +412,7 @@ export default function Workspace() {
                 <span className="eyebrow">THE TEAM, COMING TOGETHER</span>
                 <h2>Sáu vai trò. Một quy trình.</h2>
               </div>
-              <span className="muted-label">Thực thi từ giai đoạn sau</span>
+              <span className="muted-label">PM/BA đã có API</span>
             </div>
             <div className="role-grid">
               {roles.map(([role, name]) => (
@@ -420,7 +420,10 @@ export default function Workspace() {
                   <span className="role-code">{role}</span>
                   <h3>{name}</h3>
                   <p>
-                    <span className="tiny-dot muted-dot" /> Chưa triển khai
+                    <span className="tiny-dot muted-dot" />
+                    {role === "PM" || role === "BA"
+                      ? "Sẵn sàng qua API"
+                      : "Chưa triển khai"}
                   </p>
                 </article>
               ))}
