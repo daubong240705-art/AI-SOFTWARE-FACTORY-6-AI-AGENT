@@ -2,6 +2,10 @@
 
 Ngày 04/11/2026, Asia/Saigon. **Phase 5 đang thực hiện, chưa nghiệm thu toàn phase, chưa phát hành v0.2.** Đây là phần triển khai ban đầu theo [lộ trình](../plan/lo-trinh-code-v0.md). Production vẫn chạy v0.1 SHA `12928ef64d6fc92ef1893c3a948d3573a3483c0c`.
 
+## Cập nhật mốc staging
+
+Mốc tiếp theo đã bổ sung deploy boundary kiểm tra approval/artifact/health, live TEST fail → Bug → một vòng sửa → TEST pass, recovery lease và systemd restart, webhook HTTPS/replay, backup/restore schema0004 ở DB riêng. Chi tiết và giới hạn ở [staging](phase-5-staging.md), [evidence](phase-5-staging-evidence.json). Bộ backend hiện có **49 test đạt**; kết quả trong các mục smoke dưới đây là lịch sử của mốc đầu tiên.
+
 ## Phần đã có và bằng chứng
 
 - Adapter HTTPS GitLab/OpenProject, xác minh TLS, timeout và giới hạn response. URL/ID/test profile do quản trị cấu hình ngoài DB; project và run không chứa service token. PM tạo work package theo marker run/version; BA cập nhật cùng package với spec/acceptance criteria. Reconcile trước create để xử lý response bị mất mà không tạo lại mù quáng.
@@ -28,10 +32,10 @@ Các kiểm tra: **42 backend tests** trên PostgreSQL 17/Redis thật; Ruff/myp
 
 ## Việc phải hoàn tất trước nghiệm thu v0.2
 
-1. Dựng staging có mục tiêu deploy thực và wrapper giới hạn riêng cho sản phẩm. Chứng minh approved candidate SHA → deploy → health/evidence, mismatch bị chặn. Không dùng job `echo` làm bằng chứng deploy.
-2. Kiểm chứng live test-fail → Bug OpenProject → sửa giới hạn → pass, restart/recovery và webhook qua public HTTPS/BFF. Hiện nhánh này đã có code; chưa có evidence live đầy đủ. Bộ 42 test chưa thay thế các kiểm chứng này.
+1. Staging tổng hợp đã có deploy boundary kiểm tra approval/SHA/ref/artifact/health. Tiếp tục nghiệm thu rollback container và cấu hình policy cho từng sản phẩm thực; xem mốc staging riêng.
+2. Live test-fail → Bug → sửa giới hạn → pass, lease recovery, systemd restart và webhook HTTPS đã có evidence ở mốc staging. Còn browser/BFF và reboot/worker máy cá nhân; không suy rộng evidence sang các môi trường chưa chạy.
 3. Chốt ngân sách OpenCode: hiện reserve 20k token/execution, unknown usage giữ charge, timeout hữu hạn và số vòng sửa hữu hạn. Đây **không phải hard cap token/call vật lý của OpenCode/gateway**. Cần gateway quota hoặc proxy đo/giới hạn từng request trước khi bật rộng. Chưa báo cost tiền hoặc upstream model không được gateway trả về.
-4. Khóa job/pipeline/ref theo chính sách staging từng project, kiểm tra manual job không thể nhận biến làm đổi artifact. Giới hạn hiện tại gồm project/profile/SHA/job name; chưa có artifact attestation hoặc health verification riêng sau GitLab job success. Worker là máy quản trị tin cậy; credential worker bị lộ có thể báo cáo giả kết quả local test. Cần quản trị thiết bị/rotation theo mức tin cậy này.
+4. Mốc staging đã khóa job/pipeline/ref, kiểm tra CI/package script và source artifact độc lập tại host, kiểm tra approval lưu DB và HTTPS health sau job success. Tiếp tục rà soát policy riêng từng project. Worker là máy quản trị tin cậy; credential worker bị lộ có thể báo cáo giả kết quả local test. Cần quản trị thiết bị/rotation theo mức tin cậy này.
 5. Hoàn thiện capability probe cho model mới, UI quản lý worker và quan sát offline; hiện đăng ký/revoke qua admin API. Node profile, worker máy cá nhân Linux/WSL2 và reboot systemd cần smoke riêng. Cá nhân dùng cùng protocol outbound; chưa nghiệm thu trực tiếp thiết bị cá nhân.
 6. Rà soát migration/rollback trước deploy `.14`. Schema mới additive `0004_agents`; v0.1 cũ readiness yêu cầu đúng `0003_auth`, nên không coi rollback image cũ là đủ. Cần compatibility release chấp nhận additive schema mới **hoặc** quy trình restore có maintenance window được kiểm chứng. Không downgrade live DB. Release manifest đã ghi `0004_agents`; wrapper mặc định policy `0003_auth` sẽ từ chối cho đến khi host admin cập nhật policy sau review. Chưa thay policy/wrapper/runtime production.
 7. Chạy lại full live chain trên image của commit cuối, CI release và browser gate/execution; backup/restore schema mới ở môi trường tạm. Sau đó mới bật profile staging và nghiệm thu Phase 5. Phase 6 tiếp tục template/Mini Helpdesk/benchmark.
@@ -42,4 +46,4 @@ Các kiểm tra: **42 backend tests** trên PostgreSQL 17/Redis thật; Ruff/myp
 
 `POST /api/coding-workers` bằng session admin + CSRF trả token **một lần**, gửi qua kênh riêng; `DELETE /api/coding-workers/{id}` revoke. Worker đặt token trong file root600 ngoài repo theo [env example](../infrastructure/worker/agent.env.example). [systemd unit](../infrastructure/worker/asf-coding-worker.service) là mẫu chưa enable. Parent cần Linux, Docker và Python environment có httpx; coding image phải build từ worker Dockerfile và hiện diện trước (`--pull=never`). Không mount Docker socket vào coding/test container; không cấp GitLab/admin/deploy token cho CLI.
 
-Source/evidence dev trên `.60:/srv/asf-phase5`, secret tại `private/` root700/file600. API thử nghiệm chỉ bind loopback `18450`, TLS cert 2 ngày dành riêng smoke, không đưa vào public Caddy/DNS. DB/Redis thử nghiệm dùng loopback 54339/56389; DB live smoke `asf`, DB test riêng `asf_tests`. Không chạy test vào DB smoke đang có run active: unique active-run sẽ từ chối, đúng thiết kế. Tất cả tách production/legacy; hai container ITCare được giữ dừng theo yêu cầu.
+Source/evidence dev trên `.60:/srv/asf-phase5`, secret tại `private/` root700/file600. API thử nghiệm của mốc đầu chỉ bind loopback `18450`. Mốc staging mới dùng Caddy `/phase5-api/` và API `.60:18050` với firewall chỉ cho nguồn `.51`; xem tài liệu staging. Không thay route dashboard/API production. DB/Redis thử nghiệm dùng loopback 54339/56389; DB live smoke `asf`, DB test riêng `asf_tests`. Không chạy test vào DB smoke đang có run active: unique active-run sẽ từ chối, đúng thiết kế. Tất cả tách production/legacy; hai container ITCare được giữ dừng theo yêu cầu.

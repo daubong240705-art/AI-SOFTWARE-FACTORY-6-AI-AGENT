@@ -1,0 +1,532 @@
+{
+  "recovery": {
+    "execution_id": "96f97578-aa30-45ad-bbb5-9b6af1e008c3",
+    "stale_completion_status": 409,
+    "fresh_lease_reclaimed": true,
+    "report": {
+      "exit_code": 1,
+      "output": "FFFFF\n======================================================================\nFAIL: test_empty_label (test_app.Acceptance.test_empty_label)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/trusted/test_app.py\", line 9, in test_empty_label\n    def test_empty_label(self): self.assertEqual(label(\"\"),\"Result: \")\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: '' != 'Result: '\n+ Result: \n\n\n======================================================================\nFAIL: test_label (test_app.Acceptance.test_label)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/trusted/test_app.py\", line 8, in test_label\n    def test_label(self): self.assertEqual(label(5),\"Result: 5\")\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: '5' != 'Result: 5'\n- 5\n+ Result: 5\n\n\n======================================================================\nFAIL: test_mixed (test_app.Acceptance.test_mixed)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/trusted/test_app.py\", line 7, in test_mixed\n    def test_mixed(self): self.assertEqual(add(-2,3),1)\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: -5 != 1\n\n======================================================================\nFAIL: test_negative (test_app.Acceptance.test_negative)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/trusted/test_app.py\", line 6, in test_negative\n    def test_negative(self): self.assertEqual(add(-2,-3),-5)\n                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 1 != -5\n\n======================================================================\nFAIL: test_positive (test_app.Acceptance.test_positive)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/trusted/test_app.py\", line 5, in test_positive\n    def test_positive(self): self.assertEqual(add(2,3),5)\n                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: -1 != 5\n\n----------------------------------------------------------------------\nRan 5 tests in 0.002s\n\nFAILED (failures=5)\n"
+    }
+  },
+  "systemd": {
+    "service": "asf-p5-coding-worker",
+    "restart_verified": true,
+    "previous_pid": "990607",
+    "new_pid": "990641",
+    "enabled": false
+  },
+  "restore": {
+    "database_kind": "isolated Phase5 smoke database, not production",
+    "dump_format": "custom",
+    "restored_to_disposable_database": true,
+    "constraints_restored": true,
+    "verified": {
+      "schema": "0004_agents",
+      "projects": 3,
+      "runs": 3,
+      "artifacts": 6,
+      "executions": 16,
+      "spec_hash": "f13fae942a4573f86bbbc698bef9656df81d50f5616bea699d749794eff15a9d"
+    },
+    "temporary_dump_removed": true,
+    "temporary_database_dropped": true
+  },
+  "webhook_replay": {
+    "origin": "controlled duplicate delivery using captured real GitLab pipeline121 payload",
+    "delivery_uuid": "f1d4b5c7-f23e-4735-94e7-8794ab29b2b1",
+    "statuses": [
+      200,
+      200
+    ],
+    "delivery_rows_before": 8,
+    "delivery_rows_after": 9,
+    "duplicate_did_not_insert": true
+  },
+  "release": {
+    "execution_id": "0319b218-faff-4b1a-b693-f4345fec560a",
+    "wrong_sha_status": 409,
+    "approved": {
+      "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6",
+      "pipeline_id": 123,
+      "job_id": 304,
+      "comment": "Reviewed exact source: add a+b and Result label, frozen five tests passed, GitLab test302 and package303 passed on candidate874a69b. Approve only isolated synthetic validation staging; not production ASF or product acceptance."
+    }
+  },
+  "network": {
+    "published_host_health": 200,
+    "container_egress_checks": [
+      {
+        "host": "1.1.1.1",
+        "port": 443,
+        "blocked": true
+      },
+      {
+        "host": "192.168.1.13",
+        "port": 443,
+        "blocked": true
+      },
+      {
+        "host": "192.168.1.14",
+        "port": 18101,
+        "blocked": true
+      },
+      {
+        "host": "172.24.0.1",
+        "port": 22,
+        "blocked": true
+      },
+      {
+        "host": "127.0.0.1",
+        "port": 53,
+        "blocked": true
+      }
+    ],
+    "network_mode": "dedicated bridge with INPUT/DOCKER-USER default-deny for container-originated traffic"
+  },
+  "validation": {
+    "run": {
+      "id": "10960944-1e60-40d2-adcb-78ca1a90b49b",
+      "project_id": "505ccec5-854d-446d-98c1-b8e4738351c9",
+      "requirement": "Synthetic infrastructure validation only. Backend: fix src/app.py add(a,b) to return a+b. Frontend: in src/ui.py make label(value) return \"Result: \" followed by value. Acceptance: positive, negative, mixed integer addition and label(5) == \"Result: 5\", label(\"\") == \"Result: \". Only edit src/. No dependencies or external services. The operator will inject the unchanged broken baseline before TEST to validate the real Bug and bounded fix loop, then deploy the repaired candidate to isolated validation staging. This is infrastructure verification, not product acceptance.",
+      "status": "completed",
+      "mode": "live",
+      "config_snapshot": {
+        "models": {
+          "ba": "coding-main",
+          "be": "coding-main",
+          "fe": "coding-main",
+          "pm": "coding-main",
+          "test": "coding-main",
+          "devops": "coding-main"
+        },
+        "integration": {
+          "name": "Agent validation (synthetic)",
+          "enabled": true,
+          "deploy_job": "deploy_staging",
+          "bug_type_id": 7,
+          "package_job": "package_candidate",
+          "test_profile": "python-unittest",
+          "allowed_paths": [
+            "src/"
+          ],
+          "default_branch": "main",
+          "deployment_url": "https://asf.lazy.local/validation/healthz",
+          "repository_url": "https://gitlab.lazy.local/ai-factory/asf-agent-validation.git",
+          "required_ci_jobs": [
+            "test",
+            "package_candidate"
+          ],
+          "gitlab_project_id": 10,
+          "work_package_type_id": 1,
+          "openproject_project_id": 7
+        }
+      },
+      "spec_version": 1,
+      "generation": 4,
+      "retry_count": 2,
+      "token_budget": 200000,
+      "call_limit": 8,
+      "error_code": null,
+      "created_at": "2026-11-03T21:45:49.672993Z",
+      "updated_at": "2026-11-03T22:06:25.237763Z"
+    },
+    "artifacts": [
+      {
+        "id": "902cae16-811b-4f7c-b0a4-c07fafb3cbd3",
+        "kind": "plan",
+        "spec_version": 1,
+        "content": {
+          "goal": "Lập kế hoạch sửa phép cộng và nhãn hiển thị trong src/, phục vụ xác minh hạ tầng trên staging cô lập, không phải nghiệm thu sản phẩm.",
+          "risks": [
+            "Nhầm lẫn giữa baseline lỗi và bản ứng viên có thể làm sai kết quả kiểm tra hoặc triển khai nhầm bản.",
+            "Chuyển đổi value sang chuỗi sai hoặc bỏ dấu cách sau dấu hai chấm sẽ khiến kiểm tra nhãn thất bại.",
+            "Thay đổi ngoài src/ hoặc thêm phụ thuộc sẽ vi phạm phạm vi yêu cầu.",
+            "Kết quả trên staging chỉ xác minh hạ tầng, không thay thế nghiệm thu sản phẩm."
+          ],
+          "steps": [
+            "Kiểm tra src/app.py và src/ui.py; giới hạn mọi chỉnh sửa trong src/, không thêm phụ thuộc hay dịch vụ bên ngoài.",
+            "Sửa add(a,b) trong src/app.py để trả về a+b.",
+            "Sửa label(value) trong src/ui.py để trả về \"Result: \" nối với biểu diễn chuỗi của value, giữ nguyên dấu cách cuối tiền tố.",
+            "Chuẩn bị kiểm tra phép cộng với hai số nguyên dương, hai số nguyên âm và hai số nguyên trái dấu; kiểm tra label(5) == \"Result: 5\" và label(\"\") == \"Result: \". Nếu cần thêm mã kiểm tra, chỉ đặt trong src/.",
+            "Phối hợp với người vận hành: đưa baseline lỗi nguyên trạng vào trước pha TEST để xác minh lỗi thực và vòng sửa có giới hạn; phân biệt rõ baseline với bản ứng viên đã sửa.",
+            "Sau khi bản ứng viên đạt các kiểm tra trên, người vận hành triển khai đúng bản đó lên staging xác minh cô lập và ghi nhận kết quả kiểm tra hạ tầng."
+          ]
+        },
+        "content_hash": "d8e9c58d6b292ea4f093654eb499283cb7c3edaeea0092a5e4dedbb920eb859c",
+        "simulated": false
+      },
+      {
+        "id": "3ce62824-4d0c-49cc-85ac-5f0222a5cd2c",
+        "kind": "spec",
+        "spec_version": 1,
+        "content": {
+          "summary": "Đặc tả sửa phép cộng và nhãn hiển thị trong src/ để xác minh hạ tầng tổng hợp trên staging cô lập; không phải nghiệm thu sản phẩm.",
+          "out_of_scope": [
+            "Nghiệm thu sản phẩm hoặc triển khai môi trường production.",
+            "Thay đổi chức năng ngoài add(a,b) và label(value), trừ mã kiểm tra cần thiết trong src/.",
+            "Bổ sung quy tắc xử lý kiểu dữ liệu hoặc đầu vào không được yêu cầu.",
+            "Ấn định số vòng sửa tối đa khi yêu cầu chưa cung cấp giới hạn cụ thể."
+          ],
+          "acceptance_criteria": [
+            "Phép cộng hai số nguyên dương trả về tổng đúng, ví dụ add(2,3) == 5.",
+            "Phép cộng hai số nguyên âm trả về tổng đúng, ví dụ add(-2,-3) == -5.",
+            "Phép cộng hai số nguyên trái dấu trả về tổng đúng, ví dụ add(-2,3) == 1.",
+            "label(5) == \"Result: 5\".",
+            "label(\"\") == \"Result: \", bao gồm dấu cách cuối.",
+            "Không có thay đổi ngoài src/, phụ thuộc mới hoặc dịch vụ bên ngoài.",
+            "Bằng chứng xác minh phải phân biệt kết quả của baseline lỗi trước TEST và bản ứng viên đã sửa; bản được triển khai lên staging cô lập phải là bản ứng viên đạt các kiểm tra nêu trên."
+          ],
+          "functional_requirements": [
+            "Hàm add(a,b) trong src/app.py phải trả về a+b.",
+            "Hàm label(value) trong src/ui.py phải trả về tiền tố \"Result: \" nối với biểu diễn chuỗi của value, giữ nguyên dấu cách sau dấu hai chấm.",
+            "Mọi chỉnh sửa chỉ nằm trong src/; không thêm phụ thuộc hoặc sử dụng dịch vụ bên ngoài.",
+            "Quy trình xác minh phải phân biệt baseline lỗi nguyên trạng với bản ứng viên đã sửa. Người vận hành đưa baseline vào trước pha TEST để xác minh lỗi thực và vòng sửa có giới hạn, sau đó triển khai bản ứng viên đã sửa lên staging xác minh cô lập."
+          ]
+        },
+        "content_hash": "f13fae942a4573f86bbbc698bef9656df81d50f5616bea699d749794eff15a9d",
+        "simulated": false
+      }
+    ],
+    "executions": [
+      {
+        "id": "7061d2c8-0ff3-4397-9b1b-b336020dc3fd",
+        "role": "be",
+        "attempt": 1,
+        "state": "succeeded",
+        "result": {
+          "model": "coding-main",
+          "candidate_sha": "7358c78c40d6e0ab676edc5fdbeaa76053f67493",
+          "completion_hash": "f8c5e535e3e3a96dba1f7d5a9cfeda09d3a7df39b2e474e3438eafc18add05c9"
+        },
+        "candidate_sha": "80e925827d3c91318d6e32c470cf09f7150a86a0"
+      },
+      {
+        "id": "c48cb53b-65d0-4c9b-8c2b-26e2dc396db7",
+        "role": "fe",
+        "attempt": 1,
+        "state": "succeeded",
+        "result": {
+          "model": "coding-main",
+          "candidate_sha": "7358c78c40d6e0ab676edc5fdbeaa76053f67493",
+          "completion_hash": "739bef37f9b37bbd61114afecaf8d902c3a87edeff269631fd3bccbafb3486c8"
+        },
+        "candidate_sha": "7358c78c40d6e0ab676edc5fdbeaa76053f67493"
+      },
+      {
+        "id": "96f97578-aa30-45ad-bbb5-9b6af1e008c3",
+        "role": "test",
+        "attempt": 1,
+        "state": "failed",
+        "result": {
+          "report": {
+            "output": "FFFFF\n======================================================================\nFAIL: test_empty_label (test_app.Acceptance.test_empty_label)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/trusted/test_app.py\", line 9, in test_empty_label\n    def test_empty_label(self): self.assertEqual(label(\"\"),\"Result: \")\n                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: '' != 'Result: '\n+ Result: \n\n\n======================================================================\nFAIL: test_label (test_app.Acceptance.test_label)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/trusted/test_app.py\", line 8, in test_label\n    def test_label(self): self.assertEqual(label(5),\"Result: 5\")\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: '5' != 'Result: 5'\n- 5\n+ Result: 5\n\n\n======================================================================\nFAIL: test_mixed (test_app.Acceptance.test_mixed)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/trusted/test_app.py\", line 7, in test_mixed\n    def test_mixed(self): self.assertEqual(add(-2,3),1)\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: -5 != 1\n\n======================================================================\nFAIL: test_negative (test_app.Acceptance.test_negative)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/trusted/test_app.py\", line 6, in test_negative\n    def test_negative(self): self.assertEqual(add(-2,-3),-5)\n                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: 1 != -5\n\n======================================================================\nFAIL: test_positive (test_app.Acceptance.test_positive)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/trusted/test_app.py\", line 5, in test_positive\n    def test_positive(self): self.assertEqual(add(2,3),5)\n                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: -1 != 5\n\n----------------------------------------------------------------------\nRan 5 tests in 0.002s\n\nFAILED (failures=5)\n",
+            "exit_code": 1
+          },
+          "candidate_sha": "ff109e8e659b2a20bf5d8cf11b8d58124a401f8c",
+          "completion_hash": "c674d6cb6b0a71a7f065ba3eaa2e9ad53958ac3cbdb58d9e03c9e994a380506f"
+        },
+        "candidate_sha": "ff109e8e659b2a20bf5d8cf11b8d58124a401f8c"
+      },
+      {
+        "id": "469eb2ce-07bd-4215-b9ff-7f85da75fec2",
+        "role": "be",
+        "attempt": 2,
+        "state": "succeeded",
+        "result": {
+          "model": "coding-main",
+          "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6",
+          "completion_hash": "f8c5e535e3e3a96dba1f7d5a9cfeda09d3a7df39b2e474e3438eafc18add05c9"
+        },
+        "candidate_sha": "ff109e8e659b2a20bf5d8cf11b8d58124a401f8c"
+      },
+      {
+        "id": "1193a1a1-4b46-47ca-94be-d574050c6105",
+        "role": "fe",
+        "attempt": 2,
+        "state": "succeeded",
+        "result": {
+          "model": "coding-main",
+          "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6",
+          "completion_hash": "739bef37f9b37bbd61114afecaf8d902c3a87edeff269631fd3bccbafb3486c8"
+        },
+        "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6"
+      },
+      {
+        "id": "524896d1-1d2c-40fd-a1a9-e4bed189a445",
+        "role": "test",
+        "attempt": 2,
+        "state": "succeeded",
+        "result": {
+          "report": {
+            "output": ".....\n----------------------------------------------------------------------\nRan 5 tests in 0.000s\n\nOK\n",
+            "exit_code": 0
+          },
+          "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6",
+          "completion_hash": "c30e9709def530a5835450b5eb1ed0d5442c582de2f43298d636d95e1df29fbb"
+        },
+        "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6"
+      },
+      {
+        "id": "53d10060-8199-4482-823a-8bdd7fa2d89e",
+        "role": "devops",
+        "attempt": 1,
+        "state": "failed",
+        "result": {
+          "job_id": 298,
+          "pipeline_id": 121,
+          "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6"
+        },
+        "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6"
+      },
+      {
+        "id": "5aede66d-0150-4139-9db1-e019fe823f29",
+        "role": "devops",
+        "attempt": 2,
+        "state": "failed",
+        "result": {
+          "job_id": 301,
+          "pipeline_id": 122,
+          "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6"
+        },
+        "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6"
+      },
+      {
+        "id": "0319b218-faff-4b1a-b693-f4345fec560a",
+        "role": "devops",
+        "attempt": 3,
+        "state": "succeeded",
+        "result": {
+          "status": "deployed",
+          "health_url": "https://asf.lazy.local/validation/healthz",
+          "project_id": 10,
+          "pipeline_id": 123,
+          "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6",
+          "deploy_job_id": 304,
+          "package_job_id": 303,
+          "artifact_sha256": "4f9b1fa2c59bc60f01ae25923409636d75252bbcec66b8bf979ef672e199cc8a",
+          "completion_hash": "739bef37f9b37bbd61114afecaf8d902c3a87edeff269631fd3bccbafb3486c8",
+          "health_verified": true
+        },
+        "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6"
+      }
+    ],
+    "external_links": [
+      {
+        "kind": "bug",
+        "url": "https://openproject.lazy247.space/work_packages/1866",
+        "external_id": "1866"
+      },
+      {
+        "kind": "merge_request",
+        "url": "https://gitlab.lazy.local/ai-factory/asf-agent-validation/-/merge_requests/4",
+        "external_id": "4"
+      },
+      {
+        "kind": "merge_request",
+        "url": "https://gitlab.lazy.local/ai-factory/asf-agent-validation/-/merge_requests/5",
+        "external_id": "5"
+      },
+      {
+        "kind": "work_package",
+        "url": "https://openproject.lazy247.space/work_packages/1865",
+        "external_id": "1865"
+      }
+    ],
+    "usage": {
+      "calls": 6,
+      "charged_tokens": 81785,
+      "input_tokens": 946,
+      "output_tokens": 839,
+      "cost": null
+    },
+    "events": [
+      {
+        "id": 244,
+        "kind": "validation.fault_injected",
+        "data": {
+          "paths": [
+            "src/app.py",
+            "src/ui.py"
+          ],
+          "reason": "Restore known broken baseline before real TEST; not an agent-generated fault",
+          "baseline_sha": "80e925827d3c91318d6e32c470cf09f7150a86a0",
+          "operator_fixture": true,
+          "injected_candidate": "ff109e8e659b2a20bf5d8cf11b8d58124a401f8c",
+          "previous_candidate": "7358c78c40d6e0ab676edc5fdbeaa76053f67493"
+        }
+      },
+      {
+        "id": 248,
+        "kind": "test.fix_requested",
+        "data": {
+          "execution_id": "469eb2ce-07bd-4215-b9ff-7f85da75fec2"
+        }
+      },
+      {
+        "id": 342,
+        "kind": "release.approved",
+        "data": {
+          "job_id": 298,
+          "comment": "Reviewed exact source: add a+b and Result label, frozen five tests passed, GitLab test296 and package297 passed on candidate874a69b. Approve only isolated synthetic validation staging; not production ASF or product acceptance.",
+          "pipeline_id": 121,
+          "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6"
+        }
+      },
+      {
+        "id": 348,
+        "kind": "execution.failed",
+        "data": {
+          "code": "candidate_pipeline_failed",
+          "execution_id": "53d10060-8199-4482-823a-8bdd7fa2d89e"
+        }
+      },
+      {
+        "id": 349,
+        "kind": "run.retried",
+        "data": {
+          "comment": "Fix root wrapper network/container name collision. Keep tested candidate; new pipeline122 and fresh release approval required.",
+          "retry_count": 1,
+          "spec_version": 1
+        }
+      },
+      {
+        "id": 354,
+        "kind": "release.approved",
+        "data": {
+          "job_id": 301,
+          "comment": "Reviewed exact source: add a+b and Result label, frozen five tests passed, GitLab test299 and package300 passed on candidate874a69b. Approve only isolated synthetic validation staging; not production ASF or product acceptance.",
+          "pipeline_id": 122,
+          "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6"
+        }
+      },
+      {
+        "id": 365,
+        "kind": "execution.failed",
+        "data": {
+          "code": "candidate_pipeline_failed",
+          "execution_id": "5aede66d-0150-4139-9db1-e019fe823f29"
+        }
+      },
+      {
+        "id": 366,
+        "kind": "run.retried",
+        "data": {
+          "comment": "Fix root wrapper network/container name collision. Keep tested candidate; new pipeline122 and fresh release approval required.",
+          "retry_count": 2,
+          "spec_version": 1
+        }
+      },
+      {
+        "id": 375,
+        "kind": "release.approved",
+        "data": {
+          "job_id": 304,
+          "comment": "Reviewed exact source: add a+b and Result label, frozen five tests passed, GitLab test302 and package303 passed on candidate874a69b. Approve only isolated synthetic validation staging; not production ASF or product acceptance.",
+          "pipeline_id": 123,
+          "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6"
+        }
+      },
+      {
+        "id": 383,
+        "kind": "run.completed",
+        "data": {
+          "status": "deployed",
+          "health_url": "https://asf.lazy.local/validation/healthz",
+          "project_id": 10,
+          "pipeline_id": 123,
+          "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6",
+          "deploy_job_id": 304,
+          "package_job_id": 303,
+          "artifact_sha256": "4f9b1fa2c59bc60f01ae25923409636d75252bbcec66b8bf979ef672e199cc8a",
+          "completion_hash": "739bef37f9b37bbd61114afecaf8d902c3a87edeff269631fd3bccbafb3486c8",
+          "health_verified": true
+        }
+      }
+    ]
+  },
+  "gitlab": {
+    "pipeline": {
+      "id": 123,
+      "sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6",
+      "ref": "asf/10960944-1e60-40d2-adcb-78ca1a90b49b/1193a1a1-4b46-47ca-94be-d574050c6105",
+      "status": "success",
+      "web_url": "https://gitlab.lazy.local/ai-factory/asf-agent-validation/-/pipelines/123"
+    },
+    "jobs": [
+      {
+        "id": 304,
+        "name": "deploy_staging",
+        "status": "success",
+        "web_url": "https://gitlab.lazy.local/ai-factory/asf-agent-validation/-/jobs/304"
+      },
+      {
+        "id": 303,
+        "name": "package_candidate",
+        "status": "success",
+        "web_url": "https://gitlab.lazy.local/ai-factory/asf-agent-validation/-/jobs/303"
+      },
+      {
+        "id": 302,
+        "name": "test",
+        "status": "success",
+        "web_url": "https://gitlab.lazy.local/ai-factory/asf-agent-validation/-/jobs/302"
+      }
+    ],
+    "manual_without_approval": {
+      "pipeline_id": 110,
+      "job_id": 263,
+      "status": "failed",
+      "host_authorization_response": 409,
+      "container_started": false
+    }
+  },
+  "https_health": {
+    "project_id": 10,
+    "candidate_sha": "874a69b3faa6ed19059dfca6466fbb9e9e7487c6",
+    "pipeline_id": 123,
+    "artifact_sha256": "4f9b1fa2c59bc60f01ae25923409636d75252bbcec66b8bf979ef672e199cc8a",
+    "status": "ok"
+  },
+  "production_health": {
+    "status": "ok",
+    "service": "asf-api",
+    "version": "0.1.0",
+    "release_sha": "12928ef64d6fc92ef1893c3a948d3573a3483c0c"
+  },
+  "phase_status": "in_progress",
+  "milestone": "isolated real staging and controlled Bug/fix validation",
+  "api_runtime_code_commit": "72375e1a9e187a845f767148e6f97889afc9c108",
+  "host_wrapper_code_commit": "2fb2305",
+  "checks": {
+    "backend_tests": 49,
+    "ruff": "passed",
+    "mypy": "passed",
+    "previous_full_ci": {
+      "pipeline_id": 118,
+      "code_commit": "3592182174fc1f19a5cd82aef00c2aa16c58965c",
+      "status": "success"
+    },
+    "final_full_ci": "see MR !4 head pipeline"
+  },
+  "discarded_smoke": {
+    "run_id": "7ee83717-fa01-4bb1-b7d2-7fb61cf7a7c5",
+    "status": "cancelled",
+    "reason": "Operator harness submitted a fake successful TEST report before lease expiry. Not used for acceptance; never release-approved."
+  },
+  "limits": [
+    "Controlled operator fault injection; not spontaneous model error",
+    "No live replacement-container rollback drill",
+    "No physical OpenCode call/token quota yet",
+    "No Phase5 browser/BFF, VM reboot or personal device acceptance",
+    "No production schema migration or v0.2 release"
+  ],
+  "cleanup": {
+    "outbound_worker_service": "stopped and not enabled",
+    "all_disposable_worker_tokens": "revoked",
+    "temporary_stage_admin": "disabled",
+    "disposable_browser_sessions": "cleared",
+    "model_admin_worker_lease_files": "removed",
+    "restricted_bot_credentials": "retained root-only for later validation",
+    "staging_container": "running with restart=no"
+  }
+}

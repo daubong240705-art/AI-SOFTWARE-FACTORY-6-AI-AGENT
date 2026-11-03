@@ -99,7 +99,7 @@ Lần deploy này triển khai **chính ASF**, không phải sản phẩm do Age
 
 **Mục tiêu:** phát triển tăng dần bản **v0.2**, nối các role với dịch vụ thật.
 
-**Trạng thái 04/11/2026: đang thực hiện, có mốc tích hợp đầu tiên.** Adapter và bot hạn quyền, PM/BA → work package, worker HTTPS/lease, BE/FE → commit/MR, TEST thật và DEVOPS dừng tại release gate đã có code và smoke riêng. Model theo role được snapshot cho từng run. 42 backend tests và frontend checks đạt. Chưa nghiệm thu deploy staging, vòng Bug/fix live và rollback schema v0.2; production vẫn v0.1. Xem [tiến độ, evidence và phần còn lại](../docs/phase-5-progress.md).
+**Trạng thái 04/11/2026: đang thực hiện, có mốc tích hợp đầu tiên.** Adapter và bot hạn quyền, PM/BA → work package, worker HTTPS/lease, BE/FE → commit/MR, TEST thật và DEVOPS dừng tại release gate đã có code và smoke riêng. Model theo role được snapshot cho từng run. 49 backend tests và frontend checks đạt. Mốc staging bổ sung Bug/fix live, recovery, webhook và backup/restore DB thử nghiệm; xem [bằng chứng staging](../docs/phase-5-staging.md). Rollback production schema v0.2 và các mục quota/UI vẫn chưa nghiệm thu; production vẫn v0.1. Xem [tiến độ, evidence và phần còn lại](../docs/phase-5-progress.md).
 
 Thứ tự triển khai:
 
