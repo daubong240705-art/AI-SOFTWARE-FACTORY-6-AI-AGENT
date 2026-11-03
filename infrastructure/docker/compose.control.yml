@@ -78,7 +78,7 @@ services:
       timeout: 4s
       retries: 20
     read_only: true
-    tmpfs: [/tmp:size=32m,mode=1777]
+    tmpfs: ["/tmp:size=32m,mode=1777"]
   workflow-worker:
     <<: *runtime
     image: asf-api:${RELEASE_SHA:?release SHA required}
@@ -93,7 +93,7 @@ services:
     mem_limit: 768m
     cpus: 0.8
     read_only: true
-    tmpfs: [/tmp:size=64m,mode=1777]
+    tmpfs: ["/tmp:size=64m,mode=1777"]
     stop_grace_period: 90s
   dispatcher:
     <<: *runtime
@@ -106,7 +106,7 @@ services:
     mem_limit: 192m
     cpus: 0.1
     read_only: true
-    tmpfs: [/tmp:size=32m,mode=1777]
+    tmpfs: ["/tmp:size=32m,mode=1777"]
   dashboard:
     <<: *runtime
     image: asf-dashboard:${RELEASE_SHA:?release SHA required}
@@ -117,7 +117,7 @@ services:
     mem_limit: 384m
     cpus: 0.4
     read_only: true
-    tmpfs: [/tmp:size=32m,mode=1777]
+    tmpfs: ["/tmp:size=32m,mode=1777"]
     healthcheck:
       test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/login').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 5s
