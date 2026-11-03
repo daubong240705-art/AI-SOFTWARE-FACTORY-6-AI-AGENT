@@ -13,6 +13,7 @@ from asf_api.models import CodingWorker, Execution, ExternalLink, ModelCall, Run
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from integrations.releases import deployment_evidence, verify_pipeline
 from integrations.services import GitLab, sync_work_package
 from orchestrator.service import artifact, event, get_run, usage
 from orchestrator.state import WorkflowError
@@ -301,21 +302,23 @@ def pipeline_check(session: Session, run: Run, item: Execution) -> bool:
     pipelines = gl.get("/pipelines", sha=sha, per_page=100)
     if not pipelines:
         return False
-    pipeline = gl.get(f"/pipelines/{pipelines[0]['id']}")
-    if pipeline["sha"] != sha:
-        raise WorkflowError("pipeline_sha_mismatch")
+    release = item.input.get("release_job_id")
+    pipeline_id = item.input.get("release_pipeline_id") or pipelines[0]["id"]
+    pipeline = gl.get(f"/pipelines/{pipeline_id}")
+    verify_pipeline(pipeline, sha, str(run.id))
     jobs = gl.get(f"/pipelines/{pipeline['id']}/jobs", per_page=100)
     if len(jobs) >= 100:
         raise WorkflowError("pipeline_job_limit")
     if any(j["status"] in {"failed", "canceled"} for j in jobs):
         raise WorkflowError("candidate_pipeline_failed")
-    release = item.input.get("release_job_id")
     if release:
         job = next((j for j in jobs if j["id"] == release), None)
         if not job or job["commit"]["id"] != sha:
             raise WorkflowError("deploy_job_mismatch")
         if job["status"] == "success":
+            evidence = deployment_evidence(profile, gl, sha, pipeline["id"], jobs)
             item.result = {
+                **evidence,
                 "candidate_sha": sha,
                 "pipeline_id": pipeline["id"],
                 "deploy_job_id": release,
@@ -414,7 +417,11 @@ def complete(
                 "candidate_pipeline_failed",
                 "manual_deploy_gate_missing",
                 "pipeline_sha_mismatch",
+                "pipeline_candidate_mismatch",
                 "deploy_job_mismatch",
+                "release_artifact_mismatch",
+                "deployment_health_mismatch",
+                "deployment_evidence_not_configured",
             }:
                 fail(session, run, item, exc.code)
                 return item

@@ -297,6 +297,7 @@ def test_release_requires_session_exact_candidate_and_current_checks(
         item.result = {"candidate_sha": "a" * 40, "pipeline_id": 1, "job_id": 2}
         item_id = item.id
     plays = []
+    job_status = "manual"
 
     class FakeGitLab:
         def __init__(self, project):
@@ -304,20 +305,27 @@ def test_release_requires_session_exact_candidate_and_current_checks(
 
         def get(self, path, **params):
             if path == "/pipelines/1":
-                return {"sha": "a" * 40}
+                return {"sha": "a" * 40, "ref": f"asf/{run_id}/{uuid.uuid4()}"}
             if path == "/jobs/2":
                 return {
                     "name": "deploy_staging",
                     "commit": {"id": "a" * 40},
                     "pipeline": {"id": 1},
-                    "status": "manual",
+                    "status": job_status,
                 }
             if path == "/pipelines/1/jobs":
                 return [{"name": "test", "status": "success"}]
             raise AssertionError(path)
 
         def post(self, path, payload):
+            nonlocal job_status
+            with SessionLocal() as session:
+                approval = session.scalar(
+                    select(ReleaseApproval).where(ReleaseApproval.execution_id == item_id)
+                )
+                assert approval is not None  # Visible before CI starts the deploy job.
             plays.append(path)
+            job_status = "pending"
             return {}
 
     monkeypatch.setattr(execution_routes, "GitLab", FakeGitLab)
@@ -343,6 +351,33 @@ def test_release_requires_session_exact_candidate_and_current_checks(
             item = session.get(Execution, item_id)
             assert item.input["release_job_id"] == 2
             assert item.state == "pending"
+        with SessionLocal.begin() as session:
+            item = session.get(Execution, item_id)
+            item.state, item.generation = "leased", 4
+            item.deadline = datetime.now(UTC) + timedelta(minutes=5)
+            deadline = item.deadline
+        assert authenticated.post(path, json=payload).status_code == 200
+        with SessionLocal() as session:
+            item = session.get(Execution, item_id)
+            assert (item.state, item.generation, item.deadline) == ("leased", 4, deadline)
+        from pydantic import SecretStr
+
+        monkeypatch.setattr(get_settings(), "staging_verifier_key", SecretStr("stage-test-key"))
+        stage_payload = {k: v for k, v in payload.items() if k != "comment"}
+        stage_payload["project_id"] = 10
+        with TestClient(app) as verifier:
+            assert verifier.post("/api/staging/authorize", json=stage_payload).status_code == 401
+            verifier.headers["Authorization"] = "Bearer stage-test-key"
+            assert verifier.post("/api/staging/authorize", json=stage_payload).status_code == 200
+            assert (
+                verifier.post(
+                    "/api/staging/authorize", json={**stage_payload, "project_id": 9}
+                ).status_code
+                == 409
+            )
+            with SessionLocal.begin() as session:
+                cancel_run(session, run_id, "Invalidate approved staging candidate")
+            assert verifier.post("/api/staging/authorize", json=stage_payload).status_code == 409
     finally:
         with SessionLocal.begin() as session:
             session.execute(delete(ReleaseApproval).where(ReleaseApproval.execution_id == item_id))

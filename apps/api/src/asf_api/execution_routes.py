@@ -18,9 +18,11 @@ from asf_api.models import (
     CodingWorker,
     Execution,
     ReleaseApproval,
+    Run,
     WebhookDelivery,
 )
 from asf_api.run_routes import commit, problem
+from integrations.releases import verify_pipeline
 from integrations.services import GitLab
 from orchestrator import executions
 from orchestrator.service import event, get_run
@@ -162,20 +164,25 @@ def release(
         select(ReleaseApproval).where(ReleaseApproval.execution_id == item.id)
     )
     expected = (
-        item.result.get("candidate_sha"),
-        item.result.get("pipeline_id"),
-        item.result.get("job_id"),
+        (previous.candidate_sha, previous.pipeline_id, previous.job_id)
+        if previous
+        else (
+            item.result.get("candidate_sha"),
+            item.result.get("pipeline_id"),
+            item.result.get("job_id"),
+        )
     )
     if expected != (payload.candidate_sha, payload.pipeline_id, payload.job_id):
         raise HTTPException(409, "release_candidate_changed")
-    if previous:
+    if run.status == "completed" and previous:
         return {"status": "recorded"}
-    if run.status != "running" or item.state != "waiting_release":
+    if run.status != "running" or item.state not in {"waiting_release", "pending", "leased"}:
         raise HTTPException(409, "release_not_waiting")
     profile = IntegrationProfile.model_validate(item.input["profile"])
     try:
         gl = GitLab(profile.gitlab_project_id)
         pipeline = gl.get(f"/pipelines/{payload.pipeline_id}")
+        verify_pipeline(pipeline, payload.candidate_sha, str(run.id))
         job = gl.get(f"/jobs/{payload.job_id}")
         if (
             pipeline["sha"] != payload.candidate_sha
@@ -191,26 +198,77 @@ def release(
             for name in profile.required_ci_jobs
         ):
             raise WorkflowError("release_checks_not_passed")
+        if not previous:
+            if item.state != "waiting_release":
+                raise WorkflowError("release_not_waiting")
+            session.add(
+                ReleaseApproval(
+                    execution_id=item.id,
+                    actor_user_id=actor.id,
+                    candidate_sha=payload.candidate_sha,
+                    pipeline_id=payload.pipeline_id,
+                    job_id=payload.job_id,
+                    comment=payload.comment,
+                )
+            )
+            item.input = {
+                **item.input,
+                "release_job_id": payload.job_id,
+                "release_pipeline_id": payload.pipeline_id,
+            }
+            item.state, item.generation, item.deadline = "pending", 1, None
+            session.add(AuditLog(user_id=actor.id, action="release.approved", target=str(item.id)))
+            event(session, run, "release.approved", payload.model_dump())
+        # The host must see a committed approval before CI can reach its deploy boundary.
+        commit(session)
         if job["status"] == "manual":
             gl.post(f"/jobs/{payload.job_id}/play", {})
-        session.add(
-            ReleaseApproval(
-                execution_id=item.id,
-                actor_user_id=actor.id,
-                candidate_sha=payload.candidate_sha,
-                pipeline_id=payload.pipeline_id,
-                job_id=payload.job_id,
-                comment=payload.comment,
-            )
-        )
-        item.input = {**item.input, "release_job_id": payload.job_id}
-        item.state, item.generation, item.deadline = "pending", 1, None
-        session.add(AuditLog(user_id=actor.id, action="release.approved", target=str(item.id)))
-        event(session, run, "release.approved", payload.model_dump())
-        commit(session)
         return {"status": "recorded"}
     except WorkflowError as exc:
         raise problem(exc) from None
+
+
+class StagingAuthorization(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project_id: int = Field(gt=0)
+    candidate_sha: str = Field(pattern=r"^[a-f0-9]{40}$")
+    pipeline_id: int = Field(gt=0)
+    job_id: int = Field(gt=0)
+
+
+@router.post("/staging/authorize")
+def authorize_stage(
+    payload: StagingAuthorization, request: Request, session: SessionDep
+) -> dict[str, Any]:
+    secret = get_settings().staging_verifier_key.get_secret_value()
+    if not secret or not hmac.compare_digest(
+        request.headers.get("authorization", ""), "Bearer " + secret
+    ):
+        raise HTTPException(401, "staging_verifier_required")
+    rows = session.execute(
+        select(ReleaseApproval, Execution, Run)
+        .join(Execution, ReleaseApproval.execution_id == Execution.id)
+        .join(Run, Run.id == Execution.run_id)
+        .where(
+            ReleaseApproval.candidate_sha == payload.candidate_sha,
+            ReleaseApproval.pipeline_id == payload.pipeline_id,
+            ReleaseApproval.job_id == payload.job_id,
+        )
+    ).all()
+    for approval, item, run in rows:
+        if (
+            run.status == "running"
+            and item.state in {"pending", "leased"}
+            and item.input["run_generation"] == run.generation
+            and item.input["profile"]["gitlab_project_id"] == payload.project_id
+        ):
+            return {
+                "authorized": True,
+                "approval_id": str(approval.id),
+                "execution_id": str(item.id),
+                **payload.model_dump(),
+            }
+    raise HTTPException(409, "staging_approval_missing_or_stale")
 
 
 @router.post("/webhooks/gitlab")

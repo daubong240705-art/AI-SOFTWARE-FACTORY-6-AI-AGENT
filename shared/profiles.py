@@ -25,7 +25,25 @@ class IntegrationProfile(BaseModel):
     allowed_paths: list[str] = ["src/", "tests/"]
     required_ci_jobs: list[str] = Field(default=["test"], min_length=1, max_length=20)
     deploy_job: str = "deploy_staging"
+    package_job: str = "package_candidate"
+    deployment_url: str | None = None
     enabled: bool = True
+
+    @field_validator("deployment_url")
+    @classmethod
+    def deployment(cls, value: str | None) -> str | None:
+        if value is not None:
+            url = urlsplit(value)
+            origin = f"{url.scheme}://{url.netloc}"
+            if (
+                origin not in get_settings().deployment_health_origins
+                or url.username
+                or url.query
+                or url.fragment
+                or not url.path.endswith("/healthz")
+            ):
+                raise ValueError("deployment_health_url_not_allowed")
+        return value
 
     @field_validator("repository_url")
     @classmethod

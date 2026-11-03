@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     worker_task_timeout_seconds: int = Field(default=900, ge=30, le=1800)
     worker_recovery_limit: int = Field(default=2, ge=0, le=5)
     gitlab_webhook_secret: SecretStr = SecretStr("")
+    deployment_health_origins: list[str] = ["https://asf.lazy.local"]
+    staging_verifier_key: SecretStr = SecretStr("")
     model_timeout_seconds: int = Field(default=60, ge=1, le=120)
     model_http_attempts: int = Field(default=2, ge=1, le=3)
     model_max_output_tokens: int = Field(default=2000, ge=256, le=8000)
