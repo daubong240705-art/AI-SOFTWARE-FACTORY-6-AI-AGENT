@@ -119,10 +119,16 @@ def verify_images(directory: Path, sha: str):
             assert "sha256:" + hashlib.sha256(raw).hexdigest() == image["image_id"]
             assert json.loads(raw)["config"]["Labels"]["org.opencontainers.image.revision"] == sha
         command(["docker", "load", "--input", str(path)], stdout=subprocess.DEVNULL)
-        identity = subprocess.check_output(
-            ["docker", "image", "inspect", image["tag"], "--format", "{{.Id}}"], text=True
-        ).strip()
-        assert identity == image["image_id"]
+        # Docker's containerd image store may report a manifest digest as .Id.
+        # Compare the loaded config bytes instead of assuming .Id is a config digest.
+        with tempfile.TemporaryFile() as loaded:
+            command(["docker", "image", "save", image["tag"]], stdout=loaded)
+            loaded.seek(0)
+            with tarfile.open(fileobj=loaded) as archive:
+                info = json.load(archive.extractfile("manifest.json"))
+                assert len(info) == 1 and image["tag"] in info[0]["RepoTags"]
+                raw = archive.extractfile(info[0]["Config"]).read()
+                assert "sha256:" + hashlib.sha256(raw).hexdigest() == image["image_id"]
     return manifest
 
 
