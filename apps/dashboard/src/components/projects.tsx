@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ErrorBox, Frame, Pager, useAuth } from "./workspace";
 import { date, fetchApi, labels, Project, ProjectList, Run } from "@/lib/api";
+import { ProjectConfig } from "./project-config";
 
 export function ProjectsPage() {
   const auth = useAuth();
@@ -148,8 +149,8 @@ export function ProjectsPage() {
         <Pager offset={offset} total={data.total} onChange={setOffset} />
       )}
       <div className="notice">
-        PM và BA có thể tạo plan/spec. BE, FE, TEST và DEVOPS hiện chưa triển
-        khai thực thi; dashboard luôn hiển thị trạng thái thực tế.
+        PM/BA tạo plan/spec. Các bước coding, test và phát hành cần kết nối dự án,
+        worker được cấp quyền và phê duyệt của người dùng.
       </div>
     </Frame>
   );
@@ -241,6 +242,7 @@ export function ProjectPage({ id }: { id: string }) {
               <dd>{date(project.created_at)}</dd>
             </dl>
           </section>
+          <ProjectConfig project={project} reload={load} />
           {auth.user?.role !== "viewer" && (
             <section className="panel">
               <h2>Bắt đầu một run</h2>
@@ -265,8 +267,8 @@ export function ProjectPage({ id }: { id: string }) {
                   </select>
                 </label>
                 <p className="muted">
-                  Mỗi thời điểm chỉ có một run hoạt động trong hệ thống. Cả hai
-                  chế độ đều dừng ở gate phê duyệt, sau đó chờ tích hợp Agent.
+                  Mỗi thời điểm chỉ có một run hoạt động trong hệ thống. Run thật
+                  có kết nối dự án sẽ tiếp tục coding/test sau khi duyệt đặc tả.
                 </p>
                 <button className="primary" disabled={busy}>
                   {busy ? "Đang tạo…" : "Tạo run →"}

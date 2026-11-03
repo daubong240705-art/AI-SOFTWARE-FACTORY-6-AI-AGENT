@@ -35,7 +35,7 @@ if __name__ == "__main__":
     manifest = {
         "sha": sha,
         "pipeline_id": int(os.environ["CI_PIPELINE_ID"]),
-        "schema": "0003_auth",
+        "schema": "0004_agents",
         "images": images,
     }
     (release / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

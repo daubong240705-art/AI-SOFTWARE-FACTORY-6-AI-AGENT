@@ -21,6 +21,17 @@ class Settings(BaseSettings):
     router_api_key: SecretStr = SecretStr("")
     router_ca_file: str | None = None
     router_model: str = "coding-main"
+    model_catalog: list[str] = ["coding-main"]
+    gitlab_url: str = "https://gitlab.lazy.local"
+    gitlab_api_token: SecretStr = SecretStr("")
+    gitlab_ca_file: str | None = None
+    openproject_url: str = "https://openproject.lazy247.space"
+    openproject_api_token: SecretStr = SecretStr("")
+    integration_profiles_file: str | None = None
+    worker_lease_seconds: int = Field(default=60, ge=20, le=300)
+    worker_task_timeout_seconds: int = Field(default=900, ge=30, le=1800)
+    worker_recovery_limit: int = Field(default=2, ge=0, le=5)
+    gitlab_webhook_secret: SecretStr = SecretStr("")
     model_timeout_seconds: int = Field(default=60, ge=1, le=120)
     model_http_attempts: int = Field(default=2, ge=1, le=3)
     model_max_output_tokens: int = Field(default=2000, ge=256, le=8000)

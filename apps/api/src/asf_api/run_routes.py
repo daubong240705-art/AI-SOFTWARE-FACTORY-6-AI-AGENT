@@ -11,7 +11,17 @@ from sqlalchemy.orm import Session
 from agents.contracts import ROLES
 from asf_api.auth import OperatorDep, current_user
 from asf_api.db import get_session
-from asf_api.models import Approval, Artifact, AuditLog, Event, ModelCall, Run, Task
+from asf_api.models import (
+    Approval,
+    Artifact,
+    AuditLog,
+    Event,
+    Execution,
+    ExternalLink,
+    ModelCall,
+    Run,
+    Task,
+)
 from orchestrator import service
 from orchestrator.state import WorkflowError
 
@@ -46,6 +56,7 @@ class RunRead(BaseModel):
     requirement: str
     status: str
     mode: str
+    config_snapshot: dict[str, Any]
     spec_version: int
     generation: int
     retry_count: int
@@ -140,6 +151,25 @@ def detail(run_id: uuid.UUID, session: SessionDep) -> dict[str, Any]:
     )
     return {
         "run": RunRead.model_validate(run).model_dump(mode="json"),
+        "executions": [
+            {
+                "id": str(e.id),
+                "role": e.role,
+                "attempt": e.attempt,
+                "state": e.state,
+                "result": e.result,
+                "candidate_sha": e.input.get("candidate_sha"),
+            }
+            for e in session.scalars(
+                select(Execution)
+                .where(Execution.run_id == run_id)
+                .order_by(Execution.created_at, Execution.id)
+            )
+        ],
+        "external_links": [
+            {"kind": e.kind, "url": e.url, "external_id": e.external_id}
+            for e in session.scalars(select(ExternalLink).where(ExternalLink.run_id == run_id))
+        ],
         "tasks": [
             {
                 "role": t.role,

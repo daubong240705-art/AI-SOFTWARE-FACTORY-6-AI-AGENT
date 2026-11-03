@@ -105,7 +105,10 @@ def verify_images(directory: Path, sha: str):
         with (directory / name).open("rb") as stream:
             assert hashlib.file_digest(stream, "sha256").hexdigest() == digest
     manifest = json.loads((directory / "manifest.json").read_text())
-    assert manifest["sha"] == sha and manifest["schema"] == "0003_auth"
+    assert manifest["sha"] == sha
+    assert manifest["schema"] == CONFIG.get("schema", "0003_auth"), (
+        "Host schema policy must be reviewed before a schema-changing release"
+    )
     for name in ("api", "dashboard"):
         image = manifest["images"][name]
         path = directory / f"{name}.tar"

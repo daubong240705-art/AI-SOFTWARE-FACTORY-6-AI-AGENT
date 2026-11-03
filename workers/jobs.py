@@ -111,6 +111,10 @@ def execute(dispatch_id: str, delivery: int) -> None:
                     graph.invoke(value, config)
                 with SessionLocal.begin() as session:
                     run = get_run(session, run_id)
+                    if run.status == "running" and run.generation == generation:
+                        from orchestrator.executions import start
+
+                        start(session, run)
                     dispatch = session.get(Dispatch, dispatch_uuid)
                     if dispatch and dispatch.delivery == delivery and run.generation == generation:
                         dispatch.state = "done"

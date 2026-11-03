@@ -1,4 +1,5 @@
 "use client";
+import { Executions } from "./executions";
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { date, fetchApi, labels, RunDetail, TimelineEvent } from "@/lib/api";
@@ -259,17 +260,18 @@ export function RunPage({ id }: { id: string }) {
               {run.mode === "mock"
                 ? "MÔ PHỎNG — plan/spec là dữ liệu mô phỏng, không gọi model."
                 : "CHẾ ĐỘ THẬT — PM/BA có thể gọi model qua 9Router."}{" "}
-              BE/FE/TEST/DEVOPS chưa thực thi code, test hoặc deploy.
+              BE/FE/TEST/DEVOPS thực thi khi run thật có kết nối dự án và worker phù hợp.
             </div>
             {run.error_code && (
               <ErrorBox message={`Workflow: ${run.error_code}`} />
             )}
             {run.status === "waiting_integration" && (
               <div className="notice">
-                Đã qua gate phê duyệt và đang chờ tích hợp Agent ở Phase 5.
+                Đã duyệt đặc tả. Run này chưa có kết nối dự án để thực thi coding/test/deploy.
               </div>
             )}
           </section>
+          <Executions data={data} reload={load} />
           <div className="metric-grid">
             <div>
               <span>Khoảng thời gian ghi nhận</span>

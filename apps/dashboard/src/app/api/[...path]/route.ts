@@ -9,4 +9,4 @@ async function handle(
 ) {
   return proxy(request, (await context.params).path.join("/"));
 }
-export { handle as GET, handle as POST, handle as PATCH };
+export { handle as GET, handle as POST, handle as PATCH, handle as DELETE };

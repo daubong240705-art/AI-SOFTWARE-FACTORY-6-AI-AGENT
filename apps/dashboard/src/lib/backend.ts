@@ -2,7 +2,7 @@ import "server-only";
 import { NextRequest } from "next/server";
 
 const paths =
-  /^(auth\/(login|logout|me)|users(\/[0-9a-f-]{36})?|roles|projects(\/[0-9a-f-]{36}(\/runs)?)?|runs\/[0-9a-f-]{36}(\/(events|stream|approval|retry|cancel))?|status)$/;
+  /^(auth\/(login|logout|me)|users(\/[0-9a-f-]{36})?|roles|configuration|coding-workers(\/[0-9a-f-]{36})?|worker\/(claim|executions\/[0-9a-f-]{36}\/(heartbeat|complete))|executions\/[0-9a-f-]{36}\/release|webhooks\/gitlab|projects(\/[0-9a-f-]{36}(\/runs)?)?|runs\/[0-9a-f-]{36}(\/(events|stream|approval|retry|cancel))?|status)$/;
 
 export async function proxy(
   request: NextRequest,
@@ -26,7 +26,16 @@ export async function proxy(
     }
   }
   const headers = new Headers();
-  for (const name of ["cookie", "x-csrf-token", "origin", "last-event-id"])
+  for (const name of [
+    "cookie",
+    "x-csrf-token",
+    "origin",
+    "last-event-id",
+    "authorization",
+    "x-gitlab-token",
+    "x-gitlab-event",
+    "x-gitlab-event-uuid",
+  ])
     if (request.headers.has(name))
       headers.set(name, request.headers.get(name)!);
   headers.set("Content-Type", "application/json");
@@ -47,7 +56,10 @@ export async function proxy(
         redirect: "error",
         signal: streaming
           ? request.signal
-          : AbortSignal.any([request.signal, AbortSignal.timeout(8000)]),
+          : AbortSignal.any([
+              request.signal,
+              AbortSignal.timeout(path.startsWith("worker/") ? 120000 : 30000),
+            ]),
       },
     );
     const outgoing = new Headers({

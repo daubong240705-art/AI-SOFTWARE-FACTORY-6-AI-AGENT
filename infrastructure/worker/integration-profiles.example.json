@@ -1,0 +1,16 @@
+{
+  "validation": {
+    "name": "Agent validation",
+    "gitlab_project_id": 10,
+    "repository_url": "https://gitlab.lazy.local/ai-factory/asf-agent-validation.git",
+    "openproject_project_id": 7,
+    "default_branch": "main",
+    "work_package_type_id": 1,
+    "bug_type_id": 7,
+    "test_profile": "python-unittest",
+    "allowed_paths": ["src/"],
+    "required_ci_jobs": ["test"],
+    "deploy_job": "deploy_staging",
+    "enabled": false
+  }
+}
