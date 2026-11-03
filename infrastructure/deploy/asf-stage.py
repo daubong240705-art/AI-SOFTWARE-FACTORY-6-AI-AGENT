@@ -140,7 +140,8 @@ def main():
         }
         if manifest != expected:
             raise ValueError("artifact_manifest_mismatch")
-        release = ROOT / "releases" / sha
+        # A later pipeline for the same SHA must not rewrite a mounted prior manifest.
+        release = ROOT / "releases" / f"{sha}-{pipeline_id}"
         release.mkdir(parents=True, exist_ok=True, mode=0o755)
         (ROOT / "releases").chmod(0o755)
         release.chmod(0o755)
