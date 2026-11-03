@@ -94,6 +94,16 @@ def validate_pipeline(sha: str, pipeline_id: int, deploy_id: int):
 
 
 def verify_images(directory: Path, sha: str):
+    checksums = {}
+    for line in (directory / "SHA256SUMS").read_text().splitlines():
+        digest, name = line.split()
+        assert name in {"api.tar", "dashboard.tar", "manifest.json"}
+        assert name not in checksums and re.fullmatch(r"[0-9a-f]{64}", digest)
+        checksums[name] = digest
+    assert set(checksums) == {"api.tar", "dashboard.tar", "manifest.json"}
+    for name, digest in checksums.items():
+        with (directory / name).open("rb") as stream:
+            assert hashlib.file_digest(stream, "sha256").hexdigest() == digest
     manifest = json.loads((directory / "manifest.json").read_text())
     assert manifest["sha"] == sha and manifest["schema"] == "0003_auth"
     for name in ("api", "dashboard"):
