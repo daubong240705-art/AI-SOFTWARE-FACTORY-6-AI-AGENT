@@ -9,6 +9,7 @@ import os
 import signal
 import ssl
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -40,7 +41,9 @@ def write_files(root: Path, files: dict[str, str], writable: bool) -> None:
         target.write_text(content, encoding="utf-8")
     if writable:
         for item in [root, *root.rglob("*")]:
-            os.chown(item, 10001, 10001)  # type: ignore[attr-defined]  # Linux worker only.
+            if sys.platform == "win32":
+                raise RuntimeError("Coding worker requires Linux or WSL2")
+            os.chown(item, 10001, 10001)
     root.chmod(0o755)
 
 
