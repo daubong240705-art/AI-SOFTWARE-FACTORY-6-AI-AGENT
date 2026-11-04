@@ -85,7 +85,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function Frame({
   title,
-  subtitle,
   children,
 }: {
   title: string;
@@ -116,19 +115,11 @@ export function Frame({
     <div className="shell">
       <aside className="sidebar">
         <Link href="/" className="brand">
-          <div className="brand-mark">
-            f<span>·</span>
-          </div>
-          <strong>
-            AI Software
-            <br />
-            Factory
-          </strong>
+          <span className="brand-mark">A</span>
+          <strong>AI Factory</strong>
         </Link>
-        <div className="workspace-label">
-          WORKSPACE <span>v0.1</span>
-        </div>
-        <nav>
+        <div className="workspace-label">Workspace</div>
+        <nav aria-label="Điều hướng">
           <Link
             className={
               path === "/" ||
@@ -139,26 +130,35 @@ export function Frame({
             }
             href="/"
           >
-            ◈ Dự án
+            <NavIcon kind="projects" /> Dự án
           </Link>
           {auth.user.role === "admin" && (
             <Link
               className={path.startsWith("/admin/users") ? "nav-active" : ""}
               href="/admin/users"
             >
-              ◉ Tài khoản
+              <NavIcon kind="users" /> Tài khoản
             </Link>
           )}
           {auth.user.role === "admin" && (
-            <Link className={path.startsWith("/admin/agents") ? "nav-active" : ""} href="/admin/agents">
-              ◇ Agent & worker
+            <Link
+              className={path.startsWith("/admin/agents") ? "nav-active" : ""}
+              href="/admin/agents"
+            >
+              <NavIcon kind="agents" /> Agent & worker
             </Link>
           )}
         </nav>
         <div className="sidebar-note">
-          <p>{auth.user.username}</p>
-          <span>{auth.user.role}</span>
-          <br />
+          <div className="account">
+            <span className="avatar">
+              {auth.user.username[0].toUpperCase()}
+            </span>
+            <div>
+              <strong>{auth.user.username}</strong>
+              <small>{auth.user.role}</small>
+            </div>
+          </div>
           <button
             className="logout"
             onClick={async () => {
@@ -177,9 +177,10 @@ export function Frame({
       </aside>
       <main className="workspace-main">
         <header className="workspace-top">
-          <span>ĐIỀU PHỐI PHÁT TRIỂN</span>
-          <span>
-            {auth.user.username} · {auth.user.role}
+          <h1>{title}</h1>
+          <span className="top-account">
+            {auth.user.username}
+            <span className="status">{auth.user.role}</span>
           </span>
           <button
             className="mobile-logout"
@@ -194,13 +195,35 @@ export function Frame({
             Đăng xuất
           </button>
         </header>
-        <div className="workspace-content">
-          <h1>{title}</h1>
-          {subtitle && <p className="lead">{subtitle}</p>}
-          {children}
-        </div>
+        <div className="workspace-content">{children}</div>
       </main>
     </div>
+  );
+}
+
+function NavIcon({ kind }: { kind: "projects" | "users" | "agents" }) {
+  const paths = {
+    projects: "M3 7h6l2 2h10v10H3z M3 7V5h6l2 2",
+    users:
+      "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M16 3a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87",
+    agents:
+      "M8 3v3 M16 3v3 M8 18v3 M16 18v3 M3 8h3 M3 16h3 M18 8h3 M18 16h3 M6 6h12v12H6z M10 10h4v4h-4z",
+  };
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={paths[kind]} />
+      {kind === "users" && <circle cx="9" cy="7" r="4" />}
+    </svg>
   );
 }
 export function ErrorBox({ message }: { message: string }) {

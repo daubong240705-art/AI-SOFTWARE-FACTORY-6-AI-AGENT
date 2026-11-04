@@ -8,7 +8,7 @@ interface Configuration {
   default_model: string;
   profiles: { id: string; name: string }[];
 }
-const roles = ["pm", "ba", "be", "fe", "test", "devops"];
+const roles = ["pm", "ba", "be", "fe"];
 
 export function ProjectConfig({
   project,
@@ -92,11 +92,7 @@ export function ProjectConfig({
               </label>
             ))}
           </div>
-          <p className="muted">
-            Model được cố định khi tạo run. PM/BA và BE/FE gọi model;
-            TEST/DEVOPS thực thi kiểm tra và gate theo quy tắc. Chỉ các model đã
-            được quản trị cho phép mới xuất hiện.
-          </p>
+          <p className="muted">TEST / DEVOPS: thực thi theo quy tắc.</p>
           {auth.user?.role === "admin" && (
             <button disabled={busy} className="primary">
               {busy ? "Đang lưu…" : "Lưu cấu hình"}

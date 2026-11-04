@@ -37,8 +37,7 @@ export default function Login() {
     <main className="auth-page">
       <div className="login-card">
         <div className="eyebrow">AI SOFTWARE FACTORY</div>
-        <h1>Trở lại workspace.</h1>
-        <p className="lead">Đăng nhập để theo dõi và điều phối dự án.</p>
+        <h1>Đăng nhập</h1>
         <ErrorBox message={error || auth.error} />
         <form onSubmit={submit}>
           <label>
@@ -64,9 +63,6 @@ export default function Login() {
             {busy ? "Đang đăng nhập…" : "Đăng nhập →"}
           </button>
         </form>
-        <p className="muted">
-          Tài khoản do quản trị viên cấp. Không có đăng ký công khai.
-        </p>
       </div>
     </main>
   );

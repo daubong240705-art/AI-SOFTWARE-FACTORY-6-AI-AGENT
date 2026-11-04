@@ -50,12 +50,11 @@ export function ProjectsPage() {
   }
   return (
     <Frame
-      title="Dự án của bạn"
+      title="Dự án"
       subtitle="Từ yêu cầu đầu tiên đến kế hoạch được phê duyệt."
     >
       <div className="section-tools">
         <div>
-          <span className="eyebrow">WORKSPACE</span>
           <h2>{data?.total ?? "—"} dự án</h2>
         </div>
         <div className="actions">
@@ -106,10 +105,7 @@ export function ProjectsPage() {
                 placeholder="https://gitlab.lazy.local/group/project.git"
               />
             </label>
-            <p className="muted">
-              Nhập URL không chứa mật khẩu hoặc token. Việc provision repository
-              và template thực hiện ở phase sau.
-            </p>
+
             <button className="primary" disabled={busy}>
               {busy ? "Đang lưu…" : "Lưu dự án"}
             </button>
@@ -119,11 +115,11 @@ export function ProjectsPage() {
       {!data && !error && <p role="status">Đang tải dự án…</p>}
       {data?.total === 0 && (
         <section className="panel empty">
-          <h2>Workspace đã sẵn sàng</h2>
+          <h2>Chưa có dự án</h2>
           <p>
             {auth.user?.role === "viewer"
-              ? "Chưa có dự án. Approver hoặc admin có thể khai báo dự án đầu tiên."
-              : "Tạo dự án đầu tiên để nhập yêu cầu và bắt đầu một run."}
+              ? "Liên hệ quản trị viên để tạo dự án."
+              : "Chọn Tạo dự án để bắt đầu."}
           </p>
         </section>
       )}
@@ -137,7 +133,7 @@ export function ProjectsPage() {
               <span>↗</span>
             </div>
             <h2>{p.name}</h2>
-            <p>{p.description || "Chưa có mô tả."}</p>
+            {p.description && <p>{p.description}</p>}
             <footer>
               <code>{p.slug}</code>
               <span>{date(p.created_at)}</span>
@@ -148,10 +144,6 @@ export function ProjectsPage() {
       {data && (
         <Pager offset={offset} total={data.total} onChange={setOffset} />
       )}
-      <div className="notice">
-        PM/BA tạo plan/spec. Các bước coding, test và phát hành cần kết nối dự án,
-        worker được cấp quyền và phê duyệt của người dùng.
-      </div>
     </Frame>
   );
 }
@@ -220,9 +212,9 @@ export function ProjectPage({ id }: { id: string }) {
               <h2>Cấu hình dự án</h2>
               <code>{project.slug}</code>
             </div>
-            <p className="preserve">
-              {project.description || "Chưa có mô tả."}
-            </p>
+            {project.description && (
+              <p className="preserve">{project.description}</p>
+            )}
             <dl className="facts">
               <dt>Repository</dt>
               <dd>
@@ -245,7 +237,7 @@ export function ProjectPage({ id }: { id: string }) {
           <ProjectConfig project={project} reload={load} />
           {auth.user?.role !== "viewer" && (
             <section className="panel">
-              <h2>Bắt đầu một run</h2>
+              <h2>Tạo run</h2>
               <form onSubmit={create}>
                 <label>
                   Yêu cầu
@@ -260,15 +252,12 @@ export function ProjectPage({ id }: { id: string }) {
                 <label>
                   Chế độ
                   <select name="mode" defaultValue="mock">
-                    <option value="mock">Mô phỏng — không gọi model</option>
-                    <option value="live">
-                      Thật — PM/BA gọi 9Router, cần backend bật live
-                    </option>
+                    <option value="mock">Mô phỏng</option>
+                    <option value="live">Live</option>
                   </select>
                 </label>
                 <p className="muted">
-                  Mỗi thời điểm chỉ có một run hoạt động trong hệ thống. Run thật
-                  có kết nối dự án sẽ tiếp tục coding/test sau khi duyệt đặc tả.
+                  Chỉ một run hoạt động tại một thời điểm.
                 </p>
                 <button className="primary" disabled={busy}>
                   {busy ? "Đang tạo…" : "Tạo run →"}
