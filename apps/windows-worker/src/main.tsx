@@ -8,6 +8,7 @@ import "./monitor.css";
 import "./kanban.css";
 import "./inspector.css";
 import "./ui/base.css";
+import "./ui/select.css";
 import type { WorkerAPI } from "../shared/contracts";
 
 declare global {

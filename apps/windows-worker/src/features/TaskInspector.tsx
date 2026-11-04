@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useEffect, useRef, useState } from "react";
 import {
   inspectSelection,
@@ -171,10 +172,10 @@ export function TaskInspector({
           </div>
           <label className="inspector-task-picker">
             Task / attempt
-            <select
+            <Select
               aria-label="Chọn task / attempt"
               value={task?.id ?? ""}
-              onChange={(e) => selectTask(e.target.value)}
+              onValueChange={(value) => selectTask(value)}
             >
               <option value="">Toàn lượt · {run.role.toUpperCase()}</option>
               {run.tasks.map((t) => (
@@ -182,7 +183,7 @@ export function TaskInspector({
                   {t.id} · {t.role.toUpperCase()} · {t.title}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           {selected?.supersededBy && (
             <p className="notice">

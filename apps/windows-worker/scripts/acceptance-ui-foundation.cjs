@@ -10,7 +10,9 @@ const cache = resolve(__dirname, "../.cache");
 mkdirSync(cache, { recursive: true });
 const directory = mkdtempSync(join(cache, "ui-foundation-"));
 app.setPath("userData", directory);
-const output = resolve(__dirname, "../../../docs/windows-worker/ui-foundation");
+const output = process.env.ASF_UI_ARTIFACT_DIR
+  ? resolve(process.env.ASF_UI_ARTIFACT_DIR)
+  : resolve(__dirname, "../../../docs/windows-worker/ui-foundation");
 mkdirSync(output, { recursive: true });
 const store = new Store(directory),
   project = store.addProject(join(directory, "source")),
@@ -143,6 +145,26 @@ app.whenReady().then(async () => {
       );
       await pause(150);
     };
+    const key = async (keyCode) => {
+      // Hidden windows cannot receive OS keyboard focus. Dispatch through the
+      // focused combobox so the actual React keyboard handler is exercised.
+      await js(
+        `(()=>{const el=document.querySelector('[role="combobox"][aria-expanded="true"]')||document.activeElement;el.dispatchEvent(new KeyboardEvent('keydown',{key:${JSON.stringify(keyCode === "Return" ? "Enter" : keyCode)},bubbles:true,cancelable:true}));})()`,
+      );
+      await pause(80);
+    };
+    const selectOption = async (label, value) => {
+      await js(
+        `document.querySelector('[role="combobox"][aria-label=${JSON.stringify(label)}]').click()`,
+      );
+      await until(() =>
+        js("!!document.querySelector('.ui-select-menu:popover-open')"),
+      );
+      await js(
+        `Array.from(document.querySelectorAll('.ui-select-menu [role="option"]')).find(el=>el.textContent.trim()===${JSON.stringify(value)}).click()`,
+      );
+      await pause(80);
+    };
     const screenshot = async (name, selector) => {
       await until(() =>
         js(`!!document.querySelector(${JSON.stringify(selector)})`),
@@ -188,6 +210,24 @@ app.whenReady().then(async () => {
         ".chat-header,.chat-composer,.markdown-table,.message-actions",
       );
       await js(
+        "document.querySelector('[aria-label=\"Chế độ thực thi\"]').click()",
+      );
+      await until(() =>
+        js("!!document.querySelector('.ui-select-menu:popover-open')"),
+      );
+      const composerMenu = await js(
+        `(()=>{const menu=document.querySelector('.ui-select-menu').getBoundingClientRect(),trigger=document.querySelector('[aria-label="Chế độ thực thi"]').getBoundingClientRect();return {inside:menu.left>=0&&menu.right<=innerWidth&&menu.top>=0&&menu.bottom<=innerHeight,opensUp:menu.bottom<=trigger.top+1};})()`,
+      );
+      assert.ok(
+        composerMenu.inside && composerMenu.opensUp,
+        "Composer dropdown opens above within viewport",
+      );
+      await key("Tab");
+      assert.equal(
+        await js("!!document.querySelector('.ui-select-menu')"),
+        false,
+      );
+      await js(
         "Array.from(document.querySelectorAll('.message-actions button')).find(b=>b.textContent.trim()==='Hoạt động').click()",
       );
       await until(() =>
@@ -213,9 +253,7 @@ app.whenReady().then(async () => {
           "!!document.querySelector('.task-inspector[open] .inspector-title')",
         ),
       );
-      await js(
-        "(()=>{const el=document.querySelector('[aria-label=\"Chọn task / attempt\"]');el.value='t1';el.dispatchEvent(new Event('change',{bubbles:true}));})()",
-      );
+      await selectOption("Chọn task / attempt", `t1 · BE · ${longTitle}`);
       const inspector = await js(
         `(()=>{const el=document.querySelector('.task-inspector'),facts=el.querySelector('.inspector-facts'),r=el.getBoundingClientRect(),children=Array.from(facts.children);return {width:r.width,right:r.right,height:r.height,viewport:innerWidth,overflow:el.scrollWidth>el.clientWidth+1,aligned:children.every((x,i)=>i%2===1||Math.abs(x.getBoundingClientRect().top-children[i+1].getBoundingClientRect().top)<2)};})()`,
       );
@@ -232,17 +270,65 @@ app.whenReady().then(async () => {
         js("document.querySelectorAll('.board-task').length>=16"),
       );
       const board = await js(
-        `(()=>{const col=document.querySelector('.backlog'),ready=document.querySelector('.ready'),empty=document.querySelector('.in_progress'),label=document.querySelector('.board-filters label'),input=label.querySelector('input'),title=col.querySelector('.board-card-title');return {backlogHeight:col.getBoundingClientRect().height,backlogClient:col.clientHeight,backlogScroll:col.scrollHeight,readyHeight:ready.getBoundingClientRect().height,emptyHeight:empty.getBoundingClientRect().height,labelCenter:label.getBoundingClientRect().top+label.getBoundingClientRect().height/2,checkboxCenter:input.getBoundingClientRect().top+input.getBoundingClientRect().height/2,titleWhiteSpace:getComputedStyle(title).whiteSpace,titleOverflow:title.scrollWidth>title.clientWidth+1,root:document.documentElement.scrollWidth,viewport:innerWidth};})()`,
+        `(()=>{const col=document.querySelector('.backlog'),ready=document.querySelector('.ready'),empty=document.querySelector('.in_progress'),label=document.querySelector('.board-filters label'),input=label.querySelector('input'),title=col.querySelector('.board-card-title'),main=document.querySelector('.board-main'),columns=document.querySelector('.kanban-columns'),footer=document.querySelector('.statusbar');return {backlogHeight:col.getBoundingClientRect().height,backlogClient:col.clientHeight,backlogScroll:col.scrollHeight,readyHeight:ready.getBoundingClientRect().height,emptyHeight:empty.getBoundingClientRect().height,boardBottom:columns.getBoundingClientRect().bottom,footerTop:footer.getBoundingClientRect().top,mainOverflow:main.scrollHeight>main.clientHeight+1,labelCenter:label.getBoundingClientRect().top+label.getBoundingClientRect().height/2,checkboxCenter:input.getBoundingClientRect().top+input.getBoundingClientRect().height/2,titleWhiteSpace:getComputedStyle(title).whiteSpace,titleOverflow:title.scrollWidth>title.clientWidth+1,root:document.documentElement.scrollWidth,viewport:innerWidth};})()`,
       );
       assert.ok(board.backlogScroll > board.backlogClient);
-      assert.ok(board.backlogHeight <= 642);
-      assert.ok(board.emptyHeight < board.backlogHeight);
-      assert.ok(board.readyHeight < board.backlogHeight);
+      assert.ok(board.backlogHeight > 80);
+      assert.ok(Math.abs(board.emptyHeight - board.backlogHeight) < 2);
+      assert.ok(Math.abs(board.readyHeight - board.backlogHeight) < 2);
+      assert.ok(
+        board.footerTop - board.boardBottom >= 0 &&
+          board.footerTop - board.boardBottom <= 26,
+      );
+      assert.equal(board.mainOverflow, false);
       assert.ok(Math.abs(board.labelCenter - board.checkboxCenter) < 2);
       assert.equal(board.titleWhiteSpace, "normal");
       assert.equal(board.titleOverflow, false);
       assert.ok(board.root <= board.viewport);
       await within(".board-filters,.board-pagination,.kanban-columns");
+      assert.equal(
+        await js("document.querySelectorAll('select').length"),
+        0,
+        "No native select controls",
+      );
+      await js("document.querySelector('[aria-label=\"Lọc role\"]').click()");
+      await until(() =>
+        js("!!document.querySelector('.ui-select-menu:popover-open')"),
+      );
+      const dropdown = await js(
+        `(()=>{const menu=document.querySelector('.ui-select-menu'),trigger=document.querySelector('[aria-label="Lọc role"]'),icon=trigger.querySelector('svg'),r=menu.getBoundingClientRect(),t=trigger.getBoundingClientRect(),i=icon.getBoundingClientRect();return {inside:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight,arrowAligned:Math.abs(i.top+i.height/2-t.top-t.height/2)<1,selected:menu.querySelector('[aria-selected="true"]').textContent.trim()};})()`,
+      );
+      assert.ok(dropdown.inside);
+      assert.ok(dropdown.arrowAligned);
+      assert.equal(dropdown.selected, "Mọi role");
+      if (scenario.width === 1440)
+        await screenshot("dropdown-desktop", ".ui-select-menu:popover-open");
+      await key("Escape");
+      assert.equal(
+        await js("!!document.querySelector('.ui-select-menu')"),
+        false,
+      );
+      await js("document.querySelector('[aria-label=\"Lọc role\"]').focus()");
+      await key("ArrowDown");
+      await key("End");
+      await key("Return");
+      await until(() =>
+        js(
+          "document.querySelector('[aria-label=\"Lọc role\"]').textContent.trim()==='DEVOPS'",
+        ),
+      );
+      await selectOption("Lọc role", "Mọi role");
+      await until(() =>
+        js("document.querySelectorAll('.board-task').length>=16"),
+      );
+      await js("document.querySelector('[aria-label=\"Lọc role\"]').click()");
+      await until(() =>
+        js("!!document.querySelector('.ui-select-menu:popover-open')"),
+      );
+      await js(
+        "document.querySelector('.page-heading h1').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))",
+      );
+      await until(() => js("!document.querySelector('.ui-select-menu')"));
       if (scenario.width === 1440)
         await screenshot("kanban-desktop", ".kanban-columns");
       if (scenario.width === 850)
@@ -257,9 +343,27 @@ app.whenReady().then(async () => {
       );
       await until(() => js("!!document.querySelector('.board-editor[open]')"));
       const editor = await js(
-        `(()=>{const el=document.querySelector('.board-editor');return el.scrollWidth<=el.clientWidth+1 && Array.from(el.querySelectorAll('input,select,textarea')).every(c=>c.getBoundingClientRect().right<=el.getBoundingClientRect().right-10);})()`,
+        `(()=>{const el=document.querySelector('.board-editor');return el.scrollWidth<=el.clientWidth+1 && Array.from(el.querySelectorAll('input,[role="combobox"],textarea')).every(c=>c.getBoundingClientRect().right<=el.getBoundingClientRect().right-10);})()`,
       );
       assert.equal(editor, true);
+      await selectOption("Role gợi ý", "FE");
+      assert.equal(
+        await js(
+          "document.querySelector('[aria-label=\"Role gợi ý\"]').textContent.trim()",
+        ),
+        "FE",
+      );
+      // Escape dismisses only the open dropdown, preserving the editor.
+      await js("document.querySelector('[aria-label=\"Role gợi ý\"]').click()");
+      await until(() =>
+        js("!!document.querySelector('.ui-select-menu:popover-open')"),
+      );
+      await key("Escape");
+      assert.ok(
+        await js(
+          "!!document.querySelector('.board-editor[open]') && !document.querySelector('.ui-select-menu')",
+        ),
+      );
       await js(
         "document.querySelector('.board-editor').dispatchEvent(new Event('cancel',{cancelable:true}))",
       );
@@ -275,6 +379,13 @@ app.whenReady().then(async () => {
       );
       // Finished runs expose a last-result action instead of an active task button.
       if (agent) assert.equal(agent, "normal");
+      const cardHeights = await js(
+        "Array.from(document.querySelectorAll('.agent-card')).map(el=>el.getBoundingClientRect().height)",
+      );
+      assert.ok(
+        Math.max(...cardHeights) - Math.min(...cardHeights) < 2,
+        "All agent cards must have equal height",
+      );
       if (scenario.width === 1440)
         await screenshot("agents-desktop", ".agent-grid");
       await navigate("Cài đặt");
@@ -294,12 +405,21 @@ app.whenReady().then(async () => {
       await navigate("Lịch sử");
       await until(() => js("!!document.querySelector('.run-history')"));
       await within(".run-history,.history-tools,.page-heading");
-      measurements.push({ ...scenario, chat, inspector, board, reachability });
+      measurements.push({
+        ...scenario,
+        chat,
+        inspector,
+        board,
+        reachability,
+        dropdown,
+        composerMenu,
+        cardHeights,
+      });
     }
     assert.deepEqual(errors, []);
     const result = {
       passed: true,
-      version: "1.3.0-alpha.4",
+      version: "1.3.0-alpha.5",
       fixture: true,
       providerCalls: 0,
       scenarios: measurements,

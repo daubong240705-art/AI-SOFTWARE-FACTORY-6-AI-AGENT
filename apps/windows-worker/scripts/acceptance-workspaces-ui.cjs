@@ -62,16 +62,18 @@ app.whenReady().then(async () => {
     );
     await js(`document.querySelector('[title="Cài đặt"]').click()`);
     await until(() =>
-      js(`!!document.querySelector('option[value="isolated-pair"]')`),
+      js(`!!document.querySelector('[aria-label="Thực thi nhóm"]')`),
     );
     assert.equal(
       await js(
-        `document.querySelector('option[value="isolated-pair"]').parentElement.value`,
+        `document.querySelector('[aria-label="Thực thi nhóm"]').textContent.trim()`,
       ),
-      "sequential",
+      "Tuần tự",
     );
-    await js(
-      `const select=document.querySelector('option[value="isolated-pair"]').parentElement;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(select,'isolated-pair');select.dispatchEvent(new Event('change',{bubbles:true}));`,
+    await require("./ui-select-test.cjs").selectValue(
+      win,
+      "Thực thi nhóm",
+      "isolated-pair",
     );
     await until(() =>
       js(

@@ -424,9 +424,10 @@ dialog {
   white-space: nowrap;
   padding-top: 2px;
 }
-/* 7. Agent monitor: natural card height and wrapping task names. */
+/* 7. Agent monitor: equal-height cards across rows; task names still wrap. */
 .agent-grid {
-  align-items: start;
+  align-items: stretch;
+  grid-auto-rows: 1fr;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 265px), 1fr));
 }
 .agent-card header {
@@ -449,7 +450,27 @@ dialog {
 .agent-last > button {
   justify-self: start;
 }
-/* 8. Kanban: independent columns; overflow belongs to the board/column. */
+/* 8. Kanban: equal columns fill the available viewport, with their own scroll. */
+.main-column > main.board-main {
+  max-width: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.board-main .kanban-workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.kanban-workspace > :not(.kanban-columns) {
+  flex-shrink: 0;
+}
+.kanban-workspace > .board-details {
+  flex-shrink: 1;
+  max-height: 35%;
+  overflow: auto;
+}
 .board-filters label {
   gap: var(--space-2);
   margin: 0;
@@ -464,15 +485,16 @@ dialog {
   min-height: var(--control-compact);
 }
 .kanban-columns {
-  align-items: flex-start;
+  flex: 1 1 0;
+  align-items: stretch;
   min-height: 0;
   padding-bottom: var(--space-3);
   overscroll-behavior-x: contain;
 }
 .kanban-column {
   flex: 0 0 clamp(245px, 18vw, 285px);
-  min-height: 170px;
-  max-height: clamp(260px, 55vh, 640px);
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   scrollbar-gutter: stable;

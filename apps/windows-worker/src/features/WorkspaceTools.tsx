@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useEffect, useState } from "react";
 import type { LocalCommand, ProjectCommand } from "../../shared/lifecycle";
 import type { Reply } from "../../shared/contracts";
@@ -74,11 +75,11 @@ export function WorkspaceTools({
   return (
     <div className="workspace-tools">
       <div className="inline">
-        <select
+        <Select
           aria-label="Lệnh dự án"
           value={selected}
           disabled={busy || !!running || active}
-          onChange={(e) => setSelected(e.target.value)}
+          onValueChange={(value) => setSelected(value)}
         >
           {!commands.length && <option value="">Không có npm script</option>}
           {commands.map((c) => (
@@ -86,7 +87,7 @@ export function WorkspaceTools({
               {c.title}
             </option>
           ))}
-        </select>
+        </Select>
         <button
           disabled={busy || !selected || !!running || active}
           onClick={() =>

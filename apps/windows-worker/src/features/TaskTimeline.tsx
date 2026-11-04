@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useState } from "react";
 import type { Role } from "../../shared/contracts";
 import type { RunDetail } from "../../shared/runs";
@@ -21,11 +22,11 @@ export function TaskTimeline({
       <header className="inline">
         <strong>Dòng thời gian</strong>
         {!taskId && (
-          <select
+          <Select
             aria-label="Lọc timeline theo agent"
             value={role}
-            onChange={(e) => {
-              setRole(e.target.value);
+            onValueChange={(value) => {
+              setRole(value);
               setLimit(20);
             }}
           >
@@ -42,7 +43,7 @@ export function TaskTimeline({
                 {r.toUpperCase()}
               </option>
             ))}
-          </select>
+          </Select>
         )}
         <small className="muted">{rows.length} mốc còn lưu</small>
       </header>

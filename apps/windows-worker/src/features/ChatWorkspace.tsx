@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
@@ -776,20 +777,20 @@ export function ChatWorkspace({
             />
             <div className="chat-composer-controls">
               <div className="chat-options">
-                <select
+                <Select
                   aria-label="Chế độ thực thi"
                   value={mode}
-                  onChange={(e) => setMode(e.target.value as "team" | "direct")}
+                  onValueChange={(value) => setMode(value as "team" | "direct")}
                   disabled={busy || !!activeId}
                 >
                   <option value="team">Lead</option>
                   <option value="direct">Một agent</option>
-                </select>
+                </Select>
                 {mode === "direct" && (
-                  <select
+                  <Select
                     aria-label="Vai trò thực thi"
                     value={role}
-                    onChange={(e) => setRole(e.target.value as Role)}
+                    onValueChange={(value) => setRole(value as Role)}
                     disabled={busy || !!activeId}
                   >
                     {settings.agents
@@ -799,13 +800,13 @@ export function ChatWorkspace({
                           {a.role.toUpperCase()}
                         </option>
                       ))}
-                  </select>
+                  </Select>
                 )}
-                <select
+                <Select
                   aria-label={`Model ${roleForModel.toUpperCase()}`}
                   title={model || "Chọn model"}
                   value={model}
-                  onChange={(e) => setModel(roleForModel, e.target.value)}
+                  onValueChange={(value) => setModel(roleForModel, value)}
                   disabled={busy || !!activeId}
                 >
                   <option value="">Chọn model</option>
@@ -814,21 +815,19 @@ export function ChatWorkspace({
                       {m}
                     </option>
                   ))}
-                </select>
-                <select
+                </Select>
+                <Select
                   aria-label="Quyền thực thi"
                   title="Full access tự duyệt lệnh bằng quyền Windows của bạn. Giữ phạm vi vai trò và giới hạn lượt chạy."
                   value={settings.permissionMode ?? "ask"}
-                  onChange={(e) =>
-                    setPermissionMode(
-                      e.target.value as Settings["permissionMode"],
-                    )
+                  onValueChange={(value) =>
+                    setPermissionMode(value as Settings["permissionMode"])
                   }
                   disabled={busy || !!activeId}
                 >
                   <option value="ask">Hỏi trước khi chạy</option>
                   <option value="full-access">Full access</option>
-                </select>
+                </Select>
                 <button
                   className="icon-button"
                   aria-label="Cấu hình đội agent"

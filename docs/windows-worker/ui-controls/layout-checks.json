@@ -1,0 +1,304 @@
+{
+  "passed": true,
+  "version": "1.3.0-alpha.5",
+  "fixture": true,
+  "providerCalls": 0,
+  "scenarios": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "zoom": 1,
+      "chat": {
+        "height": 360,
+        "client": 783,
+        "scroll": 1172,
+        "tableHeight": 3118,
+        "root": 1907,
+        "viewport": 1907
+      },
+      "inspector": {
+        "width": 920,
+        "right": 1413.6000061035156,
+        "height": 811.3500366210938,
+        "viewport": 1907,
+        "overflow": false,
+        "aligned": true
+      },
+      "board": {
+        "backlogHeight": 640.9000244140625,
+        "backlogClient": 639,
+        "backlogScroll": 2595,
+        "readyHeight": 640.9000244140625,
+        "emptyHeight": 640.9000244140625,
+        "boardBottom": 987.2000427246094,
+        "footerTop": 1011.2000122070312,
+        "mainOverflow": false,
+        "labelCenter": 224.1999969482422,
+        "checkboxCenter": 224.1999969482422,
+        "titleWhiteSpace": "normal",
+        "titleOverflow": false,
+        "root": 1907,
+        "viewport": 1907
+      },
+      "reachability": {
+        "lastCard": true,
+        "lastColumn": true
+      },
+      "dropdown": {
+        "inside": true,
+        "arrowAligned": true,
+        "selected": "Mọi role"
+      },
+      "composerMenu": {
+        "inside": true,
+        "opensUp": true
+      },
+      "cardHeights": [
+        258.6000061035156,
+        258.6000061035156,
+        258.6000061035156,
+        258.6000061035156,
+        258.6000061035156,
+        258.6000061035156,
+        258.6000061035156
+      ]
+    },
+    {
+      "width": 1440,
+      "height": 960,
+      "zoom": 1,
+      "chat": {
+        "height": 360,
+        "client": 783,
+        "scroll": 1172,
+        "tableHeight": 3118,
+        "root": 1427,
+        "viewport": 1427
+      },
+      "inspector": {
+        "width": 920,
+        "right": 1173.6000061035156,
+        "height": 811.3500366210938,
+        "viewport": 1427,
+        "overflow": false,
+        "aligned": true
+      },
+      "board": {
+        "backlogHeight": 520.9000244140625,
+        "backlogClient": 519,
+        "backlogScroll": 2921,
+        "readyHeight": 520.9000244140625,
+        "emptyHeight": 520.9000244140625,
+        "boardBottom": 867.2000427246094,
+        "footerTop": 891.2000122070312,
+        "mainOverflow": false,
+        "labelCenter": 224.1999969482422,
+        "checkboxCenter": 224.1999969482422,
+        "titleWhiteSpace": "normal",
+        "titleOverflow": false,
+        "root": 1427,
+        "viewport": 1427
+      },
+      "reachability": {
+        "lastCard": true,
+        "lastColumn": true
+      },
+      "dropdown": {
+        "inside": true,
+        "arrowAligned": true,
+        "selected": "Mọi role"
+      },
+      "composerMenu": {
+        "inside": true,
+        "opensUp": true
+      },
+      "cardHeights": [
+        258.6000061035156,
+        258.6000061035156,
+        258.6000061035156,
+        258.6000061035156,
+        258.6000061035156,
+        258.6000061035156,
+        258.6000061035156
+      ]
+    },
+    {
+      "width": 1100,
+      "height": 800,
+      "zoom": 1,
+      "chat": {
+        "height": 360,
+        "client": 755,
+        "scroll": 1172,
+        "tableHeight": 3118,
+        "root": 1087,
+        "viewport": 1087
+      },
+      "inspector": {
+        "width": 920,
+        "right": 1003.5999984741211,
+        "height": 732,
+        "viewport": 1087,
+        "overflow": false,
+        "aligned": true
+      },
+      "board": {
+        "backlogHeight": 324.8999938964844,
+        "backlogClient": 323,
+        "backlogScroll": 2921,
+        "readyHeight": 324.8999938964844,
+        "emptyHeight": 324.8999938964844,
+        "boardBottom": 711.2000122070312,
+        "footerTop": 731.2000122070312,
+        "mainOverflow": false,
+        "labelCenter": 265.1000061035156,
+        "checkboxCenter": 265.1000061035156,
+        "titleWhiteSpace": "normal",
+        "titleOverflow": false,
+        "root": 1087,
+        "viewport": 1087
+      },
+      "reachability": {
+        "lastCard": true,
+        "lastColumn": true
+      },
+      "dropdown": {
+        "inside": true,
+        "arrowAligned": true,
+        "selected": "Mọi role"
+      },
+      "composerMenu": {
+        "inside": true,
+        "opensUp": true
+      },
+      "cardHeights": [
+        218.60000610351562,
+        218.60000610351562,
+        218.60000610351562,
+        218.60000610351562,
+        218.60000610351562,
+        218.60000610351562,
+        218.60000610351562
+      ]
+    },
+    {
+      "width": 850,
+      "height": 700,
+      "zoom": 1,
+      "chat": {
+        "height": 360,
+        "client": 524,
+        "scroll": 1172,
+        "tableHeight": 3118,
+        "root": 836,
+        "viewport": 836
+      },
+      "inspector": {
+        "width": 802,
+        "right": 819,
+        "height": 632,
+        "viewport": 836,
+        "overflow": false,
+        "aligned": true
+      },
+      "board": {
+        "backlogHeight": 224.90000915527344,
+        "backlogClient": 223,
+        "backlogScroll": 2921,
+        "readyHeight": 224.90000915527344,
+        "emptyHeight": 224.90000915527344,
+        "boardBottom": 611.2000122070312,
+        "footerTop": 631.2000122070312,
+        "mainOverflow": false,
+        "labelCenter": 265.1000061035156,
+        "checkboxCenter": 265.1000061035156,
+        "titleWhiteSpace": "normal",
+        "titleOverflow": false,
+        "root": 836,
+        "viewport": 836
+      },
+      "reachability": {
+        "lastCard": true,
+        "lastColumn": true
+      },
+      "dropdown": {
+        "inside": true,
+        "arrowAligned": true,
+        "selected": "Mọi role"
+      },
+      "composerMenu": {
+        "inside": true,
+        "opensUp": true
+      },
+      "cardHeights": [
+        218.60000610351562,
+        218.60000610351562,
+        218.60000610351562,
+        218.60000610351562,
+        218.60000610351562,
+        218.60000610351562,
+        218.60000610351562
+      ]
+    },
+    {
+      "width": 1100,
+      "height": 800,
+      "zoom": 1.25,
+      "chat": {
+        "height": 360,
+        "client": 564,
+        "scroll": 1172,
+        "tableHeight": 3114,
+        "root": 870,
+        "viewport": 870
+      },
+      "inspector": {
+        "width": 835.760009765625,
+        "right": 852.760009765625,
+        "height": 579.2000122070312,
+        "viewport": 870,
+        "overflow": false,
+        "aligned": true
+      },
+      "board": {
+        "backlogHeight": 175.94000244140625,
+        "backlogClient": 175,
+        "backlogScroll": 2916,
+        "readyHeight": 175.94000244140625,
+        "emptyHeight": 175.94000244140625,
+        "boardBottom": 558.5599822998047,
+        "footerTop": 578.5599975585938,
+        "mainOverflow": false,
+        "labelCenter": 264.4599914550781,
+        "checkboxCenter": 264.4599914550781,
+        "titleWhiteSpace": "normal",
+        "titleOverflow": false,
+        "root": 870,
+        "viewport": 870
+      },
+      "reachability": {
+        "lastCard": true,
+        "lastColumn": true
+      },
+      "dropdown": {
+        "inside": true,
+        "arrowAligned": true,
+        "selected": "Mọi role"
+      },
+      "composerMenu": {
+        "inside": true,
+        "opensUp": true
+      },
+      "cardHeights": [
+        258.0799865722656,
+        258.0799865722656,
+        258.0799865722656,
+        258.0799865722656,
+        258.0799865722656,
+        258.0799865722656,
+        258.0799865722656
+      ]
+    }
+  ],
+  "rendererErrors": []
+}

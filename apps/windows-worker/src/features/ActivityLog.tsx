@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useState } from "react";
 import type { RunDetail } from "../../shared/runs";
 import { isActive } from "../../shared/runs";
@@ -72,10 +73,10 @@ export function ActivityLog({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <select
+              <Select
                 aria-label="Loại sự kiện"
                 value={eventType}
-                onChange={(e) => setEventType(e.target.value)}
+                onValueChange={(value) => setEventType(value)}
               >
                 <option value="">Tất cả sự kiện</option>
                 {[...new Set(events.map((e) => e.type))].sort().map((type) => (
@@ -83,7 +84,7 @@ export function ActivityLog({
                     {type}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <code className="small muted">Run {run.id}</code>
             {events

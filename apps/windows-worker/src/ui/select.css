@@ -1,0 +1,146 @@
+/* Custom single-select. Trigger and top-layer popover share the app palette. */
+.ui-select {
+  display: inline-flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.ui-select > .ui-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--control-height);
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: #19191c;
+  color: var(--text);
+  font-size: var(--text-control);
+  line-height: var(--leading-label);
+  font-weight: 400;
+  text-align: start;
+}
+.ui-select-trigger[aria-expanded="true"] {
+  border-color: var(--accent);
+  background: var(--surface-raised);
+}
+.ui-select-value {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ui-select-chevron {
+  display: block;
+  flex: 0 0 14px;
+  align-self: center;
+  color: var(--muted);
+}
+.ui-select-trigger[aria-expanded="true"] .ui-select-chevron {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+.ui-select-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: var(--space-1);
+  box-sizing: border-box;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: 0 12px 32px #0006;
+  font: var(--text-control) / var(--leading-label) var(--font-body);
+  scrollbar-width: thin;
+}
+.ui-select-menu:popover-open {
+  display: block;
+}
+.ui-select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--control-height);
+  padding: var(--space-2);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.ui-select-option > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.ui-select-option.active {
+  background: var(--hover);
+}
+.ui-select-option[aria-selected="true"] {
+  color: var(--accent);
+  background: #fa8c6912;
+}
+.ui-select-option[aria-disabled="true"] {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+label > .ui-select {
+  margin-top: var(--space-2);
+}
+.inline > .ui-select,
+.ui-cluster > .ui-select {
+  flex: 1 1 160px;
+  width: auto;
+}
+.limit-grid label > .ui-select {
+  flex-basis: 100%;
+}
+.board-editor label > .ui-select,
+.inspector-task-picker > .ui-select {
+  margin-top: 0;
+}
+.board-filters .ui-select {
+  width: 160px;
+}
+.board-card-actions .ui-select {
+  width: 120px;
+}
+.board-card-actions .ui-select-trigger {
+  min-height: var(--control-compact);
+  padding: 5px 8px;
+  font-size: var(--text-sm);
+}
+.chat-options > .ui-select {
+  width: auto;
+  max-width: 200px;
+}
+.chat-options > .ui-select:first-child {
+  max-width: 150px;
+}
+.chat-options .ui-select-trigger {
+  min-height: var(--control-compact);
+  padding: 5px 8px;
+  background: transparent;
+  border-color: transparent;
+  color: #babac3;
+  font-size: var(--text-sm);
+}
+.task-timeline header > .ui-select {
+  flex: 0 1 160px;
+}
+.diff-toolbar > .ui-select {
+  flex: 1;
+}
+@media (max-width: 1100px) {
+  .chat-options > .ui-select {
+    max-width: 150px;
+  }
+  .chat-options > .ui-select:first-child {
+    max-width: 130px;
+  }
+}

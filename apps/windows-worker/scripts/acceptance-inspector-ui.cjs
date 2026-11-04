@@ -13,7 +13,9 @@ const directory = mkdtempSync(join(cache, "inspector-ui-"));
 app.setPath("userData", join(directory, "data"));
 const source = join(directory, "source");
 mkdirSync(source);
-const output = resolve(__dirname, "../../../docs/windows-worker/v1.3");
+const output = process.env.ASF_UI_ARTIFACT_DIR
+  ? resolve(process.env.ASF_UI_ARTIFACT_DIR)
+  : resolve(__dirname, "../../../docs/windows-worker/v1.3");
 mkdirSync(output, { recursive: true });
 const counts = {};
 const handle = ipcMain.handle.bind(ipcMain);
@@ -163,9 +165,7 @@ async function main() {
       `(()=>{const el=Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!el)throw new Error('Missing button: '+${JSON.stringify(label)});el.click();})()`,
     );
   const selectTask = (id) =>
-    js(
-      `(()=>{const el=document.querySelector('[aria-label="Chọn task / attempt"]');el.value=${JSON.stringify(id)};el.dispatchEvent(new Event('change',{bubbles:true}));})()`,
-    );
+    require("./ui-select-test.cjs").selectValue(win, "Chọn task / attempt", id);
   await until(() =>
     js(
       "!!document.querySelector('.chat-actions') || !!document.querySelector('.chat-composer textarea')",

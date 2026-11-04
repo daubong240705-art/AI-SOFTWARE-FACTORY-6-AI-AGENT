@@ -1,3 +1,4 @@
+import { Select } from "./ui/Select";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
@@ -420,10 +421,10 @@ export function App() {
     label: string,
     disabled = false,
   ) => (
-    <select
+    <Select
       aria-label={label}
       value={model}
-      onChange={(event) => change(event.target.value)}
+      onValueChange={(value) => change(value)}
       disabled={disabled || !!busy}
     >
       <option value="">Chọn model</option>
@@ -435,7 +436,7 @@ export function App() {
           {id}
         </option>
       ))}
-    </select>
+    </Select>
   );
 
   const team = (
@@ -718,7 +719,15 @@ export function App() {
             Desktop
           </span>
         </header>
-        <main className={page === "project" ? "chat-main" : ""}>
+        <main
+          className={
+            page === "project"
+              ? "chat-main"
+              : page === "board"
+                ? "board-main"
+                : ""
+          }
+        >
           {notice && (
             <div
               className={`notice ${notice.kind}`}
@@ -1080,20 +1089,21 @@ export function App() {
                         </div>
                         <label>
                           Quyền thực thi
-                          <select
+                          <Select
+                            aria-label="Quyền thực thi mặc định"
                             value={settings.permissionMode ?? "ask"}
                             disabled={!!busy || !!runtime.activeId}
-                            onChange={(event) =>
+                            onValueChange={(value) =>
                               setSettings({
                                 ...settings,
-                                permissionMode: event.target
-                                  .value as Settings["permissionMode"],
+                                permissionMode:
+                                  value as Settings["permissionMode"],
                               })
                             }
                           >
                             <option value="ask">Hỏi trước khi chạy</option>
                             <option value="full-access">Full access</option>
-                          </select>
+                          </Select>
                         </label>
                         <p className="muted small">
                           Full access tự duyệt lệnh bằng quyền Windows của bạn.
@@ -1102,14 +1112,15 @@ export function App() {
                         </p>
                         <label>
                           Thực thi nhóm
-                          <select
+                          <Select
+                            aria-label="Thực thi nhóm"
                             value={settings.teamExecution ?? "sequential"}
                             disabled={!!busy || !!runtime.activeId}
-                            onChange={(event) =>
+                            onValueChange={(value) =>
                               setSettings({
                                 ...settings,
-                                teamExecution: event.target
-                                  .value as Settings["teamExecution"],
+                                teamExecution:
+                                  value as Settings["teamExecution"],
                               })
                             }
                           >
@@ -1117,7 +1128,7 @@ export function App() {
                             <option value="isolated-pair">
                               Hai task độc lập · workspace riêng
                             </option>
-                          </select>
+                          </Select>
                         </label>
                         <p className="muted small">
                           Repo sạch · tích hợp trong workspace riêng · kiểm thử
@@ -1242,13 +1253,13 @@ export function App() {
                           </label>
                           <label>
                             Vòng sửa lỗi
-                            <select
+                            <Select
                               value={settings.maxFixRounds}
                               disabled={!!busy}
-                              onChange={(event) =>
+                              onValueChange={(value) =>
                                 setSettings({
                                   ...settings,
-                                  maxFixRounds: Number(event.target.value),
+                                  maxFixRounds: Number(value),
                                 })
                               }
                             >
@@ -1257,7 +1268,7 @@ export function App() {
                                   {n}
                                 </option>
                               ))}
-                            </select>
+                            </Select>
                           </label>
                         </div>
                         <p className="muted small">
@@ -1315,16 +1326,14 @@ export function App() {
             </div>
             <label>
               Chế độ
-              <select
+              <Select
                 value={preset}
-                onChange={(event) =>
-                  setPreset(event.target.value as typeof preset)
-                }
+                onValueChange={(value) => setPreset(value as typeof preset)}
               >
                 <option value="fast">Fast</option>
                 <option value="balanced">Balanced</option>
                 <option value="quality">Quality</option>
-              </select>
+              </Select>
             </label>
             <label>
               Model nhanh

@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useEffect, useState } from "react";
 import { Copy, FolderOpen, RotateCcw } from "lucide-react";
 import type { Run } from "../../shared/runs";
@@ -235,17 +236,17 @@ export function ChangesPanel({
       {selected && (
         <>
           <div className="diff-toolbar">
-            <select
+            <Select
               aria-label="Kiểu so sánh"
               value={comparison}
-              onChange={(e) =>
-                setComparison(e.target.value as typeof comparison)
+              onValueChange={(value) =>
+                setComparison(value as typeof comparison)
               }
             >
               {!existing && <option value="run">Trước → sau lượt</option>}
               <option value="staged">Staged · HEAD → index</option>
               <option value="unstaged">Source · index → file</option>
-            </select>
+            </Select>
             <button
               title="Mở vị trí file"
               aria-label="Mở vị trí file"

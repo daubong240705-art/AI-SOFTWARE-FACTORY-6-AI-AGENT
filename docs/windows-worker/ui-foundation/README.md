@@ -1,6 +1,6 @@
 # Bộ nền giao diện Windows Worker
 
-Áp dụng trong `1.3.0-alpha.4`, sau V1.3C. Mục tiêu: chữ đọc rõ, khoảng cách nhất quán, thẻ giữ chiều cao theo nội dung, dữ liệu dài cuộn trong vùng riêng. Đây là nền giao diện cho Windows Worker; chưa triển khai phòng agent 3D của giai đoạn tiếp theo.
+Áp dụng từ `1.3.0-alpha.4`, cập nhật theo yêu cầu bố cục trong `1.3.0-alpha.5`. Mục tiêu: chữ đọc rõ, khoảng cách nhất quán, card agent căn đều và cột Board lấp đầy chiều cao còn lại của màn hình, dữ liệu dài cuộn trong vùng riêng. Đây là nền giao diện cho Windows Worker; chưa triển khai phòng agent 3D của giai đoạn tiếp theo.
 
 ## 1. Cấu trúc và quyền sở hữu CSS
 
@@ -8,9 +8,10 @@
 | --- | --- |
 | `apps/windows-worker/src/ui/tokens.css` | Font, cỡ chữ, khoảng cách, kích thước control, màu và giới hạn khung |
 | `apps/windows-worker/src/ui/primitives.tsx` | Stack, Cluster, Notice, ScrollRegion; chỉ bố cục, không giữ trạng thái nghiệp vụ |
+| `apps/windows-worker/src/ui/Select.tsx`, `select.css` | Dropdown tùy biến, điều hướng bàn phím, menu ở top layer |
 | `apps/windows-worker/src/ui/base.css` | Quy tắc bố cục chung và các hợp đồng bố cục cho màn hình hiện có; chia 10 nhóm có chú thích |
 | `src/styles.css`, `chat.css`, `monitor.css`, `kanban.css`, `inspector.css` | Giao diện và trạng thái riêng của từng tính năng |
-| `src/main.tsx` | Thứ tự import CSS duy nhất: tokens → styles → chat → monitor → kanban → inspector → base |
+| `src/main.tsx` | Thứ tự import CSS duy nhất: tokens → styles → chat → monitor → kanban → inspector → base → select |
 
 CSS cũ chưa được viết lại toàn bộ. Base được nạp cuối để thống nhất các quy tắc bố cục đang xung đột. Khi thêm tính năng, dùng token và primitive trước; chỉ thêm quy tắc riêng khi có nhu cầu thực tế. Không thêm framework/dependency để làm layout.
 
@@ -86,16 +87,17 @@ Các class có thể áp dụng trực tiếp: `.ui-stack`, `.ui-cluster`, `.ui-
 | Bảng markdown | ScrollRegion hai chiều; không làm rộng trang |
 | Facts trong inspector | Nhãn và giá trị cùng hàng, căn trên; giá trị dài xuống dòng |
 
-Flex/grid con chứa văn bản phải có `min-width:0`; grid dùng `minmax(0,1fr)`. Không dùng `overflow:hidden` toàn trang để che lỗi tràn. Không ép chiều cao bằng nhau cho các thẻ có lượng nội dung khác nhau.
+Flex/grid con chứa văn bản phải có `min-width:0`; grid dùng `minmax(0,1fr)`. Không dùng `overflow:hidden` toàn trang để che lỗi tràn. Riêng Board có vùng làm việc hữu hạn và cuộn trong cột; card Đội ngũ được căn đều chiều cao theo yêu cầu, vẫn giữ đầy đủ nội dung.
 
 ## 6. Kanban và agent
 
-- Hàng Kanban căn đầu: `align-items:flex-start`. Mỗi cột cao theo nội dung, tối thiểu 170px, tối đa `clamp(260px,55vh,640px)`.
-- Mỗi cột rộng `clamp(245px,18vw,285px)`. Board cuộn ngang khi thiếu chỗ; cột cuộn dọc khi nhiều thẻ. Header cột sticky và có nền để không đè chữ thẻ.
-- Không stretch cột ít việc theo cột backlog. Không giảm cỡ chữ để nhét đủ tất cả cột vào một cửa sổ.
+- Board là trang flex chiếm vùng còn lại giữa topbar và statusbar. Heading, roster, filter, phân trang giữ chiều cao theo nội dung; hàng cột có `flex:1` và `min-height:0`.
+- Các cột cao bằng nhau tới đáy vùng làm việc, kể cả cột rỗng; không tính chiều cao từ cột backlog. Không dùng con số cố định theo `vh` vì filter có thể xuống dòng khi zoom.
+- Mỗi cột rộng `clamp(245px,18vw,285px)`. Board cuộn ngang khi thiếu chỗ; cột cuộn dọc khi nhiều thẻ. Header cột sticky và có nền để không đè chữ thẻ. Trang không cuộn dọc; phần chi tiết thẻ có giới hạn riêng.
+- Không giảm cỡ chữ để nhét đủ tất cả cột vào một cửa sổ.
 - Tiêu đề thẻ xuống dòng; role/badge không bị bóp méo. Thao tác thẻ tối thiểu 30px.
 - Bộ lọc checkbox căn giữa với nhãn. Phân trang và roster có thể wrap.
-- Agent grid dùng chiều rộng thẻ tối thiểu 265px hoặc toàn bộ chiều rộng khả dụng; căn trên. Model dài xuống dòng, nút task không nowrap.
+- Agent grid dùng chiều rộng thẻ tối thiểu 265px hoặc toàn bộ chiều rộng khả dụng; `align-items:stretch`, `grid-auto-rows:1fr` để mọi card bằng chiều cao card nhiều nội dung nhất. Model dài xuống dòng, nút task không nowrap; trang có thể cuộn dọc.
 
 ## 7. Chat, bảng, dialog và cài đặt
 
@@ -107,11 +109,33 @@ Flex/grid con chứa văn bản phải có `min-width:0`; grid dùng `minmax(0,1
 - Cửa sổ có thể cuộn dọc khi nội dung không đủ chỗ. Chỉ board, bảng và source được cuộn ngang; không tạo thanh cuộn ngang cho toàn trang.
 - Focus bàn phím có outline rõ. Tôn trọng `prefers-reduced-motion`. Chưa tuyên bố kiểm định accessibility toàn diện hoặc hỗ trợ mobile.
 
-## 8. Những lỗi đã xử lý
+## 8. Dropdown tùy biến
+
+```tsx
+import { Select } from "./ui/Select";
+
+<Select aria-label="Lọc role" value={role} onValueChange={setRole}>
+  <option value="">Mọi role</option>
+  <option value="be">BE</option>
+</Select>
+```
+
+Option JSX chỉ là khai báo dữ liệu; DOM hiển thị button `role=combobox` và menu `role=listbox`/`option`, không render select/option native. `onValueChange` nhận string; chuyển số/enum ở nơi gọi. Component dành cho lựa chọn đơn, có điều khiển; không hỗ trợ multi-select hoặc optgroup. `required` chỉ truyền `aria-required`, chưa cung cấp native form validation; cần validator nghiệp vụ khi bắt buộc giá trị.
+
+- Mũi tên SVG 14px căn giữa trong flex, không dùng background-image hoặc padding giả.
+- Menu cùng palette app, viền 1px, bo 7px, item tối thiểu 36px; giá trị được chọn có dấu check/màu accent.
+- Menu có chiều rộng tối thiểu 220px nhưng nằm trong viewport, cao tối đa 320px; tự mở lên khi không đủ chỗ phía dưới. Item dài xuống dòng, menu cuộn riêng.
+- Dùng Popover API của Chromium/Electron để menu nằm trên vùng cuộn và modal dialog, không tạo portal ngoài vùng focus của dialog. Đây là menu HTML/CSS riêng, không phải menu hệ điều hành.
+- Arrow Up/Down di chuyển, Home/End tới đầu/cuối, Enter/Space chọn, gõ chữ tìm theo tiền tố. Escape đóng menu; khi menu đã đóng, Escape vẫn tới dialog. Tab/blur/bấm bên ngoài đóng menu. Chọn không submit form.
+- Nhãn truy cập dùng `aria-label`/`aria-labelledby` hoặc label bao quanh; kiểm tra thủ công screen reader đầy đủ còn nằm ngoài phạm vi đợt này.
+
+## 9. Những lỗi đã xử lý
 
 | Vấn đề | Cách sửa | Kiểm chứng |
 | --- | --- | --- |
-| Cột board kéo dài theo cột nhiều việc | Căn trên, giới hạn từng cột, cuộn riêng | Đo chiều cao cột và cuộn tới thẻ/cột cuối |
+| Board chưa lấp đầy màn hình | Flex theo viewport, các cột bằng chiều cao, cuộn riêng | Đo chiều cao cột, đáy Board, overflow và cuộn tới cuối |
+| Card agent cao thấp không đều | Grid stretch, hàng 1fr | Đo tất cả card ở năm cấu hình |
+| Dropdown native khác theme, mũi tên lệch | Select chung, SVG căn giữa, menu tùy biến | Đo vị trí mũi tên/menu, chọn lọc bằng phím/chuột, test trong modal |
 | Nút task không xuống dòng | Wrap tiêu đề/đường dẫn theo phạm vi | Fixture tiêu đề dài, đo overflow |
 | Checkbox lệch/nhận kích thước input thường | Reset checkbox/radio 16px và margin | So tâm checkbox với nhãn |
 | Nội dung recovery/command sát nhau | Notice tách nội dung/thao tác; padding/gap cho command card | Rà source và ảnh inspector |
@@ -120,7 +144,7 @@ Flex/grid con chứa văn bản phải có `min-width:0`; grid dùng `minmax(0,1
 | Tab panel đè nút đóng | Tab wrap, nút đóng không co | Đo khung các con header ở 5 cấu hình |
 | CSS sidebar ảnh hưởng vùng khác | Scope `.sidebar nav`, thứ tự import tập trung | Typecheck, SSR tests và kiểm tra renderer |
 
-## 9. Chạy kiểm tra và bằng chứng
+## 10. Chạy kiểm tra và bằng chứng
 
 Từ `apps/windows-worker`:
 
@@ -130,23 +154,24 @@ npm test
 npm run format:check
 npm run test:native
 npm run build
+$env:ASF_UI_ARTIFACT_DIR = 'E:\GIT\AI-SOFTWARE-FACTORY-6-AI-AGENT\docs\windows-worker\ui-controls'
 node scripts/run-acceptance.cjs ui-foundation
 ```
 
-Lệnh cuối mở production Electron ở chế độ ẩn, tạo SQLite riêng trong `.cache/ui-foundation-*`, không dùng credential/database người dùng, không gọi model. Bằng chứng được tạo lại trong thư mục tài liệu này; chạy audit sẽ cập nhật ảnh và JSON tại đây. Launcher bỏ `ELECTRON_RUN_AS_NODE` tự động.
+Lệnh cuối mở production Electron ở chế độ ẩn, tạo SQLite riêng trong `.cache/ui-foundation-*`, không dùng credential/database người dùng, không gọi model. `ASF_UI_ARTIFACT_DIR` chọn thư mục xuất ảnh/JSON; mặc định là thư mục nền alpha.4 này để giữ tương thích lệnh cũ. Dùng thư mục khác khi kiểm tra mới để giữ bằng chứng lịch sử. Launcher bỏ `ELECTRON_RUN_AS_NODE` tự động.
 
-Audit dùng 1920×1080, 1440×960, 1100×800, 850×700 ở zoom 100%, và 1100×800 ở zoom 125%. Viewport đo thực tế nằm trong [layout-checks.json](layout-checks.json); ảnh PNG có thể lớn hơn kích thước cửa sổ do DPI Windows. Dữ liệu có tiêu đề/model/đường dẫn dài, code 500 ký tự một dòng, 15 thẻ backlog, cột ít việc và rỗng.
+Audit dùng 1920×1080, 1440×960, 1100×800, 850×700 ở zoom 100%, và 1100×800 ở zoom 125%. Viewport đo mới nhất nằm trong [bằng chứng alpha.5](../ui-controls/layout-checks.json); [layout-checks.json](layout-checks.json) là mốc alpha.4. Ảnh PNG có thể lớn hơn kích thước cửa sổ do DPI Windows. Dữ liệu có tiêu đề/model/đường dẫn dài, code 500 ký tự một dòng, 15 thẻ backlog, cột ít việc và rỗng.
 
-Ảnh: [Kanban](kanban-desktop.png), [cửa sổ nhỏ](kanban-small.png), [chat và panel](chat-panel-desktop.png), [inspector](inspector-desktop.png), [agent](agents-desktop.png), [settings](settings-desktop.png), [settings cửa sổ nhỏ](settings-small.png).
+Ảnh mới nhất: [Kanban](../ui-controls/kanban-desktop.png), [cửa sổ nhỏ](../ui-controls/kanban-small.png), [dropdown](../ui-controls/dropdown-desktop.png), [agent](../ui-controls/agents-desktop.png). Các ảnh tại thư mục alpha.4 này giữ nguyên để đối chiếu.
 
 Audit đo overflow, căn hàng, giới hạn chiều cao, cuộn tới cuối và lỗi renderer. Đây là kiểm tra bố cục với fixture, không phải bằng chứng model/runtime thật, không bao phủ mọi trạng thái lỗi/permission/preview/diff. Các test hiện có kiểm tra hành vi; khi thay màn hình đó cần kiểm tra trực quan bổ sung đúng trạng thái liên quan.
 
-## 10. Điều kiện hoàn thành một thay đổi UI
+## 11. Điều kiện hoàn thành một thay đổi UI
 
 1. Dùng token, xác định component sở hữu layout, tránh selector toàn cục mới.
 2. Thử nội dung rỗng, ngắn, nhiều dòng và chuỗi dài không có dấu cách.
 3. Kiểm tra 1440px, 850px và zoom 125%; không tràn trang hoặc che thao tác.
-4. Cột/thẻ chiều cao tự nhiên; vùng bảng/source có giới hạn và đọc được mục cuối.
+4. Chiều cao cột/thẻ đúng hợp đồng từng màn hình; vùng bảng/source có giới hạn và đọc được mục cuối.
 5. Nhãn form, badge, button và checkbox căn đều; không dựa vào số dấu cách trong text.
 6. Kiểm tra focus bàn phím, nút đóng, nhãn vùng cuộn và trạng thái disabled.
 7. Chạy format/typecheck/build và test liên quan. Cập nhật audit khi hợp đồng bố cục thay đổi; không nới assertion chỉ để qua.

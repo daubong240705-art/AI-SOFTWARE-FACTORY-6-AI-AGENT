@@ -116,8 +116,10 @@ seed()
           ),
         );
         const select = async (value) => {
-          await js(
-            `(()=>{const el=document.querySelector('select[aria-label="Kiểu so sánh"]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+          await require("./ui-select-test.cjs").selectValue(
+            win,
+            "Kiểu so sánh",
+            value,
           );
         };
         const click = (label) =>
@@ -142,7 +144,9 @@ seed()
             `document.querySelector('.unified-diff')?.textContent.includes('+export const showChanges')`,
           ),
         );
-        const target = resolve(__dirname, "../../../docs/windows-worker/ww4c");
+        const target = process.env.ASF_UI_ARTIFACT_DIR
+          ? resolve(process.env.ASF_UI_ARTIFACT_DIR)
+          : resolve(__dirname, "../../../docs/windows-worker/ww4c");
         mkdirSync(target, { recursive: true });
         win.setSize(1280, 860);
         await pause(500);

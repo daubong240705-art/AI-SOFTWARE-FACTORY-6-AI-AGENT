@@ -1,3 +1,4 @@
+import { Select } from "../ui/Select";
 import { useEffect, useRef, useState } from "react";
 import {
   boardColumns,
@@ -181,11 +182,11 @@ export function KanbanBoard({
           value={query.search ?? ""}
           onChange={(event) => filter({ search: event.target.value })}
         />
-        <select
+        <Select
           aria-label="Lọc role"
           value={query.role ?? ""}
-          onChange={(e) =>
-            filter({ role: (e.target.value || undefined) as Role | undefined })
+          onValueChange={(value) =>
+            filter({ role: (value || undefined) as Role | undefined })
           }
         >
           <option value="">Mọi role</option>
@@ -194,13 +195,13 @@ export function KanbanBoard({
               {role.toUpperCase()}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           aria-label="Lọc ưu tiên"
           value={query.priority ?? ""}
-          onChange={(e) =>
+          onValueChange={(value) =>
             filter({
-              priority: e.target.value ? Number(e.target.value) : undefined,
+              priority: value ? Number(value) : undefined,
             })
           }
         >
@@ -208,13 +209,13 @@ export function KanbanBoard({
           <option value="0">Thường</option>
           <option value="1">Cao</option>
           <option value="2">Gấp</option>
-        </select>
-        <select
+        </Select>
+        <Select
           aria-label="Lọc loại việc"
           value={query.workType ?? ""}
-          onChange={(e) =>
+          onValueChange={(value) =>
             filter({
-              workType: (e.target.value || undefined) as BoardQuery["workType"],
+              workType: (value || undefined) as BoardQuery["workType"],
             })
           }
         >
@@ -229,7 +230,7 @@ export function KanbanBoard({
           ].map((type) => (
             <option key={type}>{type}</option>
           ))}
-        </select>
+        </Select>
         <label>
           <input
             type="checkbox"
@@ -359,20 +360,17 @@ export function KanbanBoard({
                       )}
                       {card.kind === "planning" && !card.archived && (
                         <div className="board-card-actions">
-                          <select
+                          <Select
                             aria-label={`Chuyển ${card.title}`}
                             disabled={busy || stale}
                             value={card.column}
-                            onChange={(e) =>
-                              void move(
-                                card,
-                                e.target.value as "backlog" | "ready",
-                              )
+                            onValueChange={(value) =>
+                              void move(card, value as "backlog" | "ready")
                             }
                           >
                             <option value="backlog">Chưa làm</option>
                             <option value="ready">Sẵn sàng</option>
-                          </select>
+                          </Select>
                           <button
                             disabled={busy || stale}
                             onClick={() => void edit(card)}
@@ -570,13 +568,13 @@ export function KanbanBoard({
           <div className="board-editor-row">
             <label>
               Role gợi ý
-              <select
+              <Select
                 aria-label="Role gợi ý"
                 value={draft.suggestedRole ?? ""}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   setDraft({
                     ...draft,
-                    suggestedRole: (e.target.value || null) as Role | null,
+                    suggestedRole: (value || null) as Role | null,
                   })
                 }
               >
@@ -586,37 +584,37 @@ export function KanbanBoard({
                     {role.toUpperCase()}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label>
               Ưu tiên
-              <select
+              <Select
                 aria-label="Ưu tiên công việc"
                 value={draft.priority}
-                onChange={(e) =>
-                  setDraft({ ...draft, priority: Number(e.target.value) })
+                onValueChange={(value) =>
+                  setDraft({ ...draft, priority: Number(value) })
                 }
               >
                 <option value="0">Thường</option>
                 <option value="1">Cao</option>
                 <option value="2">Gấp</option>
-              </select>
+              </Select>
             </label>
             <label>
               Cột
-              <select
+              <Select
                 aria-label="Cột công việc"
                 value={draft.planningState}
-                onChange={(e) =>
+                onValueChange={(value) =>
                   setDraft({
                     ...draft,
-                    planningState: e.target.value as "backlog" | "ready",
+                    planningState: value as "backlog" | "ready",
                   })
                 }
               >
                 <option value="backlog">Chưa làm</option>
                 <option value="ready">Sẵn sàng</option>
-              </select>
+              </Select>
             </label>
           </div>
           {error && (
