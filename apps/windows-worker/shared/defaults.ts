@@ -18,6 +18,7 @@ export function defaultSettings(): Settings {
     timeoutMinutes: 30,
     maxRequests: 40,
     maxFixRounds: 2,
+    permissionMode: "ask",
     agents: roles.map((role) => ({ role, enabled: true, model: "" })),
   };
 }

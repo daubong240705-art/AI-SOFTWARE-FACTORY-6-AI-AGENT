@@ -17,6 +17,7 @@ export function runtimeContext(
     throw new Error(`Thiếu profile snapshot cho ${role.toUpperCase()}.`);
   return {
     ...rolePolicy(role),
+    permissionMode: run.settings.permissionMode ?? "ask",
     instructions: selectedInstructions(run, task, profile),
     allowedPaths: [...(task?.allowedPaths ?? ["."])],
     prompt: [

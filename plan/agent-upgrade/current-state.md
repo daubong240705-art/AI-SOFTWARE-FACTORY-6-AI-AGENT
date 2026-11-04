@@ -69,3 +69,9 @@ Phần khảo sát và các số dòng bên trên là baseline lịch sử. AU-1
 Proxy giữ lỗi đầu tiên và chặn request upstream tiếp theo trong execution lỗi; auth/rate-limit/transient/budget/model mismatch dừng Controller. Từ chối quyền cũng kết thúc lượt chạy. Token chỉ tổng hợp các bước runtime quan sát được, cost luôn chưa có số liệu; history cũ giữ unknown. Không đổi schema6 hoặc thêm dependency. 71/71 test và checks phát triển/native đạt; không gọi model thật trong AU-4A.
 
 **AU-4B vẫn chờ lifecycle WW-4D liên quan.** Reopen vẫn ghi interrupted, giữ hàng chờ và yêu cầu thử lại có chủ đích; chưa có resume hoặc nhận lại process. Preview, lifecycle/crash recovery, retention/export, AU-5 và installer chưa hoàn thành.
+
+## Cập nhật trải nghiệm Lead và quyền — 04/11/2026
+
+Đã sửa nguyên nhân lời chào bị biến thành blocker: quyết định Lead chấp nhận nhánh reply có schema riêng bên cạnh plan cũ, trả lời tự nhiên hoặc hỏi làm rõ mà không giao task/review giả. Cùng một lần gọi model, giữ ngữ cảnh hội thoại và các gate khi có work. Nội dung lời đáp trong test dùng mock, chưa nghiệm thu cách model thật chọn nhánh.
+
+Hoạt động mặc định thu gọn task plan/review và log kỹ thuật; task work/fix đóng metadata, hiển thị tối đa năm lệnh gần nhất, log đầy đủ mở khi cần. Full access tự duyệt shell/doom-loop theo snapshot; role/scope/secret/delegation deny và giới hạn giữ nguyên. Config/queue cũ thiếu field trở về ask; thay mode không làm đổi run đang chạy. [Báo cáo](../../docs/windows-worker/lead-chat-access-completion.md) ghi 79/79 test, native và UI Electron thật với dữ liệu thử. AU-4B/WW-4D/AU-5 vẫn chưa hoàn thành.

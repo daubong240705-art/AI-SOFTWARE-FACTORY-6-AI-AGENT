@@ -46,6 +46,7 @@ type Props = {
   initialRunId: string | null;
   saveSettings: () => Promise<unknown>;
   setModel: (role: Role, model: string) => void;
+  setPermissionMode: (mode: Settings["permissionMode"]) => void;
   onNew: () => void;
   onChooseProject: () => void;
   onSettings: () => void;
@@ -63,6 +64,7 @@ export function ChatWorkspace({
   initialRunId,
   saveSettings,
   setModel,
+  setPermissionMode,
   onNew,
   onChooseProject,
   onSettings,
@@ -715,7 +717,7 @@ export function ChatWorkspace({
               aria-label="Nhắn tin cho agent"
               placeholder={
                 project
-                  ? "Bạn muốn xây dựng hoặc thay đổi điều gì?"
+                  ? "Nhắn cho Lead hoặc giao việc…"
                   : "Chọn dự án để bắt đầu"
               }
               value={draft}
@@ -748,7 +750,7 @@ export function ChatWorkspace({
                   onChange={(e) => setMode(e.target.value as "team" | "direct")}
                   disabled={busy || !!activeId}
                 >
-                  <option value="team">Lead tự phân công</option>
+                  <option value="team">Lead</option>
                   <option value="direct">Một agent</option>
                 </select>
                 {mode === "direct" && (
@@ -780,6 +782,20 @@ export function ChatWorkspace({
                       {m}
                     </option>
                   ))}
+                </select>
+                <select
+                  aria-label="Quyền thực thi"
+                  title="Full access tự duyệt lệnh bằng quyền Windows của bạn. Giữ phạm vi vai trò và giới hạn lượt chạy."
+                  value={settings.permissionMode ?? "ask"}
+                  onChange={(e) =>
+                    setPermissionMode(
+                      e.target.value as Settings["permissionMode"],
+                    )
+                  }
+                  disabled={busy || !!activeId}
+                >
+                  <option value="ask">Hỏi trước khi chạy</option>
+                  <option value="full-access">Full access</option>
                 </select>
                 <button
                   className="icon-button"
@@ -847,7 +863,7 @@ export function ChatWorkspace({
               aria-label="Chi tiết lượt chạy"
             >
               {[
-                ["activity", "Nhiệm vụ"],
+                ["activity", "Hoạt động"],
                 ["changes", "Thay đổi"],
                 ["result", "Kết quả"],
               ].map(([id, label]) => (

@@ -158,3 +158,5 @@ Ngưỡng: tất cả ca correctness/policy bắt buộc đạt; không tăng s�
 6. Đo thực tế rồi mới quyết định cần agent/reviewer/tool/dependency mới. Nếu thiếu quyền/công cụ thì báo giới hạn cụ thể, không giả lập kết quả thành đạt.
 
 Mốc tiếp theo: **lifecycle WW-4D liên quan → AU-4B ownership/recovery → AU-5 nghiệm thu**. AU-4A đã hoàn thành; không thêm process manager hoặc cơ chế retry task chồng lên runtime.
+
+Ưu tiên bổ sung theo yêu cầu người dùng sau AU-4A: [Lead trò chuyện, Hoạt động gọn và Full access](../../docs/windows-worker/lead-chat-access-completion.md) đã hoàn thành trên branch riêng. Chỉ mở nhánh reply trong bước Lead hiện có, thêm chế độ auto-approve shell theo snapshot và thu log UI; không thêm classifier request, scheduler hoặc thay vòng review/evidence. Lịch sử/cấu hình cũ mặc định ask; schema6 không đổi. Các milestone lifecycle/recovery phía trên vẫn giữ trạng thái chưa hoàn thành.

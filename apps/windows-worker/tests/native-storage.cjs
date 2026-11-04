@@ -28,6 +28,7 @@ app.whenReady().then(async () => {
     assert.equal(safeStorage.decryptString(store.encryptedKey()), secret);
     const settings = defaultSettings();
     settings.gatewayUrl = "https://unused.example/v1";
+    settings.permissionMode = "full-access";
     settings.agents.find((agent) => agent.role === "be").model = "fixture";
     store.save(settings, safeStorage.encryptString(secret));
     const project = store.addProject(directory);
@@ -49,6 +50,8 @@ app.whenReady().then(async () => {
     assert.equal(store.run(run.id).failure.code, "cancelled");
     assert.equal(store.run(run.id).metrics.requests, 0);
     assert.equal(store.run(run.id).metrics.inputTokens, null);
+    assert.equal(store.settings().permissionMode, "full-access");
+    assert.equal(store.run(run.id).settings.permissionMode, "full-access");
     for (const filename of readdirSync(directory).filter((name) =>
       name.startsWith("worker.sqlite"),
     )) {

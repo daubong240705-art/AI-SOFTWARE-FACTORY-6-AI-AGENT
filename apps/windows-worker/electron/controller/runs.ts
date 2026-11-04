@@ -10,12 +10,14 @@ import { rolePolicy, runtimeContext, sourcePolicyError } from "../team/policy";
 import { ExecutionStopped } from "../runtime/stopped";
 import { WorkerError, classifyFailure, failure } from "../runtime/failure";
 import { emptyMetrics, addUsage, syncMetrics } from "../runtime/metrics";
+import { autoApproves } from "../runtime/permissions";
 import type { ExecutionFailure } from "../../shared/execution";
 import type { TeamTask } from "../../shared/team";
 import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { Event, ToolPart } from "@opencode-ai/sdk/v2/client";
 import type { Role, Settings } from "../../shared/contracts";
+import { settingsSchema } from "../../shared/contracts";
 import type { FollowUp } from "../../shared/chat";
 import type {
   Run,
@@ -43,6 +45,7 @@ type Active = {
   secrets: string[];
   finished?: Promise<void>;
   seen: Set<string>;
+  approvedPermissions?: Set<string>;
   visibleSteps?: Map<string, string>;
   lastTextAt?: number;
   sourceObservation?: { version: string; at: number };
@@ -135,7 +138,9 @@ export class RunController {
         "Chỉ chạy một yêu cầu tại một thời điểm. Dừng task hiện tại trước.",
       );
     const project = this.store.project(projectId);
-    const settings = settingsSnapshot ?? this.store.settings();
+    const settings = settingsSchema.parse(
+      settingsSnapshot ?? this.store.settings(),
+    );
     const agent = settings.agents.find((a) => a.role === role);
     if (!settings.gatewayUrl)
       throw new Error("Cấu hình và lưu gateway trước khi chạy.");
@@ -542,6 +547,40 @@ export class RunController {
   }
   private onPermission(active: Active, permission: Permission): void {
     if (active.desired) return;
+    const owner = active.run.tasks.find(
+      (t) => t.id === active.run.currentTaskId,
+    );
+    if (
+      autoApproves(permission.permission, {
+        ...rolePolicy(owner?.role ?? active.run.role),
+        permissionMode: active.run.settings.permissionMode,
+      })
+    ) {
+      active.approvedPermissions ??= new Set();
+      const permissionKey = `${owner?.id ?? "direct"}:${permission.id}`;
+      if (active.approvedPermissions.has(permissionKey)) return;
+      active.approvedPermissions.add(permissionKey);
+      const runtime = active.runtime;
+      this.record(
+        active,
+        "PERMISSION_AUTO_APPROVED",
+        `${permission.permission} · Full access`,
+      );
+      void runtime?.reply(permission.id, true).catch((error) => {
+        if (
+          this.active === active &&
+          active.runtime === runtime &&
+          !active.desired
+        )
+          void this.stop(
+            active.run.id,
+            "failed",
+            "Không thể tự duyệt quyền công cụ.",
+            classifyFailure(error, active.secrets),
+          ).catch(() => {});
+      });
+      return;
+    }
     active.run.permissions.push({
       ...permission,
       patterns: permission.patterns.map((p) => redact(p, active.secrets)),
@@ -866,7 +905,10 @@ export class RunController {
     return run;
   }
   private launchQueued(item: FollowUp): Run {
-    if (JSON.stringify(item.settings) !== JSON.stringify(this.store.settings()))
+    if (
+      JSON.stringify(settingsSchema.parse(item.settings)) !==
+      JSON.stringify(this.store.settings())
+    )
       throw new Error(
         "Cấu hình đã thay đổi. Xóa yêu cầu và gửi lại với cấu hình mới.",
       );

@@ -47,6 +47,41 @@
   overflow: auto;
   padding: 8px 18px 18px;
 }
+.activity-summary {
+  padding: 12px 18px;
+}
+.activity-summary > p {
+  margin: 0 0 12px;
+}
+.activity-command {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #2c2c31;
+}
+.activity-command code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.activity-command > span {
+  flex-shrink: 0;
+}
+.technical-log {
+  margin-top: 12px;
+}
+.technical-log > summary {
+  cursor: pointer;
+  color: #9999a5;
+  font-size: 12px;
+}
+.technical-log .event-list {
+  padding: 0;
+}
 .event-row {
   display: flex;
   gap: 10px;

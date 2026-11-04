@@ -701,6 +701,9 @@ export function App() {
                   initialRunId={selectedRun}
                   saveSettings={save}
                   setModel={(role, model) => updateAgent(role, { model })}
+                  setPermissionMode={(permissionMode) =>
+                    setSettings({ ...settings, permissionMode })
+                  }
                   onNew={() => void newConversation()}
                   onChooseProject={() => void chooseProject()}
                   onSettings={() => navigate("settings")}
@@ -943,6 +946,28 @@ export function App() {
                             Runtime & công cụ
                           </h2>
                         </div>
+                        <label>
+                          Quyền thực thi
+                          <select
+                            value={settings.permissionMode ?? "ask"}
+                            disabled={!!busy || !!runtime.activeId}
+                            onChange={(event) =>
+                              setSettings({
+                                ...settings,
+                                permissionMode: event.target
+                                  .value as Settings["permissionMode"],
+                              })
+                            }
+                          >
+                            <option value="ask">Hỏi trước khi chạy</option>
+                            <option value="full-access">Full access</option>
+                          </select>
+                        </label>
+                        <p className="muted small">
+                          Full access tự duyệt lệnh bằng quyền Windows của bạn.
+                          Giữ phạm vi vai trò và giới hạn lượt chạy. Áp dụng cho
+                          lượt mới.
+                        </p>
                         <label>
                           OpenCode executable
                           <div className="input-actions">

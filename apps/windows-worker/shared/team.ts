@@ -66,6 +66,10 @@ export const planSchema = z
   })
   .strict();
 export type TeamPlan = z.infer<typeof planSchema>;
+export const leadDecisionSchema = z.union([
+  z.object({ reply: z.string().trim().min(1).max(12000) }).strict(),
+  planSchema,
+]);
 export const legacyReviewSchema = z
   .object({
     status: z.enum(["completed", "fix", "blocked"]),

@@ -64,6 +64,45 @@ test("direct role profiles and runtime permissions stay consistent with and with
   }
 });
 
+test("Full access auto-allows commands for shell roles while preserving role, scope and secret policies", () => {
+  for (const role of roles) {
+    const run = runFor(role, tmpdir());
+    run.profiles = loadProfiles();
+    run.settings.permissionMode = "full-access";
+    for (const task of [
+      undefined,
+      {
+        role,
+        kind: "work",
+        title: "Implement",
+        instructions: "Work",
+        allowedPaths: ["src"],
+      } as TeamTask,
+    ]) {
+      if (task) task.skillSelection = selectTaskSkills(run, task);
+      const context = runtimeContext(run, task);
+      const permissions = runtimePermissions(run.workspace, context);
+      assert.equal(
+        permissions.bash,
+        ["lead", "pm", "ba"].includes(role) ? "deny" : "allow",
+      );
+      assert.equal(permissions.doom_loop, "allow");
+      assert.equal(permissions.external_directory, "deny");
+      assert.equal(permissions.task, "deny");
+      assert.equal(permissions.read["**/.env"], "deny");
+      if (["lead", "pm", "ba", "test"].includes(role))
+        assert.equal(permissions.edit, "deny");
+      else {
+        assert.notEqual(typeof permissions.edit, "string");
+        if (typeof permissions.edit !== "string") {
+          assert.equal(permissions.edit["**/.env"], "deny");
+          if (task) assert.equal(permissions.edit["src/**"], "allow");
+        }
+      }
+    }
+  }
+});
+
 test("team and direct use the same policy; missing profile fails closed and task scope remains narrow", () => {
   const run = runFor("lead", tmpdir());
   run.profiles = loadProfiles();
@@ -180,7 +219,11 @@ test("profile snapshots record content versions and hashes; selected direct role
   for (const profile of profiles) {
     assert.equal(
       profile.version,
-      ["pm", "ba"].includes(profile.role) ? "1.1.0" : "1.2.0",
+      profile.role === "lead"
+        ? "1.3.0"
+        : ["pm", "ba"].includes(profile.role)
+          ? "1.1.0"
+          : "1.2.0",
     );
     assert.equal(
       profile.hash,

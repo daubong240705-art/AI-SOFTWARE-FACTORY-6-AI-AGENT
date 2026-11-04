@@ -90,6 +90,10 @@ function fixture() {
   const internal = controller as unknown as {
     active: typeof active | undefined;
     onEvent(active: unknown, event: Event, reconciled?: boolean): Promise<void>;
+    onPermission(
+      active: unknown,
+      permission: { id: string; permission: string; patterns: string[] },
+    ): void;
     step(
       active: unknown,
       key: string | undefined,
@@ -427,6 +431,105 @@ test("permission rejection and repeated Stop preserve the first cause and hold t
     await x.controller.stop(x.run.id);
     assert.equal(x.run.failure?.code, "permission-denied");
     assert.equal(x.run.state, "failed");
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("Full access fallback approves only permitted requests using the immutable run snapshot; manual mode still waits", async () => {
+  const x = fixture();
+  try {
+    const work = task(x.run);
+    x.run.tasks.push(work);
+    x.run.currentTaskId = work.id;
+    x.run.state = "running";
+    x.run.settings.permissionMode = "full-access";
+    let replies = 0;
+    x.active.runtime = {
+      reply: async (id: string, allow: boolean) => {
+        assert.equal(id, "auto");
+        assert.equal(allow, true);
+        replies++;
+      },
+    };
+    const changed = structuredClone(x.run.settings);
+    changed.permissionMode = "ask";
+    x.store.save(changed, undefined);
+    x.internal.onPermission(x.active, {
+      id: "auto",
+      permission: "bash",
+      patterns: ["npm test"],
+    });
+    await Promise.resolve();
+    assert.equal(replies, 1);
+    assert.equal(x.run.state, "running");
+    assert.deepEqual(x.run.permissions, []);
+    assert.ok(
+      x.store
+        .events(x.run.id)
+        .some((event) => event.type === "PERMISSION_AUTO_APPROVED"),
+    );
+    x.internal.onPermission(x.active, {
+      id: "auto",
+      permission: "bash",
+      patterns: ["npm test"],
+    });
+    assert.equal(replies, 1, "replayed permission event must not reply twice");
+    x.run.settings.permissionMode = "ask";
+    x.internal.onPermission(x.active, {
+      id: "manual",
+      permission: "bash",
+      patterns: ["npm test"],
+    });
+    assert.equal(x.run.state, "blocked");
+    assert.equal(x.run.permissions.length, 1);
+    assert.equal(replies, 1);
+    x.run.permissions = [];
+    x.run.settings.permissionMode = "full-access";
+    x.run.currentTaskId = null;
+    x.run.role = "lead";
+    x.internal.onPermission(x.active, {
+      id: "denied-role",
+      permission: "bash",
+      patterns: ["npm test"],
+    });
+    assert.equal(replies, 1);
+    assert.equal(x.run.permissions[0].id, "denied-role");
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("failed Full access approval stops the run; a stopped execution cannot approve later requests", async () => {
+  const x = fixture();
+  try {
+    const work = task(x.run);
+    x.run.tasks.push(work);
+    x.run.currentTaskId = work.id;
+    x.run.settings.permissionMode = "full-access";
+    let replies = 0;
+    x.active.runtime = {
+      reply: async () => {
+        replies++;
+        throw new Error("Approval connection closed");
+      },
+      close: async () => {},
+    };
+    x.internal.onPermission(x.active, {
+      id: "failed",
+      permission: "bash",
+      patterns: ["npm test"],
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(x.run.state, "failed");
+    assert.equal(x.run.failure?.code, "runtime");
+    assert.equal(x.controller.view().activeId, null);
+    x.internal.onPermission(x.active, {
+      id: "late",
+      permission: "bash",
+      patterns: ["npm test"],
+    });
+    assert.equal(replies, 1);
   } finally {
     x.cleanup();
   }

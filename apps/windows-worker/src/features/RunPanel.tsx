@@ -8,6 +8,7 @@ import { CommandEvidence } from "./CommandEvidence";
 import { AcceptanceEvidence } from "./AcceptanceEvidence";
 import { ExecutionFacts } from "./ExecutionFacts";
 import { failureLabels } from "../../shared/execution";
+import { ActivityLog } from "./ActivityLog";
 
 export function RunPanel({
   detail,
@@ -34,30 +35,34 @@ export function RunPanel({
         </span>
       </div>
     );
-  const { run, events } = detail;
+  const { run } = detail;
+  const workTasks = run.tasks.filter((task) =>
+    ["work", "fix"].includes(task.kind),
+  );
   return (
     <div className="run-panel">
       <div className="run-header">
         <span className={`run-state ${run.state}`}>{runLabels[run.state]}</span>
-        <span className="muted small">
-          {run.role.toUpperCase()} · {run.model}
+        <span className="muted small" title={run.model}>
+          {run.role.toUpperCase()}
+          {tab !== "activity" ? ` · ${run.model}` : ""}
         </span>
-        <span className="muted small">
-          {formatRequestUsage(run.requests, run.settings.maxRequests)}
-        </span>
-      </div>
-      {run.mode === "team" && tab === "activity" && (
-        <div className="task-board">
-          <div className="small muted">
-            Vòng sửa {run.fixRound}/{run.settings.maxFixRounds} ·{" "}
+        {run.settings.permissionMode === "full-access" && (
+          <span className="pill">Full access</span>
+        )}
+        {tab !== "activity" && (
+          <span className="muted small">
             {formatRequestUsage(run.requests, run.settings.maxRequests)}
-          </div>
-          {run.tasks.map((task) => (
-            <details
-              className={`team-task ${task.state}`}
-              key={task.id}
-              open={task.state === "running" || task.state === "blocked"}
-            >
+          </span>
+        )}
+      </div>
+      {run.mode === "team" && tab === "activity" && workTasks.length > 0 && (
+        <div className="task-board">
+          {run.fixRound > 0 && (
+            <div className="small muted">Vòng sửa {run.fixRound}</div>
+          )}
+          {workTasks.map((task) => (
+            <details className={`team-task ${task.state}`} key={task.id}>
               <summary>
                 <span className="pill">{task.role.toUpperCase()}</span>
                 <strong>{task.title}</strong>
@@ -142,22 +147,7 @@ export function RunPanel({
             </div>
           </section>
         ))}
-      {tab === "activity" && (
-        <div className="event-list">
-          {events.map((event) => (
-            <div className="event-row" key={event.sequence}>
-              <span className="event-marker" />
-              <time>{new Date(event.at).toLocaleTimeString("vi-VN")}</time>
-              <div>
-                <span className="event-type">
-                  {event.type.replaceAll("_", " ").toLowerCase()}
-                </span>
-                <p>{event.text}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {tab === "activity" && <ActivityLog key={run.id} detail={detail} />}
       {tab === "changes" && <ChangesPanel key={run.id} run={run} />}
       {tab === "result" && (
         <div className="run-result">

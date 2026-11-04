@@ -24,6 +24,7 @@ import { defaultSettings } from "../shared/defaults";
 import { normalizeRun, type Run } from "../shared/runs";
 import {
   planSchema,
+  leadDecisionSchema,
   safePath,
   validatePlan,
   inScope,
@@ -36,6 +37,115 @@ import {
   TeamBlocked,
   validateReview,
 } from "../electron/team/coordinator";
+import { runtimeContext } from "../electron/team/policy";
+
+test("Lead conversations finish with one decision, preserve history and ask naturally without scheduling workers", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "asf-lead-chat-"));
+  const source = join(directory, "source");
+  mkdirSync(source);
+  const store = new Store(join(directory, "data"));
+  try {
+    const project = store.addProject(source);
+    const conversation = store.conversations.create(project.id);
+    const turns = [
+      ["hi", "Chào bạn! Bạn muốn trao đổi gì hôm nay?"],
+      [
+        "Tôi muốn làm app quản lý",
+        "Bạn muốn quản lý công việc hay khách hàng?",
+      ],
+    ];
+    for (const [prompt, reply] of turns) {
+      const run = fixture(source);
+      run.projectId = project.id;
+      run.conversationId = conversation.id;
+      run.prompt = prompt;
+      run.context = store.conversations.context(conversation.id, project.id);
+      store.createRun(run);
+      let calls = 0;
+      await coordinate(
+        run,
+        async (task, instructions) => {
+          calls++;
+          assert.equal(task.kind, "plan");
+          const context = runtimeContext(run, task, instructions);
+          if (prompt !== "hi") assert.match(context.prompt, /Chào bạn!/);
+          return JSON.stringify({ reply });
+        },
+        () => {},
+        () => {},
+      );
+      store.updateRun(run);
+      assert.equal(calls, 1);
+      assert.equal(run.summary, reply);
+      assert.equal(run.state, "completed");
+      assert.equal(run.review, null);
+      assert.equal(run.tasks.length, 1);
+      assert.equal(run.tasks[0].state, "completed");
+    }
+    const messages = store.conversations.get(conversation.id).messages;
+    assert.equal(messages.length, 4);
+    assert.equal(messages[3].content, turns[1][1]);
+  } finally {
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("Lead reply cannot smuggle work or bypass the existing single schema repair", async () => {
+  for (const reply of ["", "   ", "x".repeat(12001)])
+    assert.equal(leadDecisionSchema.safeParse({ reply }).success, false);
+  assert.equal(
+    leadDecisionSchema.safeParse({ reply: "OK", tasks: [] }).success,
+    false,
+  );
+  const directory = mkdtempSync(join(tmpdir(), "asf-lead-schema-"));
+  try {
+    const run = fixture(directory);
+    let calls = 0;
+    await coordinate(
+      run,
+      async () => {
+        calls++;
+        return JSON.stringify(
+          calls === 1
+            ? { reply: "OK", tasks: [] }
+            : { reply: "Bạn muốn bắt đầu ở đâu?" },
+        );
+      },
+      () => {},
+      () => {},
+    );
+    assert.equal(calls, 2);
+    assert.equal(run.tasks[0].failure?.code, "invalid-output");
+    assert.equal(run.summary, "Bạn muốn bắt đầu ở đâu?");
+    assert.ok(run.tasks.every((task) => task.kind === "plan"));
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a conversational reply still fails when Lead changes readonly source", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "asf-lead-readonly-"));
+  try {
+    const run = fixture(directory);
+    await assert.rejects(
+      coordinate(
+        run,
+        async () => {
+          writeFileSync(join(directory, "unexpected.txt"), "change");
+          return JSON.stringify({ reply: "Xong" });
+        },
+        () => {},
+        () => {},
+      ),
+      TeamBlocked,
+    );
+    assert.equal(run.summary, "");
+    assert.equal(run.tasks[0].failure?.code, "scope-violation");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 function fixture(workspace: string): Run {
   const settings = defaultSettings();

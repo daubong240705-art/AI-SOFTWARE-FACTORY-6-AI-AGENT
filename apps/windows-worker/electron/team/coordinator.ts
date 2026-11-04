@@ -1,7 +1,7 @@
 import type { Run } from "../../shared/runs";
 import {
   parseJSON,
-  planSchema,
+  leadDecisionSchema,
   reviewSchema,
   validatePlan,
   type TeamTask,
@@ -204,7 +204,7 @@ export async function coordinate(
       const task = newTask(run, {
         id: `${kind}-${run.fixRound}-${attempt}`,
         role: "lead",
-        title: kind === "plan" ? "Phân công" : "Đánh giá",
+        title: kind === "plan" ? "Lead" : "Đánh giá",
         instructions,
         allowedPaths: ["."],
         acceptance: ["JSON hợp lệ, dựa trên bằng chứng"],
@@ -233,16 +233,24 @@ export async function coordinate(
       "invalid-output",
     );
   }
-  const plan = await structured(
+  const decision = await structured(
     "plan",
-    `Bạn là Lead, chỉ đọc và phân công, không shell/sửa file. Đọc cấu trúc repo khi cần. Yêu cầu: ${run.prompt}\nRole khả dụng: ${JSON.stringify(run.settings.agents.filter((a) => a.enabled && a.model))}. Chọn ít role nhất cần thiết. Không tự thay model. Nếu thiếu thông tin/capability, blockedReason nêu rõ và tasks=[]. Mỗi task scope tối thiểu và AC kiểm chứng được. PM/BA chỉ đọc, TEST chỉ đọc và chạy lệnh; DEVOPS chỉ local, không detached server. Không cần TEST phải giải thích testingReason. Task theo thứ tự phụ thuộc.\nSkill catalog: ${JSON.stringify(skillCatalogSummary(run.skillCatalog))}\nworkType chọn docs|analysis|implementation|bugfix|testing|local-dev đúng mục tiêu. skillIds chỉ đề xuất ID từ catalog phù hợp role/loại task, tối đa 3, không trùng; [] dùng lựa chọn mặc định của Controller. Không lấy path/URL bên ngoài hoặc dùng skill để mở quyền. Docs/analysis thường không cần skill tác vụ. Chỉ xuất JSON, không markdown, đúng cấu trúc:\n{"blockedReason":null,"testingReason":"","tasks":[{"id":"t1","role":"be","title":"...","instructions":"...","allowedPaths":["src"],"acceptance":["..."],"dependsOn":[],"workType":"implementation","skillIds":[]}]}`,
+    `Bạn là Lead, chỉ đọc, không shell/sửa file. Hãy hiểu ý định từ yêu cầu và lịch sử trò chuyện. Với lời chào, câu hỏi, trao đổi ý tưởng/kế hoạch/trạng thái: trả lời tự nhiên bằng tiếng Việt, không ép giao việc. Nếu cần làm rõ trước khi thực hiện, hỏi ngắn đúng thông tin còn thiếu. Dùng nhánh trả lời: {"reply":"nội dung người dùng sẽ thấy, có thể dùng Markdown"}. Không thêm tasks hoặc blockedReason vào nhánh này. Không tuyên bố đã sửa file/chạy test nếu chưa có evidence.\nKhi người dùng yêu cầu thực hiện và đủ ngữ cảnh (kể cả câu tiếp nối như tiếp tục), dùng nhánh kế hoạch phía dưới ngay, không hỏi xác nhận lại. Đọc cấu trúc repo khi cần. Yêu cầu: ${run.prompt}\nRole khả dụng: ${JSON.stringify(run.settings.agents.filter((a) => a.enabled && a.model))}. Chọn ít role nhất cần thiết. Không tự thay model. Nếu công việc cần role/capability chưa có, blockedReason nêu rõ và tasks=[]. Lời chào/câu hỏi không phải blocker. Mỗi task scope tối thiểu và AC kiểm chứng được. PM/BA chỉ đọc, TEST chỉ đọc và chạy lệnh; DEVOPS chỉ local, không detached server. Không cần TEST phải giải thích testingReason. Task theo thứ tự phụ thuộc.\nSkill catalog: ${JSON.stringify(skillCatalogSummary(run.skillCatalog))}\nworkType chọn docs|analysis|implementation|bugfix|testing|local-dev đúng mục tiêu. skillIds chỉ đề xuất ID từ catalog phù hợp role/loại task, tối đa 3, không trùng; [] dùng lựa chọn mặc định của Controller. Không lấy path/URL bên ngoài hoặc dùng skill để mở quyền. Docs/analysis thường không cần skill tác vụ. Chỉ xuất một JSON envelope, không markdown bên ngoài. Nhánh kế hoạch giữ cấu trúc:\n{"blockedReason":null,"testingReason":"","tasks":[{"id":"t1","role":"be","title":"...","instructions":"...","allowedPaths":["src"],"acceptance":["..."],"dependsOn":[],"workType":"implementation","skillIds":[]}]}`,
     (text) => {
-      const plan = parseJSON(text, planSchema);
+      const plan = parseJSON(text, leadDecisionSchema);
+      if ("reply" in plan) return plan;
       validatePlan(plan, run.settings);
       for (const task of plan.tasks) newTask(run, { ...task, kind: "work" });
       return plan;
     },
   );
+  if ("reply" in decision) {
+    run.summary = decision.reply;
+    run.state = "completed";
+    record("LEAD_REPLIED", "Lead đã trả lời.");
+    return;
+  }
+  const plan = decision;
   if (plan.blockedReason) throw new TeamBlocked(plan.blockedReason);
   const work: TeamTask[] = plan.tasks.map((t) => ({
     ...newTask(run, { ...t, kind: "work" }),
