@@ -60,6 +60,13 @@ def error_response(request: Request, status: int, code: str, message: str) -> JS
 async def request_context(request: Request, call_next: Any) -> Any:
     request.state.request_id = str(uuid.uuid4())
     started = time.monotonic()
+    if request.method not in {"GET", "HEAD", "OPTIONS"} and not request.url.path.startswith(
+        "/api/auth/"
+    ):
+        with engine.connect() as connection:
+            revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+        if revision == "0004_agents":
+            return error_response(request, 503, "schema_maintenance", "Rollback mode is read-only")
     try:
         response = await call_next(request)
     except Exception:
@@ -111,7 +118,7 @@ def readiness() -> JSONResponse:
             checkpoints = connection.execute(
                 text("SELECT to_regclass('asf_checkpoints.checkpoints') IS NOT NULL")
             ).scalar()
-            checks["schema"] = version == "0003_auth" and bool(checkpoints)
+            checks["schema"] = version in {"0003_auth", "0004_agents"} and bool(checkpoints)
     except Exception:
         logger.warning("Database readiness check failed")
     try:
