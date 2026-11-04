@@ -1,6 +1,6 @@
 # Agent runtime và quản lý worker
 
-Mốc phát triển ngày 04/11/2026. Code ở nhánh Phase 5; production vẫn v0.1. Không coi phần này là nghiệm thu toàn Phase 5 hoặc dự án mẫu Phase 6.
+Runtime Phase 5 đã phát hành lên production ngày 04/11/2026. Kết quả hiện hành ở [nghiệm thu Phase 5](phase-5-completion.md); các số liệu probe dưới đây là mốc phát triển riêng, không phải nghiệm thu dự án mẫu Phase 6.
 
 ## Sử dụng trong dashboard
 
@@ -12,8 +12,8 @@ Trang này hiển thị catalog model do quản trị cấu hình và hướng d
 
 ## Giới hạn model
 
-- `ASF_CODING_MODEL_REQUESTS=8`: tối đa request thực sự từ proxy ra gateway trên một lease coding.
-- `ASF_CODING_MODEL_ALLOWANCE=60000`: ngân sách mặc định cho một grant; cấp ít hơn nếu run không còn đủ ngân sách. Không cấp lease mới nếu còn dưới 5.000.
+- `ASF_CODING_MODEL_REQUESTS=8`: mặc định mã nguồn; production đặt 12. Giới hạn request thực sự từ proxy ra gateway trên một lease coding.
+- `ASF_CODING_MODEL_ALLOWANCE=60000`: mặc định mã nguồn; production đặt 90000. Đây là ngân sách cho một grant; cấp ít hơn nếu run không còn đủ ngân sách. Không cấp lease mới nếu còn dưới 5.000.
 - `ASF_CODING_MODEL_OUTPUT_TOKENS=1000`: clamp output mỗi request. Không cho nhiều completion (`n > 1`).
 - Mỗi execution có token proxy random, origin HTTPS và model cố định. Child container không nhận API key thật; parent giữ key. Token hết hiệu lực khi proxy kết thúc.
 - Trước khi gửi, dự phòng số byte JSON + 1.024 + output. Khi có usage đáng tin cậy từ gateway, thay charge dự phòng bằng input + output được báo. Response thiếu usage hoặc giao nhận lỗi giữ reservation bảo thủ. Model usage trong report ghi rõ unknown bằng null.
@@ -44,4 +44,4 @@ Probe hiện hành đạt với **5 request**, read/edit/glob đều có event c
 
 ## Phạm vi tiếp theo
 
-Chưa triển khai loader skill từ repo/task, shell tùy ý hoặc quyền SSH cho agent. Profile lệnh lint/build được pin, browser/API acceptance theo sản phẩm và quản trị integration profile bằng UI là phần mở rộng tiếp theo. Phát hành Phase 5 lên production còn cần nghiệm thu migration/rollback schema 0004 và chạy lại toàn chuỗi trên image cuối; xem [tiến độ Phase 5](phase-5-progress.md).
+Chưa triển khai loader skill từ repo/task, shell tùy ý hoặc quyền SSH cho agent. Profile lệnh lint/build được pin, browser/API acceptance theo sản phẩm và quản trị integration profile bằng UI là phần mở rộng tiếp theo. Kết quả migration/rollback schema 0004 và chuỗi trên image production được ghi riêng trong [nghiệm thu Phase 5](phase-5-completion.md).

@@ -1,5 +1,7 @@
 ﻿# Vận hành ASF v0.1
 
+> Quy trình nền từ Phase4. Các thay đổi live agent, schema0004 và rollback bridge hiện hành xem [vận hành Phase5](operations-v0.2.md).
+
 ## Truy cập và thành phần
 
 URL `https://asf.lazy.local`: DNS → Caddy `.51` → dashboard/BFF `.14:18100` → API. Health `/healthz`, `/readyz` đi API `.14:18101`. Máy khách phải tin CA nội bộ `caddy-root.crt`. NetBird sử dụng subnet route hiện có và DNS nội bộ; cần kiểm tra từ client ngoài LAN riêng.

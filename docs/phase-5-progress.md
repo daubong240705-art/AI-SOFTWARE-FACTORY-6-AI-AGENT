@@ -1,5 +1,6 @@
 # Phase 5 — Tích hợp và worker: mốc phát triển đầu tiên
 
+> Tài liệu mốc phát triển trước phát hành, giữ lại để đối chiếu lịch sử. Trạng thái production hiện hành xem [nghiệm thu Phase5](phase-5-completion.md) và [vận hành](operations-v0.2.md).
 Ngày 04/11/2026, Asia/Saigon. **Phase 5 đang thực hiện, chưa nghiệm thu toàn phase, chưa phát hành v0.2.** Đây là phần triển khai ban đầu theo [lộ trình](../plan/lo-trinh-code-v0.md). Production vẫn chạy v0.1 SHA `12928ef64d6fc92ef1893c3a948d3573a3483c0c`.
 
 ## Cập nhật mốc staging

@@ -1,8 +1,8 @@
 # AI Software Factory
 
-Nền tảng self-hosted điều phối sáu role PM, BA, BE, FE, TEST, DEVOPS. **ASF v0.1 / Phase 4** chạy tại <https://asf.lazy.local>, có dashboard đăng nhập, quản lý project/run, plan/spec, phê duyệt theo phiên bản và timeline SSE từ PostgreSQL. PM/BA tạo plan/spec; BE/FE/TEST/DEVOPS chưa thực thi code/test/deploy.
+Nền tảng self-hosted điều phối sáu role PM, BA, BE, FE, TEST, DEVOPS tại <https://asf.lazy.local>. Phase5 có GitLab/OpenProject, worker coding qua OpenCode, model và kỹ năng cố định theo run, test trong sandbox và phê duyệt spec/release theo đúng phiên bản. Dashboard gọn theo tham khảo 9Router, dùng được trên desktop/mobile.
 
-Repo CI/deploy nội bộ: <https://gitlab.lazy.local/ai-factory/ai-software-factory>. Xem [kết quả triển khai](docs/phase-4-completion.md) và [hướng dẫn vận hành, backup/restore/rollback](docs/operations-v0.1.md). Máy truy cập cần DNS nội bộ và tin CA Caddy. Tài khoản do admin cấp, không có mật khẩu mặc định.
+Repo CI/deploy nội bộ: <https://gitlab.lazy.local/ai-factory/ai-software-factory>. Xem [kết quả Phase5](docs/phase-5-completion.md), [vận hành](docs/operations-v0.2.md) và [agent runtime](docs/agent-runtime.md). Máy truy cập cần DNS nội bộ và tin CA Caddy. Tài khoản do admin cấp, không có mật khẩu mặc định. Pipeline thường chỉ chạy hai bước kiểm tra; build image khi phát hành với `BUILD_RELEASE=1`.
 
 ## Chạy dev bằng Docker
 
@@ -87,7 +87,7 @@ Slug trùng trả 409; input sai 422; không tìm thấy 404. Error envelope có
 | POST | `/api/runs/{id}/cancel` | Hủy và chặn kết quả worker cũ, yêu cầu `comment` |
 | GET | `/api/roles` | Ma trận quyền và vai trò đã/chưa triển khai |
 
-Luồng: `created → planning → waiting_approval → running → waiting_integration`. Chỉ một run active toàn nền tảng; trạng thái chờ duyệt vẫn giữ slot. Reject giữ lịch sử, retry tạo spec version mới. Retry lỗi kỹ thuật tiếp tục checkpoint/version cũ. Không tự duyệt; chỉ quyết định đã lưu đúng version/hash mới mở gate. **`waiting_integration` là ranh giới chưa có development, không phải completed/deployed.**
+Với dự án chưa có integration: `created → planning → waiting_approval → running → waiting_integration`. Dự án live đã nối profile/worker tiếp tục BE/FE/TEST/DEVOPS và kết thúc sau khi xác minh deployment. Chỉ một run active toàn nền tảng; trạng thái chờ duyệt vẫn giữ slot. Reject giữ lịch sử, retry tạo spec version mới. Retry lỗi kỹ thuật tiếp tục checkpoint/version cũ và giữ candidate của công đoạn đã hoàn tất khi đủ điều kiện. Không tự duyệt; chỉ quyết định đã lưu đúng version/hash mới mở gate. **`waiting_integration` chưa phải completed/deployed.**
 
 Mọi API nghiệp vụ yêu cầu phiên đăng nhập, ở tất cả environment. `/healthz` và `/readyz` công khai cho kiểm tra vận hành. `/api/auth/login`, `/api/auth/me`, `/api/auth/logout` quản lý phiên; `/api/users` (GET/POST) và `/api/users/{id}` (PATCH role/active) chỉ cho admin. Backend từ chối trường `actor` tự khai báo. Approval lưu username, user ID và nguồn danh tính; bản ghi Phase 2 được đánh dấu `legacy_unverified_dev` và không trở thành quyết định đã xác thực sau migration.
 
@@ -118,7 +118,7 @@ Chỉ chạy integration trên DB dev dùng riêng, đã migrate, không DB đan
 ASF_INTEGRATION_TEST=1 ASF_QUEUE_NAME=asf-test uv run pytest -m integration
 ```
 
-Dừng dispatcher/worker của DB kiểm thử khi chạy suite (tests tự drive job). Kiểm chứng UI tập trung nằm ở `tests/dashboard-smoke.cjs`, dùng Playwright trong browser riêng và tài khoản admin của stack disposable; xem hướng dẫn biến môi trường đầu file. Credential, browser storage state và ảnh bằng chứng để ngoài repo. Đây là acceptance Phase 3; bộ e2e/template đầy đủ vẫn ở Phase 6.
+Dừng dispatcher/worker của DB kiểm thử khi chạy suite (tests tự drive job). Kiểm chứng UI tập trung nằm ở `tests/dashboard-smoke.cjs`, dùng Playwright trong browser riêng và tài khoản admin của stack disposable; xem hướng dẫn biến môi trường đầu file. Credential và browser storage state để ngoài repo; ảnh bằng chứng phải không chứa secret. Script này là acceptance Phase 3; kiểm chứng live hiện hành ở [kết quả Phase 5](docs/phase-5-completion.md).
 
 Migration: `uv run alembic current`, `uv run alembic upgrade head`, rồi `uv run python -m orchestrator.checkpoints`. Alembic quản lý public schema; LangGraph quản lý schema `asf_checkpoints`. Dừng dispatcher/worker trước downgrade. `downgrade base` **xóa dữ liệu**, chỉ kiểm chứng trên DB disposable. Không dùng `Base.metadata.create_all()` thay migration.
 
@@ -128,6 +128,7 @@ Migration: `uv run alembic current`, `uv run alembic upgrade head`, rồi `uv ru
 - [Kết quả Phase 1](docs/phase-1-completion.md)
 - [Kết quả Phase 2](docs/phase-2-completion.md)
 - [Kết quả Phase 3](docs/phase-3-completion.md)
+- [Kết quả Phase 4](docs/phase-4-completion.md), [Phase 5](docs/phase-5-completion.md)
 - [Kiểm kê hạ tầng](docs/infra-inventory.md), [worker .60](docs/worker-bootstrap-2026-11-04.md)
-- `.14` dành cho bản staging sau Phase 4; kiểm chứng hiện tại chạy stack dev riêng trên `.60`.
-- Không có API key/mật khẩu hạ tầng trong code, image hoặc frontend. Gateway key chỉ nạp lúc chạy worker; GitLab/OpenProject dùng identity giới hạn quyền ở phase tích hợp sau.
+- `.14` chạy control plane và staging tổng hợp; `.60` chạy runner/coding worker. DB kiểm thử tách khỏi production.
+- Không có API key/mật khẩu hạ tầng trong code, image hoặc frontend. Gateway key chỉ ở workflow/coding parent; GitLab/OpenProject dùng bot giới hạn quyền theo profile.
