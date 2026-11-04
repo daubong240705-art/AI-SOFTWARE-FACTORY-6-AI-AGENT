@@ -1,5 +1,7 @@
 # ASF Windows Worker
 
+**Bản phát triển V1.2A (`1.2.0-alpha.1`)** bổ sung tab **Workspace**: tạo Git worktree từ HEAD sạch, mở làm project độc lập, phục hồi ownership và dọn worktree sạch có xác nhận. Source/index gốc giữ nguyên; chưa chạy song song hoặc tự merge. Repo có thay đổi chưa commit/submodule/filter sẽ bị chặn. [Hướng dẫn và giới hạn](../../docs/windows-worker/v1.2a-completion.md), [các đợt V1.2](../../plan/v1.2/README.md).
+
 V1.1: chat theo project, Lead và sáu vai trò qua OpenCode 1.19.5 + 9Router, Full access, checkpoint và tiếp tục công việc sau gián đoạn, quản lý cây tiến trình Windows, lệnh npm/preview local, xuất báo cáo và dọn lịch sử. Xem [phạm vi V1.1](../../plan/v1.1/VERSION_SCOPE.md) và [báo cáo hoàn thiện](../../docs/windows-worker/v1.1-completion.md).
 
 ## Chạy ứng dụng

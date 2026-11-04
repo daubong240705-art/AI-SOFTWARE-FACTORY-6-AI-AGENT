@@ -12,6 +12,7 @@ import { WorkerError, classifyFailure, failure } from "../runtime/failure";
 import { emptyMetrics, addUsage, syncMetrics } from "../runtime/metrics";
 import { autoApproves } from "../runtime/permissions";
 import { recoverOwnedJobs } from "../runtime/owned-process";
+import { Worktrees } from "../workspace/worktrees";
 import {
   checkpoint,
   inspectWorkspace,
@@ -249,6 +250,15 @@ export class RunController {
     try {
       const canonical = await canonicalDirectory(run.workspace);
       await recoverOwnedJobs(this.directory);
+      const owned = await new Worktrees(this.directory).owner(canonical);
+      if (owned) {
+        run.workspaceOrigin = {
+          id: owned.id,
+          source: owned.source,
+          baseHead: owned.head,
+        };
+        this.record(active, "WORKSPACE_OWNED", owned.id);
+      }
       if (canonical.toLowerCase() !== run.workspace.toLowerCase())
         throw new Error(
           "Đường dẫn source đã thay đổi. Chọn lại dự án trước khi chạy.",

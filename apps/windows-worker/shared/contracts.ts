@@ -115,6 +115,20 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  workspaces(
+    projectId: string,
+  ): Promise<Reply<import("./worktrees").OwnedWorkspace[]>>;
+  createWorkspace(
+    projectId: string,
+  ): Promise<Reply<import("./worktrees").OwnedWorkspace>>;
+  openWorkspace(id: string): Promise<Reply<Project>>;
+  recoverWorkspace(
+    id: string,
+  ): Promise<Reply<import("./worktrees").OwnedWorkspace>>;
+  previewWorkspaceRemoval(
+    id: string,
+  ): Promise<Reply<import("./worktrees").WorkspaceRemoval>>;
+  removeWorkspace(token: string): Promise<Reply<void>>;
   recovery(id: string): Promise<Reply<import("./lifecycle").RecoveryPreview>>;
   continueRecovery(token: string): Promise<Reply<Run>>;
   exportRun(id: string): Promise<Reply<boolean>>;

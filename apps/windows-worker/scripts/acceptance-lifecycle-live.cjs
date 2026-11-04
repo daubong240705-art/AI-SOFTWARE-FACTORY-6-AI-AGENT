@@ -17,9 +17,13 @@ const { settingsSchema } = require("../shared/contracts.ts");
 const { git } = require("../electron/workspace/git-evidence.ts");
 const { recoverOwnedJobs } = require("../electron/runtime/owned-process.ts");
 const { redact } = require("../electron/runtime/security.ts");
+const { Worktrees } = require("../electron/workspace/worktrees.ts");
+const isolated = process.argv.includes("--worktree");
 const artifacts = resolve(
   __dirname,
-  "../../../.cache/asf-research/lifecycle-live",
+  isolated
+    ? "../../../.cache/asf-research/workspaces-live"
+    : "../../../.cache/asf-research/lifecycle-live",
 );
 mkdirSync(artifacts, { recursive: true });
 const directory = mkdtempSync(join(artifacts, "data-"));
@@ -77,7 +81,14 @@ app.whenReady().then(async () => {
     await git(source, ["config", "user.email", "fixture@example.invalid"]);
     await git(source, ["add", "."]);
     await git(source, ["commit", "-m", "fixture baseline"]);
-    const project = store.addProject(source);
+    const originalProject = store.addProject(source);
+    const worktrees = new Worktrees(directory, (path) =>
+      store.workspaceReferenced(path),
+    );
+    const owned = isolated
+      ? await worktrees.create(originalProject.id, source)
+      : null;
+    const project = owned ? store.addProject(owned.path) : originalProject;
     const conversation = store.conversations.create(project.id);
     controller = new RunController(store, directory, () => secret);
     async function wait(run) {
@@ -114,7 +125,7 @@ app.whenReady().then(async () => {
       ["sum.cjs"],
     );
     assert.ok(first.metrics.requests > 0);
-    const altered = readFileSync(join(source, "sum.cjs"), "utf8");
+    const altered = readFileSync(join(project.path, "sum.cjs"), "utf8");
     const stopped = controller.start(
       project.id,
       "Đọc sum.cjs hiện tại và trả lời ngắn chức năng. Không shell, không sửa file.",
@@ -129,7 +140,7 @@ app.whenReady().then(async () => {
     );
     assert.equal(recovered.recoveryOf, stopped.id);
     assert.equal(recovered.changes.length, 0);
-    assert.equal(readFileSync(join(source, "sum.cjs"), "utf8"), altered);
+    assert.equal(readFileSync(join(project.path, "sum.cjs"), "utf8"), altered);
     const third = await wait(
       controller.start(
         project.id,
@@ -143,6 +154,22 @@ app.whenReady().then(async () => {
     assert.ok(third.tasks.every((t) => t.kind === "plan"));
     assert.equal(third.changes.length, 0);
     await recoverOwnedJobs(directory);
+    if (owned) {
+      assert.deepEqual(first.workspaceOrigin, {
+        id: owned.id,
+        source,
+        baseHead: owned.head,
+      });
+      assert.equal(
+        readFileSync(join(source, "sum.cjs"), "utf8"),
+        "module.exports = (a, b) => a - b;\n",
+      );
+      assert.equal(
+        (await git(source, ["status", "--porcelain"])).toString(),
+        "",
+      );
+      await assert.rejects(worktrees.previewRemoval(owned.id), /tham chiếu/);
+    }
     const reports = [first, recovered, third].map((r) =>
       JSON.parse(store.report(r.id, [secret])),
     );
@@ -151,7 +178,9 @@ app.whenReady().then(async () => {
       JSON.stringify(
         {
           passed: true,
-          kind: "real-9router-opencode",
+          kind: isolated
+            ? "real-9router-owned-worktree"
+            : "real-9router-opencode",
           model: "ds/deepseek-v4-flash",
           reports,
         },

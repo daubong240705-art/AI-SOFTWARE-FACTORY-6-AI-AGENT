@@ -1,4 +1,10 @@
 export const channels = {
+  workspaces: "worker:workspaces",
+  createWorkspace: "worker:create-workspace",
+  openWorkspace: "worker:open-workspace",
+  recoverWorkspace: "worker:recover-workspace",
+  previewWorkspaceRemoval: "worker:preview-workspace-removal",
+  removeWorkspace: "worker:remove-workspace",
   recovery: "worker:recovery",
   continueRecovery: "worker:continue-recovery",
   exportRun: "worker:export-run",

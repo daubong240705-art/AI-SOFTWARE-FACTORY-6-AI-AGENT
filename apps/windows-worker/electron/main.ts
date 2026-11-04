@@ -31,6 +31,7 @@ import { fetchModels } from "./gateway/client";
 import { WorkspaceFiles } from "./workspace/files";
 import { LocalCommands, commandCatalog } from "./workspace/commands";
 import { recoverOwnedJobs } from "./runtime/owned-process";
+import { Worktrees } from "./workspace/worktrees";
 
 app.setName("ASF Windows Worker");
 let store: Store;
@@ -64,6 +65,9 @@ function key(): string | undefined {
   }
 }
 function registerIPC(): void {
+  const worktrees = new Worktrees(app.getPath("userData"), (path) =>
+    store.workspaceReferenced(path),
+  );
   const files = new WorkspaceFiles(
     store,
     () => {
@@ -108,6 +112,44 @@ function registerIPC(): void {
   const empty = (input: unknown): void => {
     z.undefined().parse(input);
   };
+  function workspaceOperation<T>(fn: () => Promise<T>): Promise<T> {
+    if (closePending || quitting || local.busy())
+      throw new Error("Dừng công việc/lệnh local trước khi quản lý workspace.");
+    return controller.workspaceAction(async () => {
+      await recoverOwnedJobs(app.getPath("userData"));
+      return fn();
+    });
+  }
+  handle(channels.workspaces, (input) => {
+    const id = idSchema.parse(input);
+    store.project(id);
+    return worktrees.list(id);
+  });
+  handle(channels.createWorkspace, (input) => {
+    const id = idSchema.parse(input);
+    return workspaceOperation(() =>
+      worktrees.create(id, store.project(id).path),
+    );
+  });
+  handle(channels.openWorkspace, (input) => {
+    const id = idSchema.parse(input);
+    return workspaceOperation(async () => {
+      const workspace = await worktrees.open(id);
+      return store.addProject(workspace.path);
+    });
+  });
+  handle(channels.recoverWorkspace, (input) => {
+    const id = idSchema.parse(input);
+    return workspaceOperation(() => worktrees.recover(id));
+  });
+  handle(channels.previewWorkspaceRemoval, (input) => {
+    const id = idSchema.parse(input);
+    return workspaceOperation(() => worktrees.previewRemoval(id));
+  });
+  handle(channels.removeWorkspace, (input) => {
+    const token = idSchema.parse(input);
+    return workspaceOperation(() => worktrees.remove(token));
+  });
   handle(channels.commandCatalog, (input) =>
     commandCatalog(store.project(idSchema.parse(input)).path),
   );

@@ -711,6 +711,12 @@ export function App() {
                   onSettings={() => navigate("settings")}
                   onChanged={() => setChatRefresh((n) => n + 1)}
                   onActive={() => void openActive()}
+                  onOpenWorkspace={async (project) => {
+                    await flushDraft();
+                    const data = await value(window.worker.bootstrap());
+                    setBoot(data);
+                    await selectProject(project);
+                  }}
                 />
               )}
               {page === "history" && (

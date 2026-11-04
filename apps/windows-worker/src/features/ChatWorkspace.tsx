@@ -31,6 +31,7 @@ import { RunPanel } from "./RunPanel";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { FollowUpCard } from "./FollowUpCard";
 import { WorkspaceTools } from "./WorkspaceTools";
+import { Workspaces } from "./Workspaces";
 async function unwrap<T>(promise: Promise<Reply<T>>): Promise<T> {
   const reply = await promise;
   if (!reply.ok) throw new Error(reply.error);
@@ -53,6 +54,7 @@ type Props = {
   onSettings: () => void;
   onChanged: () => void;
   onActive: () => void;
+  onOpenWorkspace: (project: Project) => Promise<void>;
 };
 export function ChatWorkspace({
   draftFlush,
@@ -71,6 +73,7 @@ export function ChatWorkspace({
   onSettings,
   onChanged,
   onActive,
+  onOpenWorkspace,
 }: Props) {
   const [chat, setChat] = useState<ConversationDetail | null>(null);
   const [draft, setDraft] = useState("");
@@ -868,6 +871,7 @@ export function ChatWorkspace({
                 ["changes", "Thay đổi"],
                 ["result", "Kết quả"],
                 ["tools", "Chạy local"],
+                ["workspaces", "Workspace"],
               ].map(([id, label]) => (
                 <button
                   key={id}
@@ -889,7 +893,14 @@ export function ChatWorkspace({
             </button>
           </div>
           <div className="chat-detail-body">
-            {panel === "tools" && project ? (
+            {panel === "workspaces" && project ? (
+              <Workspaces
+                key={project.id}
+                projectId={project.id}
+                active={!!activeId}
+                onOpen={onOpenWorkspace}
+              />
+            ) : panel === "tools" && project ? (
               <WorkspaceTools
                 key={project.id}
                 projectId={project.id}

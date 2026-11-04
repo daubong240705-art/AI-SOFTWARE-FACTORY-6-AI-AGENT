@@ -112,6 +112,19 @@ export class Store {
       )
       .all() as Project[];
   }
+  workspaceReferenced(path: string): boolean {
+    const matches = (value: string) => {
+      const a = process.platform === "win32" ? value.toLowerCase() : value;
+      const b = process.platform === "win32" ? path.toLowerCase() : path;
+      return (
+        a === b || a.startsWith(b + (process.platform === "win32" ? "\\" : "/"))
+      );
+    };
+    if (this.projects().some((project) => matches(project.path))) return true;
+    return (
+      this.db.prepare("SELECT value FROM runs").all() as { value: string }[]
+    ).some((row) => matches((JSON.parse(row.value) as Run).workspace));
+  }
   project(id: string): Project {
     const project = this.db
       .prepare(
@@ -365,6 +378,7 @@ export class Store {
           metrics: run.metrics,
           retryOf: run.retryOf,
           recoveryOf: run.recoveryOf,
+          workspaceOrigin: run.workspaceOrigin,
           checkpoints: run.checkpoints,
           changes: run.changes,
           commands: run.commands,

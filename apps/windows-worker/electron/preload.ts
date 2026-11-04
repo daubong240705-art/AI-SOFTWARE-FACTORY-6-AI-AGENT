@@ -3,6 +3,14 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  workspaces: (id) => ipcRenderer.invoke(channels.workspaces, id),
+  createWorkspace: (id) => ipcRenderer.invoke(channels.createWorkspace, id),
+  openWorkspace: (id) => ipcRenderer.invoke(channels.openWorkspace, id),
+  recoverWorkspace: (id) => ipcRenderer.invoke(channels.recoverWorkspace, id),
+  previewWorkspaceRemoval: (id) =>
+    ipcRenderer.invoke(channels.previewWorkspaceRemoval, id),
+  removeWorkspace: (token) =>
+    ipcRenderer.invoke(channels.removeWorkspace, token),
   recovery: (id) => ipcRenderer.invoke(channels.recovery, id),
   continueRecovery: (token) =>
     ipcRenderer.invoke(channels.continueRecovery, token),

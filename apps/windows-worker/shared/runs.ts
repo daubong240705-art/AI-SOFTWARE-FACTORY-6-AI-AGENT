@@ -42,6 +42,7 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  workspaceOrigin?: { id: string; source: string; baseHead: string };
   checkpoints?: import("./lifecycle").Checkpoint[];
   recoveryOf?: string;
   failure?: ExecutionFailure;
