@@ -24,6 +24,7 @@ export function WorkItemPanel({
   onConversation,
   onChanged,
   activeRunId,
+  onAskLead,
 }: {
   projectId: string;
   itemId: string;
@@ -32,6 +33,7 @@ export function WorkItemPanel({
   onConversation: (runId: string | null, conversationId: string | null) => void;
   onChanged: () => void;
   activeRunId: string | null;
+  onAskLead?: (itemId: string) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [detail, setDetail] = useState<WorkItemDetail | null>(null);
@@ -333,6 +335,17 @@ export function WorkItemPanel({
                   </section>
                 )}
                 <div className="work-actions">
+                  {onAskLead && !detail.item.archivedAt && (
+                    <button
+                      disabled={busy}
+                      onClick={() => {
+                        onClose();
+                        onAskLead(itemId);
+                      }}
+                    >
+                      Hỏi Lead
+                    </button>
+                  )}
                   {!detail.item.archivedAt &&
                     detail.submissions.every((s) => s.state === "removed") && (
                       <Select

@@ -1,6 +1,47 @@
 import type { RunState } from "./runs";
 import type { Role, Settings } from "./contracts";
+import { z } from "zod";
+import { roles } from "./defaults";
+export const chatSendSchema = z
+  .object({
+    requestId: z.string().uuid(),
+    projectId: z.string().uuid(),
+    conversationId: z.string().uuid(),
+    prompt: z.string().trim().min(1).max(32000),
+    role: z.enum(roles),
+    mode: z.enum(["direct", "team"]),
+    workContext: z
+      .object({
+        itemId: z.string().uuid(),
+        revision: z.number().int().positive(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+export type ChatSend = z.infer<typeof chatSendSchema>;
+export type WorkChatContext = {
+  projectId: string;
+  itemId: string;
+  code: string;
+  title: string;
+  revision: number;
+  conversationId: string;
+};
+export type WorkChatSnapshot = WorkChatContext & {
+  body: string;
+  criteria: string[];
+  notes: string[];
+};
+export type ChatReceipt = {
+  requestId: string;
+  runId: string | null;
+  followUpId: string | null;
+  state: "running" | "queued" | "removed";
+};
 export type FollowUp = {
+  immutable?: boolean;
+  workContext?: WorkChatSnapshot;
   boardItemId?: string;
   id: string;
   conversationId: string;

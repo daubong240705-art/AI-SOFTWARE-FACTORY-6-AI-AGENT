@@ -8,6 +8,8 @@ import { Store } from "../electron/storage/database";
 import { RunController } from "../electron/controller/runs";
 import { defaultSettings } from "../shared/defaults";
 import type { Run } from "../shared/runs";
+import { withWorkContext } from "../shared/work-context";
+import type { ChatSend } from "../shared/chat";
 
 function runFor(
   projectId: string,
@@ -48,6 +50,229 @@ function runFor(
     ...extra,
   };
 }
+test("contextual chat validates revision/project, snapshots queue data, deduplicates across restart and links one work item", () => {
+  const directory = mkdtempSync(join(tmpdir(), "asf-chat-context-"));
+  let store = new Store(directory);
+  let controller: RunController | undefined;
+  try {
+    const project = store.addProject(directory),
+      settings = defaultSettings();
+    settings.gatewayUrl = "https://unused.example/v1";
+    settings.agents.forEach((a) => (a.model = "fixture"));
+    store.save(settings, undefined);
+    const item = store.board.create({
+      projectId: project.id,
+      title: "Work",
+      body: "Original requirement",
+      criteria: ["Acceptance"],
+      priority: 0,
+      suggestedRole: null,
+      planningState: "backlog",
+    });
+    const context = store.board.workChat({
+      projectId: project.id,
+      itemId: item.id,
+    });
+    assert.equal(
+      store.board.workChat({ projectId: project.id, itemId: item.id })
+        .conversationId,
+      context.conversationId,
+    );
+    store.queue.add({
+      projectId: project.id,
+      conversationId: context.conversationId,
+      prompt: "Held",
+      role: "lead",
+      mode: "team",
+      settings,
+      afterRunId: null,
+      state: "held",
+      reason: "Manual",
+    });
+    controller = new RunController(store, directory, () => undefined);
+    const request: ChatSend = {
+      requestId: crypto.randomUUID(),
+      projectId: project.id,
+      conversationId: context.conversationId,
+      prompt: "Thảo luận tiêu chí này",
+      mode: "team",
+      role: "lead",
+      workContext: { itemId: item.id, revision: 1 },
+    };
+    const first = controller.sendChat(request);
+    assert.equal(first.state, "queued");
+    assert.deepEqual(controller.sendChat(request), first);
+    assert.equal(
+      store.board.detail({ projectId: project.id, itemId: item.id }).submissions
+        .length,
+      1,
+    );
+    assert.equal(store.queue.list().length, 2);
+    assert.throws(
+      () => controller!.sendChat({ ...request, prompt: "Changed" }),
+      /nội dung khác/,
+    );
+    const current = store.board.item(item.id);
+    store.board.update({
+      id: item.id,
+      version: current.version,
+      patch: { body: "Changed requirement" },
+    });
+    assert.equal(
+      store.queue.get(first.followUpId!).workContext!.body,
+      "Original requirement",
+    );
+    assert.throws(
+      () =>
+        controller!.sendChat({ ...request, requestId: crypto.randomUUID() }),
+      /phiên bản mới/,
+    );
+    assert.throws(
+      () =>
+        controller!.sendChat({
+          ...request,
+          requestId: crypto.randomUUID(),
+          projectId: crypto.randomUUID(),
+        }),
+      /Không tìm thấy/,
+    );
+    assert.throws(
+      () =>
+        controller!.sendChat({
+          ...request,
+          requestId: crypto.randomUUID(),
+          conversationId: store.conversations.create(project.id).id,
+          workContext: { itemId: item.id, revision: 2 },
+        }),
+      /không thuộc/,
+    );
+    store.close();
+    store = new Store(directory);
+    controller = new RunController(store, directory, () => undefined);
+    assert.deepEqual(controller.sendChat(request), first);
+    const claimed = store.queue.claim(first.followUpId!, (q) => {
+      const run = runFor(project.id, directory, {
+        conversationId: q.conversationId,
+        prompt: q.prompt,
+        workContext: q.workContext,
+      });
+      store.createRun(run);
+      return { id: run.id, value: run };
+    });
+    assert.equal(controller.sendChat(request).runId, claimed.id);
+    assert.equal(
+      store.board.contextForRun(project.id, claimed.id)!.itemId,
+      item.id,
+    );
+    assert.equal(
+      store.board.detail({ projectId: project.id, itemId: item.id })
+        .submissions[0].currentRunId,
+      claimed.id,
+    );
+    assert.ok(!store.retention(1, 0).runIds.includes(claimed.id));
+    const snapshot = store.run(claimed.id).workContext!;
+    const built = withWorkContext(
+      { text: "history".repeat(4000), runIds: [claimed.id] },
+      {
+        ...snapshot,
+        body: "x".repeat(12000),
+        criteria: Array.from({ length: 30 }, () => "c".repeat(500)),
+        notes: ["N".repeat(6000)],
+      },
+    );
+    assert.ok(built.text.length <= 14000);
+    assert.ok(built.text.includes("revision 1"));
+    assert.ok(built.text.includes("Acceptance") === false);
+    assert.deepEqual(built.runIds, [claimed.id]);
+  } finally {
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("chat send rollback cannot launch a phantom run; removed queue receipt cannot be resurrected", () => {
+  const directory = mkdtempSync(join(tmpdir(), "asf-chat-atomic-"));
+  const store = new Store(directory);
+  let db: Database.Database | undefined;
+  try {
+    const project = store.addProject(directory),
+      chat = store.conversations.create(project.id),
+      settings = defaultSettings();
+    settings.gatewayUrl = "https://unused.example/v1";
+    settings.agents.forEach((a) => (a.model = "fixture"));
+    store.save(settings, undefined);
+    const controller = new RunController(store, directory, () => undefined),
+      request: ChatSend = {
+        requestId: crypto.randomUUID(),
+        projectId: project.id,
+        conversationId: chat.id,
+        prompt: "Hello",
+        mode: "team",
+        role: "lead",
+      };
+    db = new Database(join(directory, "worker.sqlite"));
+    db.exec(
+      "CREATE TRIGGER fail_chat BEFORE INSERT ON chat_requests BEGIN SELECT RAISE(ABORT, 'synthetic chat failure'); END;",
+    );
+    assert.throws(() => controller.sendChat(request), /synthetic chat failure/);
+    assert.equal(controller.view().activeId, null);
+    assert.equal(store.runs().length, 0);
+    assert.equal(store.conversations.get(chat.id).messages.length, 0);
+    db.exec("DROP TRIGGER fail_chat");
+    store.queue.add({
+      projectId: project.id,
+      conversationId: chat.id,
+      prompt: "Held",
+      role: "lead",
+      mode: "team",
+      settings,
+      afterRunId: null,
+      state: "held",
+      reason: "Manual",
+    });
+    const receipt = controller.sendChat(request);
+    assert.equal(store.queue.get(receipt.followUpId!).immutable, true);
+    assert.throws(
+      () => store.queue.edit(receipt.followUpId!, "edit"),
+      /Tin nhắn đã lưu/,
+    );
+    store.queue.remove(receipt.followUpId!);
+    assert.equal(controller.sendChat(request).state, "removed");
+    assert.equal(store.queue.list().length, 1);
+  } finally {
+    db?.close();
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("schema8 chat migration backs up existing drafts and work revisions before upgrade", () => {
+  const directory = mkdtempSync(join(tmpdir(), "asf-chat-schema8-"));
+  let store = new Store(directory);
+  try {
+    const project = store.addProject(directory),
+      chat = store.conversations.create(project.id);
+    store.conversations.draft(chat.id, "Nháp giữ nguyên");
+    store.close();
+    const db = new Database(join(directory, "worker.sqlite"));
+    db.exec("DROP TABLE chat_requests;PRAGMA user_version=8");
+    db.close();
+    store = new Store(directory);
+    assert.equal(
+      store.conversations.get(chat.id).conversation.draft,
+      "Nháp giữ nguyên",
+    );
+    const backup = new Database(
+      join(directory, "worker.schema8.pre-chat-host.backup.sqlite"),
+      { readonly: true },
+    );
+    assert.equal(backup.pragma("user_version", { simple: true }), 8);
+    backup.close();
+  } finally {
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 test("conversation keeps multi-turn messages and independent drafts after reopen, rename and project removal", () => {
   const directory = mkdtempSync(join(tmpdir(), "asf-chat-store-"));
   let store: Store | undefined;
@@ -126,7 +351,7 @@ test("schema3 migration preserves all 65 historical runs, old drafts, timestamps
     store = undefined;
     const db = new Database(join(directory, "worker.sqlite"));
     db.exec(
-      "DROP TABLE work_comments; DROP TABLE work_attempts; DROP TABLE work_submissions; DROP TABLE work_revisions; DROP TABLE work_counters; DROP TABLE board_links; DROP TABLE board_items; DROP TABLE command_artifacts; DROP TABLE file_recoveries; DROP TABLE workspace_evidence; DROP TABLE workspace_blobs; DROP TABLE follow_ups; DROP TABLE messages; DROP TABLE conversations; PRAGMA user_version=3",
+      "DROP TABLE chat_requests; DROP TABLE work_comments; DROP TABLE work_attempts; DROP TABLE work_submissions; DROP TABLE work_revisions; DROP TABLE work_counters; DROP TABLE board_links; DROP TABLE board_items; DROP TABLE command_artifacts; DROP TABLE file_recoveries; DROP TABLE workspace_evidence; DROP TABLE workspace_blobs; DROP TABLE follow_ups; DROP TABLE messages; DROP TABLE conversations; PRAGMA user_version=3",
     );
     for (let i = 0; i < 65; i++) {
       const run = runFor(project.id, directory, { prompt: `Lượt cũ ${i}` });

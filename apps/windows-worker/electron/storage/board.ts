@@ -20,6 +20,7 @@ import {
 } from "../../shared/board";
 import { normalizeRun } from "../../shared/runs";
 import type { z } from "zod";
+import type { WorkChatContext, WorkChatSnapshot } from "../../shared/chat";
 
 const fields = `id, project_id AS projectId, title, body, suggested_role AS suggestedRole,
  priority, planning_state AS planningState, position, archived_at AS archivedAt,
@@ -441,10 +442,126 @@ export class BoardStore {
   }
   protectedRunIds(): string[] {
     return (
-      this.db.prepare("SELECT run_id AS id FROM work_attempts").all() as {
+      this.db
+        .prepare(
+          "SELECT run_id AS id FROM work_attempts UNION SELECT run_id AS id FROM chat_requests WHERE work_item_id IS NOT NULL AND run_id IS NOT NULL",
+        )
+        .all() as {
         id: string;
       }[]
     ).map((r) => r.id);
+  }
+  workChat(input: z.infer<typeof workItemRefSchema>): WorkChatContext {
+    const data = workItemRefSchema.parse(input);
+    return this.db.transaction(() => {
+      let item = this.scoped(data.projectId, data.itemId);
+      if (!item.conversationId) {
+        const id = randomUUID(),
+          at = new Date().toISOString();
+        this.db
+          .prepare("INSERT INTO conversations VALUES (?,?,?,?,?,'')")
+          .run(id, item.projectId, item.title.slice(0, 100), at, at);
+        this.db
+          .prepare(
+            "UPDATE board_items SET conversation_id=?,version=version+1,updated_at=? WHERE id=?",
+          )
+          .run(id, at, item.id);
+        item = this.item(item.id);
+      }
+      return {
+        projectId: item.projectId,
+        itemId: item.id,
+        code: item.code,
+        title: item.title,
+        revision: item.revision,
+        conversationId: item.conversationId!,
+      };
+    })();
+  }
+  contextForRun(projectId: string, runId: string): WorkChatContext | null {
+    const run = this.db
+      .prepare("SELECT id FROM runs WHERE id=? AND project_id=?")
+      .get(runId, projectId);
+    if (!run) throw new Error("Lượt chạy không thuộc dự án.");
+    const row = this.db
+      .prepare(
+        "SELECT s.item_id FROM work_attempts a JOIN work_submissions s ON s.id=a.submission_id WHERE a.run_id=?",
+      )
+      .get(runId) as { item_id: string } | undefined;
+    return row ? this.workChat({ projectId, itemId: row.item_id }) : null;
+  }
+  chatSnapshot(
+    projectId: string,
+    itemId: string,
+    revision: number,
+    conversationId: string,
+  ): WorkChatSnapshot {
+    const item = this.scoped(projectId, itemId);
+    if (item.revision !== revision)
+      throw new Error(
+        "Yêu cầu đã có phiên bản mới. Cập nhật ngữ cảnh trước khi gửi.",
+      );
+    if (item.conversationId !== conversationId)
+      throw new Error("Hội thoại không thuộc công việc này.");
+    return {
+      projectId,
+      itemId: item.id,
+      code: item.code,
+      title: item.title,
+      revision: item.revision,
+      body: item.body,
+      criteria: item.criteria,
+      conversationId,
+      notes: this.comments(item.id)
+        .slice(0, 3)
+        .map((c) => c.body.slice(0, 600)),
+    };
+  }
+  attachChat(
+    requestId: string,
+    work: WorkChatSnapshot,
+    result: { runId: string | null; followUpId: string | null },
+  ) {
+    const item = this.item(work.itemId),
+      id = randomUUID(),
+      at = new Date().toISOString();
+    const count = this.db
+      .prepare("SELECT count(*) AS n FROM work_submissions WHERE item_id=?")
+      .get(item.id) as { n: number };
+    if (count.n >= 100) throw new Error("Công việc đã đủ 100 lần gửi.");
+    if (item.archivedAt)
+      throw new Error("Khôi phục công việc trước khi gửi Lead.");
+    this.db
+      .prepare("INSERT INTO work_submissions VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+      .run(
+        id,
+        item.id,
+        work.revision,
+        requestId,
+        item.version,
+        result.runId,
+        result.runId,
+        result.followUpId,
+        result.followUpId,
+        work.conversationId,
+        result.followUpId ? "queued" : "running",
+        at,
+      );
+    if (result.runId)
+      this.db
+        .prepare("INSERT INTO work_attempts VALUES (?,?)")
+        .run(result.runId, id);
+    if (!this.link(item.id))
+      this.db
+        .prepare(
+          "INSERT INTO board_links(item_id,run_id,follow_up_id,created_at) VALUES (?,?,?,?)",
+        )
+        .run(item.id, result.runId, result.followUpId, at);
+    this.db
+      .prepare(
+        "UPDATE board_items SET version=version+1,updated_at=? WHERE id=?",
+      )
+      .run(at, item.id);
   }
   detail(input: z.infer<typeof workItemPageSchema>): WorkItemDetail {
     const data = workItemPageSchema.parse(input);

@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { writeFile } from "node:fs/promises";
 import { z } from "zod";
+import { chatSendSchema } from "../shared/chat";
 import { redact } from "./runtime/security";
 import { monitorRequestSchema } from "../shared/monitor";
 import {
@@ -129,6 +130,19 @@ function registerIPC(): void {
   const empty = (input: unknown): void => {
     z.undefined().parse(input);
   };
+  handle(channels.sendChat, (input) =>
+    controller.sendChat(chatSendSchema.parse(input)),
+  );
+  handle(channels.workChatForRun, (input) => {
+    const ref = z
+      .object({ projectId: idSchema, runId: idSchema })
+      .strict()
+      .parse(input);
+    return store.board.contextForRun(ref.projectId, ref.runId);
+  });
+  handle(channels.workChat, (input) =>
+    store.board.workChat(workItemRefSchema.parse(input)),
+  );
   function workspaceOperation<T>(fn: () => Promise<T>): Promise<T> {
     if (closePending || quitting || local.busy())
       throw new Error("Dừng công việc/lệnh local trước khi quản lý workspace.");

@@ -27,7 +27,13 @@ import { join } from "node:path";
 import type { Event, ToolPart } from "@opencode-ai/sdk/v2/client";
 import type { Role, Settings } from "../../shared/contracts";
 import { settingsSchema } from "../../shared/contracts";
-import type { FollowUp } from "../../shared/chat";
+import {
+  chatSendSchema,
+  type ChatSend,
+  type FollowUp,
+  type WorkChatSnapshot,
+} from "../../shared/chat";
+import { withWorkContext } from "../../shared/work-context";
 import type {
   Run,
   RunState,
@@ -185,6 +191,43 @@ export class RunController {
     }
   }
   private active?: Active;
+  sendChat(input: ChatSend) {
+    const request = chatSendSchema.parse(input),
+      before = this.active;
+    if (this.shuttingDown || this.workspaceBusy)
+      throw new Error("Ứng dụng đang đóng hoặc xử lý workspace.");
+    try {
+      return this.store.sendChat(request, (snapshot) => {
+        const queued = !!this.active || this.store.queue.list().length > 0;
+        const result = queued
+          ? this.enqueue(
+              request.projectId,
+              request.conversationId,
+              request.prompt,
+              request.role,
+              request.mode,
+              snapshot,
+            )
+          : this.start(
+              request.projectId,
+              request.prompt,
+              request.role,
+              request.mode,
+              request.conversationId,
+              undefined,
+              undefined,
+              snapshot,
+            );
+        return {
+          runId: queued ? null : result.id,
+          followUpId: queued ? result.id : null,
+        };
+      });
+    } catch (error) {
+      if (this.active !== before) this.active = before;
+      throw error;
+    }
+  }
   private recoveryTickets = new Map<
     string,
     { runId: string; fingerprint: string; expires: number }
@@ -263,6 +306,7 @@ export class RunController {
     conversationId?: string,
     retryOf?: string,
     settingsSnapshot?: Settings,
+    workContext?: WorkChatSnapshot,
   ): Run {
     if (this.shuttingDown) throw new Error("Ứng dụng đang đóng.");
     if (this.workspaceBusy)
@@ -286,10 +330,14 @@ export class RunController {
         `Bật và chọn model cho ${role.toUpperCase()} trong Đội agent.`,
       );
     const key = this.readKey();
-    const context = conversationId
+    const history = conversationId
       ? this.store.conversations.context(conversationId, projectId)
       : undefined;
+    const context = workContext
+      ? withWorkContext(history, workContext)
+      : history;
     const run: Run = {
+      workContext,
       retryOf,
       attemptRoot: retryOf
         ? (this.store.run(retryOf).attemptRoot ?? retryOf)
@@ -1332,6 +1380,7 @@ export class RunController {
     prompt: string,
     role: Role,
     mode: "direct" | "team",
+    workContext?: WorkChatSnapshot,
   ): FollowUp {
     this.store.project(projectId);
     this.store.conversations.context(conversationId, projectId);
@@ -1347,6 +1396,7 @@ export class RunController {
       .some((q) => q.state === "held");
     const waiting = !!this.active && !held;
     return this.store.queue.add({
+      workContext,
       projectId,
       conversationId,
       prompt,
@@ -1399,6 +1449,7 @@ export class RunController {
           q.conversationId,
           undefined,
           q.settings,
+          q.workContext,
         );
         return { id: run.id, value: run };
       });
@@ -1440,6 +1491,8 @@ export class RunController {
       previous.mode,
       previous.conversationId ?? undefined,
       previous.id,
+      undefined,
+      previous.workContext,
     );
   }
   async recovery(id: string): Promise<RecoveryPreview> {
@@ -1511,6 +1564,8 @@ export class RunController {
       previous.mode,
       previous.conversationId ?? undefined,
       previous.id,
+      undefined,
+      previous.workContext,
     );
     const active = this.active!;
     active.run.recoveryOf = previous.id;

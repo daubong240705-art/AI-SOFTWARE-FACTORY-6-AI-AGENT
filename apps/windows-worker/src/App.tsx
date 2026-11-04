@@ -42,7 +42,7 @@ import type {
 } from "../shared/contracts";
 import { defaultSettings } from "../shared/defaults";
 import { version } from "../package.json";
-import { ChatWorkspace } from "./features/ChatWorkspace";
+import { ChatHost } from "./features/ChatHost";
 import { AgentMonitor } from "./features/AgentMonitor";
 import { OfficeWorkspace } from "./features/OfficeWorkspace";
 import { KanbanBoard } from "./features/KanbanBoard";
@@ -51,7 +51,7 @@ import { TaskInspector } from "./features/TaskInspector";
 import { ProjectOverview } from "./features/ProjectOverview";
 import type { InspectorSelection } from "../shared/inspector";
 import { HistoryTools } from "./features/HistoryTools";
-import type { ConversationSummary } from "../shared/chat";
+import type { ConversationSummary, WorkChatContext } from "../shared/chat";
 import type { RuntimeView } from "../shared/runs";
 import { runLabels } from "../shared/runs";
 
@@ -130,6 +130,9 @@ export function App() {
   const [runtimeError, setRuntimeError] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [chatDock, setChatDock] = useState(false);
+  const [chatContext, setChatContext] = useState<WorkChatContext | null>(null);
+  const [chatReturnPage, setChatReturnPage] = useState<Page>("board");
   const [conversationSearch, setConversationSearch] = useState("");
   const [chatRefresh, setChatRefresh] = useState(0);
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
@@ -159,9 +162,16 @@ export function App() {
   }
   async function openInspectedChat(runId: string, conversation: string | null) {
     await flushDraft();
+    const context = project
+      ? await value(
+          window.worker.workChatForRun({ projectId: project.id, runId }),
+        )
+      : null;
+    setChatContext(context);
+    setChatDock(false);
     setOpenRunVersion((n) => n + 1);
     setSelectedRun(runId);
-    setConversationId(conversation);
+    setConversationId(context?.conversationId ?? conversation);
     setInspection(null);
     await navigate("project");
   }
@@ -294,6 +304,8 @@ export function App() {
     await chatFlush.current();
   }
   async function selectProject(selected: Project) {
+    setChatDock(false);
+    setChatContext(null);
     const items = await value(
       window.worker.conversations({ projectId: selected.id }),
     );
@@ -314,6 +326,8 @@ export function App() {
     await act("conversation", async () => {
       await flushDraft();
       const created = await value(window.worker.createConversation(project.id));
+      setChatContext(null);
+      setChatDock(false);
       setConversationId(created.id);
       setSelectedRun(null);
       setPage("project");
@@ -330,6 +344,8 @@ export function App() {
         null;
       setProject(selected);
       setConversationId(id);
+      setChatContext(null);
+      setChatDock(false);
       setSelectedRun(null);
       setPage("project");
     });
@@ -345,6 +361,8 @@ export function App() {
           throw new Error("Dự án của lượt chạy không còn trong danh sách.");
         setProject(selected);
         setConversationId(null);
+        setChatContext(null);
+        setChatDock(false);
         setOpenRunVersion((n) => n + 1);
         setSelectedRun(active.id);
         setPage("project");
@@ -457,12 +475,46 @@ export function App() {
       tell("Key chưa lưu đã được xóa khỏi ô nhập.");
     }
     setPage(next);
+    if (next === "project") setChatDock(false);
+  }
+  async function openWorkChat(itemId: string) {
+    if (!project) return;
+    await act("lead", async () => {
+      await flushDraft();
+      const context = await value(
+        window.worker.workChat({ projectId: project.id, itemId }),
+      );
+      setConversationId(context.conversationId);
+      setChatContext(context);
+      setSelectedRun(null);
+      setLeadFocusVersion((n) => n + 1);
+      if (page !== "project") {
+        setChatReturnPage(page);
+        setChatDock(true);
+      }
+    });
   }
   async function askLead() {
     await act("lead", async () => {
       await flushDraft();
+      if (page === "monitor" && project && monitor.snapshot?.runId) {
+        const context = await value(
+          window.worker.workChatForRun({
+            projectId: project.id,
+            runId: monitor.snapshot.runId,
+          }),
+        );
+        if (context) {
+          setChatContext(context);
+          setConversationId(context.conversationId);
+        } else {
+          setChatContext(null);
+          setConversationId(monitor.snapshot.conversationId);
+        }
+      }
       setSelectedRun(null);
       setLeadFocusVersion((n) => n + 1);
+      setChatDock(false);
       setPage("project");
     });
   }
@@ -884,7 +936,9 @@ export function App() {
                     onRefresh={() => void monitor.refresh?.()}
                     onInspect={inspect}
                     onChat={(runId, conversation) =>
-                      void openInspectedChat(runId, conversation)
+                      void act("conversation", () =>
+                        openInspectedChat(runId, conversation),
+                      )
                     }
                     onConversation={(id) => void openConversation(id)}
                   />
@@ -898,9 +952,43 @@ export function App() {
                     </button>
                   </Empty>
                 ))}
-              {page === "project" && (
-                <ChatWorkspace
+              {
+                <ChatHost
                   key={conversationId ?? "empty"}
+                  visible={page === "project" || chatDock}
+                  presentation={page === "project" ? "fullscreen" : "dock"}
+                  workContext={
+                    chatContext?.projectId === project?.id &&
+                    chatContext?.conversationId === conversationId
+                      ? chatContext
+                      : null
+                  }
+                  onClearContext={() => setChatContext(null)}
+                  onRefreshContext={async () => {
+                    if (project && chatContext)
+                      setChatContext(
+                        await value(
+                          window.worker.workChat({
+                            projectId: project.id,
+                            itemId: chatContext.itemId,
+                          }),
+                        ),
+                      );
+                  }}
+                  onExpand={() => {
+                    setChatDock(false);
+                    setPage("project");
+                  }}
+                  onDock={() => {
+                    setChatDock(true);
+                    setPage(chatReturnPage);
+                  }}
+                  onCloseDock={() =>
+                    void act("chat", async () => {
+                      await flushDraft();
+                      setChatDock(false);
+                    })
+                  }
                   leadFocusVersion={leadFocusVersion}
                   draftFlush={chatFlush}
                   onInspect={inspect}
@@ -929,10 +1017,11 @@ export function App() {
                     await selectProject(project);
                   }}
                 />
-              )}
-              {page === "board" &&
+              }
+              {(!!project || page === "board") &&
                 (project ? (
                   <KanbanBoard
+                    visible={page === "board"}
                     key={`${project.id}:${boardRunId}`}
                     initialRunId={boardRunId}
                     onInspect={(runId) => {
@@ -942,10 +1031,13 @@ export function App() {
                     }}
                     projectId={project.id}
                     projectName={project.name}
+                    onAskLead={(itemId) => void openWorkChat(itemId)}
                     onOpenRun={(id, conversation) => {
-                      setSelectedRun(id);
-                      setConversationId(conversation);
-                      void navigate("project");
+                      if (id)
+                        void act("conversation", () =>
+                          openInspectedChat(id, conversation),
+                        );
+                      else void openConversation(conversation!);
                     }}
                   />
                 ) : (
@@ -967,9 +1059,9 @@ export function App() {
                     onRefresh={() => void monitor.refresh?.()}
                     onSettings={() => navigate("settings")}
                     onOpenRun={(id, conversation) => {
-                      setSelectedRun(id);
-                      setConversationId(conversation);
-                      navigate("project");
+                      void act("conversation", () =>
+                        openInspectedChat(id, conversation),
+                      );
                     }}
                   />
                 ) : (

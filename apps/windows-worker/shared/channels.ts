@@ -1,4 +1,7 @@
 export const channels = {
+  sendChat: "worker:chat-send",
+  workChat: "worker:work-chat",
+  workChatForRun: "worker:work-chat-for-run",
   workItemDetail: "worker:work-item-detail",
   workItemComments: "worker:work-item-comments",
   addWorkComment: "worker:work-comment-add",

@@ -1,6 +1,6 @@
 # Kế hoạch triển khai cải thiện trải nghiệm
 
-Trạng thái: **UX-01–02 đã hoàn thành; tiếp theo UX-03**. Worker `1.3.0-alpha.8` / SQLite **8** sau UX-02; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md).
+Trạng thái: **UX-01–03 đã triển khai; UX-03 còn nghiệm thu model thật; tiếp theo UX-04**. Worker `1.3.0-alpha.8` / SQLite **9** sau UX-03; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md).
 
 ## 1. Nguyên tắc triển khai
 
@@ -47,6 +47,8 @@ Trạng thái: **UX-01–02 đã hoàn thành; tiếp theo UX-03**. Worker `1.3.
 **Source:** `shared/board.ts`, `shared/contracts.ts`, `shared/channels.ts`, `electron/preload.ts`, `electron/main.ts` (kiểm tra vị trí handler lúc code), `electron/storage/database.ts`, `storage/board.ts`, `controller/board.ts`, `src/features/KanbanBoard.tsx`; mới `WorkItemPanel.tsx`, repository discussion và test migration tương ứng.
 
 ### UX-03 — ChatHost và trò chuyện theo ngữ cảnh (P0)
+
+**U3-01–05 đã triển khai, kiểm chứng bằng fixture/UI/native SQLite.** Lead profile 1.3.1; nghiệm thu model thật chưa đạt điều kiện chạy do tiến trình riêng không giải mã được khóa đã lưu. Có script dùng `NINE_ROUTER_API_KEY` để chạy lại, không thay credentials. Chi tiết trong [bàn giao](../../docs/windows-worker/ux03-completion.md).
 
 **Phụ thuộc:** UX-02; có thể tách refactor presentation ChatHost trước nhưng không gắn ticket giả.
 

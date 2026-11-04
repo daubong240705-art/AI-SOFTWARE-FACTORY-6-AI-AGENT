@@ -293,7 +293,7 @@ async function main() {
   await until(
     () =>
       js(
-        "document.body.textContent.includes('Bổ sung bộ lọc khách hàng') && !!document.querySelector('.chat-composer')",
+        "!document.querySelector('.chat-host')?.hidden && document.querySelector('.chat-host .follow-up-list')?.textContent.includes('Bổ sung bộ lọc khách hàng')",
       ),
     "held conversation",
   );

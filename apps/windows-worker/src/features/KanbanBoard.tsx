@@ -6,6 +6,7 @@ import {
   boardColumnLabels,
   type BoardCard,
   type BoardQuery,
+  type BoardPage,
 } from "../../shared/board";
 import { roles, type Reply, type Role } from "../../shared/contracts";
 import { useMonitor } from "../lib/use-monitor";
@@ -30,17 +31,21 @@ export function KanbanBoard({
   onOpenRun,
   onInspect,
   initialRunId,
+  onAskLead,
+  visible = true,
 }: {
   projectId: string;
   projectName: string;
   onOpenRun: (runId: string | null, conversationId: string | null) => void;
   onInspect: (runId: string) => void;
   initialRunId?: string | null;
+  onAskLead?: (itemId: string) => void;
+  visible?: boolean;
 }) {
   const [query, setQuery] = useState<BoardQuery>(
     initialRunId ? { runId: initialRunId, showStopped: true } : {},
   );
-  const monitor = useMonitor(projectId, query);
+  const monitor = useMonitor(visible ? projectId : null, query);
   const [editing, setEditing] = useState<"new" | null>(null);
   const [draft, setDraft] = useState(blank);
   const [selected, setSelected] = useState<BoardCard | null>(null);
@@ -53,7 +58,9 @@ export function KanbanBoard({
   const savedScroll = useRef<{ selector: string; left: number; top: number }[]>(
     [],
   );
-  const page = monitor.snapshot?.board;
+  const lastPage = useRef<BoardPage | undefined>(undefined);
+  if (monitor.snapshot?.board) lastPage.current = monitor.snapshot.board;
+  const page = monitor.snapshot?.board ?? lastPage.current;
   useEffect(() => {
     if (editing) dialog.current?.showModal();
     else dialog.current?.close();
@@ -155,7 +162,11 @@ export function KanbanBoard({
     Number(!!query.showStopped) +
     Number(!!query.archived);
   return (
-    <section className="kanban-workspace" aria-label="Kanban công việc">
+    <section
+      hidden={!visible}
+      className={`kanban-workspace ${!visible ? "workspace-hidden" : ""}`}
+      aria-label="Kanban công việc"
+    >
       <div className="page-heading">
         <div>
           <h1>Công việc</h1>
@@ -472,6 +483,7 @@ export function KanbanBoard({
           onClose={closeWorkItem}
           onInspect={onInspect}
           onConversation={onOpenRun}
+          onAskLead={onAskLead}
           onChanged={() => void monitor.refresh?.()}
           activeRunId={monitor.snapshot?.activeRun?.id ?? null}
         />

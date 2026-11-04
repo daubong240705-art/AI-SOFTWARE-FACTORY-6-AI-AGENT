@@ -48,6 +48,7 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  workContext?: import("./chat").WorkChatSnapshot;
   observation?: import("./monitor").ExecutionObservation;
   integration?: {
     workspace: string;

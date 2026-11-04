@@ -7,6 +7,13 @@ import { Conversations } from "./conversations";
 import { FollowUps } from "./follow-ups";
 import { BoardStore } from "./board";
 import { migrateWorkItems } from "./work-migration";
+import { migrateChatRequests } from "./chat-requests";
+import {
+  chatSendSchema,
+  type ChatSend,
+  type ChatReceipt,
+  type WorkChatSnapshot,
+} from "../../shared/chat";
 import type { BoardRun } from "../../shared/board";
 import { EvidenceStore } from "./evidence";
 import { failure } from "../runtime/failure";
@@ -42,7 +49,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 8)
+      if (version > 9)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -125,6 +132,7 @@ export class Store {
         })();
       }
       migrateWorkItems(this.db, directory, version);
+      migrateChatRequests(this.db, directory, version);
       this.board = new BoardStore(this.db);
     } catch (error) {
       this.db.close();
@@ -141,6 +149,62 @@ export class Store {
         ).value,
       ),
     );
+  }
+  sendChat(
+    input: ChatSend,
+    launch: (snapshot?: WorkChatSnapshot) => {
+      runId: string | null;
+      followUpId: string | null;
+    },
+  ): ChatReceipt {
+    const data = chatSendSchema.parse(input),
+      fingerprint = JSON.stringify(data);
+    return this.db.transaction(() => {
+      const prior = this.db
+        .prepare(
+          "SELECT fingerprint,run_id AS runId,follow_up_id AS followUpId,state FROM chat_requests WHERE request_id=?",
+        )
+        .get(data.requestId) as
+        | (Omit<ChatReceipt, "requestId"> & { fingerprint: string })
+        | undefined;
+      if (prior) {
+        if (prior.fingerprint !== fingerprint)
+          throw new Error("Mã gửi đã được dùng cho nội dung khác.");
+        return {
+          requestId: data.requestId,
+          runId: prior.runId,
+          followUpId: prior.followUpId,
+          state: prior.state,
+        };
+      }
+      this.project(data.projectId);
+      this.conversations.context(data.conversationId, data.projectId);
+      const snapshot = data.workContext
+        ? this.board.chatSnapshot(
+            data.projectId,
+            data.workContext.itemId,
+            data.workContext.revision,
+            data.conversationId,
+          )
+        : undefined;
+      const result = launch(snapshot),
+        state: ChatReceipt["state"] = result.followUpId ? "queued" : "running";
+      if (snapshot) this.board.attachChat(data.requestId, snapshot, result);
+      this.db
+        .prepare("INSERT INTO chat_requests VALUES (?,?,?,?,?,?,?,?,?)")
+        .run(
+          data.requestId,
+          fingerprint,
+          data.projectId,
+          data.conversationId,
+          result.runId,
+          result.followUpId,
+          state,
+          new Date().toISOString(),
+          snapshot?.itemId ?? null,
+        );
+      return { requestId: data.requestId, ...result, state };
+    })();
   }
   projects(): Project[] {
     return this.db
@@ -505,6 +569,7 @@ export class Store {
         version: 1,
         boardLinks: this.board.links().filter((link) => link.runId === id),
         workItem: this.board.runReference(id),
+        workContext: run.workContext,
         exportedAt: new Date().toISOString(),
         run: {
           id: run.id,
@@ -643,6 +708,7 @@ export class Store {
     }
     this.db.transaction(() => {
       for (const id of ids) {
+        this.db.prepare("DELETE FROM chat_requests WHERE run_id=?").run(id);
         for (const table of [
           "events",
           "tasks",

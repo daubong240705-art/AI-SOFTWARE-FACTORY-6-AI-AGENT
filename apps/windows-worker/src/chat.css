@@ -2,6 +2,116 @@
   height: 100vh;
   overflow: hidden;
 }
+.chat-host {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.chat-host.chat-hidden {
+  display: none;
+}
+.board-main .workspace-hidden,
+.workspace-hidden {
+  display: none !important;
+}
+.chat-host > .chat-workspace {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.chat-host.dock {
+  position: fixed;
+  z-index: 25;
+  right: 16px;
+  top: 72px;
+  bottom: 42px;
+  height: auto;
+  width: min(620px, calc(100vw - 32px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 15px 70px #0009;
+  overflow: hidden;
+}
+.chat-host.dock .chat-workspace {
+  padding: 0;
+}
+.chat-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+.chat-context > span,
+.chat-context > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.chat-context > span {
+  color: var(--muted);
+}
+.chat-context > strong {
+  color: var(--accent);
+}
+.chat-message-status {
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-weight: normal;
+}
+.chat-host.dock .chat-detail-panel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  z-index: 2;
+}
+.chat-host.dock .chat-header {
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 56px;
+  padding: 10px 16px;
+}
+.chat-host.dock .chat-header > .inline {
+  margin-left: auto;
+}
+.chat-host.dock .chat-transcript,
+.chat-host.dock .chat-composer-area {
+  width: 100%;
+  padding-inline: 12px;
+}
+.chat-host.dock .follow-up-list {
+  max-height: clamp(54px, 16vh, 140px);
+  min-height: 0;
+  flex: 0 1 auto;
+}
+.chat-host.dock .chat-composer textarea {
+  min-height: 64px;
+  max-height: min(120px, 20vh);
+}
+.chat-host.dock .chat-composer-area {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100% - 150px);
+  overflow-y: auto;
+}
+.chat-host.dock .chat-composer,
+.chat-host.dock .chat-composer-note {
+  flex-shrink: 0;
+}
+@media (max-width: 900px) {
+  .chat-host.dock {
+    top: 64px;
+    bottom: 32px;
+    right: 8px;
+    width: calc(100vw - 16px);
+  }
+}
 .topbar.chat-topbar {
   display: none;
 }

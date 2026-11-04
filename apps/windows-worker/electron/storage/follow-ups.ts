@@ -25,27 +25,32 @@ export class FollowUps {
     return (
       this.db
         .prepare(
-          "SELECT value,(SELECT item_id FROM work_submissions WHERE follow_up_id=follow_ups.id) AS boardItemId FROM follow_ups WHERE (? IS NULL OR conversation_id=?) ORDER BY sequence",
+          "SELECT value,(SELECT item_id FROM work_submissions WHERE follow_up_id=follow_ups.id) AS boardItemId,EXISTS(SELECT 1 FROM chat_requests WHERE follow_up_id=follow_ups.id) AS immutable FROM follow_ups WHERE (? IS NULL OR conversation_id=?) ORDER BY sequence",
         )
         .all(conversationId ?? null, conversationId ?? null) as {
         value: string;
         boardItemId: string | null;
+        immutable: number;
       }[]
     ).map((row) => ({
       ...JSON.parse(row.value),
       boardItemId: row.boardItemId ?? undefined,
+      immutable: !!row.immutable,
     }));
   }
   get(id: string): FollowUp {
     const row = this.db
       .prepare(
-        "SELECT value,(SELECT item_id FROM work_submissions WHERE follow_up_id=follow_ups.id) AS boardItemId FROM follow_ups WHERE id=?",
+        "SELECT value,(SELECT item_id FROM work_submissions WHERE follow_up_id=follow_ups.id) AS boardItemId,EXISTS(SELECT 1 FROM chat_requests WHERE follow_up_id=follow_ups.id) AS immutable FROM follow_ups WHERE id=?",
       )
-      .get(id) as { value: string; boardItemId: string | null } | undefined;
+      .get(id) as
+      | { value: string; boardItemId: string | null; immutable: number }
+      | undefined;
     if (!row) throw new Error("Yêu cầu không còn trong hàng chờ.");
     return {
       ...JSON.parse(row.value),
       boardItemId: row.boardItemId ?? undefined,
+      immutable: !!row.immutable,
     };
   }
   add(input: Omit<FollowUp, "id" | "createdAt">): FollowUp {
@@ -69,6 +74,14 @@ export class FollowUps {
   }
   edit(id: string, prompt: string): void {
     new BoardStore(this.db).assertQueueEditable(id);
+    if (
+      this.db
+        .prepare("SELECT request_id FROM chat_requests WHERE follow_up_id=?")
+        .get(id)
+    )
+      throw new Error(
+        "Tin nhắn đã lưu. Bỏ khỏi hàng chờ rồi gửi nội dung mới.",
+      );
     const item = this.get(id);
     item.prompt = prompt;
     this.save(item);
@@ -77,6 +90,11 @@ export class FollowUps {
     this.get(id);
     this.db.transaction(() => {
       new BoardStore(this.db).releaseQueue(id);
+      this.db
+        .prepare(
+          "UPDATE chat_requests SET follow_up_id=NULL,state='removed' WHERE follow_up_id=?",
+        )
+        .run(id);
       this.db.prepare("DELETE FROM follow_ups WHERE id=?").run(id);
     })();
   }
@@ -93,6 +111,11 @@ export class FollowUps {
       const item = this.get(id);
       const result = start(item);
       new BoardStore(this.db).claimQueue(id, result.id);
+      this.db
+        .prepare(
+          "UPDATE chat_requests SET run_id=?,follow_up_id=NULL,state='running' WHERE follow_up_id=?",
+        )
+        .run(result.id, id);
       this.remove(id);
       for (const next of this.list())
         if (next.state === "waiting" && next.afterRunId === item.afterRunId)

@@ -22,7 +22,9 @@ export function FollowUpCard({
   return (
     <div className="follow-up-card">
       <div className="inline">
-        <strong>{item.state === "held" ? "Đang giữ" : "Hàng chờ"}</strong>
+        <strong>
+          {item.state === "held" ? "Đã lưu · đang giữ" : "Đã lưu · chờ lượt"}
+        </strong>
         <span
           className="muted small"
           title={item.settings.agents.find((a) => a.role === item.role)?.model}
@@ -58,11 +60,13 @@ export function FollowUpCard({
           </>
         ) : (
           <button
-            disabled={busy || !!item.boardItemId}
+            disabled={busy || !!item.boardItemId || item.immutable}
             title={
               item.boardItemId
                 ? "Bỏ khỏi hàng chờ rồi sửa thẻ trong Công việc"
-                : undefined
+                : item.immutable
+                  ? "Bỏ khỏi hàng chờ rồi gửi tin nhắn mới"
+                  : undefined
             }
             onClick={() => {
               setText(item.prompt);

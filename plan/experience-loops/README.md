@@ -1,6 +1,6 @@
 # ASF — Cải thiện trải nghiệm từ CrewHub Loops
 
-Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–02 đã triển khai; tiếp theo UX-03**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md).
+Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–03 đã triển khai; UX-03 còn nghiệm thu model thật; tiếp theo UX-04**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md).
 
 Đã bổ sung [đợt làm gọn giao diện](../../docs/windows-worker/ux01-ui-refinement.md) theo ảnh phản hồi: bốn trang chính, menu dự án tập trung, hội thoại theo ngữ cảnh và Tổng quan giới hạn nội dung mặc định. Đây là bố cục hiện hành thay cho header có nhiều nút trong UX-01 đầu tiên.
 
@@ -46,7 +46,7 @@ Tạm dừng phát triển 3D theo yêu cầu người dùng. Giữ phần D-01�
 
 **UX-01 Tổng quan/điều hướng → UX-02 Hồ sơ công việc → UX-03 Chat theo ngữ cảnh → UX-04 Câu hỏi → UX-05 Kết quả → UX-06 Mẫu công việc/Team.** UX-07 Git và UX-08 lịch/quy tắc là mở rộng sau, không chặn vòng làm việc chính.
 
-UX-01 đã thêm Tổng quan, header/sidebar và hoạt động gọn bằng dữ liệu hiện có, không migration hoặc đổi luồng thực thi. Tiếp theo là UX-02: mở rộng BoardItem thành hồ sơ công việc bền vững. Worker vẫn `1.3.0-alpha.8`, SQLite 7; chưa phát hành stable.
+UX-01 thêm Tổng quan/điều hướng gọn; UX-02 thêm hồ sơ công việc bền vững; UX-03 thêm chat theo ngữ cảnh và ChatHost thu gọn/toàn màn hình. Tiếp theo UX-04 câu hỏi nghiệp vụ. Worker vẫn `1.3.0-alpha.8`, SQLite 9; chưa phát hành stable. Nghiệm thu model thật của UX-03 chưa chạy được vì khóa mã hóa của app không giải mã được trong tiến trình fixture riêng.
 
 ## Phạm vi khảo sát và giới hạn
 
