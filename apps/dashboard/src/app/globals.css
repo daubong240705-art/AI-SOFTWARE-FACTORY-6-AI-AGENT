@@ -685,6 +685,12 @@ legend {
 details {
   overflow-wrap: anywhere;
 }
+details.panel > summary {
+  font-weight: 600;
+}
+details.panel[open] > summary {
+  margin-bottom: 16px;
+}
 summary {
   cursor: pointer;
   font-size: 13px;
