@@ -10,17 +10,22 @@ const empty: MonitorState = {
   receivedAt: 0,
 };
 const subscribeEmpty = () => () => {};
-export function useMonitor(projectId: string | null, board?: BoardQuery) {
+export function useMonitor(
+  projectId: string | null,
+  board?: BoardQuery,
+  overview = false,
+) {
   const queryKey = JSON.stringify(board);
   const store = useMemo(() => {
     if (!projectId) return null;
-    const key = `${projectId}:${queryKey ?? "roster"}`;
+    const key = `${projectId}:${queryKey ?? "roster"}:${overview}`;
     let current = stores.get(key);
     if (!current) {
       current = new MonitorStore(projectId, async (request) => {
         const reply = await window.worker.monitorSnapshot({
           ...request,
           ...(queryKey ? { board: JSON.parse(queryKey) as BoardQuery } : {}),
+          ...(overview ? { overview: true } : {}),
         });
         if (!reply.ok) throw new Error(reply.error);
         return reply.value;
@@ -34,7 +39,7 @@ export function useMonitor(projectId: string | null, board?: BoardQuery) {
       stores.set(key, current);
     }
     return current;
-  }, [projectId, queryKey]);
+  }, [projectId, queryKey, overview]);
   const state = useSyncExternalStore(
     store?.subscribe ?? subscribeEmpty,
     store?.getSnapshot ?? (() => empty),

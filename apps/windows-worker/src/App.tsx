@@ -2,9 +2,11 @@ import { Select } from "./ui/Select";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
+  GitBranch,
+  LayoutDashboard,
+  MessageSquare,
   Check,
   CheckCircle2,
-  ChevronRight,
   Clock3,
   Code2,
   Folder,
@@ -42,6 +44,7 @@ import { OfficeWorkspace } from "./features/OfficeWorkspace";
 import { KanbanBoard } from "./features/KanbanBoard";
 import { useMonitor } from "./lib/use-monitor";
 import { TaskInspector } from "./features/TaskInspector";
+import { ProjectOverview } from "./features/ProjectOverview";
 import type { InspectorSelection } from "../shared/inspector";
 import { HistoryTools } from "./features/HistoryTools";
 import type { ConversationSummary } from "../shared/chat";
@@ -62,7 +65,14 @@ async function value<T>(promise: Promise<Reply<T>>): Promise<T> {
   if (!result.ok) throw new Error(result.error);
   return result.value;
 }
-type Page = "project" | "history" | "settings" | "monitor" | "board" | "office";
+type Page =
+  | "overview"
+  | "project"
+  | "history"
+  | "settings"
+  | "monitor"
+  | "board"
+  | "office";
 type Notice = { kind: "error" | "success"; text: string };
 
 function Empty({
@@ -88,7 +98,7 @@ export function App() {
   const chatFlush = useRef<() => Promise<unknown>>(() => Promise.resolve());
   const [boot, setBoot] = useState<Bootstrap | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [page, setPage] = useState<Page>("project");
+  const [page, setPage] = useState<Page>("overview");
   const [project, setProject] = useState<Project | null>(null);
   const [status, setStatus] = useState<ProjectStatus | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -113,6 +123,7 @@ export function App() {
     activeId: null,
     runs: [],
   });
+  const [runtimeError, setRuntimeError] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversationSearch, setConversationSearch] = useState("");
@@ -121,6 +132,8 @@ export function App() {
   const [openRunVersion, setOpenRunVersion] = useState(0);
   const [inspection, setInspection] = useState<InspectorSelection | null>(null);
   const [boardRunId, setBoardRunId] = useState<string | null>(null);
+  const [boardCreateVersion, setBoardCreateVersion] = useState(0);
+  const [leadFocusVersion, setLeadFocusVersion] = useState(0);
   const [officeRole, setOfficeRole] = useState<Role | null>(null);
   const [officeSelection, setOfficeSelection] =
     useState<InspectorSelection | null>(null);
@@ -157,9 +170,11 @@ export function App() {
     await selectProject(selected);
   }
   const monitor = useMonitor(
-    project && ["project", "monitor", "office"].includes(page)
+    project && ["overview", "project", "monitor", "office"].includes(page)
       ? project.id
       : null,
+    undefined,
+    page === "overview",
   );
   const dirty =
     boot &&
@@ -208,7 +223,9 @@ export function App() {
         const next = await value(window.worker.runtimeView());
         if (!mounted) return;
         setRuntime(next);
+        setRuntimeError(false);
       } catch {
+        if (mounted) setRuntimeError(true);
         /* Keep persisted content during a transient IPC refresh failure. */
       }
       if (mounted) timer = setTimeout(() => void poll(), 900);
@@ -280,9 +297,10 @@ export function App() {
     const selectedChat =
       items[0] ?? (await value(window.worker.createConversation(selected.id)));
     setProject(selected);
+    setBoardCreateVersion(0);
     setConversations(items);
     setConversationId(selectedChat.id);
-    setPage("project");
+    setPage("overview");
     setSelectedRun(null);
     setConversationSearch("");
   }
@@ -317,6 +335,18 @@ export function App() {
   async function openActive() {
     const active = runtime.runs.find((r) => r.id === runtime.activeId);
     if (active?.conversationId) await openConversation(active.conversationId);
+    else if (active)
+      await act("active", async () => {
+        await flushDraft();
+        const selected = boot?.projects.find((p) => p.id === active.projectId);
+        if (!selected)
+          throw new Error("Dự án của lượt chạy không còn trong danh sách.");
+        setProject(selected);
+        setConversationId(null);
+        setOpenRunVersion((n) => n + 1);
+        setSelectedRun(active.id);
+        setPage("project");
+      });
   }
   async function chooseProject() {
     await act("project", async () => {
@@ -425,6 +455,23 @@ export function App() {
       tell("Key chưa lưu đã được xóa khỏi ô nhập.");
     }
     setPage(next);
+  }
+  async function askLead() {
+    await act("lead", async () => {
+      await flushDraft();
+      setSelectedRun(null);
+      setLeadFocusVersion((n) => n + 1);
+      setPage("project");
+    });
+  }
+  async function createWork() {
+    await act("board", async () => {
+      await flushDraft();
+      setBoardRunId(null);
+      setBoardSelection(null);
+      setBoardCreateVersion((n) => n + 1);
+      setPage("board");
+    });
   }
 
   const modelSelector = (
@@ -554,6 +601,22 @@ export function App() {
         <div className="nav-caption">WORKSPACE</div>
         <nav aria-label="Điều hướng chính">
           <button
+            className={page === "overview" ? "active" : ""}
+            onClick={() => navigate("overview")}
+            title="Tổng quan"
+          >
+            <LayoutDashboard size={18} />
+            <span>Tổng quan</span>
+          </button>
+          <button
+            className={page === "project" ? "active" : ""}
+            onClick={() => navigate("project")}
+            title="Trò chuyện"
+          >
+            <MessageSquare size={18} />
+            <span>Trò chuyện</span>
+          </button>
+          <button
             className={page === "board" ? "active" : ""}
             onClick={() => navigate("board")}
             title="Công việc"
@@ -569,22 +632,15 @@ export function App() {
             <Layers size={18} />
             <span>Đội ngũ</span>
           </button>
+          <div className="nav-divider" role="separator" />
           <button
             className={page === "office" ? "active" : ""}
             onClick={() => navigate("office")}
             title="Văn phòng"
+            aria-description="Tạm dừng phát triển 3D"
           >
             <Box size={18} />
             <span>Văn phòng</span>
-          </button>
-          <button
-            className={page === "project" ? "active" : ""}
-            onClick={() => navigate("project")}
-            title="Dự án"
-          >
-            <Folder size={18} />
-            <span>Trò chuyện</span>
-            {project && <span className="nav-dot" />}
           </button>
           <button
             className={page === "history" ? "active" : ""}
@@ -706,40 +762,88 @@ export function App() {
         </div>
       </aside>
       <div className="main-column">
-        <header className={`topbar ${page === "project" ? "chat-topbar" : ""}`}>
-          <div className="breadcrumb">
-            Workspace
-            <ChevronRight size={14} />
-            <span>
-              {page === "project"
-                ? "Trò chuyện"
-                : page === "monitor"
-                  ? "Đội ngũ"
-                  : page === "office"
-                    ? "Văn phòng"
-                    : page === "board"
-                      ? "Công việc"
-                      : page === "history"
-                        ? "Lịch sử"
-                        : "Cài đặt"}
-            </span>
+        <header className="topbar workspace-topbar">
+          <div className="workspace-heading">
+            {project && boot && boot.projects.length ? (
+              <Select
+                className="workspace-project"
+                aria-label="Chọn dự án"
+                title={project.path}
+                value={project.id}
+                disabled={!!busy}
+                onValueChange={(id) => {
+                  const selected = boot?.projects.find(
+                    (item) => item.id === id,
+                  );
+                  if (selected) void openProject(selected);
+                }}
+              >
+                {boot.projects.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              <strong className="workspace-project">Workspace</strong>
+            )}
+            {project && status?.branch && (
+              <span className="workspace-branch" title={status.branch}>
+                <GitBranch size={14} />
+                {status.branch}
+              </span>
+            )}
+            {project && status?.error && (
+              <span className="muted small" title={status.error}>
+                Chưa đọc được Git
+              </span>
+            )}
+            {runtimeError ? (
+              <span className="muted small">
+                Trạng thái lượt chạy chưa đồng bộ
+              </span>
+            ) : (
+              runtime.activeId && (
+                <button
+                  className="workspace-running"
+                  onClick={() => void openActive()}
+                >
+                  <span className="status-dot" />
+                  {runtime.runs.find((r) => r.id === runtime.activeId)
+                    ?.projectId === project?.id
+                    ? "Đang có lượt chạy"
+                    : `Đang chạy ở ${runtime.runs.find((r) => r.id === runtime.activeId)?.projectName ?? "dự án khác"}`}
+                </button>
+              )
+            )}
           </div>
-          {page === "project" && project && (
-            <button
-              className="monitor-chat-link"
-              onClick={() => navigate("monitor")}
-            >
-              {monitor.stale
-                ? "Agent · Chưa đồng bộ"
-                : monitor.snapshot
-                  ? `${monitor.snapshot.agents.filter((a) => a.availability === "occupied").length} role đang làm · Xem đội ngũ`
-                  : "Xem đội ngũ"}
-            </button>
-          )}
-          <span className="phase-badge">
-            <span />
-            Desktop
-          </span>
+          <div className="workspace-actions">
+            {project && (
+              <>
+                <button
+                  className="workspace-permission subtle"
+                  onClick={() => navigate("settings")}
+                  title="Quyền mặc định cho lượt mới"
+                >
+                  {settings.permissionMode === "full-access"
+                    ? "Full access"
+                    : "Hỏi cấp quyền"}
+                </button>
+                <button disabled={!!busy} onClick={() => void askLead()}>
+                  <MessageSquare size={15} />
+                  Hỏi Lead
+                </button>
+                <button
+                  className="primary"
+                  disabled={!!busy}
+                  onClick={() => void createWork()}
+                >
+                  <Plus size={15} />
+                  Tạo công việc
+                </button>
+              </>
+            )}
+          </div>
         </header>
         <main
           className={
@@ -793,9 +897,34 @@ export function App() {
             </Empty>
           ) : (
             <>
+              {page === "overview" &&
+                (project ? (
+                  <ProjectOverview
+                    key={project.id}
+                    state={monitor}
+                    onRefresh={() => void monitor.refresh?.()}
+                    onInspect={inspect}
+                    onChat={(runId, conversation) =>
+                      void openInspectedChat(runId, conversation)
+                    }
+                    onConversation={(id) => void openConversation(id)}
+                    onBoard={() => void navigate("board")}
+                    onAgents={() => void navigate("monitor")}
+                  />
+                ) : (
+                  <Empty
+                    icon={<LayoutDashboard size={28} />}
+                    title="Chọn dự án để bắt đầu"
+                  >
+                    <button onClick={() => void chooseProject()}>
+                      Chọn dự án
+                    </button>
+                  </Empty>
+                ))}
               {page === "project" && (
                 <ChatWorkspace
                   key={conversationId ?? "empty"}
+                  leadFocusVersion={leadFocusVersion}
                   draftFlush={chatFlush}
                   onInspect={inspect}
                   project={project}
@@ -828,6 +957,8 @@ export function App() {
                 (project ? (
                   <KanbanBoard
                     key={`${project.id}:${boardRunId}`}
+                    createVersion={boardCreateVersion}
+                    onCreateHandled={() => setBoardCreateVersion(0)}
                     initialRunId={boardRunId}
                     onInspect={(runId) => {
                       if (boardSelection?.runId === runId)

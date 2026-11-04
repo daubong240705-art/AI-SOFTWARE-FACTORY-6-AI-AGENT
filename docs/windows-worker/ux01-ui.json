@@ -1,0 +1,69 @@
+{
+  "passed": true,
+  "providerCalls": 0,
+  "fixture": true,
+  "checks": [
+    "project-scoped overview and held inbox",
+    "milestone timeline survives 350 noisy tool events",
+    "no runDetail reads for overview",
+    "context chat and draft preserved",
+    "header creates real BoardItem without starting run",
+    "unverified result opens exact inspector",
+    "held queue opens correct conversation",
+    "stale actions disabled and refresh recovers",
+    "five viewport/scaling layouts",
+    "custom project dropdown works by keyboard in narrow window",
+    "project switch clears previous data"
+  ],
+  "layouts": [
+    {
+      "width": 1427,
+      "height": 864,
+      "zoom": 1,
+      "overflow": false,
+      "buttonsWithinHeader": true
+    },
+    {
+      "width": 1352,
+      "height": 732,
+      "zoom": 1,
+      "overflow": false,
+      "buttonsWithinHeader": true
+    },
+    {
+      "width": 836,
+      "height": 664,
+      "zoom": 1,
+      "overflow": false,
+      "buttonsWithinHeader": true
+    },
+    {
+      "width": 1081,
+      "height": 585,
+      "zoom": 1.25,
+      "overflow": false,
+      "buttonsWithinHeader": true
+    },
+    {
+      "width": 901,
+      "height": 488,
+      "zoom": 1.5,
+      "overflow": false,
+      "buttonsWithinHeader": true
+    }
+  ],
+  "counts": {
+    "worker:bootstrap": 3,
+    "worker:runtime-view": 7,
+    "worker:conversations": 7,
+    "worker:monitor-snapshot": 11,
+    "worker:project-status": 3,
+    "worker:open-project": 2,
+    "worker:conversation": 4,
+    "worker:run-detail": 3,
+    "worker:conversation-draft": 1,
+    "worker:board-create": 1,
+    "worker:create-conversation": 1
+  },
+  "rendererErrors": []
+}

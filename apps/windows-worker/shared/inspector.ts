@@ -93,6 +93,7 @@ const milestones: Record<string, string> = {
   STOP_FAILED: "Chưa dừng được tiến trình",
   TOOL_FAILED: "Công cụ thất bại",
 };
+export const milestoneEventTypes = Object.keys(milestones);
 export type TimelineEntry = {
   sequence: number;
   at: string;

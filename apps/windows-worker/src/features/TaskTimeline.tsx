@@ -13,10 +13,16 @@ export function TaskTimeline({
 }) {
   const [role, setRole] = useState("");
   const [limit, setLimit] = useState(20);
-  const rows = compactTimeline(detail, {
-    taskId,
-    role: role ? (role as Role) : undefined,
-  });
+  const rows = compactTimeline(
+    {
+      ...detail,
+      events: detail.events.filter((event) => event.type !== "TOOL_STARTED"),
+    },
+    {
+      taskId,
+      role: role ? (role as Role) : undefined,
+    },
+  );
   return (
     <section className="task-timeline" aria-label="Dòng thời gian">
       <header className="inline">

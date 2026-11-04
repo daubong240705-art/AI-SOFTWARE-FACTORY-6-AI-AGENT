@@ -50,6 +50,7 @@ type Props = {
   runtime: View;
   initialRunId: string | null;
   openRunVersion?: number;
+  leadFocusVersion?: number;
   saveSettings: () => Promise<unknown>;
   setModel: (role: Role, model: string) => void;
   setPermissionMode: (mode: Settings["permissionMode"]) => void;
@@ -71,6 +72,7 @@ export function ChatWorkspace({
   runtime,
   initialRunId,
   openRunVersion,
+  leadFocusVersion,
   saveSettings,
   setModel,
   setPermissionMode,
@@ -94,6 +96,12 @@ export function ChatWorkspace({
   const [draftState, setDraftState] = useState("");
   const [mode, setMode] = useState<"team" | "direct">("team");
   const [role, setRole] = useState<Role>("be");
+  useEffect(() => {
+    if (leadFocusVersion) {
+      setMode("team");
+      inputRef.current?.focus();
+    }
+  }, [leadFocusVersion]);
   const [latestRunId, setLatestRunId] = useState<string | null>(null);
   const [panelRun, setPanelRun] = useState<string | null>(initialRunId);
   const [panel, setPanel] = useState<string | null>(

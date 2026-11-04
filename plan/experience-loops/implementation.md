@@ -1,6 +1,6 @@
 # Kế hoạch triển khai cải thiện trải nghiệm
 
-Trạng thái: **chưa code**. Baseline `34213d7` / Worker `1.3.0-alpha.8` / SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md).
+Trạng thái: **UX-01 đã hoàn thành; tiếp theo UX-02**. Baseline `34213d7` / Worker `1.3.0-alpha.8` / SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md).
 
 ## 1. Nguyên tắc triển khai
 
@@ -13,6 +13,8 @@ Trạng thái: **chưa code**. Baseline `34213d7` / Worker `1.3.0-alpha.8` / SQL
 ## 2. Các đợt và tiêu chí hoàn thành
 
 ### UX-01 — Tổng quan, điều hướng và hoạt động gọn (P0)
+
+**Đã triển khai U1-01–05.** Tổng quan giới hạn 12 lượt logic gần nhất, tối đa 50 yêu cầu chờ và 12 mốc của lượt hiện tại/gần nhất; không phải inbox toàn bộ lịch sử hoặc nhiều project. Kiểm tra và giới hạn ghi trong bàn giao.
 
 **Phụ thuộc:** baseline hiện tại. **Không migration.**
 
@@ -166,4 +168,4 @@ UX-01–06 khoảng **16–24 ngày công**, cần điều chỉnh sau UX-02. UX
 
 ## 6. Lát cắt bắt đầu
 
-Khi có yêu cầu triển khai, bắt đầu **UX-01**: header/sidebar, Tổng quan project, danh sách cần xử lý và timeline gọn bằng dữ liệu thật. Bàn giao trước khi sang migration UX-02. Không tiếp tục D-05 hoặc dựng lại 3D trong quá trình này.
+**UX-01 đã bàn giao.** Lát cắt tiếp theo là UX-02: hồ sơ công việc, revision và lịch sử submission trên BoardItem hiện có. Không tiếp tục D-05 hoặc dựng lại 3D trong quá trình này.

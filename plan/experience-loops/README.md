@@ -1,6 +1,6 @@
 # ASF — Cải thiện trải nghiệm từ CrewHub Loops
 
-Ngày khảo sát: **05/11/2026**. Trạng thái: **đề xuất chi tiết, chưa triển khai sản phẩm**.
+Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01 đã triển khai; UX-02–08 còn trong kế hoạch**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md).
 
 ## Quyết định định hướng
 
@@ -44,10 +44,10 @@ Tạm dừng phát triển 3D theo yêu cầu người dùng. Giữ phần D-01�
 
 **UX-01 Tổng quan/điều hướng → UX-02 Hồ sơ công việc → UX-03 Chat theo ngữ cảnh → UX-04 Câu hỏi → UX-05 Kết quả → UX-06 Mẫu công việc/Team.** UX-07 Git và UX-08 lịch/quy tắc là mở rộng sau, không chặn vòng làm việc chính.
 
-UX-01 là lát cắt khởi đầu ít rủi ro: dùng dữ liệu hiện có, không migration, không đổi luồng thực thi. Chỉ bắt đầu code khi chuyển sang yêu cầu triển khai. Kế hoạch này không đổi version, model, credentials hoặc trạng thái run đang tồn tại.
+UX-01 đã thêm Tổng quan, header/sidebar và hoạt động gọn bằng dữ liệu hiện có, không migration hoặc đổi luồng thực thi. Tiếp theo là UX-02: mở rộng BoardItem thành hồ sơ công việc bền vững. Worker vẫn `1.3.0-alpha.8`, SQLite 7; chưa phát hành stable.
 
 ## Phạm vi khảo sát và giới hạn
 
 Đã đọc trang sản phẩm, bài giải thích hướng phát triển, các ảnh giao diện chính thức và source design system công khai của CrewHub World có ghi xuất xứ từ Loops. Trang Loops đang ghi **beta coming soon**; chưa xác minh bằng cách cài và chạy Loops. Không coi ảnh giới thiệu là bằng chứng tính năng đã chạy ổn định. Chưa tìm thấy source runtime Loops công khai từ các nguồn đã kiểm tra; không suy diễn kiến trúc nội bộ từ repo CrewHub classic/World.
 
-Đối chiếu ASF tại commit `34213d7`, nhánh `feature/worker-office-v1.3d`, Windows Worker `1.3.0-alpha.8`, SQLite schema 7. Chỉ thay đổi tài liệu ở đợt này. Ảnh tham khảo lưu cache local, không đưa vào Git.
+Khảo sát ban đầu đối chiếu ASF tại commit `34213d7`, nhánh `feature/worker-office-v1.3d`, Windows Worker `1.3.0-alpha.8`, SQLite schema 7. Kết quả triển khai UX-01 được ghi riêng trong bàn giao. Ảnh tham khảo và ảnh kiểm tra chỉ lưu cache local, không đưa vào Git.

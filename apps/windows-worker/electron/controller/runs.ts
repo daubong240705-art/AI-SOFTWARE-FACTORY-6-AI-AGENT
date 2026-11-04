@@ -36,6 +36,7 @@ import type {
   RuntimeView,
 } from "../../shared/runs";
 import { Store } from "../storage/database";
+import { projectOverview } from "./overview";
 import { OpenCodeRuntime } from "../runtime/opencode";
 import { ModelProxy } from "../gateway/model-proxy";
 import { RequestBudget } from "../gateway/request-budget";
@@ -122,6 +123,22 @@ export class RunController {
       active,
       secrets,
     );
+    if (request.overview) {
+      const recent = this.store.recentProjectRuns(request.projectId);
+      if (active?.projectId === request.projectId) {
+        const index = recent.findIndex((r) => r.id === active.id);
+        if (index >= 0) recent[index] = active;
+        else recent.unshift(active);
+      }
+      data.overview = projectOverview(
+        request.projectId,
+        recent,
+        this.store.queue.list(),
+        run,
+        run ? this.store.events(run.id, true) : [],
+        secrets,
+      );
+    }
     if (request.board)
       data.board = projectBoard(
         this.store.board.summaries(request.projectId),

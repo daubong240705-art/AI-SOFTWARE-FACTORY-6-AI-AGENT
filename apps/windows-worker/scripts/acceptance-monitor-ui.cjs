@@ -89,8 +89,10 @@ app.whenReady().then(async () => {
     win.webContents.on("console-message", (_event, level, message) => {
       if (level >= 3) errors.push(message);
     });
-    await until(() => js("!!document.querySelector('.monitor-chat-link')"));
-    await js("document.querySelector('.monitor-chat-link').click()");
+    await until(() =>
+      js("!!document.querySelector('nav button[title=\"Đội ngũ\"]')"),
+    );
+    await js("document.querySelector('nav button[title=\"Đội ngũ\"]').click()");
     await until(() =>
       js("document.querySelectorAll('.agent-card').length === 7"),
     );

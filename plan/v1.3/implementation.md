@@ -1,6 +1,6 @@
 # V1.3 — Backlog triển khai và nghiệm thu
 
-> **Cập nhật ưu tiên 05/11/2026:** tạm dừng phát triển 3D theo yêu cầu người dùng. D-01–04 giữ nguyên; D-05 và phần E liên quan 3D chưa triển khai, không còn là bước tiếp theo. Chuyển sang [kế hoạch trải nghiệm 2D từ CrewHub Loops](../experience-loops/implementation.md), bắt đầu UX-01 khi được yêu cầu code. Các kiểm tra chất lượng 2D được thực hiện trong từng UX; không coi backlog 3D còn lại là đã hoàn thành.
+> **Cập nhật ưu tiên 05/11/2026:** tạm dừng phát triển 3D theo yêu cầu người dùng. D-01–04 giữ nguyên; D-05 và phần E liên quan 3D chưa triển khai, không còn là bước tiếp theo. Đã hoàn thành UX-01 trong [kế hoạch trải nghiệm 2D từ CrewHub Loops](../experience-loops/implementation.md); tiếp theo UX-02. Các kiểm tra chất lượng 2D được thực hiện trong từng UX; không coi backlog 3D còn lại là đã hoàn thành.
 
 **V1.3A–C, UI foundation và D-01–04 đã triển khai; hiện tại `1.3.0-alpha.8`. D-05/E chưa hoàn thành.** [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [B](../../docs/windows-worker/v1.3b-completion.md), [C](../../docs/windows-worker/v1.3c-completion.md), [D-01/D-02](../../docs/windows-worker/office-3d/README.md), [D-03](../../docs/windows-worker/office-3d/d03/README.md), [D-04 và giới hạn](../../docs/windows-worker/office-3d/d04/README.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
 

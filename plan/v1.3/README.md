@@ -75,6 +75,6 @@ Factory Lite + Windows Worker và một Controller tiếp tục là kiến trúc
 
 ## 7. Điểm bắt đầu khi code
 
-Đã hoàn thiện **V1.3A–C**, UI foundation và **D-01–04**: phòng bảy vị trí, trạng thái execution, chọn agent/task, inspector và điều hướng Kanban/Chat. **D-05 và phần E phụ thuộc 3D tạm hoãn theo yêu cầu mới.** Bước đề xuất tiếp theo là **UX-01 — Tổng quan, điều hướng và hoạt động gọn** trong [kế hoạch trải nghiệm 2D](../experience-loops/implementation.md). Không cần chuẩn bị VM.
+Đã hoàn thiện **V1.3A–C**, UI foundation, **D-01–04** và **UX-01 — Tổng quan, điều hướng và hoạt động gọn**. **D-05 và phần E phụ thuộc 3D tạm hoãn theo yêu cầu mới.** Bước tiếp theo là **UX-02 — Hồ sơ công việc bền vững** trong [kế hoạch trải nghiệm 2D](../experience-loops/implementation.md). [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md). Không cần chuẩn bị VM.
 
 V1.3A thêm snapshot/trạng thái và migration schema 7; B–C/D dùng schema này. D-01 thêm Three/R3F pin phiên bản, không đổi credentials/cấu hình hệ thống. File roadmap người dùng cung cấp được giữ nguyên. Kế hoạch Loops hiện chỉ là tài liệu, chưa thay đổi runtime hoặc nâng schema.

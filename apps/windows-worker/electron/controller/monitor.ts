@@ -243,10 +243,17 @@ export class MonitorProjection {
     const hash = createHash("sha256")
       .update(JSON.stringify(data))
       .digest("hex");
-    let entry = this.cache.get(request.projectId);
+    const cacheKey = JSON.stringify([
+      request.projectId,
+      request.board ?? null,
+      request.overview ?? false,
+    ]);
+    let entry = this.cache.get(cacheKey);
     if (!entry || entry.hash !== hash) {
       entry = { hash, revision: ++this.revision };
-      this.cache.set(request.projectId, entry);
+      if (this.cache.size >= 128)
+        this.cache.delete(this.cache.keys().next().value!);
+      this.cache.set(cacheKey, entry);
     }
     const version = {
       epoch: this.epoch,

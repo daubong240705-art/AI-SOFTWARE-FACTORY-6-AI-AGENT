@@ -12,6 +12,7 @@ import { failure } from "../runtime/failure";
 import { redact } from "../runtime/security";
 import { monitorEventSchema, type MonitorEvent } from "../../shared/monitor";
 import { isActive } from "../../shared/runs";
+import { milestoneEventTypes } from "../../shared/inspector";
 import type { RetentionPreview } from "../../shared/lifecycle";
 import { normalizeRun, type Run, type RunEvent } from "../../shared/runs";
 import {
@@ -306,6 +307,18 @@ export class Store {
       .get(projectId) as { value: string } | undefined;
     return row ? normalizeRun(JSON.parse(row.value)) : null;
   }
+  recentProjectRuns(projectId: string): Run[] {
+    const rows = this.db
+      .prepare(
+        `WITH ranked AS (
+      SELECT value,created_at,rowid AS ordering,
+        ROW_NUMBER() OVER (PARTITION BY COALESCE(json_extract(value,'$.attemptRoot'),id)
+          ORDER BY created_at DESC,rowid DESC) AS rn FROM runs WHERE project_id=?
+      ) SELECT value FROM ranked WHERE rn=1 ORDER BY created_at DESC,ordering DESC LIMIT 12`,
+      )
+      .all(projectId) as { value: string }[];
+    return rows.map((row) => normalizeRun(JSON.parse(row.value)));
+  }
   *boardRuns(projectId: string): Iterable<BoardRun> {
     const rows = this.db
       .prepare(
@@ -402,12 +415,18 @@ export class Store {
         metadata ? JSON.stringify(monitorEventSchema.parse(metadata)) : null,
       );
   }
-  events(id: string): RunEvent[] {
+  events(id: string, milestonesOnly = false): RunEvent[] {
+    const filter = milestonesOnly
+      ? ` AND (type GLOB 'RUN_*' OR type IN (${milestoneEventTypes.map(() => "?").join(",")}))`
+      : "";
     const rows = this.db
       .prepare(
-        "SELECT sequence,run_id AS runId,type,text,at,metadata FROM (SELECT * FROM events WHERE run_id=? ORDER BY sequence DESC LIMIT 300) ORDER BY sequence",
+        `SELECT sequence,run_id AS runId,type,text,at,metadata FROM (SELECT * FROM events WHERE run_id=?${filter} ORDER BY sequence DESC LIMIT ${milestonesOnly ? 30 : 300}) ORDER BY sequence`,
       )
-      .all(id) as (Omit<RunEvent, "metadata"> & { metadata: string | null })[];
+      .all(id, ...(milestonesOnly ? milestoneEventTypes : [])) as (Omit<
+      RunEvent,
+      "metadata"
+    > & { metadata: string | null })[];
     return rows.map(({ metadata, ...event }) => ({
       ...event,
       ...(metadata

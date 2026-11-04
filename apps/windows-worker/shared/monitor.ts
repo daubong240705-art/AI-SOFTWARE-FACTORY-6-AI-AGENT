@@ -63,6 +63,7 @@ export const monitorRequestSchema = z
     epoch: z.string().uuid().optional(),
     sinceRevision: z.number().int().nonnegative().optional(),
     board: boardQuerySchema.optional(),
+    overview: z.boolean().optional(),
   })
   .strict();
 export type MonitorRequest = z.infer<typeof monitorRequestSchema>;
@@ -109,6 +110,7 @@ export type MonitorSnapshot = {
   conversationId: string | null;
   agents: AgentStatus[];
   board?: BoardPage;
+  overview?: import("./overview").ProjectOverviewData;
   progress: {
     currentTasks: number;
     executedTasks: number;

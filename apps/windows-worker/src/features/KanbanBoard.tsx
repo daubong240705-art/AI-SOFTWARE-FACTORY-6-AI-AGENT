@@ -30,12 +30,16 @@ export function KanbanBoard({
   onOpenRun,
   onInspect,
   initialRunId,
+  createVersion,
+  onCreateHandled,
 }: {
   projectId: string;
   projectName: string;
   onOpenRun: (runId: string | null, conversationId: string | null) => void;
   onInspect: (runId: string) => void;
   initialRunId?: string | null;
+  createVersion?: number;
+  onCreateHandled?: () => void;
 }) {
   const [query, setQuery] = useState<BoardQuery>(
     initialRunId ? { runId: initialRunId, showStopped: true } : {},
@@ -49,6 +53,13 @@ export function KanbanBoard({
   const lock = useRef(false),
     dialog = useRef<HTMLDialogElement>(null);
   const page = monitor.snapshot?.board;
+  useEffect(() => {
+    if (createVersion) {
+      setDraft(blank);
+      setEditing("new");
+      onCreateHandled?.();
+    }
+  }, [createVersion]);
   useEffect(() => {
     if (editing) dialog.current?.showModal();
     else dialog.current?.close();

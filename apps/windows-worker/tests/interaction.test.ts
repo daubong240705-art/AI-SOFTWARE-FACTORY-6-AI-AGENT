@@ -11,6 +11,7 @@ import type { Run, RunDetail } from "../shared/runs";
 import { Store } from "../electron/storage/database";
 import { RunController } from "../electron/controller/runs";
 import { RunPanel } from "../src/features/RunPanel";
+import { TaskTimeline } from "../src/features/TaskTimeline";
 
 test("legacy settings and queued requests default to ask; Full access persists and is snapshotted for new runs", async () => {
   const directory = mkdtempSync(join(tmpdir(), "asf-access-settings-"));
@@ -130,4 +131,27 @@ test("activity shows work and command status while technical telemetry and inter
   );
   run.error = "Gateway đang giới hạn request";
   assert.match(render("activity"), /Gateway đang giới hạn request/);
+});
+
+test("compact timeline keeps failure and finish milestones while hiding routine tool activity", () => {
+  const run = { role: "lead", tasks: [] } as unknown as Run;
+  const detail: RunDetail = {
+    run,
+    events: ["TOOL_STARTED", "TOOL_FAILED", "RUN_COMPLETED"].map((type, i) => ({
+      sequence: i + 1,
+      runId: "run",
+      at: new Date().toISOString(),
+      type,
+      text: "Internal payload",
+      metadata: {
+        version: 1 as const,
+        taskId: null,
+        activity: "reading" as const,
+      },
+    })),
+  };
+  const html = renderToStaticMarkup(createElement(TaskTimeline, { detail }));
+  assert.doesNotMatch(html, /Đang đọc source|Internal payload/);
+  assert.match(html, /Công cụ thất bại/);
+  assert.match(html, /2 mốc còn lưu/);
 });

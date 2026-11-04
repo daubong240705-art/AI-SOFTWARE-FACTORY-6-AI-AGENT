@@ -10,6 +10,7 @@ import "./inspector.css";
 import "./ui/base.css";
 import "./ui/select.css";
 import "./office.css";
+import "./overview.css";
 import type { WorkerAPI } from "../shared/contracts";
 
 declare global {

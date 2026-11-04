@@ -28,7 +28,11 @@ export class MonitorStore {
   hasSubscribers = () => this.listeners.size > 0;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
-    if (this.listeners.size === 1 && !this.inFlight) void this.refresh();
+    if (this.listeners.size === 1) {
+      if (this.state.receivedAt && Date.now() - this.state.receivedAt >= 3000)
+        this.state = { ...this.state, stale: true };
+      if (!this.inFlight) void this.refresh();
+    }
     return () => {
       this.listeners.delete(listener);
       if (!this.listeners.size) clearTimeout(this.timer);
