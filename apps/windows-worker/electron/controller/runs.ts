@@ -55,6 +55,11 @@ import {
   type MonitorRequest,
 } from "../../shared/monitor";
 import { resolveRuntime, runtimeVersion, redact } from "../runtime/security";
+import { projectBoard } from "./board";
+import {
+  submitBoardItemSchema,
+  type BoardSubmission,
+} from "../../shared/board";
 
 type ExecutionContext = {
   id: string;
@@ -109,13 +114,57 @@ export class RunController {
         ? active
         : this.store.latestProjectRun(request.projectId);
     const key = this.readKey();
-    return this.monitorProjection.snapshot(
-      request,
-      projectMonitor(request.projectId, this.store.settings(), run, active, [
-        ...(this.active?.secrets ?? []),
-        ...(key ? [key] : []),
-      ]),
+    const secrets = [...(this.active?.secrets ?? []), ...(key ? [key] : [])];
+    const data = projectMonitor(
+      request.projectId,
+      this.store.settings(),
+      run,
+      active,
+      secrets,
     );
+    if (request.board)
+      data.board = projectBoard(
+        this.store.board.summaries(request.projectId),
+        this.store.board.links(),
+        this.store.boardRuns(request.projectId),
+        this.store.queue.list(),
+        request.board,
+        secrets,
+      );
+    return this.monitorProjection.snapshot(request, data);
+  }
+  submitBoard(
+    input: import("zod").z.infer<typeof submitBoardItemSchema>,
+  ): BoardSubmission {
+    const request = submitBoardItemSchema.parse(input);
+    if (this.shuttingDown || this.workspaceBusy)
+      throw new Error("Ứng dụng đang đóng hoặc đang xử lý workspace.");
+    const before = this.active;
+    try {
+      return this.store.board.submit(request, (item) => {
+        this.store.project(item.projectId);
+        const conversationId =
+          request.conversationId ??
+          this.store.conversations.create(item.projectId).id;
+        this.store.conversations.context(conversationId, item.projectId);
+        const prompt = `${item.title}\n\n${item.body}${item.suggestedRole && item.suggestedRole !== "lead" ? `\nRole gợi ý: ${item.suggestedRole.toUpperCase()}. Lead chọn role cần thiết theo yêu cầu.` : ""}`;
+        const queued = !!this.active || this.store.queue.list().length > 0;
+        const next = queued
+          ? this.enqueue(item.projectId, conversationId, prompt, "lead", "team")
+          : this.start(item.projectId, prompt, "lead", "team", conversationId);
+        return {
+          itemId: item.id,
+          runId: queued ? null : next.id,
+          followUpId: queued ? next.id : null,
+          conversationId,
+          queued,
+          createdAt: new Date().toISOString(),
+        };
+      });
+    } catch (error) {
+      if (this.active !== before) this.active = before;
+      throw error;
+    }
   }
   private active?: Active;
   private recoveryTickets = new Map<

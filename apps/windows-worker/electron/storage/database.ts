@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { Conversations } from "./conversations";
 import { FollowUps } from "./follow-ups";
+import { BoardStore } from "./board";
+import type { BoardRun } from "../../shared/board";
 import { EvidenceStore } from "./evidence";
 import { failure } from "../runtime/failure";
 import { redact } from "../runtime/security";
@@ -24,6 +26,7 @@ export class Store {
   readonly conversations: Conversations;
   readonly queue: FollowUps;
   readonly evidence: EvidenceStore;
+  readonly board: BoardStore;
   private retentionTickets = new Map<
     string,
     { ids: string[]; expires: number }
@@ -119,6 +122,7 @@ export class Store {
           `);
         })();
       }
+      this.board = new BoardStore(this.db);
     } catch (error) {
       this.db.close();
       throw error;
@@ -210,6 +214,14 @@ export class Store {
     );
     if (active)
       throw new Error("Dừng tác vụ trước khi bỏ dự án khỏi danh sách.");
+    if (
+      this.db
+        .prepare("SELECT id FROM board_items WHERE project_id=? LIMIT 1")
+        .get(id)
+    )
+      throw new Error(
+        "Dự án có thẻ Kanban. Giữ dự án trong danh sách để bảo toàn backlog và liên kết.",
+      );
     this.db.prepare("DELETE FROM projects WHERE id=?").run(id);
   }
   saveDraft(id: string, draft: string): void {
@@ -275,6 +287,7 @@ export class Store {
         )
         .run(randomUUID(), run.id, run.role, run.state, run.prompt);
       this.conversations.messagesFor(run);
+      if (run.retryOf) this.board.retargetRun(run.retryOf, run.id);
       this.event(run.id, "RUN_QUEUED", "Đã nhận yêu cầu.");
     })();
   }
@@ -292,6 +305,39 @@ export class Store {
       )
       .get(projectId) as { value: string } | undefined;
     return row ? normalizeRun(JSON.parse(row.value)) : null;
+  }
+  *boardRuns(projectId: string): Iterable<BoardRun> {
+    const rows = this.db
+      .prepare(
+        `WITH ranked AS (
+      SELECT id,value,created_at,COALESCE(json_extract(value,'$.attemptRoot'),id) AS root,
+      ROW_NUMBER() OVER (PARTITION BY COALESCE(json_extract(value,'$.attemptRoot'),id) ORDER BY created_at DESC,rowid DESC) AS rn
+      FROM runs WHERE project_id=?
+    ) SELECT id,root AS rootId,json_extract(value,'$.conversationId') AS conversationId,json_extract(value,'$.state') AS state,
+      json_extract(value,'$.mode') AS mode,json_extract(value,'$.prompt') AS prompt,
+      json_extract(value,'$.model') AS model,json_extract(value,'$.role') AS role,created_at AS createdAt,
+      json_extract(value,'$.endedAt') AS endedAt,json_extract(value,'$.integration.state') AS integrationState,
+      (json_extract(value,'$.state')='completed' AND json_extract(value,'$.review.version')=2
+       AND json_extract(value,'$.review.status')='completed' AND json_extract(value,'$.review.verification.verified')=1
+       AND NOT EXISTS(SELECT 1 FROM json_each(ranked.value,'$.review.acceptance') a WHERE json_extract(a.value,'$.status') IS NOT 'passed')
+       AND NOT EXISTS(SELECT 1 FROM json_each(ranked.value,'$.review.fixes')) ) AS reviewVerified,
+      (SELECT json_group_array(json_object('id',json_extract(t.value,'$.id'),'originalTaskId',json_extract(t.value,'$.originalTaskId'),
+        'role',json_extract(t.value,'$.role'),'title',json_extract(t.value,'$.title'),'state',json_extract(t.value,'$.state'),
+        'kind',json_extract(t.value,'$.kind'),'model',json_extract(t.value,'$.model'),'dependsOn',json_extract(t.value,'$.dependsOn'),
+        'acceptanceCount',json_array_length(t.value,'$.acceptance'),'workType',json_extract(t.value,'$.workType')))
+       FROM json_each(ranked.value,'$.tasks') t) AS tasks,
+      COALESCE(json_array_length(value,'$.changes'),0) AS changes,json_extract(value,'$.error') AS error
+      FROM ranked
+      WHERE rn=1 ORDER BY created_at DESC,id DESC`,
+      )
+      .iterate(projectId);
+    for (const row of rows as Iterable<Record<string, unknown>>)
+      yield {
+        ...row,
+        state: row.state as string,
+        reviewVerified: !!row.reviewVerified,
+        tasks: JSON.parse(row.tasks as string),
+      } as BoardRun;
   }
   runs(): Run[] {
     return (
@@ -433,6 +479,7 @@ export class Store {
     return JSON.stringify(
       {
         version: 1,
+        boardLinks: this.board.links().filter((link) => link.runId === id),
         exportedAt: new Date().toISOString(),
         run: {
           id: run.id,
@@ -496,6 +543,8 @@ export class Store {
         protectedIds.add(r.id);
     for (const q of this.queue.list())
       if (q.afterRunId) protectedIds.add(q.afterRunId);
+    for (const link of this.board.links())
+      if (link.runId) protectedIds.add(link.runId);
     const refs = (value: unknown, result: Set<string>) => {
       if (!value || typeof value !== "object") return;
       for (const [key, item] of Object.entries(value)) {
@@ -543,6 +592,8 @@ export class Store {
     if (!ticket || ticket.expires < Date.now())
       throw new Error("Bản xem trước dọn dữ liệu đã hết hạn.");
     const ids = new Set(ticket.ids);
+    if (this.board.links().some((link) => link.runId && ids.has(link.runId)))
+      throw new Error("Có liên kết Kanban mới; tải lại bản xem trước.");
     const queued = this.queue.list();
     const rows = this.db.prepare("SELECT value FROM runs").all() as {
       value: string;

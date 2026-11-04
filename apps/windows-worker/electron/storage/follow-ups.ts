@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { FollowUp } from "../../shared/chat";
+import { BoardStore } from "./board";
 
 export class FollowUps {
   constructor(
@@ -24,19 +25,28 @@ export class FollowUps {
     return (
       this.db
         .prepare(
-          "SELECT value FROM follow_ups WHERE (? IS NULL OR conversation_id=?) ORDER BY sequence",
+          "SELECT value,(SELECT item_id FROM board_links WHERE follow_up_id=follow_ups.id) AS boardItemId FROM follow_ups WHERE (? IS NULL OR conversation_id=?) ORDER BY sequence",
         )
         .all(conversationId ?? null, conversationId ?? null) as {
         value: string;
+        boardItemId: string | null;
       }[]
-    ).map((row) => JSON.parse(row.value));
+    ).map((row) => ({
+      ...JSON.parse(row.value),
+      boardItemId: row.boardItemId ?? undefined,
+    }));
   }
   get(id: string): FollowUp {
     const row = this.db
-      .prepare("SELECT value FROM follow_ups WHERE id=?")
-      .get(id) as { value: string } | undefined;
+      .prepare(
+        "SELECT value,(SELECT item_id FROM board_links WHERE follow_up_id=follow_ups.id) AS boardItemId FROM follow_ups WHERE id=?",
+      )
+      .get(id) as { value: string; boardItemId: string | null } | undefined;
     if (!row) throw new Error("Yêu cầu không còn trong hàng chờ.");
-    return JSON.parse(row.value);
+    return {
+      ...JSON.parse(row.value),
+      boardItemId: row.boardItemId ?? undefined,
+    };
   }
   add(input: Omit<FollowUp, "id" | "createdAt">): FollowUp {
     if (this.list().length >= 50) throw new Error("Hàng chờ đã đủ 50 yêu cầu.");
@@ -58,13 +68,17 @@ export class FollowUps {
       .run(JSON.stringify(item), item.id);
   }
   edit(id: string, prompt: string): void {
+    new BoardStore(this.db).assertQueueEditable(id);
     const item = this.get(id);
     item.prompt = prompt;
     this.save(item);
   }
   remove(id: string): void {
     this.get(id);
-    this.db.prepare("DELETE FROM follow_ups WHERE id=?").run(id);
+    this.db.transaction(() => {
+      new BoardStore(this.db).releaseQueue(id);
+      this.db.prepare("DELETE FROM follow_ups WHERE id=?").run(id);
+    })();
   }
   hold(reason: string, afterRunId?: string): void {
     for (const item of this.list())
@@ -78,6 +92,7 @@ export class FollowUps {
     return this.db.transaction(() => {
       const item = this.get(id);
       const result = start(item);
+      new BoardStore(this.db).claimQueue(id, result.id);
       this.remove(id);
       for (const next of this.list())
         if (next.state === "waiting" && next.afterRunId === item.afterRunId)

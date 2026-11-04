@@ -1,6 +1,8 @@
 # ASF Windows Worker
 
-**V1.3A (`1.3.0-alpha.1`)** thêm màn **Đội ngũ** và liên kết từ Chat: xem role rảnh/đang làm/đã tắt/chưa cấu hình; task, model thực tế, thời lượng và hoạt động đọc/sửa/chạy lệnh/chờ model/chờ quyền. Hai execution cùng role được hiển thị riêng. Tiến độ xác minh tách khỏi task chỉ mới chạy xong. Snapshot dùng chung có version và cảnh báo khi chưa đồng bộ. Kanban, inspector nâng cao và 3D tiếp tục ở B–E. [Bàn giao V1.3A](../../docs/windows-worker/v1.3a-completion.md), [kế hoạch V1.3](../../plan/v1.3/README.md).
+**V1.3B (`1.3.0-alpha.2`)** thêm màn **Công việc**: Kanban sáu cột, backlog lưu local, tạo/sửa/lưu trữ thẻ, tìm kiếm/lọc và gửi Lead qua hàng chờ hiện có. Chỉ kéo thẻ giữa Chưa làm ↔ Sẵn sàng; thẻ thực thi tự chuyển theo Controller và bằng chứng review. Bấm thẻ để xem tiến độ và mở kết quả. Thẻ đã gửi không sửa riêng; xóa yêu cầu khỏi hàng chờ để sửa lại. Run liên kết được giữ khi dọn lịch sử; project còn thẻ chưa được bỏ khỏi danh sách. [Bàn giao V1.3B](../../docs/windows-worker/v1.3b-completion.md).
+
+**V1.3A (`1.3.0-alpha.1`)** thêm màn **Đội ngũ** và liên kết từ Chat: xem role rảnh/đang làm/đã tắt/chưa cấu hình; task, model thực tế, thời lượng và hoạt động đọc/sửa/chạy lệnh/chờ model/chờ quyền. Hai execution cùng role được hiển thị riêng. Tiến độ xác minh tách khỏi task chỉ mới chạy xong. Snapshot dùng chung có version và cảnh báo khi chưa đồng bộ. Inspector nâng cao, timeline và 3D tiếp tục ở C–E. [Bàn giao V1.3A](../../docs/windows-worker/v1.3a-completion.md), [kế hoạch V1.3](../../plan/v1.3/README.md).
 
 Lần mở đầu sẽ nâng SQLite từ schema 6 lên 7, giữ bản backup `worker.schema6.pre-monitor.backup.sqlite` trong thư mục dữ liệu ứng dụng trước migration. Bản app cũ không mở được schema mới; muốn quay lại cần đóng app và phục hồi backup có chủ đích. Chưa thêm bộ cài WW-5.
 

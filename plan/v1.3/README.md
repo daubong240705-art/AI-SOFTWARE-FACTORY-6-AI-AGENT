@@ -1,6 +1,6 @@
 # V1.3 mở rộng — Agent Monitor, Kanban và AI Office 3D
 
-Ngày lập: 04/11/2026. **V1.3A đã triển khai ở `1.3.0-alpha.1`; B–E chưa triển khai.** Người dùng đã chọn tên V1.3 mở rộng thay cho V1.13. [Bàn giao A và bằng chứng](../../docs/windows-worker/v1.3a-completion.md).
+Ngày lập: 04/11/2026; cập nhật 05/11/2026. **A và B đã triển khai; hiện tại `1.3.0-alpha.2`. C–E chưa triển khai.** Người dùng đã chọn tên V1.3 mở rộng thay cho V1.13. [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [bàn giao B và bằng chứng](../../docs/windows-worker/v1.3b-completion.md).
 
 ## 1. Kết quả cần đạt
 
@@ -53,7 +53,7 @@ Factory Lite + Windows Worker và một Controller tiếp tục là kiến trúc
 | Đợt | Bàn giao | Phụ thuộc | Ước lượng công sức* |
 |---|---|---|---|
 | V1.3A — đã triển khai | Hợp đồng trạng thái và snapshot chung, agent monitor 2D | Baseline hiện tại | 2–3 ngày (ước lượng ban đầu) |
-| V1.3B | Kanban, backlog local, liên kết task/run, thao tác hợp lệ | A | 3–4 ngày |
+| V1.3B — đã triển khai | Kanban, backlog local, liên kết task/run, thao tác hợp lệ | A | 3–4 ngày (ước lượng ban đầu) |
 | V1.3C | Inspector, timeline gọn, Chat dùng dữ liệu chung | A, B | 2–3 ngày |
 | V1.3D | Văn phòng 3D, bảy vị trí, chọn agent và ánh xạ trạng thái | A, C | 3–5 ngày |
 | V1.3E | Tối ưu, fallback, nghiệm thu và bàn giao | B, C, D | 2–3 ngày |
@@ -73,6 +73,6 @@ Factory Lite + Windows Worker và một Controller tiếp tục là kiến trúc
 
 ## 7. Điểm bắt đầu khi code
 
-Đã bắt đầu và hoàn thiện **V1.3A**: checkpoint, contract/projection theo execution và bảng agent 2D. Tiếp theo triển khai **V1.3B** với Kanban/backlog local, rồi inspector và 3D. Không cần chuẩn bị VM hay thay cấu hình 9Router để bắt đầu phạm vi này.
+Đã hoàn thiện **V1.3A–B**: contract/projection theo execution, bảng agent 2D, Kanban/backlog local và giao Lead qua Controller hiện có. Tiếp theo triển khai **V1.3C** với inspector, timeline và cache Chat dùng chung, rồi 3D. Không cần chuẩn bị VM hay thay cấu hình 9Router để bắt đầu phạm vi này.
 
-V1.3A đã thêm snapshot/trạng thái và migration schema 7, không thêm dependency hoặc thay credentials/cấu hình hệ thống. File roadmap người dùng cung cấp được giữ nguyên. Bước code tiếp theo là V1.3B.
+V1.3A đã thêm snapshot/trạng thái và migration schema 7; B dùng các bảng nền đó. Cả hai không thêm dependency hoặc thay credentials/cấu hình hệ thống. File roadmap người dùng cung cấp được giữ nguyên. Bước code tiếp theo là V1.3C.

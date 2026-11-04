@@ -58,7 +58,12 @@ export function FollowUpCard({
           </>
         ) : (
           <button
-            disabled={busy}
+            disabled={busy || !!item.boardItemId}
+            title={
+              item.boardItemId
+                ? "Bỏ khỏi hàng chờ rồi sửa thẻ trong Công việc"
+                : undefined
+            }
             onClick={() => {
               setText(item.prompt);
               setEditing(true);

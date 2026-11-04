@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "fixture": true,
+  "providerCalls": 0,
+  "checks": [
+    "Built Electron, real isolated SQLite and strict IPC",
+    "Six columns distinguish verified/unverified/stopped results",
+    "Native drag persists planning state; IPC rejects Done mutation",
+    "Create, archive and restore via UI",
+    "Lead submission queue/idempotency; linked card mutation denied",
+    "Vietnamese search and pagination projection",
+    "Horizontal scrolling stays within board at small width",
+    "Open existing run/task results from a card"
+  ],
+  "rendererErrors": []
+}

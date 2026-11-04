@@ -25,6 +25,7 @@ export class MonitorStore {
     private read: (request: MonitorRequest) => Promise<MonitorReply>,
   ) {}
   getSnapshot = () => this.state;
+  hasSubscribers = () => this.listeners.size > 0;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
     if (this.listeners.size === 1 && !this.inFlight) void this.refresh();

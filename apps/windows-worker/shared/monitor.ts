@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { roles } from "./defaults";
+import { boardQuerySchema, type BoardPage } from "./board";
 
 export const activitySchema = z.enum([
   "preparing",
@@ -61,6 +62,7 @@ export const monitorRequestSchema = z
     projectId: z.string().uuid(),
     epoch: z.string().uuid().optional(),
     sinceRevision: z.number().int().nonnegative().optional(),
+    board: boardQuerySchema.optional(),
   })
   .strict();
 export type MonitorRequest = z.infer<typeof monitorRequestSchema>;
@@ -101,6 +103,7 @@ export type MonitorSnapshot = {
   runState: string | null;
   conversationId: string | null;
   agents: AgentStatus[];
+  board?: BoardPage;
   progress: {
     currentTasks: number;
     executedTasks: number;

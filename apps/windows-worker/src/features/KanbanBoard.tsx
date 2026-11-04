@@ -1,0 +1,624 @@
+import { useEffect, useRef, useState } from "react";
+import {
+  boardColumns,
+  boardColumnLabels,
+  type BoardCard,
+  type BoardItem,
+  type BoardQuery,
+} from "../../shared/board";
+import { roles, type Reply, type Role } from "../../shared/contracts";
+import { availabilityLabels } from "../../shared/monitor";
+import { useMonitor } from "../lib/use-monitor";
+import "../kanban.css";
+
+async function unwrap<T>(reply: Promise<Reply<T>>) {
+  const result = await reply;
+  if (!result.ok) throw new Error(result.error);
+  return result.value;
+}
+const blank = {
+  title: "",
+  body: "",
+  suggestedRole: null as Role | null,
+  priority: 0,
+  planningState: "backlog" as "backlog" | "ready",
+};
+
+export function KanbanBoard({
+  projectId,
+  projectName,
+  onOpenRun,
+}: {
+  projectId: string;
+  projectName: string;
+  onOpenRun: (runId: string | null, conversationId: string | null) => void;
+}) {
+  const [query, setQuery] = useState<BoardQuery>({});
+  const monitor = useMonitor(projectId, query);
+  const [editing, setEditing] = useState<BoardItem | "new" | null>(null);
+  const [draft, setDraft] = useState(blank);
+  const [selected, setSelected] = useState<BoardCard | null>(null);
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const lock = useRef(false),
+    dialog = useRef<HTMLDialogElement>(null);
+  const page = monitor.snapshot?.board;
+  useEffect(() => {
+    if (editing) dialog.current?.showModal();
+    else dialog.current?.close();
+  }, [editing]);
+  useEffect(() => {
+    if (selected && page)
+      setSelected(page.cards.find((card) => card.key === selected.key) ?? null);
+  }, [page]);
+  async function action(fn: () => Promise<void>) {
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await fn();
+      await monitor.refresh?.();
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Không thực hiện được thao tác.",
+      );
+      await monitor.refresh?.();
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+  function filter(patch: Partial<BoardQuery>) {
+    setSelected(null);
+    setQuery({ ...query, ...patch, offset: 0 });
+  }
+  async function edit(card: BoardCard) {
+    await action(async () => {
+      const item = await unwrap(window.worker.boardItem(card.itemId!));
+      setDraft({
+        title: item.title,
+        body: item.body,
+        suggestedRole: item.suggestedRole,
+        priority: item.priority,
+        planningState: item.planningState,
+      });
+      setEditing(item);
+    });
+  }
+  function move(
+    card: BoardCard,
+    planningState: "backlog" | "ready",
+    beforeId?: string,
+  ) {
+    return action(async () => {
+      await unwrap(
+        window.worker.moveBoardItem({
+          id: card.itemId!,
+          version: card.version!,
+          planningState,
+          beforeId,
+        }),
+      );
+    });
+  }
+  function drop(event: React.DragEvent, column: string, beforeId?: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!["backlog", "ready"].includes(column) || monitor.stale) return;
+    const key = event.dataTransfer.getData("application/x-asf-board");
+    const card = page?.cards.find(
+      (item) => item.key === key && item.kind === "planning" && !item.archived,
+    );
+    if (card && card.itemId !== beforeId)
+      void move(card, column as "backlog" | "ready", beforeId);
+  }
+  const stale = monitor.stale;
+  return (
+    <section className="kanban-workspace" aria-label="Kanban công việc">
+      <div className="page-heading">
+        <div>
+          <h1>Công việc</h1>
+          <span className="muted">{projectName}</span>
+        </div>
+        <button
+          className="primary"
+          disabled={busy}
+          onClick={() => {
+            setDraft(blank);
+            setEditing("new");
+          }}
+        >
+          Thêm việc
+        </button>
+      </div>
+      {(error || monitor.error) && (
+        <div className="notice error" role="alert">
+          {error || monitor.error}
+        </div>
+      )}
+      {stale && (
+        <div className="notice" role="status">
+          Chưa đồng bộ · Đang hiển thị dữ liệu lần cuối
+        </div>
+      )}
+      <div className="board-roster" aria-label="Trạng thái đội ngũ">
+        {monitor.snapshot?.agents.map((agent) => (
+          <button
+            key={agent.role}
+            className={agent.availability}
+            aria-pressed={query.role === agent.role}
+            title={
+              stale ? "Chưa đồng bộ" : availabilityLabels[agent.availability]
+            }
+            onClick={() =>
+              filter({
+                role: query.role === agent.role ? undefined : agent.role,
+              })
+            }
+          >
+            {agent.role === "lead" ? "Lead" : agent.role.toUpperCase()}{" "}
+            <span>{stale ? "?" : agent.executions.length || "·"}</span>
+          </button>
+        ))}
+      </div>
+      <div className="board-filters">
+        <input
+          aria-label="Tìm công việc"
+          placeholder="Tìm tiêu đề, task…"
+          maxLength={200}
+          value={query.search ?? ""}
+          onChange={(event) => filter({ search: event.target.value })}
+        />
+        <select
+          aria-label="Lọc role"
+          value={query.role ?? ""}
+          onChange={(e) =>
+            filter({ role: (e.target.value || undefined) as Role | undefined })
+          }
+        >
+          <option value="">Mọi role</option>
+          {roles.map((role) => (
+            <option key={role} value={role}>
+              {role.toUpperCase()}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Lọc ưu tiên"
+          value={query.priority ?? ""}
+          onChange={(e) =>
+            filter({
+              priority: e.target.value ? Number(e.target.value) : undefined,
+            })
+          }
+        >
+          <option value="">Mọi ưu tiên</option>
+          <option value="0">Thường</option>
+          <option value="1">Cao</option>
+          <option value="2">Gấp</option>
+        </select>
+        <select
+          aria-label="Lọc loại việc"
+          value={query.workType ?? ""}
+          onChange={(e) =>
+            filter({
+              workType: (e.target.value || undefined) as BoardQuery["workType"],
+            })
+          }
+        >
+          <option value="">Mọi loại việc</option>
+          {[
+            "docs",
+            "analysis",
+            "implementation",
+            "bugfix",
+            "testing",
+            "local-dev",
+          ].map((type) => (
+            <option key={type}>{type}</option>
+          ))}
+        </select>
+        <label>
+          <input
+            type="checkbox"
+            checked={!!query.showStopped}
+            onChange={(e) => filter({ showStopped: e.target.checked })}
+          />{" "}
+          Đã dừng / bỏ qua
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={!!query.archived}
+            onChange={(e) => filter({ archived: e.target.checked })}
+          />{" "}
+          Lưu trữ
+        </label>
+        <button disabled={busy} onClick={() => void monitor.refresh?.()}>
+          Cập nhật
+        </button>
+      </div>
+      {!page ? (
+        <p className="muted">
+          {monitor.error ? "Chưa tải được công việc." : "Đang tải công việc…"}
+        </p>
+      ) : (
+        <>
+          <div className="board-pagination">
+            <span>
+              {page.total
+                ? `${page.offset + 1}–${Math.min(page.offset + page.pageSize, page.total)} / ${page.total} công việc`
+                : "Chưa có công việc"}
+            </span>
+            <button
+              disabled={!page.offset}
+              onClick={() =>
+                setQuery({
+                  ...query,
+                  offset: Math.max(0, page.offset - page.pageSize),
+                })
+              }
+            >
+              Trước
+            </button>
+            <button
+              disabled={!page.hasMore}
+              onClick={() =>
+                setQuery({ ...query, offset: page.offset + page.pageSize })
+              }
+            >
+              Sau
+            </button>
+          </div>
+          <div
+            className="kanban-columns"
+            role="region"
+            aria-label="Các cột công việc"
+            tabIndex={0}
+          >
+            {boardColumns.map((column) => (
+              <section
+                key={column}
+                className={`kanban-column ${column}`}
+                onDragOver={(e) => {
+                  if (["backlog", "ready"].includes(column)) e.preventDefault();
+                }}
+                onDrop={(event) => drop(event, column)}
+              >
+                <header>
+                  <strong>{boardColumnLabels[column]}</strong>
+                  <span>
+                    {page.cards.filter((card) => card.column === column).length}
+                  </span>
+                </header>
+                {page.cards
+                  .filter((card) => card.column === column)
+                  .map((card) => (
+                    <article
+                      key={card.key}
+                      className={`board-task ${selected?.key === card.key ? "selected" : ""}`}
+                      draggable={
+                        card.kind === "planning" &&
+                        !card.archived &&
+                        !busy &&
+                        !stale
+                      }
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData(
+                          "application/x-asf-board",
+                          card.key,
+                        );
+                        event.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragOver={(event) => {
+                        if (card.kind === "planning") event.preventDefault();
+                      }}
+                      onDrop={(event) =>
+                        drop(
+                          event,
+                          column,
+                          card.kind === "planning" ? card.itemId! : undefined,
+                        )
+                      }
+                    >
+                      <button
+                        className="board-card-title"
+                        onClick={() => setSelected(card)}
+                      >
+                        {card.title}
+                      </button>
+                      <div className="board-card-meta">
+                        <span>{card.role.toUpperCase()}</span>
+                        <span>
+                          {card.kind === "planning"
+                            ? ["Thường", "Cao", "Gấp"][card.priority]
+                            : card.reason}
+                        </span>
+                      </div>
+                      {card.kind === "runtime" && card.progress.tasks > 0 && (
+                        <small>
+                          {card.progress.verified}/{card.progress.tasks} task
+                          xác minh
+                          {card.changes ? ` · ${card.changes} file` : ""}
+                        </small>
+                      )}
+                      {card.kind === "planning" && !card.archived && (
+                        <div className="board-card-actions">
+                          <select
+                            aria-label={`Chuyển ${card.title}`}
+                            disabled={busy || stale}
+                            value={card.column}
+                            onChange={(e) =>
+                              void move(
+                                card,
+                                e.target.value as "backlog" | "ready",
+                              )
+                            }
+                          >
+                            <option value="backlog">Chưa làm</option>
+                            <option value="ready">Sẵn sàng</option>
+                          </select>
+                          <button
+                            disabled={busy || stale}
+                            onClick={() => void edit(card)}
+                          >
+                            Sửa
+                          </button>
+                          {card.column === "ready" && (
+                            <button
+                              disabled={busy || stale}
+                              onClick={() =>
+                                void action(async () => {
+                                  await unwrap(
+                                    window.worker.submitBoardItem({
+                                      id: card.itemId!,
+                                      version: card.version!,
+                                    }),
+                                  );
+                                })
+                              }
+                            >
+                              Gửi Lead
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                {!page.cards.some((card) => card.column === column) && (
+                  <p className="column-empty">Trống</p>
+                )}
+              </section>
+            ))}
+          </div>
+        </>
+      )}
+      {selected && (
+        <aside className="board-details" aria-label="Chi tiết thẻ">
+          <header>
+            <strong>{selected.title}</strong>
+            <button
+              aria-label="Đóng chi tiết thẻ"
+              onClick={() => setSelected(null)}
+            >
+              Đóng
+            </button>
+          </header>
+          <p>{selected.reason || boardColumnLabels[selected.column]}</p>
+          {selected.kind === "runtime" && (
+            <p>
+              {selected.progress.executed}/{selected.progress.tasks} task đã
+              thực thi · {selected.progress.verified} xác minh ·{" "}
+              {selected.progress.passed}/{selected.progress.criteria} tiêu chí
+              đạt
+            </p>
+          )}
+          <div className="board-detail-actions">
+            {selected.runId && (
+              <button
+                onClick={() =>
+                  onOpenRun(selected.runId, selected.conversationId)
+                }
+              >
+                Mở kết quả / task
+              </button>
+            )}
+            {selected.followUpId && (
+              <>
+                <button
+                  disabled={busy || stale || !!monitor.snapshot?.activeRun}
+                  onClick={() =>
+                    void action(async () => {
+                      await unwrap(
+                        window.worker.resumeFollowUp(selected.followUpId!),
+                      );
+                    })
+                  }
+                >
+                  Chạy tiếp
+                </button>
+                <button
+                  disabled={busy || stale}
+                  onClick={() =>
+                    void action(async () => {
+                      await unwrap(
+                        window.worker.removeFollowUp(selected.followUpId!),
+                      );
+                    })
+                  }
+                >
+                  Bỏ khỏi hàng chờ
+                </button>
+              </>
+            )}
+            {selected.runId === monitor.snapshot?.activeRun?.id && (
+              <button
+                disabled={busy || stale}
+                title="Dừng tất cả task thuộc lượt chạy này"
+                onClick={() =>
+                  void action(async () => {
+                    await unwrap(window.worker.stopRun(selected.runId!));
+                  })
+                }
+              >
+                Dừng lượt chạy
+              </button>
+            )}
+            {selected.kind === "planning" && (
+              <>
+                {!selected.archived && (
+                  <button
+                    disabled={busy || stale}
+                    onClick={() => void edit(selected)}
+                  >
+                    Sửa thẻ
+                  </button>
+                )}
+                <button
+                  disabled={busy || stale}
+                  onClick={() =>
+                    void action(async () => {
+                      await unwrap(
+                        window.worker.archiveBoardItem({
+                          id: selected.itemId!,
+                          version: selected.version!,
+                          archived: !selected.archived,
+                        }),
+                      );
+                      setSelected(null);
+                    })
+                  }
+                >
+                  {selected.archived ? "Khôi phục thẻ" : "Lưu trữ thẻ"}
+                </button>
+              </>
+            )}
+          </div>
+        </aside>
+      )}
+      <dialog
+        ref={dialog}
+        className="board-editor"
+        aria-label="Thẻ công việc"
+        onCancel={(event) => {
+          if (busy) event.preventDefault();
+          else setEditing(null);
+        }}
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void action(async () => {
+              if (editing === "new")
+                await unwrap(
+                  window.worker.createBoardItem({ projectId, ...draft }),
+                );
+              else if (editing)
+                await unwrap(
+                  window.worker.updateBoardItem({
+                    id: editing.id,
+                    version: editing.version,
+                    patch: draft,
+                  }),
+                );
+              setEditing(null);
+            });
+          }}
+        >
+          <h2>{editing === "new" ? "Thêm việc" : "Sửa công việc"}</h2>
+          <label>
+            Tiêu đề
+            <input
+              autoFocus
+              aria-label="Tiêu đề công việc"
+              maxLength={160}
+              required
+              value={draft.title}
+              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+            />
+          </label>
+          <label>
+            Yêu cầu
+            <textarea
+              aria-label="Yêu cầu công việc"
+              rows={7}
+              maxLength={12000}
+              value={draft.body}
+              onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+            />
+          </label>
+          <div className="board-editor-row">
+            <label>
+              Role gợi ý
+              <select
+                aria-label="Role gợi ý"
+                value={draft.suggestedRole ?? ""}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    suggestedRole: (e.target.value || null) as Role | null,
+                  })
+                }
+              >
+                <option value="">Lead tự chọn</option>
+                {roles.map((role) => (
+                  <option key={role} value={role}>
+                    {role.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Ưu tiên
+              <select
+                aria-label="Ưu tiên công việc"
+                value={draft.priority}
+                onChange={(e) =>
+                  setDraft({ ...draft, priority: Number(e.target.value) })
+                }
+              >
+                <option value="0">Thường</option>
+                <option value="1">Cao</option>
+                <option value="2">Gấp</option>
+              </select>
+            </label>
+            <label>
+              Cột
+              <select
+                aria-label="Cột công việc"
+                value={draft.planningState}
+                onChange={(e) =>
+                  setDraft({
+                    ...draft,
+                    planningState: e.target.value as "backlog" | "ready",
+                  })
+                }
+              >
+                <option value="backlog">Chưa làm</option>
+                <option value="ready">Sẵn sàng</option>
+              </select>
+            </label>
+          </div>
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          <footer>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setEditing(null)}
+            >
+              Hủy
+            </button>
+            <button className="primary" disabled={busy || !draft.title.trim()}>
+              Lưu
+            </button>
+          </footer>
+        </form>
+      </dialog>
+    </section>
+  );
+}

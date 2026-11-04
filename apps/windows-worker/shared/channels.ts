@@ -1,4 +1,10 @@
 export const channels = {
+  createBoardItem: "worker:board-create",
+  boardItem: "worker:board-item",
+  updateBoardItem: "worker:board-update",
+  moveBoardItem: "worker:board-move",
+  archiveBoardItem: "worker:board-archive",
+  submitBoardItem: "worker:board-submit",
   monitorSnapshot: "worker:monitor-snapshot",
   workspaces: "worker:workspaces",
   createWorkspace: "worker:create-workspace",

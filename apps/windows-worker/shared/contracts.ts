@@ -118,6 +118,30 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  createBoardItem(
+    input: import("zod").z.infer<
+      typeof import("./board").createBoardItemSchema
+    >,
+  ): Promise<Reply<import("./board").BoardItem>>;
+  boardItem(id: string): Promise<Reply<import("./board").BoardItem>>;
+  updateBoardItem(
+    input: import("zod").z.infer<
+      typeof import("./board").updateBoardItemSchema
+    >,
+  ): Promise<Reply<import("./board").BoardItem>>;
+  moveBoardItem(
+    input: import("zod").z.infer<typeof import("./board").moveBoardItemSchema>,
+  ): Promise<Reply<import("./board").BoardItem>>;
+  archiveBoardItem(input: {
+    id: string;
+    version: number;
+    archived: boolean;
+  }): Promise<Reply<import("./board").BoardItem>>;
+  submitBoardItem(
+    input: import("zod").z.infer<
+      typeof import("./board").submitBoardItemSchema
+    >,
+  ): Promise<Reply<import("./board").BoardSubmission>>;
   monitorSnapshot(
     input: import("./monitor").MonitorRequest,
   ): Promise<Reply<import("./monitor").MonitorReply>>;

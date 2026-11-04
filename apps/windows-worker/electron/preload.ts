@@ -3,6 +3,16 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  createBoardItem: (input) =>
+    ipcRenderer.invoke(channels.createBoardItem, input),
+  boardItem: (id) => ipcRenderer.invoke(channels.boardItem, id),
+  updateBoardItem: (input) =>
+    ipcRenderer.invoke(channels.updateBoardItem, input),
+  moveBoardItem: (input) => ipcRenderer.invoke(channels.moveBoardItem, input),
+  archiveBoardItem: (input) =>
+    ipcRenderer.invoke(channels.archiveBoardItem, input),
+  submitBoardItem: (input) =>
+    ipcRenderer.invoke(channels.submitBoardItem, input),
   monitorSnapshot: (input) =>
     ipcRenderer.invoke(channels.monitorSnapshot, input),
   workspaces: (id) => ipcRenderer.invoke(channels.workspaces, id),

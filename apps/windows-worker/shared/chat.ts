@@ -1,6 +1,7 @@
 import type { RunState } from "./runs";
 import type { Role, Settings } from "./contracts";
 export type FollowUp = {
+  boardItemId?: string;
   id: string;
   conversationId: string;
   projectId: string;

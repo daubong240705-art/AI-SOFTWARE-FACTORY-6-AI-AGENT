@@ -1,6 +1,6 @@
 # V1.3 — Backlog triển khai và nghiệm thu
 
-**V1.3A đã triển khai ở `1.3.0-alpha.1`; B–E chưa triển khai.** [Bàn giao và giới hạn A](../../docs/windows-worker/v1.3a-completion.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
+**V1.3A–B đã triển khai; hiện tại `1.3.0-alpha.2`. C–E chưa triển khai.** [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [bàn giao và giới hạn B](../../docs/windows-worker/v1.3b-completion.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
 
 ## 0. Chuẩn bị trước thay đổi lớn
 
@@ -25,6 +25,8 @@
 **Mốc bàn giao:** người dùng xem ai rảnh/bận đúng bằng bảng 2D; chưa cần 3D hoặc thao tác Kanban. Commit riêng A, cập nhật bằng chứng và giới hạn. Không gắn animation giả để che nguồn trạng thái chưa đủ.
 
 ## V1.3B — Kanban và backlog local
+
+**Đã triển khai B-01–07** ở `1.3.0-alpha.2`. Card là yêu cầu cha; task con mở qua kết quả hiện có, inspector mới ở C. Editor dùng dialog native thay drawer, hỗ trợ Escape và focus. [Bằng chứng và giới hạn](../../docs/windows-worker/v1.3b-completion.md).
 
 | Mã | Công việc | Phụ thuộc | Kết quả nghiệm thu |
 |---|---|---|---|

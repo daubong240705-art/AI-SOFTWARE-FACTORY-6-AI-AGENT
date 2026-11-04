@@ -36,6 +36,7 @@ import { defaultSettings } from "../shared/defaults";
 import { version } from "../package.json";
 import { ChatWorkspace } from "./features/ChatWorkspace";
 import { AgentMonitor } from "./features/AgentMonitor";
+import { KanbanBoard } from "./features/KanbanBoard";
 import { useMonitor } from "./lib/use-monitor";
 import { HistoryTools } from "./features/HistoryTools";
 import type { ConversationSummary } from "../shared/chat";
@@ -56,7 +57,7 @@ async function value<T>(promise: Promise<Reply<T>>): Promise<T> {
   if (!result.ok) throw new Error(result.error);
   return result.value;
 }
-type Page = "project" | "history" | "settings" | "monitor";
+type Page = "project" | "history" | "settings" | "monitor" | "board";
 type Notice = { kind: "error" | "success"; text: string };
 
 function Empty({
@@ -508,6 +509,14 @@ export function App() {
         <div className="nav-caption">WORKSPACE</div>
         <nav aria-label="Điều hướng chính">
           <button
+            className={page === "board" ? "active" : ""}
+            onClick={() => navigate("board")}
+            title="Công việc"
+          >
+            <Workflow size={18} />
+            <span>Công việc</span>
+          </button>
+          <button
             className={page === "monitor" ? "active" : ""}
             onClick={() => navigate("monitor")}
             title="Đội ngũ"
@@ -653,9 +662,11 @@ export function App() {
                 ? "Trò chuyện"
                 : page === "monitor"
                   ? "Đội ngũ"
-                  : page === "history"
-                    ? "Lịch sử"
-                    : "Cài đặt"}
+                  : page === "board"
+                    ? "Công việc"
+                    : page === "history"
+                      ? "Lịch sử"
+                      : "Cài đặt"}
             </span>
           </div>
           {page === "project" && project && (
@@ -672,7 +683,7 @@ export function App() {
           )}
           <span className="phase-badge">
             <span />
-            Desktop · V1.3A
+            Desktop · V1.3B
           </span>
         </header>
         <main className={page === "project" ? "chat-main" : ""}>
@@ -746,6 +757,28 @@ export function App() {
                   }}
                 />
               )}
+              {page === "board" &&
+                (project ? (
+                  <KanbanBoard
+                    key={project.id}
+                    projectId={project.id}
+                    projectName={project.name}
+                    onOpenRun={(id, conversation) => {
+                      setSelectedRun(id);
+                      setConversationId(conversation);
+                      void navigate("project");
+                    }}
+                  />
+                ) : (
+                  <Empty
+                    icon={<Workflow size={28} />}
+                    title="Chọn dự án để xem công việc"
+                  >
+                    <button onClick={() => void chooseProject()}>
+                      Chọn dự án
+                    </button>
+                  </Empty>
+                ))}
               {page === "monitor" &&
                 (project ? (
                   <AgentMonitor

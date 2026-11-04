@@ -1,5 +1,6 @@
 import { useMemo, useSyncExternalStore } from "react";
 import { MonitorStore, type MonitorState } from "./monitor-store";
+import type { BoardQuery } from "../../shared/board";
 
 const stores = new Map<string, MonitorStore>();
 const empty: MonitorState = {
@@ -9,20 +10,31 @@ const empty: MonitorState = {
   receivedAt: 0,
 };
 const subscribeEmpty = () => () => {};
-export function useMonitor(projectId: string | null) {
+export function useMonitor(projectId: string | null, board?: BoardQuery) {
+  const queryKey = JSON.stringify(board);
   const store = useMemo(() => {
     if (!projectId) return null;
-    let current = stores.get(projectId);
+    const key = `${projectId}:${queryKey ?? "roster"}`;
+    let current = stores.get(key);
     if (!current) {
       current = new MonitorStore(projectId, async (request) => {
-        const reply = await window.worker.monitorSnapshot(request);
+        const reply = await window.worker.monitorSnapshot({
+          ...request,
+          ...(queryKey ? { board: JSON.parse(queryKey) as BoardQuery } : {}),
+        });
         if (!reply.ok) throw new Error(reply.error);
         return reply.value;
       });
-      stores.set(projectId, current);
+      if (stores.size >= 64) {
+        const inactive = [...stores].find(
+          ([, value]) => !value.hasSubscribers(),
+        );
+        if (inactive) stores.delete(inactive[0]);
+      }
+      stores.set(key, current);
     }
     return current;
-  }, [projectId]);
+  }, [projectId, queryKey]);
   const state = useSyncExternalStore(
     store?.subscribe ?? subscribeEmpty,
     store?.getSnapshot ?? (() => empty),

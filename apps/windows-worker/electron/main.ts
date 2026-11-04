@@ -11,6 +11,13 @@ import { pathToFileURL } from "node:url";
 import { writeFile } from "node:fs/promises";
 import { z } from "zod";
 import { monitorRequestSchema } from "../shared/monitor";
+import {
+  createBoardItemSchema,
+  updateBoardItemSchema,
+  moveBoardItemSchema,
+  boardVersionSchema,
+  submitBoardItemSchema,
+} from "../shared/board";
 import { evidenceRefSchema } from "../shared/evidence";
 import { readEvidence } from "./team/evidence";
 import {
@@ -375,6 +382,29 @@ function registerIPC(): void {
   });
   handle(channels.monitorSnapshot, (input) =>
     controller.monitor(monitorRequestSchema.parse(input)),
+  );
+  handle(channels.createBoardItem, (input) =>
+    store.board.create(createBoardItemSchema.parse(input)),
+  );
+  handle(channels.boardItem, (input) =>
+    store.board.item(idSchema.parse(input)),
+  );
+  handle(channels.updateBoardItem, (input) =>
+    store.board.update(updateBoardItemSchema.parse(input)),
+  );
+  handle(channels.moveBoardItem, (input) =>
+    store.board.move(moveBoardItemSchema.parse(input)),
+  );
+  handle(channels.archiveBoardItem, (input) =>
+    store.board.archive(
+      boardVersionSchema
+        .extend({ archived: z.boolean() })
+        .strict()
+        .parse(input),
+    ),
+  );
+  handle(channels.submitBoardItem, (input) =>
+    controller.submitBoard(submitBoardItemSchema.parse(input)),
   );
   handle(channels.runDetail, (input) =>
     controller.detail(idSchema.parse(input)),
