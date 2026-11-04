@@ -1,0 +1,13 @@
+export const channels = {
+  bootstrap: "worker:bootstrap",
+  chooseProject: "worker:choose-project",
+  openProject: "worker:open-project",
+  removeProject: "worker:remove-project",
+  projectStatus: "worker:project-status",
+  revealProject: "worker:reveal-project",
+  saveDraft: "worker:save-draft",
+  saveSettings: "worker:save-settings",
+  chooseFile: "worker:choose-file",
+  fetchModels: "worker:fetch-models",
+  checkTools: "worker:check-tools",
+} as const;

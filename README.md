@@ -1,5 +1,7 @@
 # AI Software Factory
 
+Ứng dụng Windows độc lập mới: [Windows Worker — WW-1](apps/windows-worker/README.md). Chọn source local, lưu cấu hình 9Router/model và đội agent trong desktop Electron; thực thi OpenCode thuộc WW-2. Xem [kế hoạch Windows Worker](plan/windows-worker/README.md).
+
 Nền tảng self-hosted điều phối sáu role PM, BA, BE, FE, TEST, DEVOPS tại <https://asf.lazy.local>. Phase5 có GitLab/OpenProject, worker coding qua OpenCode, model và kỹ năng cố định theo run, test trong sandbox và phê duyệt spec/release theo đúng phiên bản. Dashboard gọn theo tham khảo 9Router, dùng được trên desktop/mobile.
 
 Repo CI/deploy nội bộ: <https://gitlab.lazy.local/ai-factory/ai-software-factory>. Xem [kết quả Phase5](docs/phase-5-completion.md), [vận hành](docs/operations-v0.2.md) và [agent runtime](docs/agent-runtime.md). Máy truy cập cần DNS nội bộ và tin CA Caddy. Tài khoản do admin cấp, không có mật khẩu mặc định. Pipeline thường chỉ chạy hai bước kiểm tra; build image khi phát hành với `BUILD_RELEASE=1`.

@@ -1,5 +1,7 @@
 # Kế hoạch triển khai — AI Software Factory (6 AI Agent)
 
+> **Hướng sản phẩm Windows mới:** [Windows AI Worker — kế hoạch chi tiết](windows-worker/README.md), gồm kiến trúc và WW-1 đến WW-5. Theo yêu cầu người dùng, bắt đầu trực tiếp từ desktop, bỏ phase chứng minh runtime riêng; Standalone độc lập, không thay đổi lộ trình hoặc trạng thái deployment ASF bên dưới.
+
 > **Lộ trình hiện hành từ 04/11/2026:** [Bắt đầu code và deploy v0.1](lo-trinh-code-v0.md), theo [ADR-004](../docs/adr/ADR-004-release-first.md). Thứ tự mới: **khung ứng dụng → workflow → dashboard → deploy ASF lần đầu → tích hợp/Agent thật → template và nghiệm thu toàn luồng**. Không chờ toàn bộ Phase 0 cũ để bắt đầu code. Các bảng Phase 0–5 bên dưới là baseline tham khảo, không phải thứ tự hiện hành.
 
 Thư mục này chia kế hoạch triển khai thành từng phase, dựa trên tài liệu [AI_Software_Factory_6_Agents_Architecture.md](../AI_Software_Factory_6_Agents_Architecture.md) (sau đây gọi là **tài liệu kiến trúc**).
