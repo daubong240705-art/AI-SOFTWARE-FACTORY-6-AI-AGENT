@@ -9,6 +9,7 @@ export type OverviewRun = RunSummary & {
   integrationState: string | null;
   verified: boolean;
   changes: number;
+  hasWork: boolean;
 };
 export type OverviewQueued = {
   id: string;

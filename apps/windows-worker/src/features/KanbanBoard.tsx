@@ -8,7 +8,6 @@ import {
   type BoardQuery,
 } from "../../shared/board";
 import { roles, type Reply, type Role } from "../../shared/contracts";
-import { availabilityLabels } from "../../shared/monitor";
 import { useMonitor } from "../lib/use-monitor";
 
 async function unwrap<T>(reply: Promise<Reply<T>>) {
@@ -30,16 +29,12 @@ export function KanbanBoard({
   onOpenRun,
   onInspect,
   initialRunId,
-  createVersion,
-  onCreateHandled,
 }: {
   projectId: string;
   projectName: string;
   onOpenRun: (runId: string | null, conversationId: string | null) => void;
   onInspect: (runId: string) => void;
   initialRunId?: string | null;
-  createVersion?: number;
-  onCreateHandled?: () => void;
 }) {
   const [query, setQuery] = useState<BoardQuery>(
     initialRunId ? { runId: initialRunId, showStopped: true } : {},
@@ -53,13 +48,6 @@ export function KanbanBoard({
   const lock = useRef(false),
     dialog = useRef<HTMLDialogElement>(null);
   const page = monitor.snapshot?.board;
-  useEffect(() => {
-    if (createVersion) {
-      setDraft(blank);
-      setEditing("new");
-      onCreateHandled?.();
-    }
-  }, [createVersion]);
   useEffect(() => {
     if (editing) dialog.current?.showModal();
     else dialog.current?.close();
@@ -132,12 +120,17 @@ export function KanbanBoard({
       void move(card, column as "backlog" | "ready", beforeId);
   }
   const stale = monitor.stale;
+  const [advancedFilters, setAdvancedFilters] = useState(false);
+  const filterCount =
+    Number(query.priority !== undefined) +
+    Number(!!query.workType) +
+    Number(!!query.showStopped) +
+    Number(!!query.archived);
   return (
     <section className="kanban-workspace" aria-label="Kanban công việc">
       <div className="page-heading">
         <div>
           <h1>Công việc</h1>
-          <span className="muted">{projectName}</span>
         </div>
         <button
           className="primary"
@@ -160,26 +153,6 @@ export function KanbanBoard({
           Chưa đồng bộ · Đang hiển thị dữ liệu lần cuối
         </div>
       )}
-      <div className="board-roster" aria-label="Trạng thái đội ngũ">
-        {monitor.snapshot?.agents.map((agent) => (
-          <button
-            key={agent.role}
-            className={agent.availability}
-            aria-pressed={query.role === agent.role}
-            title={
-              stale ? "Chưa đồng bộ" : availabilityLabels[agent.availability]
-            }
-            onClick={() =>
-              filter({
-                role: query.role === agent.role ? undefined : agent.role,
-              })
-            }
-          >
-            {agent.role === "lead" ? "Lead" : agent.role.toUpperCase()}{" "}
-            <span>{stale ? "?" : agent.executions.length || "·"}</span>
-          </button>
-        ))}
-      </div>
       <div className="board-filters">
         {query.runId && (
           <button onClick={() => filter({ runId: undefined })}>
@@ -207,61 +180,71 @@ export function KanbanBoard({
             </option>
           ))}
         </Select>
-        <Select
-          aria-label="Lọc ưu tiên"
-          value={query.priority ?? ""}
-          onValueChange={(value) =>
-            filter({
-              priority: value ? Number(value) : undefined,
-            })
-          }
+        <button
+          aria-expanded={advancedFilters}
+          onClick={() => setAdvancedFilters(!advancedFilters)}
         >
-          <option value="">Mọi ưu tiên</option>
-          <option value="0">Thường</option>
-          <option value="1">Cao</option>
-          <option value="2">Gấp</option>
-        </Select>
-        <Select
-          aria-label="Lọc loại việc"
-          value={query.workType ?? ""}
-          onValueChange={(value) =>
-            filter({
-              workType: (value || undefined) as BoardQuery["workType"],
-            })
-          }
-        >
-          <option value="">Mọi loại việc</option>
-          {[
-            "docs",
-            "analysis",
-            "implementation",
-            "bugfix",
-            "testing",
-            "local-dev",
-          ].map((type) => (
-            <option key={type}>{type}</option>
-          ))}
-        </Select>
-        <label>
-          <input
-            type="checkbox"
-            checked={!!query.showStopped}
-            onChange={(e) => filter({ showStopped: e.target.checked })}
-          />{" "}
-          Đã dừng / bỏ qua
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={!!query.archived}
-            onChange={(e) => filter({ archived: e.target.checked })}
-          />{" "}
-          Lưu trữ
-        </label>
-        <button disabled={busy} onClick={() => void monitor.refresh?.()}>
-          Cập nhật
+          Bộ lọc{filterCount > 0 ? ` · ${filterCount}` : ""}
         </button>
       </div>
+      {advancedFilters && (
+        <div className="board-filters board-advanced-filters">
+          <Select
+            aria-label="Lọc ưu tiên"
+            value={query.priority ?? ""}
+            onValueChange={(value) =>
+              filter({
+                priority: value ? Number(value) : undefined,
+              })
+            }
+          >
+            <option value="">Mọi ưu tiên</option>
+            <option value="0">Thường</option>
+            <option value="1">Cao</option>
+            <option value="2">Gấp</option>
+          </Select>
+          <Select
+            aria-label="Lọc loại việc"
+            value={query.workType ?? ""}
+            onValueChange={(value) =>
+              filter({
+                workType: (value || undefined) as BoardQuery["workType"],
+              })
+            }
+          >
+            <option value="">Mọi loại việc</option>
+            {[
+              "docs",
+              "analysis",
+              "implementation",
+              "bugfix",
+              "testing",
+              "local-dev",
+            ].map((type) => (
+              <option key={type}>{type}</option>
+            ))}
+          </Select>
+          <label>
+            <input
+              type="checkbox"
+              checked={!!query.showStopped}
+              onChange={(e) => filter({ showStopped: e.target.checked })}
+            />{" "}
+            Đã dừng / bỏ qua
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={!!query.archived}
+              onChange={(e) => filter({ archived: e.target.checked })}
+            />{" "}
+            Lưu trữ
+          </label>
+          <button disabled={busy} onClick={() => void monitor.refresh?.()}>
+            Cập nhật
+          </button>
+        </div>
+      )}
       {!page ? (
         <p className="muted">
           {monitor.error ? "Chưa tải được công việc." : "Đang tải công việc…"}

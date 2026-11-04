@@ -138,6 +138,54 @@ test("attention deduplicates each run, prioritizes permissions, excludes normal 
   assert.equal(items.filter((i) => i.key === "queue:held").length, 1);
 });
 
+test("work results require recorded work while retaining read-only analysis tasks and failed attention", () => {
+  const chat = fixture(),
+    projectId = chat.projectId;
+  const changed = fixture(projectId, {
+    changes: [{ path: "src/sample.ts", kind: "modified" }],
+  });
+  const analysis = fixture(projectId, {
+    tasks: [
+      {
+        kind: "work",
+        id: "analysis",
+        role: "ba",
+        title: "Đọc kiến trúc",
+        instructions: "Phân tích",
+        acceptance: [],
+        allowedPaths: ["src"],
+        dependsOn: [],
+        state: "completed",
+        model: "fixture",
+        round: 0,
+        sessionId: null,
+        startedAt: null,
+        endedAt: null,
+        summary: "",
+        error: "",
+        changes: [],
+        commandIds: [],
+      },
+    ],
+  });
+  const failed = fixture(projectId, { state: "failed" });
+  const data = projectOverview(
+    projectId,
+    [chat, changed, analysis, failed],
+    [],
+    null,
+    [],
+  );
+  assert.equal(data.runs.find((r) => r.id === chat.id)!.hasWork, false);
+  assert.equal(data.runs.find((r) => r.id === changed.id)!.hasWork, true);
+  // Only test the marker here: actual evidence verification is covered separately.
+  assert.equal(data.runs.find((r) => r.id === analysis.id)!.hasWork, true);
+  assert.equal(
+    attentionItems(data).some((item) => item.runId === failed.id),
+    true,
+  );
+});
+
 test("overview renders current execution, permission attention and another project's occupied slot without mixing work", () => {
   const run = fixture(undefined, {
     state: "blocked",
@@ -171,8 +219,6 @@ test("overview renders current execution, permission attention and another proje
         onInspect() {},
         onChat() {},
         onConversation() {},
-        onBoard() {},
-        onAgents() {},
       }),
     );
   }

@@ -9,6 +9,7 @@ import "./kanban.css";
 import "./inspector.css";
 import "./ui/base.css";
 import "./ui/select.css";
+import "./ui/popover.css";
 import "./office.css";
 import "./overview.css";
 import type { WorkerAPI } from "../shared/contracts";

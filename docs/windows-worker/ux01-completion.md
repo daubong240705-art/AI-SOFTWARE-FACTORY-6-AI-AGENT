@@ -1,5 +1,7 @@
 # UX-01 — Tổng quan và điều hướng công việc
 
+> Bàn giao ban đầu. [Đợt tinh gọn UI tiếp theo](ux01-ui-refinement.md) thay thế bố cục header/sidebar và cách trình bày Tổng quan trong tài liệu này.
+
 Hoàn thành ngày **05/11/2026** trên `feature/worker-office-v1.3d`. Checkpoint trước thay đổi: `checkpoint/ux01-start-20261105` tại `0663233`. Worker giữ `1.3.0-alpha.8`, SQLite schema **7**; đây là feature commit, chưa phát hành stable.
 
 ## Hành vi đã triển khai

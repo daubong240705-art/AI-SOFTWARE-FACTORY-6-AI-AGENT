@@ -74,14 +74,17 @@ async function main() {
       tasks: [],
       profiles: [],
       commands: [],
-      changes: [],
+      changes:
+        state === "completed" && index >= 4
+          ? [{ path: "sample.ts", kind: "modified" }]
+          : [],
       retryOf: undefined,
       attemptRoot: undefined,
       recoveryOf: undefined,
       integration: undefined,
       createdAt: new Date(Date.now() - index * 60000).toISOString(),
       startedAt: null,
-      endedAt: new Date().toISOString(),
+      endedAt: new Date(Date.now() - index * 60000).toISOString(),
       currentTaskId: null,
     };
     store.createRun(r);
@@ -90,6 +93,8 @@ async function main() {
   }
   const result = run("completed", "Sửa lỗi lưu cấu hình", 4);
   const needs = run("needs_input", "Giữ phiên đăng nhập trên thiết bị mới?", 2);
+  run("completed", "Lời chào không phải kết quả công việc", 1);
+  for (let i = 0; i < 5; i++) run("failed", `Lỗi cũ ${i}`, i + 10);
   store.event(needs.id, "RUN_STARTED", "Start");
   store.event(needs.id, "RUN_NEEDS_INPUT", "Need context");
   for (let i = 0; i < 350; i++)
@@ -118,7 +123,14 @@ async function main() {
   win.webContents.on("console-message", (_e, level, message) => {
     if (level >= 3) errors.push(message);
   });
-  const js = (code) => win.webContents.executeJavaScript(code, true);
+  const js = async (code) => {
+    try {
+      return await win.webContents.executeJavaScript(code, true);
+    } catch (error) {
+      console.error(`Renderer script failed: ${code}`);
+      throw error;
+    }
+  };
   const click = (label) =>
     js(
       `Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(label)}).click()`,
@@ -128,11 +140,17 @@ async function main() {
       `Array.from(document.querySelectorAll('nav button')).find(b=>b.textContent.trim()===${JSON.stringify(label)}).click()`,
     );
   await until(
-    () => js("document.querySelectorAll('.recent-project').length===2"),
-    "project list",
+    () => js("!!document.querySelector('.workspace-project > button')"),
+    "project picker",
+  );
+  await js("document.querySelector('.workspace-project > button').click()");
+  await until(() =>
+    js(
+      "document.querySelectorAll('.project-choice:not(:disabled)').length===2",
+    ),
   );
   await js(
-    `Array.from(document.querySelectorAll('.recent-project')).find(b=>b.textContent.includes(${JSON.stringify(project.name)})).click()`,
+    `Array.from(document.querySelectorAll('.project-choice')).find(b=>b.textContent.includes(${JSON.stringify(project.name)})).click()`,
   );
   await until(
     () => js("!!document.querySelector('.project-overview .attention-list')"),
@@ -140,12 +158,40 @@ async function main() {
   );
   assert.equal(
     await js("document.querySelectorAll('.attention-list > li').length"),
-    2,
+    3,
   );
   assert.equal(
-    await js("document.querySelector('.workspace-project').textContent"),
+    await js(
+      "document.querySelector('.workspace-project > button').textContent",
+    ),
     project.name,
   );
+  assert.equal(
+    await js("!!document.querySelector('.conversation-nav')"),
+    false,
+  );
+  assert.equal(
+    await js(
+      "document.querySelectorAll('nav[aria-label=\"Điều hướng chính\"] > button').length",
+    ),
+    4,
+  );
+  assert.equal(
+    await js("document.querySelector('.overview-activity').open"),
+    false,
+  );
+  assert.equal(
+    await js(
+      "document.querySelector('.overview-results').textContent.includes('Lời chào')",
+    ),
+    false,
+  );
+  await click("Xem thêm 4 mục");
+  assert.equal(
+    await js("document.querySelectorAll('.attention-list > li').length"),
+    7,
+  );
+  await js("document.querySelector('.overview-expand').click()");
   assert.equal(
     await js(
       "document.querySelector('.overview-results').textContent.includes('Chưa xác minh')",
@@ -163,7 +209,9 @@ async function main() {
     0,
     "overview must not fetch full run detail",
   );
-  await click("Bổ sung ngữ cảnh");
+  await js(
+    "document.querySelector('.attention-list button[aria-label^=\"Bổ sung ngữ cảnh\"]').click()",
+  );
   await until(
     () =>
       js("!!document.querySelector('.chat-composer textarea:not(:disabled)')"),
@@ -188,7 +236,29 @@ async function main() {
       ),
     "draft restored",
   );
-  await click("Tạo công việc");
+  assert.equal(
+    await js(
+      "Array.from(document.querySelectorAll('.workspace-actions button')).some(b => b.getClientRects().length > 0)",
+    ),
+    false,
+  );
+  await nav("Công việc");
+  assert.equal(
+    await js("!!document.querySelector('.workspace-actions button')"),
+    false,
+  );
+  await until(() => js("!!document.querySelector('.kanban-workspace')"));
+  assert.equal(
+    await js("!!document.querySelector('.board-advanced-filters')"),
+    false,
+  );
+  await click("Bộ lọc");
+  assert.equal(
+    await js("!!document.querySelector('.board-advanced-filters')"),
+    true,
+  );
+  await click("Bộ lọc");
+  await click("Thêm việc");
   await until(
     () => js("!!document.querySelector('.board-editor[open]')"),
     "create board item",
@@ -217,7 +287,9 @@ async function main() {
   await js(
     "document.querySelector('[aria-label=\"Đóng chi tiết công việc\"]').click()",
   );
-  await click("Mở hàng đợi");
+  await js(
+    "document.querySelector('.attention-list button[aria-label^=\"Mở hàng đợi\"]').click()",
+  );
   await until(
     () =>
       js(
@@ -228,19 +300,23 @@ async function main() {
   await nav("Tổng quan");
   await until(() => js("!!document.querySelector('.attention-list')"));
   failMonitor = true;
-  await click("Cập nhật");
+  await js(
+    "document.querySelector('[aria-label=\"Cập nhật tổng quan\"]').click()",
+  );
   await until(
     () =>
       js(
-        "document.querySelectorAll('.attention-list button:disabled').length===2",
+        "document.querySelectorAll('.attention-list button:disabled').length===3",
       ),
     "failed monitor disables stale actions",
   );
   failMonitor = false;
-  await click("Cập nhật");
+  await js(
+    "document.querySelector('[aria-label=\"Cập nhật tổng quan\"]').click()",
+  );
   await until(() =>
     js(
-      "document.querySelectorAll('.attention-list button:not(:disabled)').length===2",
+      "document.querySelectorAll('.attention-list button:not(:disabled)').length===3",
     ),
   );
   const layouts = [];
@@ -267,18 +343,59 @@ async function main() {
   }
   win.webContents.setZoomFactor(1);
   win.setSize(850, 700);
-  await js(
-    `document.querySelector('.workspace-project [role="combobox"]').focus()`,
-  );
-  for (const keyCode of ["Space", "End", "Enter"]) {
+  await js(`document.querySelector('.workspace-project > button').focus()`);
+  for (const keyCode of ["Space", "Escape"]) {
     win.webContents.sendInputEvent({ type: "keyDown", keyCode });
+    if (keyCode === "Space")
+      win.webContents.sendInputEvent({ type: "char", keyCode: " " });
     win.webContents.sendInputEvent({ type: "keyUp", keyCode });
     await pause(50);
+    if (keyCode === "Space")
+      await until(
+        () =>
+          js(
+            "document.querySelector('.workspace-project > button').getAttribute('aria-expanded')==='true'",
+          ),
+        "Space opens menu",
+      );
   }
+  assert.equal(
+    await js(
+      "document.activeElement === document.querySelector('.workspace-project > button')",
+    ),
+    true,
+  );
+  await js("document.querySelector('.workspace-project > button').click()");
+  await until(() => js("!!document.querySelector('.project-choice')"));
   await until(
     () =>
       js(
-        "document.querySelector('.workspace-project')?.textContent==='Other project' && !!document.querySelector('.overview-empty')",
+        "document.activeElement === document.querySelector('.project-choice')",
+      ),
+    "project menu focus",
+  );
+  const otherIndex = await js(
+    `Array.from(document.querySelectorAll('.project-choice')).findIndex(b => b.textContent.includes(${JSON.stringify(other.name)}))`,
+  );
+  for (let i = 0; i < otherIndex; i++) {
+    win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Tab" });
+    win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Tab" });
+    await pause(30);
+  }
+  assert.equal(
+    await js(
+      `document.activeElement?.textContent.includes(${JSON.stringify(other.name)})`,
+    ),
+    true,
+    "Tab selects target project button",
+  );
+  win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Enter" });
+  win.webContents.sendInputEvent({ type: "char", keyCode: "\r" });
+  win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Enter" });
+  await until(
+    () =>
+      js(
+        "document.querySelector('.workspace-project > button')?.textContent==='Other project' && !!document.querySelector('.overview-empty')",
       ),
     "project switch",
   );
@@ -288,6 +405,35 @@ async function main() {
     ),
     false,
   );
+  await nav("Trò chuyện");
+  await until(() =>
+    js("!!document.querySelector('.chat-composer textarea:not(:disabled)')"),
+  );
+  await js(
+    "document.querySelector('[aria-label=\"Danh sách hội thoại\"]').click()",
+  );
+  await until(() =>
+    js(
+      "!!document.querySelector('.conversation-picker .ui-popover-panel .new-conversation')",
+    ),
+  );
+  assert.equal(
+    await js(
+      "document.querySelector('.conversation-picker .ui-popover-panel').getBoundingClientRect().right <= innerWidth",
+    ),
+    true,
+  );
+  win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Escape" });
+  win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Escape" });
+  await until(() =>
+    js("!document.querySelector('.conversation-picker .ui-popover-panel')"),
+  );
+  await js("document.querySelector('[aria-label=\"Khác\"]').click()");
+  await until(() =>
+    js("!!document.querySelector('button[title=\"Lịch sử\"]')"),
+  );
+  await nav("Lịch sử");
+  await until(() => js("!!document.querySelector('.run-history')"));
   assert.deepEqual(errors, []);
   const report = {
     passed: true,
@@ -298,12 +444,15 @@ async function main() {
       "milestone timeline survives 350 noisy tool events",
       "no runDetail reads for overview",
       "context chat and draft preserved",
-      "header creates real BoardItem without starting run",
+      "four primary pages, project management in one popover, contextual conversation list",
+      "three attention rows with inline expansion; chat replies excluded from work results",
+      "Board creates real BoardItem without duplicate header action; advanced filters collapsed",
       "unverified result opens exact inspector",
       "held queue opens correct conversation",
       "stale actions disabled and refresh recovers",
       "five viewport/scaling layouts",
       "custom project dropdown works by keyboard in narrow window",
+      "conversation picker remains reachable in narrow Chat; secondary history navigation works",
       "project switch clears previous data",
     ],
     layouts,
@@ -325,11 +474,15 @@ async function main() {
   app.quit();
 }
 main().catch(async (error) => {
-  if (win)
-    writeFileSync(
-      join(output, "failure.png"),
-      (await win.webContents.capturePage()).toPNG(),
-    );
   console.error(error.stack);
+  try {
+    if (win)
+      writeFileSync(
+        join(output, "failure.png"),
+        (await win.webContents.capturePage()).toPNG(),
+      );
+  } catch (captureError) {
+    console.error(`Could not capture failure: ${captureError.message}`);
+  }
   app.exit(1);
 });

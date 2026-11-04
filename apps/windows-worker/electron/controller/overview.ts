@@ -45,6 +45,10 @@ export function projectOverview(
             progress.currentTasks > 0 &&
             progress.verifiedTasks === progress.currentTasks,
           changes: run.changes.length,
+          hasWork:
+            run.tasks.some((task) => ["work", "fix"].includes(task.kind)) ||
+            run.changes.length > 0 ||
+            run.commands.length > 0,
         };
       }),
     queue: queue

@@ -138,8 +138,23 @@ app.whenReady().then(async () => {
     win.webContents.on("console-message", (_event, level, message) => {
       if (level >= 3) errors.push(message);
     });
+    await until(() =>
+      js("!!document.querySelector('.project-overview .overview-section')"),
+    );
+    await js(
+      "document.querySelector('nav button[title=\"Trò chuyện\"]').click()",
+    );
     await until(() => js("!!document.querySelector('.chat-markdown table')"));
     const navigate = async (title) => {
+      if (
+        !(await js(
+          `Array.from(document.querySelectorAll('.sidebar nav button')).some(b=>b.textContent.trim()===${JSON.stringify(title)})`,
+        ))
+      ) {
+        await js(
+          "document.querySelector('.sidebar [aria-label=\"Khác\"]').click()",
+        );
+      }
       await js(
         `Array.from(document.querySelectorAll('.sidebar nav button')).find(b=>b.textContent.trim()===${JSON.stringify(title)}).click()`,
       );
@@ -228,6 +243,9 @@ app.whenReady().then(async () => {
         false,
       );
       await js(
+        "document.querySelector('.message-actions [aria-label=\"Thao tác tin nhắn\"]').click()",
+      );
+      await js(
         "Array.from(document.querySelectorAll('.message-actions button')).find(b=>b.textContent.trim()==='Hoạt động').click()",
       );
       await until(() =>
@@ -269,8 +287,12 @@ app.whenReady().then(async () => {
       await until(() =>
         js("document.querySelectorAll('.board-task').length>=16"),
       );
+      await js(
+        "document.querySelector('.board-filters > button[aria-expanded]').click()",
+      );
+      await until(() => js("!!document.querySelector('.board-filters label')"));
       const board = await js(
-        `(()=>{const col=document.querySelector('.backlog'),ready=document.querySelector('.ready'),empty=document.querySelector('.in_progress'),label=document.querySelector('.board-filters label'),input=label.querySelector('input'),title=col.querySelector('.board-card-title'),main=document.querySelector('.board-main'),columns=document.querySelector('.kanban-columns'),footer=document.querySelector('.statusbar');return {backlogHeight:col.getBoundingClientRect().height,backlogClient:col.clientHeight,backlogScroll:col.scrollHeight,readyHeight:ready.getBoundingClientRect().height,emptyHeight:empty.getBoundingClientRect().height,boardBottom:columns.getBoundingClientRect().bottom,footerTop:footer.getBoundingClientRect().top,mainOverflow:main.scrollHeight>main.clientHeight+1,labelCenter:label.getBoundingClientRect().top+label.getBoundingClientRect().height/2,checkboxCenter:input.getBoundingClientRect().top+input.getBoundingClientRect().height/2,titleWhiteSpace:getComputedStyle(title).whiteSpace,titleOverflow:title.scrollWidth>title.clientWidth+1,root:document.documentElement.scrollWidth,viewport:innerWidth};})()`,
+        `(()=>{const col=document.querySelector('.backlog'),ready=document.querySelector('.ready'),empty=document.querySelector('.in_progress'),label=document.querySelector('.board-filters label'),input=label.querySelector('input'),title=col.querySelector('.board-card-title'),main=document.querySelector('.board-main'),columns=document.querySelector('.kanban-columns'),footer=document.querySelector('.statusbar');return {backlogHeight:col.getBoundingClientRect().height,backlogClient:col.clientHeight,backlogScroll:col.scrollHeight,readyHeight:ready.getBoundingClientRect().height,emptyHeight:empty.getBoundingClientRect().height,boardBottom:columns.getBoundingClientRect().bottom,footerTop:footer ? footer.getBoundingClientRect().top : innerHeight,mainOverflow:main.scrollHeight>main.clientHeight+1,labelCenter:label.getBoundingClientRect().top+label.getBoundingClientRect().height/2,checkboxCenter:input.getBoundingClientRect().top+input.getBoundingClientRect().height/2,titleWhiteSpace:getComputedStyle(title).whiteSpace,titleOverflow:title.scrollWidth>title.clientWidth+1,root:document.documentElement.scrollWidth,viewport:innerWidth};})()`,
       );
       assert.ok(board.backlogScroll > board.backlogClient);
       assert.ok(board.backlogHeight > 80);
@@ -285,6 +307,9 @@ app.whenReady().then(async () => {
       assert.equal(board.titleWhiteSpace, "normal");
       assert.equal(board.titleOverflow, false);
       assert.ok(board.root <= board.viewport);
+      await js(
+        "document.querySelector('.board-filters > button[aria-expanded]').click()",
+      );
       await within(".board-filters,.board-pagination,.kanban-columns");
       assert.equal(
         await js("document.querySelectorAll('select').length"),

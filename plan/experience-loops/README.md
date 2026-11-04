@@ -2,6 +2,8 @@
 
 Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01 đã triển khai; UX-02–08 còn trong kế hoạch**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md).
 
+Đã bổ sung [đợt làm gọn giao diện](../../docs/windows-worker/ux01-ui-refinement.md) theo ảnh phản hồi: bốn trang chính, menu dự án tập trung, hội thoại theo ngữ cảnh và Tổng quan giới hạn nội dung mặc định. Đây là bố cục hiện hành thay cho header có nhiều nút trong UX-01 đầu tiên.
+
 ## Quyết định định hướng
 
 Tạm dừng phát triển 3D theo yêu cầu người dùng. Giữ phần D-01–04 đã có; hoãn D-05 và các hạng mục E phụ thuộc 3D. Chuyển ưu tiên sang trải nghiệm làm việc 2D: **giao việc tự nhiên → theo dõi công việc → trả lời khi thật sự cần → đọc kết quả có bằng chứng**.

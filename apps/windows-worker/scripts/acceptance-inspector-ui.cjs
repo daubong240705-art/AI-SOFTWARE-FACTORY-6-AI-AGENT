@@ -167,6 +167,12 @@ async function main() {
   const selectTask = (id) =>
     require("./ui-select-test.cjs").selectValue(win, "Chọn task / attempt", id);
   await until(() =>
+    js("!!document.querySelector('.project-overview .overview-section')"),
+  );
+  await js(
+    "document.querySelector('nav button[title=\"Trò chuyện\"]').click()",
+  );
+  await until(() =>
     js(
       "!!document.querySelector('.chat-actions') || !!document.querySelector('.chat-composer textarea')",
     ),
@@ -180,6 +186,9 @@ async function main() {
     `(()=>{const el=document.querySelector('[aria-label="Nhắn tin cho agent"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(el,'Bản nháp cần giữ');el.dispatchEvent(new Event('input',{bubbles:true}));})()`,
   );
   // Chat latest run + opened RunPanel + inspector all subscribe to the same run store.
+  await js(
+    "document.querySelector('.message-actions [aria-label=\"Thao tác tin nhắn\"]').click()",
+  );
   await click("Hoạt động");
   await until(() =>
     js("!!document.querySelector('.chat-detail-panel .task-timeline')"),
@@ -242,7 +251,7 @@ async function main() {
     await js(
       "document.querySelector('.task-inspector .task-timeline').textContent.includes('×8')",
     ),
-    true,
+    false,
   );
   assert.equal(
     await js(

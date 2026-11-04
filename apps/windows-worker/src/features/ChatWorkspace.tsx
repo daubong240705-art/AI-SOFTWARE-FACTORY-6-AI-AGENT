@@ -1,4 +1,5 @@
 import { Select } from "../ui/Select";
+import { Popover } from "../ui/Popover";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowDown,
@@ -7,7 +8,7 @@ import {
   Copy,
   FileCode2,
   FolderOpen,
-  GitBranch,
+  MoreHorizontal,
   LoaderCircle,
   MessageSquare,
   PanelRightClose,
@@ -65,7 +66,6 @@ type Props = {
 export function ChatWorkspace({
   draftFlush,
   project,
-  status,
   conversationId,
   settings,
   models,
@@ -435,17 +435,6 @@ export function ChatWorkspace({
                 <Pencil size={13} />
               </button>
             )}
-            <div className="chat-project muted small">
-              <span title={project?.path}>
-                {project?.name ?? "Chưa chọn dự án"}
-              </span>
-              {status?.branch && (
-                <>
-                  <GitBranch size={12} />
-                  <span>{status.branch}</span>
-                </>
-              )}
-            </div>
           </div>
           <div className="inline">
             <button
@@ -603,47 +592,56 @@ export function ChatWorkspace({
                         <button onClick={() => onInspect(message.runId)}>
                           Chi tiết
                         </button>
-                        {message.retryOf && (
-                          <button
-                            onClick={() =>
-                              showDetails(message.retryOf!, "result")
-                            }
-                          >
-                            Lượt gốc
-                          </button>
-                        )}
-                        {!isActive(message.state) &&
-                          !message.integrationId &&
-                          message.failureCode !== "integration-pending" &&
-                          message.state !== "completed" && (
+                        <Popover
+                          label="Thao tác tin nhắn"
+                          icon={<MoreHorizontal size={15} />}
+                        >
+                          {message.retryOf && (
                             <button
-                              disabled={busy || !!activeId}
-                              title="Tạo lượt mới, kiểm tra lại source và thực hiện yêu cầu"
                               onClick={() =>
-                                void action(async () => {
-                                  await unwrap(
-                                    window.worker.retryRun(message.runId),
-                                  );
-                                  setRefresh((n) => n + 1);
-                                  onChanged();
-                                })
+                                showDetails(message.retryOf!, "result")
                               }
                             >
-                              Thử lại · lượt mới
+                              Lượt gốc
                             </button>
                           )}
-                        <button
-                          onClick={() => showDetails(message.runId, "activity")}
-                        >
-                          <Terminal size={13} />
-                          Hoạt động
-                        </button>
-                        <button
-                          onClick={() => showDetails(message.runId, "changes")}
-                        >
-                          <FileCode2 size={13} />
-                          Thay đổi
-                        </button>
+                          {!isActive(message.state) &&
+                            !message.integrationId &&
+                            message.failureCode !== "integration-pending" &&
+                            message.state !== "completed" && (
+                              <button
+                                disabled={busy || !!activeId}
+                                title="Tạo lượt mới, kiểm tra lại source và thực hiện yêu cầu"
+                                onClick={() =>
+                                  void action(async () => {
+                                    await unwrap(
+                                      window.worker.retryRun(message.runId),
+                                    );
+                                    setRefresh((n) => n + 1);
+                                    onChanged();
+                                  })
+                                }
+                              >
+                                Thử lại · lượt mới
+                              </button>
+                            )}
+                          <button
+                            onClick={() =>
+                              showDetails(message.runId, "activity")
+                            }
+                          >
+                            <Terminal size={13} />
+                            Hoạt động
+                          </button>
+                          <button
+                            onClick={() =>
+                              showDetails(message.runId, "changes")
+                            }
+                          >
+                            <FileCode2 size={13} />
+                            Thay đổi
+                          </button>
+                        </Popover>
                       </>
                     )}
                     <time>
@@ -902,11 +900,9 @@ export function ChatWorkspace({
               aria-label="Chi tiết lượt chạy"
             >
               {[
-                ["activity", "Hoạt động"],
-                ["changes", "Thay đổi"],
                 ["result", "Kết quả"],
-                ["tools", "Chạy local"],
-                ["workspaces", "Workspace"],
+                ["changes", "Thay đổi"],
+                ["activity", "Hoạt động"],
               ].map(([id, label]) => (
                 <button
                   key={id}
@@ -919,6 +915,20 @@ export function ChatWorkspace({
                 </button>
               ))}
             </div>
+            <Popover label="Công cụ dự án" icon={<MoreHorizontal size={16} />}>
+              <button
+                className={panel === "tools" ? "selected" : ""}
+                onClick={() => setPanel("tools")}
+              >
+                Chạy local
+              </button>
+              <button
+                className={panel === "workspaces" ? "selected" : ""}
+                onClick={() => setPanel("workspaces")}
+              >
+                Workspace
+              </button>
+            </Popover>
             <button
               className="icon-button"
               aria-label="Đóng panel chi tiết"

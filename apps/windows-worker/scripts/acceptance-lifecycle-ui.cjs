@@ -172,8 +172,9 @@ app.whenReady().then(async () => {
       ).value,
       1,
     );
+    await js(`document.querySelector('[aria-label="Công cụ dự án"]').click()`);
     await js(
-      `[...document.querySelectorAll('[role="tab"]')].find(e=>e.textContent==='Chạy local').click()`,
+      `[...document.querySelectorAll('.ui-popover-panel button')].find(e=>e.textContent==='Chạy local').click()`,
     );
     await until(() =>
       js(`document.querySelector('[aria-label="Lệnh dự án"]')?.value==='dev'`),
