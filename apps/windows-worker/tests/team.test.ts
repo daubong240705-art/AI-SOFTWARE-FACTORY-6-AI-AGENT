@@ -10,9 +10,13 @@ import {
 import { editScopes } from "../electron/runtime/scope";
 import { ExecutionStopped } from "../electron/runtime/stopped";
 import { taskReport } from "../electron/team/handoff";
+import { commandArtifactId, sourceVersion } from "../electron/team/evidence";
+import { snapshot } from "../electron/workspace/snapshot";
+import type { EvidenceRef } from "../shared/evidence";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { createHash } from "node:crypto";
 import { Store } from "../electron/storage/database";
 import { defaultSettings } from "../shared/defaults";
 import { normalizeRun, type Run } from "../shared/runs";
@@ -22,6 +26,7 @@ import {
   validatePlan,
   inScope,
   type TeamReview,
+  type EvidenceReview,
 } from "../shared/team";
 import {
   coordinate,
@@ -103,14 +108,18 @@ const planned = (
 const review = (
   status: "completed" | "fix",
   fixes: TeamReview["fixes"] = [],
-): TeamReview => ({
+): EvidenceReview => ({
+  version: 2,
   status,
   summary: "Done",
   fixes,
-  acceptance: ["t1 AC", "t2 AC", "t3 AC"].map((criterion) => ({
+  acceptance: ["t1 AC", "t2 AC", "t3 AC"].map((criterion, i) => ({
+    criterionId: `t${i + 1}:ac1`,
     criterion,
     status: status === "completed" ? "passed" : "failed",
     evidence: "tool evidence",
+    method: i === 2 ? "command" : "source",
+    refs: [],
   })),
   limitations: [],
 });
@@ -153,8 +162,13 @@ test("plans reject cycles, disabled roles and unsafe scopes without silently cha
 
 test("failed TEST is repaired selectively with per-role models, fresh evidence and preserved audit", async () => {
   const directory = mkdtempSync(join(tmpdir(), "asf-team-fix-"));
+  const source = join(directory, "source");
+  mkdirSync(join(source, "src"), { recursive: true });
+  writeFileSync(join(source, "src", "a.ts"), "export const a = 1;");
+  const store = new Store(join(directory, "data"));
   try {
-    const run = fixture(directory);
+    const run = fixture(source);
+    store.createRun(run);
     const calls: string[] = [];
     const plan = {
       blockedReason: null,
@@ -169,6 +183,7 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
     await coordinate(
       run,
       async (task, prompt) => {
+        task.sessionId = `session-${task.id}`;
         calls.push(task.id);
         assert.equal(task.model, `model-${task.role}`);
         if (task.kind === "plan") return JSON.stringify(plan);
@@ -184,13 +199,26 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
             (t: { taskId: string }) => t.taskId === "t3",
           );
           assert.equal(tested.attemptId, reviews === 0 ? "t3" : "t3-retry-1");
-          return JSON.stringify(
+          const result =
             reviews++ === 0
               ? review("fix", [
                   { taskId: "t1", instructions: "Repair backend" },
                 ])
-              : review("completed"),
-          );
+              : review("completed");
+          if (result.status === "completed") {
+            const catalog: { refs: EvidenceRef[] } = JSON.parse(
+              prompt.split("Evidence có sẵn: ")[1].split("\n")[0],
+            );
+            for (const ac of result.acceptance)
+              ac.refs = catalog.refs
+                .filter(
+                  (r) =>
+                    r.taskId === ac.criterionId.split(":")[0] &&
+                    r.kind === (ac.method === "command" ? "command" : "file"),
+                )
+                .slice(0, 1);
+          }
+          return JSON.stringify(result);
         }
         if (task.id === "t3-retry-1") {
           const packet = JSON.parse(
@@ -202,8 +230,19 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
           assert.equal(packet.tasks[0].report.format, "legacy");
           assert.equal(packet.tasks[0].report.verified, false);
         }
-        if (task.role === "test")
+        if (task.role === "test") {
+          const artifactId = commandArtifactId(
+            run.id,
+            task.id,
+            task.sessionId!,
+            task.id,
+          );
+          store.evidence.saveCommand(run.id, artifactId, "result");
           run.commands.push({
+            artifactId,
+            artifactHash: createHash("sha256").update("result").digest("hex"),
+            sessionId: task.sessionId!,
+            sourceVersion: sourceVersion(await snapshot(source)),
             taskId: task.id,
             callId: task.id,
             command: "test",
@@ -211,10 +250,12 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
             output: "result",
             exitCode: task.round === 0 ? 1 : 0,
           });
+        }
         return "Work done";
       },
       () => {},
       () => {},
+      store.evidence,
     );
     assert.equal(run.state, "completed");
     assert.equal(run.fixRound, 1);
@@ -232,6 +273,7 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
       [1, 0],
     );
   } finally {
+    store.close();
     rmSync(directory, { recursive: true, force: true });
   }
 });
@@ -256,9 +298,12 @@ test("TEST cannot pass without command evidence; retries are bounded and cancell
               ...review("completed"),
               acceptance: [
                 {
+                  criterionId: "t1:ac1",
                   criterion: "t1 AC",
                   status: "passed",
                   evidence: "Model says so",
+                  method: "command",
+                  refs: [],
                 },
               ],
             });
@@ -272,7 +317,7 @@ test("TEST cannot pass without command evidence; retries are bounded and cancell
     );
     assert.equal(executions, 1);
     assert.equal(run.tasks.find((t) => t.id === "t1")!.state, "failed");
-    assert.equal(run.tasks.filter((t) => t.kind === "review").length, 2);
+    assert.equal(run.tasks.filter((t) => t.kind === "review").length, 1);
     let stopped = false;
     await assert.rejects(
       coordinate(
@@ -305,9 +350,12 @@ test("TEST cannot pass without command evidence; retries are bounded and cancell
                   ...review("fix", [{ taskId: "t1", instructions: "Fix" }]),
                   acceptance: [
                     {
+                      criterionId: "t1:ac1",
                       criterion: "t1 AC",
                       status: "failed",
                       evidence: "Failure",
+                      method: "source",
+                      refs: [],
                     },
                   ],
                 })

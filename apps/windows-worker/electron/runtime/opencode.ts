@@ -10,7 +10,7 @@ import { VisibleText } from "./visible-text";
 
 export type RuntimeHooks = {
   text?: (text: string) => void;
-  event: (event: Event) => void;
+  event: (event: Event, reconciled?: boolean) => void | Promise<void>;
   permission: (permission: Permission) => void;
   failure: (message: string) => void;
 };
@@ -194,7 +194,7 @@ export class OpenCodeRuntime {
         if (properties.sessionID !== this.session) continue;
         const text = visible.consume(event);
         if (text !== undefined) this.hooks.text?.(text);
-        this.hooks.event(event);
+        await this.hooks.event(event);
         if (event.type === "permission.asked")
           this.hooks.permission({
             id: event.properties.id,
@@ -239,11 +239,14 @@ export class OpenCodeRuntime {
       if (message.info.role === "assistant")
         for (const part of message.parts) {
           if (part.type === "tool" || part.type === "step-finish")
-            this.hooks.event({
-              id: `final-${part.id}`,
-              type: "message.part.updated",
-              properties: { sessionID: this.session, part, time: Date.now() },
-            });
+            await this.hooks.event(
+              {
+                id: `final-${part.id}`,
+                type: "message.part.updated",
+                properties: { sessionID: this.session, part, time: Date.now() },
+              },
+              true,
+            );
         }
     const text = (result.data?.parts ?? [])
       .filter((part) => part.type === "text")

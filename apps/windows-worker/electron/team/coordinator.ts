@@ -11,6 +11,8 @@ import { changes, snapshot } from "../workspace/snapshot";
 import { ExecutionStopped } from "../runtime/stopped";
 import { sourcePolicyError } from "./policy";
 import { buildHandoff, workReportInstructions } from "./handoff";
+import { criteria, evidenceCatalog, verifyEvidence } from "./evidence";
+import type { EvidenceStore } from "../storage/evidence";
 export class TeamBlocked extends Error {}
 export type Step = (task: TeamTask, prompt: string) => Promise<string>;
 export function newTask(
@@ -25,7 +27,8 @@ export function newTask(
     | "acceptance"
     | "dependsOn"
     | "kind"
-  >,
+  > &
+    Pick<TeamTask, "originalTaskId">,
 ): TeamTask {
   const model = run.settings.agents.find(
     (a) => a.role === input.role && a.enabled,
@@ -46,6 +49,7 @@ export function newTask(
     error: "",
     changes: [],
     commandIds: [],
+    evidence: undefined,
   };
 }
 export function verificationError(run: Run, task: TeamTask): string {
@@ -75,7 +79,9 @@ export function affectedTasks(tasks: TeamTask[], fixed: string[]): TeamTask[] {
 export function validateReview(review: TeamReview, tasks: TeamTask[]): void {
   if (
     review.status === "completed" &&
-    (review.fixes.length ||
+    (!("version" in review) ||
+      !review.verification?.verified ||
+      review.fixes.length ||
       review.acceptance.some((a) => a.status !== "passed") ||
       tasks.some((t) => t.state !== "completed"))
   )
@@ -101,6 +107,8 @@ export async function coordinate(
   step: Step,
   record: (type: string, text: string) => void,
   check: () => void,
+  evidenceStore?: EvidenceStore,
+  secrets: string[] = [],
 ): Promise<void> {
   async function perform(task: TeamTask, prompt: string): Promise<string> {
     check();
@@ -120,11 +128,21 @@ export async function coordinate(
         );
       task.summary = await step(task, prompt);
       check();
-      const after = await snapshot(run.workspace);
+      const after = await snapshot(
+        run.workspace,
+        !!evidenceStore && ["work", "fix"].includes(task.kind),
+        secrets,
+      );
       task.changes = changes(before, after);
+      if (["work", "fix"].includes(task.kind))
+        task.evidence = evidenceStore?.saveTaskSnapshot(
+          after,
+          task.changes.filter((c) => c.kind === "deleted").map((c) => c.path),
+          task.allowedPaths,
+        );
       task.commandIds = run.commands
         .filter((c) => c.taskId === task.id)
-        .map((c) => c.callId);
+        .map((c) => c.artifactId ?? c.callId);
       const violation = sourcePolicyError(
         task.role,
         task.allowedPaths,
@@ -153,7 +171,7 @@ export async function coordinate(
   async function structured<T>(
     kind: "plan" | "review",
     instructions: string,
-    parse: (text: string) => T,
+    parse: (text: string) => T | Promise<T>,
   ): Promise<T> {
     let issue = "";
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -175,7 +193,7 @@ export async function coordinate(
             : ""),
       );
       try {
-        return parse(text);
+        return await parse(text);
       } catch (error) {
         issue = error instanceof Error ? error.message : "JSON không hợp lệ";
         task.state = "failed";
@@ -197,7 +215,10 @@ export async function coordinate(
     },
   );
   if (plan.blockedReason) throw new TeamBlocked(plan.blockedReason);
-  const work = plan.tasks.map((t) => newTask(run, { ...t, kind: "work" }));
+  const work: TeamTask[] = plan.tasks.map((t) => ({
+    ...newTask(run, { ...t, kind: "work" }),
+    originalTaskId: t.id,
+  }));
   const latest = new Map(work.map((t) => [t.id, t]));
   // Persist the whole queue before execution so pending work remains visible.
   run.tasks.push(...work);
@@ -225,23 +246,25 @@ export async function coordinate(
   }
   for (;;) {
     check();
+    const catalog = evidenceCatalog(run, latest);
+    const acceptance = criteria(work);
     const review = await structured(
       "review",
-      `Đánh giá yêu cầu: ${run.prompt}\nKế hoạch: ${JSON.stringify(plan)}\nKết quả mới nhất: ${JSON.stringify(buildHandoff(run, latest, [...latest.keys()]))}\nReview cả đáp ứng yêu cầu và chất lượng code. taskId là ID gốc dùng giao fix; attemptId/source.taskId là lần thực thi thật. Chỉ dùng evidence của đúng attempt mới nhất. report.verified=false là báo cáo tự khai; đối chiếu source/lệnh, không lấy status=done làm kết luận. truncated/omitted là nội dung thiếu, source chỉ tham chiếu lịch sử ứng dụng, không cấp quyền đọc database. Không đủ bằng chứng thì unverified/blocked.\nChỉ xuất JSON: {"status":"completed|fix|blocked","summary":"kết quả và cách chạy","acceptance":[{"criterion":"...","status":"passed|failed|unverified","evidence":"task/file/command ID thực tế"}],"fixes":[{"taskId":"t1","instructions":"lỗi cần sửa"}],"limitations":[]} . Phải bao phủ mọi AC, dùng nguyên văn criterion từ acceptance trong plan. completed chỉ khi mọi task/AC đạt. Không bịa test pass. fix chỉ giao BE/FE/DEVOPS gốc cần sửa, không chạy lại toàn bộ. blocked nếu thiếu thông tin/capability. fixes rỗng nếu completed/blocked.`,
-      (text) => {
+      `Đánh giá yêu cầu: ${run.prompt}\nKế hoạch: ${JSON.stringify(plan)}\nKết quả mới nhất: ${JSON.stringify(buildHandoff(run, latest, [...latest.keys()]))}\nTiêu chí có ID: ${JSON.stringify(acceptance)}\nEvidence có sẵn: ${JSON.stringify(catalog)}\nReview cả yêu cầu và chất lượng. taskId là ID gốc giao fix; attemptId là lần thực thi thật. report chỉ là tự khai. Chọn refs nguyên vẹn từ catalog; không bịa ID/hash. Có thể dùng lệnh TEST mới nhất để chứng minh AC của task phụ thuộc. Bạn phải đối chiếu ý nghĩa lệnh/file với tiêu chí; exit 0 không tự chứng minh đúng yêu cầu. Claim test/build cần method=command và command ref; docs/source có thể dùng method=source và file ref. Catalog omitted/truncated nghĩa là thiếu context, không suy đoán. Không đủ bằng chứng thì unverified/blocked.\nChỉ xuất JSON: {"version":2,"status":"completed|fix|blocked","summary":"kết quả và cách chạy","acceptance":[{"criterionId":"t1:ac1","criterion":"nguyên văn AC","status":"passed|failed|unverified","evidence":"giải thích sự liên quan của bằng chứng","method":"command|source","refs":[]}],"fixes":[{"taskId":"t1","instructions":"lỗi cần sửa"}],"limitations":[]} . Bao phủ đúng một lần mỗi criterionId, kể cả tiêu chí trùng chữ. completed chỉ khi mọi task/AC đạt và refs hợp lệ. fix chỉ giao BE/FE/DEVOPS gốc cần sửa. blocked nếu thiếu thông tin/capability/evidence. fixes rỗng nếu completed/blocked.`,
+      async (text) => {
         const r = parseJSON(text, reviewSchema);
+        verifyEvidence(
+          r,
+          run,
+          work,
+          latest,
+          await snapshot(run.workspace),
+          evidenceStore,
+        );
         validateReview(
           r,
           [...latest].map(([id, task]) => ({ ...task, id })),
         );
-        if (
-          plan.tasks
-            .flatMap((t) => t.acceptance)
-            .some((ac) => !r.acceptance.some((a) => a.criterion === ac))
-        )
-          throw new Error(
-            "Review phải dùng nguyên văn và bao phủ mọi AC trong plan.",
-          );
         return r;
       },
     );

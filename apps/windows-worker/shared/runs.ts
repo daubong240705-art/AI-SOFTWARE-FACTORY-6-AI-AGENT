@@ -24,6 +24,10 @@ export type ChangedFile = {
   kind: "added" | "modified" | "deleted";
 };
 export type CommandResult = {
+  artifactId?: string;
+  artifactHash?: string;
+  sessionId?: string;
+  sourceVersion?: string;
   cwd?: string;
   startedAt?: number;
   endedAt?: number;

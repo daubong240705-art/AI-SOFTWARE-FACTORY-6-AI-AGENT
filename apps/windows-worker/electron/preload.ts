@@ -3,6 +3,8 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  acceptanceEvidence: (input) =>
+    ipcRenderer.invoke(channels.acceptanceEvidence, input),
   commandOutput: (input) => ipcRenderer.invoke(channels.commandOutput, input),
   evidence: (id) => ipcRenderer.invoke(channels.evidence, id),
   fileDiff: (input) => ipcRenderer.invoke(channels.fileDiff, input),

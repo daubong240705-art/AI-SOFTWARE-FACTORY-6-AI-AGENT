@@ -5,6 +5,7 @@ import { formatDuration } from "../lib/formatDuration";
 import { formatRequestUsage } from "../lib/formatRequestUsage";
 import { ChangesPanel } from "./ChangesPanel";
 import { CommandEvidence } from "./CommandEvidence";
+import { AcceptanceEvidence } from "./AcceptanceEvidence";
 
 export function RunPanel({
   detail,
@@ -153,19 +154,32 @@ export function RunPanel({
           )}
           {run.review && (
             <section className="acceptance-list">
+              {!("version" in run.review) && (
+                <p className="small muted">
+                  Kết quả cũ · bằng chứng chưa được xác minh.
+                </p>
+              )}
+              {"verification" in run.review &&
+                run.review.verification?.issues.map((issue, i) => (
+                  <p className="warning-text small" key={`issue-${i}`}>
+                    {issue}
+                  </p>
+                ))}
               {run.review.acceptance.map((ac, i) => (
                 <div className="command-result" key={i}>
                   <strong>{ac.criterion}</strong>
                   <span className="pill">
                     {
                       {
-                        passed: "Đạt",
+                        passed:
+                          "version" in run.review! ? "Đạt" : "Đạt · báo cáo cũ",
                         failed: "Chưa đạt",
                         unverified: "Chưa xác minh",
                       }[ac.status]
                     }
                   </span>
                   <p className="small muted">{ac.evidence}</p>
+                  {"refs" in ac && <AcceptanceEvidence refs={ac.refs} />}
                 </div>
               ))}
               {run.review.limitations.map((text, i) => (
@@ -181,9 +195,12 @@ export function RunPanel({
                 <Terminal size={16} />
                 Lệnh đã thực thi
               </h2>
-              {run.commands.map((command) => (
+              {run.commands.map((command, i) => (
                 <CommandEvidence
-                  key={command.callId}
+                  key={
+                    command.artifactId ??
+                    `${command.taskId}:${command.callId}:${i}`
+                  }
                   runId={run.id}
                   command={command}
                 />

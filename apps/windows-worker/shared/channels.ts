@@ -1,4 +1,5 @@
 export const channels = {
+  acceptanceEvidence: "worker:acceptance-evidence",
   commandOutput: "worker:command-output",
   evidence: "worker:evidence",
   fileDiff: "worker:file-diff",

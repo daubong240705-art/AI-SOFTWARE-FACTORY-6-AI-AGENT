@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Role, Settings } from "./contracts";
 import type { ChangedFile } from "./runs";
+import { evidenceRefSchema, type TaskEvidence } from "./evidence";
 export type ProfileSnapshot = {
   role: Role;
   version: string;
@@ -50,7 +51,7 @@ export const planSchema = z
   })
   .strict();
 export type TeamPlan = z.infer<typeof planSchema>;
-export const reviewSchema = z
+export const legacyReviewSchema = z
   .object({
     status: z.enum(["completed", "fix", "blocked"]),
     summary: z.string().min(1).max(6000),
@@ -79,7 +80,30 @@ export const reviewSchema = z
     limitations: z.array(z.string().max(800)).max(10),
   })
   .strict();
-export type TeamReview = z.infer<typeof reviewSchema>;
+export const reviewSchema = legacyReviewSchema
+  .extend({
+    version: z.literal(2),
+    acceptance: z
+      .array(
+        z
+          .object({
+            criterionId: z.string().regex(/^t[1-9][0-9]?:ac[1-8]$/),
+            criterion: z.string().min(1).max(400),
+            status: z.enum(["passed", "failed", "unverified"]),
+            evidence: z.string().min(1).max(1000),
+            method: z.enum(["command", "source"]),
+            refs: z.array(evidenceRefSchema).max(8),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(80),
+  })
+  .strict();
+export type EvidenceReview = z.infer<typeof reviewSchema> & {
+  verification?: { verified: boolean; issues: string[] };
+};
+export type TeamReview = z.infer<typeof legacyReviewSchema> | EvidenceReview;
 export type TaskState =
   | "queued"
   | "running"
@@ -89,6 +113,8 @@ export type TaskState =
   | "cancelled"
   | "skipped";
 export type TeamTask = {
+  originalTaskId?: string;
+  evidence?: TaskEvidence;
   id: string;
   role: Role;
   title: string;

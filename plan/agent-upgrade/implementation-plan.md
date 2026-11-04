@@ -1,6 +1,6 @@
 # Kế hoạch triển khai theo đợt
 
-Trạng thái ngày 04/11/2026: **AU-0, AU-1 và AU-2A hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md). AU-2B–5 chưa thực hiện. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
+Trạng thái ngày 04/11/2026: **AU-0, AU-1, AU-2A và AU-2B hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md), [AU-2B](../../docs/windows-worker/au2b-completion.md). AU-3–5 chưa thực hiện. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
 
 ## Ranh giới và thứ tự
 
@@ -14,7 +14,7 @@ Trạng thái ngày 04/11/2026: **AU-0, AU-1 và AU-2A hoàn thành**; [kết qu
 flowchart LR
   A[AU-0 clone và khảo sát: xong] --> B[AU-1 profile và policy: xong]
   B --> C[AU-2A handoff: xong]
-  C --> D[AU-2B evidence gate]
+  C --> D[AU-2B evidence gate: xong]
   D --> E[AU-3 skills theo task]
   E --> F[AU-4 lỗi, model và số liệu]
   W[WW-4D lifecycle] --> F
@@ -67,6 +67,8 @@ Không thêm lượt LLM chỉ để format handoff. Báo cáo có cấu trúc l
 Nghiệm thu: task sau chỉ nhận dependency liên quan và attempt mới nhất; nội dung bị cắt không che trạng thái fail/blocked; command refs trỏ đúng task; không đổi tổng request mặc định. Test trọng tâm + typecheck/full unit/build/format một lần cuối đợt; revert commit 2A nếu cần.
 
 ## AU-2B — Completion gắn bằng chứng thật
+
+**Đã hoàn thành AU2B-01–04.** Review v2 dùng ID task + thứ tự AC, refs có kiểu, xác minh identity/attempt/session/hash/source; lệnh thất bại hoặc evidence thiếu không được completed. Command artifact mới có key riêng theo run/attempt/session/call, không ghi đè lệnh cùng call ID. File evidence lưu blob theo scope; UI mở snapshot/output đã lưu. Tái sử dụng schema6 và JSON task, không migration hoặc chuyển đổi evidence cũ. Kết quả và giới hạn trong báo cáo AU-2B; mốc tiếp theo AU-3.
 
 Phụ thuộc 2A; checkpoint riêng trước đổi data contract. Đây là thay đổi rủi ro vừa, không ghép vào AU-1.
 
@@ -142,4 +144,4 @@ Ngưỡng: tất cả ca correctness/policy bắt buộc đạt; không tăng s�
 5. Review diff/scope/secret, cập nhật báo cáo, commit từng đợt và push GitHub theo quyền đã có. Không merge/main hoặc deploy ngoài phạm vi.
 6. Đo thực tế rồi mới quyết định cần agent/reviewer/tool/dependency mới. Nếu thiếu quyền/công cụ thì báo giới hạn cụ thể, không giả lập kết quả thành đạt.
 
-Mốc code tiếp theo cụ thể: **AU2B-01 → AU2B-02 → AU2B-03 → AU2B-04** trên nền AU-2A/WW-4C. Không cần chờ toàn bộ WW-4D để bắt đầu mốc này.
+Mốc code tiếp theo: **AU-3 — catalog và lựa chọn skill theo task** trên nền AU-2B/WW-4C. Không cần chờ toàn bộ WW-4D để bắt đầu mốc này.

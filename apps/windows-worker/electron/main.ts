@@ -9,6 +9,8 @@ import {
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { z } from "zod";
+import { evidenceRefSchema } from "../shared/evidence";
+import { readEvidence } from "./team/evidence";
 import {
   channels,
   idSchema,
@@ -99,12 +101,29 @@ function registerIPC(): void {
   handle(channels.evidence, (input) =>
     store.evidence.view(idSchema.parse(input)),
   );
+  handle(channels.acceptanceEvidence, (input) => {
+    const ref = evidenceRefSchema.parse(input);
+    return readEvidence(store.run(ref.runId), ref, store.evidence);
+  });
   handle(channels.commandOutput, (input) => {
     const q = z
-      .object({ runId: idSchema, callId: z.string().min(1).max(200) })
+      .object({
+        runId: idSchema,
+        callId: z.string().min(1).max(200),
+        artifactId: z
+          .string()
+          .regex(/^cmd-v1-[a-f0-9]{64}$/)
+          .optional(),
+      })
       .strict()
       .parse(input);
-    return store.evidence.command(q.runId, q.callId);
+    const command = store
+      .run(q.runId)
+      .commands.find(
+        (c) => c.callId === q.callId && c.artifactId === q.artifactId,
+      );
+    if (!command) throw new Error("Không có command tương ứng.");
+    return store.evidence.command(q.runId, q.artifactId ?? q.callId);
   });
   handle(channels.fileDiff, (input) => {
     const q = fileInput

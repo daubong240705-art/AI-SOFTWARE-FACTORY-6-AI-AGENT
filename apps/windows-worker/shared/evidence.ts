@@ -1,3 +1,43 @@
+import { z } from "zod";
+
+const identity = {
+  runId: z.string().min(1).max(200),
+  taskId: z.string().regex(/^t[1-9][0-9]?$/),
+  attemptId: z.string().min(1).max(200),
+  sessionId: z.string().min(1).max(200),
+  sourceVersion: z.string().regex(/^[a-f0-9]{64}$/),
+};
+const fileIdentity = {
+  ...identity,
+  path: z.string().min(1).max(4096),
+  hash: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .nullable(),
+};
+export const evidenceRefSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      ...identity,
+      kind: z.literal("command"),
+      artifactId: z.string().regex(/^cmd-v1-[a-f0-9]{64}$/),
+      callId: z.string().min(1).max(200),
+    })
+    .strict(),
+  z.object({ ...fileIdentity, kind: z.literal("file") }).strict(),
+  z
+    .object({
+      ...fileIdentity,
+      kind: z.literal("artifact"),
+      hash: z.string().regex(/^[a-f0-9]{64}$/),
+    })
+    .strict(),
+]);
+export type EvidenceRef = z.infer<typeof evidenceRefSchema>;
+export type TaskEvidence = {
+  sourceVersion: string;
+  files: Record<string, FileVersion | null>;
+};
 export type FileVersion = {
   hash: string | null;
   size: number;

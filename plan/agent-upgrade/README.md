@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp AI Software Factory
 
-Ngày cập nhật: 04/11/2026. **AU-0, AU-1 và AU-2A hoàn thành**; [báo cáo AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md). AU-2B đến AU-5 chưa triển khai.
+Ngày cập nhật: 04/11/2026. **AU-0, AU-1, AU-2A và AU-2B hoàn thành**; [báo cáo AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md), [AU-2B](../../docs/windows-worker/au2b-completion.md). AU-3 đến AU-5 chưa triển khai.
 
 | Tài liệu | Nội dung |
 |---|---|
@@ -14,4 +14,4 @@ Giữ Factory Lite + Windows Worker; Controller hiện tại là nơi duy nhất
 
 Thứ tự ưu tiên: **AU-1 → AU-2 → AU-3 → AU-4 → AU-5**. AU-1 có thể bắt đầu trên baseline WW-4C; không cần đợi WW-4D. Các công việc tự nâng cấp kéo dài hoặc cần preview/process recovery chỉ bắt đầu sau khi phần lifecycle tương ứng của WW-4D được nghiệm thu. WW-5 vẫn là kế hoạch đóng gói riêng.
 
-**AU-1 thống nhất profile/quyền; AU-2A bổ sung handoff có giới hạn, giữ đúng attempt và ưu tiên blocker/evidence lỗi.** Mốc code tiếp theo là AU-2B: gate completion theo evidence. Chưa bật cơ chế app tự sửa source của chính nó liên tục.
+**AU-1 thống nhất profile/quyền; AU-2A bổ sung handoff có giới hạn; AU-2B chặn completion thiếu evidence và mở bằng chứng từ AC.** Mốc code tiếp theo là AU-3: chọn skill theo task. Chưa bật cơ chế app tự sửa source của chính nó liên tục.

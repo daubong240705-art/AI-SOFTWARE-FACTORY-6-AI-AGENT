@@ -17,10 +17,16 @@ export function CommandEvidence({
       onToggle={(e) => {
         if (e.currentTarget.open)
           void window.worker
-            .commandOutput({ runId, callId: command.callId })
+            .commandOutput({
+              runId,
+              callId: command.callId,
+              artifactId: command.artifactId,
+            })
             .then((r) => {
               if (r.ok) setOutput(r.value);
-            });
+              else setError(r.error);
+            })
+            .catch(() => setError("Không mở được output đã lưu."));
       }}
     >
       <summary>

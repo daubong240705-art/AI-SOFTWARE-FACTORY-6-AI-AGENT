@@ -1,9 +1,14 @@
 import { coordinate, TeamBlocked } from "../team/coordinator";
+import {
+  commandArtifactId,
+  sourceVersion,
+  upsertCommand,
+} from "../team/evidence";
 import { loadProfiles } from "../team/profiles";
 import { rolePolicy, runtimeContext, sourcePolicyError } from "../team/policy";
 import { ExecutionStopped } from "../runtime/stopped";
 import type { TeamTask } from "../../shared/team";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { Event, ToolPart } from "@opencode-ai/sdk/v2/client";
 import type { Role, Settings } from "../../shared/contracts";
@@ -35,6 +40,7 @@ type Active = {
   seen: Set<string>;
   visibleSteps?: Map<string, string>;
   lastTextAt?: number;
+  sourceObservation?: { version: string; at: number };
 };
 export class RunController {
   private active?: Active;
@@ -243,6 +249,8 @@ export class RunController {
           (task, prompt) => this.step(active, key, executable, task, prompt),
           (type, text) => this.record(active, type, text),
           () => this.check(active),
+          this.store.evidence,
+          active.secrets,
         );
       } else {
         run.summary = await this.step(active, key, executable);
@@ -426,7 +434,7 @@ export class RunController {
                     this.store.updateRun(run);
                   }
                 },
-          event: (event) => this.onEvent(active, event),
+          event: (event, reconciled) => this.onEvent(active, event, reconciled),
           permission: (permission) => this.onPermission(active, permission),
           failure: (message) => {
             void this.stop(run.id, "failed", message).catch(() => {});
@@ -442,6 +450,13 @@ export class RunController {
         "SESSION_STARTED",
         `${task?.id ?? "direct"} · ${run.sessionId}`,
       );
+      const source = sourceVersion(
+        await snapshot(run.workspace, true, active.secrets),
+      );
+      active.sourceObservation = source
+        ? { version: source, at: Date.now() }
+        : undefined;
+      this.check(active);
       const result = await active.runtime.prompt();
       this.check(active);
       if (result.error) throw new Error(result.error);
@@ -475,7 +490,11 @@ export class RunController {
       `${permission.permission}: ${permission.patterns.join("; ")}`,
     );
   }
-  private onEvent(active: Active, event: Event): void {
+  private async onEvent(
+    active: Active,
+    event: Event,
+    reconciled = false,
+  ): Promise<void> {
     const { run } = active;
     if (active.desired) return;
     if (event.type === "session.error") {
@@ -488,7 +507,7 @@ export class RunController {
     const part = event.properties.part;
     if (part.type === "reasoning" || part.type === "text") return; // Never store reasoning or raw streamed prompt fragments.
     const state = part.type === "tool" ? part.state.status : part.type;
-    const key = `${part.id}:${state}`;
+    const key = `${run.currentTaskId ?? "direct"}:${part.sessionID}:${part.id}:${state}`;
     if (active.seen.has(key)) return;
     active.seen.add(key);
     if (part.type === "step-finish") {
@@ -500,9 +519,13 @@ export class RunController {
         `Kết thúc bước model · input ${part.tokens.input}, output ${part.tokens.output}`,
       );
     }
-    if (part.type === "tool") this.tool(active, part);
+    if (part.type === "tool") await this.tool(active, part, reconciled);
   }
-  private tool(active: Active, part: ToolPart): void {
+  private async tool(
+    active: Active,
+    part: ToolPart,
+    reconciled: boolean,
+  ): Promise<void> {
     const { run } = active;
     const state = part.state;
     if (state.status === "pending") return;
@@ -515,6 +538,29 @@ export class RunController {
         part.tool,
     );
     if (state.status === "completed") run.toolsCompleted++;
+    // Anchor command evidence to an observation made BEFORE execution as well
+    // as the post-command snapshot. Timestamps alone cannot detect deletions.
+    const before = active.sourceObservation;
+    const mutatesSource = ![
+      "read",
+      "glob",
+      "grep",
+      "list",
+      "webfetch",
+      "websearch",
+      "todowrite",
+      "todoread",
+      "question",
+    ].includes(part.tool);
+    let observed: Awaited<ReturnType<typeof snapshot>> | undefined;
+    if (mutatesSource && ["completed", "error"].includes(state.status)) {
+      if (!reconciled)
+        observed = await snapshot(run.workspace, true, active.secrets);
+      const version = observed && sourceVersion(observed);
+      active.sourceObservation = version
+        ? { version, at: Date.now() }
+        : undefined;
+    }
     if (part.tool === "bash") {
       const rawOutput =
         state.status === "completed"
@@ -523,8 +569,19 @@ export class RunController {
             ? state.error
             : "";
       const fullOutput = redact(rawOutput, active.secrets, 256000);
-      this.store.evidence.saveCommand(run.id, part.callID, fullOutput);
+      const attemptId = run.currentTaskId ?? "direct";
+      const sessionId = part.sessionID;
+      const artifactId = commandArtifactId(
+        run.id,
+        attemptId,
+        sessionId,
+        part.callID,
+      );
       const result = {
+        artifactId,
+        artifactHash: createHash("sha256").update(fullOutput).digest("hex"),
+        sessionId,
+        sourceVersion: undefined as string | undefined,
         cwd: redact(String(input.workdir ?? run.workspace), active.secrets),
         startedAt: state.time.start,
         endedAt: "end" in state.time ? state.time.end : undefined,
@@ -547,11 +604,29 @@ export class RunController {
             ? state.metadata.exit
             : null,
       };
-      const index = run.commands.findIndex(
-        (command) => command.callId === part.callID,
-      );
-      if (index >= 0) run.commands[index] = result;
-      else if (run.commands.length < 100) run.commands.push(result);
+      if (upsertCommand(run.commands, result)) {
+        this.store.evidence.saveCommand(run.id, artifactId, fullOutput);
+        // Final-message reconciliation may arrive long after execution: keep its
+        // output, but never invent a source version from that late observation.
+        if (
+          !reconciled &&
+          state.status === "completed" &&
+          result.exitCode === 0
+        ) {
+          const version = observed && sourceVersion(observed);
+          if (
+            before &&
+            before.at <= state.time.start &&
+            before.version === version &&
+            (observed?.latestMtime ?? Infinity) <= state.time.start
+          )
+            result.sourceVersion = version;
+        }
+      } else {
+        throw new TeamBlocked(
+          "Đã hết giới hạn 100 command evidence; không thể xác minh thêm lệnh.",
+        );
+      }
     }
     this.record(
       active,

@@ -86,4 +86,6 @@ WW-4D tiếp tục preview/phục hồi/retention; WW-5 bộ cài. [Kế hoạch
 
 [AU-1 hoàn thành](../../docs/windows-worker/au1-completion.md): profile/policy thống nhất direct/team, prompt bàn giao và version/hash theo nội dung; 43/43 test, typecheck/build/format đạt. [Kế hoạch nâng cấp agent](../../plan/agent-upgrade/README.md).
 
-[AU-2A hoàn thành](../../docs/windows-worker/au2a-completion.md): handoff dependency/review có cấu trúc, giới hạn context, không thêm bước gọi model; 48/48 test, typecheck/build/format đạt. Tiếp theo AU-2B xác thực completion theo evidence.
+[AU-2A hoàn thành](../../docs/windows-worker/au2a-completion.md): handoff dependency/review có cấu trúc, giới hạn context, không thêm bước gọi model; 48/48 test, typecheck/build/format đạt.
+
+[AU-2B hoàn thành](../../docs/windows-worker/au2b-completion.md): team chỉ completed khi mọi AC có evidence hợp lệ của attempt mới nhất. ID AC phân biệt cả tiêu chí trùng chữ; lệnh cần exit 0, output lưu đúng session và source còn nguyên. File/command mở từ từng AC trong Kết quả, lấy nội dung đã lưu. Thiếu evidence thì Chưa xác minh/Cần bổ sung. Lịch sử cũ giữ nguyên và ghi rõ chưa xác minh; schema vẫn v6. Validator kiểm tra identity/hash/phiên bản, Lead kiểm tra sự liên quan với yêu cầu. Catalog evidence giới hạn 12 ref/task và 24.000 ký tự, có số mục bị lược bỏ. Lệnh chỉ đọc bù từ lịch sử hoặc source thay đổi trong lúc chạy không tự được coi là đã xác minh. Tiếp theo AU-3 chọn skill theo task.

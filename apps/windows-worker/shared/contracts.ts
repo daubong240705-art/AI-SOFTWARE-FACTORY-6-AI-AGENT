@@ -114,9 +114,13 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  acceptanceEvidence(
+    ref: import("./evidence").EvidenceRef,
+  ): Promise<Reply<string>>;
   commandOutput(input: {
     runId: string;
     callId: string;
+    artifactId?: string;
   }): Promise<Reply<string>>;
   evidence(id: string): Promise<Reply<EvidenceView>>;
   fileDiff(input: {

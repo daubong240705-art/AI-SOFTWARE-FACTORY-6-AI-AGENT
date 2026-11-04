@@ -6,6 +6,7 @@ import type { FileVersion } from "../../shared/evidence";
 import { redact } from "../runtime/security";
 
 export type Snapshot = {
+  latestMtime?: number;
   files: Record<string, string>;
   complete: boolean;
   entries?: Record<string, FileVersion>;
@@ -84,6 +85,7 @@ export async function snapshot(
       if (!item.isFile()) continue;
       try {
         const info = await lstat(path);
+        result.latestMtime = Math.max(result.latestMtime ?? 0, info.mtimeMs);
         if (!info.isFile() || info.isSymbolicLink())
           throw new Error("File type changed");
         if (info.size > 1024 * 1024 || bytes + info.size > 48 * 1024 * 1024) {

@@ -7,7 +7,10 @@ import type {
   EvidenceFile,
   FileVersion,
   FileDiff,
+  TaskEvidence,
 } from "../../shared/evidence";
+import { sourceVersion } from "../team/evidence";
+import { inScope } from "../../shared/team";
 import type { Snapshot } from "../workspace/snapshot";
 import type { GitCapture } from "../workspace/git-evidence";
 import { hashBytes } from "../workspace/git-evidence";
@@ -168,7 +171,33 @@ export class EvidenceStore {
       .prepare("SELECT data FROM workspace_blobs WHERE hash=?")
       .get(version.hash) as { data: Buffer } | undefined;
     if (!row) throw new Error("Không có nội dung snapshot.");
+    if (hashBytes(row.data) !== version.hash)
+      throw new Error("Nội dung snapshot không khớp hash.");
     return row.data;
+  }
+  saveTaskSnapshot(
+    source: Snapshot,
+    deleted: string[] = [],
+    allowedPaths: string[] = ["."],
+  ): TaskEvidence | undefined {
+    const version = sourceVersion(source);
+    if (!version || !source.entries) return;
+    const files: TaskEvidence["files"] = Object.fromEntries(
+      Object.entries(source.entries).filter(([path]) =>
+        inScope(path, allowedPaths),
+      ),
+    );
+    const needed = new Set(Object.values(files).map((file) => file?.hash));
+    this.db.transaction(() => {
+      const insert = this.db.prepare(
+        "INSERT OR IGNORE INTO workspace_blobs VALUES (?,?)",
+      );
+      for (const [hash, data] of source.blobs ?? [])
+        if (needed.has(hash)) insert.run(hash, data);
+    })();
+    for (const path of deleted)
+      if (inScope(path, allowedPaths)) files[path] = null;
+    return { sourceVersion: version, files };
   }
   recovery(runId: string, path: string, data: Buffer | null): void {
     this.db.transaction(() => {
