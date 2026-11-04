@@ -24,10 +24,10 @@ class Specification(BaseModel):
 ROLES: dict[str, dict[str, Any]] = {
     "pm": {"implemented": True, "writes": ["plan"], "tools": []},
     "ba": {"implemented": True, "writes": ["spec"], "tools": []},
-    "be": {"implemented": False, "writes": [], "tools": []},
-    "fe": {"implemented": False, "writes": [], "tools": []},
-    "test": {"implemented": False, "writes": [], "tools": []},
-    "devops": {"implemented": False, "writes": [], "tools": []},
+    "be": {"implemented": True, "writes": ["code"], "tools": ["opencode"]},
+    "fe": {"implemented": True, "writes": ["code"], "tools": ["opencode"]},
+    "test": {"implemented": True, "writes": ["report", "bug"], "tools": ["sandbox"]},
+    "devops": {"implemented": True, "writes": ["release"], "tools": ["gitlab"]},
 }
 
 

@@ -101,6 +101,9 @@ def main() -> None:
     while not stopping:
         try:
             sweep()
+            from workers.execution_recovery import sweep as recover_executions
+
+            recover_executions()
         except Exception:
             logging.getLogger(__name__).warning("Dispatch unavailable; durable outbox retained")
         time.sleep(2)

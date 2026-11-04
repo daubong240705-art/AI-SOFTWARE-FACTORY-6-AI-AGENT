@@ -4,6 +4,8 @@ export interface Project {
   slug: string;
   description: string;
   repository_url: string | null;
+  integration_profile: string | null;
+  agent_models: Record<string, string>;
   created_at: string;
   updated_at: string;
 }
@@ -80,6 +82,10 @@ export interface Run {
   requirement: string;
   status: string;
   mode: string;
+  config_snapshot: {
+    models?: Record<string, string>;
+    integration?: Record<string, unknown>;
+  };
   spec_version: number;
   retry_count: number;
   token_budget: number;
@@ -105,6 +111,15 @@ export interface TimelineEvent {
 }
 export interface RunDetail {
   run: Run;
+  executions: {
+    id: string;
+    role: string;
+    attempt: number;
+    state: string;
+    candidate_sha: string;
+    result: Record<string, unknown>;
+  }[];
+  external_links: { kind: string; url: string; external_id: string }[];
   tasks: {
     role: string;
     status: string;

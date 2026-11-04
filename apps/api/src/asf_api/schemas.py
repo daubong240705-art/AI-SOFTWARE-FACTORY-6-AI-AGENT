@@ -11,6 +11,8 @@ class ProjectCreate(BaseModel):
     slug: str = Field(min_length=1, max_length=80, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
     description: str = Field(default="", max_length=4000)
     repository_url: str | None = Field(default=None, max_length=500)
+    integration_profile: str | None = Field(default=None, pattern=r"^[a-z0-9-]{1,80}$")
+    agent_models: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("repository_url")
     @classmethod
@@ -31,6 +33,8 @@ class ProjectRead(BaseModel):
     slug: str
     description: str
     repository_url: str | None
+    integration_profile: str | None
+    agent_models: dict[str, str]
     created_at: datetime
     updated_at: datetime
 

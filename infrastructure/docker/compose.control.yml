@@ -66,8 +66,11 @@ services:
     <<: *runtime
     image: asf-api:${RELEASE_SHA:?release SHA required}
     environment: *api
-    env_file: /etc/asf-control/api.env
-    networks: [data, edge]
+    env_file: [/etc/asf-control/api.env, /etc/asf-control/integration.env]
+    networks: [data, edge, egress]
+    volumes:
+      - /etc/asf-control/caddy-root.crt:/app/certs/caddy-root.crt:ro
+      - /etc/asf-control/integrations.json:/app/config/integrations.json:ro
     ports: ["192.168.1.14:18101:8000"]
     depends_on: {migrate: {condition: service_completed_successfully}, redis: {condition: service_healthy}}
     mem_limit: 384m
@@ -85,9 +88,11 @@ services:
     environment:
       <<: *api
       ASF_ROUTER_CA_FILE: /app/certs/caddy-root.crt
-    env_file: [/etc/asf-control/api.env, /etc/asf-control/worker.env]
+    env_file: [/etc/asf-control/api.env, /etc/asf-control/worker.env, /etc/asf-control/integration.env]
     networks: [data, egress]
-    volumes: [/etc/asf-control/caddy-root.crt:/app/certs/caddy-root.crt:ro]
+    volumes:
+      - /etc/asf-control/caddy-root.crt:/app/certs/caddy-root.crt:ro
+      - /etc/asf-control/integrations.json:/app/config/integrations.json:ro
     command: [python, -m, workers.main]
     depends_on: {api: {condition: service_healthy}}
     mem_limit: 768m

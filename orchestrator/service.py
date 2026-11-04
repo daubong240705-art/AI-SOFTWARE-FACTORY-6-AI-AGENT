@@ -4,13 +4,25 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from asf_api.models import Approval, Artifact, Dispatch, Event, ModelCall, Project, Run, Task
+from asf_api.models import (
+    Approval,
+    Artifact,
+    Dispatch,
+    Event,
+    Execution,
+    ModelCall,
+    Project,
+    Run,
+    Task,
+)
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from agents.contracts import ROLES
 from orchestrator.state import ACTIVE, EXECUTABLE, Superseded, WorkflowError, transition
+from shared.agent_skills import skill_snapshot
 from shared.config import get_settings
+from shared.profiles import model_selection, profiles
 
 
 @dataclass(frozen=True)
@@ -57,14 +69,17 @@ def dispatch_run(session: Session, run: Run) -> None:
 
 def add_tasks(session: Session, run: Run) -> None:
     for role, capability in ROLES.items():
+        available = capability["implemented"] and (
+            role in {"pm", "ba"} or (run.mode == "live" and run.config_snapshot.get("integration"))
+        )
         session.add(
             Task(
                 run_id=run.id,
                 role=role,
                 title=f"{role.upper()} / v{run.spec_version}",
                 spec_version=run.spec_version,
-                status="pending" if capability["implemented"] else "not_implemented",
-                simulated=run.mode == "mock" and bool(capability["implemented"]),
+                status="pending" if available else "not_implemented",
+                simulated=run.mode == "mock" and bool(available),
             )
         )
 
@@ -76,12 +91,32 @@ def create_run(session: Session, project_id: uuid.UUID, requirement: str, mode: 
         raise WorkflowError("live_mode_disabled")
     reserve_slot(session)
     settings = get_settings()
+    project = session.get(Project, project_id)
+    assert project
+    try:
+        snapshot: dict[str, Any] = {
+            "models": model_selection(project.agent_models),
+            "agent_skills": skill_snapshot(),
+            "coding_limits": {
+                "requests": settings.coding_model_requests,
+                "tokens": settings.coding_model_allowance,
+                "output_tokens": settings.coding_model_output_tokens,
+            },
+        }
+    except ValueError:
+        raise WorkflowError("model_not_allowed") from None
+    if project.integration_profile:
+        profile = profiles().get(project.integration_profile)
+        if not profile or not profile.enabled:
+            raise WorkflowError("integration_profile_disabled")
+        snapshot["integration"] = profile.model_dump()
     run = Run(
         project_id=project_id,
         requirement=requirement,
         mode=mode,
         token_budget=settings.run_token_budget,
         call_limit=settings.run_call_limit,
+        config_snapshot=snapshot,
     )
     session.add(run)
     session.flush()
@@ -240,6 +275,14 @@ def cancel_run(session: Session, run_id: uuid.UUID, comment: str) -> Run:
         return run
     run.status = transition(run.status, "cancelled")
     run.generation += 1
+    for item in session.scalars(
+        select(Execution).where(
+            Execution.run_id == run.id,
+            Execution.state.in_(("pending", "leased", "waiting_release")),
+        )
+    ):
+        item.state = "cancelled"
+        item.lease_token_hash = None
     for task in session.scalars(
         select(Task).where(Task.run_id == run.id, Task.status.in_(("pending", "running")))
     ):
