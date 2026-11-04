@@ -14,7 +14,7 @@ Lượt nhắn tiếp lấy tối đa bốn lượt trước, giới hạn nội
 
 ## Bằng chứng
 
-- [Ảnh desktop](ww4a/chat-desktop.png), [có panel](ww4a/chat-with-panel.png), [cửa sổ nhỏ](ww4a/chat-small.png).
+- Ảnh desktop (`ww4a/chat-desktop.png`, ?nh local), có panel (`ww4a/chat-with-panel.png`, ?nh local), cửa sổ nhỏ (`ww4a/chat-small.png`, ?nh local).
 - [UI acceptance](ww4a/ui-acceptance.json): chạy bản main/preload/renderer đã build, SQLite/IPC thật trong app data tạm. Kiểm tra đổi phiên giữ nháp, polling/panel không ghi đè draft, rename, layout 850×700 không tràn ngang và renderer không Node. Transcript ảnh là fixture UI dựa trên kết quả WW-3, không phải lượt model mới.
 - [Hai lượt model thật](ww4a/live-chat.json): `ds/deepseek-v4-flash` qua 9Router, hai run trong một conversation; lần đầu 2 request, lần sau 1 request. Lượt sau nhắc lại đúng marker chỉ xuất hiện trong lượt đầu; context tham chiếu đúng run trước. Bốn message lưu đúng, không có thay đổi source hay lệnh shell.
 - `npm run typecheck`, `npm test` (**27/27**), `npm run test:native`, `npm run build`.

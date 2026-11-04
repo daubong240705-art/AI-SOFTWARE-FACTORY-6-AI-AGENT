@@ -13,3 +13,6 @@ node_modules/
 dist/
 *.egg-info/
 /.cache/asf-research/
+
+# Generated UI screenshots stay local. Keep source/design assets trackable.
+/docs/**/*.png

@@ -3,13 +3,13 @@
 Thư mục gồm ảnh tham khảo kế hoạch và **bằng chứng V1.3A–C**. [Bàn giao A](../v1.3a-completion.md), [B](../v1.3b-completion.md), [C](../v1.3c-completion.md).
 
 - [Kết quả kiểm tra C](v1.3c-checks.json), [UI acceptance C](v1.3c-ui.json), [Kanban regression trên C](v1.3c-board-regression.json).
-- [Inspector desktop](inspector-desktop.png), [timeline](inspector-timeline.png), [diff/cửa sổ nhỏ](inspector-small.png): production Electron, dữ liệu fixture, không gọi provider.
+- Inspector desktop (`inspector-desktop.png`, ?nh local), timeline (`inspector-timeline.png`, ?nh local), diff/cửa sổ nhỏ (`inspector-small.png`, ?nh local): production Electron, dữ liệu fixture, không gọi provider.
 
 - [Kết quả kiểm tra B](v1.3b-checks.json), [UI acceptance B](v1.3b-ui.json).
-- [Kanban desktop](kanban-desktop.png), [Kanban cửa sổ nhỏ](kanban-small.png): production Electron, SQLite/IPC thật, dữ liệu fixture, không gọi provider.
+- Kanban desktop (`kanban-desktop.png`, ?nh local), Kanban cửa sổ nhỏ (`kanban-small.png`, ?nh local): production Electron, SQLite/IPC thật, dữ liệu fixture, không gọi provider.
 
 - [UI acceptance A](v1.3a-ui.json): Electron thật, SQLite/IPC thật, dữ liệu fixture lịch sử, không gọi provider.
-- [Giao diện desktop đã triển khai](agent-monitor-desktop.png), [cửa sổ nhỏ](agent-monitor-small.png).
+- Giao diện desktop đã triển khai (`agent-monitor-desktop.png`, ?nh local), cửa sổ nhỏ (`agent-monitor-small.png`, ?nh local).
 - Các ảnh `agent-monitor-*.png` dùng dữ liệu fixture và không phải chứng minh model thật. Ảnh `office-3d-reference.webp` vẫn chỉ là tham khảo bên ngoài, không phải 3D ASF đã triển khai.
 
 - [Kế hoạch V1.3 mở rộng](../../../plan/v1.3/README.md)

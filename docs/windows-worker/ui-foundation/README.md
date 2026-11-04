@@ -146,6 +146,8 @@ Option JSX chỉ là khai báo dữ liệu; DOM hiển thị button `role=combob
 
 ## 10. Chạy kiểm tra và bằng chứng
 
+Ảnh PNG sinh từ kiểm tra chỉ giữ local, được `.gitignore` bỏ qua và không đưa vào commit mới. Các đường dẫn ảnh dưới đây là vị trí trên máy sau khi chạy audit; Git chỉ lưu source, tài liệu và kết quả JSON. Ảnh đã có trong commit lịch sử vẫn thuộc lịch sử cũ.
+
 Từ `apps/windows-worker`:
 
 ```powershell
@@ -162,7 +164,7 @@ Lệnh cuối mở production Electron ở chế độ ẩn, tạo SQLite riêng
 
 Audit dùng 1920×1080, 1440×960, 1100×800, 850×700 ở zoom 100%, và 1100×800 ở zoom 125%. Viewport đo mới nhất nằm trong [bằng chứng alpha.5](../ui-controls/layout-checks.json); [layout-checks.json](layout-checks.json) là mốc alpha.4. Ảnh PNG có thể lớn hơn kích thước cửa sổ do DPI Windows. Dữ liệu có tiêu đề/model/đường dẫn dài, code 500 ký tự một dòng, 15 thẻ backlog, cột ít việc và rỗng.
 
-Ảnh mới nhất: [Kanban](../ui-controls/kanban-desktop.png), [cửa sổ nhỏ](../ui-controls/kanban-small.png), [dropdown](../ui-controls/dropdown-desktop.png), [agent](../ui-controls/agents-desktop.png). Các ảnh tại thư mục alpha.4 này giữ nguyên để đối chiếu.
+Ảnh mới nhất: Kanban (`../ui-controls/kanban-desktop.png`, ?nh local), cửa sổ nhỏ (`../ui-controls/kanban-small.png`, ?nh local), dropdown (`../ui-controls/dropdown-desktop.png`, ?nh local), agent (`../ui-controls/agents-desktop.png`, ?nh local). Các ảnh tại thư mục alpha.4 này giữ nguyên để đối chiếu.
 
 Audit đo overflow, căn hàng, giới hạn chiều cao, cuộn tới cuối và lỗi renderer. Đây là kiểm tra bố cục với fixture, không phải bằng chứng model/runtime thật, không bao phủ mọi trạng thái lỗi/permission/preview/diff. Các test hiện có kiểm tra hành vi; khi thay màn hình đó cần kiểm tra trực quan bổ sung đúng trạng thái liên quan.
 
