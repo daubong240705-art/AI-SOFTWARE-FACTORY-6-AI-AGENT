@@ -105,24 +105,44 @@ def schedule(
 def start(session: Session, run: Run) -> bool:
     if run.mode != "live" or not run.config_snapshot.get("integration"):
         return False
-    # A deployment failure must not discard a tested candidate or spend another coding budget.
+    # Resume the failed stage on its immutable input, never discard completed coding work.
     previous = session.scalar(
         select(Execution)
         .where(
             Execution.run_id == run.id,
-            Execution.role == "devops",
             Execution.state == "failed",
             Execution.input["run_generation"].as_integer() == run.generation - 1,
         )
-        .order_by(Execution.created_at.desc())
+        .order_by(Execution.created_at.desc(), Execution.id.desc())
     )
-    if previous:
+    spec = artifact(session, run, "spec")
+    if previous and spec and previous.input["spec_hash"] == spec.content_hash:
+        if previous.role in {"be", "fe", "test"}:
+            predecessor = {"fe": "be", "test": "fe"}.get(previous.role)
+            completed = session.scalar(
+                select(Execution.id).where(
+                    Execution.run_id == run.id,
+                    Execution.role == predecessor,
+                    Execution.state == "succeeded",
+                    Execution.result["candidate_sha"].as_string()
+                    == previous.input["candidate_sha"],
+                    Execution.input["spec_hash"].as_string() == spec.content_hash,
+                )
+            ) if predecessor else True
+            if completed:
+                resumed = schedule(session, run, previous.role, previous.input["candidate_sha"])
+                if "test_feedback" in previous.input:
+                    resumed.input = {
+                        **resumed.input,
+                        "test_feedback": previous.input["test_feedback"],
+                    }
+                return True
+    if previous and previous.role == "devops":
         tested = session.scalar(
             select(Execution)
             .where(Execution.run_id == run.id, Execution.role == "test")
             .order_by(Execution.created_at.desc())
         )
-        spec = artifact(session, run, "spec")
         if (
             tested
             and tested.state == "succeeded"
