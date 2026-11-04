@@ -1,6 +1,6 @@
 # Kế hoạch triển khai cải thiện trải nghiệm
 
-Trạng thái: **UX-01–04 đã triển khai; tiếp theo UX-05**. Worker `1.3.0-alpha.8` / SQLite **10** sau UX-04; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md).
+Trạng thái: **UX-01–05 đã triển khai; tiếp theo UX-06**. Worker `1.3.0-alpha.8` / SQLite **11** sau UX-05; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md).
 
 ## 1. Nguyên tắc triển khai
 
@@ -81,6 +81,8 @@ UX-04 đã bổ sung bằng chứng model thật về ngữ cảnh và phản h�
 **Nghiệm thu:** hai lần bấm/nạp lại/process crash giữa nhận answers và dispatch không tạo hai run; trả lời stale có lỗi rõ; Full access vẫn không hỏi Accept cho tool được phép; nhu cầu nghiệp vụ quan trọng chưa trả lời không bị tự chọn khuyến nghị. Kiểm tra native SQLite và lifecycle queue/needs_input.
 
 ### UX-05 — Kết quả, báo cáo và nghiệm thu tùy chọn (P0/P1)
+
+**Đã triển khai U5-01–05.** Report bất biến, artifact provenance, trạng thái kiểm chứng, policy nghiệm thu versioned, yêu cầu sửa atomic và export manifest đã được nối vào Factory Lite. Chi tiết và bằng chứng ở [bàn giao UX-05](../../docs/windows-worker/ux05-completion.md).
 
 **Phụ thuộc:** UX-02–04; phần đọc evidence có thể làm ngay sau UX-02.
 

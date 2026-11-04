@@ -4,6 +4,7 @@ import {
   answersPrompt,
   type AnswerQuestions,
 } from "../../shared/questions";
+import { reportDecisionSchema } from "../../shared/reports";
 import {
   commandArtifactId,
   sourceVersion,
@@ -152,6 +153,9 @@ export class RunController {
       data.overview.questions = this.store.questions
         .pending(request.projectId)
         .map((q) => ({ ...q, summary: redact(q.summary, secrets, 160) }));
+      data.overview.reports = this.store.reports
+        .pending(request.projectId)
+        .map((r) => ({ ...r, title: redact(r.title, secrets, 160) }));
       for (const item of data.overview.runs)
         item.questionState = this.store.questions.stateForRun(item.id);
     }
@@ -201,6 +205,50 @@ export class RunController {
     }
   }
   private active?: Active;
+  async workReport(input: import("../../shared/reports").ReportRef) {
+    const report = this.store.reports.capture(input);
+    const current = await snapshot(report.workspace);
+    return this.store.reports.view(input, sourceVersion(current) ?? null);
+  }
+  async reportDecision(input: import("../../shared/reports").ReportDecision) {
+    const data = reportDecisionSchema.parse(input);
+    const report = this.store.reports.capture(data);
+    const current = await snapshot(report.workspace);
+    const before = this.active;
+    if (this.shuttingDown || this.workspaceBusy)
+      throw new Error("Ứng dụng đang đóng hoặc xử lý workspace.");
+    try {
+      return this.store.reports.decide(
+        data,
+        sourceVersion(current) ?? null,
+        (source) =>
+          this.sendChat({
+            requestId: data.requestId,
+            projectId: source.projectId,
+            conversationId: source.conversationId!,
+            prompt: `Yêu cầu sửa báo cáo ${source.id}, lượt ${source.runId}, phiên bản ${source.work!.revision}.\n\nYêu cầu ban đầu:\n${this.store.reports.snapshotRun(source.runId).prompt.slice(0, 16000)}\n\nKết quả trước:\n${source.summary.slice(0, 6000)}\n\nNội dung cần sửa:\n${data.comment}`,
+            role: "lead",
+            mode: "team",
+            workContext: {
+              itemId: source.work!.itemId,
+              revision: source.work!.revision,
+            },
+          }),
+        () => {
+          if (
+            data.action === "accept" &&
+            (this.active || this.store.queue.list().length)
+          )
+            throw new Error(
+              "Chờ lượt chạy và hàng chờ kết thúc trước khi nghiệm thu.",
+            );
+        },
+      );
+    } catch (error) {
+      if (this.active !== before) this.active = before;
+      throw error;
+    }
+  }
   answerQuestions(input: AnswerQuestions) {
     const data = answerQuestionsSchema.parse(input),
       before = this.active;

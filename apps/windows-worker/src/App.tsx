@@ -935,6 +935,14 @@ export function App() {
               {page === "overview" &&
                 (project ? (
                   <ProjectOverview
+                    onReport={(runId) => {
+                      if (project)
+                        setInspection({
+                          projectId: project.id,
+                          runId,
+                          initialTab: "result",
+                        });
+                    }}
                     key={project.id}
                     state={monitor}
                     onRefresh={() => void monitor.refresh?.()}

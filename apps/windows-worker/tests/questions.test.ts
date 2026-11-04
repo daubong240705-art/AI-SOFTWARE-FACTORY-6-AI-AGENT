@@ -455,7 +455,9 @@ test("schema9 migration backs up populated history and credentials without repla
   let store: Store | undefined;
   try {
     const db = new Database(join(s.directory, "data", "worker.sqlite"));
-    db.exec("DROP TABLE question_sets;PRAGMA user_version=9");
+    db.exec(
+      "DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; DROP TABLE question_sets;PRAGMA user_version=9",
+    );
     db.close();
     store = new Store(join(s.directory, "data"));
     assert.equal(

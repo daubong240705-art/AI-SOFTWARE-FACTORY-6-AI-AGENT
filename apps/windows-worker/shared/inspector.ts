@@ -4,6 +4,7 @@ import { isActive, runLabels } from "./runs";
 import { activityLabels } from "./monitor";
 
 export type InspectorSelection = {
+  initialTab?: "result";
   projectId: string;
   runId: string;
   taskId?: string | null;

@@ -9,6 +9,7 @@ import { BoardStore } from "./board";
 import { migrateWorkItems } from "./work-migration";
 import { migrateChatRequests } from "./chat-requests";
 import { Questions } from "./questions";
+import { Reports } from "./reports";
 import {
   chatSendSchema,
   type ChatSend,
@@ -38,6 +39,7 @@ export class Store {
   readonly evidence: EvidenceStore;
   readonly board: BoardStore;
   readonly questions: Questions;
+  readonly reports: Reports;
   private retentionTickets = new Map<
     string,
     { ids: string[]; expires: number }
@@ -51,7 +53,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 10)
+      if (version > 11)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -137,6 +139,14 @@ export class Store {
       migrateChatRequests(this.db, directory, version);
       this.questions = new Questions(this.db, directory, version);
       this.board = new BoardStore(this.db);
+      this.reports = new Reports(
+        this.db,
+        directory,
+        version,
+        this.evidence,
+        this.board,
+        (id) => this.run(id),
+      );
     } catch (error) {
       this.db.close();
       throw error;
@@ -294,6 +304,8 @@ export class Store {
       throw new Error(
         "Dự án có thẻ Kanban. Giữ dự án trong danh sách để bảo toàn backlog và liên kết.",
       );
+    if (this.reports.hasProject(id))
+      throw new Error("Giữ dự án có báo cáo đã lưu để bảo toàn bằng chứng.");
     this.db.transaction(() => {
       this.db.prepare("DELETE FROM work_counters WHERE project_id=?").run(id);
       this.db.prepare("DELETE FROM projects WHERE id=?").run(id);
@@ -464,6 +476,8 @@ export class Store {
           .run(run.state, run.id);
       this.conversations.sync(run);
       this.questions.publish(run);
+      if (!isActive(run.state) && run.endedAt)
+        this.reports.capture({ projectId: run.projectId, runId: run.id });
       if (event) this.event(run.id, event.type, event.text, event.metadata);
     })();
   }
@@ -574,6 +588,13 @@ export class Store {
     return JSON.stringify(
       {
         version: 1,
+        result:
+          !isActive(run.state) && run.endedAt
+            ? this.reports.export(
+                { projectId: run.projectId, runId: run.id },
+                secrets,
+              )
+            : null,
         boardLinks: this.board.links().filter((link) => link.runId === id),
         workItem: this.board.runReference(id),
         workContext: run.workContext,
@@ -643,6 +664,7 @@ export class Store {
       if (q.afterRunId) protectedIds.add(q.afterRunId);
     for (const id of this.board.protectedRunIds()) protectedIds.add(id);
     for (const id of this.questions.protectedRunIds()) protectedIds.add(id);
+    for (const id of this.reports.protectedRunIds()) protectedIds.add(id);
     const refs = (value: unknown, result: Set<string>) => {
       if (!value || typeof value !== "object") return;
       for (const [key, item] of Object.entries(value)) {
@@ -690,6 +712,10 @@ export class Store {
     if (!ticket || ticket.expires < Date.now())
       throw new Error("Bản xem trước dọn dữ liệu đã hết hạn.");
     const ids = new Set(ticket.ids);
+    if (this.reports.protectedRunIds().some((id) => ids.has(id)))
+      throw new Error(
+        "Có báo cáo mới tham chiếu lịch sử này; tải lại bản xem trước.",
+      );
     if (this.questions.protectedRunIds().some((id) => ids.has(id)))
       throw new Error(
         "Có câu hỏi mới tham chiếu lịch sử này; tải lại bản xem trước.",
@@ -721,6 +747,7 @@ export class Store {
     }
     this.db.transaction(() => {
       for (const id of ids) {
+        this.db.prepare("DELETE FROM reports WHERE run_id=?").run(id);
         this.db.prepare("DELETE FROM chat_requests WHERE run_id=?").run(id);
         for (const table of [
           "events",
@@ -745,6 +772,12 @@ export class Store {
           .prepare(`SELECT value FROM ${table}`)
           .all() as { value: string }[])
           collect(JSON.parse(row.value));
+      for (const row of this.db
+        .prepare("SELECT value,run_value FROM reports")
+        .all() as { value: string; run_value: string }[]) {
+        collect(JSON.parse(row.value));
+        collect(JSON.parse(row.run_value));
+      }
       for (const row of this.db
         .prepare("SELECT hash FROM file_recoveries")
         .all() as { hash: string }[])

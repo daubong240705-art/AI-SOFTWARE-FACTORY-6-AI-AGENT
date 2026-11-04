@@ -12,6 +12,12 @@ import { writeFile } from "node:fs/promises";
 import { z } from "zod";
 import { chatSendSchema } from "../shared/chat";
 import { answerQuestionsSchema, questionRefSchema } from "../shared/questions";
+import {
+  reportRefSchema,
+  reportDecisionSchema,
+  reportPolicySchema,
+  reportFileSchema,
+} from "../shared/reports";
 import { redact } from "./runtime/security";
 import { monitorRequestSchema } from "../shared/monitor";
 import {
@@ -80,6 +86,20 @@ function key(): string | undefined {
   }
 }
 function registerIPC(): void {
+  handle(channels.workReport, (input) =>
+    controller.workReport(reportRefSchema.parse(input)),
+  );
+  handle(channels.reportFile, (input) =>
+    store.reports.fileDiff(reportFileSchema.parse(input)),
+  );
+  handle(channels.reportDecision, (input) => {
+    if (local.busy())
+      throw new Error("Dừng lệnh local trước khi ghi quyết định.");
+    return controller.reportDecision(reportDecisionSchema.parse(input));
+  });
+  handle(channels.reportPolicy, (input) =>
+    store.reports.setPolicy(reportPolicySchema.parse(input)),
+  );
   handle(channels.questionSet, (input) =>
     store.questions.get(questionRefSchema.parse(input)),
   );
@@ -91,7 +111,7 @@ function registerIPC(): void {
   );
   handle(channels.taskFileDiff, (input) => {
     const ref = evidenceRefSchema.parse(input);
-    return store.evidence.taskDiff(controller.detail(ref.runId).run, ref);
+    return store.evidence.taskDiff(store.reports.evidenceRun(ref.runId), ref);
   });
   const worktrees = new Worktrees(app.getPath("userData"), (path) =>
     store.workspaceReferenced(path),
@@ -265,7 +285,11 @@ function registerIPC(): void {
   );
   handle(channels.acceptanceEvidence, (input) => {
     const ref = evidenceRefSchema.parse(input);
-    return readEvidence(store.run(ref.runId), ref, store.evidence);
+    return readEvidence(
+      store.reports.evidenceRun(ref.runId),
+      ref,
+      store.evidence,
+    );
   });
   handle(channels.commandOutput, (input) => {
     const q = z
@@ -279,13 +303,7 @@ function registerIPC(): void {
       })
       .strict()
       .parse(input);
-    const command = store
-      .run(q.runId)
-      .commands.find(
-        (c) => c.callId === q.callId && c.artifactId === q.artifactId,
-      );
-    if (!command) throw new Error("Không có command tương ứng.");
-    return store.evidence.command(q.runId, q.artifactId ?? q.callId);
+    return store.reports.commandOutput(q.runId, q.callId, q.artifactId);
   });
   handle(channels.fileDiff, (input) => {
     const q = fileInput
@@ -434,7 +452,11 @@ function registerIPC(): void {
   );
   handle(channels.exportWorkItem, async (input) => {
     const ref = workItemRefSchema.parse(input);
-    const report = store.board.exportItem(ref);
+    const report = {
+      ...store.board.exportItem(ref),
+      reportHistory: store.reports.itemHistory(ref.projectId, ref.itemId),
+      acceptancePolicy: store.reports.policy(ref.projectId, ref.itemId),
+    };
     const target = await dialog.showSaveDialog(window!, {
       title: "Xuất hồ sơ công việc",
       defaultPath: `${report.item.code}.json`,

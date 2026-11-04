@@ -1,4 +1,8 @@
 export const channels = {
+  workReport: "worker:work-report",
+  reportDecision: "worker:report-decision",
+  reportPolicy: "worker:report-policy",
+  reportFile: "worker:report-file",
   questionSet: "worker:question-set",
   saveQuestionDraft: "worker:question-draft",
   answerQuestions: "worker:answer-questions",

@@ -141,7 +141,9 @@ async function main() {
   store.close();
   // Native migration from populated schema9, before production main opens the DB.
   const db = new Database(join(data, "worker.sqlite"));
-  db.exec("DROP TABLE question_sets;PRAGMA user_version=9");
+  db.exec(
+    "DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; DROP TABLE question_sets;PRAGMA user_version=9",
+  );
   db.close();
   // Existing terminal runs are not replayed/materialized as new questions by migration.
   store = new Store(data);

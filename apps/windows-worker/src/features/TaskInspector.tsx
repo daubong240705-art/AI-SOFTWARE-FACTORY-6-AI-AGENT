@@ -39,11 +39,14 @@ export function TaskInspector({
   onOpenWorkspace: (project: Project) => Promise<void>;
 }) {
   const feed = useRunDetail(selection.projectId, selection.runId);
-  const [tab, setTab] = useState("overview"),
+  const [tab, setTab] = useState(selection.initialTab ?? "overview"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const actionLock = useRef(false);
+  useEffect(() => {
+    setTab(selection.initialTab ?? "overview");
+  }, [selection.runId, selection.initialTab]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     dialog.current?.showModal();
@@ -357,6 +360,13 @@ export function TaskInspector({
                 showPermissions={false}
                 onPermission={() => {}}
                 onOpenWorkspace={onOpenWorkspace}
+                onInspect={(id) =>
+                  onSelect({
+                    projectId: selection.projectId,
+                    runId: id,
+                    initialTab: "result",
+                  })
+                }
               />
             ))}
           {tab === "result" &&
@@ -383,6 +393,13 @@ export function TaskInspector({
                 showPermissions={false}
                 onPermission={() => {}}
                 onOpenWorkspace={onOpenWorkspace}
+                onInspect={(id) =>
+                  onSelect({
+                    projectId: selection.projectId,
+                    runId: id,
+                    initialTab: "result",
+                  })
+                }
               />
             ))}
         </>

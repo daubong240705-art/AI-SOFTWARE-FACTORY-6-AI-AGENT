@@ -404,14 +404,13 @@ async function main() {
     ),
   );
   await click("Lần thực hiện", "document.querySelector('.work-panel-tabs')");
-  await click(
-    "Xem task / kết quả",
-    "document.querySelector('.work-item-panel')",
+  await click("Báo cáo", "document.querySelector('.work-item-panel')");
+  await until(() =>
+    js("!!document.querySelector('.work-inline-report .report-heading')"),
   );
-  await until(() => js("!!document.querySelector('.task-inspector')"));
   assert.ok(
     await js(
-      "document.querySelector('.task-inspector').textContent.includes('Legacy runtime')",
+      "document.querySelector('.work-item-panel').textContent.includes('Legacy runtime')",
     ),
   );
   const reopened = new Store(data);

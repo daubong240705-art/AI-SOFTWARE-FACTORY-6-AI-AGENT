@@ -309,7 +309,7 @@ test("schema6 backup/migration retains chats/credentials/legacy events, while st
     store.close();
     const db = new Database(join(directory, "worker.sqlite"));
     db.exec(
-      "DROP TABLE question_sets; DROP TABLE chat_requests; DROP TABLE work_comments; DROP TABLE work_attempts; DROP TABLE work_submissions; DROP TABLE work_revisions; DROP TABLE work_counters; DROP TABLE board_links; DROP TABLE board_items; ALTER TABLE events DROP COLUMN metadata; PRAGMA user_version=6;",
+      "DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; DROP TABLE question_sets; DROP TABLE chat_requests; DROP TABLE work_comments; DROP TABLE work_attempts; DROP TABLE work_submissions; DROP TABLE work_revisions; DROP TABLE work_counters; DROP TABLE board_links; DROP TABLE board_items; ALTER TABLE events DROP COLUMN metadata; PRAGMA user_version=6;",
     );
     db.prepare("INSERT INTO credentials VALUES (1,?)").run(
       Buffer.from("ciphertext-fixture"),

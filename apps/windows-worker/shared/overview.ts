@@ -21,6 +21,7 @@ export type OverviewQueued = {
   createdAt: string;
 };
 export type ProjectOverviewData = {
+  reports?: { runId: string; title: string; createdAt: string }[];
   questions?: {
     id: string;
     runId: string;
@@ -81,6 +82,16 @@ export function attentionItems(data: ProjectOverviewData): AttentionItem[] {
     ];
   });
   return [
+    ...(data.reports ?? []).map((r) => ({
+      key: `report:${r.runId}`,
+      title: r.title,
+      reason: "Đối chiếu source và xem báo cáo trước khi quyết định.",
+      label: "Chờ nghiệm thu",
+      action: "Xem báo cáo",
+      runId: r.runId,
+      conversationId: null,
+      at: r.createdAt,
+    })),
     ...(data.questions ?? []).map((q) => ({
       key: `questions:${q.id}`,
       title: q.summary,

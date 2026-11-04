@@ -8,6 +8,7 @@ import { roles, type Reply, type Role } from "../../shared/contracts";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { Select } from "../ui/Select";
 import { runLabels, type RunState } from "../../shared/runs";
+import { WorkReport } from "./WorkReport";
 
 async function value<T>(promise: Promise<Reply<T>>) {
   const reply = await promise;
@@ -56,6 +57,7 @@ export function WorkItemPanel({
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const [revision, setRevision] = useState<WorkRevision | null>(null);
+  const [reportRunId, setReportRunId] = useState<string | null>(null);
   const ref = { projectId, itemId };
   async function load() {
     const next = await value(window.worker.workItemDetail(ref));
@@ -592,6 +594,19 @@ export function WorkItemPanel({
           </>
         ) : (
           <>
+            {reportRunId && (
+              <div className="work-inline-report">
+                <button onClick={() => setReportRunId(null)}>Ẩn báo cáo</button>
+                <WorkReport
+                  key={reportRunId}
+                  run={{ id: reportRunId, projectId }}
+                  onInspect={(id) => {
+                    onClose();
+                    onInspect(id);
+                  }}
+                />
+              </div>
+            )}
             {!detail.submissions.length && (
               <p className="muted">Chưa gửi thực hiện.</p>
             )}
@@ -677,11 +692,14 @@ export function WorkItemPanel({
                     </div>
                     <button
                       onClick={() => {
-                        onClose();
-                        onInspect(a.id);
+                        if (a.endedAt) setReportRunId(a.id);
+                        else {
+                          onClose();
+                          onInspect(a.id);
+                        }
                       }}
                     >
-                      Xem task / kết quả
+                      {a.endedAt ? "Báo cáo" : "Xem task"}
                     </button>
                   </div>
                 ))}

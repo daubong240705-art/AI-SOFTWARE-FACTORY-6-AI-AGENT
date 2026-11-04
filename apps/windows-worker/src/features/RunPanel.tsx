@@ -14,6 +14,7 @@ import { RecoveryActions } from "./RecoveryActions";
 import { IntegrationResult } from "./IntegrationResult";
 import type { Project } from "../../shared/contracts";
 import { useState } from "react";
+import { WorkReport } from "./WorkReport";
 
 export function RunPanel({
   detail,
@@ -200,85 +201,95 @@ export function RunPanel({
           {showRecovery && (
             <RecoveryActions key={run.id} run={run} onChanged={() => {}} />
           )}
-          <button
-            disabled={exporting}
-            onClick={() => void exportReport(run.id)}
-          >
-            Xuất báo cáo
-          </button>
+          {!run.endedAt && (
+            <button
+              disabled={exporting}
+              onClick={() => void exportReport(run.id)}
+            >
+              Xuất báo cáo
+            </button>
+          )}
           {exportStatus && (
             <p className="small muted" role="status">
               {exportStatus}
             </p>
           )}
-          {run.error && (
-            <div className="notice error">
-              <TriangleAlert size={16} />
-              {run.failure && (
-                <strong>{failureLabels[run.failure.code]} · </strong>
-              )}
-              {run.error}
-            </div>
-          )}
-          {run.summary ? (
-            <pre className="final-summary">{run.summary}</pre>
+          {run.endedAt ? (
+            <WorkReport key={run.id} run={run} onInspect={onInspect} />
           ) : (
-            <p className="muted">Chưa có báo cáo cuối.</p>
-          )}
-          {run.review && (
-            <section className="acceptance-list">
-              {!("version" in run.review) && (
-                <p className="small muted">
-                  Kết quả cũ · bằng chứng chưa được xác minh.
-                </p>
-              )}
-              {"verification" in run.review &&
-                run.review.verification?.issues.map((issue, i) => (
-                  <p className="warning-text small" key={`issue-${i}`}>
-                    {issue}
-                  </p>
-                ))}
-              {run.review.acceptance.map((ac, i) => (
-                <div className="command-result" key={i}>
-                  <strong>{ac.criterion}</strong>
-                  <span className="pill">
-                    {
-                      {
-                        passed:
-                          "version" in run.review! ? "Đạt" : "Đạt · báo cáo cũ",
-                        failed: "Chưa đạt",
-                        unverified: "Chưa xác minh",
-                      }[ac.status]
-                    }
-                  </span>
-                  <p className="small muted">{ac.evidence}</p>
-                  {"refs" in ac && <AcceptanceEvidence refs={ac.refs} />}
+            <>
+              {run.error && (
+                <div className="notice error">
+                  <TriangleAlert size={16} />
+                  {run.failure && (
+                    <strong>{failureLabels[run.failure.code]} · </strong>
+                  )}
+                  {run.error}
                 </div>
-              ))}
-              {run.review.limitations.map((text, i) => (
-                <p className="warning-text small" key={i}>
-                  {text}
-                </p>
-              ))}
-            </section>
-          )}
-          {run.commands.length > 0 && (
-            <section>
-              <h2>
-                <Terminal size={16} />
-                Lệnh đã thực thi
-              </h2>
-              {run.commands.map((command, i) => (
-                <CommandEvidence
-                  key={
-                    command.artifactId ??
-                    `${command.taskId}:${command.callId}:${i}`
-                  }
-                  runId={run.id}
-                  command={command}
-                />
-              ))}
-            </section>
+              )}
+              {run.summary ? (
+                <pre className="final-summary">{run.summary}</pre>
+              ) : (
+                <p className="muted">Chưa có báo cáo cuối.</p>
+              )}
+              {run.review && (
+                <section className="acceptance-list">
+                  {!("version" in run.review) && (
+                    <p className="small muted">
+                      Kết quả cũ · bằng chứng chưa được xác minh.
+                    </p>
+                  )}
+                  {"verification" in run.review &&
+                    run.review.verification?.issues.map((issue, i) => (
+                      <p className="warning-text small" key={`issue-${i}`}>
+                        {issue}
+                      </p>
+                    ))}
+                  {run.review.acceptance.map((ac, i) => (
+                    <div className="command-result" key={i}>
+                      <strong>{ac.criterion}</strong>
+                      <span className="pill">
+                        {
+                          {
+                            passed:
+                              "version" in run.review!
+                                ? "Đạt"
+                                : "Đạt · báo cáo cũ",
+                            failed: "Chưa đạt",
+                            unverified: "Chưa xác minh",
+                          }[ac.status]
+                        }
+                      </span>
+                      <p className="small muted">{ac.evidence}</p>
+                      {"refs" in ac && <AcceptanceEvidence refs={ac.refs} />}
+                    </div>
+                  ))}
+                  {run.review.limitations.map((text, i) => (
+                    <p className="warning-text small" key={i}>
+                      {text}
+                    </p>
+                  ))}
+                </section>
+              )}
+              {run.commands.length > 0 && (
+                <section>
+                  <h2>
+                    <Terminal size={16} />
+                    Lệnh đã thực thi
+                  </h2>
+                  {run.commands.map((command, i) => (
+                    <CommandEvidence
+                      key={
+                        command.artifactId ??
+                        `${command.taskId}:${command.callId}:${i}`
+                      }
+                      runId={run.id}
+                      command={command}
+                    />
+                  ))}
+                </section>
+              )}
+            </>
           )}
           <div className="run-facts">
             {run.mode === "direct" && run.skillSelection && (

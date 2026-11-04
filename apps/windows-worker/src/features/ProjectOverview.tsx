@@ -25,6 +25,7 @@ export function ProjectOverview({
   onInspect,
   onChat,
   onConversation,
+  onReport,
 }: {
   state: MonitorState;
   onRefresh: () => void;
@@ -39,6 +40,7 @@ export function ProjectOverview({
     questions?: boolean,
   ) => void;
   onConversation: (id: string) => void;
+  onReport?: (id: string) => void;
 }) {
   const [allAttention, setAllAttention] = useState(false);
   const [allResults, setAllResults] = useState(false);
@@ -186,6 +188,14 @@ export function ProjectOverview({
                           disabled={unavailable}
                           onClick={() => {
                             if (
+                              item.label === "Chờ nghiệm thu" &&
+                              item.runId &&
+                              onReport
+                            ) {
+                              onReport(item.runId);
+                              return;
+                            }
+                            if (
                               item.runId &&
                               item.label !== "Cần bổ sung" &&
                               item.label !== "Cần trả lời"
@@ -251,7 +261,7 @@ export function ProjectOverview({
                     <li key={run.id}>
                       <button
                         disabled={unavailable}
-                        onClick={() => onInspect(run.id)}
+                        onClick={() => (onReport ?? onInspect)(run.id)}
                       >
                         <span className="overview-result-title">
                           {run.prompt}

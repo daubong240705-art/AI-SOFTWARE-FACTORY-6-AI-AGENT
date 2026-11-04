@@ -1343,3 +1343,105 @@ main {
 .run-state.needs_input {
   color: #eab66a;
 }
+.work-report {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.work-report p {
+  margin: 0;
+}
+.report-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.report-heading strong {
+  flex: 1 1 220px;
+}
+.report-heading .pill {
+  white-space: normal;
+}
+.report-section,
+.report-acceptance,
+.work-inline-report {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  min-width: 0;
+}
+.report-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+.report-section[open] > summary {
+  margin-bottom: 12px;
+}
+.report-acceptance {
+  display: grid;
+  gap: 12px;
+}
+.report-policy {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.report-policy input {
+  width: auto;
+  flex: 0 0 auto;
+}
+.report-acceptance form,
+.report-acceptance form label {
+  display: grid;
+  gap: 10px;
+}
+.report-acceptance textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+}
+.report-files {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.report-files li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.report-files button {
+  min-width: 0;
+  text-align: left;
+}
+.report-files code {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.report-diff pre {
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre;
+}
+.report-provenance {
+  display: grid;
+  grid-template-columns: minmax(70px, auto) minmax(0, 1fr);
+  gap: 8px 16px;
+  font-size: 12px;
+}
+.report-provenance dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.work-inline-report {
+  display: grid;
+  gap: 12px;
+}

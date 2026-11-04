@@ -118,6 +118,18 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  workReport(
+    input: import("./reports").ReportRef,
+  ): Promise<Reply<import("./reports").ReportView>>;
+  reportFile(
+    input: import("./reports").ReportRef & { path: string },
+  ): Promise<Reply<Pick<FileDiff, "patch" | "binary" | "reason">>>;
+  reportDecision(
+    input: import("./reports").ReportDecision,
+  ): Promise<Reply<import("./reports").ReportView>>;
+  reportPolicy(
+    input: import("zod").z.infer<typeof import("./reports").reportPolicySchema>,
+  ): Promise<Reply<{ required: boolean; version: number }>>;
   questionSet(
     input: import("zod").z.infer<
       typeof import("./questions").questionRefSchema
