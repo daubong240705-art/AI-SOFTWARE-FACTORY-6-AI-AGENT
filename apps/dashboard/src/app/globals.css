@@ -197,6 +197,27 @@ nav > .nav-unavailable {
   margin-top: 4px;
 }
 /* Operational workspace, authentication and run details. */
+.worker-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.workspace-content .worker-roles label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.4rem;
+}
+.workspace-content .worker-roles input {
+  width: auto;
+}
+.workspace-content details {
+  margin-block: 1rem;
+  overflow-wrap: anywhere;
+}
+.workspace-content summary {
+  cursor: pointer;
+}
 .workspace-main {
   margin-left: 238px;
   width: calc(100% - 238px);

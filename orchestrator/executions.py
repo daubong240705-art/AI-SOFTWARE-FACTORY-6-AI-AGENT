@@ -79,6 +79,13 @@ def schedule(
             "baseline_sha": first.input.get("baseline_sha") if first else candidate,
             "profile": profile.model_dump(),
             "models": run.config_snapshot["models"],
+            "agent_skill": run.config_snapshot.get("agent_skills", {}).get(role, {}),
+            "model_limits": run.config_snapshot.get("coding_limits")
+            or {
+                "requests": get_settings().coding_model_requests,
+                "tokens": get_settings().coding_model_allowance,
+                "output_tokens": get_settings().coding_model_output_tokens,
+            },
             "spec": spec.content,
             "spec_hash": spec.content_hash,
         },
@@ -185,11 +192,11 @@ def claim(session: Session, worker: CodingWorker) -> dict[str, Any] | None:
         profile = IntegrationProfile.model_validate(item.input["profile"])
         if item.role in {"be", "fe"}:
             used = usage(session, run.id)
-            reserve = 20000
-            if (
-                used["calls"] >= run.call_limit
-                or used["charged_tokens"] + reserve > run.token_budget
-            ):
+            limits = item.input.get("model_limits", {})
+            # A recovered lease keeps its previous uncertain reservation. Its next grant
+            # can use only the remaining run budget, never a fresh unbounded allowance.
+            reserve = min(limits.get("tokens", 60000), run.token_budget - used["charged_tokens"])
+            if used["calls"] >= run.call_limit or reserve < 5000:
                 fail(session, run, item, "model_budget_exceeded")
                 continue
             call = ModelCall(
@@ -202,7 +209,11 @@ def claim(session: Session, worker: CodingWorker) -> dict[str, Any] | None:
             )
             session.add(call)
             session.flush()
-            item.input = {**item.input, "model_call_id": str(call.id)}
+            item.input = {
+                **item.input,
+                "model_call_id": str(call.id),
+                "model_limits": {**limits, "tokens": reserve},
+            }
         # Recheck profile is frozen, no caller-supplied repository or command is executed.
         files = (
             GitLab(profile.gitlab_project_id).snapshot(item.input["candidate_sha"])
@@ -382,13 +393,27 @@ def complete(
     if call_id := item.input.get("model_call_id"):
         call = session.get(ModelCall, uuid.UUID(call_id))
         if call:
-            # OpenCode CLI does not guarantee complete upstream usage reporting.
-            # Keep the reserved charge and mark unknown usage explicitly via null token counts.
+            # Trust only the managed worker's proxy report, not the CLI transcript.
+            # Missing reports keep the reservation, including recovered/lost leases.
             call.status = "succeeded" if payload["succeeded"] else "failed"
             call.error_code = None if payload["succeeded"] else "coding_failed"
+            measured = payload.get("report", {}).get("model_usage", {})
+            charged = measured.get("charged_tokens")
+            if type(charged) is int and charged >= 0:
+                call.charged_tokens = charged
+            for field in ("input_tokens", "output_tokens"):
+                value = measured.get(field)
+                if type(value) is int and value >= 0:
+                    setattr(call, field, value)
     if not payload["succeeded"]:
-        fail(session, run, item, "worker_execution_failed")
-        item.result = {"completion_hash": digest}
+        code = payload.get("report", {}).get("model_usage", {}).get("error_code")
+        fail(
+            session,
+            run,
+            item,
+            code if code == "execution_model_quota_exceeded" else "worker_execution_failed",
+        )
+        item.result = {"completion_hash": digest, "report": payload.get("report", {})}
         return item
     sha = item.input["candidate_sha"]
     if item.role in {"be", "fe"}:
@@ -397,6 +422,7 @@ def complete(
             "candidate_sha": sha,
             "completion_hash": digest,
             "model": item.input["models"][item.role],
+            "model_usage": payload.get("report", {}).get("model_usage", {}),
         }
     elif item.role == "test":
         report = payload.get("report", {})

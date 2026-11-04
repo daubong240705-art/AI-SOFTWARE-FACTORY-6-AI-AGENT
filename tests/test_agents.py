@@ -8,7 +8,7 @@ import pytest
 from asf_api.auth import token_hash
 from asf_api.db import SessionLocal
 from asf_api.main import app
-from asf_api.models import Artifact, CodingWorker, Execution, Project, Run
+from asf_api.models import Artifact, CodingWorker, Execution, ModelCall, Project, Run, User
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import delete, select
@@ -146,6 +146,15 @@ def test_remote_worker_auth_lease_recovery_and_cancel(execution_workspace):
         second = client.post("/api/worker/claim").json()["execution"]
         assert second["id"] == first["id"]
         assert second["lease_token"] != first["lease_token"]
+        # The previous uncertain charge survives; recovery grants only the remainder.
+        with SessionLocal() as session:
+            calls = list(session.scalars(select(ModelCall).where(ModelCall.run_id == run_id)))
+            assert len(calls) == 2
+            assert sum(c.charged_tokens for c in calls) <= session.get(Run, run_id).token_budget
+            assert (
+                second["input"]["model_limits"]["tokens"]
+                <= first["input"]["model_limits"]["tokens"]
+            )
         path = f"/api/worker/executions/{first['id']}"
         assert (
             client.post(path + "/heartbeat", json={"lease_token": first["lease_token"]}).status_code
@@ -226,9 +235,109 @@ def test_project_model_snapshot_survives_project_edits(authenticated, monkeypatc
         assert updated.status_code == 200
         detail = authenticated.get(f"/api/runs/{run['id']}").json()
         assert detail["run"]["config_snapshot"]["models"]["ba"] == "review"
+        snapshot = detail["run"]["config_snapshot"]
+        assert snapshot["agent_skills"]["be"]["version"] == 1
+        assert snapshot["agent_skills"]["be"]["tools"] == ["read", "edit", "glob", "grep"]
+        assert snapshot["coding_limits"]["requests"] == settings.coding_model_requests
     finally:
         with SessionLocal.begin() as session:
             session.execute(delete(Project).where(Project.id == p["id"]))
+
+
+@integration
+def test_worker_admin_listing_rotation_revocation_and_role_boundary(authenticated, account):
+    name = "test-admin-" + uuid.uuid4().hex
+    created = authenticated.post("/api/coding-workers", json={"name": name, "capabilities": ["be"]})
+    assert created.status_code == 201
+    worker_id, old_token = created.json()["id"], created.json()["token"]
+    try:
+        assert (
+            authenticated.post(
+                "/api/coding-workers", json={"name": name, "capabilities": ["root"]}
+            ).status_code
+            == 422
+        )
+        catalog = authenticated.get("/api/agent-capabilities").json()
+        assert catalog["model_key_in_sandbox"] is False
+        assert len(catalog["roles"]) == 6
+        with TestClient(app) as machine:
+            # Registering does not mark a device online.
+            listed = authenticated.get("/api/coding-workers?limit=200").json()
+            row = next(w for w in listed["items"] if w["id"] == worker_id)
+            assert row["status"] == "never_connected"
+            assert "token_hash" not in row and "token" not in row
+            # Workspaces in this test DB are empty. No candidate is executed here.
+            machine.headers["Authorization"] = "Bearer " + old_token
+            assert machine.post("/api/worker/claim").status_code == 200
+            listed = authenticated.get("/api/coding-workers?limit=200").json()
+            assert next(w for w in listed["items"] if w["id"] == worker_id)["status"] == "online"
+            rotated = authenticated.post(f"/api/coding-workers/{worker_id}/rotate", json={})
+            assert rotated.status_code == 200 and rotated.json()["token"] != old_token
+            assert machine.post("/api/worker/claim").status_code == 401
+            machine.headers["Authorization"] = "Bearer " + rotated.json()["token"]
+            assert machine.post("/api/worker/claim").status_code == 200
+            assert authenticated.delete(f"/api/coding-workers/{worker_id}").status_code == 200
+            assert machine.post("/api/worker/claim").status_code == 401
+            assert (
+                authenticated.post(f"/api/coding-workers/{worker_id}/rotate", json={}).status_code
+                == 404
+            )
+        # Downgrade in DB to exercise the real authorization dependency.
+        with SessionLocal.begin() as session:
+            session.get(User, account[0]).role = "viewer"
+        assert authenticated.get("/api/coding-workers").status_code == 403
+        assert authenticated.get("/api/agent-capabilities").status_code == 403
+        assert (
+            authenticated.post(f"/api/coding-workers/{worker_id}/rotate", json={}).status_code
+            == 403
+        )
+    finally:
+        with SessionLocal.begin() as session:
+            session.execute(delete(CodingWorker).where(CodingWorker.id == uuid.UUID(worker_id)))
+
+
+@integration
+def test_proxy_quota_failure_accounts_usage_and_stops_run(execution_workspace):
+    run_id, _, token = execution_workspace
+    with TestClient(app) as client:
+        client.headers["Authorization"] = "Bearer " + token
+        task = client.post("/api/worker/claim").json()["execution"]
+        for invalid in [None, "invalid", {"charged_tokens": -1}, {"input_tokens": True}]:
+            assert (
+                client.post(
+                    f"/api/worker/executions/{task['id']}/complete",
+                    json={
+                        "lease_token": task["lease_token"],
+                        "succeeded": False,
+                        "report": {"model_usage": invalid},
+                    },
+                ).status_code
+                == 422
+            )
+        report = {
+            "model_usage": {
+                "physical_requests": 2,
+                "charged_tokens": 3456,
+                "input_tokens": None,
+                "output_tokens": None,
+                "error_code": "execution_model_quota_exceeded",
+            }
+        }
+        result = client.post(
+            f"/api/worker/executions/{task['id']}/complete",
+            json={
+                "lease_token": task["lease_token"],
+                "succeeded": False,
+                "report": report,
+            },
+        )
+        assert result.status_code == 200
+    with SessionLocal() as session:
+        run = session.get(Run, run_id)
+        assert run.status == "failed" and run.error_code == "execution_model_quota_exceeded"
+        call = session.get(ModelCall, uuid.UUID(task["input"]["model_call_id"]))
+        assert call.charged_tokens == 3456 and call.input_tokens is None
+        assert session.get(Execution, uuid.UUID(task["id"])).result["report"] == report
 
 
 @integration

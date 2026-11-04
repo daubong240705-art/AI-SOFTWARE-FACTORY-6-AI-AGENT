@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from agents.contracts import ROLES
 from orchestrator.state import ACTIVE, EXECUTABLE, Superseded, WorkflowError, transition
+from shared.agent_skills import skill_snapshot
 from shared.config import get_settings
 from shared.profiles import model_selection, profiles
 
@@ -93,7 +94,15 @@ def create_run(session: Session, project_id: uuid.UUID, requirement: str, mode: 
     project = session.get(Project, project_id)
     assert project
     try:
-        snapshot: dict[str, Any] = {"models": model_selection(project.agent_models)}
+        snapshot: dict[str, Any] = {
+            "models": model_selection(project.agent_models),
+            "agent_skills": skill_snapshot(),
+            "coding_limits": {
+                "requests": settings.coding_model_requests,
+                "tokens": settings.coding_model_allowance,
+                "output_tokens": settings.coding_model_output_tokens,
+            },
+        }
     except ValueError:
         raise WorkflowError("model_not_allowed") from None
     if project.integration_profile:

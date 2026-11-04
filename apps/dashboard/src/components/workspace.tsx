@@ -143,10 +143,15 @@ export function Frame({
           </Link>
           {auth.user.role === "admin" && (
             <Link
-              className={path.startsWith("/admin") ? "nav-active" : ""}
+              className={path.startsWith("/admin/users") ? "nav-active" : ""}
               href="/admin/users"
             >
               ◉ Tài khoản
+            </Link>
+          )}
+          {auth.user.role === "admin" && (
+            <Link className={path.startsWith("/admin/agents") ? "nav-active" : ""} href="/admin/agents">
+              ◇ Agent & worker
             </Link>
           )}
         </nav>

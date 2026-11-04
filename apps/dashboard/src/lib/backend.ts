@@ -2,7 +2,7 @@ import "server-only";
 import { NextRequest } from "next/server";
 
 const paths =
-  /^(auth\/(login|logout|me)|users(\/[0-9a-f-]{36})?|roles|configuration|coding-workers(\/[0-9a-f-]{36})?|worker\/(claim|executions\/[0-9a-f-]{36}\/(heartbeat|complete))|executions\/[0-9a-f-]{36}\/release|webhooks\/gitlab|projects(\/[0-9a-f-]{36}(\/runs)?)?|runs\/[0-9a-f-]{36}(\/(events|stream|approval|retry|cancel))?|status)$/;
+  /^(auth\/(login|logout|me)|users(\/[0-9a-f-]{36})?|roles|configuration|agent-capabilities|coding-workers(\/[0-9a-f-]{36}(\/rotate)?)?|worker\/(claim|executions\/[0-9a-f-]{36}\/(heartbeat|complete))|executions\/[0-9a-f-]{36}\/release|webhooks\/gitlab|projects(\/[0-9a-f-]{36}(\/runs)?)?|runs\/[0-9a-f-]{36}(\/(events|stream|approval|retry|cancel))?|status)$/;
 
 export async function proxy(
   request: NextRequest,

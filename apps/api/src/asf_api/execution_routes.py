@@ -6,9 +6,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from asf_api.auth import AdminDep, OperatorDep, token_hash
@@ -27,6 +27,7 @@ from integrations.services import GitLab
 from orchestrator import executions
 from orchestrator.service import event, get_run
 from orchestrator.state import WorkflowError
+from shared.agent_skills import skill_snapshot
 from shared.config import get_settings
 from shared.profiles import IntegrationProfile
 
@@ -38,6 +39,82 @@ class WorkerCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(pattern=r"^[a-z0-9-]{1,80}$")
     capabilities: list[str] = Field(min_length=1, max_length=4)
+
+
+@router.get("/coding-workers")
+def list_workers(
+    session: SessionDep,
+    actor: AdminDep,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, Any]:
+    now = datetime.now(UTC)
+    rows = session.scalars(
+        select(CodingWorker)
+        .order_by(CodingWorker.name, CodingWorker.id)
+        .limit(limit)
+        .offset(offset)
+    ).all()
+    leases = session.scalars(
+        select(Execution)
+        .join(Run)
+        .where(
+            Execution.worker_id.in_([w.id for w in rows]),
+            Execution.state == "leased",
+            Execution.lease_until > now,
+            Run.status == "running",
+            Execution.input["run_generation"].as_integer() == Run.generation,
+        )
+    ).all()
+    return {
+        "items": [
+            {
+                "id": str(w.id),
+                "name": w.name,
+                "active": w.active,
+                "capabilities": w.capabilities,
+                "last_seen_at": w.last_seen_at,
+                "status": (
+                    "revoked"
+                    if not w.active
+                    else "never_connected"
+                    if not w.last_seen_at
+                    else "online"
+                    if (now - w.last_seen_at).total_seconds() < 120
+                    else "offline"
+                ),
+                "executions": [
+                    {
+                        "id": str(e.id),
+                        "run_id": str(e.run_id),
+                        "role": e.role,
+                        "lease_until": e.lease_until,
+                    }
+                    for e in leases
+                    if e.worker_id == w.id
+                ],
+            }
+            for w in rows
+        ],
+        "total": session.scalar(select(func.count()).select_from(CodingWorker)),
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.get("/agent-capabilities")
+def agent_capabilities(actor: AdminDep) -> dict[str, Any]:
+    settings = get_settings()
+    return {
+        "roles": skill_snapshot(),
+        "models": settings.model_catalog,
+        "coding_limits": {
+            "requests": settings.coding_model_requests,
+            "tokens": settings.coding_model_allowance,
+            "output_tokens": settings.coding_model_output_tokens,
+        },
+        "model_key_in_sandbox": False,
+    }
 
 
 @router.post("/coding-workers", status_code=201)
@@ -63,6 +140,18 @@ def revoke(worker_id: uuid.UUID, session: SessionDep, actor: AdminDep) -> dict[s
     session.add(AuditLog(user_id=actor.id, action="worker.revoked", target=str(worker_id)))
     commit(session)
     return {"revoked": True}
+
+
+@router.post("/coding-workers/{worker_id}/rotate")
+def rotate(worker_id: uuid.UUID, session: SessionDep, actor: AdminDep) -> dict[str, str]:
+    row = session.get(CodingWorker, worker_id)
+    if not row or not row.active:
+        raise HTTPException(404, "active_worker_not_found")
+    secret = secrets.token_urlsafe(32)
+    row.token_hash = token_hash(secret)
+    session.add(AuditLog(user_id=actor.id, action="worker.rotated", target=str(worker_id)))
+    commit(session)
+    return {"id": str(row.id), "name": row.name, "token": secret}
 
 
 def machine(request: Request, session: SessionDep) -> CodingWorker:
@@ -94,6 +183,22 @@ class Completion(Lease):
     succeeded: bool
     changes: dict[str, str | None] = Field(default_factory=dict, max_length=40)
     report: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("report")
+    @classmethod
+    def validate_usage(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if "model_usage" not in value:
+            return value
+        usage = value["model_usage"]
+        if not isinstance(usage, dict):
+            raise ValueError("invalid_model_usage")
+        for key in ("charged_tokens", "physical_requests", "input_tokens", "output_tokens"):
+            number = usage.get(key)
+            if number is not None and (type(number) is not int or number < 0):
+                raise ValueError("invalid_model_usage")
+        if usage.get("error_code") is not None and not isinstance(usage["error_code"], str):
+            raise ValueError("invalid_model_usage")
+        return value
 
 
 @router.post("/worker/claim")
