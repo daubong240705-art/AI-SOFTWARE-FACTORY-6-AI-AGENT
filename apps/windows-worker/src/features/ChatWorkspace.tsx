@@ -30,6 +30,7 @@ import type { ConversationDetail } from "../../shared/chat";
 import { RunPanel } from "./RunPanel";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { FollowUpCard } from "./FollowUpCard";
+import { WorkspaceTools } from "./WorkspaceTools";
 async function unwrap<T>(promise: Promise<Reply<T>>): Promise<T> {
   const reply = await promise;
   if (!reply.ok) throw new Error(reply.error);
@@ -866,6 +867,7 @@ export function ChatWorkspace({
                 ["activity", "Hoạt động"],
                 ["changes", "Thay đổi"],
                 ["result", "Kết quả"],
+                ["tools", "Chạy local"],
               ].map(([id, label]) => (
                 <button
                   key={id}
@@ -887,13 +889,21 @@ export function ChatWorkspace({
             </button>
           </div>
           <div className="chat-detail-body">
-            <RunPanel
-              detail={panelDetail}
-              tab={panel}
-              busy={busy}
-              showPermissions={false}
-              onPermission={() => {}}
-            />
+            {panel === "tools" && project ? (
+              <WorkspaceTools
+                key={project.id}
+                projectId={project.id}
+                active={!!activeId}
+              />
+            ) : (
+              <RunPanel
+                detail={panelDetail}
+                tab={panel}
+                busy={busy}
+                showPermissions={false}
+                onPermission={() => {}}
+              />
+            )}
           </div>
         </aside>
       )}

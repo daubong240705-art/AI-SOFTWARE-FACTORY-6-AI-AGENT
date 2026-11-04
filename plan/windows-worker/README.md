@@ -1,8 +1,8 @@
 # Windows AI Worker — Kế hoạch triển khai sản phẩm
 
-Ngày lập: 04/11/2026. Trạng thái: **WW-1 đến WW-3, WW-4A/4B/4C đã triển khai**; [chạy desktop](../../apps/windows-worker/README.md), [bàn giao WW-4C](../../docs/windows-worker/ww4c-completion.md). WW-4D và WW-5 còn lại.
+Ngày lập: 04/11/2026. Trạng thái: **WW-1 đến WW-3, WW-4A/4B/4C và lifecycle/preview/export của WW-4D đã triển khai**; [chạy desktop V1.1](../../apps/windows-worker/README.md), [bàn giao V1.1](../../docs/windows-worker/v1.1-completion.md). Installer WW-5 và resize panel nâng cao còn lại.
 
-Kế hoạch bổ sung: [nghiên cứu và nâng cấp agent](../agent-upgrade/README.md) — AU-0/AU-1/AU-2A hoàn thành: direct/team dùng chung profile/quyền, handoff có giới hạn và đúng attempt; AU-2B–5 còn lại. Giữ nguyên kiến trúc và roadmap WW hiện tại.
+Kế hoạch bổ sung: [nghiên cứu và nâng cấp agent](../agent-upgrade/README.md) — AU-0–4B đã triển khai; AU-5 benchmark so sánh còn lại. Giữ nguyên kiến trúc; [V1.1](../v1.1/VERSION_SCOPE.md) bàn giao phần ownership/recovery AU-4B và lifecycle WW-4D liên quan.
 
 Nguồn yêu cầu: [Đặc tả MVP](../../AI_Software_Factory_Lite_Windows_Worker_MVP.md). Chỉ dẫn mới nhất của người dùng: bỏ bước chứng minh runtime trên repo mẫu, tập trung hoàn thiện sản phẩm.
 

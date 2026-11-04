@@ -2,6 +2,7 @@ export type FailureCode =
   | "cancelled"
   | "permission-denied"
   | "scope-violation"
+  | "workspace-changed"
   | "incomplete-snapshot"
   | "budget-exhausted"
   | "deadline-exceeded"
@@ -35,6 +36,7 @@ export const failureLabels: Record<FailureCode, string> = {
   cancelled: "Đã dừng",
   "permission-denied": "Quyền bị từ chối",
   "scope-violation": "Vượt phạm vi",
+  "workspace-changed": "Source thay đổi đồng thời",
   "incomplete-snapshot": "Snapshot chưa đủ",
   "budget-exhausted": "Hết request",
   "deadline-exceeded": "Hết thời gian",

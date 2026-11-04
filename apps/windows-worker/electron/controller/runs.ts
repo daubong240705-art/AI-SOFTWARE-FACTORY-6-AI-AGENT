@@ -11,6 +11,13 @@ import { ExecutionStopped } from "../runtime/stopped";
 import { WorkerError, classifyFailure, failure } from "../runtime/failure";
 import { emptyMetrics, addUsage, syncMetrics } from "../runtime/metrics";
 import { autoApproves } from "../runtime/permissions";
+import { recoverOwnedJobs } from "../runtime/owned-process";
+import {
+  checkpoint,
+  inspectWorkspace,
+  fingerprint,
+} from "../workspace/checkpoint";
+import type { RecoveryPreview } from "../../shared/lifecycle";
 import type { ExecutionFailure } from "../../shared/execution";
 import type { TeamTask } from "../../shared/team";
 import { createHash, randomUUID } from "node:crypto";
@@ -52,6 +59,10 @@ type Active = {
 };
 export class RunController {
   private active?: Active;
+  private recoveryTickets = new Map<
+    string,
+    { runId: string; fingerprint: string; expires: number }
+  >();
   private workspaceBusy = false;
   private workspaceTask?: Promise<unknown>;
   isBusy(): boolean {
@@ -211,7 +222,11 @@ export class RunController {
     for (const task of active.run.tasks) syncMetrics(active.run, task);
     this.store.updateRun(active.run, {
       type,
-      text: redact(text, active.secrets),
+      text: redact(
+        (active.run.currentTaskId ? `${active.run.currentTaskId} · ` : "") +
+          text,
+        active.secrets,
+      ),
     });
   }
   private check(active: Active): void {
@@ -233,6 +248,7 @@ export class RunController {
     }, run.settings.timeoutMinutes * 60000);
     try {
       const canonical = await canonicalDirectory(run.workspace);
+      await recoverOwnedJobs(this.directory);
       if (canonical.toLowerCase() !== run.workspace.toLowerCase())
         throw new Error(
           "Đường dẫn source đã thay đổi. Chọn lại dự án trước khi chạy.",
@@ -243,6 +259,7 @@ export class RunController {
       this.check(active);
       active.baseline = await snapshot(run.workspace, true, active.secrets);
       const gitBefore = await captureGit(run.workspace, true, active.secrets);
+      checkpoint(run, "before-run", active.baseline, gitBefore);
       this.store.evidence.begin(
         run.id,
         run.workspace,
@@ -276,6 +293,16 @@ export class RunController {
           () => this.check(active),
           this.store.evidence,
           active.secrets,
+          async (phase, source, taskId) => {
+            checkpoint(
+              run,
+              phase,
+              source,
+              await captureGit(run.workspace),
+              taskId,
+            );
+            this.record(active, "CHECKPOINT", `${phase} · ${taskId}`);
+          },
         );
       } else {
         run.summary = await this.step(active, key, executable);
@@ -327,11 +354,13 @@ export class RunController {
       if (active.baseline) {
         try {
           const after = await snapshot(run.workspace, true, active.secrets);
-          this.store.evidence.finish(
-            run.id,
-            after,
-            await captureGit(run.workspace, true, active.secrets),
+          const finalGit = await captureGit(
+            run.workspace,
+            true,
+            active.secrets,
           );
+          checkpoint(run, "after-run", after, finalGit);
+          this.store.evidence.finish(run.id, after, finalGit);
           run.changes = changes(active.baseline, after).slice(0, 500);
           run.baselineComplete &&= after.complete;
         } catch {
@@ -353,9 +382,12 @@ export class RunController {
           run.state = "needs_input";
           run.error = violation;
           run.failure = failure(
-            run.baselineComplete ? "scope-violation" : "incomplete-snapshot",
-            violation,
+            run.baselineComplete ? "workspace-changed" : "incomplete-snapshot",
+            run.baselineComplete
+              ? "Source thay đổi trong lúc agent chỉ đọc. Chưa xác định tiến trình tạo thay đổi; giữ phản hồi và diff để kiểm tra."
+              : violation,
           );
+          run.error = run.failure.message;
         }
       }
       run.permissions = [];
@@ -811,6 +843,23 @@ export class RunController {
     reason?: ExecutionFailure,
   ): Promise<void> {
     const active = this.active;
+    if (!active && desired === "cancelled") {
+      const stored = this.store.run(id);
+      if (stored.state === "interrupted") {
+        stored.state = "cancelled";
+        stored.endedAt = new Date().toISOString();
+        stored.failure = failure(
+          "cancelled",
+          "Đã kết thúc lượt bị gián đoạn theo yêu cầu.",
+        );
+        stored.error = "";
+        stored.permissions = [];
+        this.store.updateRun(stored);
+        this.store.event(id, "RUN_CANCELLED", stored.failure.message);
+        this.recoveryTickets.clear();
+        return;
+      }
+    }
     if (!active || active.run.id !== id)
       throw new Error("Lượt chạy không còn hoạt động.");
     active.desired ??= desired;
@@ -958,5 +1007,83 @@ export class RunController {
       previous.conversationId ?? undefined,
       previous.id,
     );
+  }
+  async recovery(id: string): Promise<RecoveryPreview> {
+    return this.workspaceAction(() => this.inspectRecovery(id));
+  }
+  private async inspectRecovery(id: string): Promise<RecoveryPreview> {
+    const run = this.store.run(id);
+    if (
+      !["interrupted", "failed", "needs_input", "cancelled"].includes(run.state)
+    )
+      throw new Error("Chỉ phục hồi lượt đã dừng hoặc bị gián đoạn.");
+    if (
+      (await canonicalDirectory(run.workspace)) !==
+      this.store.project(run.projectId).path
+    )
+      throw new Error("Workspace không còn khớp dự án.");
+    await recoverOwnedJobs(this.directory);
+    const current = await inspectWorkspace(run);
+    const last = run.checkpoints?.at(-1) ?? null;
+    const token = randomUUID();
+    this.recoveryTickets.clear();
+    this.recoveryTickets.set(token, {
+      runId: id,
+      fingerprint: fingerprint(current),
+      expires: Date.now() + 60000,
+    });
+    return {
+      token,
+      runId: id,
+      checkpoint: last,
+      changed: !last || fingerprint(last) !== fingerprint(current),
+      complete: current.complete,
+      message:
+        "Tiếp tục tạo attempt mới, đọc source hiện tại và đánh giá lại phần còn lại. Không nối lại session hoặc chạy lại lệnh dang dở.",
+    };
+  }
+  async continueRecovery(token: string): Promise<Run> {
+    const previous = await this.workspaceAction(async () => {
+      const ticket = this.recoveryTickets.get(token);
+      this.recoveryTickets.delete(token);
+      if (!ticket || ticket.expires < Date.now())
+        throw new Error("Phiên kiểm tra phục hồi đã hết hạn. Kiểm tra lại.");
+      const previous = this.store.run(ticket.runId);
+      if (
+        (await canonicalDirectory(previous.workspace)) !==
+        this.store.project(previous.projectId).path
+      )
+        throw new Error("Workspace không còn khớp dự án.");
+      await recoverOwnedJobs(this.directory);
+      const current = await inspectWorkspace(previous);
+      if (
+        !current.complete ||
+        fingerprint(current) !== ticket.fingerprint ||
+        ticket.expires < Date.now()
+      )
+        throw new Error(
+          "Source/Git đã đổi hoặc snapshot chưa đủ. Kiểm tra lại trước khi tiếp tục.",
+        );
+      return previous;
+    });
+    const next = this.start(
+      previous.projectId,
+      previous.prompt,
+      previous.role,
+      previous.mode,
+      previous.conversationId ?? undefined,
+      previous.id,
+    );
+    const active = this.active!;
+    active.run.recoveryOf = previous.id;
+    const context = `Phục hồi có chủ đích từ ${previous.id}. Đây là attempt mới, không replay lệnh/session cũ. Đọc source hiện tại, xác minh phần đã làm rồi chỉ thực hiện phần còn thiếu. Lệnh trước có thể đã tạo side effect; không tự chạy lại chỉ vì bị gián đoạn.\nKết quả trước: ${previous.summary.slice(0, 4000)}\nLỗi trước: ${previous.error.slice(0, 1600)}\nTask trước: ${JSON.stringify(previous.tasks.map((t) => ({ id: t.id, role: t.role, state: t.state, summary: t.summary.slice(0, 1200) }))).slice(0, 8000)}`;
+    active.run.context = {
+      text: (context + "\n" + (active.run.context?.text ?? "")).slice(0, 14000),
+      runIds: [
+        ...new Set([previous.id, ...(active.run.context?.runIds ?? [])]),
+      ],
+    };
+    this.record(active, "RECOVERY_STARTED", previous.id);
+    return { ...next, recoveryOf: previous.id };
   }
 }

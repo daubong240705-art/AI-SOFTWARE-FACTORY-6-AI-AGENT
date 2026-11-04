@@ -7,6 +7,9 @@ import { Conversations } from "./conversations";
 import { FollowUps } from "./follow-ups";
 import { EvidenceStore } from "./evidence";
 import { failure } from "../runtime/failure";
+import { redact } from "../runtime/security";
+import { isActive } from "../../shared/runs";
+import type { RetentionPreview } from "../../shared/lifecycle";
 import { normalizeRun, type Run, type RunEvent } from "../../shared/runs";
 import {
   defaultSettings,
@@ -20,6 +23,10 @@ export class Store {
   readonly conversations: Conversations;
   readonly queue: FollowUps;
   readonly evidence: EvidenceStore;
+  private retentionTickets = new Map<
+    string,
+    { ids: string[]; expires: number }
+  >();
   constructor(directory: string) {
     mkdirSync(directory, { recursive: true });
     this.db = new Database(join(directory, "worker.sqlite"));
@@ -329,5 +336,179 @@ export class Store {
           },
         );
       }
+  }
+  report(id: string, secrets: string[] = []): string {
+    const run = this.run(id);
+    const events = this.db
+      .prepare(
+        "SELECT sequence,type,text,at FROM events WHERE run_id=? ORDER BY sequence",
+      )
+      .all(id);
+    return JSON.stringify(
+      {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        run: {
+          id: run.id,
+          project: run.projectName,
+          prompt: run.prompt,
+          state: run.state,
+          role: run.role,
+          model: run.model,
+          runtimeVersion: run.runtimeVersion,
+          createdAt: run.createdAt,
+          startedAt: run.startedAt,
+          endedAt: run.endedAt,
+          summary: run.summary,
+          error: run.error,
+          failure: run.failure,
+          metrics: run.metrics,
+          retryOf: run.retryOf,
+          recoveryOf: run.recoveryOf,
+          checkpoints: run.checkpoints,
+          changes: run.changes,
+          commands: run.commands,
+          tasks: run.tasks.map((t) => ({
+            id: t.id,
+            role: t.role,
+            model: t.model,
+            state: t.state,
+            summary: t.summary,
+            error: t.error,
+            failure: t.failure,
+            metrics: t.metrics,
+            sessionId: t.sessionId,
+            changes: t.changes,
+          })),
+          review: run.review,
+        },
+        events,
+      },
+      (_field, value) =>
+        typeof value === "string" ? redact(value, secrets, Infinity) : value,
+      2,
+    );
+  }
+  retention(days: number, keep: number): RetentionPreview {
+    const runs = (
+      this.db
+        .prepare("SELECT value FROM runs ORDER BY created_at DESC")
+        .all() as { value: string }[]
+    ).map((r) => normalizeRun(JSON.parse(r.value)));
+    const cutoff = Date.now() - days * 86400000;
+    const protectedIds = new Set(runs.slice(0, keep).map((r) => r.id));
+    for (const r of runs)
+      if (isActive(r.state) || r.state === "interrupted")
+        protectedIds.add(r.id);
+    for (const q of this.queue.list())
+      if (q.afterRunId) protectedIds.add(q.afterRunId);
+    const refs = (value: unknown, result: Set<string>) => {
+      if (!value || typeof value !== "object") return;
+      for (const [key, item] of Object.entries(value)) {
+        if (
+          ["retryOf", "recoveryOf", "attemptRoot", "runId"].includes(key) &&
+          typeof item === "string"
+        )
+          result.add(item);
+        else if (key === "runIds" && Array.isArray(item)) {
+          for (const id of item) if (typeof id === "string") result.add(id);
+        } else refs(item, result);
+      }
+    };
+    let candidates = new Set(
+      runs
+        .filter(
+          (r) => !protectedIds.has(r.id) && Date.parse(r.createdAt) < cutoff,
+        )
+        .map((r) => r.id),
+    );
+    for (;;) {
+      const referenced = new Set<string>();
+      for (const run of runs)
+        if (!candidates.has(run.id)) refs(run, referenced);
+      const size = candidates.size;
+      for (const id of referenced) candidates.delete(id);
+      if (size === candidates.size) break;
+    }
+    const token = randomUUID();
+    this.retentionTickets.clear();
+    this.retentionTickets.set(token, {
+      ids: [...candidates],
+      expires: Date.now() + 60000,
+    });
+    return {
+      token,
+      runIds: [...candidates],
+      count: candidates.size,
+      protected: runs.length - candidates.size,
+    };
+  }
+  prune(token: string): number {
+    const ticket = this.retentionTickets.get(token);
+    this.retentionTickets.delete(token);
+    if (!ticket || ticket.expires < Date.now())
+      throw new Error("Bản xem trước dọn dữ liệu đã hết hạn.");
+    const ids = new Set(ticket.ids);
+    const queued = this.queue.list();
+    const rows = this.db.prepare("SELECT value FROM runs").all() as {
+      value: string;
+    }[];
+    const runs = rows.map((row) => normalizeRun(JSON.parse(row.value)));
+    for (const run of runs) {
+      if (
+        ids.has(run.id) &&
+        (isActive(run.state) ||
+          run.state === "interrupted" ||
+          queued.some((q) => q.afterRunId === run.id))
+      )
+        throw new Error(
+          "Có lượt đang hoạt động hoặc cần phục hồi; tải lại bản xem trước.",
+        );
+      if (
+        !ids.has(run.id) &&
+        [...ids].some((id) => JSON.stringify(run).includes(id))
+      )
+        throw new Error(
+          "Có tham chiếu mới đến lịch sử này; tải lại bản xem trước.",
+        );
+    }
+    this.db.transaction(() => {
+      for (const id of ids) {
+        for (const table of [
+          "events",
+          "tasks",
+          "messages",
+          "workspace_evidence",
+          "file_recoveries",
+          "command_artifacts",
+        ])
+          this.db.prepare(`DELETE FROM ${table} WHERE run_id=?`).run(id);
+        this.db.prepare("DELETE FROM runs WHERE id=?").run(id);
+      }
+      const hashes = new Set<string>();
+      const collect = (value: unknown) => {
+        if (typeof value === "string" && /^[a-f0-9]{64}$/.test(value))
+          hashes.add(value);
+        else if (value && typeof value === "object")
+          for (const item of Object.values(value)) collect(item);
+      };
+      for (const table of ["runs", "workspace_evidence"])
+        for (const row of this.db
+          .prepare(`SELECT value FROM ${table}`)
+          .all() as { value: string }[])
+          collect(JSON.parse(row.value));
+      for (const row of this.db
+        .prepare("SELECT hash FROM file_recoveries")
+        .all() as { hash: string }[])
+        if (row.hash) hashes.add(row.hash);
+      for (const row of this.db
+        .prepare("SELECT hash FROM workspace_blobs")
+        .all() as { hash: string }[])
+        if (!hashes.has(row.hash))
+          this.db
+            .prepare("DELETE FROM workspace_blobs WHERE hash=?")
+            .run(row.hash);
+    })();
+    return ids.size;
   }
 }

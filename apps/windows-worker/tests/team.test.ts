@@ -124,7 +124,7 @@ test("Lead reply cannot smuggle work or bypass the existing single schema repair
   }
 });
 
-test("a conversational reply still fails when Lead changes readonly source", async () => {
+test("a readonly source change preserves the reply and blocks dispatch without attributing its origin", async () => {
   const directory = mkdtempSync(join(tmpdir(), "asf-lead-readonly-"));
   try {
     const run = fixture(directory);
@@ -140,8 +140,43 @@ test("a conversational reply still fails when Lead changes readonly source", asy
       ),
       TeamBlocked,
     );
-    assert.equal(run.summary, "");
-    assert.equal(run.tasks[0].failure?.code, "scope-violation");
+    assert.equal(run.summary, "Xong");
+    assert.equal(run.tasks[0].failure?.code, "workspace-changed");
+    assert.equal(run.tasks.length, 1);
+    assert.equal(run.tasks[0].state, "blocked");
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("a concurrent README edit preserves Lead's proposal without dispatching a stale plan", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "asf-plan-concurrent-"));
+  try {
+    writeFileSync(join(directory, "README.md"), "Before");
+    const run = fixture(directory);
+    let calls = 0;
+    await assert.rejects(
+      coordinate(
+        run,
+        async () => {
+          calls++;
+          writeFileSync(join(directory, "README.md"), "External edit");
+          return JSON.stringify({
+            blockedReason: null,
+            testingReason: "Evaluation",
+            tasks: [{ ...planned("t1", "be"), role: "pm" }],
+          });
+        },
+        () => {},
+        () => {},
+      ),
+      TeamBlocked,
+    );
+    assert.equal(calls, 1);
+    assert.equal(run.tasks[0].failure?.code, "workspace-changed");
+    assert.match(run.summary, /Đề xuất chưa thực hiện/);
+    assert.match(run.summary, /PM:/);
+    assert.equal(run.tasks.length, 1);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

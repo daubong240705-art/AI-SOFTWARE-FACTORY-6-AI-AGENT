@@ -3,6 +3,24 @@
   font-size: 12px;
   padding: 8px;
 }
+.workspace-tools,
+.history-tools,
+.recovery-actions {
+  padding: 14px;
+}
+.workspace-tools pre {
+  max-height: 420px;
+  overflow: auto;
+}
+.command-script {
+  display: block;
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.history-tools summary {
+  cursor: pointer;
+}
 .run-panel {
   min-height: 230px;
 }

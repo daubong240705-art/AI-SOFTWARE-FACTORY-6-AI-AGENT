@@ -8,6 +8,7 @@ import {
 } from "electron";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { writeFile } from "node:fs/promises";
 import { z } from "zod";
 import { evidenceRefSchema } from "../shared/evidence";
 import { readEvidence } from "./team/evidence";
@@ -28,6 +29,8 @@ import {
 } from "./workspace/projects";
 import { fetchModels } from "./gateway/client";
 import { WorkspaceFiles } from "./workspace/files";
+import { LocalCommands, commandCatalog } from "./workspace/commands";
+import { recoverOwnedJobs } from "./runtime/owned-process";
 
 app.setName("ASF Windows Worker");
 let store: Store;
@@ -37,6 +40,8 @@ let fetchingModels = false;
 let checkingTools = false;
 let controller: RunController;
 let quitting = false;
+let local: LocalCommands;
+let closePending = false;
 
 function bootstrap(): Bootstrap {
   return {
@@ -61,8 +66,16 @@ function key(): string | undefined {
 function registerIPC(): void {
   const files = new WorkspaceFiles(
     store,
-    () => controller.assertWorkspaceIdle(),
-    (fn) => controller.workspaceAction(fn),
+    () => {
+      controller.assertWorkspaceIdle();
+      if (local.busy())
+        throw new Error("Dừng lệnh local trước khi khôi phục file.");
+    },
+    (fn) => {
+      if (local.busy())
+        throw new Error("Dừng lệnh local trước khi khôi phục file.");
+      return controller.workspaceAction(fn);
+    },
   );
   function handle<T>(
     channel: string,
@@ -95,6 +108,72 @@ function registerIPC(): void {
   const empty = (input: unknown): void => {
     z.undefined().parse(input);
   };
+  handle(channels.commandCatalog, (input) =>
+    commandCatalog(store.project(idSchema.parse(input)).path),
+  );
+  handle(channels.localCommand, (input) => {
+    empty(input);
+    return local.view();
+  });
+  handle(channels.startCommand, (input) => {
+    if (closePending || quitting)
+      throw new Error("Ứng dụng đang xử lý đóng cửa sổ.");
+    const q = z
+      .object({
+        projectId: idSchema,
+        script: z.string().regex(/^[a-zA-Z0-9:_-]{1,80}$/),
+      })
+      .strict()
+      .parse(input);
+    return controller.workspaceAction(async () => {
+      await recoverOwnedJobs(app.getPath("userData"));
+      return local.start(
+        q.projectId,
+        store.project(q.projectId).path,
+        q.script,
+      );
+    });
+  });
+  handle(channels.stopCommand, (input) => {
+    empty(input);
+    return local.stop();
+  });
+  handle(channels.recovery, (input) => {
+    if (local.busy())
+      throw new Error("Dừng lệnh local trước khi kiểm tra khôi phục.");
+    return controller.recovery(idSchema.parse(input));
+  });
+  handle(channels.continueRecovery, (input) => {
+    if (local.busy()) throw new Error("Dừng lệnh local trước khi tiếp tục.");
+    return controller.continueRecovery(idSchema.parse(input));
+  });
+  handle(channels.exportRun, async (input) => {
+    const id = idSchema.parse(input);
+    const secret = key();
+    const report = store.report(id, secret ? [secret] : []);
+    const target = await dialog.showSaveDialog(window!, {
+      title: "Xuất báo cáo",
+      defaultPath: `run-${id}.json`,
+      filters: [{ name: "JSON report", extensions: ["json"] }],
+    });
+    if (target.canceled || !target.filePath) return false;
+    await writeFile(target.filePath, report, { encoding: "utf8" });
+    return true;
+  });
+  handle(channels.retention, (input) => {
+    const q = z
+      .object({
+        days: z.number().int().min(1).max(3650),
+        keep: z.number().int().min(1).max(1000),
+      })
+      .strict()
+      .parse(input);
+    return store.retention(q.days, q.keep);
+  });
+  handle(channels.prune, (input) => {
+    controller.assertWorkspaceIdle();
+    return store.prune(idSchema.parse(input));
+  });
   const fileInput = z
     .object({ runId: idSchema, path: z.string().min(1).max(4096) })
     .strict();
@@ -394,6 +473,12 @@ async function createWindow(): Promise<void> {
   );
   window.webContents.session.setPermissionCheckHandler(() => false);
   window.once("ready-to-show", () => window?.show());
+  window.on("close", (event) => {
+    if (!quitting && (controller.isBusy() || local.busy())) {
+      event.preventDefault();
+      void requestClose();
+    }
+  });
   window.on("closed", () => {
     window = null;
   });
@@ -418,6 +503,11 @@ else {
     try {
       store = new Store(app.getPath("userData"));
       controller = new RunController(store, app.getPath("userData"), key);
+      local = new LocalCommands(app.getPath("userData"), () => {
+        const value = key();
+        return value ? [value] : [];
+      });
+      await local.restore();
       registerIPC();
       await createWindow();
       app.on("activate", () => {
@@ -437,19 +527,32 @@ app.on("window-all-closed", () => {
 });
 app.on("will-quit", () => store?.close());
 app.on("before-quit", (event) => {
-  if (quitting || !controller?.isBusy()) return;
+  if (quitting || (!controller?.isBusy() && !local?.busy())) return;
   event.preventDefault();
-  void controller
-    .shutdown()
-    .then(() => {
-      quitting = true;
-      app.quit();
-    })
-    .catch(() => {
-      if (!window) void createWindow();
-      dialog.showErrorBox(
-        "Chưa dừng được runtime",
-        "Không thể xác nhận tiến trình đã dừng. Hãy bấm Dừng trong ứng dụng trước khi thoát.",
-      );
-    });
+  void requestClose();
 });
+async function requestClose(): Promise<void> {
+  if (closePending) return;
+  closePending = true;
+  try {
+    const choice = await dialog.showMessageBox(window!, {
+      type: "question",
+      message: "Công việc hoặc lệnh local còn chạy",
+      buttons: ["Tiếp tục làm việc", "Dừng và đóng"],
+      cancelId: 0,
+      defaultId: 0,
+    });
+    if (choice.response !== 1) return;
+    await controller.shutdown();
+    await local.stop();
+    quitting = true;
+    app.quit();
+  } catch {
+    dialog.showErrorBox(
+      "Chưa dừng được tiến trình",
+      "Ứng dụng giữ nguyên cửa sổ. Bấm Dừng để thử lại trước khi thoát.",
+    );
+  } finally {
+    closePending = false;
+  }
+}

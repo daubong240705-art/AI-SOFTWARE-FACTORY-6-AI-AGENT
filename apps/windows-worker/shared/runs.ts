@@ -42,6 +42,8 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  checkpoints?: import("./lifecycle").Checkpoint[];
+  recoveryOf?: string;
   failure?: ExecutionFailure;
   metrics?: ExecutionMetrics;
   skillCatalog?: SkillCatalogSnapshot;

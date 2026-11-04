@@ -115,6 +115,23 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  recovery(id: string): Promise<Reply<import("./lifecycle").RecoveryPreview>>;
+  continueRecovery(token: string): Promise<Reply<Run>>;
+  exportRun(id: string): Promise<Reply<boolean>>;
+  retention(input: {
+    days: number;
+    keep: number;
+  }): Promise<Reply<import("./lifecycle").RetentionPreview>>;
+  prune(token: string): Promise<Reply<number>>;
+  commandCatalog(
+    id: string,
+  ): Promise<Reply<import("./lifecycle").ProjectCommand[]>>;
+  startCommand(input: {
+    projectId: string;
+    script: string;
+  }): Promise<Reply<import("./lifecycle").LocalCommand>>;
+  stopCommand(): Promise<Reply<void>>;
+  localCommand(): Promise<Reply<import("./lifecycle").LocalCommand | null>>;
   acceptanceEvidence(
     ref: import("./evidence").EvidenceRef,
   ): Promise<Reply<string>>;

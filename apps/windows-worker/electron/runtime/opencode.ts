@@ -1,4 +1,5 @@
-import { spawn, execFile, type ChildProcess } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
+import { spawnOwned } from "./owned-process";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
@@ -18,6 +19,7 @@ export type RuntimeHooks = {
 };
 export class OpenCodeRuntime {
   private child?: ChildProcess;
+  private spawning?: Promise<ChildProcess>;
   private client?: OpencodeClient;
   private session?: string;
   private streamAbort = new AbortController();
@@ -115,19 +117,21 @@ export class OpenCodeRuntime {
     };
     env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
     if (this.closed) throw new Error("Đã dừng trước khi runtime khởi động.");
-    this.child = spawn(
+    this.spawning = spawnOwned(
       this.executable,
       ["serve", "--pure", "--hostname", "127.0.0.1", "--port", "0"],
-      {
-        cwd: this.run.workspace,
-        env,
-        windowsHide: true,
-        stdio: ["ignore", "pipe", "pipe"],
-      },
+      this.run.workspace,
+      env,
+      join(this.root, "../../.."),
     );
+    this.child = await this.spawning;
     this.processExit = new Promise((resolve) =>
-      this.child!.once("exit", () => resolve()),
+      this.child!.once("close", () => resolve()),
     );
+    if (this.closed) {
+      await this.close();
+      throw new Error("Đã dừng trước khi runtime khởi động.");
+    }
     const url = await new Promise<string>((resolve, reject) => {
       let output = "";
       const timer = setTimeout(
@@ -227,7 +231,7 @@ export class OpenCodeRuntime {
         directory: this.run.workspace,
         agent: "worker",
         model: { providerID: "nine_router", modelID: this.run.model },
-        system: `${this.context.instructions}\nYou are a ${this.run.role.toUpperCase()} agent. Work only in ${this.run.workspace}. Read existing project conventions first. Do not read credentials, modify .git, commit, push, or deploy. ${this.context.readOnly ? "You are read-only. Never modify files, including through shell commands." : "Use tools to make requested changes within the assigned scope."} ${this.context.allowShell ? "Shell commands require explicit permission." : "Shell commands are disabled for this role."} Do not delegate. Report actual results and limitations in Vietnamese. Never claim tests passed without command evidence.`,
+        system: `${this.context.instructions}\nYou are a ${this.run.role.toUpperCase()} agent. Work only in ${this.run.workspace}. Read existing project conventions first. Do not read credentials, modify .git, commit, push, or deploy. ${this.context.readOnly ? "You are read-only. Never modify files, including through shell commands." : "Use tools to make requested changes within the assigned scope."} ${this.context.allowShell ? (this.context.permissionMode === "full-access" ? "Shell commands within role and scope are preapproved for this run." : "Shell commands require explicit permission.") : "Shell commands are disabled for this role."} Do not delegate. Report actual results and limitations in Vietnamese. Never claim tests passed without command evidence.`,
         parts: [{ type: "text", text: this.context.prompt }],
       },
       { throwOnError: true, signal: this.streamAbort.signal },
@@ -315,8 +319,10 @@ export class OpenCodeRuntime {
     return this.closing;
   }
   private async terminate(): Promise<void> {
-    if (this.closed && (!this.child || this.child.exitCode !== null)) return;
     this.closed = true;
+    // Cancellation may arrive while ownership metadata is being written.
+    // Do not release the controller lock until that spawn has been contained.
+    await this.spawning?.catch(() => {});
     if (this.client && this.session)
       await this.client.session
         .abort(
@@ -324,31 +330,28 @@ export class OpenCodeRuntime {
           { signal: AbortSignal.timeout(3000) },
         )
         .catch(() => {});
-    // Kill the owned process tree while the parent PID is still alive. No process-name matching.
     const child = this.child;
-    if (child?.pid && child.exitCode === null) {
-      if (process.platform === "win32")
-        await new Promise<void>((resolve) => {
-          execFile(
-            join(
-              process.env.SystemRoot ?? "C:\\Windows",
-              "System32/taskkill.exe",
-            ),
-            ["/PID", String(child.pid), "/T", "/F"],
-            { windowsHide: true, timeout: 7000 },
-            () => resolve(),
-          );
+    const wait = (ms: number) =>
+      new Promise<boolean>((resolve) => {
+        const timer = setTimeout(() => resolve(false), ms);
+        void this.processExit?.then(() => {
+          clearTimeout(timer);
+          resolve(true);
         });
-      else child.kill("SIGTERM");
-      await Promise.race([
-        this.processExit,
-        new Promise((resolve) => setTimeout(resolve, 3000)),
-      ]);
-      if (child.exitCode === null)
-        throw new Error(
-          "Chưa xác nhận dừng được runtime. Không chạy task mới.",
-        );
+      });
+    if (child?.pid && child.exitCode === null && child.signalCode === null) {
+      child.stdin?.end(); // EOF makes the Job Object host terminate its tree.
+      if (process.platform !== "win32") child.kill("SIGTERM");
+      if (!(await wait(7000))) {
+        child.kill(); // Closing this owned host also closes its kill-on-close job.
+        if (!(await wait(3000)))
+          throw new Error(
+            "Chưa xác nhận dừng được runtime. Không chạy task mới.",
+          );
+      }
     }
+    if (this.processExit && !(await wait(3000)))
+      throw new Error("Chưa đóng hết pipe của runtime. Không chạy task mới.");
     this.streamAbort.abort();
     await this.streamTask;
   }

@@ -9,6 +9,8 @@ import { AcceptanceEvidence } from "./AcceptanceEvidence";
 import { ExecutionFacts } from "./ExecutionFacts";
 import { failureLabels } from "../../shared/execution";
 import { ActivityLog } from "./ActivityLog";
+import { RecoveryActions } from "./RecoveryActions";
+import { useState } from "react";
 
 export function RunPanel({
   detail,
@@ -23,6 +25,22 @@ export function RunPanel({
   busy: boolean;
   showPermissions?: boolean;
 }) {
+  const [exportStatus, setExportStatus] = useState("");
+  const [exporting, setExporting] = useState(false);
+  async function exportReport(id: string) {
+    setExporting(true);
+    setExportStatus("");
+    try {
+      const result = await window.worker.exportRun(id);
+      setExportStatus(
+        result.ok ? (result.value ? "Đã xuất báo cáo." : "") : result.error,
+      );
+    } catch {
+      setExportStatus("Không xuất được báo cáo.");
+    } finally {
+      setExporting(false);
+    }
+  }
   if (!detail)
     return (
       <div className="empty">
@@ -151,6 +169,18 @@ export function RunPanel({
       {tab === "changes" && <ChangesPanel key={run.id} run={run} />}
       {tab === "result" && (
         <div className="run-result">
+          <RecoveryActions key={run.id} run={run} onChanged={() => {}} />
+          <button
+            disabled={exporting}
+            onClick={() => void exportReport(run.id)}
+          >
+            Xuất báo cáo
+          </button>
+          {exportStatus && (
+            <p className="small muted" role="status">
+              {exportStatus}
+            </p>
+          )}
           {run.error && (
             <div className="notice error">
               <TriangleAlert size={16} />

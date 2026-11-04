@@ -9,8 +9,9 @@ import {
   type EvidenceReview,
 } from "../../shared/team";
 import { changes, snapshot } from "../workspace/snapshot";
+import type { Snapshot } from "../workspace/snapshot";
 import { ExecutionStopped } from "../runtime/stopped";
-import { sourcePolicyError } from "./policy";
+import { sourcePolicyError, rolePolicy } from "./policy";
 import { buildHandoff, workReportInstructions } from "./handoff";
 import { criteria, evidenceCatalog, verifyEvidence } from "./evidence";
 import type { EvidenceStore } from "../storage/evidence";
@@ -124,6 +125,11 @@ export async function coordinate(
   check: () => void,
   evidenceStore?: EvidenceStore,
   secrets: string[] = [],
+  saveCheckpoint?: (
+    phase: string,
+    source: Snapshot,
+    taskId: string,
+  ) => Promise<void>,
 ): Promise<void> {
   async function perform(task: TeamTask, prompt: string): Promise<string> {
     check();
@@ -139,9 +145,14 @@ export async function coordinate(
       const before = await snapshot(run.workspace);
       if (!before.complete)
         throw new TeamBlocked(
-          "Không thể xác minh toàn bộ phạm vi source workspace.",
+          "Không thể xác minh toàn bộ phạm vi source workspace. " +
+            (before.problems ?? [])
+              .slice(0, 4)
+              .map((p) => `${p.path}: ${p.reason}`)
+              .join("; "),
           "incomplete-snapshot",
         );
+      await saveCheckpoint?.("before-task", before, task.id);
       task.summary = await step(task, prompt);
       check();
       const after = await snapshot(
@@ -150,6 +161,11 @@ export async function coordinate(
         secrets,
       );
       task.changes = changes(before, after);
+      await saveCheckpoint?.(
+        task.role === "test" ? "after-test" : "after-task",
+        after,
+        task.id,
+      );
       if (["work", "fix"].includes(task.kind))
         task.evidence = evidenceStore?.saveTaskSnapshot(
           after,
@@ -165,11 +181,33 @@ export async function coordinate(
         task.changes,
         after.complete,
       );
-      if (violation)
+      if (violation) {
+        if (
+          after.complete &&
+          rolePolicy(task.role).readOnly &&
+          task.changes.length
+        ) {
+          throw new TeamBlocked(
+            `Source thay đổi trong lúc ${task.role.toUpperCase()} đọc: ${task.changes
+              .slice(0, 8)
+              .map((c) => c.path)
+              .join(
+                ", ",
+              )}. Chưa xác định tiến trình tạo thay đổi; kết quả được giữ để xem, chưa giao việc tiếp.`,
+            "workspace-changed",
+          );
+        }
         throw new TeamBlocked(
-          `Task ${task.id}: ${violation}`,
+          `Task ${task.id}: ${violation} ` +
+            (!after.complete
+              ? (after.problems ?? [])
+                  .slice(0, 4)
+                  .map((p) => `${p.path}: ${p.reason}`)
+                  .join("; ")
+              : ""),
           after.complete ? "scope-violation" : "incomplete-snapshot",
         );
+      }
       task.error = verificationError(run, task);
       if (task.error) task.failure = failure("tool-test-failure", task.error);
       task.state = task.error ? "failed" : "completed";
@@ -211,13 +249,38 @@ export async function coordinate(
         dependsOn: [],
         kind,
       });
-      const text = await perform(
-        task,
-        instructions +
-          (issue
-            ? `\nOutput trước không hợp lệ: ${issue.slice(0, 1500)}. Trả lại JSON đúng schema.`
-            : ""),
-      );
+      let text: string;
+      try {
+        text = await perform(
+          task,
+          instructions +
+            (issue
+              ? `\nOutput trước không hợp lệ: ${issue.slice(0, 1500)}. Trả lại JSON đúng schema.`
+              : ""),
+        );
+      } catch (error) {
+        if (
+          kind === "plan" &&
+          error instanceof TeamBlocked &&
+          error.failure.code === "workspace-changed"
+        ) {
+          try {
+            const received = parseJSON(task.summary, leadDecisionSchema);
+            run.summary =
+              "reply" in received
+                ? received.reply
+                : received.tasks.length
+                  ? "Đề xuất chưa thực hiện:\n" +
+                    received.tasks
+                      .map((t) => `- ${t.role.toUpperCase()}: ${t.title}`)
+                      .join("\n")
+                  : (received.blockedReason ?? "");
+          } catch {
+            /* Raw schema output stays on the task; never present it as verified work. */
+          }
+        }
+        throw error;
+      }
       try {
         return await parse(text);
       } catch (error) {

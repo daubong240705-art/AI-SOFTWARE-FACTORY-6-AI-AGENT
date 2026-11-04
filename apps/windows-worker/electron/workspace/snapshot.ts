@@ -6,6 +6,7 @@ import type { FileVersion } from "../../shared/evidence";
 import { redact } from "../runtime/security";
 
 export type Snapshot = {
+  problems?: { path: string; reason: string }[];
   latestMtime?: number;
   files: Record<string, string>;
   complete: boolean;
@@ -36,6 +37,7 @@ export async function snapshot(
   secrets: string[] = [],
 ): Promise<Snapshot> {
   const result: Snapshot = {
+    problems: [],
     files: Object.create(null),
     complete: true,
     ...(capture
@@ -54,6 +56,11 @@ export async function snapshot(
     try {
       items = await readdir(directory, { withFileTypes: true });
     } catch {
+      if (result.problems!.length < 16)
+        result.problems!.push({
+          path: relative(root, directory) || ".",
+          reason: "Không đọc được thư mục.",
+        });
       result.complete = false;
       result.enumerationComplete = false;
       return;
@@ -61,6 +68,11 @@ export async function snapshot(
     for (const item of items) {
       if (excluded.has(item.name) || sensitive.test(item.name)) continue;
       if (++entries > 8000) {
+        if (result.problems!.length < 16)
+          result.problems!.push({
+            path: relative(root, join(directory, item.name)),
+            reason: "Vượt 8.000 entry.",
+          });
         result.complete = false;
         result.enumerationComplete = false;
         return;
@@ -68,6 +80,11 @@ export async function snapshot(
       const path = join(directory, item.name);
       const name = relative(root, path).replaceAll("\\", "/");
       if (item.isSymbolicLink()) {
+        if (result.problems!.length < 16)
+          result.problems!.push({
+            path: name,
+            reason: "Symlink không được theo dõi.",
+          });
         result.complete = false;
         if (result.entries)
           result.entries[name] = {
@@ -89,6 +106,11 @@ export async function snapshot(
         if (!info.isFile() || info.isSymbolicLink())
           throw new Error("File type changed");
         if (info.size > 1024 * 1024 || bytes + info.size > 48 * 1024 * 1024) {
+          if (result.problems!.length < 16)
+            result.problems!.push({
+              path: name,
+              reason: "Vượt 1 MB/file hoặc 48 MB snapshot.",
+            });
           result.complete = false;
           if (result.entries)
             result.entries[name] = {
@@ -104,16 +126,24 @@ export async function snapshot(
         bytes += data.length;
         const hash = createHash("sha256").update(data).digest("hex");
         result.files[name] = hash;
+        const after = await lstat(path);
+        const real = relative(root, await realpath(path));
+        const unstable =
+          real.startsWith("..") ||
+          isAbsolute(real) ||
+          after.isSymbolicLink() ||
+          after.size !== info.size ||
+          after.mtimeMs !== info.mtimeMs ||
+          after.ino !== info.ino;
+        if (unstable) {
+          result.complete = false;
+          if (result.problems!.length < 16)
+            result.problems!.push({
+              path: name,
+              reason: "File thay đổi trong lúc chụp.",
+            });
+        }
         if (result.entries) {
-          const after = await lstat(path);
-          const real = relative(root, await realpath(path));
-          const unstable =
-            real.startsWith("..") ||
-            isAbsolute(real) ||
-            after.isSymbolicLink() ||
-            after.size !== info.size ||
-            after.mtimeMs !== info.mtimeMs ||
-            after.ino !== info.ino;
           const secret =
             redact(data.toString("utf8"), secrets, Infinity) !==
             data.toString("utf8");
@@ -135,6 +165,11 @@ export async function snapshot(
           }
         }
       } catch {
+        if (result.problems!.length < 16)
+          result.problems!.push({
+            path: name,
+            reason: "File bị khóa, thay loại hoặc không đọc được.",
+          });
         result.complete = false;
         result.enumerationComplete = false;
       }

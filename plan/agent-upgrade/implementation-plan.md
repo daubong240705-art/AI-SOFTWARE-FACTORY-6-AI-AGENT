@@ -1,6 +1,6 @@
 # Kế hoạch triển khai theo đợt
 
-Trạng thái ngày 04/11/2026: **AU-0, AU-1, AU-2A, AU-2B, AU-3 và AU-4A hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md), [AU-2B](../../docs/windows-worker/au2b-completion.md), [AU-3](../../docs/windows-worker/au3-completion.md), [AU-4A](../../docs/windows-worker/au4a-completion.md). AU-4B và AU-5 chưa thực hiện. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
+Trạng thái ngày 04/11/2026: **AU-0, AU-1, AU-2A, AU-2B, AU-3, AU-4A và AU-4B hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md), [AU-2B](../../docs/windows-worker/au2b-completion.md), [AU-3](../../docs/windows-worker/au3-completion.md), [AU-4A](../../docs/windows-worker/au4a-completion.md). AU-4B bàn giao trong [V1.1](../../docs/windows-worker/v1.1-completion.md); AU-5 benchmark còn lại. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
 
 ## Ranh giới và thứ tự
 
@@ -114,9 +114,9 @@ Nghiệm thu: task docs không tải toàn bộ implement/fix/local-dev; bugfix 
 
 Model phải khớp role bật trong settings snapshot. Metrics lưu theo run/task/attempt: request đã thử gửi, thời gian, lệnh đạt/lỗi/chưa hoàn tất, usage runtime quan sát được. Không coi usage này là tổng billing; thiếu token/cost ghi chưa có số liệu. Lịch sử cũ không bị gán metrics giả, schema vẫn v6. 71/71 test, typecheck/build/format/native đạt; sau sửa nhỏ cuối ở error adapter, 20/20 test execution/runtime/team cùng typecheck/build/format đạt. [Báo cáo và giới hạn AU-4A](../../docs/windows-worker/au4a-completion.md).
 
-### AU-4B — Chưa triển khai
+### AU-4B — Hoàn thành trong V1.1
 
-Phần còn lại là mục 5 và nghiệm thu ownership/process/crash recovery sau lifecycle WW-4D liên quan. Kiểm tra hiện tại dùng runtime mock cho fault injection và Electron thật cho persistence; chưa chứng minh crash/kill process thật ở bản AU-4A. Không đánh dấu toàn bộ AU-4 hoặc WW-4D hoàn thành.
+Mục 5 đã triển khai cùng lifecycle WW-4D: Windows Job Object, random owned-job identity, startup cancellation, parent/host crash, recovery có kiểm tra source/Git trước attempt mới. Kiểm tra process Windows và Electron UI thật, cùng acceptance 9Router đạt; [bàn giao và giới hạn V1.1](../../docs/windows-worker/v1.1-completion.md). AU-5 benchmark so sánh vẫn chưa thực hiện.
 
 Phụ thuộc AU-3. Phần ownership/recovery phải phối hợp sau nghiệm thu lifecycle WW-4D, tránh hai cơ chế quản lý process. BE phụ trách controller/proxy; FE phần hiển thị; TEST kiểm tra stop/failure; DEVOPS chỉ toolchain local.
 

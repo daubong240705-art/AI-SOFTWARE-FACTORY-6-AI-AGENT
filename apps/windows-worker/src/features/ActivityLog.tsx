@@ -4,6 +4,8 @@ import { isActive } from "../../shared/runs";
 
 export function ActivityLog({ detail }: { detail: RunDetail }) {
   const [technical, setTechnical] = useState(false);
+  const [search, setSearch] = useState("");
+  const [eventType, setEventType] = useState("");
   const { run, events } = detail;
   const current = run.tasks.find((task) => task.id === run.currentTaskId);
   const working = run.tasks.some((task) => ["work", "fix"].includes(task.kind));
@@ -51,15 +53,46 @@ export function ActivityLog({ detail }: { detail: RunDetail }) {
         <summary>Chi tiết kỹ thuật</summary>
         {technical && (
           <div className="event-list">
-            {events.map((event) => (
-              <div className="event-row" key={event.sequence}>
-                <time>{new Date(event.at).toLocaleTimeString("vi-VN")}</time>
-                <div>
-                  <span className="event-type">{event.type}</span>
-                  <p>{event.text}</p>
+            <div className="inline">
+              <input
+                aria-label="Tìm sự kiện hoặc task"
+                placeholder="Tìm sự kiện hoặc task…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <select
+                aria-label="Loại sự kiện"
+                value={eventType}
+                onChange={(e) => setEventType(e.target.value)}
+              >
+                <option value="">Tất cả sự kiện</option>
+                {[...new Set(events.map((e) => e.type))].sort().map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <code className="small muted">Run {run.id}</code>
+            {events
+              .filter(
+                (event) =>
+                  (!eventType || event.type === eventType) &&
+                  `${event.type} ${event.text}`
+                    .toLowerCase()
+                    .includes(search.toLowerCase()),
+              )
+              .map((event) => (
+                <div className="event-row" key={event.sequence}>
+                  <time>{new Date(event.at).toLocaleTimeString("vi-VN")}</time>
+                  <div>
+                    <span className="event-type">
+                      #{event.sequence} · {event.type}
+                    </span>
+                    <p>{event.text}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         )}
       </details>

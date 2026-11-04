@@ -3,6 +3,16 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  recovery: (id) => ipcRenderer.invoke(channels.recovery, id),
+  continueRecovery: (token) =>
+    ipcRenderer.invoke(channels.continueRecovery, token),
+  exportRun: (id) => ipcRenderer.invoke(channels.exportRun, id),
+  retention: (input) => ipcRenderer.invoke(channels.retention, input),
+  prune: (token) => ipcRenderer.invoke(channels.prune, token),
+  commandCatalog: (id) => ipcRenderer.invoke(channels.commandCatalog, id),
+  startCommand: (input) => ipcRenderer.invoke(channels.startCommand, input),
+  stopCommand: () => ipcRenderer.invoke(channels.stopCommand),
+  localCommand: () => ipcRenderer.invoke(channels.localCommand),
   acceptanceEvidence: (input) =>
     ipcRenderer.invoke(channels.acceptanceEvidence, input),
   commandOutput: (input) => ipcRenderer.invoke(channels.commandOutput, input),

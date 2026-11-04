@@ -33,7 +33,9 @@ import type {
   ToolStatus,
 } from "../shared/contracts";
 import { defaultSettings } from "../shared/defaults";
+import { version } from "../package.json";
 import { ChatWorkspace } from "./features/ChatWorkspace";
+import { HistoryTools } from "./features/HistoryTools";
 import type { ConversationSummary } from "../shared/chat";
 import type { RuntimeView } from "../shared/runs";
 import { runLabels } from "../shared/runs";
@@ -615,7 +617,7 @@ export function App() {
           <div className="local-state">
             <span className="status-dot" />
             <span>Standalone</span>
-            <small>v0.1.0</small>
+            <small>v{version}</small>
           </div>
           <button
             className="collapse-sidebar subtle"
@@ -723,6 +725,10 @@ export function App() {
                     </span>
                   </div>
                   <section className="card">
+                    <HistoryTools
+                      active={!!runtime.activeId}
+                      onChanged={() => setChatRefresh((n) => n + 1)}
+                    />
                     {!runtime.runs.length ? (
                       <Empty
                         icon={<Clock3 size={28} />}

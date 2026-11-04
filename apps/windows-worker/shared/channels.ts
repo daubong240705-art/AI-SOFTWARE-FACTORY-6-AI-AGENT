@@ -1,4 +1,13 @@
 export const channels = {
+  recovery: "worker:recovery",
+  continueRecovery: "worker:continue-recovery",
+  exportRun: "worker:export-run",
+  retention: "worker:retention",
+  prune: "worker:prune",
+  commandCatalog: "worker:command-catalog",
+  startCommand: "worker:start-command",
+  stopCommand: "worker:stop-command",
+  localCommand: "worker:local-command",
   acceptanceEvidence: "worker:acceptance-evidence",
   commandOutput: "worker:command-output",
   evidence: "worker:evidence",
