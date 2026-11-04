@@ -1,0 +1,10 @@
+{
+  "passed": true,
+  "kind": "real-electron-immutable-task-evidence",
+  "checks": [
+    "separate task results visible",
+    "immutable source evidence through IPC",
+    "pending integration hides recovery replay",
+    "both retained workspaces discoverable"
+  ]
+}

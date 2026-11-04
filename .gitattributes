@@ -5,3 +5,9 @@
 infrastructure/deploy/ssh-entry text eol=lf
 infrastructure/deploy/stage-ssh-entry text eol=lf
 infrastructure/deploy/asf-validation-firewall text eol=lf
+apps/windows-worker/**/*.ts text eol=lf
+apps/windows-worker/**/*.tsx text eol=lf
+apps/windows-worker/**/*.cjs text eol=lf
+apps/windows-worker/**/*.css text eol=lf
+apps/windows-worker/**/*.html text eol=lf
+apps/windows-worker/**/*.json text eol=lf

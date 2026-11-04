@@ -19,6 +19,7 @@ export function defaultSettings(): Settings {
     maxRequests: 40,
     maxFixRounds: 2,
     permissionMode: "ask",
+    teamExecution: "sequential",
     agents: roles.map((role) => ({ role, enabled: true, model: "" })),
   };
 }

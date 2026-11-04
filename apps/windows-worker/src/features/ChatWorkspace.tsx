@@ -587,6 +587,7 @@ export function ChatWorkspace({
                           </button>
                         )}
                         {!isActive(message.state) &&
+                          message.failureCode !== "integration-pending" &&
                           message.state !== "completed" && (
                             <button
                               disabled={busy || !!activeId}
@@ -696,7 +697,10 @@ export function ChatWorkspace({
           )}
           {current?.run.permissions.map((p) => (
             <div className="chat-permission" key={p.id}>
-              <strong>Cho phép {p.permission} một lần?</strong>
+              <strong>
+                {p.taskId ? `${p.taskId} · ` : ""}Cho phép {p.permission} một
+                lần?
+              </strong>
               <pre>{p.patterns.join("\n")}</pre>
               <div className="inline">
                 <button

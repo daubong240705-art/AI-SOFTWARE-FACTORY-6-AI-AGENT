@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
-import { join, basename } from "node:path";
+import { join, basename, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { Conversations } from "./conversations";
@@ -114,8 +114,14 @@ export class Store {
   }
   workspaceReferenced(path: string): boolean {
     const matches = (value: string) => {
-      const a = process.platform === "win32" ? value.toLowerCase() : value;
-      const b = process.platform === "win32" ? path.toLowerCase() : path;
+      const a =
+        process.platform === "win32"
+          ? resolve(value).toLowerCase()
+          : resolve(value);
+      const b =
+        process.platform === "win32"
+          ? resolve(path).toLowerCase()
+          : resolve(path);
       return (
         a === b || a.startsWith(b + (process.platform === "win32" ? "\\" : "/"))
       );
@@ -123,7 +129,13 @@ export class Store {
     if (this.projects().some((project) => matches(project.path))) return true;
     return (
       this.db.prepare("SELECT value FROM runs").all() as { value: string }[]
-    ).some((row) => matches((JSON.parse(row.value) as Run).workspace));
+    ).some((row) => {
+      const run = JSON.parse(row.value) as Run;
+      return (
+        matches(run.workspace) ||
+        run.tasks?.some((task) => task.workspace && matches(task.workspace))
+      );
+    });
   }
   project(id: string): Project {
     const project = this.db
@@ -379,6 +391,8 @@ export class Store {
           retryOf: run.retryOf,
           recoveryOf: run.recoveryOf,
           workspaceOrigin: run.workspaceOrigin,
+          workspace: run.workspace,
+          teamExecution: run.settings.teamExecution ?? "sequential",
           checkpoints: run.checkpoints,
           changes: run.changes,
           commands: run.commands,
@@ -392,6 +406,8 @@ export class Store {
             failure: t.failure,
             metrics: t.metrics,
             sessionId: t.sessionId,
+            workspace: t.workspace,
+            workspaceOrigin: t.workspaceOrigin,
             changes: t.changes,
           })),
           review: run.review,

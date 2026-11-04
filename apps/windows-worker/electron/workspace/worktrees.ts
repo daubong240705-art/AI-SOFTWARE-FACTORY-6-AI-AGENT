@@ -406,6 +406,20 @@ export class Worktrees {
       throw new Error("Source nằm ngoài worktree được sở hữu.");
     return value;
   }
+  async verifyTask(id: string, baseHead: string): Promise<OwnedWorkspace> {
+    const value = await this.read(id);
+    const registration = await this.identity(value);
+    if (
+      value.state !== "ready" ||
+      value.head !== baseHead ||
+      registration.head !== baseHead ||
+      !registration.detached
+    )
+      throw new Error(
+        "Baseline/HEAD của task workspace đã thay đổi. Giữ dữ liệu để kiểm tra.",
+      );
+    return value;
+  }
   async recover(id: string): Promise<OwnedWorkspace> {
     return this.exclusive(async () => {
       const value = await this.read(id);

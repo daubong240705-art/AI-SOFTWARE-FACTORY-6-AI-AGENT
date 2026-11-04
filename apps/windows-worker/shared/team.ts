@@ -132,6 +132,8 @@ export type TaskState =
   | "cancelled"
   | "skipped";
 export type TeamTask = {
+  workspace?: string;
+  workspaceOrigin?: { id: string; source: string; baseHead: string };
   failure?: ExecutionFailure;
   metrics?: ExecutionMetrics;
   workType?: WorkType;

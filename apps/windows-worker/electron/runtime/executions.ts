@@ -19,6 +19,7 @@ export class Executions {
   open(id: string, taskId?: string): ExecutionHandle {
     if (this.stopped) throw new Error("Run execution admission is closed");
     if (this.handles.has(id)) throw new Error("Execution already owned");
+    if (this.handles.size >= 2) throw new Error("Run execution limit reached");
     const handle: ExecutionHandle = { id, taskId };
     this.handles.set(id, handle);
     return handle;

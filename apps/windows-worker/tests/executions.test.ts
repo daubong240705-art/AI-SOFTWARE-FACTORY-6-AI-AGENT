@@ -23,6 +23,7 @@ test("stop drains every lane, closes admission immediately and waits for contain
       },
     };
   }
+  assert.throws(() => executions.open("third"), /limit/);
   const stopping = executions.stop();
   assert.throws(() => executions.open("late"));
   await new Promise((resolve) => setImmediate(resolve));

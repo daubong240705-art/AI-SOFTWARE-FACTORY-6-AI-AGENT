@@ -60,6 +60,35 @@ app.whenReady().then(async () => {
     await until(() =>
       js(`!!document.querySelector('[aria-label="Mở chi tiết"]')`),
     );
+    await js(`document.querySelector('[title="Cài đặt"]').click()`);
+    await until(() =>
+      js(`!!document.querySelector('option[value="isolated-pair"]')`),
+    );
+    assert.equal(
+      await js(
+        `document.querySelector('option[value="isolated-pair"]').parentElement.value`,
+      ),
+      "sequential",
+    );
+    await js(
+      `const select=document.querySelector('option[value="isolated-pair"]').parentElement;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(select,'isolated-pair');select.dispatchEvent(new Event('change',{bubbles:true}));`,
+    );
+    await until(() =>
+      js(
+        `!![...document.querySelectorAll('button')].find(e=>e.textContent.includes('Lưu cấu hình')&&!e.disabled)`,
+      ),
+    );
+    await js(
+      `[...document.querySelectorAll('button')].find(e=>e.textContent.includes('Lưu cấu hình')).click()`,
+    );
+    await until(async () => {
+      const r = await js(`window.worker.bootstrap()`);
+      return r.ok && r.value.settings.teamExecution === "isolated-pair";
+    });
+    await js(`document.querySelector('[title="Dự án"]').click()`);
+    await until(() =>
+      js(`!!document.querySelector('[aria-label="Mở chi tiết"]')`),
+    );
     await js(`document.querySelector('[aria-label="Mở chi tiết"]').click()`);
     await js(
       `[...document.querySelectorAll('[role="tab"]')].find(e=>e.textContent==='Workspace').click()`,
@@ -154,6 +183,7 @@ app.whenReady().then(async () => {
           passed: true,
           kind: "real-git-electron-fixture",
           checks: [
+            "parallel setting defaults sequential and persists opt-in",
             "narrow IPC validation",
             "create from clean HEAD",
             "preview/remove clean worktree",

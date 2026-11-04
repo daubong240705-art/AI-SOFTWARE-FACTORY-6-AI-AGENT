@@ -11,6 +11,12 @@ export function RecoveryActions({
   const [preview, setPreview] = useState<RecoveryPreview | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  if (run.failure?.code === "integration-pending")
+    return (
+      <p className="small muted">
+        Mở Workspace để xem kết quả. Chưa có thao tác tích hợp tự động.
+      </p>
+    );
   if (
     !["interrupted", "failed", "cancelled", "needs_input"].includes(run.state)
   )

@@ -981,6 +981,29 @@ export function App() {
                           lượt mới.
                         </p>
                         <label>
+                          Thực thi nhóm
+                          <select
+                            value={settings.teamExecution ?? "sequential"}
+                            disabled={!!busy || !!runtime.activeId}
+                            onChange={(event) =>
+                              setSettings({
+                                ...settings,
+                                teamExecution: event.target
+                                  .value as Settings["teamExecution"],
+                              })
+                            }
+                          >
+                            <option value="sequential">Tuần tự</option>
+                            <option value="isolated-pair">
+                              Hai task độc lập · workspace riêng
+                            </option>
+                          </select>
+                        </label>
+                        <p className="muted small">
+                          Workspace riêng cần repo sạch. Kết quả chờ tích hợp;
+                          task phụ thuộc chưa chạy.
+                        </p>
+                        <label>
                           OpenCode executable
                           <div className="input-actions">
                             <input

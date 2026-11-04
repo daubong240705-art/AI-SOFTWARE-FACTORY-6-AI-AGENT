@@ -20,7 +20,12 @@ export type RunEvent = {
   text: string;
   at: string;
 };
-export type Permission = { id: string; permission: string; patterns: string[] };
+export type Permission = {
+  id: string;
+  permission: string;
+  patterns: string[];
+  taskId?: string;
+};
 export type ChangedFile = {
   path: string;
   kind: "added" | "modified" | "deleted";

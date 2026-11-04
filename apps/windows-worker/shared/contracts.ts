@@ -45,6 +45,9 @@ export const settingsSchema = z
     maxRequests: z.number().int().min(1).max(1000),
     maxFixRounds: z.number().int().min(0).max(2),
     permissionMode: z.enum(["ask", "full-access"]).default("ask"),
+    teamExecution: z
+      .enum(["sequential", "isolated-pair"])
+      .default("sequential"),
     agents: z
       .array(agentSchema)
       .length(7)

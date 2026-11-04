@@ -34,7 +34,7 @@ export function Workspaces({
     return () => {
       alive = false;
     };
-  }, [projectId]);
+  }, [projectId, active]);
   async function action(fn: () => Promise<unknown>) {
     setBusy(true);
     setError("");
@@ -67,9 +67,7 @@ export function Workspaces({
           Tải lại
         </button>
       </div>
-      <p className="small muted">
-        Từ commit hiện tại · chạy tuần tự · chưa tự gộp source.
-      </p>
+      <p className="small muted">Từ commit hiện tại · chưa tự gộp source.</p>
       {error && (
         <p className="warning-text small" role="alert">
           {error}

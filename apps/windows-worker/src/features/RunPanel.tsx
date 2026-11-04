@@ -6,6 +6,7 @@ import { formatRequestUsage } from "../lib/formatRequestUsage";
 import { ChangesPanel } from "./ChangesPanel";
 import { CommandEvidence } from "./CommandEvidence";
 import { AcceptanceEvidence } from "./AcceptanceEvidence";
+import { TaskWorkspaceResults } from "./TaskWorkspaceResults";
 import { ExecutionFacts } from "./ExecutionFacts";
 import { failureLabels } from "../../shared/execution";
 import { ActivityLog } from "./ActivityLog";
@@ -106,6 +107,9 @@ export function RunPanel({
                 Phạm vi: {task.allowedPaths.join(", ")} · Phụ thuộc:{" "}
                 {task.dependsOn.join(", ") || "—"}
               </p>
+              {task.workspace && (
+                <p className="small muted">Workspace: {task.workspace}</p>
+              )}
               <p className="small muted">
                 Kỹ năng:{" "}
                 {task.skillSelection
@@ -142,7 +146,10 @@ export function RunPanel({
               <TriangleAlert size={16} />
               Cho phép công cụ một lần?
             </strong>
-            <div>{permission.permission}</div>
+            <div>
+              {permission.taskId ? `${permission.taskId} · ` : ""}
+              {permission.permission}
+            </div>
             <pre>{permission.patterns.join("\n")}</pre>
             <p className="muted small">
               Shell chạy bằng quyền Windows của bạn, có thể tác động ngoài
@@ -166,7 +173,12 @@ export function RunPanel({
           </section>
         ))}
       {tab === "activity" && <ActivityLog key={run.id} detail={detail} />}
-      {tab === "changes" && <ChangesPanel key={run.id} run={run} />}
+      {tab === "changes" && (
+        <>
+          <TaskWorkspaceResults run={run} />
+          <ChangesPanel key={run.id} run={run} />
+        </>
+      )}
       {tab === "result" && (
         <div className="run-result">
           <RecoveryActions key={run.id} run={run} onChanged={() => {}} />

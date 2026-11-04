@@ -1,6 +1,8 @@
 # ASF Windows Worker
 
-**Bản phát triển V1.2A (`1.2.0-alpha.1`)** bổ sung tab **Workspace**: tạo Git worktree từ HEAD sạch, mở làm project độc lập, phục hồi ownership và dọn worktree sạch có xác nhận. Source/index gốc giữ nguyên; chưa chạy song song hoặc tự merge. Repo có thay đổi chưa commit/submodule/filter sẽ bị chặn. [Hướng dẫn và giới hạn](../../docs/windows-worker/v1.2a-completion.md), [các đợt V1.2](../../plan/v1.2/README.md).
+**Bản phát triển V1.2B (`1.2.0-alpha.2`)** có tùy chọn **Cài đặt → Thực thi nhóm → Hai task độc lập · workspace riêng**. Mặc định vẫn tuần tự. Tối đa hai task gốc có scope không chồng lấn chạy đồng thời, mỗi attempt có worktree riêng từ cùng baseline sạch. Request/deadline dùng chung; quyền, session, event và snapshot tách theo execution. Xem file kết quả từng task trong **Thay đổi**, mở workspace qua **Workspace**. Chưa tự tích hợp: lượt dừng ở **Chờ tích hợp source**, task phụ thuộc không chạy và không tự phát lại lượt này. V1.2C sẽ bổ sung tích hợp/conflict/test source hợp nhất. [Bàn giao V1.2B](../../docs/windows-worker/v1.2b-completion.md), [các đợt V1.2](../../plan/v1.2/README.md).
+
+Tab **Workspace** vẫn hỗ trợ tạo/mở/phục hồi/dọn Git worktree. Repo bẩn, chưa có commit, submodule, Git filter hoặc project nằm trong owned workspace sẽ bị chặn khi tạo task workspace. Dependencies, ignored files và credential không được sao chép; agent cần chuẩn bị dependency trong worktree nếu cần. [Giới hạn worktree](../../docs/windows-worker/v1.2a-completion.md).
 
 V1.1: chat theo project, Lead và sáu vai trò qua OpenCode 1.19.5 + 9Router, Full access, checkpoint và tiếp tục công việc sau gián đoạn, quản lý cây tiến trình Windows, lệnh npm/preview local, xuất báo cáo và dọn lịch sử. Xem [phạm vi V1.1](../../plan/v1.1/VERSION_SCOPE.md) và [báo cáo hoàn thiện](../../docs/windows-worker/v1.1-completion.md).
 

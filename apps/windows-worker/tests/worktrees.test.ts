@@ -71,6 +71,35 @@ test("worktrees isolate source and index, preserve monorepo project scope, use d
     await s.cleanup();
   }
 });
+test("task workspace verification detects changed HEAD and branch attachment while preserving edits", async () => {
+  const s = await setup();
+  try {
+    const owned = await s.manager.create(s.projectId, s.repo);
+    await s.manager.verifyTask(owned.id, owned.head);
+    await writeFile(join(owned.path, "app", "source.txt"), "kept");
+    await s.manager.verifyTask(owned.id, owned.head);
+    await git(owned.path, ["add", "."]);
+    await git(owned.path, ["commit", "-m", "unexpected commit"]);
+    await assert.rejects(s.manager.verifyTask(owned.id, owned.head), /HEAD/);
+    assert.equal(
+      await readFile(join(owned.path, "app", "source.txt"), "utf8"),
+      "kept",
+    );
+    assert.equal(
+      await readFile(join(s.repo, "app", "source.txt"), "utf8"),
+      "baseline",
+    );
+    const attached = await s.manager.create(s.projectId, s.repo);
+    await git(attached.path, ["switch", "-c", "unexpected-branch"]);
+    await assert.rejects(
+      s.manager.verifyTask(attached.id, attached.head),
+      /HEAD/,
+    );
+  } finally {
+    await s.cleanup();
+  }
+});
+
 test("dirty, unborn and non-Git sources are rejected without touching caller source", async () => {
   const s = await setup();
   try {

@@ -645,6 +645,121 @@ test("review cannot claim success with incomplete acceptance or assign fixes to 
     /BE\/FE/,
   );
 });
+test("isolated batch drains its failing sibling and never schedules later work", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "asf-isolated-fail-"));
+  try {
+    const source = join(directory, "source");
+    mkdirSync(source);
+    const run = fixture(source);
+    run.settings.teamExecution = "isolated-pair";
+    let started = 0,
+      stopped = false,
+      drained = false;
+    let both!: () => void, abort!: () => void;
+    const barrier = new Promise<void>((resolve) => {
+      both = resolve;
+    });
+    const aborted = new Promise<void>((resolve) => {
+      abort = resolve;
+    });
+    const check = () => {
+      if (stopped) throw new ExecutionStopped("failed");
+    };
+    await assert.rejects(
+      coordinate(
+        run,
+        async (task) => {
+          if (task.kind === "plan")
+            return JSON.stringify({
+              blockedReason: null,
+              testingReason: "fixture",
+              tasks: [
+                { ...planned("t1", "be"), allowedPaths: ["a.txt"] },
+                { ...planned("t2", "fe"), allowedPaths: ["b.txt"] },
+                { ...planned("t3", "be"), allowedPaths: ["c.txt"] },
+              ],
+            });
+          started++;
+          if (started === 2) both();
+          await barrier;
+          writeFileSync(
+            join(task.workspace!, task.allowedPaths[0]),
+            "partial work",
+          );
+          if (task.id === "t1") throw new Error("Primary lane failure");
+          await aborted;
+          drained = true;
+          check();
+          return "unreachable";
+        },
+        () => {},
+        check,
+        undefined,
+        [],
+        undefined,
+        {
+          prepare: async (task) => {
+            task.workspace = join(directory, task.id);
+            mkdirSync(task.workspace);
+          },
+          stop: () => {
+            stopped = true;
+            abort();
+          },
+        },
+      ),
+      /Primary lane failure/,
+    );
+    assert.equal(started, 2);
+    assert.equal(drained, true);
+    assert.equal(run.tasks.find((t) => t.id === "t3")!.state, "queued");
+    for (const task of run.tasks.filter((t) => t.workspace)) {
+      assert.equal(task.state, "failed");
+      assert.equal(task.changes.length, 1);
+    }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("failed worker retains edits as immutable evidence without changing its failure", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "asf-team-failed-"));
+  const source = join(directory, "source");
+  mkdirSync(join(source, "src"), { recursive: true });
+  const store = new Store(join(directory, "data"));
+  try {
+    const run = fixture(source);
+    store.createRun(run);
+    await assert.rejects(
+      coordinate(
+        run,
+        async (task) => {
+          if (task.kind === "plan")
+            return JSON.stringify({
+              blockedReason: null,
+              testingReason: "fixture",
+              tasks: [planned("t1", "be")],
+            });
+          writeFileSync(join(source, "src", "kept.txt"), "partial work");
+          throw new Error("Original runtime failure");
+        },
+        () => {},
+        () => {},
+        store.evidence,
+      ),
+      /Original runtime failure/,
+    );
+    const failed = run.tasks.find((t) => t.id === "t1")!;
+    assert.equal(failed.state, "failed");
+    assert.equal(failed.error, "Original runtime failure");
+    assert.deepEqual(failed.changes, [{ path: "src/kept.txt", kind: "added" }]);
+    assert.ok(failed.evidence?.files["src/kept.txt"]?.hash);
+  } finally {
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("cancellation marks the active team task cancelled and never schedules another session", async () => {
   const directory = mkdtempSync(join(tmpdir(), "asf-team-cancel-"));
   try {

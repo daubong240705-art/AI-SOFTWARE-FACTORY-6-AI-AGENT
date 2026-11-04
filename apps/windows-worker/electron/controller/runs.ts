@@ -44,6 +44,17 @@ import { changes, snapshot, type Snapshot } from "../workspace/snapshot";
 import { captureGit } from "../workspace/git-evidence";
 import { resolveRuntime, runtimeVersion, redact } from "../runtime/security";
 
+type ExecutionContext = {
+  id: string;
+  taskId: string | null;
+  workspace: string;
+  sessionId?: string;
+  runtime?: OpenCodeRuntime;
+  seen: Set<string>;
+  approvedPermissions: Set<string>;
+  sourceObservation?: { version: string; at: number };
+  closed: boolean;
+};
 type Active = {
   run: Run;
   runtime?: OpenCodeRuntime;
@@ -56,9 +67,12 @@ type Active = {
       runtime: OpenCodeRuntime;
       nativeId: string;
       taskId: string | null;
+      execution?: ExecutionContext;
+      resolving?: boolean;
     }
   >;
   baseline?: Snapshot;
+  isolatedBaseline?: string;
   desired?: "cancelled" | "failed";
   stopError?: string;
   failure?: ExecutionFailure;
@@ -230,16 +244,17 @@ export class RunController {
     });
     return structuredClone(run);
   }
-  private record(active: Active, type: string, text: string): void {
+  private record(
+    active: Active,
+    type: string,
+    text: string,
+    taskId = active.run.currentTaskId,
+  ): void {
     syncMetrics(active.run);
     for (const task of active.run.tasks) syncMetrics(active.run, task);
     this.store.updateRun(active.run, {
       type,
-      text: redact(
-        (active.run.currentTaskId ? `${active.run.currentTaskId} · ` : "") +
-          text,
-        active.secrets,
-      ),
+      text: redact((taskId ? `${taskId} · ` : "") + text, active.secrets),
     });
   }
   private check(active: Active): void {
@@ -282,6 +297,8 @@ export class RunController {
       active.baseline = await snapshot(run.workspace, true, active.secrets);
       const gitBefore = await captureGit(run.workspace, true, active.secrets);
       checkpoint(run, "before-run", active.baseline, gitBefore);
+      if (run.mode === "team" && run.settings.teamExecution === "isolated-pair")
+        active.isolatedBaseline = fingerprint(run.checkpoints!.at(-1)!);
       this.store.evidence.begin(
         run.id,
         run.workspace,
@@ -308,10 +325,14 @@ export class RunController {
         `${run.mode} · ${run.model} · OpenCode ${run.runtimeVersion}`,
       );
       if (run.mode === "team") {
+        const worktrees = new Worktrees(this.directory, (path) =>
+          this.store.workspaceReferenced(path),
+        );
+        const baseline = active.isolatedBaseline;
         await coordinate(
           run,
           (task, prompt) => this.step(active, key, executable, task, prompt),
-          (type, text) => this.record(active, type, text),
+          (type, text, taskId) => this.record(active, type, text, taskId),
           () => this.check(active),
           this.store.evidence,
           active.secrets,
@@ -320,10 +341,46 @@ export class RunController {
               run,
               phase,
               source,
-              await captureGit(run.workspace),
+              await captureGit(
+                run.tasks.find((task) => task.id === taskId)?.workspace ??
+                  run.workspace,
+              ),
               taskId,
             );
             this.record(active, "CHECKPOINT", `${phase} · ${taskId}`);
+          },
+          {
+            prepare: async (task) => {
+              this.check(active);
+              if (fingerprint(await inspectWorkspace(run)) !== baseline)
+                throw new TeamBlocked(
+                  "Source gốc đổi trước khi tạo workspace task.",
+                  "workspace-changed",
+                );
+              const owned = await worktrees.create(
+                run.projectId,
+                run.workspace,
+              );
+              task.workspace = owned.path;
+              task.workspaceOrigin = {
+                id: owned.id,
+                source: owned.source,
+                baseHead: owned.head,
+              };
+              this.record(active, "TASK_WORKSPACE", owned.id, task.id);
+              this.check(active);
+              if (fingerprint(await inspectWorkspace(run)) !== baseline)
+                throw new TeamBlocked(
+                  "Source gốc đổi khi tạo workspace task.",
+                  "workspace-changed",
+                );
+            },
+            stop: (error) => {
+              const reason = classifyFailure(error, active.secrets);
+              void this.stop(run.id, "failed", reason.message, reason).catch(
+                () => {},
+              );
+            },
           },
         );
       } else {
@@ -385,6 +442,16 @@ export class RunController {
             active.secrets,
           );
           checkpoint(run, "after-run", after, finalGit);
+          if (
+            active.isolatedBaseline &&
+            !active.desired &&
+            fingerprint(run.checkpoints!.at(-1)!) !== active.isolatedBaseline
+          ) {
+            run.state = "needs_input";
+            run.error =
+              "Source gốc đã đổi trong lượt chạy cô lập. Giữ kết quả từng task để đối chiếu baseline trước khi tích hợp.";
+            run.failure = failure("workspace-changed", run.error);
+          }
           this.store.evidence.finish(run.id, after, finalGit);
           run.changes = changes(active.baseline, after).slice(0, 500);
           run.baselineComplete &&= after.complete;
@@ -477,6 +544,21 @@ export class RunController {
           `Model của ${role.toUpperCase()} không khớp cấu hình đã lưu. Chọn lại model và tạo lượt mới.`,
         ),
       );
+    const workspace = task?.workspace ?? run.workspace;
+    if (task?.workspace) {
+      const owned = await new Worktrees(this.directory).owner(workspace);
+      if (
+        !owned ||
+        owned.id !== task.workspaceOrigin?.id ||
+        owned.head !== task.workspaceOrigin.baseHead
+      )
+        throw new TeamBlocked(
+          "Ownership workspace của task không còn khớp.",
+          "configuration",
+        );
+      await new Worktrees(this.directory).verifyTask(owned.id, owned.head);
+      this.check(active);
+    }
     const context = runtimeContext(run, task, prompt);
     const remaining = run.settings.maxRequests - run.requests;
     if (remaining <= 0)
@@ -489,7 +571,15 @@ export class RunController {
     const model = task?.model ?? run.model;
     const executions = (active.executions ??= new Executions());
     const execution = executions.open(randomUUID(), task?.id);
-    active.proxy = new ModelProxy(
+    const lane: ExecutionContext = {
+      id: execution.id,
+      taskId: task?.id ?? null,
+      workspace,
+      seen: new Set(),
+      approvedPermissions: new Set(),
+      closed: false,
+    };
+    const proxy = new ModelProxy(
       { ...run.settings, maxRequests: remaining },
       key,
       model,
@@ -500,34 +590,37 @@ export class RunController {
           active,
           "MODEL_REQUEST",
           `Request ${run.requests}/${run.settings.maxRequests} · ${model} · ${task?.id ?? "direct"}`,
+          lane.taskId,
         );
       },
       (error) => {
+        if (lane.closed) return;
         void this.stop(run.id, "failed", error.message, error).catch(() => {});
       },
       budget,
     );
-    active.secrets.push(active.proxy.token);
-    execution.proxy = active.proxy;
+    active.secrets.push(proxy.token);
+    execution.proxy = proxy;
     try {
-      const url = await active.proxy.start();
+      const url = await proxy.start();
       this.check(active);
-      active.runtime = new OpenCodeRuntime(
+      const runtime = new OpenCodeRuntime(
         executable,
         join(this.directory, "runtime", run.id, task?.id ?? "direct"),
         {
           ...run,
+          workspace,
           model,
           role: task?.role ?? run.role,
           settings: { ...run.settings, maxRequests: remaining },
         },
-        { url, token: active.proxy.token },
+        { url, token: proxy.token },
         {
           text:
             task && !["work", "fix"].includes(task.kind)
               ? undefined
               : (text) => {
-                  if (active.desired) return;
+                  if (active.desired || lane.closed) return;
                   // Withhold the tail until final reconciliation, including any split credential.
                   const tail = Math.max(
                     128,
@@ -558,31 +651,36 @@ export class RunController {
                     this.store.updateRun(run);
                   }
                 },
-          event: (event, reconciled) => this.onEvent(active, event, reconciled),
-          permission: (permission) => this.onPermission(active, permission),
+          event: (event, reconciled) =>
+            this.onEvent(active, event, reconciled, lane),
+          permission: (permission) =>
+            this.onPermission(active, permission, lane),
           failure: (message, reason) => {
+            if (lane.closed) return;
             void this.stop(run.id, "failed", message, reason).catch(() => {});
           },
         },
         context,
       );
-      execution.runtime = active.runtime;
-      run.sessionId = await active.runtime.start();
-      if (task) task.sessionId = run.sessionId;
+      execution.runtime = lane.runtime = runtime;
+      lane.sessionId = await runtime.start();
+      if (task) task.sessionId = lane.sessionId;
+      else run.sessionId = lane.sessionId;
       this.check(active);
       this.record(
         active,
         "SESSION_STARTED",
-        `${task?.id ?? "direct"} · ${run.sessionId}`,
+        `${task?.id ?? "direct"} · ${lane.sessionId}`,
+        lane.taskId,
       );
       const source = sourceVersion(
-        await snapshot(run.workspace, true, active.secrets),
+        await snapshot(workspace, true, active.secrets),
       );
-      active.sourceObservation = source
+      lane.sourceObservation = source
         ? { version: source, at: Date.now() }
         : undefined;
       this.check(active);
-      const result = await active.runtime.prompt();
+      const result = await runtime.prompt();
       this.check(active);
       if (result.error) throw new WorkerError(result.error);
       if (!result.text.trim())
@@ -594,45 +692,69 @@ export class RunController {
       const reason =
         error instanceof WorkerError
           ? classifyFailure(error, active.secrets)
-          : (active.runtime?.errorInfo(error) ??
+          : (lane.runtime?.errorInfo(error) ??
             classifyFailure(error, active.secrets));
       throw new WorkerError(
         failure(reason.code, reason.message, active.secrets),
       );
     } finally {
+      lane.closed = true;
       await executions.close(execution.id);
-      active.runtime = undefined;
-      active.proxy = undefined;
       this.check(active);
-      if (run.permissions.length)
+      if (task?.workspaceOrigin) {
+        try {
+          await new Worktrees(this.directory).verifyTask(
+            task.workspaceOrigin.id,
+            task.workspaceOrigin.baseHead,
+          );
+        } catch {
+          throw new TeamBlocked(
+            "Ownership hoặc HEAD của task workspace đã đổi; giữ kết quả để kiểm tra.",
+            "workspace-changed",
+          );
+        }
+      }
+      if (
+        [...(active.permissionRoutes?.values() ?? [])].some(
+          (route) => route.execution === lane,
+        )
+      )
         throw new Error("Session kết thúc khi còn yêu cầu quyền.");
     }
   }
-  private onPermission(active: Active, permission: Permission): void {
-    if (active.desired) return;
-    const owner = active.run.tasks.find(
-      (t) => t.id === active.run.currentTaskId,
-    );
+  private onPermission(
+    active: Active,
+    permission: Permission,
+    lane?: ExecutionContext,
+  ): void {
+    if (active.desired || lane?.closed) return;
+    const taskId = lane ? lane.taskId : active.run.currentTaskId;
+    const owner = active.run.tasks.find((t) => t.id === taskId);
+    const runtime = lane ? lane.runtime : active.runtime;
+    if (!runtime) return;
     if (
       autoApproves(permission.permission, {
         ...rolePolicy(owner?.role ?? active.run.role),
         permissionMode: active.run.settings.permissionMode,
       })
     ) {
-      active.approvedPermissions ??= new Set();
+      const approved =
+        lane?.approvedPermissions ?? (active.approvedPermissions ??= new Set());
       const permissionKey = `${owner?.id ?? "direct"}:${permission.id}`;
-      if (active.approvedPermissions.has(permissionKey)) return;
-      active.approvedPermissions.add(permissionKey);
-      const runtime = active.runtime;
+      if (approved.has(permissionKey)) return;
+      approved.add(permissionKey);
       this.record(
         active,
         "PERMISSION_AUTO_APPROVED",
         `${permission.permission} · Full access`,
+        taskId,
       );
       void runtime?.reply(permission.id, true).catch((error) => {
         if (
           this.active === active &&
-          active.runtime === runtime &&
+          (lane
+            ? !lane.closed && lane.runtime === runtime
+            : active.runtime === runtime) &&
           !active.desired
         )
           void this.stop(
@@ -644,8 +766,6 @@ export class RunController {
       });
       return;
     }
-    const runtime = active.runtime;
-    if (!runtime) return;
     active.permissionRoutes ??= new Map();
     if (
       [...active.permissionRoutes.values()].some(
@@ -659,32 +779,38 @@ export class RunController {
       runtime,
       nativeId: permission.id,
       taskId: owner?.id ?? null,
+      execution: lane,
     });
     active.run.permissions.push({
       ...permission,
       id: ticket,
+      taskId: owner?.id,
       patterns: permission.patterns.map((p) => redact(p, active.secrets)),
     });
     active.run.state = "blocked";
-    const task = active.run.tasks.find(
-      (t) => t.id === active.run.currentTaskId,
-    );
+    const task = owner;
     if (task) task.state = "blocked";
     this.record(
       active,
       "PERMISSION_REQUESTED",
       `${permission.permission}: ${permission.patterns.join("; ")}`,
+      taskId,
     );
   }
   private async onEvent(
     active: Active,
     event: Event,
     reconciled = false,
+    lane?: ExecutionContext,
   ): Promise<void> {
     const { run } = active;
-    if (active.desired) return;
-    const owner = run.tasks.find((task) => task.id === run.currentTaskId);
-    const sessionId = owner?.sessionId ?? run.sessionId;
+    if (active.desired || lane?.closed) return;
+    const taskId = lane ? lane.taskId : run.currentTaskId;
+    const owner = run.tasks.find((task) => task.id === taskId);
+    const sessionId = lane
+      ? lane.sessionId
+      : (owner?.sessionId ?? run.sessionId);
+    const runtime = lane ? lane.runtime : active.runtime;
     if (
       sessionId &&
       "sessionID" in event.properties &&
@@ -693,12 +819,12 @@ export class RunController {
       return;
     if (event.type === "session.error") {
       const message =
-        active.runtime?.errorText(event.properties.error) ?? "Runtime báo lỗi.";
+        runtime?.errorText(event.properties.error) ?? "Runtime báo lỗi.";
       void this.stop(
         run.id,
         "failed",
         message,
-        active.runtime?.errorInfo(event.properties.error),
+        runtime?.errorInfo(event.properties.error),
       ).catch(() => {});
       return;
     }
@@ -707,31 +833,37 @@ export class RunController {
     if (sessionId && part.sessionID !== sessionId) return;
     if (part.type === "reasoning" || part.type === "text") return; // Never store reasoning or raw streamed prompt fragments.
     const state = part.type === "tool" ? part.state.status : part.type;
-    const key = `${run.currentTaskId ?? "direct"}:${part.sessionID}:${part.id}:${state}`;
-    if (active.seen.has(key)) return;
-    active.seen.add(key);
+    const key = `${taskId ?? "direct"}:${part.sessionID}:${part.id}:${state}`;
+    const seen = lane?.seen ?? active.seen;
+    if (seen.has(key)) return;
+    seen.add(key);
     if (part.type === "step-finish") {
       run.inputTokens += part.tokens.input;
       run.outputTokens += part.tokens.output;
       if (run.metrics)
         addUsage(run.metrics, part.tokens.input, part.tokens.output);
-      const task = run.tasks.find((t) => t.id === run.currentTaskId);
+      const task = owner;
       if (task?.metrics)
         addUsage(task.metrics, part.tokens.input, part.tokens.output);
       this.record(
         active,
         "MODEL_STEP",
         `Kết thúc bước model · input ${part.tokens.input}, output ${part.tokens.output}`,
+        taskId,
       );
     }
-    if (part.type === "tool") await this.tool(active, part, reconciled);
+    if (part.type === "tool") await this.tool(active, part, reconciled, lane);
   }
   private async tool(
     active: Active,
     part: ToolPart,
     reconciled: boolean,
+    lane?: ExecutionContext,
   ): Promise<void> {
     const { run } = active;
+    const workspace = lane?.workspace ?? run.workspace;
+    const taskId = lane ? lane.taskId : run.currentTaskId;
+    const observation = lane ?? active;
     const state = part.state;
     if (state.status === "pending") return;
     const input = state.input;
@@ -745,7 +877,7 @@ export class RunController {
     if (state.status === "completed") run.toolsCompleted++;
     // Anchor command evidence to an observation made BEFORE execution as well
     // as the post-command snapshot. Timestamps alone cannot detect deletions.
-    const before = active.sourceObservation;
+    const before = observation.sourceObservation;
     const mutatesSource = ![
       "read",
       "glob",
@@ -760,9 +892,10 @@ export class RunController {
     let observed: Awaited<ReturnType<typeof snapshot>> | undefined;
     if (mutatesSource && ["completed", "error"].includes(state.status)) {
       if (!reconciled)
-        observed = await snapshot(run.workspace, true, active.secrets);
+        observed = await snapshot(workspace, true, active.secrets);
       const version = observed && sourceVersion(observed);
-      active.sourceObservation = version
+      if (lane?.closed || active.desired) return;
+      observation.sourceObservation = version
         ? { version, at: Date.now() }
         : undefined;
     }
@@ -774,7 +907,7 @@ export class RunController {
             ? state.error
             : "";
       const fullOutput = redact(rawOutput, active.secrets, 256000);
-      const attemptId = run.currentTaskId ?? "direct";
+      const attemptId = taskId ?? "direct";
       const sessionId = part.sessionID;
       const artifactId = commandArtifactId(
         run.id,
@@ -787,11 +920,11 @@ export class RunController {
         artifactHash: createHash("sha256").update(fullOutput).digest("hex"),
         sessionId,
         sourceVersion: undefined as string | undefined,
-        cwd: redact(String(input.workdir ?? run.workspace), active.secrets),
+        cwd: redact(String(input.workdir ?? workspace), active.secrets),
         startedAt: state.time.start,
         endedAt: "end" in state.time ? state.time.end : undefined,
         outputTruncated: fullOutput.length > 16000 || rawOutput.length > 256000,
-        taskId: run.currentTaskId ?? undefined,
+        taskId: taskId ?? undefined,
         callId: part.callID,
         command: redact(String(input.command ?? ""), active.secrets),
         status: state.status,
@@ -841,6 +974,7 @@ export class RunController {
           ? "TOOL_FAILED"
           : "TOOL_STARTED",
       `${part.tool} · ${title}${state.status === "error" ? " · " + state.error : ""}`,
+      taskId,
     );
   }
   async reply(runId: string, requestId: string, allow: boolean): Promise<void> {
@@ -854,8 +988,15 @@ export class RunController {
     const route = active.permissionRoutes?.get(requestId);
     const runtime =
       route?.runtime ?? (!active.executions ? active.runtime : undefined);
-    if (!runtime) throw new Error("Phiên yêu cầu quyền không còn hoạt động.");
+    if (
+      !runtime ||
+      active.desired ||
+      route?.execution?.closed ||
+      route?.resolving
+    )
+      throw new Error("Phiên yêu cầu quyền không còn hoạt động.");
     const nativeId = route?.nativeId ?? requestId;
+    if (route) route.resolving = true;
     if (!allow) {
       const reason = failure(
         "permission-denied",
@@ -872,8 +1013,14 @@ export class RunController {
       }
       return;
     }
-    await runtime.reply(nativeId, true);
-    if (this.active !== active || active.desired) return;
+    try {
+      await runtime.reply(nativeId, true);
+    } catch (error) {
+      if (route) route.resolving = false;
+      throw error;
+    }
+    if (this.active !== active || active.desired || route?.execution?.closed)
+      return;
     active.run.permissions = active.run.permissions.filter(
       (p) => p.id !== requestId,
     );
@@ -1058,6 +1205,10 @@ export class RunController {
   }
   retry(id: string): Run {
     const previous = this.store.run(id);
+    if (previous.failure?.code === "integration-pending")
+      throw new Error(
+        "Kết quả đang chờ tích hợp. Mở Workspace để xem; thử lại không hợp nhất source.",
+      );
     if (["queued", "running", "blocked", "cancelling"].includes(previous.state))
       throw new Error("Lượt này chưa kết thúc.");
     return this.start(
@@ -1074,6 +1225,10 @@ export class RunController {
   }
   private async inspectRecovery(id: string): Promise<RecoveryPreview> {
     const run = this.store.run(id);
+    if (run.failure?.code === "integration-pending")
+      throw new Error(
+        "Kết quả đang chờ tích hợp. Mở Workspace; tạo attempt mới sẽ không hợp nhất kết quả cũ.",
+      );
     if (
       !["interrupted", "failed", "needs_input", "cancelled"].includes(run.state)
     )

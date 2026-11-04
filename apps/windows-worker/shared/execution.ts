@@ -13,6 +13,7 @@ export type FailureCode =
   | "tool-test-failure"
   | "configuration"
   | "evidence-unverified"
+  | "integration-pending"
   | "needs-context"
   | "interrupted"
   | "runtime";
@@ -47,6 +48,7 @@ export const failureLabels: Record<FailureCode, string> = {
   "tool-test-failure": "Lệnh/kiểm thử lỗi",
   configuration: "Cần cấu hình",
   "evidence-unverified": "Chưa đủ bằng chứng",
+  "integration-pending": "Chờ tích hợp source",
   "needs-context": "Cần bổ sung",
   interrupted: "Bị gián đoạn",
   runtime: "Lỗi runtime",

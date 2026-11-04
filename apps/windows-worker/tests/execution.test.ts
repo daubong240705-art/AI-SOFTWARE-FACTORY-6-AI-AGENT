@@ -345,6 +345,45 @@ test("separate proxies and replacement attempts share one irreversible run budge
   }
 });
 
+test("racing requests across separate proxies cannot overspend a shared run ledger", async () => {
+  const upstream = await gateway(200);
+  const settings = defaultSettings();
+  settings.gatewayUrl = upstream.url;
+  const budget = new RequestBudget(3);
+  const proxies = [0, 1].map(
+    () =>
+      new ModelProxy(
+        settings,
+        undefined,
+        "chosen",
+        () => {},
+        undefined,
+        budget,
+      ),
+  );
+  try {
+    const urls = await Promise.all(proxies.map((p) => p.start()));
+    const responses = await Promise.all(
+      Array.from({ length: 20 }, async (_, i) => {
+        const j = i % 2;
+        const response = await fetch(urls[j] + "/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${proxies[j].token}` },
+          body: JSON.stringify({ model: "chosen" }),
+        });
+        await response.text();
+        return response.status;
+      }),
+    );
+    assert.equal(responses.filter((s) => s === 200).length, 3);
+    assert.equal(upstream.calls(), 3);
+    assert.equal(budget.requests, 3);
+  } finally {
+    await Promise.all(proxies.map((p) => p.close()));
+    await upstream.close();
+  }
+});
+
 test("usage is attributed once per task/session and remains unknown when no samples exist; old history is not backfilled", async () => {
   const x = fixture();
   try {
