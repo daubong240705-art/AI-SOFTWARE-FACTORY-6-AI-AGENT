@@ -524,3 +524,60 @@ def test_deploy_retry_preserves_tested_candidate_and_requires_new_release(execut
         assert fresh[0].input["candidate_sha"] == candidate
         assert "release_job_id" not in fresh[0].input
         assert "release_pipeline_id" not in fresh[0].input
+
+
+@integration
+@pytest.mark.parametrize("role", ["be", "fe", "test"])
+@pytest.mark.parametrize("same_spec", [True, False])
+def test_stage_retry_preserves_candidate_and_requires_same_spec(
+    execution_workspace, role, same_spec
+):
+    from orchestrator.service import retry_run
+
+    run_id, _, _ = execution_workspace
+    candidate = "c" * 40
+    with SessionLocal.begin() as session:
+        run = session.get(Run, run_id)
+        previous = session.scalar(select(Execution).where(Execution.run_id == run_id))
+        previous.role, previous.state = role, "failed"
+        previous.input = {
+            **previous.input,
+            "candidate_sha": candidate,
+            "test_feedback": {"exit_code": 1, "output": "preserve prior feedback"},
+        }
+        predecessor = {"fe": "be", "test": "fe"}.get(role)
+        if predecessor:
+            session.add(
+                Execution(
+                    run_id=run_id,
+                    role=predecessor,
+                    state="succeeded",
+                    attempt=1,
+                    input=dict(previous.input),
+                    result={"candidate_sha": candidate},
+                )
+            )
+        if not same_spec:
+            spec = session.scalar(select(Artifact).where(Artifact.run_id == run_id))
+            spec.content_hash = "d" * 64
+        run.status, run.error_code = "failed", "worker_execution_failed"
+        retry_run(session, run_id, "Retry failed stage without repeating completed coding")
+        run.status = "running"
+        assert executions.start(session, run)
+        assert executions.start(session, run)
+    with SessionLocal() as session:
+        fresh = list(
+            session.scalars(
+                select(Execution).where(
+                    Execution.run_id == run_id,
+                    Execution.input["run_generation"].as_integer() == 2,
+                )
+            )
+        )
+        assert len(fresh) == 1
+        assert fresh[0].state == "pending"
+        assert fresh[0].role == (role if same_spec else "be")
+        assert fresh[0].input["candidate_sha"] == (candidate if same_spec else "a" * 40)
+        assert fresh[0].input["baseline_sha"] == "a" * 40
+        if same_spec:
+            assert fresh[0].input["test_feedback"]["output"] == "preserve prior feedback"
