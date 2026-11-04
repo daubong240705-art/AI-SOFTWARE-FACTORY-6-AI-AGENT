@@ -37,6 +37,7 @@ import type {
 import { Store } from "../storage/database";
 import { OpenCodeRuntime } from "../runtime/opencode";
 import { ModelProxy } from "../gateway/model-proxy";
+import { RequestBudget } from "../gateway/request-budget";
 import { canonicalDirectory } from "../workspace/projects";
 import { changes, snapshot, type Snapshot } from "../workspace/snapshot";
 import { captureGit } from "../workspace/git-evidence";
@@ -46,6 +47,7 @@ type Active = {
   run: Run;
   runtime?: OpenCodeRuntime;
   proxy?: ModelProxy;
+  budget?: RequestBudget;
   baseline?: Snapshot;
   desired?: "cancelled" | "failed";
   stopError?: string;
@@ -468,14 +470,16 @@ export class RunController {
       throw new WorkerError(
         failure("budget-exhausted", "Đã hết số request cho toàn bộ lượt chạy."),
       );
-    const base = run.requests;
+    const budget = (active.budget ??= new RequestBudget(
+      run.settings.maxRequests,
+    ));
     const model = task?.model ?? run.model;
     active.proxy = new ModelProxy(
       { ...run.settings, maxRequests: remaining },
       key,
       model,
       (count) => {
-        run.requests = base + count;
+        run.requests = budget.requests;
         if (task?.metrics) task.metrics.requests = count;
         this.record(
           active,
@@ -486,6 +490,7 @@ export class RunController {
       (error) => {
         void this.stop(run.id, "failed", error.message, error).catch(() => {});
       },
+      budget,
     );
     active.secrets.push(active.proxy.token);
     try {

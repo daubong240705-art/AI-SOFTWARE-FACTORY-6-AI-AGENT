@@ -27,6 +27,7 @@ import {
 } from "../electron/runtime/failure";
 import { ExecutionStopped } from "../electron/runtime/stopped";
 import { ModelProxy } from "../electron/gateway/model-proxy";
+import { RequestBudget } from "../electron/gateway/request-budget";
 import { OpenCodeRuntime } from "../electron/runtime/opencode";
 import { RunController } from "../electron/controller/runs";
 import { Store } from "../electron/storage/database";
@@ -294,6 +295,51 @@ test("shared proxy budget cannot be exceeded by concurrent requests; failure doe
     assert.equal(failures[0].code, "budget-exhausted");
   } finally {
     await proxy.close();
+    await upstream.close();
+  }
+});
+
+test("separate proxies and replacement attempts share one irreversible run budget", async () => {
+  const upstream = await gateway(200);
+  const settings = defaultSettings();
+  settings.gatewayUrl = upstream.url;
+  settings.maxRequests = 10;
+  const budget = new RequestBudget(2);
+  const counts = [0, 0, 0];
+  const proxies = counts.map(
+    (_, i) =>
+      new ModelProxy(
+        settings,
+        undefined,
+        "chosen",
+        (n) => {
+          counts[i] = n;
+        },
+        undefined,
+        budget,
+      ),
+  );
+  try {
+    const urls = await Promise.all(proxies.map((proxy) => proxy.start()));
+    const send = async (i: number) => {
+      const response = await fetch(urls[i] + "/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${proxies[i].token}` },
+        body: JSON.stringify({ model: "chosen" }),
+      });
+      await response.text();
+      return response.status;
+    };
+    assert.deepEqual(await Promise.all([send(0), send(1)]), [200, 200]);
+    await Promise.all([proxies[0].close(), proxies[1].close()]);
+    assert.equal(await send(2), 403);
+    assert.equal(await send(2), 409);
+    assert.equal(budget.requests, 2);
+    assert.deepEqual(counts, [1, 1, 0]);
+    assert.equal(upstream.calls(), 2);
+    assert.equal(budget.reserve(), false);
+  } finally {
+    await Promise.all(proxies.map((proxy) => proxy.close()));
     await upstream.close();
   }
 });

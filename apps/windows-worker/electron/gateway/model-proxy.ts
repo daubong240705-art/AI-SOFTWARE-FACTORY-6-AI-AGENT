@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import type { Settings } from "../../shared/contracts";
 import type { ExecutionFailure } from "../../shared/execution";
 import { failure } from "../runtime/failure";
+import { RequestBudget } from "./request-budget";
 
 export class ModelProxy {
   readonly token = randomBytes(32).toString("hex");
@@ -20,6 +21,7 @@ export class ModelProxy {
     private model: string,
     private onRequest: (count: number) => void,
     private onFailure?: (error: ExecutionFailure) => void,
+    private budget: RequestBudget = new RequestBudget(settings.maxRequests),
   ) {}
   private reject(error: ExecutionFailure): void {
     if (this.terminal || this.closed) return;
@@ -83,7 +85,7 @@ export class ModelProxy {
           fail(409, "Execution stopped; automatic replay denied");
           return;
         }
-        if (this.requests >= this.settings.maxRequests) {
+        if (!this.budget.reserve()) {
           fail(403, "execution_request_limit_exceeded");
           this.reject(
             failure(
