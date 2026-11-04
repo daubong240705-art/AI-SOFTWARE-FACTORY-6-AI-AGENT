@@ -1,5 +1,7 @@
 # V1.3 mở rộng — Agent Monitor, Kanban và AI Office 3D
 
+> **Điều chỉnh ngày 05/11/2026:** người dùng yêu cầu tạm dừng phần 3D. Giữ D-01–04; hoãn D-05 và các phần E phụ thuộc 3D. Ưu tiên kế tiếp chuyển sang [cải thiện trải nghiệm 2D tham khảo CrewHub Loops](../experience-loops/README.md). Kế hoạch dưới đây lưu phạm vi ban đầu; không tiếp tục D-05 theo thứ tự cũ khi chưa có yêu cầu mới.
+
 Ngày lập: 04/11/2026; cập nhật 05/11/2026. **A–C, UI foundation và D-01–04 đã triển khai; hiện tại `1.3.0-alpha.8`. D-05 và E còn lại.** Người dùng đã chọn tên V1.3 mở rộng thay cho V1.13. [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [B](../../docs/windows-worker/v1.3b-completion.md), [C](../../docs/windows-worker/v1.3c-completion.md), [D-01/D-02](../../docs/windows-worker/office-3d/README.md), [D-03](../../docs/windows-worker/office-3d/d03/README.md), [D-04](../../docs/windows-worker/office-3d/d04/README.md).
 
 ## 1. Kết quả cần đạt
@@ -73,6 +75,6 @@ Factory Lite + Windows Worker và một Controller tiếp tục là kiến trúc
 
 ## 7. Điểm bắt đầu khi code
 
-Đã hoàn thiện **V1.3A–C**, UI foundation và **D-01–04**: phòng bảy vị trí, trạng thái execution, chọn agent/task, inspector và điều hướng Kanban/Chat. Tiếp theo **D-05 — chất lượng, reduced motion và lifecycle render**, sau đó E đo hiệu năng, fallback và nghiệm thu model thật. Không cần chuẩn bị VM.
+Đã hoàn thiện **V1.3A–C**, UI foundation và **D-01–04**: phòng bảy vị trí, trạng thái execution, chọn agent/task, inspector và điều hướng Kanban/Chat. **D-05 và phần E phụ thuộc 3D tạm hoãn theo yêu cầu mới.** Bước đề xuất tiếp theo là **UX-01 — Tổng quan, điều hướng và hoạt động gọn** trong [kế hoạch trải nghiệm 2D](../experience-loops/implementation.md). Không cần chuẩn bị VM.
 
-V1.3A thêm snapshot/trạng thái và migration schema 7; B–C/D dùng schema này. D-01 thêm Three/R3F pin phiên bản, không đổi credentials/cấu hình hệ thống. File roadmap người dùng cung cấp được giữ nguyên. Bước code tiếp theo là D-05.
+V1.3A thêm snapshot/trạng thái và migration schema 7; B–C/D dùng schema này. D-01 thêm Three/R3F pin phiên bản, không đổi credentials/cấu hình hệ thống. File roadmap người dùng cung cấp được giữ nguyên. Kế hoạch Loops hiện chỉ là tài liệu, chưa thay đổi runtime hoặc nâng schema.
