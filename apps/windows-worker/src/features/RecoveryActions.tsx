@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Run } from "../../shared/runs";
 import type { RecoveryPreview } from "../../shared/lifecycle";
+import { Notice } from "../ui/primitives";
 export function RecoveryActions({
   run,
   onChanged,
@@ -81,28 +82,33 @@ export function RecoveryActions({
         </button>
       )}
       {preview && (
-        <div className="notice">
+        <Notice
+          actions={
+            <>
+              <button
+                disabled={busy || !preview.complete}
+                onClick={() => void proceed()}
+              >
+                Tiếp tục · attempt mới
+              </button>
+              <button disabled={busy} onClick={() => setPreview(null)}>
+                Đóng
+              </button>
+            </>
+          }
+        >
           <p>{preview.message}</p>
           <p className="small">
             {preview.changed
               ? "Source/Git đã đổi hoặc chưa có checkpoint cũ."
               : "Source/Git khớp checkpoint đã lưu."}
           </p>
-          <button
-            disabled={busy || !preview.complete}
-            onClick={() => void proceed()}
-          >
-            Tiếp tục · attempt mới
-          </button>
-          <button disabled={busy} onClick={() => setPreview(null)}>
-            Đóng
-          </button>
           {!preview.complete && (
             <p className="warning-text small">
               Snapshot chưa đủ; cần xử lý trước khi tiếp tục.
             </p>
           )}
-        </div>
+        </Notice>
       )}
       {error && <p className="warning-text small">{error}</p>}
     </section>

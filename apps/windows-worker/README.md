@@ -73,6 +73,8 @@ Bỏ project khỏi danh sách không xóa source hoặc hội thoại. Mở l�
 
 ## Kiểm tra phát triển
 
+Bộ nền giao diện `1.3.0-alpha.4`: [quy chuẩn typography, spacing, layout, bảng/Kanban và checklist](../../docs/windows-worker/ui-foundation/README.md). Sau build, chạy `node scripts/run-acceptance.cjs ui-foundation` để kiểm tra bố cục production Electron ở năm cấu hình cửa sổ/zoom; không gọi model. [Kết quả bàn giao](../../docs/windows-worker/ui-foundation/completion.md).
+
 ```powershell
 npm run typecheck
 npm test

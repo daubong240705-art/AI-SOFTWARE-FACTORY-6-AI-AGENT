@@ -2,6 +2,7 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Copy } from "lucide-react";
 import { memo, useState } from "react";
+import { ScrollRegion } from "../ui/primitives";
 function CodeBlock({ children }: { children: React.ReactNode }) {
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -42,6 +43,14 @@ export const ChatMarkdown = memo(function ChatMarkdown({
         skipHtml
         remarkPlugins={[remarkGfm]}
         components={{
+          table: ({ children }) => (
+            <ScrollRegion
+              label="Bảng trong phản hồi"
+              className="markdown-table"
+            >
+              <table>{children}</table>
+            </ScrollRegion>
+          ),
           pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
           a: ({ href, children }) =>
             href && /^https?:\/\//i.test(href) ? (

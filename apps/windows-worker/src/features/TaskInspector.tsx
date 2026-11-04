@@ -14,7 +14,6 @@ import { AcceptanceEvidence } from "./AcceptanceEvidence";
 import { CommandEvidence } from "./CommandEvidence";
 import { TaskChanges } from "./TaskChanges";
 import { RecoveryActions } from "./RecoveryActions";
-import "../inspector.css";
 
 export function TaskInspector({
   selection,
@@ -212,7 +211,7 @@ export function TaskInspector({
             ))}
           </div>
           {tab === "overview" && (
-            <>
+            <div className="inspector-content">
               {task && <p>{task.instructions}</p>}
               <dl className="inspector-facts">
                 <dt>Trạng thái</dt>
@@ -326,7 +325,7 @@ export function TaskInspector({
                   onChanged={() => void feed.refresh?.()}
                 />
               )}
-            </>
+            </div>
           )}
           {tab === "timeline" && (
             <ActivityLog

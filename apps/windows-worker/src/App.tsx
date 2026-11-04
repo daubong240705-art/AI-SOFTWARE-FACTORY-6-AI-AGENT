@@ -715,7 +715,7 @@ export function App() {
           )}
           <span className="phase-badge">
             <span />
-            Desktop · V1.3B
+            Desktop
           </span>
         </header>
         <main className={page === "project" ? "chat-main" : ""}>

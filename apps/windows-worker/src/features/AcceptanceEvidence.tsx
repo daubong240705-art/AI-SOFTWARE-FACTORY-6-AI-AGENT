@@ -38,7 +38,12 @@ export function AcceptanceEvidence({ refs }: { refs: EvidenceRef[] }) {
     <>
       <div className="inline">
         {refs.map((ref, i) => (
-          <button key={i} disabled={loading} onClick={() => void open(ref)}>
+          <button
+            className="ui-wrap"
+            key={i}
+            disabled={loading}
+            onClick={() => void open(ref)}
+          >
             {ref.kind === "command" ? `Lệnh · ${ref.attemptId}` : ref.path}
           </button>
         ))}

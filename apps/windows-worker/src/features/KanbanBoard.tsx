@@ -9,7 +9,6 @@ import {
 import { roles, type Reply, type Role } from "../../shared/contracts";
 import { availabilityLabels } from "../../shared/monitor";
 import { useMonitor } from "../lib/use-monitor";
-import "../kanban.css";
 
 async function unwrap<T>(reply: Promise<Reply<T>>) {
   const result = await reply;

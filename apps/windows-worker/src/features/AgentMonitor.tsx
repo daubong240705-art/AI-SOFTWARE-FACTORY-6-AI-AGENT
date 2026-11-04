@@ -2,7 +2,6 @@ import { useState } from "react";
 import { activityLabels, availabilityLabels } from "../../shared/monitor";
 import { runLabels, type RunState } from "../../shared/runs";
 import type { MonitorState } from "../lib/monitor-store";
-import "../monitor.css";
 
 function duration(start: string | null, now: string): string {
   if (!start) return "";

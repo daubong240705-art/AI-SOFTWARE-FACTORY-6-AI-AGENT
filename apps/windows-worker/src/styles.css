@@ -257,20 +257,6 @@
   color: #8e8e9a;
   margin-top: 7px;
 }
-:root {
-  font-family: "Segoe UI", system-ui, sans-serif;
-  color: #ececee;
-  background: #18181a;
-  font-synthesis: none;
-  font-size: 14px;
-  color-scheme: dark;
-  --bg: #18181a;
-  --surface: #202022;
-  --border: #333336;
-  --muted: #97979f;
-  --accent: #fa8c69;
-  --hover: #29292d;
-}
 * {
   box-sizing: border-box;
 }
@@ -474,12 +460,12 @@ small,
 .nav-caption {
   margin-bottom: 12px;
 }
-nav {
+.sidebar nav {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
-nav button {
+.sidebar nav button {
   background: transparent;
   border-color: transparent;
   justify-content: flex-start;
@@ -488,12 +474,12 @@ nav button {
   min-height: 42px;
   gap: 12px;
 }
-nav button.active {
+.sidebar nav button.active {
   background: #fa8c6912;
   color: #ffa182;
   border-color: #fa8c6922;
 }
-nav button.active:hover {
+.sidebar nav button.active:hover {
   background: #fa8c6920 !important;
 }
 .nav-dot {
@@ -1220,7 +1206,7 @@ main {
 }
 .compact .brand-text,
 .compact .nav-caption,
-.compact nav button > span,
+.compact .sidebar nav button > span,
 .compact .recent-title,
 .compact .recent-list,
 .compact .sidebar-bottom .local-state,
@@ -1231,7 +1217,7 @@ main {
   margin-left: 72px;
   width: calc(100% - 72px);
 }
-.compact nav button {
+.compact .sidebar nav button {
   justify-content: center;
   padding: 12px;
 }
