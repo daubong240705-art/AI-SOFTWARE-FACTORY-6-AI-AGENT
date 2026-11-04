@@ -38,6 +38,8 @@ import { ChatWorkspace } from "./features/ChatWorkspace";
 import { AgentMonitor } from "./features/AgentMonitor";
 import { KanbanBoard } from "./features/KanbanBoard";
 import { useMonitor } from "./lib/use-monitor";
+import { TaskInspector } from "./features/TaskInspector";
+import type { InspectorSelection } from "../shared/inspector";
 import { HistoryTools } from "./features/HistoryTools";
 import type { ConversationSummary } from "../shared/chat";
 import type { RuntimeView } from "../shared/runs";
@@ -113,6 +115,36 @@ export function App() {
   const [conversationSearch, setConversationSearch] = useState("");
   const [chatRefresh, setChatRefresh] = useState(0);
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
+  const [openRunVersion, setOpenRunVersion] = useState(0);
+  const [inspection, setInspection] = useState<InspectorSelection | null>(null);
+  const [boardRunId, setBoardRunId] = useState<string | null>(null);
+  useEffect(() => {
+    setInspection(null);
+    setBoardRunId(null);
+  }, [project?.id]);
+  function inspect(
+    runId: string,
+    taskId?: string | null,
+    executionId?: string,
+  ) {
+    if (project)
+      setInspection({ projectId: project.id, runId, taskId, executionId });
+  }
+  async function openInspectedChat(runId: string, conversation: string | null) {
+    await flushDraft();
+    setOpenRunVersion((n) => n + 1);
+    setSelectedRun(runId);
+    setConversationId(conversation);
+    setInspection(null);
+    await navigate("project");
+  }
+  async function openInspectorWorkspace(selected: Project) {
+    await flushDraft();
+    const data = await value(window.worker.bootstrap());
+    setBoot(data);
+    setInspection(null);
+    await selectProject(selected);
+  }
   const monitor = useMonitor(
     project && ["project", "monitor"].includes(page) ? project.id : null,
   );
@@ -732,6 +764,7 @@ export function App() {
                 <ChatWorkspace
                   key={conversationId ?? "empty"}
                   draftFlush={chatFlush}
+                  onInspect={inspect}
                   project={project}
                   status={status}
                   conversationId={conversationId}
@@ -739,6 +772,7 @@ export function App() {
                   models={models}
                   runtime={runtime}
                   initialRunId={selectedRun}
+                  openRunVersion={openRunVersion}
                   saveSettings={save}
                   setModel={(role, model) => updateAgent(role, { model })}
                   setPermissionMode={(permissionMode) =>
@@ -760,7 +794,9 @@ export function App() {
               {page === "board" &&
                 (project ? (
                   <KanbanBoard
-                    key={project.id}
+                    key={`${project.id}:${boardRunId}`}
+                    initialRunId={boardRunId}
+                    onInspect={inspect}
                     projectId={project.id}
                     projectName={project.name}
                     onOpenRun={(id, conversation) => {
@@ -782,6 +818,7 @@ export function App() {
               {page === "monitor" &&
                 (project ? (
                   <AgentMonitor
+                    onInspect={inspect}
                     state={monitor}
                     projectName={project.name}
                     onRefresh={() => void monitor.refresh?.()}
@@ -1340,6 +1377,28 @@ export function App() {
             </div>
           </section>
         </div>
+      )}
+      {inspection && project?.id === inspection.projectId && (
+        <TaskInspector
+          key={`${inspection.projectId}:${inspection.runId}`}
+          selection={inspection}
+          activeId={runtime.activeId}
+          onClose={() => setInspection(null)}
+          onSelect={setInspection}
+          onChat={openInspectedChat}
+          onBoard={async (runId) => {
+            await flushDraft();
+            setBoardRunId(runId);
+            setInspection(null);
+            await navigate("board");
+          }}
+          onAgents={async () => {
+            await flushDraft();
+            setInspection(null);
+            await navigate("monitor");
+          }}
+          onOpenWorkspace={openInspectorWorkspace}
+        />
       )}
       {remove && (
         <div className="modal-backdrop">

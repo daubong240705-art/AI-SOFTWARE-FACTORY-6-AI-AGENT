@@ -189,12 +189,14 @@ export function projectMonitor(
       waiting,
       lastFinished: finished
         ? {
+            taskId: finished.id,
             title: redact(finished.title, secrets, 160),
             at: finished.endedAt,
             outcome: finished.state,
           }
         : directFinished
           ? {
+              taskId: null,
               title: redact(run!.prompt, secrets, 160),
               at: run!.endedAt,
               outcome: run!.state,

@@ -439,6 +439,14 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
     assert.equal(calls.length, 8); // No report parsing/formatting model round trips.
     assert.equal(calls.filter((id) => id === "t2").length, 1);
     assert.ok(calls.includes("t1-fix-1"));
+    for (const task of run.tasks.filter((t) =>
+      ["work", "fix"].includes(t.kind),
+    )) {
+      assert.ok(
+        task.baseEvidence?.sourceVersion,
+        `Missing baseline for ${task.id}`,
+      );
+    }
     assert.ok(calls.includes("t3-retry-1"));
     assert.equal(run.tasks.find((t) => t.id === "t3")!.state, "failed");
     assert.equal(

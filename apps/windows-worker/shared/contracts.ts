@@ -179,6 +179,9 @@ export interface WorkerAPI {
   acceptanceEvidence(
     ref: import("./evidence").EvidenceRef,
   ): Promise<Reply<string>>;
+  taskFileDiff(
+    ref: import("./evidence").EvidenceRef,
+  ): Promise<Reply<Pick<FileDiff, "patch" | "binary" | "reason">>>;
   commandOutput(input: {
     runId: string;
     callId: string;

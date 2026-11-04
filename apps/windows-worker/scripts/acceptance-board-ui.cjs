@@ -269,8 +269,11 @@ app.whenReady().then(async () => {
       (await win.webContents.capturePage()).toPNG(),
     );
     await js("document.querySelector('.review .board-card-title').click()");
+    await until(() =>
+      js("!!document.querySelector('.task-inspector[open] .inspector-title')"),
+    );
     await js(
-      "Array.from(document.querySelectorAll('.board-details button')).find(b=>b.textContent==='Mở kết quả / task').click()",
+      "Array.from(document.querySelectorAll('.task-inspector button')).find(b=>b.textContent==='Mở Chat').click()",
     );
     await until(() => js("!!document.querySelector('.chat-detail-panel')"));
     assert.deepEqual(errors, []);

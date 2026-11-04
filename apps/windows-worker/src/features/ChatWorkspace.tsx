@@ -24,7 +24,9 @@ import type {
   Role,
   Settings,
 } from "../../shared/contracts";
-import type { RuntimeView as View, RunDetail } from "../../shared/runs";
+import type { RuntimeView as View } from "../../shared/runs";
+import { useRunDetail } from "../lib/use-run-detail";
+import { runCapabilities } from "../../shared/inspector";
 import { isActive, runLabels } from "../../shared/runs";
 import type { ConversationDetail } from "../../shared/chat";
 import { RunPanel } from "./RunPanel";
@@ -46,6 +48,7 @@ type Props = {
   models: string[];
   runtime: View;
   initialRunId: string | null;
+  openRunVersion?: number;
   saveSettings: () => Promise<unknown>;
   setModel: (role: Role, model: string) => void;
   setPermissionMode: (mode: Settings["permissionMode"]) => void;
@@ -55,6 +58,7 @@ type Props = {
   onChanged: () => void;
   onActive: () => void;
   onOpenWorkspace: (project: Project) => Promise<void>;
+  onInspect: (runId: string, taskId?: string) => void;
 };
 export function ChatWorkspace({
   draftFlush,
@@ -65,6 +69,7 @@ export function ChatWorkspace({
   models,
   runtime,
   initialRunId,
+  openRunVersion,
   saveSettings,
   setModel,
   setPermissionMode,
@@ -74,6 +79,7 @@ export function ChatWorkspace({
   onChanged,
   onActive,
   onOpenWorkspace,
+  onInspect,
 }: Props) {
   const [chat, setChat] = useState<ConversationDetail | null>(null);
   const [draft, setDraft] = useState("");
@@ -87,12 +93,24 @@ export function ChatWorkspace({
   const [draftState, setDraftState] = useState("");
   const [mode, setMode] = useState<"team" | "direct">("team");
   const [role, setRole] = useState<Role>("be");
-  const [current, setCurrent] = useState<RunDetail | null>(null);
+  const [latestRunId, setLatestRunId] = useState<string | null>(null);
   const [panelRun, setPanelRun] = useState<string | null>(initialRunId);
-  const [panelDetail, setPanelDetail] = useState<RunDetail | null>(null);
   const [panel, setPanel] = useState<string | null>(
     initialRunId ? "result" : null,
   );
+  const currentFeed = useRunDetail(project?.id ?? null, latestRunId);
+  const panelFeed = useRunDetail(
+    project?.id ?? null,
+    panel ? (panelRun ?? latestRunId) : null,
+  );
+  const current = currentFeed.detail,
+    panelDetail = panelFeed.detail;
+  useEffect(() => {
+    if (initialRunId) {
+      setPanelRun(initialRunId);
+      setPanel("result");
+    }
+  }, [initialRunId, openRunVersion]);
   const [title, setTitle] = useState("");
   const [renaming, setRenaming] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -178,15 +196,7 @@ export function ChatWorkspace({
           inputRef.current?.focus();
         }
         const latest = detail.messages.at(-1)?.runId;
-        if (latest) {
-          const run = await unwrap(window.worker.runDetail(latest));
-          if (alive) setCurrent(run);
-        } else if (alive) setCurrent(null);
-        const selected = panelRun ?? latest;
-        if (selected) {
-          const run = await unwrap(window.worker.runDetail(selected));
-          if (alive) setPanelDetail(run);
-        } else if (alive) setPanelDetail(null);
+        setLatestRunId(latest ?? null);
       } catch (e) {
         if (alive)
           setError(
@@ -200,7 +210,11 @@ export function ChatWorkspace({
       alive = false;
       clearTimeout(timer);
     };
-  }, [conversationId, panelRun, refresh]);
+  }, [conversationId, refresh]);
+  useEffect(() => {
+    void currentFeed.refresh?.();
+    if (panelRun && panelRun !== latestRunId) void panelFeed.refresh?.();
+  }, [refresh]);
   useEffect(() => {
     const element = scrollRef.current;
     if (!element) return;
@@ -295,7 +309,7 @@ export function ChatWorkspace({
             }
           : c,
       );
-      setCurrent({ run, events: [] });
+      setLatestRunId(run.id);
       setPanelRun(null);
       setRefresh((n) => n + 1);
       nearBottom.current = true;
@@ -577,6 +591,9 @@ export function ChatWorkspace({
                     </button>
                     {message.role === "assistant" && (
                       <>
+                        <button onClick={() => onInspect(message.runId)}>
+                          Chi tiết
+                        </button>
                         {message.retryOf && (
                           <button
                             onClick={() =>
@@ -696,6 +713,12 @@ export function ChatWorkspace({
               </button>
             </div>
           )}
+          {(currentFeed.error || currentFeed.stale) && (
+            <p role="status" className="notice">
+              {currentFeed.error ||
+                "Chưa đồng bộ · Trạng thái lượt chạy lần cuối"}
+            </p>
+          )}
           {current?.run.permissions.map((p) => (
             <div className="chat-permission" key={p.id}>
               <strong>
@@ -705,14 +728,14 @@ export function ChatWorkspace({
               <pre>{p.patterns.join("\n")}</pre>
               <div className="inline">
                 <button
-                  disabled={busy}
+                  disabled={busy || currentFeed.stale || !!currentFeed.error}
                   onClick={() => void permission(p.id, false)}
                 >
                   Từ chối
                 </button>
                 <button
                   className="primary"
-                  disabled={busy}
+                  disabled={busy || currentFeed.stale || !!currentFeed.error}
                   onClick={() => void permission(p.id, true)}
                 >
                   Cho phép
@@ -898,6 +921,11 @@ export function ChatWorkspace({
             </button>
           </div>
           <div className="chat-detail-body">
+            {(panelFeed.error || panelFeed.stale) && (
+              <p role="status" className="notice">
+                {panelFeed.error || "Chưa đồng bộ · Chi tiết lần cuối"}
+              </p>
+            )}
             {panel === "workspaces" && project ? (
               <Workspaces
                 key={project.id}
@@ -915,9 +943,16 @@ export function ChatWorkspace({
             ) : (
               <RunPanel
                 detail={panelDetail}
+                onInspect={onInspect}
+                showRecovery={
+                  !!panelDetail &&
+                  runCapabilities(panelDetail.run, activeId).recovery &&
+                  !panelFeed.stale &&
+                  !panelFeed.error
+                }
                 onOpenWorkspace={onOpenWorkspace}
                 tab={panel}
-                busy={busy}
+                busy={busy || panelFeed.stale || !!panelFeed.error}
                 showPermissions={false}
                 onPermission={() => {}}
               />

@@ -1,12 +1,23 @@
 import { useState } from "react";
 import type { RunDetail } from "../../shared/runs";
 import { isActive } from "../../shared/runs";
+import { TaskTimeline } from "./TaskTimeline";
 
-export function ActivityLog({ detail }: { detail: RunDetail }) {
+export function ActivityLog({
+  detail,
+  taskId,
+}: {
+  detail: RunDetail;
+  taskId?: string;
+}) {
   const [technical, setTechnical] = useState(false);
   const [search, setSearch] = useState("");
   const [eventType, setEventType] = useState("");
-  const { run, events } = detail;
+  const { run } = detail;
+  const events = detail.events.filter(
+    (e) => !taskId || e.metadata?.taskId === taskId,
+  );
+  const commands = run.commands.filter((c) => !taskId || c.taskId === taskId);
   const current = run.tasks.find((task) => task.id === run.currentTaskId);
   const working = run.tasks.some((task) => ["work", "fix"].includes(task.kind));
   return (
@@ -21,14 +32,15 @@ export function ActivityLog({ detail }: { detail: RunDetail }) {
       {!working && run.state === "completed" && (
         <p className="muted small">Đã trả lời.</p>
       )}
-      {!!run.commands.length && (
+      <TaskTimeline detail={detail} taskId={taskId} />
+      {!!commands.length && (
         <div className="activity-commands" aria-label="Lệnh thực thi">
-          {run.commands.length > 5 && (
+          {commands.length > 5 && (
             <p className="small muted">
-              {run.commands.length} lệnh · 5 lệnh gần nhất
+              {commands.length} lệnh · 5 lệnh gần nhất
             </p>
           )}
-          {run.commands.slice(-5).map((command, index) => (
+          {commands.slice(-5).map((command, index) => (
             <div className="activity-command" key={command.artifactId ?? index}>
               <code title={command.command}>{command.command}</code>
               <span className="muted small">

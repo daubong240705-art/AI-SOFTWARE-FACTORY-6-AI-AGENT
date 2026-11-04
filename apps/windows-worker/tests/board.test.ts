@@ -422,6 +422,12 @@ test("project history pagination/filtering exceeds 50 runs, deduplicates retry a
     x.store.createRun(next);
     x.store.updateRun(next);
     assert.equal([...x.store.boardRuns(x.project.id)].length, 56);
+    assert.equal(
+      projectBoard([], [], x.store.boardRuns(x.project.id), [], {
+        runId: previous.id,
+      }).cards[0].runId,
+      next.id,
+    );
     const json = JSON.stringify(
       projectBoard([], [], x.store.boardRuns(x.project.id), [], {}),
     );

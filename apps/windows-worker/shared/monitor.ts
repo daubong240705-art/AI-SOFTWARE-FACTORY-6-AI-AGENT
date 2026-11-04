@@ -86,7 +86,12 @@ export type AgentStatus = {
   enabled: boolean;
   executions: AgentExecution[];
   waiting: { taskId: string; title: string; reason: string }[];
-  lastFinished: { title: string; at: string | null; outcome: string } | null;
+  lastFinished: {
+    title: string;
+    at: string | null;
+    outcome: string;
+    taskId?: string | null;
+  } | null;
 };
 export type MonitorSnapshot = {
   epoch: string;

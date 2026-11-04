@@ -28,12 +28,18 @@ export function KanbanBoard({
   projectId,
   projectName,
   onOpenRun,
+  onInspect,
+  initialRunId,
 }: {
   projectId: string;
   projectName: string;
   onOpenRun: (runId: string | null, conversationId: string | null) => void;
+  onInspect: (runId: string) => void;
+  initialRunId?: string | null;
 }) {
-  const [query, setQuery] = useState<BoardQuery>({});
+  const [query, setQuery] = useState<BoardQuery>(
+    initialRunId ? { runId: initialRunId, showStopped: true } : {},
+  );
   const monitor = useMonitor(projectId, query);
   const [editing, setEditing] = useState<BoardItem | "new" | null>(null);
   const [draft, setDraft] = useState(blank);
@@ -48,7 +54,8 @@ export function KanbanBoard({
     else dialog.current?.close();
   }, [editing]);
   useEffect(() => {
-    if (selected && page)
+    if (!selected && initialRunId && page) setSelected(page.cards[0] ?? null);
+    else if (selected && page)
       setSelected(page.cards.find((card) => card.key === selected.key) ?? null);
   }, [page]);
   async function action(fn: () => Promise<void>) {
@@ -163,6 +170,11 @@ export function KanbanBoard({
         ))}
       </div>
       <div className="board-filters">
+        {query.runId && (
+          <button onClick={() => filter({ runId: undefined })}>
+            Bỏ lọc lượt chạy
+          </button>
+        )}
         <input
           aria-label="Tìm công việc"
           placeholder="Tìm tiêu đề, task…"
@@ -324,7 +336,10 @@ export function KanbanBoard({
                     >
                       <button
                         className="board-card-title"
-                        onClick={() => setSelected(card)}
+                        onClick={() => {
+                          setSelected(card);
+                          if (card.runId) onInspect(card.runId);
+                        }}
                       >
                         {card.title}
                       </button>
@@ -415,6 +430,11 @@ export function KanbanBoard({
             </p>
           )}
           <div className="board-detail-actions">
+            {selected.runId && (
+              <button onClick={() => onInspect(selected.runId!)}>
+                Chi tiết công việc
+              </button>
+            )}
             {selected.runId && (
               <button
                 onClick={() =>

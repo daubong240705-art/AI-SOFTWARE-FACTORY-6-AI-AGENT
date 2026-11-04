@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "fixture": true,
+  "providerCalls": 0,
+  "sharedRunCallsIn2800ms": 1,
+  "checks": [
+    "Production Electron with real SQLite and IPC",
+    "Chat/RunPanel/inspector share one run feed",
+    "Exact attempt selection, snapshot model and latest dependency",
+    "Compact task timeline hides model payload and preserves technical log",
+    "Task diff loads lazily from immutable baseline; invalid session rejected",
+    "A new saved source version clears previous diff and reloads exact evidence",
+    "Command output is lazy; native dialog keeps focus and closes with Escape",
+    "Small window inspector remains within viewport",
+    "Chat, Kanban and agent monitor open the shared inspector",
+    "Draft and selected conversation survive navigation"
+  ],
+  "rendererErrors": []
+}

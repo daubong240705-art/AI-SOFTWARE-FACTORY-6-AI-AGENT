@@ -117,6 +117,7 @@ export function projectBoard(
   const byItem = new Map(items.map((item) => [item.id, item]));
   const cards: BoardCard[] = [];
   const extraSearch = new Map<string, string>();
+  const rootIds = new Map<string, string>();
   for (const run of runs) {
     const link = byRun.get(run.id),
       item = link ? byItem.get(link.itemId) : undefined;
@@ -133,6 +134,7 @@ export function projectBoard(
       });
     }
     cards.push(card);
+    rootIds.set(card.key, run.rootId);
     extraSearch.set(
       card.key,
       run.tasks
@@ -202,7 +204,9 @@ export function projectBoard(
       (!query.column || card.column === query.column) &&
       (query.priority === undefined || card.priority === query.priority) &&
       (!query.conversationId || card.conversationId === query.conversationId) &&
-      (!query.runId || card.runId === query.runId) &&
+      (!query.runId ||
+        card.runId === query.runId ||
+        rootIds.get(card.key) === query.runId) &&
       (!query.workType || card.workTypes.includes(query.workType)) &&
       (!search ||
         normalize(`${card.title} ${extraSearch.get(card.key) ?? ""}`).includes(

@@ -1,4 +1,5 @@
 export const channels = {
+  taskFileDiff: "worker:task-file-diff",
   createBoardItem: "worker:board-create",
   boardItem: "worker:board-item",
   updateBoardItem: "worker:board-update",

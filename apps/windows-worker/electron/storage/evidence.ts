@@ -8,8 +8,10 @@ import type {
   FileVersion,
   FileDiff,
   TaskEvidence,
+  EvidenceRef,
 } from "../../shared/evidence";
-import { sourceVersion } from "../team/evidence";
+import { sourceVersion, readEvidence } from "../team/evidence";
+import type { Run } from "../../shared/runs";
 import { inScope } from "../../shared/team";
 import type { Snapshot } from "../workspace/snapshot";
 import type { GitCapture } from "../workspace/git-evidence";
@@ -82,6 +84,32 @@ export function patchFor(
   }
 }
 export class EvidenceStore {
+  taskDiff(
+    run: Run,
+    ref: EvidenceRef,
+  ): Pick<FileDiff, "patch" | "binary" | "reason"> {
+    if (ref.kind !== "file") throw new Error("Chỉ mở diff của file evidence.");
+    readEvidence(run, ref, this); // Validate exact run/task/attempt/session/source/hash.
+    const task = run.tasks.find((t) => t.id === ref.attemptId)!;
+    const added = task.changes.some(
+      (file) => file.path === ref.path && file.kind === "added",
+    );
+    if (
+      !task.baseEvidence ||
+      (!Object.hasOwn(task.baseEvidence.files, ref.path) && !added)
+    )
+      return {
+        patch: "",
+        binary: false,
+        reason:
+          "Attempt này chưa lưu baseline file; mở nội dung evidence để xem kết quả.",
+      };
+    return patchFor(
+      ref.path,
+      this.bytes(task.baseEvidence.files[ref.path] ?? null),
+      this.bytes(task.evidence!.files[ref.path]),
+    );
+  }
   constructor(
     private db: Database.Database,
     directory: string,

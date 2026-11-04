@@ -3,6 +3,7 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  taskFileDiff: (ref) => ipcRenderer.invoke(channels.taskFileDiff, ref),
   createBoardItem: (input) =>
     ipcRenderer.invoke(channels.createBoardItem, input),
   boardItem: (id) => ipcRenderer.invoke(channels.boardItem, id),

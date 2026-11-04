@@ -1,6 +1,6 @@
 # V1.3 — Backlog triển khai và nghiệm thu
 
-**V1.3A–B đã triển khai; hiện tại `1.3.0-alpha.2`. C–E chưa triển khai.** [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [bàn giao và giới hạn B](../../docs/windows-worker/v1.3b-completion.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
+**V1.3A–C đã triển khai; hiện tại `1.3.0-alpha.3`. D–E chưa triển khai.** [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [B](../../docs/windows-worker/v1.3b-completion.md), [C và giới hạn](../../docs/windows-worker/v1.3c-completion.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
 
 ## 0. Chuẩn bị trước thay đổi lớn
 
@@ -43,6 +43,8 @@
 **Mốc bàn giao:** bản Kanban dùng được hằng ngày, theo dõi đầy đủ bằng 2D. Một commit tính năng và bằng chứng B; không cần chạy build ASF gốc.
 
 ## V1.3C — Inspector, timeline và Chat gọn
+
+**Đã triển khai C-01–05** ở `1.3.0-alpha.3`: dialog native dùng chung, bốn tab gọn, feed chi tiết chia sẻ giữa các view và task diff immutable. Nghiệm thu model thật và đo hiệu năng tổng thể giữ ở E. [Bằng chứng và giới hạn](../../docs/windows-worker/v1.3c-completion.md).
 
 | Mã | Công việc | Phụ thuộc | Kết quả nghiệm thu |
 |---|---|---|---|

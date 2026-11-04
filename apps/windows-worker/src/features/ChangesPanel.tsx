@@ -48,7 +48,13 @@ export function PatchView({ patch }: { patch: string }) {
     </div>
   );
 }
-export function ChangesPanel({ run }: { run: Run }) {
+export function ChangesPanel({
+  run,
+  disabled = false,
+}: {
+  run: Run;
+  disabled?: boolean;
+}) {
   const [view, setView] = useState<EvidenceView | null>(null),
     [error, setError] = useState("");
   const [legacy, setLegacy] = useState(false),
@@ -279,7 +285,7 @@ export function ChangesPanel({ run }: { run: Run }) {
           {!existing && diff?.canRestore && (
             <button
               className="restore-trigger"
-              disabled={busy || isActive(run.state)}
+              disabled={disabled || busy || isActive(run.state)}
               onClick={() =>
                 void perform(async () => {
                   const r = await window.worker.previewRestore({
@@ -305,7 +311,7 @@ export function ChangesPanel({ run }: { run: Run }) {
                   Hủy
                 </button>
                 <button
-                  disabled={busy}
+                  disabled={disabled || busy || isActive(run.state)}
                   onClick={() =>
                     void perform(async () => {
                       const r = await window.worker.restoreFile(preview.token);

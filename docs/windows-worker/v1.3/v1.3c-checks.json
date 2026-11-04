@@ -1,0 +1,28 @@
+{
+  "version": "1.3.0-alpha.3",
+  "date": "2026-11-05",
+  "baseline": "68fab8f",
+  "checkpoint": "checkpoint/v13c-start-20261105",
+  "branch": "feature/windows-worker-v1.3c",
+  "checks": {
+    "tests": { "passed": 152, "failed": 0, "newInspectorTests": 6 },
+    "finalTargetedInspectorAndInteraction": { "passed": 8, "failed": 0 },
+    "typecheck": "passed",
+    "formatCheck": "passed",
+    "build": "passed",
+    "nativeElectronSqliteAndSafeStorage": "passed",
+    "ui": { "passed": true, "artifact": "v1.3c-ui.json", "data": "isolated historical fixture", "rendererErrors": [] },
+    "boardRegression": { "passed": true, "artifact": "v1.3c-board-regression.json" },
+    "identityAndCapability": "passed: project/run/task/execution, superseded attempts, latest dependencies, whole-run actions and integration restrictions",
+    "sharedFeed": "passed: one in-flight read; no timer without subscribers; hung feed stale without overlap; one terminal run-detail IPC in 2800ms with three consumers",
+    "immutableTaskDiff": "passed: exact source/session/hash; disk mutation does not affect saved diff; added/deleted/legacy baseline",
+    "sourceVersionInvalidation": "passed in Electron UI: old diff cleared and new source read lazily",
+    "sequentialBaseline": "passed: work/fix snapshots retained in existing team repair test"
+  },
+  "schema": 7,
+  "newDependencies": 0,
+  "providerCalls": 0,
+  "liveModelAcceptance": "not run in V1.3C; runtime tests use stubs/local HTTP upstream",
+  "warnings": ["Rollup removes unsupported PURE annotations in Zod dependency comments"],
+  "remaining": ["3D office D", "fallback and performance acceptance E", "live-model inspector lifecycle acceptance E", "delta IPC for run details is not implemented"]
+}

@@ -73,6 +73,10 @@ function key(): string | undefined {
   }
 }
 function registerIPC(): void {
+  handle(channels.taskFileDiff, (input) => {
+    const ref = evidenceRefSchema.parse(input);
+    return store.evidence.taskDiff(controller.detail(ref.runId).run, ref);
+  });
   const worktrees = new Worktrees(app.getPath("userData"), (path) =>
     store.workspaceReferenced(path),
   );

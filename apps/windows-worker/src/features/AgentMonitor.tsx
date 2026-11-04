@@ -20,12 +20,18 @@ export function AgentMonitor({
   onOpenRun,
   onSettings,
   onRefresh,
+  onInspect,
 }: {
   state: MonitorState;
   projectName: string;
   onOpenRun: (id: string, conversationId: string | null) => void;
   onSettings: () => void;
   onRefresh: () => void;
+  onInspect: (
+    runId: string,
+    taskId: string | null,
+    executionId?: string,
+  ) => void;
 }) {
   const [filter, setFilter] = useState("all");
   const snapshot = state.snapshot;
@@ -143,7 +149,11 @@ export function AgentMonitor({
                       <button
                         className="agent-task"
                         onClick={() =>
-                          onOpenRun(execution.runId, snapshot.conversationId)
+                          onInspect(
+                            execution.runId,
+                            execution.taskId,
+                            execution.executionId,
+                          )
                         }
                       >
                         {execution.taskId ?? "Direct"} · {execution.title}
@@ -163,6 +173,15 @@ export function AgentMonitor({
                   )}
                   {agent.waiting.map((task) => (
                     <div className="agent-waiting" key={task.taskId}>
+                      {snapshot.runId && (
+                        <button
+                          onClick={() =>
+                            onInspect(snapshot.runId!, task.taskId)
+                          }
+                        >
+                          Chi tiết
+                        </button>
+                      )}
                       {task.taskId} · {task.reason}
                       <small>{task.title}</small>
                     </div>
@@ -175,6 +194,18 @@ export function AgentMonitor({
                           ? "Lần trước thất bại"
                           : "Lần trước đã dừng/gián đoạn"}
                       <small>{agent.lastFinished.title}</small>
+                      {snapshot.runId && (
+                        <button
+                          onClick={() =>
+                            onInspect(
+                              snapshot.runId!,
+                              agent.lastFinished!.taskId ?? null,
+                            )
+                          }
+                        >
+                          Xem chi tiết
+                        </button>
+                      )}
                     </div>
                   )}
                   {agent.availability === "unconfigured" && (

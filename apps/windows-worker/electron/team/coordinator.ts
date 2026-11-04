@@ -154,7 +154,11 @@ export async function coordinate(
     const workspace = task.workspace ?? run.workspace;
     let before: Snapshot | undefined;
     try {
-      before = await snapshot(workspace, parallel && !!evidenceStore, secrets);
+      before = await snapshot(
+        workspace,
+        !!evidenceStore && (parallel || ["work", "fix"].includes(task.kind)),
+        secrets,
+      );
       if (!before.complete)
         throw new TeamBlocked(
           "Không thể xác minh toàn bộ phạm vi source workspace. " +
@@ -165,7 +169,7 @@ export async function coordinate(
           "incomplete-snapshot",
         );
       await saveCheckpoint?.("before-task", before, task.id);
-      if (parallel && ["work", "fix"].includes(task.kind))
+      if (["work", "fix"].includes(task.kind))
         task.baseEvidence = evidenceStore?.saveTaskSnapshot(
           before,
           [],

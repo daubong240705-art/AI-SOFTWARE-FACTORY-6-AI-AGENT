@@ -1,6 +1,9 @@
 # V1.3 — Thiết kế tham khảo và hồ sơ bàn giao
 
-Thư mục gồm ảnh tham khảo kế hoạch và **bằng chứng V1.3A–B**. [Bàn giao A](../v1.3a-completion.md), [bàn giao B](../v1.3b-completion.md).
+Thư mục gồm ảnh tham khảo kế hoạch và **bằng chứng V1.3A–C**. [Bàn giao A](../v1.3a-completion.md), [B](../v1.3b-completion.md), [C](../v1.3c-completion.md).
+
+- [Kết quả kiểm tra C](v1.3c-checks.json), [UI acceptance C](v1.3c-ui.json), [Kanban regression trên C](v1.3c-board-regression.json).
+- [Inspector desktop](inspector-desktop.png), [timeline](inspector-timeline.png), [diff/cửa sổ nhỏ](inspector-small.png): production Electron, dữ liệu fixture, không gọi provider.
 
 - [Kết quả kiểm tra B](v1.3b-checks.json), [UI acceptance B](v1.3b-ui.json).
 - [Kanban desktop](kanban-desktop.png), [Kanban cửa sổ nhỏ](kanban-small.png): production Electron, SQLite/IPC thật, dữ liệu fixture, không gọi provider.

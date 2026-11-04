@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CommandResult } from "../../shared/runs";
 import { formatDuration } from "../lib/formatDuration";
 export function CommandEvidence({
@@ -10,12 +10,23 @@ export function CommandEvidence({
 }) {
   const [output, setOutput] = useState(command.output),
     [error, setError] = useState("");
+  const generation = useRef(0);
+  const identity = `${runId}:${command.artifactId ?? command.callId}:${command.sourceVersion}:${command.status}:${command.output}`;
+  useEffect(() => {
+    generation.current++;
+    setOutput(command.output);
+    setError("");
+    return () => {
+      generation.current++;
+    };
+  }, [identity]);
   return (
     <details
       className="command-result"
       open={command.status === "error"}
       onToggle={(e) => {
-        if (e.currentTarget.open)
+        if (e.currentTarget.open) {
+          const request = ++generation.current;
           void window.worker
             .commandOutput({
               runId,
@@ -23,10 +34,15 @@ export function CommandEvidence({
               artifactId: command.artifactId,
             })
             .then((r) => {
+              if (request !== generation.current) return;
               if (r.ok) setOutput(r.value);
               else setError(r.error);
             })
-            .catch(() => setError("Không mở được output đã lưu."));
+            .catch(() => {
+              if (request === generation.current)
+                setError("Không mở được output đã lưu.");
+            });
+        }
       }}
     >
       <summary>

@@ -22,6 +22,8 @@ export function RunPanel({
   busy,
   showPermissions = true,
   onOpenWorkspace,
+  onInspect,
+  showRecovery = true,
 }: {
   detail: RunDetail | null;
   tab: string;
@@ -29,6 +31,8 @@ export function RunPanel({
   busy: boolean;
   showPermissions?: boolean;
   onOpenWorkspace?: (project: Project) => Promise<void>;
+  onInspect?: (runId: string, taskId?: string) => void;
+  showRecovery?: boolean;
 }) {
   const [exportStatus, setExportStatus] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -95,7 +99,7 @@ export function RunPanel({
                       queued: "Chờ",
                       running: "Đang làm",
                       blocked: "Bị chặn",
-                      completed: "Xong",
+                      completed: "Đã thực thi",
                       failed: "Lỗi",
                       cancelled: "Đã dừng",
                       skipped: "Bỏ qua",
@@ -104,6 +108,11 @@ export function RunPanel({
                 </span>
               </summary>
               <div className="small muted">
+                {onInspect && (
+                  <button onClick={() => onInspect(run.id, task.id)}>
+                    Chi tiết task
+                  </button>
+                )}
                 {task.id} · {task.model} ·{" "}
                 {task.sessionId ?? "Chưa tạo session"}
               </div>
@@ -183,12 +192,14 @@ export function RunPanel({
       {tab === "changes" && (
         <>
           <TaskWorkspaceResults run={run} />
-          <ChangesPanel key={run.id} run={run} />
+          <ChangesPanel key={run.id} run={run} disabled={busy} />
         </>
       )}
       {tab === "result" && (
         <div className="run-result">
-          <RecoveryActions key={run.id} run={run} onChanged={() => {}} />
+          {showRecovery && (
+            <RecoveryActions key={run.id} run={run} onChanged={() => {}} />
+          )}
           <button
             disabled={exporting}
             onClick={() => void exportReport(run.id)}
