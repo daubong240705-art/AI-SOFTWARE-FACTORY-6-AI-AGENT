@@ -2,6 +2,7 @@ import { Clock3, FileCode2, Terminal, TriangleAlert } from "lucide-react";
 import type { RunDetail } from "../../shared/runs";
 import { runLabels } from "../../shared/runs";
 import { formatDuration } from "../lib/formatDuration";
+import { formatRequestUsage } from "../lib/formatRequestUsage";
 
 export function RunPanel({
   detail,
@@ -34,8 +35,58 @@ export function RunPanel({
         <span className="muted small">
           {run.role.toUpperCase()} · {run.model}
         </span>
-        <span className="muted small">{run.requests} request</span>
+        <span className="muted small">
+          {formatRequestUsage(run.requests, run.settings.maxRequests)}
+        </span>
       </div>
+      {run.mode === "team" && (
+        <div className="task-board">
+          <div className="small muted">
+            Vòng sửa {run.fixRound}/{run.settings.maxFixRounds} ·{" "}
+            {formatRequestUsage(run.requests, run.settings.maxRequests)}
+          </div>
+          {run.tasks.map((task) => (
+            <details
+              className={`team-task ${task.state}`}
+              key={task.id}
+              open={task.state === "running" || task.state === "blocked"}
+            >
+              <summary>
+                <span className="pill">{task.role.toUpperCase()}</span>
+                <strong>{task.title}</strong>
+                <span className="muted small">
+                  {
+                    {
+                      queued: "Chờ",
+                      running: "Đang làm",
+                      blocked: "Bị chặn",
+                      completed: "Xong",
+                      failed: "Lỗi",
+                      cancelled: "Đã dừng",
+                      skipped: "Bỏ qua",
+                    }[task.state]
+                  }
+                </span>
+              </summary>
+              <div className="small muted">
+                {task.id} · {task.model} ·{" "}
+                {task.sessionId ?? "Chưa tạo session"}
+              </div>
+              <p className="small">
+                Phạm vi: {task.allowedPaths.join(", ")} · Phụ thuộc:{" "}
+                {task.dependsOn.join(", ") || "—"}
+              </p>
+              <ul className="small">
+                {task.acceptance.map((ac, i) => (
+                  <li key={i}>{ac}</li>
+                ))}
+              </ul>
+              {task.error && <p className="warning-text small">{task.error}</p>}
+              {task.summary && <pre>{task.summary}</pre>}
+            </details>
+          ))}
+        </div>
+      )}
       {run.permissions.map((permission) => (
         <section className="permission-box" key={permission.id}>
           <strong>
@@ -127,6 +178,30 @@ export function RunPanel({
           ) : (
             <p className="muted">Chưa có báo cáo cuối.</p>
           )}
+          {run.review && (
+            <section className="acceptance-list">
+              {run.review.acceptance.map((ac, i) => (
+                <div className="command-result" key={i}>
+                  <strong>{ac.criterion}</strong>
+                  <span className="pill">
+                    {
+                      {
+                        passed: "Đạt",
+                        failed: "Chưa đạt",
+                        unverified: "Chưa xác minh",
+                      }[ac.status]
+                    }
+                  </span>
+                  <p className="small muted">{ac.evidence}</p>
+                </div>
+              ))}
+              {run.review.limitations.map((text, i) => (
+                <p className="warning-text small" key={i}>
+                  {text}
+                </p>
+              ))}
+            </section>
+          )}
           {run.commands.length > 0 && (
             <section>
               <h2>
@@ -141,6 +216,9 @@ export function RunPanel({
                 >
                   <summary>
                     <code>{command.command}</code>
+                    {command.taskId && (
+                      <span className="pill">{command.taskId}</span>
+                    )}
                     <span className="pill">
                       {command.exitCode === null
                         ? command.status

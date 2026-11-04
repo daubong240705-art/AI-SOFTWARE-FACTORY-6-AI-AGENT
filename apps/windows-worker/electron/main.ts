@@ -93,10 +93,16 @@ function registerIPC(): void {
         projectId: idSchema,
         prompt: z.string().trim().min(1).max(32000),
         role: z.enum(roles),
+        mode: z.enum(["direct", "team"]).optional(),
       })
       .strict()
       .parse(input);
-    return controller.start(request.projectId, request.prompt, request.role);
+    return controller.start(
+      request.projectId,
+      request.prompt,
+      request.role,
+      request.mode,
+    );
   });
   handle(channels.stopRun, (input) => controller.stop(idSchema.parse(input)));
   handle(channels.runtimeView, (input) => {

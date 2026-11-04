@@ -1248,3 +1248,46 @@ main {
     scroll-behavior: auto !important;
   }
 }
+.task-board {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 8px;
+}
+.team-task {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 0;
+}
+.team-task summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.team-task summary strong {
+  flex: 1;
+  font-size: 13px;
+}
+.team-task pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 240px;
+  overflow: auto;
+  font: inherit;
+  font-size: 12px;
+}
+.team-task.running {
+  border-color: #6366f1;
+}
+.team-task.failed,
+.team-task.blocked {
+  border-color: #b77932;
+}
+.team-task.completed {
+  border-color: #327c5c;
+}
+.run-state.needs_input {
+  color: #eab66a;
+}

@@ -112,6 +112,7 @@ export function App() {
   });
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
   const [detail, setDetail] = useState<RunDetail | null>(null);
+  const [executionMode, setExecutionMode] = useState<"team" | "direct">("team");
   const [executionRole, setExecutionRole] = useState<Role>("be");
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -240,7 +241,8 @@ export function App() {
         window.worker.startRun({
           projectId: project.id,
           prompt: draft,
-          role: executionRole,
+          role: executionMode === "team" ? "lead" : executionRole,
+          mode: executionMode,
         }),
       );
       setSelectedRun(run.id);
@@ -594,7 +596,7 @@ export function App() {
           </div>
           <span className="phase-badge">
             <span />
-            Desktop · WW-2
+            Desktop · WW-3
           </span>
         </header>
         <main>
@@ -744,22 +746,37 @@ export function App() {
                           </span>
                           <div className="inline">
                             <select
-                              className="execution-role"
-                              aria-label="Agent thực thi"
-                              value={executionRole}
-                              onChange={(event) =>
-                                setExecutionRole(event.target.value as Role)
-                              }
+                              aria-label="Chế độ thực thi"
+                              value={executionMode}
                               disabled={!!runtime.activeId || !!busy}
+                              onChange={(event) =>
+                                setExecutionMode(
+                                  event.target.value as "team" | "direct",
+                                )
+                              }
                             >
-                              {settings.agents
-                                .filter((agent) => agent.enabled)
-                                .map((agent) => (
-                                  <option key={agent.role} value={agent.role}>
-                                    {names[agent.role].label}
-                                  </option>
-                                ))}
+                              <option value="team">Lead tự phân công</option>
+                              <option value="direct">Một agent</option>
                             </select>
+                            {executionMode === "direct" && (
+                              <select
+                                className="execution-role"
+                                aria-label="Agent thực thi"
+                                value={executionRole}
+                                onChange={(event) =>
+                                  setExecutionRole(event.target.value as Role)
+                                }
+                                disabled={!!runtime.activeId || !!busy}
+                              >
+                                {settings.agents
+                                  .filter((agent) => agent.enabled)
+                                  .map((agent) => (
+                                    <option key={agent.role} value={agent.role}>
+                                      {names[agent.role].label}
+                                    </option>
+                                  ))}
+                              </select>
+                            )}
                             {runtime.activeId ? (
                               <button
                                 className="danger"
@@ -777,7 +794,12 @@ export function App() {
                                   !draft.trim() ||
                                   !!busy ||
                                   !settings.agents.find(
-                                    (agent) => agent.role === executionRole,
+                                    (agent) =>
+                                      agent.enabled &&
+                                      agent.role ===
+                                        (executionMode === "team"
+                                          ? "lead"
+                                          : executionRole),
                                   )?.model
                                 }
                                 onClick={() => void startTask()}
@@ -793,7 +815,9 @@ export function App() {
                           <span>
                             {runtime.activeId
                               ? "Một tác vụ đang hoạt động."
-                              : "Một agent mỗi lượt chạy · Lead điều phối ở WW-3."}
+                              : executionMode === "team"
+                                ? "Lead phân công · Model theo vai trò"
+                                : "Một agent thực thi"}
                           </span>
                         </div>
                       </section>
@@ -1251,7 +1275,7 @@ export function App() {
                         </div>
                         <p className="muted small">
                           Timeout và request được chặn theo lượt chạy. Vòng sửa
-                          tự động thuộc WW-3.
+                          tự động tối đa hai vòng cho toàn bộ yêu cầu.
                         </p>
                       </section>
                     </div>

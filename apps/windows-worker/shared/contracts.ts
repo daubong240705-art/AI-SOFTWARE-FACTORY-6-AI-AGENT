@@ -108,6 +108,7 @@ export type Bootstrap = {
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
   startRun(input: {
+    mode?: "direct" | "team";
     projectId: string;
     prompt: string;
     role: Role;

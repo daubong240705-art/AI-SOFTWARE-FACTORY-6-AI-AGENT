@@ -1,6 +1,8 @@
 import type { Role, Settings } from "./contracts";
+import type { TeamTask, TeamReview, ProfileSnapshot } from "./team";
 
 export type RunState =
+  | "needs_input"
   | "queued"
   | "running"
   | "blocked"
@@ -22,6 +24,7 @@ export type ChangedFile = {
   kind: "added" | "modified" | "deleted";
 };
 export type CommandResult = {
+  taskId?: string;
   callId: string;
   command: string;
   status: string;
@@ -29,6 +32,12 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  mode: "direct" | "team";
+  tasks: TeamTask[];
+  profiles: ProfileSnapshot[];
+  currentTaskId: string | null;
+  fixRound: number;
+  review: TeamReview | null;
   id: string;
   projectId: string;
   projectName: string;
@@ -70,12 +79,24 @@ export type RuntimeView = { activeId: string | null; runs: RunSummary[] };
 export const isActive = (state: RunState): boolean =>
   ["queued", "running", "blocked", "cancelling"].includes(state);
 export const runLabels: Record<RunState, string> = {
+  needs_input: "Cần bổ sung",
   queued: "Đang chuẩn bị",
   running: "Đang chạy",
-  blocked: "Chờ quyền",
+  blocked: "Cần xử lý",
   cancelling: "Đang dừng",
   completed: "Đã kết thúc",
   failed: "Thất bại",
   cancelled: "Đã dừng",
   interrupted: "Bị gián đoạn",
 };
+export function normalizeRun(run: Run): Run {
+  return {
+    ...run,
+    mode: run.mode ?? "direct",
+    tasks: run.tasks ?? [],
+    profiles: run.profiles ?? [],
+    currentTaskId: run.currentTaskId ?? null,
+    fixRound: run.fixRound ?? 0,
+    review: run.review ?? null,
+  };
+}

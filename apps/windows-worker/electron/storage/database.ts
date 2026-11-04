@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import type { Run, RunEvent } from "../../shared/runs";
+import { normalizeRun, type Run, type RunEvent } from "../../shared/runs";
 import {
   defaultSettings,
   settingsSchema,
@@ -19,7 +19,7 @@ export class Store {
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("foreign_keys = ON");
     const version = this.db.pragma("user_version", { simple: true }) as number;
-    if (version > 2)
+    if (version > 3)
       throw new Error(
         "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
       );
@@ -50,6 +50,22 @@ export class Store {
           CREATE TABLE events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL REFERENCES runs(id), type TEXT NOT NULL, text TEXT NOT NULL, at TEXT NOT NULL);
           CREATE INDEX run_events ON events(run_id, sequence);
           PRAGMA user_version = 2;
+        `);
+      })();
+    }
+    if (version < 3) {
+      if (version === 2) {
+        const backup = join(directory, "worker.schema2.backup.sqlite");
+        if (!existsSync(backup)) this.db.prepare("VACUUM INTO ?").run(backup);
+      }
+      this.db.transaction(() => {
+        this.db.exec(`
+          ALTER TABLE tasks RENAME TO tasks_v2;
+          CREATE TABLE tasks (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id), role TEXT NOT NULL, state TEXT NOT NULL, instructions TEXT NOT NULL, value TEXT);
+          INSERT INTO tasks (id,run_id,role,state,instructions) SELECT id,run_id,role,state,instructions FROM tasks_v2;
+          DROP TABLE tasks_v2;
+          CREATE INDEX tasks_run ON tasks(run_id);
+          PRAGMA user_version = 3;
         `);
       })();
     }
@@ -173,7 +189,9 @@ export class Store {
           JSON.stringify(run),
         );
       this.db
-        .prepare("INSERT INTO tasks VALUES (?,?,?,?,?)")
+        .prepare(
+          "INSERT INTO tasks (id,run_id,role,state,instructions) VALUES (?,?,?,?,?)",
+        )
         .run(randomUUID(), run.id, run.role, run.state, run.prompt);
       this.event(run.id, "RUN_QUEUED", "Đã nhận yêu cầu.");
     })();
@@ -183,23 +201,40 @@ export class Store {
       | { value: string }
       | undefined;
     if (!row) throw new Error("Không tìm thấy lượt chạy.");
-    return JSON.parse(row.value);
+    return normalizeRun(JSON.parse(row.value));
   }
   runs(): Run[] {
     return (
       this.db
         .prepare("SELECT value FROM runs ORDER BY created_at DESC LIMIT 50")
         .all() as { value: string }[]
-    ).map((row) => JSON.parse(row.value));
+    ).map((row) => normalizeRun(JSON.parse(row.value)));
   }
   updateRun(run: Run, event?: { type: string; text: string }): void {
     this.db.transaction(() => {
       this.db
         .prepare("UPDATE runs SET state=?,value=? WHERE id=?")
         .run(run.state, JSON.stringify(run), run.id);
-      this.db
-        .prepare("UPDATE tasks SET state=? WHERE run_id=?")
-        .run(run.state, run.id);
+      if (run.mode === "team") {
+        this.db
+          .prepare("DELETE FROM tasks WHERE run_id=? AND value IS NULL")
+          .run(run.id);
+        const upsert = this.db.prepare(
+          "INSERT INTO tasks VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state,value=excluded.value",
+        );
+        for (const task of run.tasks)
+          upsert.run(
+            `${run.id}:${task.id}`,
+            run.id,
+            task.role,
+            task.state,
+            task.instructions,
+            JSON.stringify(task),
+          );
+      } else
+        this.db
+          .prepare("UPDATE tasks SET state=? WHERE run_id=?")
+          .run(run.state, run.id);
       if (event) this.event(run.id, event.type, event.text);
     })();
   }
@@ -228,6 +263,17 @@ export class Store {
           {
             ...run,
             state: "interrupted",
+            currentTaskId: null,
+            tasks: run.tasks.map((task) => ({
+              ...task,
+              state:
+                task.state === "queued"
+                  ? "skipped"
+                  : ["running", "blocked"].includes(task.state)
+                    ? "failed"
+                    : task.state,
+              endedAt: task.endedAt ?? new Date().toISOString(),
+            })),
             permissions: [],
             endedAt: new Date().toISOString(),
             error: "Ứng dụng kết thúc ngoài dự kiến. Không tự chạy lại task.",

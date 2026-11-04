@@ -1,3 +1,7 @@
+import { coordinate, TeamBlocked } from "../team/coordinator";
+import { loadProfiles } from "../team/profiles";
+import { ExecutionStopped } from "../runtime/stopped";
+import type { TeamTask } from "../../shared/team";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { Event, ToolPart } from "@opencode-ai/sdk/v2/client";
@@ -67,7 +71,13 @@ export class RunController {
   detail(id: string): RunDetail {
     return { run: this.store.run(id), events: this.store.events(id) };
   }
-  start(projectId: string, prompt: string, role: Role): Run {
+  start(
+    projectId: string,
+    prompt: string,
+    role: Role,
+    mode: "direct" | "team" = "direct",
+  ): Run {
+    if (mode === "team") role = "lead";
     if (this.active)
       throw new Error(
         "Chỉ chạy một yêu cầu tại một thời điểm. Dừng task hiện tại trước.",
@@ -83,6 +93,12 @@ export class RunController {
       );
     const key = this.readKey();
     const run: Run = {
+      mode,
+      tasks: [],
+      profiles: mode === "team" ? loadProfiles() : [],
+      currentTaskId: null,
+      fixRound: 0,
+      review: null,
       id: randomUUID(),
       projectId,
       projectName: project.name,
@@ -121,7 +137,7 @@ export class RunController {
     });
   }
   private check(active: Active): void {
-    if (active.desired) throw new Error("Đã yêu cầu dừng.");
+    if (active.desired) throw new ExecutionStopped(active.desired);
   }
   private async execute(
     active: Active,
@@ -142,57 +158,37 @@ export class RunController {
       active.baseline = await snapshot(run.workspace);
       run.baselineComplete = active.baseline.complete;
       this.check(active);
-      active.proxy = new ModelProxy(run.settings, key, run.model, (count) => {
-        run.requests = count;
-        this.record(
-          active,
-          "MODEL_REQUEST",
-          `Request ${count}/${run.settings.maxRequests} · ${run.model}`,
-        );
-      });
-      active.secrets.push(active.proxy.token);
-      const url = await active.proxy.start();
-      this.check(active);
-      active.runtime = new OpenCodeRuntime(
-        executable,
-        join(this.directory, "runtime", run.id),
-        run,
-        { url, token: active.proxy.token },
-        {
-          event: (event) => this.onEvent(active, event),
-          permission: (permission) => this.onPermission(active, permission),
-          failure: (message) => {
-            void this.stop(run.id, "failed", message).catch(() => {});
-          },
-        },
-      );
-      run.sessionId = await active.runtime.start();
-      this.check(active);
       run.state = "running";
       run.startedAt = new Date().toISOString();
       this.record(
         active,
         "RUN_STARTED",
-        `${run.role.toUpperCase()} · ${run.model} · OpenCode ${run.runtimeVersion}`,
+        `${run.mode} · ${run.model} · OpenCode ${run.runtimeVersion}`,
       );
-      const result = await active.runtime.prompt();
-      this.check(active);
-      run.summary = redact(result.text, active.secrets);
-      if (result.error) throw new Error(result.error);
-      if (!run.summary)
-        throw new Error("Runtime kết thúc nhưng không có báo cáo cuối.");
-      if (
-        run.commands.some(
-          (c) =>
-            c.status === "error" || (c.exitCode !== null && c.exitCode !== 0),
-        )
-      )
-        throw new Error(
-          "Có lệnh công cụ thất bại. Xem kết quả để xử lý hoặc thử lại.",
+      if (run.mode === "team") {
+        await coordinate(
+          run,
+          (task, prompt) => this.step(active, key, executable, task, prompt),
+          (type, text) => this.record(active, type, text),
+          () => this.check(active),
         );
-      run.state = "completed";
+      } else {
+        run.summary = await this.step(active, key, executable);
+        if (
+          run.commands.some(
+            (c) =>
+              c.status === "error" || (c.exitCode !== null && c.exitCode !== 0),
+          )
+        )
+          throw new Error(
+            "Có lệnh công cụ thất bại. Xem kết quả để xử lý hoặc thử lại.",
+          );
+        run.state = "completed";
+      }
     } catch (error) {
-      run.state = active.desired ?? "failed";
+      run.state =
+        active.desired ??
+        (error instanceof TeamBlocked ? "needs_input" : "failed");
       run.error = redact(
         active.stopError ??
           (error instanceof Error ? error.message : "Runtime thất bại."),
@@ -224,6 +220,13 @@ export class RunController {
         }
       }
       run.permissions = [];
+      run.currentTaskId = null;
+      for (const task of run.tasks) {
+        if (["running", "blocked"].includes(task.state) && active.desired)
+          task.state = active.desired === "cancelled" ? "cancelled" : "failed";
+        if (task.state === "queued") task.state = "skipped";
+        if (!task.endedAt) task.endedAt = new Date().toISOString();
+      }
       for (const command of run.commands)
         if (["running", "pending"].includes(command.status)) {
           command.status =
@@ -244,6 +247,89 @@ export class RunController {
       active.secrets = [];
     }
   }
+  private async step(
+    active: Active,
+    key: string | undefined,
+    executable: string,
+    task?: TeamTask,
+    prompt?: string,
+  ): Promise<string> {
+    this.check(active);
+    const { run } = active;
+    const remaining = run.settings.maxRequests - run.requests;
+    if (remaining <= 0)
+      throw new Error("Đã hết số request cho toàn bộ lượt chạy.");
+    const base = run.requests;
+    const model = task?.model ?? run.model;
+    active.proxy = new ModelProxy(
+      { ...run.settings, maxRequests: remaining },
+      key,
+      model,
+      (count) => {
+        run.requests = base + count;
+        this.record(
+          active,
+          "MODEL_REQUEST",
+          `Request ${run.requests}/${run.settings.maxRequests} · ${model} · ${task?.id ?? "direct"}`,
+        );
+      },
+    );
+    active.secrets.push(active.proxy.token);
+    try {
+      const url = await active.proxy.start();
+      this.check(active);
+      active.runtime = new OpenCodeRuntime(
+        executable,
+        join(this.directory, "runtime", run.id, task?.id ?? "direct"),
+        {
+          ...run,
+          model,
+          role: task?.role ?? run.role,
+          settings: { ...run.settings, maxRequests: remaining },
+        },
+        { url, token: active.proxy.token },
+        {
+          event: (event) => this.onEvent(active, event),
+          permission: (permission) => this.onPermission(active, permission),
+          failure: (message) => {
+            void this.stop(run.id, "failed", message).catch(() => {});
+          },
+        },
+        task
+          ? {
+              prompt: prompt!,
+              instructions: run.profiles.find((p) => p.role === task.role)!
+                .instructions,
+              readOnly: ["lead", "pm", "ba", "test"].includes(task.role),
+              allowShell: !["lead", "pm", "ba"].includes(task.role),
+              allowedPaths: task.allowedPaths,
+            }
+          : undefined,
+      );
+      run.sessionId = await active.runtime.start();
+      if (task) task.sessionId = run.sessionId;
+      this.check(active);
+      this.record(
+        active,
+        "SESSION_STARTED",
+        `${task?.id ?? "direct"} · ${run.sessionId}`,
+      );
+      const result = await active.runtime.prompt();
+      this.check(active);
+      if (result.error) throw new Error(result.error);
+      if (!result.text.trim())
+        throw new Error("Runtime kết thúc nhưng không có báo cáo cuối.");
+      return redact(result.text, active.secrets);
+    } finally {
+      await active.runtime?.close();
+      await active.proxy.close();
+      active.runtime = undefined;
+      active.proxy = undefined;
+      this.check(active);
+      if (run.permissions.length)
+        throw new Error("Session kết thúc khi còn yêu cầu quyền.");
+    }
+  }
   private onPermission(active: Active, permission: Permission): void {
     if (active.desired) return;
     active.run.permissions.push({
@@ -251,6 +337,10 @@ export class RunController {
       patterns: permission.patterns.map((p) => redact(p, active.secrets)),
     });
     active.run.state = "blocked";
+    const task = active.run.tasks.find(
+      (t) => t.id === active.run.currentTaskId,
+    );
+    if (task) task.state = "blocked";
     this.record(
       active,
       "PERMISSION_REQUESTED",
@@ -299,6 +389,7 @@ export class RunController {
     if (state.status === "completed") run.toolsCompleted++;
     if (part.tool === "bash") {
       const result = {
+        taskId: run.currentTaskId ?? undefined,
         callId: part.callID,
         command: redact(String(input.command ?? ""), active.secrets),
         status: state.status,
@@ -346,6 +437,11 @@ export class RunController {
       (p) => p.id !== requestId,
     );
     active.run.state = active.run.permissions.length ? "blocked" : "running";
+    const task = active.run.tasks.find(
+      (t) => t.id === active.run.currentTaskId,
+    );
+    if (task)
+      task.state = active.run.permissions.length ? "blocked" : "running";
     this.record(
       active,
       "PERMISSION_RESOLVED",
