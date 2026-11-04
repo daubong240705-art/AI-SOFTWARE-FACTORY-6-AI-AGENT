@@ -1,4 +1,9 @@
 export const channels = {
+  enqueue: "worker:enqueue",
+  editFollowUp: "worker:edit-follow-up",
+  removeFollowUp: "worker:remove-follow-up",
+  resumeFollowUp: "worker:resume-follow-up",
+  retryRun: "worker:retry-run",
   conversations: "worker:conversations",
   conversation: "worker:conversation",
   createConversation: "worker:create-conversation",

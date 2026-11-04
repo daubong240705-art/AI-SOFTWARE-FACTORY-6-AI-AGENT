@@ -6,8 +6,10 @@ import type { OpencodeClient, Config, Event } from "@opencode-ai/sdk/v2/client";
 import type { Run, Permission } from "../../shared/runs";
 import { redact } from "./security";
 import { editScopes } from "./scope";
+import { VisibleText } from "./visible-text";
 
 export type RuntimeHooks = {
+  text?: (text: string) => void;
   event: (event: Event) => void;
   permission: (permission: Permission) => void;
   failure: (message: string) => void;
@@ -234,6 +236,7 @@ export class OpenCodeRuntime {
       { signal: this.streamAbort.signal, sseMaxRetryAttempts: 1 },
     );
     const iterator = events.stream[Symbol.asyncIterator]();
+    const visible = new VisibleText();
     // Establish SSE before submitting a prompt; permission events must never be missed.
     await iterator.next();
     this.streamTask = (async () => {
@@ -243,6 +246,8 @@ export class OpenCodeRuntime {
         const event = next.value;
         const properties = event.properties as Record<string, unknown>;
         if (properties.sessionID !== this.session) continue;
+        const text = visible.consume(event);
+        if (text !== undefined) this.hooks.text?.(text);
         this.hooks.event(event);
         if (event.type === "permission.asked")
           this.hooks.permission({

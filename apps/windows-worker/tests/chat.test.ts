@@ -126,7 +126,7 @@ test("schema3 migration preserves all 65 historical runs, old drafts, timestamps
     store = undefined;
     const db = new Database(join(directory, "worker.sqlite"));
     db.exec(
-      "DROP TABLE messages; DROP TABLE conversations; PRAGMA user_version=3",
+      "DROP TABLE follow_ups; DROP TABLE messages; DROP TABLE conversations; PRAGMA user_version=3",
     );
     for (let i = 0; i < 65; i++) {
       const run = runFor(project.id, directory, { prompt: `Lượt cũ ${i}` });

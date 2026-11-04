@@ -3,6 +3,11 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  enqueue: (input) => ipcRenderer.invoke(channels.enqueue, input),
+  editFollowUp: (input) => ipcRenderer.invoke(channels.editFollowUp, input),
+  removeFollowUp: (id) => ipcRenderer.invoke(channels.removeFollowUp, id),
+  resumeFollowUp: (id) => ipcRenderer.invoke(channels.resumeFollowUp, id),
+  retryRun: (id) => ipcRenderer.invoke(channels.retryRun, id),
   conversations: (input) => ipcRenderer.invoke(channels.conversations, input),
   conversation: (id, before) =>
     ipcRenderer.invoke(channels.conversation, { id, before }),

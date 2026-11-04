@@ -5,6 +5,7 @@ import type {
   ConversationSummary,
   ConversationDetail,
   Conversation,
+  FollowUp,
 } from "./chat";
 
 export { roles, defaultSettings } from "./defaults";
@@ -112,6 +113,17 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  enqueue(input: {
+    projectId: string;
+    conversationId: string;
+    prompt: string;
+    role: Role;
+    mode: "direct" | "team";
+  }): Promise<Reply<FollowUp>>;
+  editFollowUp(input: { id: string; prompt: string }): Promise<Reply<void>>;
+  removeFollowUp(id: string): Promise<Reply<void>>;
+  resumeFollowUp(id: string): Promise<Reply<Run>>;
+  retryRun(id: string): Promise<Reply<Run>>;
   startRun(input: {
     conversationId?: string;
     mode?: "direct" | "team";

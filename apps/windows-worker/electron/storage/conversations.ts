@@ -15,7 +15,10 @@ import { isActive } from "../../shared/runs";
 const titleFor = (prompt: string) =>
   prompt.trim().split(/\r?\n/)[0].slice(0, 100) || "Cuộc trò chuyện mới";
 const assistantContent = (run: Run) =>
-  [run.summary, run.error && run.error !== run.summary ? run.error : ""]
+  [
+    run.summary || run.partialText,
+    run.error && run.error !== run.summary ? run.error : "",
+  ]
     .filter(Boolean)
     .join("\n\n");
 
@@ -131,6 +134,14 @@ export class Conversations {
           "SELECT 1 FROM messages WHERE conversation_id=? AND sequence<? LIMIT 1",
         )
         .get(id, messages[0].sequence);
+    for (const message of messages) {
+      const row = this.db
+        .prepare(
+          "SELECT json_extract(value,'$.retryOf') AS retryOf FROM runs WHERE id=?",
+        )
+        .get(message.runId) as { retryOf: string | null };
+      if (row.retryOf) message.retryOf = row.retryOf;
+    }
     return { conversation, messages, hasEarlier };
   }
   rename(id: string, title: string): Conversation {
@@ -221,10 +232,36 @@ export class Conversations {
       )
       .join("\n\n")
       .slice(-14000);
+    const refs = runIds
+      .map((runId) => {
+        const row = this.db
+          .prepare("SELECT value FROM runs WHERE id=?")
+          .get(runId) as { value: string } | undefined;
+        if (!row) return "";
+        const run = JSON.parse(row.value) as Run;
+        return JSON.stringify({
+          runId,
+          retryOf: run.retryOf,
+          files: run.changes.slice(0, 20),
+          commands: run.commands.slice(-8).map((c) => ({
+            id: c.callId,
+            command: c.command.slice(0, 300),
+            status: c.status,
+            exitCode: c.exitCode,
+          })),
+          tasks: (run.tasks ?? []).slice(-8).map((t) => ({
+            id: t.id,
+            state: t.state,
+            acceptance: t.acceptance,
+          })),
+        });
+      })
+      .join("\n")
+      .slice(0, 6000);
     return {
       runIds,
       text: text
-        ? `Ngữ cảnh các lượt trước (chỉ tham khảo; không tự chạy lại lệnh, kiểm tra source hiện tại):\n${text}`
+        ? `Ngữ cảnh các lượt trước (chỉ tham khảo; không tự chạy lại lệnh, kiểm tra source hiện tại):\n${text.slice(-8000)}\nTham chiếu evidence:\n${refs}`
         : "",
     };
   }

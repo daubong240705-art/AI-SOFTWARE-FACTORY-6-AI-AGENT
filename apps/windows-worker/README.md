@@ -1,6 +1,6 @@
 # ASF Windows Worker
 
-WW-4A: màn hình chat với hội thoại theo project, bản nháp riêng, Markdown/code và panel nhiệm vụ/kết quả. Lead vẫn phân công sáu vai trò, model riêng theo role và vòng sửa lỗi giới hạn qua OpenCode 1.19.5 + 9Router. Vẫn hỗ trợ chạy một agent, quyền shell từng lần và Dừng.
+WW-4B: chat theo project, phản hồi trực tiếp, hàng chờ có thể sửa/xóa và thử lại có liên kết lịch sử. Lead phân công sáu vai trò, model riêng theo role và vòng sửa lỗi giới hạn qua OpenCode 1.19.5 + 9Router. Hỗ trợ chạy một agent, quyền shell từng lần và Dừng.
 
 ## Chạy ứng dụng
 
@@ -30,7 +30,7 @@ better-sqlite3 13 cung cấp binary Node-API dùng chung Node/Electron; không c
 4. **Đội agent**: chọn model, bật/tắt sáu role phụ; Lead luôn bật. **Preset** cho phép tự ánh xạ model thật vào Fast/Balanced/Quality, giữ toggle hiện tại. Bấm **Lưu** để lưu lựa chọn.
 5. **Runtime & công cụ**: dùng OpenCode **1.19.5**. App tìm native executable trong PATH hoặc bản cài npm global; có thể chọn `opencode.exe` thủ công. Bản khác bị từ chối để tránh sai API. **Đọc phiên bản** không cài thêm công cụ.
 6. Chọn **Cuộc trò chuyện mới** hoặc mở phiên bên trái. Nhập yêu cầu, chọn **Lead tự phân công** / **Một agent**, role và model trong composer. Enter gửi, Shift+Enter xuống dòng; bộ gõ IME không bị gửi ngoài ý muốn. Settings/profile/skill được snapshot vào run; chỉ một run hoạt động toàn app.
-7. Shell cần **Cho phép** hoặc **Từ chối** trên thẻ trong chat. Bấm nút hình vuông để dừng runtime và cây tiến trình. Trong lúc chạy có thể soạn nháp tiếp; gửi lượt mới sau khi lượt hiện tại dừng. Chưa có tự động xếp hàng/stream nội dung ở WW-4A.
+7. Shell cần **Cho phép** hoặc **Từ chối** trên thẻ trong chat. Nút hình vuông dừng runtime và cây tiến trình; nút gửi hoặc Enter thêm yêu cầu vào hàng chờ khi đang chạy. Có **Sửa/Xóa** trước khi thực thi. Sau thành công chạy tiếp tuần tự; lỗi/hủy/mở lại app giữ hàng chờ để chọn **Chạy tiếp**. **Thử lại · lượt mới** dùng yêu cầu cũ và cấu hình hiện tại, giữ nguyên lỗi và kết quả lần trước. Chat hiển thị dần câu trả lời; câu trả lời ngắn có thể chỉ hiện khi kết thúc do bộ lọc giữ đuôi dữ liệu.
 8. Bấm **Hoạt động**, **Thay đổi** dưới phản hồi hoặc nút mở panel ở góc phải. Panel chứa task/role/model/session, file thay đổi, lệnh và AC; đóng panel để tập trung chat. Diff từng dòng và local preview còn thuộc WW-4C/4D.
 9. Bấm tên phiên để đổi tên; tìm kiếm bên trái hỗ trợ tiếng Việt có/không dấu và không phân biệt hoa thường. Bản nháp lưu riêng mỗi phiên. Hội thoại dài có **Xem tin nhắn trước**; lịch sử run cũ vẫn mở được từ **Lịch sử**.
 
@@ -41,7 +41,7 @@ Bỏ project khỏi danh sách không xóa source hoặc hội thoại. Mở l�
 ## Dữ liệu và credential
 
 - SQLite đặt trong `app.getPath('userData')`, trên Windows thường là `%APPDATA%\ASF Windows Worker\worker.sqlite`.
-- Database schema v4 thêm `conversations`/`messages`, giữ run/task/evidence WW-2/WW-3. Trước nâng schema3 có `worker.schema3.backup.sqlite`; các backup phiên bản trước vẫn được giữ. Toàn bộ run cũ được chuyển thành phiên tương ứng, bản nháp project cũ thành phiên nháp riêng. Run gián đoạn vẫn ghi interrupted, không tự replay.
+- Database schema v5 thêm `follow_ups`, giữ conversation/message/run/task/evidence. Trước nâng schema4 có `worker.schema4.backup.sqlite`; backup các phiên bản trước vẫn giữ. Run gián đoạn ghi interrupted, hàng chờ giữ để người dùng chủ động chạy tiếp. Không tự replay khi mở app. Snapshot cấu hình khác hiện tại thì hàng chờ báo cần xóa/gửi lại, không âm thầm chọn model khác.
 - Key mới chỉ tồn tại tạm trong ô password để gửi qua IPC, không đưa vào React state, localStorage hoặc trả lại từ main process. Sau lưu/navigate, ô nhập bị xóa. SQLite chỉ giữ ciphertext do Electron safeStorage tạo; không có fallback plaintext.
 - Đổi origin gateway yêu cầu nhập key mới hoặc xóa key cũ. Catalog cũ bị xóa khi đổi gateway/CA/key. Không tự theo redirect mang Authorization.
 - TLS luôn xác minh. CA PEM được thêm vào trust mặc định cho catalog và model proxy; không sửa trust store Windows.
@@ -78,6 +78,6 @@ Thử thật 04/11/2026 qua chính Controller/Electron với **`ds/deepseek-v4-f
 
 ## Phạm vi tiếp theo
 
-[WW-4A đã hoàn thành](../../docs/windows-worker/ww4a-completion.md): UI chat, dữ liệu nhiều lượt và context cơ bản (tối đa bốn lượt trước, nội dung giới hạn, snapshot vào run). Mỗi lần gửi tạo run/baseline/budget mới; không tự replay lệnh của lượt trước. Phản hồi hiện xuất hiện khi runtime tổng kết xong; trong lúc chờ hiển thị vai trò/nhiệm vụ và thẻ quyền.
+[WW-4B đã hoàn thành](../../docs/windows-worker/ww4b-completion.md): streaming, hàng chờ bền vững, retry liên kết và context tối đa bốn lượt với tham chiếu file/command/AC. Mỗi lần gửi tạo run/baseline/budget mới. Hủy/gián đoạn giữ nội dung đã nhận với trạng thái rõ. Chỉ assistant text được hiển thị; reasoning và JSON nội bộ của Lead không đưa vào chat.
 
-WW-4B tiếp tục streaming, hàng chờ và retry liên kết; WW-4C diff/restore; WW-4D preview/phục hồi; WW-5 bộ cài. [Kế hoạch đầy đủ](../../plan/windows-worker/README.md). App độc lập với ASF web; không cần build image hoặc deploy lại các VM.
+WW-4C tiếp tục diff/restore; WW-4D preview/phục hồi; WW-5 bộ cài. [Kế hoạch đầy đủ](../../plan/windows-worker/README.md). App độc lập với ASF web; không cần build image hoặc deploy lại các VM.

@@ -32,6 +32,9 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  partialText?: string;
+  retryOf?: string;
+  attemptRoot?: string;
   conversationId?: string | null;
   context?: { text: string; runIds: string[] };
   mode: "direct" | "team";

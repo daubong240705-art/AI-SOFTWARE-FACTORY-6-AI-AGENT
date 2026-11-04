@@ -4,6 +4,7 @@ import { join, basename } from "node:path";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { Conversations } from "./conversations";
+import { FollowUps } from "./follow-ups";
 import { normalizeRun, type Run, type RunEvent } from "../../shared/runs";
 import {
   defaultSettings,
@@ -15,6 +16,7 @@ import {
 export class Store {
   private db: Database.Database;
   readonly conversations: Conversations;
+  readonly queue: FollowUps;
   constructor(directory: string) {
     mkdirSync(directory, { recursive: true });
     this.db = new Database(join(directory, "worker.sqlite"));
@@ -24,7 +26,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 4)
+      if (version > 5)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -75,6 +77,7 @@ export class Store {
         })();
       }
       this.conversations = new Conversations(this.db, directory, version);
+      this.queue = new FollowUps(this.db, directory, version);
     } catch (error) {
       this.db.close();
       throw error;
@@ -270,7 +273,12 @@ export class Store {
       .all(id) as RunEvent[];
   }
   interruptRuns(): void {
-    for (const run of this.runs())
+    const rows = this.db
+      .prepare(
+        "SELECT value FROM runs WHERE state IN ('queued','running','blocked','cancelling')",
+      )
+      .all() as { value: string }[];
+    for (const run of rows.map((row) => normalizeRun(JSON.parse(row.value))))
       if (["queued", "running", "blocked", "cancelling"].includes(run.state)) {
         this.updateRun(
           {

@@ -336,7 +336,7 @@ test("schema2 migration backs up history and persists independent task states", 
     store = undefined;
     const db = new Database(join(directory, "worker.sqlite"));
     db.exec(
-      "DROP TABLE messages; DROP TABLE conversations; DROP TABLE tasks; CREATE TABLE tasks (id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNIQUE REFERENCES runs(id), role TEXT NOT NULL, state TEXT NOT NULL, instructions TEXT NOT NULL); PRAGMA user_version=2",
+      "DROP TABLE follow_ups; DROP TABLE messages; DROP TABLE conversations; DROP TABLE tasks; CREATE TABLE tasks (id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNIQUE REFERENCES runs(id), role TEXT NOT NULL, state TEXT NOT NULL, instructions TEXT NOT NULL); PRAGMA user_version=2",
     );
     const run = fixture(directory);
     run.state = "completed";

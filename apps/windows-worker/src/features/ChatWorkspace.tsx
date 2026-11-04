@@ -29,6 +29,7 @@ import { isActive, runLabels } from "../../shared/runs";
 import type { ConversationDetail } from "../../shared/chat";
 import { RunPanel } from "./RunPanel";
 import { ChatMarkdown } from "./ChatMarkdown";
+import { FollowUpCard } from "./FollowUpCard";
 async function unwrap<T>(promise: Promise<Reply<T>>): Promise<T> {
   const reply = await promise;
   if (!reply.ok) throw new Error(reply.error);
@@ -186,7 +187,7 @@ export function ChatWorkspace({
             e instanceof Error ? e.message : "Không tải được hội thoại.",
           );
       }
-      if (alive) timer = setTimeout(() => void poll(), 900);
+      if (alive) timer = setTimeout(() => void poll(), 400);
     }
     void poll();
     return () => {
@@ -207,35 +208,45 @@ export function ChatWorkspace({
       .join("|"),
   ]);
   async function action(fn: () => Promise<void>) {
-    if (actionLock.current) return;
+    if (actionLock.current) return false;
     actionLock.current = true;
     setBusy(true);
     setError("");
     try {
       await fn();
+      return true;
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Không thực hiện được thao tác.",
       );
+      return false;
     } finally {
       actionLock.current = false;
       setBusy(false);
     }
   }
   async function send() {
-    if (
-      busy ||
-      runtime.activeId ||
-      currentActive ||
-      !conversationId ||
-      !project ||
-      !draftRef.current.trim()
-    )
-      return;
+    if (busy || !conversationId || !project || !draftRef.current.trim()) return;
     await action(async () => {
       const submitted = draftRef.current.trim();
       await writes.current;
       await saveSettings();
+      if (activeId || chat?.queue?.length) {
+        await unwrap(
+          window.worker.enqueue({
+            projectId: project.id,
+            conversationId,
+            prompt: submitted,
+            role: roleForModel,
+            mode,
+          }),
+        );
+        draftRef.current = "";
+        setDraft("");
+        saveDraft("");
+        setRefresh((n) => n + 1);
+        return;
+      }
       const run = await unwrap(
         window.worker.startRun({
           projectId: project.id,
@@ -560,6 +571,33 @@ export function ChatWorkspace({
                     </button>
                     {message.role === "assistant" && (
                       <>
+                        {message.retryOf && (
+                          <button
+                            onClick={() =>
+                              showDetails(message.retryOf!, "result")
+                            }
+                          >
+                            Lượt gốc
+                          </button>
+                        )}
+                        {!isActive(message.state) &&
+                          message.state !== "completed" && (
+                            <button
+                              disabled={busy || !!activeId}
+                              title="Tạo lượt mới, kiểm tra lại source và thực hiện yêu cầu"
+                              onClick={() =>
+                                void action(async () => {
+                                  await unwrap(
+                                    window.worker.retryRun(message.runId),
+                                  );
+                                  setRefresh((n) => n + 1);
+                                  onChanged();
+                                })
+                              }
+                            >
+                              Thử lại · lượt mới
+                            </button>
+                          )}
                         <button
                           onClick={() => showDetails(message.runId, "activity")}
                         >
@@ -603,6 +641,41 @@ export function ChatWorkspace({
           </button>
         )}
         <div className="chat-composer-area">
+          {!!chat?.queue?.length && (
+            <div className="follow-up-list" aria-label="Hàng chờ yêu cầu">
+              {chat.queue.map((item, index) => (
+                <FollowUpCard
+                  key={item.id}
+                  item={item}
+                  busy={busy}
+                  active={!!activeId}
+                  first={index === 0}
+                  onEdit={async (prompt) => {
+                    const saved = await action(async () => {
+                      await unwrap(
+                        window.worker.editFollowUp({ id: item.id, prompt }),
+                      );
+                      setRefresh((n) => n + 1);
+                    });
+                    if (!saved) throw new Error("Chưa lưu được yêu cầu.");
+                  }}
+                  onRemove={() =>
+                    void action(async () => {
+                      await unwrap(window.worker.removeFollowUp(item.id));
+                      setRefresh((n) => n + 1);
+                    })
+                  }
+                  onResume={() =>
+                    void action(async () => {
+                      await unwrap(window.worker.resumeFollowUp(item.id));
+                      setRefresh((n) => n + 1);
+                      onChanged();
+                    })
+                  }
+                />
+              ))}
+            </div>
+          )}
           {error && (
             <div className="chat-error" role="alert">
               <span>{error}</span>
@@ -663,7 +736,7 @@ export function ChatWorkspace({
                   event.keyCode !== 229
                 ) {
                   event.preventDefault();
-                  if (!runtime.activeId) void send();
+                  void send();
                 }
               }}
             />
@@ -727,11 +800,12 @@ export function ChatWorkspace({
                 >
                   <Square size={16} fill="currentColor" />
                 </button>
-              ) : (
+              ) : null}
+              {
                 <button
                   className="chat-send primary"
-                  title="Gửi yêu cầu"
-                  aria-label="Gửi yêu cầu"
+                  title={activeId ? "Thêm vào hàng chờ" : "Gửi yêu cầu"}
+                  aria-label={activeId ? "Thêm vào hàng chờ" : "Gửi yêu cầu"}
                   disabled={
                     busy ||
                     !project ||
@@ -748,14 +822,14 @@ export function ChatWorkspace({
                     <ArrowUp size={19} />
                   )}
                 </button>
-              )}
+              }
             </div>
           </div>
           <div className="chat-composer-note">
             <span>
               {draftState ||
                 (activeId
-                  ? "Đang chạy · Bạn có thể soạn yêu cầu tiếp theo"
+                  ? "Enter thêm hàng chờ · Shift+Enter xuống dòng"
                   : "Enter gửi · Shift+Enter xuống dòng")}
             </span>
             {project && !conversationId && (

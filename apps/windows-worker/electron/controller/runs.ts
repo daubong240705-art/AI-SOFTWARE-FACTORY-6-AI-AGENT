@@ -5,7 +5,8 @@ import type { TeamTask } from "../../shared/team";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import type { Event, ToolPart } from "@opencode-ai/sdk/v2/client";
-import type { Role } from "../../shared/contracts";
+import type { Role, Settings } from "../../shared/contracts";
+import type { FollowUp } from "../../shared/chat";
 import type {
   Run,
   RunState,
@@ -30,15 +31,21 @@ type Active = {
   secrets: string[];
   finished?: Promise<void>;
   seen: Set<string>;
+  visibleSteps?: Map<string, string>;
+  lastTextAt?: number;
 };
 export class RunController {
   private active?: Active;
+  private shuttingDown = false;
   constructor(
     private store: Store,
     private directory: string,
     private readKey: () => string | undefined,
   ) {
     store.interruptRuns();
+    store.queue.hold(
+      "Ứng dụng đã mở lại. Chọn Chạy tiếp để tiếp tục hàng chờ.",
+    );
   }
   view(): RuntimeView {
     return {
@@ -79,14 +86,17 @@ export class RunController {
     role: Role,
     mode: "direct" | "team" = "direct",
     conversationId?: string,
+    retryOf?: string,
+    settingsSnapshot?: Settings,
   ): Run {
+    if (this.shuttingDown) throw new Error("Ứng dụng đang đóng.");
     if (mode === "team") role = "lead";
     if (this.active)
       throw new Error(
         "Chỉ chạy một yêu cầu tại một thời điểm. Dừng task hiện tại trước.",
       );
     const project = this.store.project(projectId);
-    const settings = this.store.settings();
+    const settings = settingsSnapshot ?? this.store.settings();
     const agent = settings.agents.find((a) => a.role === role);
     if (!settings.gatewayUrl)
       throw new Error("Cấu hình và lưu gateway trước khi chạy.");
@@ -99,6 +109,10 @@ export class RunController {
       ? this.store.conversations.context(conversationId, projectId)
       : undefined;
     const run: Run = {
+      retryOf,
+      attemptRoot: retryOf
+        ? (this.store.run(retryOf).attemptRoot ?? retryOf)
+        : undefined,
       conversationId,
       context,
       mode,
@@ -135,7 +149,9 @@ export class RunController {
     this.store.createRun(run);
     const active: Active = { run, secrets: key ? [key] : [], seen: new Set() };
     this.active = active;
-    active.finished = this.execute(active, key);
+    active.finished = Promise.resolve().then(() => {
+      if (this.active === active) return this.execute(active, key);
+    });
     return structuredClone(run);
   }
   private record(active: Active, type: string, text: string): void {
@@ -158,7 +174,11 @@ export class RunController {
       );
     }, run.settings.timeoutMinutes * 60000);
     try {
-      await canonicalDirectory(run.workspace);
+      const canonical = await canonicalDirectory(run.workspace);
+      if (canonical.toLowerCase() !== run.workspace.toLowerCase())
+        throw new Error(
+          "Đường dẫn source đã thay đổi. Chọn lại dự án trước khi chạy.",
+        );
       this.check(active);
       const executable = resolveRuntime(run.settings.runtimePath);
       run.runtimeVersion = await runtimeVersion(executable);
@@ -253,6 +273,14 @@ export class RunController {
       );
       if (this.active === active) this.active = undefined;
       active.secrets = [];
+      if (!this.shuttingDown) {
+        if (run.state === "completed") this.advance(run.id);
+        else
+          this.store.queue.hold(
+            "Lượt trước chưa hoàn tất. Kiểm tra kết quả rồi chọn Chạy tiếp.",
+            run.id,
+          );
+      }
     }
   }
   private async step(
@@ -297,6 +325,41 @@ export class RunController {
         },
         { url, token: active.proxy.token },
         {
+          text:
+            task && !["work", "fix"].includes(task.kind)
+              ? undefined
+              : (text) => {
+                  if (active.desired) return;
+                  // Withhold the tail until final reconciliation, including any split credential.
+                  const tail = Math.max(
+                    128,
+                    ...active.secrets.map((s) => s.length),
+                  );
+                  const visible = redact(text, active.secrets).slice(
+                    0,
+                    Math.max(0, text.length - tail),
+                  );
+                  if (task) {
+                    active.visibleSteps ??= new Map();
+                    active.visibleSteps.set(
+                      task.id,
+                      `### ${task.role.toUpperCase()} · ${task.title}\n\n${visible}`,
+                    );
+                  }
+                  const combined = task
+                    ? [...active.visibleSteps!.values()]
+                        .join("\n\n")
+                        .slice(-16000)
+                    : visible;
+                  if (
+                    combined !== run.partialText &&
+                    Date.now() - (active.lastTextAt ?? 0) >= 150
+                  ) {
+                    run.partialText = combined;
+                    active.lastTextAt = Date.now();
+                    this.store.updateRun(run);
+                  }
+                },
           event: (event) => this.onEvent(active, event),
           permission: (permission) => this.onPermission(active, permission),
           failure: (message) => {
@@ -474,6 +537,10 @@ export class RunController {
     if (!active || active.run.id !== id)
       throw new Error("Lượt chạy không còn hoạt động.");
     active.desired = desired;
+    this.store.queue.hold(
+      "Lượt trước đã dừng. Kiểm tra kết quả rồi chọn Chạy tiếp.",
+      id,
+    );
     active.stopError = error;
     active.run.state = "cancelling";
     this.record(
@@ -495,6 +562,109 @@ export class RunController {
     }
   }
   async shutdown(): Promise<void> {
+    this.shuttingDown = true;
+    this.store.queue.hold("Ứng dụng đã đóng. Chọn Chạy tiếp để tiếp tục.");
     if (this.active) await this.stop(this.active.run.id);
+  }
+  enqueue(
+    projectId: string,
+    conversationId: string,
+    prompt: string,
+    role: Role,
+    mode: "direct" | "team",
+  ): FollowUp {
+    this.store.project(projectId);
+    this.store.conversations.context(conversationId, projectId);
+    const settings = this.store.settings();
+    if (mode === "team") role = "lead";
+    if (
+      !settings.gatewayUrl ||
+      !settings.agents.find((a) => a.role === role && a.enabled && a.model)
+    )
+      throw new Error("Lưu gateway và chọn model trước khi thêm hàng chờ.");
+    const held = this.store.queue
+      .list(conversationId)
+      .some((q) => q.state === "held");
+    const waiting = !!this.active && !held;
+    return this.store.queue.add({
+      projectId,
+      conversationId,
+      prompt,
+      role,
+      mode,
+      settings,
+      afterRunId: this.active?.run.id ?? null,
+      state: waiting ? "waiting" : "held",
+      reason: waiting ? "" : "Chọn Chạy tiếp từ đầu hàng chờ để bắt đầu.",
+    });
+  }
+  resume(id: string): Run {
+    if (this.active) throw new Error("Một lượt khác đang chạy.");
+    const item = this.store.queue.get(id);
+    const all = this.store.queue.list();
+    if (all.find((q) => q.conversationId === item.conversationId)?.id !== id)
+      throw new Error("Chạy yêu cầu đầu hàng chờ trước.");
+    const run = this.launchQueued(item);
+    for (const next of this.store.queue.list())
+      if (next.conversationId === item.conversationId)
+        this.store.queue.save({
+          ...next,
+          state: "waiting",
+          reason: "",
+          afterRunId: run.id,
+        });
+    return run;
+  }
+  private launchQueued(item: FollowUp): Run {
+    if (JSON.stringify(item.settings) !== JSON.stringify(this.store.settings()))
+      throw new Error(
+        "Cấu hình đã thay đổi. Xóa yêu cầu và gửi lại với cấu hình mới.",
+      );
+    const before = this.active;
+    try {
+      return this.store.queue.claim(item.id, (q) => {
+        const run = this.start(
+          q.projectId,
+          q.prompt,
+          q.role,
+          q.mode,
+          q.conversationId,
+          undefined,
+          q.settings,
+        );
+        return { id: run.id, value: run };
+      });
+    } catch (error) {
+      // Claim and run insertion roll back together; a rolled-back run must never execute.
+      if (this.active !== before) this.active = before;
+      throw error;
+    }
+  }
+  private advance(afterRunId: string): void {
+    const item = this.store.queue
+      .list()
+      .find((q) => q.state === "waiting" && q.afterRunId === afterRunId);
+    if (!item) return;
+    try {
+      this.launchQueued(item);
+    } catch (error) {
+      this.store.queue.hold(
+        error instanceof Error ? error.message : "Không thể chạy yêu cầu tiếp.",
+        afterRunId,
+      );
+    }
+  }
+  retry(id: string): Run {
+    const previous = this.store.run(id);
+    if (["queued", "running", "blocked", "cancelling"].includes(previous.state))
+      throw new Error("Lượt này chưa kết thúc.");
+    return this.start(
+      previous.projectId,
+      previous.prompt,
+      previous.role,
+      previous.mode,
+      previous.conversationId ?? undefined,
+      previous.id,
+    );
   }
 }

@@ -106,6 +106,39 @@ function registerIPC(): void {
       request.conversationId,
     );
   });
+  handle(channels.enqueue, (input) => {
+    const q = z
+      .object({
+        projectId: idSchema,
+        conversationId: idSchema,
+        prompt: z.string().trim().min(1).max(32000),
+        role: z.enum(roles),
+        mode: z.enum(["direct", "team"]),
+      })
+      .strict()
+      .parse(input);
+    return controller.enqueue(
+      q.projectId,
+      q.conversationId,
+      q.prompt,
+      q.role,
+      q.mode,
+    );
+  });
+  handle(channels.editFollowUp, (input) => {
+    const q = z
+      .object({ id: idSchema, prompt: z.string().trim().min(1).max(32000) })
+      .strict()
+      .parse(input);
+    store.queue.edit(q.id, q.prompt);
+  });
+  handle(channels.removeFollowUp, (input) =>
+    store.queue.remove(idSchema.parse(input)),
+  );
+  handle(channels.resumeFollowUp, (input) =>
+    controller.resume(idSchema.parse(input)),
+  );
+  handle(channels.retryRun, (input) => controller.retry(idSchema.parse(input)));
   handle(channels.conversations, (input) =>
     store.conversations.list(
       z
@@ -122,7 +155,10 @@ function registerIPC(): void {
       .object({ id: idSchema, before: z.number().int().positive().optional() })
       .strict()
       .parse(input);
-    return store.conversations.get(request.id, request.before);
+    return {
+      ...store.conversations.get(request.id, request.before),
+      queue: store.queue.list(request.id),
+    };
   });
   handle(channels.createConversation, (input) =>
     store.conversations.create(idSchema.parse(input)),
