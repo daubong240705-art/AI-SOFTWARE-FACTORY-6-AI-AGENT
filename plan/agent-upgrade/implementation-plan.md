@@ -1,6 +1,6 @@
 # Kế hoạch triển khai theo đợt
 
-Trạng thái ngày 04/11/2026: **AU-0, AU-1, AU-2A, AU-2B và AU-3 hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md), [AU-2B](../../docs/windows-worker/au2b-completion.md), [AU-3](../../docs/windows-worker/au3-completion.md). AU-4–5 chưa thực hiện. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
+Trạng thái ngày 04/11/2026: **AU-0, AU-1, AU-2A, AU-2B, AU-3 và AU-4A hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md), [AU-2B](../../docs/windows-worker/au2b-completion.md), [AU-3](../../docs/windows-worker/au3-completion.md), [AU-4A](../../docs/windows-worker/au4a-completion.md). AU-4B và AU-5 chưa thực hiện. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
 
 ## Ranh giới và thứ tự
 
@@ -16,9 +16,10 @@ flowchart LR
   B --> C[AU-2A handoff: xong]
   C --> D[AU-2B evidence gate: xong]
   D --> E[AU-3 skills theo task: xong]
-  E --> F[AU-4 lỗi, model và số liệu]
-  W[WW-4D lifecycle] --> F
-  F --> G[AU-5 nghiệm thu và bàn giao]
+  E --> F[AU-4A lỗi, model và số liệu: xong]
+  F --> H[AU-4B ownership và recovery]
+  W[WW-4D lifecycle] --> H
+  H --> G[AU-5 nghiệm thu và bàn giao]
 ```
 
 ## AU-0 — Nguồn và kế hoạch: hoàn thành
@@ -107,6 +108,16 @@ Nghiệm thu: task docs không tải toàn bộ implement/fix/local-dev; bugfix 
 
 ## AU-4 — Lỗi rõ ràng, model minh bạch, số liệu có nguồn
 
+### AU-4A — Hoàn thành
+
+Đã triển khai các mục 1–4 dưới đây và regression cho Stop/reopen hiện có. Lỗi có mã và nguyên nhân đầu tiên được giữ lại; từ chối quyền dừng lượt chạy. Proxy ngừng gửi upstream sau lỗi auth/rate-limit/transient/budget/model mismatch, Controller dừng runtime; không thêm retry request/task. Đã đọc source retry của OpenCode 1.19.5: runtime có tối đa 5 retry transient nội bộ; latch tại proxy chặn các request tiếp theo gửi upstream trong execution lỗi.
+
+Model phải khớp role bật trong settings snapshot. Metrics lưu theo run/task/attempt: request đã thử gửi, thời gian, lệnh đạt/lỗi/chưa hoàn tất, usage runtime quan sát được. Không coi usage này là tổng billing; thiếu token/cost ghi chưa có số liệu. Lịch sử cũ không bị gán metrics giả, schema vẫn v6. 71/71 test, typecheck/build/format/native đạt; sau sửa nhỏ cuối ở error adapter, 20/20 test execution/runtime/team cùng typecheck/build/format đạt. [Báo cáo và giới hạn AU-4A](../../docs/windows-worker/au4a-completion.md).
+
+### AU-4B — Chưa triển khai
+
+Phần còn lại là mục 5 và nghiệm thu ownership/process/crash recovery sau lifecycle WW-4D liên quan. Kiểm tra hiện tại dùng runtime mock cho fault injection và Electron thật cho persistence; chưa chứng minh crash/kill process thật ở bản AU-4A. Không đánh dấu toàn bộ AU-4 hoặc WW-4D hoàn thành.
+
 Phụ thuộc AU-3. Phần ownership/recovery phải phối hợp sau nghiệm thu lifecycle WW-4D, tránh hai cơ chế quản lý process. BE phụ trách controller/proxy; FE phần hiển thị; TEST kiểm tra stop/failure; DEVOPS chỉ toolchain local.
 
 1. Error taxonomy: cancelled, permission-denied, scope-violation, incomplete-snapshot, budget-exhausted, provider-auth, rate-limit/transient, invalid-output và tool/test-failure. Lỗi an toàn/cancel/budget/auth không tự retry. Hết budget dừng rõ, không tạo run kế tiếp để vượt giới hạn.
@@ -146,4 +157,4 @@ Ngưỡng: tất cả ca correctness/policy bắt buộc đạt; không tăng s�
 5. Review diff/scope/secret, cập nhật báo cáo, commit từng đợt và push GitHub theo quyền đã có. Không merge/main hoặc deploy ngoài phạm vi.
 6. Đo thực tế rồi mới quyết định cần agent/reviewer/tool/dependency mới. Nếu thiếu quyền/công cụ thì báo giới hạn cụ thể, không giả lập kết quả thành đạt.
 
-Mốc tiếp theo: **AU-4 — lỗi, model và số liệu có nguồn**. Kiểm tra lifecycle WW-4D liên quan trước phần ownership/recovery; không thêm process manager hoặc cơ chế retry task chồng lên runtime.
+Mốc tiếp theo: **lifecycle WW-4D liên quan → AU-4B ownership/recovery → AU-5 nghiệm thu**. AU-4A đã hoàn thành; không thêm process manager hoặc cơ chế retry task chồng lên runtime.

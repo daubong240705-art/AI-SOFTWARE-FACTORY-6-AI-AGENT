@@ -4,18 +4,28 @@ import { readFile } from "node:fs/promises";
 import { rootCertificates } from "node:tls";
 import { randomBytes } from "node:crypto";
 import type { Settings } from "../../shared/contracts";
+import type { ExecutionFailure } from "../../shared/execution";
+import { failure } from "../runtime/failure";
 
 export class ModelProxy {
   readonly token = randomBytes(32).toString("hex");
   private server?: Server;
   private requests = 0;
   private pending = new Set<ReturnType<typeof httpRequest>>();
+  private terminal?: ExecutionFailure;
+  private closed = false;
   constructor(
     private settings: Settings,
     private key: string | undefined,
     private model: string,
     private onRequest: (count: number) => void,
+    private onFailure?: (error: ExecutionFailure) => void,
   ) {}
+  private reject(error: ExecutionFailure): void {
+    if (this.terminal || this.closed) return;
+    this.terminal = error;
+    this.onFailure?.(error);
+  }
   async start(): Promise<string> {
     const endpoint = new URL(
       this.settings.gatewayUrl.replace(/\/+$/, "") + "/chat/completions",
@@ -40,6 +50,10 @@ export class ModelProxy {
         fail(404, "Endpoint denied");
         return;
       }
+      if (this.terminal || this.closed) {
+        fail(409, "Execution stopped; automatic replay denied");
+        return;
+      }
       try {
         const chunks: Buffer[] = [];
         let size = 0;
@@ -57,10 +71,26 @@ export class ModelProxy {
           (body.n !== undefined && body.n !== 1)
         ) {
           fail(403, "Model mismatch");
+          this.reject(
+            failure(
+              "configuration",
+              "Runtime yêu cầu model khác model đã chọn. Kiểm tra cấu hình; không tự đổi model.",
+            ),
+          );
+          return;
+        }
+        if (this.terminal || this.closed) {
+          fail(409, "Execution stopped; automatic replay denied");
           return;
         }
         if (this.requests >= this.settings.maxRequests) {
           fail(403, "execution_request_limit_exceeded");
+          this.reject(
+            failure(
+              "budget-exhausted",
+              "Đã hết số request cho toàn bộ lượt chạy.",
+            ),
+          );
           return;
         }
         this.requests++;
@@ -101,6 +131,22 @@ export class ModelProxy {
                     ? "Gateway rate limit"
                     : `Gateway HTTP ${status}`,
               );
+              this.reject(
+                failure(
+                  status === 401 || status === 403
+                    ? "provider-auth"
+                    : status === 429
+                      ? "rate-limit"
+                      : status >= 500 || (status >= 300 && status < 400)
+                        ? "transient"
+                        : "configuration",
+                  status === 401 || status === 403
+                    ? "Gateway từ chối xác thực hoặc quyền model. Kiểm tra key và model đã chọn."
+                    : status === 429
+                      ? "Gateway đang giới hạn request. Chờ rồi thử lại có chủ đích."
+                      : `Gateway HTTP ${status}; lượt chạy đã dừng, không tự gửi lại.`,
+                ),
+              );
               return;
             }
             res.writeHead(200, {
@@ -114,7 +160,15 @@ export class ModelProxy {
               if (output > 16 * 1024 * 1024)
                 upstream.destroy(new Error("Response too large"));
             });
-            response.on("error", () => res.destroy());
+            response.on("error", () => {
+              res.destroy();
+              this.reject(
+                failure(
+                  "transient",
+                  "Luồng phản hồi gateway bị gián đoạn; không tự phát lại task.",
+                ),
+              );
+            });
             response.pipe(res);
           },
         );
@@ -123,7 +177,15 @@ export class ModelProxy {
           upstream.destroy(new Error("Gateway timeout")),
         );
         upstream.on("close", () => this.pending.delete(upstream));
-        upstream.on("error", () => fail(502, "Gateway network or TLS error"));
+        upstream.on("error", () => {
+          fail(502, "Gateway network or TLS error");
+          this.reject(
+            failure(
+              "transient",
+              "Không kết nối được gateway hoặc lỗi TLS; kiểm tra kết nối/chứng chỉ rồi thử lại.",
+            ),
+          );
+        });
         res.on("close", () => upstream.destroy());
         upstream.end(payload);
       } catch {
@@ -141,6 +203,7 @@ export class ModelProxy {
     return `http://127.0.0.1:${address.port}/v1`;
   }
   async close(): Promise<void> {
+    this.closed = true;
     for (const req of this.pending) req.destroy();
     this.server?.closeAllConnections();
     await new Promise<void>((resolve) => {

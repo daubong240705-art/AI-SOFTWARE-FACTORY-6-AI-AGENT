@@ -8,6 +8,9 @@ import { loadProfiles } from "../team/profiles";
 import { inferWorkType, loadSkillCatalog, selectSkills } from "../team/skills";
 import { rolePolicy, runtimeContext, sourcePolicyError } from "../team/policy";
 import { ExecutionStopped } from "../runtime/stopped";
+import { WorkerError, classifyFailure, failure } from "../runtime/failure";
+import { emptyMetrics, addUsage, syncMetrics } from "../runtime/metrics";
+import type { ExecutionFailure } from "../../shared/execution";
 import type { TeamTask } from "../../shared/team";
 import { createHash, randomUUID } from "node:crypto";
 import { join } from "node:path";
@@ -36,6 +39,7 @@ type Active = {
   baseline?: Snapshot;
   desired?: "cancelled" | "failed";
   stopError?: string;
+  failure?: ExecutionFailure;
   secrets: string[];
   finished?: Promise<void>;
   seen: Set<string>;
@@ -181,6 +185,7 @@ export class RunController {
       runtimeVersion: "",
       inputTokens: 0,
       outputTokens: 0,
+      metrics: emptyMetrics(),
     };
     if (mode === "direct")
       run.skillSelection = selectSkills(
@@ -197,13 +202,16 @@ export class RunController {
     return structuredClone(run);
   }
   private record(active: Active, type: string, text: string): void {
+    syncMetrics(active.run);
+    for (const task of active.run.tasks) syncMetrics(active.run, task);
     this.store.updateRun(active.run, {
       type,
       text: redact(text, active.secrets),
     });
   }
   private check(active: Active): void {
-    if (active.desired) throw new ExecutionStopped(active.desired);
+    if (active.desired)
+      throw new ExecutionStopped(active.desired, active.failure);
   }
   private async execute(
     active: Active,
@@ -211,9 +219,12 @@ export class RunController {
   ): Promise<void> {
     const { run } = active;
     const deadline = setTimeout(() => {
-      void this.stop(run.id, "failed", "Đã hết thời gian chạy.").catch(
-        () => {},
-      );
+      void this.stop(
+        run.id,
+        "failed",
+        "Đã hết thời gian chạy.",
+        failure("deadline-exceeded", "Đã hết thời gian chạy."),
+      ).catch(() => {});
     }, run.settings.timeoutMinutes * 60000);
     try {
       const canonical = await canonicalDirectory(run.workspace);
@@ -242,6 +253,7 @@ export class RunController {
       )
         throw new TeamBlocked(
           "Không thể xác minh toàn bộ phạm vi source chỉ đọc.",
+          "incomplete-snapshot",
         );
       this.check(active);
       run.state = "running";
@@ -263,20 +275,27 @@ export class RunController {
       } else {
         run.summary = await this.step(active, key, executable);
         if (
-          run.commands.some(
-            (c) =>
-              c.status === "error" || (c.exitCode !== null && c.exitCode !== 0),
-          )
+          run.commands.some((c) => c.status !== "completed" || c.exitCode !== 0)
         )
-          throw new Error(
-            "Có lệnh công cụ thất bại. Xem kết quả để xử lý hoặc thử lại.",
+          throw new WorkerError(
+            failure(
+              "tool-test-failure",
+              "Có lệnh công cụ thất bại. Xem kết quả để xử lý hoặc thử lại.",
+            ),
           );
         run.state = "completed";
       }
     } catch (error) {
+      run.failure =
+        active.failure ??
+        (error instanceof ExecutionStopped
+          ? error.failure
+          : classifyFailure(error, active.secrets));
       run.state =
         active.desired ??
-        (error instanceof TeamBlocked ? "needs_input" : "failed");
+        (error instanceof TeamBlocked || run.failure.code === "configuration"
+          ? "needs_input"
+          : "failed");
       run.error = redact(
         active.stopError ??
           (error instanceof Error ? error.message : "Runtime thất bại."),
@@ -291,12 +310,14 @@ export class RunController {
         run.state = "cancelling";
         run.error =
           "Chưa xác nhận dừng được tiến trình. Bấm Dừng để thử lại; task mới đang bị khóa.";
+        run.failure ??= failure("runtime", run.error);
         this.record(active, "STOP_FAILED", run.error);
         return;
       }
       if (active.desired) {
         run.state = active.desired;
         run.error = active.stopError ?? "";
+        run.failure = active.failure;
       }
       if (active.baseline) {
         try {
@@ -326,6 +347,10 @@ export class RunController {
         if (violation) {
           run.state = "needs_input";
           run.error = violation;
+          run.failure = failure(
+            run.baselineComplete ? "scope-violation" : "incomplete-snapshot",
+            violation,
+          );
         }
       }
       run.permissions = [];
@@ -333,6 +358,12 @@ export class RunController {
       for (const task of run.tasks) {
         if (["running", "blocked"].includes(task.state) && active.desired)
           task.state = active.desired === "cancelled" ? "cancelled" : "failed";
+        if (
+          active.desired &&
+          ["cancelled", "failed"].includes(task.state) &&
+          !task.failure
+        )
+          task.failure = active.failure;
         if (task.state === "queued") task.state = "skipped";
         if (!task.endedAt) task.endedAt = new Date().toISOString();
       }
@@ -373,10 +404,23 @@ export class RunController {
   ): Promise<string> {
     this.check(active);
     const { run } = active;
+    const role = task?.role ?? run.role;
+    const configured = run.settings.agents.find(
+      (agent) => agent.role === role && agent.enabled,
+    )?.model;
+    if (!configured || configured !== (task?.model ?? run.model))
+      throw new WorkerError(
+        failure(
+          "configuration",
+          `Model của ${role.toUpperCase()} không khớp cấu hình đã lưu. Chọn lại model và tạo lượt mới.`,
+        ),
+      );
     const context = runtimeContext(run, task, prompt);
     const remaining = run.settings.maxRequests - run.requests;
     if (remaining <= 0)
-      throw new Error("Đã hết số request cho toàn bộ lượt chạy.");
+      throw new WorkerError(
+        failure("budget-exhausted", "Đã hết số request cho toàn bộ lượt chạy."),
+      );
     const base = run.requests;
     const model = task?.model ?? run.model;
     active.proxy = new ModelProxy(
@@ -385,11 +429,15 @@ export class RunController {
       model,
       (count) => {
         run.requests = base + count;
+        if (task?.metrics) task.metrics.requests = count;
         this.record(
           active,
           "MODEL_REQUEST",
           `Request ${run.requests}/${run.settings.maxRequests} · ${model} · ${task?.id ?? "direct"}`,
         );
+      },
+      (error) => {
+        void this.stop(run.id, "failed", error.message, error).catch(() => {});
       },
     );
     active.secrets.push(active.proxy.token);
@@ -444,8 +492,8 @@ export class RunController {
                 },
           event: (event, reconciled) => this.onEvent(active, event, reconciled),
           permission: (permission) => this.onPermission(active, permission),
-          failure: (message) => {
-            void this.stop(run.id, "failed", message).catch(() => {});
+          failure: (message, reason) => {
+            void this.stop(run.id, "failed", message, reason).catch(() => {});
           },
         },
         context,
@@ -467,10 +515,21 @@ export class RunController {
       this.check(active);
       const result = await active.runtime.prompt();
       this.check(active);
-      if (result.error) throw new Error(result.error);
+      if (result.error) throw new WorkerError(result.error);
       if (!result.text.trim())
         throw new Error("Runtime kết thúc nhưng không có báo cáo cuối.");
       return redact(result.text, active.secrets);
+    } catch (error) {
+      if (error instanceof ExecutionStopped || error instanceof TeamBlocked)
+        throw error;
+      const reason =
+        error instanceof WorkerError
+          ? classifyFailure(error, active.secrets)
+          : (active.runtime?.errorInfo(error) ??
+            classifyFailure(error, active.secrets));
+      throw new WorkerError(
+        failure(reason.code, reason.message, active.secrets),
+      );
     } finally {
       await active.runtime?.close();
       await active.proxy.close();
@@ -505,14 +564,28 @@ export class RunController {
   ): Promise<void> {
     const { run } = active;
     if (active.desired) return;
+    const owner = run.tasks.find((task) => task.id === run.currentTaskId);
+    const sessionId = owner?.sessionId ?? run.sessionId;
+    if (
+      sessionId &&
+      "sessionID" in event.properties &&
+      event.properties.sessionID !== sessionId
+    )
+      return;
     if (event.type === "session.error") {
       const message =
         active.runtime?.errorText(event.properties.error) ?? "Runtime báo lỗi.";
-      void this.stop(run.id, "failed", message).catch(() => {});
+      void this.stop(
+        run.id,
+        "failed",
+        message,
+        active.runtime?.errorInfo(event.properties.error),
+      ).catch(() => {});
       return;
     }
     if (event.type !== "message.part.updated") return;
     const part = event.properties.part;
+    if (sessionId && part.sessionID !== sessionId) return;
     if (part.type === "reasoning" || part.type === "text") return; // Never store reasoning or raw streamed prompt fragments.
     const state = part.type === "tool" ? part.state.status : part.type;
     const key = `${run.currentTaskId ?? "direct"}:${part.sessionID}:${part.id}:${state}`;
@@ -521,6 +594,11 @@ export class RunController {
     if (part.type === "step-finish") {
       run.inputTokens += part.tokens.input;
       run.outputTokens += part.tokens.output;
+      if (run.metrics)
+        addUsage(run.metrics, part.tokens.input, part.tokens.output);
+      const task = run.tasks.find((t) => t.id === run.currentTaskId);
+      if (task?.metrics)
+        addUsage(task.metrics, part.tokens.input, part.tokens.output);
       this.record(
         active,
         "MODEL_STEP",
@@ -654,7 +732,23 @@ export class RunController {
       !active.run.permissions.some((p) => p.id === requestId)
     )
       throw new Error("Yêu cầu quyền đã hết hiệu lực.");
-    await active.runtime!.reply(requestId, allow);
+    if (!allow) {
+      const reason = failure(
+        "permission-denied",
+        "Quyền công cụ đã bị từ chối. Lượt chạy dừng để không tự thử cách khác.",
+      );
+      active.desired ??= "failed";
+      active.failure ??= reason;
+      active.stopError ??= reason.message;
+      try {
+        await active.runtime!.reply(requestId, false);
+      } finally {
+        if (this.active === active)
+          await this.stop(runId, "failed", reason.message, reason);
+      }
+      return;
+    }
+    await active.runtime!.reply(requestId, true);
     if (this.active !== active || active.desired) return;
     active.run.permissions = active.run.permissions.filter(
       (p) => p.id !== requestId,
@@ -675,16 +769,23 @@ export class RunController {
     id: string,
     desired: "cancelled" | "failed" = "cancelled",
     error = "",
+    reason?: ExecutionFailure,
   ): Promise<void> {
     const active = this.active;
     if (!active || active.run.id !== id)
       throw new Error("Lượt chạy không còn hoạt động.");
-    active.desired = desired;
+    active.desired ??= desired;
+    active.failure ??= reason
+      ? failure(reason.code, reason.message, active.secrets)
+      : desired === "cancelled"
+        ? failure("cancelled", "Đã dừng theo yêu cầu.")
+        : classifyFailure(error, active.secrets);
     this.store.queue.hold(
       "Lượt trước đã dừng. Kiểm tra kết quả rồi chọn Chạy tiếp.",
       id,
     );
-    active.stopError = error;
+    active.stopError ??= redact(error, active.secrets);
+    active.run.failure = active.failure;
     active.run.state = "cancelling";
     this.record(
       active,
@@ -696,11 +797,16 @@ export class RunController {
     await active.finished;
     // Retry path when a previous process-tree termination could not be confirmed.
     if (this.active === active) {
-      active.run.state = desired;
-      active.run.error = error;
+      active.run.state = active.desired;
+      active.run.error = active.stopError ?? "";
+      active.run.failure = active.failure;
       active.run.permissions = [];
       active.run.endedAt = new Date().toISOString();
-      this.record(active, `RUN_${desired.toUpperCase()}`, error || "Đã dừng.");
+      this.record(
+        active,
+        `RUN_${active.desired.toUpperCase()}`,
+        active.stopError || "Đã dừng.",
+      );
       this.active = undefined;
     }
   }

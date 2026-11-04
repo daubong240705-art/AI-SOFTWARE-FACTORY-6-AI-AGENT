@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { Conversations } from "./conversations";
 import { FollowUps } from "./follow-ups";
 import { EvidenceStore } from "./evidence";
+import { failure } from "../runtime/failure";
 import { normalizeRun, type Run, type RunEvent } from "../../shared/runs";
 import {
   defaultSettings,
@@ -287,9 +288,29 @@ export class Store {
           {
             ...run,
             state: "interrupted",
+            failure: run.metrics
+              ? failure(
+                  "interrupted",
+                  "Ứng dụng kết thúc ngoài dự kiến. Kiểm tra workspace trước khi thử lại có chủ đích.",
+                )
+              : run.failure,
+            metrics: run.metrics
+              ? { ...run.metrics, durationMs: null }
+              : undefined,
             currentTaskId: null,
             tasks: run.tasks.map((task) => ({
               ...task,
+              failure:
+                task.metrics && ["running", "blocked"].includes(task.state)
+                  ? failure(
+                      "interrupted",
+                      "Task bị gián đoạn; không tự chạy lại.",
+                    )
+                  : task.failure,
+              metrics:
+                task.metrics && ["running", "blocked"].includes(task.state)
+                  ? { ...task.metrics, durationMs: null }
+                  : task.metrics,
               state:
                 task.state === "queued"
                   ? "skipped"

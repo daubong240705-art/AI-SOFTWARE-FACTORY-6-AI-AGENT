@@ -1,0 +1,582 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { Event } from "@opencode-ai/sdk/v2/client";
+import type { Run } from "../shared/runs";
+import type { TeamTask } from "../shared/team";
+import type { ExecutionFailure } from "../shared/execution";
+import { defaultSettings } from "../shared/defaults";
+import { normalizeRun } from "../shared/runs";
+import { loadProfiles } from "../electron/team/profiles";
+import {
+  loadSkillCatalog,
+  selectSkills,
+  inferWorkType,
+} from "../electron/team/skills";
+import { newTask, coordinate } from "../electron/team/coordinator";
+import { emptyMetrics, syncMetrics } from "../electron/runtime/metrics";
+import {
+  classifyFailure,
+  failure,
+  WorkerError,
+} from "../electron/runtime/failure";
+import { ExecutionStopped } from "../electron/runtime/stopped";
+import { ModelProxy } from "../electron/gateway/model-proxy";
+import { OpenCodeRuntime } from "../electron/runtime/opencode";
+import { RunController } from "../electron/controller/runs";
+import { Store } from "../electron/storage/database";
+import { ExecutionFacts } from "../src/features/ExecutionFacts";
+
+function fixture() {
+  const directory = mkdtempSync(join(tmpdir(), "asf-execution-"));
+  const source = join(directory, "source");
+  mkdirSync(source);
+  const store = new Store(join(directory, "data"));
+  const settings = defaultSettings();
+  settings.gatewayUrl = "https://unused.example/v1";
+  settings.agents.forEach((a) => {
+    a.enabled = true;
+    a.model = `model-${a.role}`;
+  });
+  const run: Run = {
+    id: crypto.randomUUID(),
+    projectId: crypto.randomUUID(),
+    projectName: "metrics",
+    workspace: source,
+    prompt: "Analyze source",
+    role: "lead",
+    model: "model-lead",
+    mode: "team",
+    tasks: [],
+    profiles: loadProfiles(),
+    skillCatalog: loadSkillCatalog(),
+    currentTaskId: null,
+    fixRound: 0,
+    review: null,
+    state: "completed",
+    createdAt: new Date().toISOString(),
+    startedAt: null,
+    endedAt: null,
+    sessionId: null,
+    summary: "",
+    error: "",
+    settings,
+    changes: [],
+    commands: [],
+    permissions: [],
+    requests: 0,
+    baselineComplete: true,
+    toolsCompleted: 0,
+    runtimeVersion: "",
+    inputTokens: 0,
+    outputTokens: 0,
+    metrics: emptyMetrics(),
+  };
+  store.createRun(run);
+  const controller = new RunController(store, directory, () => undefined);
+  const active = {
+    run,
+    secrets: [] as string[],
+    seen: new Set<string>(),
+    desired: undefined as "cancelled" | "failed" | undefined,
+    failure: undefined as ExecutionFailure | undefined,
+    runtime: undefined as unknown,
+  };
+  const internal = controller as unknown as {
+    active: typeof active | undefined;
+    onEvent(active: unknown, event: Event, reconciled?: boolean): Promise<void>;
+    step(
+      active: unknown,
+      key: string | undefined,
+      executable: string,
+      task?: TeamTask,
+      prompt?: string,
+    ): Promise<string>;
+  };
+  internal.active = active;
+  const cleanup = () => {
+    store.close();
+    assert.ok(directory.startsWith(join(tmpdir(), "asf-execution-")));
+    rmSync(directory, { recursive: true, force: true });
+  };
+  return {
+    directory,
+    source,
+    store,
+    run,
+    controller,
+    active,
+    internal,
+    cleanup,
+  };
+}
+function task(run: Run, id = "t1") {
+  return newTask(run, {
+    id,
+    role: "be",
+    title: "Implement",
+    instructions: "Work",
+    allowedPaths: ["."],
+    acceptance: ["Done"],
+    dependsOn: [],
+    kind: "work",
+  });
+}
+async function gateway(status: number) {
+  let calls = 0;
+  const server = createServer((req, res) => {
+    calls++;
+    req.resume();
+    res.writeHead(status, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify(
+        status === 200
+          ? { choices: [] }
+          : { error: "provider-secret-never-persist" },
+      ),
+    );
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  return {
+    url: `http://127.0.0.1:${address.port}/v1`,
+    calls: () => calls,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+test("failure taxonomy keeps primary typed causes and redacts credentials without assuming transient means auto-retry", () => {
+  for (const [text, code] of [
+    ["execution_request_limit_exceeded", "budget-exhausted"],
+    ["Gateway HTTP 401", "provider-auth"],
+    ["Gateway HTTP 429", "rate-limit"],
+    ["Gateway HTTP 503", "transient"],
+    ["permission rejected", "permission-denied"],
+    ["Task ngoài phạm vi", "scope-violation"],
+    ["Không thể xác minh toàn bộ source", "incomplete-snapshot"],
+    ["JSON không hợp lệ", "invalid-output"],
+    ["Có lệnh thất bại", "tool-test-failure"],
+    ["Thiếu profile snapshot", "configuration"],
+    ["Unknown failure", "runtime"],
+  ])
+    assert.equal(classifyFailure(text).code, code);
+  const typed = classifyFailure(
+    new WorkerError(failure("scope-violation", "value raw-credential")),
+    ["raw-credential"],
+  );
+  assert.equal(typed.code, "scope-violation");
+  assert.ok(!typed.message.includes("raw-credential"));
+  assert.equal(typed.retry, "none");
+  assert.equal(failure("transient", "network").retry, "manual");
+});
+
+test("proxy fails closed after 401/429/503 and model mismatch; repeated native requests never reach upstream", async () => {
+  for (const [status, code] of [
+    [401, "provider-auth"],
+    [429, "rate-limit"],
+    [503, "transient"],
+  ] as const) {
+    const upstream = await gateway(status);
+    const errors: ExecutionFailure[] = [];
+    let counted = 0;
+    const settings = defaultSettings();
+    settings.gatewayUrl = upstream.url;
+    settings.maxRequests = 5;
+    const proxy = new ModelProxy(
+      settings,
+      "synthetic-key",
+      "chosen",
+      (n) => {
+        counted = n;
+      },
+      (e) => errors.push(e),
+    );
+    const url = await proxy.start();
+    const request = (model = "chosen") =>
+      fetch(url + "/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${proxy.token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ model, messages: [] }),
+      });
+    try {
+      assert.equal((await request()).status, status);
+      assert.equal((await request()).status, 409);
+      assert.equal((await request()).status, 409);
+      assert.equal(upstream.calls(), 1);
+      assert.equal(counted, 1);
+      assert.equal(errors.length, 1);
+      assert.equal(errors[0].code, code);
+      assert.ok(
+        !JSON.stringify(errors).includes("provider-secret-never-persist"),
+      );
+    } finally {
+      await proxy.close();
+      await upstream.close();
+    }
+  }
+  const upstream = await gateway(200);
+  const settings = defaultSettings();
+  settings.gatewayUrl = upstream.url;
+  const errors: ExecutionFailure[] = [];
+  const proxy = new ModelProxy(
+    settings,
+    undefined,
+    "chosen",
+    () => {},
+    (e) => errors.push(e),
+  );
+  try {
+    const url = await proxy.start();
+    const request = (model: string) =>
+      fetch(url + "/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${proxy.token}` },
+        body: JSON.stringify({ model }),
+      });
+    assert.equal((await request("other")).status, 403);
+    assert.equal((await request("chosen")).status, 409);
+    assert.equal(upstream.calls(), 0);
+    assert.equal(errors[0].code, "configuration");
+  } finally {
+    await proxy.close();
+    await upstream.close();
+  }
+});
+
+test("shared proxy budget cannot be exceeded by concurrent requests; failure does not create another budget", async () => {
+  const upstream = await gateway(200);
+  const settings = defaultSettings();
+  settings.gatewayUrl = upstream.url;
+  settings.maxRequests = 1;
+  const failures: ExecutionFailure[] = [];
+  const proxy = new ModelProxy(
+    settings,
+    undefined,
+    "chosen",
+    () => {},
+    (e) => failures.push(e),
+  );
+  try {
+    const url = await proxy.start();
+    const statuses = await Promise.all(
+      Array.from(
+        { length: 4 },
+        async () =>
+          (
+            await fetch(url + "/chat/completions", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${proxy.token}` },
+              body: JSON.stringify({ model: "chosen" }),
+            })
+          ).status,
+      ),
+    );
+    assert.equal(upstream.calls(), 1);
+    assert.equal(statuses.filter((s) => s === 200).length, 1);
+    assert.equal(failures.length, 1);
+    assert.equal(failures[0].code, "budget-exhausted");
+  } finally {
+    await proxy.close();
+    await upstream.close();
+  }
+});
+
+test("usage is attributed once per task/session and remains unknown when no samples exist; old history is not backfilled", async () => {
+  const x = fixture();
+  try {
+    const first = task(x.run);
+    first.sessionId = "session1";
+    first.metrics!.requests = 2;
+    x.run.tasks.push(first);
+    x.run.currentTaskId = first.id;
+    x.run.sessionId = "session1";
+    const event = (session: string): Event =>
+      ({
+        type: "message.part.updated",
+        properties: {
+          sessionID: session,
+          part: {
+            type: "step-finish",
+            id: "shared-step",
+            sessionID: session,
+            tokens: { input: 10, output: 4 },
+          },
+        },
+      }) as unknown as Event;
+    await x.internal.onEvent(x.active, event("wrong-session"));
+    assert.equal(x.run.metrics!.inputTokens, null);
+    await x.internal.onEvent(x.active, event("session1"));
+    await x.internal.onEvent(x.active, event("session1"), true);
+    assert.equal(first.metrics!.usageSteps, 1);
+    assert.equal(first.metrics!.inputTokens, 10);
+    const second = task(x.run, "t1-fix-1");
+    second.sessionId = "session2";
+    second.round = 1;
+    second.metrics!.requests = 1;
+    x.run.tasks.push(second);
+    x.run.currentTaskId = second.id;
+    x.run.sessionId = "session2";
+    await x.internal.onEvent(x.active, event("session2"));
+    assert.equal(second.metrics!.inputTokens, 10);
+    assert.equal(x.run.metrics!.inputTokens, 20);
+    x.run.commands.push(
+      {
+        taskId: first.id,
+        callId: "a",
+        command: "test",
+        status: "completed",
+        output: "",
+        exitCode: 1,
+      },
+      {
+        taskId: second.id,
+        callId: "b",
+        command: "test",
+        status: "completed",
+        output: "",
+        exitCode: 0,
+      },
+      {
+        taskId: second.id,
+        callId: "c",
+        command: "test",
+        status: "running",
+        output: "",
+        exitCode: null,
+      },
+    );
+    first.startedAt = "2026-11-04T00:00:00Z";
+    first.endedAt = "2026-11-04T00:00:03Z";
+    syncMetrics(x.run, first);
+    syncMetrics(x.run, second);
+    syncMetrics(x.run);
+    assert.equal(first.metrics!.durationMs, 3000);
+    assert.deepEqual(second.metrics!.commands, {
+      passed: 1,
+      failed: 0,
+      incomplete: 1,
+    });
+    assert.deepEqual(x.run.metrics!.commands, {
+      passed: 1,
+      failed: 1,
+      incomplete: 1,
+    });
+    assert.equal(x.run.metrics!.cost, null);
+    x.store.updateRun(x.run);
+    assert.deepEqual(x.store.run(x.run.id).tasks[0].metrics, first.metrics);
+    const old = normalizeRun({ ...x.run, metrics: undefined });
+    assert.equal(old.metrics, undefined);
+    assert.match(
+      renderToStaticMarkup(
+        createElement(ExecutionFacts, { metrics: undefined }),
+      ),
+      /lượt cũ/,
+    );
+    assert.match(
+      renderToStaticMarkup(
+        createElement(ExecutionFacts, { metrics: emptyMetrics() }),
+      ),
+      /Token: chưa có số liệu/,
+    );
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("permission rejection and repeated Stop preserve the first cause and hold the queue without scheduling more sessions", async () => {
+  const x = fixture();
+  try {
+    const work = task(x.run);
+    x.run.tasks.push(work);
+    x.run.currentTaskId = work.id;
+    x.run.permissions = [
+      { id: "perm", permission: "bash", patterns: ["test"] },
+    ];
+    let replies = 0,
+      closes = 0;
+    x.active.runtime = {
+      reply: async () => {
+        assert.equal(x.active.desired, "failed");
+        assert.equal(x.active.failure?.code, "permission-denied");
+        replies++;
+      },
+      close: async () => {
+        closes++;
+      },
+    };
+    await x.controller.reply(x.run.id, "perm", false);
+    assert.equal(replies, 1);
+    assert.ok(closes > 0);
+    assert.equal(x.run.failure?.code, "permission-denied");
+    assert.equal(x.run.state, "failed");
+    assert.equal(x.controller.view().activeId, null);
+    x.internal.active = x.active;
+    await x.controller.stop(x.run.id);
+    assert.equal(x.run.failure?.code, "permission-denied");
+    assert.equal(x.run.state, "failed");
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("real proxy + Controller step stops on provider auth, counts exactly one request and never falls back model", async () => {
+  const x = fixture();
+  const upstream = await gateway(401);
+  const original = {
+    start: OpenCodeRuntime.prototype.start,
+    prompt: OpenCodeRuntime.prototype.prompt,
+    close: OpenCodeRuntime.prototype.close,
+  };
+  let starts = 0;
+  try {
+    x.run.settings.gatewayUrl = upstream.url;
+    x.run.mode = "direct";
+    x.run.role = "be";
+    x.run.model = "model-be";
+    x.run.skillSelection = selectSkills(
+      x.run.skillCatalog!,
+      "be",
+      inferWorkType("be", x.run.prompt),
+    );
+    OpenCodeRuntime.prototype.start = async function () {
+      starts++;
+      return "fake-session";
+    };
+    OpenCodeRuntime.prototype.close = async function () {};
+    OpenCodeRuntime.prototype.prompt = async function () {
+      const runtime = this as unknown as {
+        proxy: { url: string; token: string };
+      };
+      try {
+        await fetch(runtime.proxy.url + "/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${runtime.proxy.token}` },
+          body: JSON.stringify({ model: "model-be" }),
+        });
+      } catch {
+        /* stop can close the local response */
+      }
+      return { text: "Cannot complete", error: null };
+    };
+    await assert.rejects(
+      x.internal.step(x.active, undefined, "unused"),
+      ExecutionStopped,
+    );
+    assert.equal(starts, 1);
+    assert.equal(upstream.calls(), 1);
+    assert.equal(x.run.requests, 1);
+    assert.equal(x.run.metrics!.requests, 1);
+    assert.equal(x.run.failure?.code, "provider-auth");
+    assert.equal(x.run.model, "model-be");
+    assert.equal(x.run.metrics!.inputTokens, null);
+    assert.ok(
+      !JSON.stringify(x.store.run(x.run.id)).includes(
+        "provider-secret-never-persist",
+      ),
+    );
+  } finally {
+    Object.assign(OpenCodeRuntime.prototype, original);
+    await upstream.close();
+    x.cleanup();
+  }
+});
+
+test("safety/cancellation failures do not enter schema repair or dispatch another task", async () => {
+  const x = fixture();
+  try {
+    let calls = 0;
+    await assert.rejects(
+      coordinate(
+        x.run,
+        async () => {
+          calls++;
+          throw new WorkerError(
+            failure("budget-exhausted", "No requests left"),
+          );
+        },
+        () => {},
+        () => {},
+      ),
+      WorkerError,
+    );
+    assert.equal(calls, 1);
+    assert.equal(x.run.tasks[0].failure?.code, "budget-exhausted");
+    assert.equal(x.run.tasks[0].metrics?.inputTokens, null);
+    const wrongModel = task(x.run);
+    wrongModel.model = "silent-fallback";
+    await assert.rejects(
+      x.internal.step(x.active, undefined, "unused", wrongModel),
+      (error: unknown) =>
+        error instanceof WorkerError && error.failure.code === "configuration",
+    );
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("unconfirmed close keeps the run lock, retrying Stop preserves the primary deadline cause", async () => {
+  const x = fixture();
+  try {
+    let canClose = false;
+    x.active.runtime = {
+      close: async () => {
+        if (!canClose) throw new Error("Owned process still running");
+      },
+    };
+    await assert.rejects(
+      x.controller.stop(
+        x.run.id,
+        "failed",
+        "Deadline",
+        failure("deadline-exceeded", "Deadline"),
+      ),
+      /still running/,
+    );
+    assert.equal(x.controller.isBusy(), true);
+    assert.equal(x.run.state, "cancelling");
+    canClose = true;
+    await x.controller.stop(x.run.id);
+    assert.equal(x.controller.isBusy(), false);
+    assert.equal(x.run.failure?.code, "deadline-exceeded");
+    assert.equal(x.run.state, "failed");
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("restart marks existing running attempts interrupted without replay or inventing completed duration", () => {
+  const x = fixture();
+  try {
+    x.run.state = "running";
+    x.run.startedAt = new Date().toISOString();
+    const work = task(x.run);
+    work.state = "running";
+    work.startedAt = x.run.startedAt;
+    x.run.tasks.push(work);
+    x.store.updateRun(x.run);
+    new RunController(x.store, x.directory, () => undefined);
+    const reopened = x.store.run(x.run.id);
+    assert.equal(reopened.state, "interrupted");
+    assert.equal(reopened.failure?.code, "interrupted");
+    assert.equal(reopened.tasks[0].failure?.code, "interrupted");
+    assert.equal(reopened.metrics?.durationMs, null);
+    assert.equal(reopened.metrics?.inputTokens, null);
+    assert.equal(reopened.tasks[0].metrics?.durationMs, null);
+    assert.equal(reopened.requests, 0);
+  } finally {
+    x.cleanup();
+  }
+});

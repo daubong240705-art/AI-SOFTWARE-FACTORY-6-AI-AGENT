@@ -7,12 +7,14 @@ import type { Run, Permission } from "../../shared/runs";
 import { redact } from "./security";
 import { runtimePermissions, type RuntimeContext } from "./permissions";
 import { VisibleText } from "./visible-text";
+import { classifyFailure, failure, WorkerError } from "./failure";
+import type { ExecutionFailure } from "../../shared/execution";
 
 export type RuntimeHooks = {
   text?: (text: string) => void;
   event: (event: Event, reconciled?: boolean) => void | Promise<void>;
   permission: (permission: Permission) => void;
-  failure: (message: string) => void;
+  failure: (message: string, reason?: ExecutionFailure) => void;
 };
 export class OpenCodeRuntime {
   private child?: ChildProcess;
@@ -216,7 +218,7 @@ export class OpenCodeRuntime {
     });
     return this.session;
   }
-  async prompt(): Promise<{ text: string; error: string }> {
+  async prompt(): Promise<{ text: string; error: ExecutionFailure | null }> {
     if (!this.client || !this.session)
       throw new Error("Runtime chưa sẵn sàng.");
     const result = await this.client.session.prompt(
@@ -256,24 +258,42 @@ export class OpenCodeRuntime {
       text,
       error:
         info && "error" in info && info.error
-          ? this.errorText(info.error)
+          ? this.errorInfo(info.error)
           : info?.finish === "tool-calls"
-            ? "Runtime dừng khi công cụ chưa hoàn tất hoặc quyền đã bị từ chối."
-            : "",
+            ? failure(
+                "invalid-output",
+                "Runtime dừng khi công cụ chưa hoàn tất hoặc quyền đã bị từ chối.",
+              )
+            : null,
     };
   }
   errorText(error: unknown): string {
+    return this.errorInfo(error).message;
+  }
+  errorInfo(error: unknown): ExecutionFailure {
+    if (error instanceof WorkerError)
+      return classifyFailure(error, [this.proxy.token, this.serverPassword]);
     const text = redact(
-      JSON.stringify(error) ?? "Lỗi runtime không xác định.",
+      error instanceof Error
+        ? error.message
+        : (JSON.stringify(error) ?? "Lỗi runtime không xác định."),
       [this.proxy.token, this.serverPassword],
     );
-    if (/request_limit/i.test(text)) return "Đã hết số request cho lượt chạy.";
+    if (/request_limit/i.test(text))
+      return failure("budget-exhausted", "Đã hết số request cho lượt chạy.");
     if (/authentication|401|403|ProviderAuth/i.test(text))
-      return "Gateway từ chối xác thực hoặc quyền model.";
-    if (/429|rate.limit/i.test(text)) return "Gateway đang giới hạn request.";
+      return failure(
+        "provider-auth",
+        "Gateway từ chối xác thực hoặc quyền model.",
+      );
+    if (/429|rate.limit/i.test(text))
+      return failure("rate-limit", "Gateway đang giới hạn request.");
     if (/TLS|certificate|network/i.test(text))
-      return "Không kết nối được gateway hoặc lỗi chứng chỉ TLS.";
-    return text.slice(0, 1200);
+      return failure(
+        "transient",
+        "Không kết nối được gateway hoặc lỗi chứng chỉ TLS.",
+      );
+    return classifyFailure(text);
   }
   async reply(requestID: string, allow: boolean): Promise<void> {
     if (!this.client) throw new Error("Runtime không còn kết nối.");

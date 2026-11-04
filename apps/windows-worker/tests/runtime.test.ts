@@ -111,12 +111,11 @@ test("proxy pins model, counts real requests, rejects redirects and never forwar
     });
   try {
     assert.equal((await request("invalid")).status, 401);
-    assert.equal((await request(proxy.token, "other-model")).status, 403);
     assert.equal(calls, 0);
     assert.equal((await request()).status, 200);
     redirect = true;
     assert.equal((await request()).status, 502);
-    assert.equal((await request()).status, 403);
+    assert.equal((await request()).status, 409);
     assert.equal(calls, 2);
   } finally {
     await proxy.close();

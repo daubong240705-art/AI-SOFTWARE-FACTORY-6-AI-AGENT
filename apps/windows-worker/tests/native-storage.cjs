@@ -46,6 +46,9 @@ app.whenReady().then(async () => {
     assert.deepEqual(store.run(run.id).skillCatalog, run.skillCatalog);
     assert.deepEqual(store.run(run.id).skillSelection, run.skillSelection);
     assert.equal(store.run(run.id).state, "cancelled");
+    assert.equal(store.run(run.id).failure.code, "cancelled");
+    assert.equal(store.run(run.id).metrics.requests, 0);
+    assert.equal(store.run(run.id).metrics.inputTokens, null);
     for (const filename of readdirSync(directory).filter((name) =>
       name.startsWith("worker.sqlite"),
     )) {
@@ -57,7 +60,7 @@ app.whenReady().then(async () => {
     store.close();
     store = undefined;
     console.log(
-      "PASS: Electron SQLite persists skill snapshots after cancel/reopen; Windows secure storage keeps ciphertext without plaintext key.",
+      "PASS: Electron SQLite persists skills, failure and metrics after cancel/reopen; Windows secure storage keeps ciphertext without plaintext key.",
     );
   } catch (error) {
     console.error(

@@ -6,6 +6,8 @@ import { formatRequestUsage } from "../lib/formatRequestUsage";
 import { ChangesPanel } from "./ChangesPanel";
 import { CommandEvidence } from "./CommandEvidence";
 import { AcceptanceEvidence } from "./AcceptanceEvidence";
+import { ExecutionFacts } from "./ExecutionFacts";
+import { failureLabels } from "../../shared/execution";
 
 export function RunPanel({
   detail,
@@ -95,6 +97,16 @@ export function RunPanel({
                 ))}
               </ul>
               {task.error && <p className="warning-text small">{task.error}</p>}
+              {task.failure && (
+                <p className="warning-text small">
+                  {failureLabels[task.failure.code]}
+                </p>
+              )}
+              {task.metrics && (
+                <div className="run-facts">
+                  <ExecutionFacts metrics={task.metrics} />
+                </div>
+              )}
               {task.summary && <pre>{task.summary}</pre>}
             </details>
           ))}
@@ -152,6 +164,9 @@ export function RunPanel({
           {run.error && (
             <div className="notice error">
               <TriangleAlert size={16} />
+              {run.failure && (
+                <strong>{failureLabels[run.failure.code]} · </strong>
+              )}
               {run.error}
             </div>
           )}
@@ -232,9 +247,7 @@ export function RunPanel({
               )}
             </span>
             <span>{run.toolsCompleted} tool hoàn thành</span>
-            <span>
-              Token báo cáo: {run.inputTokens} vào / {run.outputTokens} ra
-            </span>
+            <ExecutionFacts metrics={run.metrics} />
           </div>
           <p className="muted small">
             Trạng thái kết thúc phản ánh runtime; kết quả build/test chỉ có giá

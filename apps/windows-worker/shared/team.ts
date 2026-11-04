@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Role, Settings } from "./contracts";
 import type { ChangedFile } from "./runs";
 import { evidenceRefSchema, type TaskEvidence } from "./evidence";
+import type { ExecutionFailure, ExecutionMetrics } from "./execution";
 import {
   skillIdSchema,
   workTypeSchema,
@@ -127,6 +128,8 @@ export type TaskState =
   | "cancelled"
   | "skipped";
 export type TeamTask = {
+  failure?: ExecutionFailure;
+  metrics?: ExecutionMetrics;
   workType?: WorkType;
   skillIds?: SkillId[];
   skillSelection?: SkillSelection;

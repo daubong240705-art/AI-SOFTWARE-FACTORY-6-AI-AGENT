@@ -61,3 +61,11 @@ Chế độ direct vẫn là trả lời trực tiếp, kể cả role Lead. Th�
 [Báo cáo WW-4C](../../docs/windows-worker/ww4c-completion.md) là baseline lịch sử: 38/38 test, typecheck/native/build/format và acceptance DeepSeek Flash đã được ghi ở đợt trước. **Không chạy lại và không tuyên bố đây là kết quả mới của đợt lập kế hoạch.** Chưa benchmark tốc độ/cost, chưa kiểm chứng model nào tốt hơn.
 
 README gốc còn mô tả desktop theo WW-2; cập nhật tài liệu sản phẩm theo hành vi cuối khi AU-1 hoàn thành. Preview/lifecycle/recovery/retention còn thuộc WW-4D, installer thuộc WW-5; không đánh dấu hoàn tất trong chương trình nghiên cứu này.
+
+## Cập nhật sau AU-4A — 04/11/2026
+
+Phần khảo sát và các số dòng bên trên là baseline lịch sử. AU-1/2A/2B/3 đã xử lý profile/policy, handoff, evidence gate và skill selection; xem các báo cáo tương ứng. [AU-4A](../../docs/windows-worker/au4a-completion.md) bổ sung failure có kiểu, model snapshot check và metrics run/task/attempt; G5 được phân loại và dừng rõ, chưa có tự replay task. G8 có nền metrics, chưa có benchmark so sánh model/hiệu suất.
+
+Proxy giữ lỗi đầu tiên và chặn request upstream tiếp theo trong execution lỗi; auth/rate-limit/transient/budget/model mismatch dừng Controller. Từ chối quyền cũng kết thúc lượt chạy. Token chỉ tổng hợp các bước runtime quan sát được, cost luôn chưa có số liệu; history cũ giữ unknown. Không đổi schema6 hoặc thêm dependency. 71/71 test và checks phát triển/native đạt; không gọi model thật trong AU-4A.
+
+**AU-4B vẫn chờ lifecycle WW-4D liên quan.** Reopen vẫn ghi interrupted, giữ hàng chờ và yêu cầu thử lại có chủ đích; chưa có resume hoặc nhận lại process. Preview, lifecycle/crash recovery, retention/export, AU-5 và installer chưa hoàn thành.

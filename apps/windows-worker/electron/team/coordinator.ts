@@ -6,6 +6,7 @@ import {
   validatePlan,
   type TeamTask,
   type TeamReview,
+  type EvidenceReview,
 } from "../../shared/team";
 import { changes, snapshot } from "../workspace/snapshot";
 import { ExecutionStopped } from "../runtime/stopped";
@@ -14,7 +15,14 @@ import { buildHandoff, workReportInstructions } from "./handoff";
 import { criteria, evidenceCatalog, verifyEvidence } from "./evidence";
 import type { EvidenceStore } from "../storage/evidence";
 import { selectTaskSkills, skillCatalogSummary } from "./skills";
-export class TeamBlocked extends Error {}
+import { WorkerError, failure, classifyFailure } from "../runtime/failure";
+import { emptyMetrics, syncMetrics } from "../runtime/metrics";
+import type { FailureCode } from "../../shared/execution";
+export class TeamBlocked extends WorkerError {
+  constructor(message: string, code: FailureCode = "needs-context") {
+    super(failure(code, message));
+  }
+}
 export type Step = (task: TeamTask, prompt: string) => Promise<string>;
 export function newTask(
   run: Run,
@@ -37,6 +45,7 @@ export function newTask(
   if (!model)
     throw new TeamBlocked(
       `Role ${input.role.toUpperCase()} chưa bật hoặc chưa có model.`,
+      "configuration",
     );
   const task: TeamTask = {
     ...input,
@@ -52,6 +61,8 @@ export function newTask(
     commandIds: [],
     evidence: undefined,
     skillSelection: undefined,
+    failure: undefined,
+    metrics: emptyMetrics(),
   };
   task.skillSelection = selectTaskSkills(run, task);
   return task;
@@ -129,6 +140,7 @@ export async function coordinate(
       if (!before.complete)
         throw new TeamBlocked(
           "Không thể xác minh toàn bộ phạm vi source workspace.",
+          "incomplete-snapshot",
         );
       task.summary = await step(task, prompt);
       check();
@@ -153,8 +165,13 @@ export async function coordinate(
         task.changes,
         after.complete,
       );
-      if (violation) throw new TeamBlocked(`Task ${task.id}: ${violation}`);
+      if (violation)
+        throw new TeamBlocked(
+          `Task ${task.id}: ${violation}`,
+          after.complete ? "scope-violation" : "incomplete-snapshot",
+        );
       task.error = verificationError(run, task);
+      if (task.error) task.failure = failure("tool-test-failure", task.error);
       task.state = task.error ? "failed" : "completed";
       return task.summary;
     } catch (error) {
@@ -165,9 +182,14 @@ export async function coordinate(
             ? "blocked"
             : "failed";
       task.error = error instanceof Error ? error.message : "Task thất bại";
+      task.failure =
+        error instanceof ExecutionStopped
+          ? error.failure
+          : classifyFailure(error, secrets);
       throw error;
     } finally {
       task.endedAt = new Date().toISOString();
+      syncMetrics(run, task);
       record("TASK_FINISHED", `${task.id} · ${task.state} ${task.error}`);
       run.currentTaskId = null;
     }
@@ -202,11 +224,13 @@ export async function coordinate(
         issue = error instanceof Error ? error.message : "JSON không hợp lệ";
         task.state = "failed";
         task.error = issue;
+        task.failure = failure("invalid-output", issue, secrets);
         record("SCHEMA_REJECTED", issue);
       }
     }
     throw new TeamBlocked(
       `Lead không trả dữ liệu hợp lệ sau một lần sửa schema: ${issue}`,
+      "invalid-output",
     );
   }
   const plan = await structured(
@@ -270,7 +294,7 @@ export async function coordinate(
           r,
           [...latest].map(([id, task]) => ({ ...task, id })),
         );
-        return r;
+        return r as EvidenceReview;
       },
     );
     run.review = review;
@@ -280,9 +304,18 @@ export async function coordinate(
       run.state = "completed";
       return;
     }
-    if (review.status === "blocked") throw new TeamBlocked(review.summary);
+    if (review.status === "blocked")
+      throw new TeamBlocked(
+        review.summary,
+        "verification" in review && !review.verification?.verified
+          ? "evidence-unverified"
+          : "needs-context",
+      );
     if (run.fixRound >= run.settings.maxFixRounds)
-      throw new TeamBlocked("Đã hết số vòng sửa lỗi. " + review.summary);
+      throw new TeamBlocked(
+        "Đã hết số vòng sửa lỗi. " + review.summary,
+        "tool-test-failure",
+      );
     run.fixRound++;
     const fixed: string[] = [];
     for (const fix of review.fixes) {
