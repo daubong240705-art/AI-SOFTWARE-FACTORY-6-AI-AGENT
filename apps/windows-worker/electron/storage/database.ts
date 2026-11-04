@@ -8,6 +8,7 @@ import { FollowUps } from "./follow-ups";
 import { EvidenceStore } from "./evidence";
 import { failure } from "../runtime/failure";
 import { redact } from "../runtime/security";
+import { monitorEventSchema, type MonitorEvent } from "../../shared/monitor";
 import { isActive } from "../../shared/runs";
 import type { RetentionPreview } from "../../shared/lifecycle";
 import { normalizeRun, type Run, type RunEvent } from "../../shared/runs";
@@ -36,7 +37,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 6)
+      if (version > 7)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -89,6 +90,35 @@ export class Store {
       this.conversations = new Conversations(this.db, directory, version);
       this.queue = new FollowUps(this.db, directory, version);
       this.evidence = new EvidenceStore(this.db, directory, version);
+      if (version < 7) {
+        const backup = join(
+          directory,
+          "worker.schema6.pre-monitor.backup.sqlite",
+        );
+        if (version === 6 && !existsSync(backup))
+          this.db.prepare("VACUUM INTO ?").run(backup);
+        this.db.transaction(() => {
+          const columns = this.db.pragma("table_info(events)") as {
+            name: string;
+          }[];
+          if (!columns.some((column) => column.name === "metadata"))
+            this.db.exec("ALTER TABLE events ADD COLUMN metadata TEXT");
+          this.db.exec(`
+            CREATE TABLE IF NOT EXISTS board_items (
+              id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id),
+              title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', suggested_role TEXT,
+              priority INTEGER NOT NULL DEFAULT 0, planning_state TEXT NOT NULL DEFAULT 'backlog',
+              position REAL NOT NULL DEFAULT 0, archived_at TEXT, version INTEGER NOT NULL DEFAULT 1,
+              created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS board_links (
+              item_id TEXT PRIMARY KEY REFERENCES board_items(id), run_id TEXT REFERENCES runs(id),
+              follow_up_id TEXT, logical_task_key TEXT, created_at TEXT NOT NULL
+            );
+            PRAGMA user_version=7;
+          `);
+        })();
+      }
     } catch (error) {
       this.db.close();
       throw error;
@@ -255,6 +285,14 @@ export class Store {
     if (!row) throw new Error("Không tìm thấy lượt chạy.");
     return normalizeRun(JSON.parse(row.value));
   }
+  latestProjectRun(projectId: string): Run | null {
+    const row = this.db
+      .prepare(
+        "SELECT value FROM runs WHERE project_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1",
+      )
+      .get(projectId) as { value: string } | undefined;
+    return row ? normalizeRun(JSON.parse(row.value)) : null;
+  }
   runs(): Run[] {
     return (
       this.db
@@ -262,7 +300,10 @@ export class Store {
         .all() as { value: string }[]
     ).map((row) => normalizeRun(JSON.parse(row.value)));
   }
-  updateRun(run: Run, event?: { type: string; text: string }): void {
+  updateRun(
+    run: Run,
+    event?: { type: string; text: string; metadata?: MonitorEvent },
+  ): void {
     this.db.transaction(() => {
       this.db
         .prepare("UPDATE runs SET state=?,value=? WHERE id=?")
@@ -288,10 +329,15 @@ export class Store {
           .prepare("UPDATE tasks SET state=? WHERE run_id=?")
           .run(run.state, run.id);
       this.conversations.sync(run);
-      if (event) this.event(run.id, event.type, event.text);
+      if (event) this.event(run.id, event.type, event.text, event.metadata);
     })();
   }
-  event(runId: string, type: string, text: string): void {
+  event(
+    runId: string,
+    type: string,
+    text: string,
+    metadata?: MonitorEvent,
+  ): void {
     const count = (
       this.db
         .prepare("SELECT COUNT(*) AS n FROM events WHERE run_id=?")
@@ -299,15 +345,29 @@ export class Store {
     ).n;
     if (count >= 2000) return;
     this.db
-      .prepare("INSERT INTO events (run_id,type,text,at) VALUES (?,?,?,?)")
-      .run(runId, type, text.slice(0, 12000), new Date().toISOString());
+      .prepare(
+        "INSERT INTO events (run_id,type,text,at,metadata) VALUES (?,?,?,?,?)",
+      )
+      .run(
+        runId,
+        type,
+        text.slice(0, 12000),
+        new Date().toISOString(),
+        metadata ? JSON.stringify(monitorEventSchema.parse(metadata)) : null,
+      );
   }
   events(id: string): RunEvent[] {
-    return this.db
+    const rows = this.db
       .prepare(
-        "SELECT sequence,run_id AS runId,type,text,at FROM (SELECT * FROM events WHERE run_id=? ORDER BY sequence DESC LIMIT 300) ORDER BY sequence",
+        "SELECT sequence,run_id AS runId,type,text,at,metadata FROM (SELECT * FROM events WHERE run_id=? ORDER BY sequence DESC LIMIT 300) ORDER BY sequence",
       )
-      .all(id) as RunEvent[];
+      .all(id) as (Omit<RunEvent, "metadata"> & { metadata: string | null })[];
+    return rows.map(({ metadata, ...event }) => ({
+      ...event,
+      ...(metadata
+        ? { metadata: monitorEventSchema.parse(JSON.parse(metadata)) }
+        : {}),
+    }));
   }
   interruptRuns(): void {
     const rows = this.db

@@ -43,6 +43,17 @@ import { Executions } from "../runtime/executions";
 import { canonicalDirectory } from "../workspace/projects";
 import { changes, snapshot, type Snapshot } from "../workspace/snapshot";
 import { captureGit } from "../workspace/git-evidence";
+import {
+  MonitorProjection,
+  projectMonitor,
+  observationActivity,
+  observeTool,
+  toolActivity,
+} from "./monitor";
+import {
+  monitorRequestSchema,
+  type MonitorRequest,
+} from "../../shared/monitor";
 import { resolveRuntime, runtimeVersion, redact } from "../runtime/security";
 
 type ExecutionContext = {
@@ -88,6 +99,24 @@ type Active = {
   commandObservations?: Map<string, { version: string; at: number }>;
 };
 export class RunController {
+  private monitorProjection = new MonitorProjection();
+  monitor(input: MonitorRequest) {
+    const request = monitorRequestSchema.parse(input);
+    this.store.project(request.projectId);
+    const active = this.active?.run ?? null;
+    const run =
+      active?.projectId === request.projectId
+        ? active
+        : this.store.latestProjectRun(request.projectId);
+    const key = this.readKey();
+    return this.monitorProjection.snapshot(
+      request,
+      projectMonitor(request.projectId, this.store.settings(), run, active, [
+        ...(this.active?.secrets ?? []),
+        ...(key ? [key] : []),
+      ]),
+    );
+  }
   private active?: Active;
   private recoveryTickets = new Map<
     string,
@@ -255,9 +284,26 @@ export class RunController {
   ): void {
     syncMetrics(active.run);
     for (const task of active.run.tasks) syncMetrics(active.run, task);
+    const owner = active.run.tasks.find((task) => task.id === taskId);
+    const observation = taskId ? owner?.observation : active.run.observation;
     this.store.updateRun(active.run, {
       type,
       text: redact((taskId ? `${taskId} · ` : "") + text, active.secrets),
+      metadata: {
+        version: 1,
+        taskId: taskId ?? null,
+        executionId: observation?.executionId,
+        activity: active.run.endedAt
+          ? "finished"
+          : active.run.state === "cancelling"
+            ? "stopping"
+            : active.run.permissions.some(
+                  (permission) =>
+                    (permission.taskId ?? null) === (taskId ?? null),
+                )
+              ? "waiting_input"
+              : observationActivity(observation, owner),
+      },
     });
   }
   private check(active: Active): void {
@@ -621,11 +667,24 @@ export class RunController {
       approvedPermissions: new Set(),
       closed: false,
     };
+    const observation = {
+      executionId: execution.id,
+      startedAt: new Date().toISOString(),
+      at: new Date().toISOString(),
+      pendingModels: 0,
+      tools: {} as import("../../shared/monitor").ExecutionObservation["tools"],
+      closed: false,
+    };
+    if (task) task.observation = observation;
+    else run.observation = observation;
     const proxy = new ModelProxy(
       { ...run.settings, maxRequests: remaining },
       key,
       model,
       (count) => {
+        if (lane.closed) return;
+        observation.pendingModels++;
+        observation.at = new Date().toISOString();
         run.requests = budget.requests;
         if (task?.metrics) task.metrics.requests = count;
         this.record(
@@ -640,6 +699,17 @@ export class RunController {
         void this.stop(run.id, "failed", error.message, error).catch(() => {});
       },
       budget,
+      () => {
+        if (lane.closed) return;
+        observation.pendingModels = Math.max(0, observation.pendingModels - 1);
+        observation.at = new Date().toISOString();
+        this.record(
+          active,
+          "MODEL_REQUEST_FINISHED",
+          "Request model đã kết thúc.",
+          lane.taskId,
+        );
+      },
     );
     active.secrets.push(proxy.token);
     execution.proxy = proxy;
@@ -742,6 +812,10 @@ export class RunController {
     } finally {
       lane.closed = true;
       await executions.close(execution.id);
+      observation.closed = true;
+      observation.pendingModels = 0;
+      observation.tools = {};
+      observation.at = new Date().toISOString();
       this.check(active);
       if (task?.workspaceOrigin) {
         try {
@@ -908,6 +982,17 @@ export class RunController {
     const observation = lane ?? active;
     const state = part.state;
     if (state.status === "pending") return;
+    const task = run.tasks.find((t) => t.id === taskId);
+    const monitor =
+      task?.observation ?? (!taskId ? run.observation : undefined);
+    if (monitor)
+      observeTool(
+        monitor,
+        `${part.sessionID}:${part.callID}`,
+        toolActivity(part.tool, task),
+        state.status,
+        reconciled,
+      );
     const input = state.input;
     const title = String(
       input.command ??
@@ -1100,6 +1185,7 @@ export class RunController {
       active,
       "PERMISSION_RESOLVED",
       allow ? "Cho phép công cụ một lần." : "Đã từ chối công cụ.",
+      route?.taskId ?? null,
     );
   }
   async stop(

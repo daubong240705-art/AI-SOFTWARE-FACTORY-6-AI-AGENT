@@ -1,4 +1,5 @@
 export const channels = {
+  monitorSnapshot: "worker:monitor-snapshot",
   workspaces: "worker:workspaces",
   createWorkspace: "worker:create-workspace",
   openWorkspace: "worker:open-workspace",

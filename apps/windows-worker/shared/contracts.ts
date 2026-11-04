@@ -118,6 +118,9 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  monitorSnapshot(
+    input: import("./monitor").MonitorRequest,
+  ): Promise<Reply<import("./monitor").MonitorReply>>;
   workspaces(
     projectId: string,
   ): Promise<Reply<import("./worktrees").OwnedWorkspace[]>>;

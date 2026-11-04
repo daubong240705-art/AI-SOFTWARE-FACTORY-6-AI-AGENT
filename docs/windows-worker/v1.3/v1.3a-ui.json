@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "fixture": true,
+  "providerCalls": 0,
+  "checks": [
+    "Built main/preload/renderer with real isolated SQLite and IPC",
+    "Seven roles; available/disabled/unconfigured separated",
+    "Completed task without verified review remains zero verified",
+    "Chat-to-monitor and monitor-to-run navigation",
+    "Filter and narrow window without horizontal overflow",
+    "Real settings save invalidates snapshot and roster",
+    "Strict IPC input and unchanged epoch/revision response",
+    "Renderer has no Node access"
+  ],
+  "rendererErrors": []
+}

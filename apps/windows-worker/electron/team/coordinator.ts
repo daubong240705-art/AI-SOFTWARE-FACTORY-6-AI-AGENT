@@ -51,6 +51,7 @@ export function newTask(
     );
   const task: TeamTask = {
     ...input,
+    observation: undefined,
     model,
     state: "queued",
     round: run.fixRound,

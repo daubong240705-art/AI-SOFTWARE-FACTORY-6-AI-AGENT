@@ -35,6 +35,8 @@ import type {
 import { defaultSettings } from "../shared/defaults";
 import { version } from "../package.json";
 import { ChatWorkspace } from "./features/ChatWorkspace";
+import { AgentMonitor } from "./features/AgentMonitor";
+import { useMonitor } from "./lib/use-monitor";
 import { HistoryTools } from "./features/HistoryTools";
 import type { ConversationSummary } from "../shared/chat";
 import type { RuntimeView } from "../shared/runs";
@@ -54,7 +56,7 @@ async function value<T>(promise: Promise<Reply<T>>): Promise<T> {
   if (!result.ok) throw new Error(result.error);
   return result.value;
 }
-type Page = "project" | "history" | "settings";
+type Page = "project" | "history" | "settings" | "monitor";
 type Notice = { kind: "error" | "success"; text: string };
 
 function Empty({
@@ -110,6 +112,9 @@ export function App() {
   const [conversationSearch, setConversationSearch] = useState("");
   const [chatRefresh, setChatRefresh] = useState(0);
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
+  const monitor = useMonitor(
+    project && ["project", "monitor"].includes(page) ? project.id : null,
+  );
   const dirty =
     boot &&
     (JSON.stringify(settings) !== JSON.stringify(boot.settings) ||
@@ -503,6 +508,14 @@ export function App() {
         <div className="nav-caption">WORKSPACE</div>
         <nav aria-label="Điều hướng chính">
           <button
+            className={page === "monitor" ? "active" : ""}
+            onClick={() => navigate("monitor")}
+            title="Đội ngũ"
+          >
+            <Layers size={18} />
+            <span>Đội ngũ</span>
+          </button>
+          <button
             className={page === "project" ? "active" : ""}
             onClick={() => navigate("project")}
             title="Dự án"
@@ -638,14 +651,28 @@ export function App() {
             <span>
               {page === "project"
                 ? "Trò chuyện"
-                : page === "history"
-                  ? "Lịch sử"
-                  : "Cài đặt"}
+                : page === "monitor"
+                  ? "Đội ngũ"
+                  : page === "history"
+                    ? "Lịch sử"
+                    : "Cài đặt"}
             </span>
           </div>
+          {page === "project" && project && (
+            <button
+              className="monitor-chat-link"
+              onClick={() => navigate("monitor")}
+            >
+              {monitor.stale
+                ? "Agent · Chưa đồng bộ"
+                : monitor.snapshot
+                  ? `${monitor.snapshot.agents.filter((a) => a.availability === "occupied").length} role đang làm · Xem đội ngũ`
+                  : "Xem đội ngũ"}
+            </button>
+          )}
           <span className="phase-badge">
             <span />
-            Desktop · WW-4A
+            Desktop · V1.3A
           </span>
         </header>
         <main className={page === "project" ? "chat-main" : ""}>
@@ -719,6 +746,29 @@ export function App() {
                   }}
                 />
               )}
+              {page === "monitor" &&
+                (project ? (
+                  <AgentMonitor
+                    state={monitor}
+                    projectName={project.name}
+                    onRefresh={() => void monitor.refresh?.()}
+                    onSettings={() => navigate("settings")}
+                    onOpenRun={(id, conversation) => {
+                      setSelectedRun(id);
+                      setConversationId(conversation);
+                      navigate("project");
+                    }}
+                  />
+                ) : (
+                  <Empty
+                    icon={<Layers size={28} />}
+                    title="Chọn dự án để xem đội ngũ"
+                  >
+                    <button onClick={() => void chooseProject()}>
+                      Chọn dự án
+                    </button>
+                  </Empty>
+                ))}
               {page === "history" && (
                 <>
                   <div className="page-heading">

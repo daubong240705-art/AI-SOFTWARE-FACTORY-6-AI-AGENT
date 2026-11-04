@@ -22,6 +22,7 @@ export class ModelProxy {
     private onRequest: (count: number) => void,
     private onFailure?: (error: ExecutionFailure) => void,
     private budget: RequestBudget = new RequestBudget(settings.maxRequests),
+    private onRequestFinished?: () => void,
   ) {}
   private reject(error: ExecutionFailure): void {
     if (this.terminal || this.closed) return;
@@ -180,7 +181,10 @@ export class ModelProxy {
         upstream.setTimeout(90000, () =>
           upstream.destroy(new Error("Gateway timeout")),
         );
-        upstream.on("close", () => this.pending.delete(upstream));
+        upstream.on("close", () => {
+          this.pending.delete(upstream);
+          this.onRequestFinished?.();
+        });
         upstream.on("error", () => {
           fail(502, "Gateway network or TLS error");
           this.reject(

@@ -1,0 +1,24 @@
+{
+  "version": "1.3.0-alpha.1",
+  "date": "2026-11-04",
+  "baseline": "2b5326f",
+  "checkpoint": "checkpoint/v13a-start-20261104",
+  "branch": "feature/windows-worker-v1.3a",
+  "checks": {
+    "tests": { "passed": 138, "failed": 0, "newMonitorTests": 9 },
+    "targetedMonitorAndParallel": { "passed": 11, "failed": 0 },
+    "targetedProxyRuntime": { "passed": 3, "failed": 0 },
+    "typecheck": "passed",
+    "formatCheck": "passed",
+    "build": "passed",
+    "nativeElectronSqliteAndSafeStorage": "passed",
+    "ui": { "passed": true, "artifact": "v1.3a-ui.json", "data": "isolated historical fixture" },
+    "schema6Migration": "passed: backup, drafts, ciphertext and legacy events retained",
+    "eventCap": "passed: projection state and revision advance after log cap",
+    "staleFeed": "passed: stalled request becomes stale without overlapping requests"
+  },
+  "providerCalls": 0,
+  "liveModelAcceptance": "not run in V1.3A; runtime tests use stubs/local HTTP upstream",
+  "warnings": ["Rollup removes unsupported PURE annotations in Zod dependency comments"],
+  "notImplemented": ["Kanban CRUD/UI", "shared task inspector and agent timeline", "3D office", "performance acceptance E", "complete Chat run-detail cache consolidation"]
+}

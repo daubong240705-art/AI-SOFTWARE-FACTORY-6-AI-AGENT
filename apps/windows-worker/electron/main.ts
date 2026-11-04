@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { writeFile } from "node:fs/promises";
 import { z } from "zod";
+import { monitorRequestSchema } from "../shared/monitor";
 import { evidenceRefSchema } from "../shared/evidence";
 import { readEvidence } from "./team/evidence";
 import {
@@ -372,6 +373,9 @@ function registerIPC(): void {
     empty(input);
     return controller.view();
   });
+  handle(channels.monitorSnapshot, (input) =>
+    controller.monitor(monitorRequestSchema.parse(input)),
+  );
   handle(channels.runDetail, (input) =>
     controller.detail(idSchema.parse(input)),
   );

@@ -8,6 +8,7 @@ import { Store } from "../electron/storage/database";
 import { RunController } from "../electron/controller/runs";
 import { defaultSettings } from "../shared/defaults";
 import { ModelProxy } from "../electron/gateway/model-proxy";
+import { RequestBudget } from "../electron/gateway/request-budget";
 import { redact } from "../electron/runtime/security";
 
 test("controller locks before async startup and persists cancellation across reopen", async () => {
@@ -93,11 +94,20 @@ test("proxy pins model, counts real requests, rejects redirects and never forwar
   const settings = defaultSettings();
   settings.gatewayUrl = `http://127.0.0.1:${address.port}/v1`;
   settings.maxRequests = 2;
+  let requestsStarted = 0;
+  let requestsFinished = 0;
   const proxy = new ModelProxy(
     settings,
     "synthetic-provider",
     "chosen-model",
-    () => {},
+    () => {
+      requestsStarted++;
+    },
+    undefined,
+    new RequestBudget(settings.maxRequests),
+    () => {
+      requestsFinished++;
+    },
   );
   const url = await proxy.start();
   const request = (token = proxy.token, model = "chosen-model") =>
@@ -117,6 +127,10 @@ test("proxy pins model, counts real requests, rejects redirects and never forwar
     assert.equal((await request()).status, 502);
     assert.equal((await request()).status, 409);
     assert.equal(calls, 2);
+    for (let i = 0; requestsFinished < 2 && i < 100; i++)
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(requestsStarted, 2);
+    assert.equal(requestsFinished, 2);
   } finally {
     await proxy.close();
     await new Promise<void>((resolve) => upstream.close(() => resolve()));

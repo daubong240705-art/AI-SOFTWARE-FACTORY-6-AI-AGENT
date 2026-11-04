@@ -1,0 +1,134 @@
+.agent-monitor {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+.agent-monitor h1 {
+  margin: 0 0 6px;
+}
+.monitor-filters,
+.monitor-progress {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 16px 0;
+}
+.monitor-filters button {
+  font-size: 13px;
+  padding: 8px 12px;
+}
+.monitor-filters button[aria-pressed="true"] {
+  background: #fa8c6920;
+  color: #ffc1aa;
+  border-color: #fa8c6960;
+}
+.monitor-filters button span {
+  opacity: 0.65;
+  margin-left: 5px;
+}
+.monitor-progress {
+  color: #c5c5cb;
+  font-size: 13px;
+  gap: 18px;
+}
+.monitor-progress button {
+  margin-left: auto;
+}
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(265px, 1fr));
+  gap: 14px;
+}
+.agent-card {
+  border: 1px solid #34343b;
+  border-radius: 12px;
+  background: #202024;
+  padding: 18px;
+  min-width: 0;
+}
+.agent-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.agent-card header strong {
+  font-size: 16px;
+}
+.agent-card.occupied {
+  border-color: #627ea3;
+}
+.agent-card.occupied .pill {
+  color: #a8ccff;
+}
+.agent-card.disabled {
+  background: #1c1c20;
+}
+.agent-model,
+.agent-last,
+.agent-waiting {
+  color: #aaaab5;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.agent-last,
+.agent-waiting {
+  margin-top: 12px;
+}
+.agent-last small,
+.agent-waiting small {
+  display: block;
+  color: #c8c8d0;
+  font-size: 13px;
+}
+.agent-execution + .agent-execution {
+  margin-top: 14px;
+  border-top: 1px solid #34343b;
+  padding-top: 12px;
+}
+.agent-activity {
+  font-size: 14px;
+  color: #bdcff0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.agent-activity small {
+  color: #aaaab5;
+  font-variant-numeric: tabular-nums;
+}
+.agent-task {
+  display: block;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px 0;
+  font-size: 14px;
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+.monitor-other {
+  border-left: 2px solid #e6c68c;
+  padding-left: 12px;
+  color: #e6c68c;
+  font-size: 13px;
+}
+.monitor-updated {
+  display: block;
+  margin-top: 20px;
+}
+.monitor-chat-link {
+  font-size: 12px;
+  padding: 5px 9px;
+  margin-left: auto;
+}
+@media (max-width: 800px) {
+  .agent-grid {
+    grid-template-columns: 1fr;
+  }
+  .monitor-chat-link {
+    max-width: 180px;
+  }
+}

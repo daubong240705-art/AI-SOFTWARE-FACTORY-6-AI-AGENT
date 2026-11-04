@@ -3,6 +3,8 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  monitorSnapshot: (input) =>
+    ipcRenderer.invoke(channels.monitorSnapshot, input),
   workspaces: (id) => ipcRenderer.invoke(channels.workspaces, id),
   createWorkspace: (id) => ipcRenderer.invoke(channels.createWorkspace, id),
   openWorkspace: (id) => ipcRenderer.invoke(channels.openWorkspace, id),

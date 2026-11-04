@@ -14,6 +14,7 @@ export type RunState =
   | "cancelled"
   | "interrupted";
 export type RunEvent = {
+  metadata?: import("./monitor").MonitorEvent;
   sequence: number;
   runId: string;
   type: string;
@@ -47,6 +48,7 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  observation?: import("./monitor").ExecutionObservation;
   integration?: {
     workspace: string;
     origin: { id: string; source: string; baseHead: string };

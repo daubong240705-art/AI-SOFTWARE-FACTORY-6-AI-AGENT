@@ -271,6 +271,22 @@ test("real Git task workspaces overlap two Controller steps, route evidence/perm
       await new Promise((r) => setTimeout(r, 10));
     assert.equal(run.permissions.length, 2);
     assert.notEqual(run.permissions[0].id, run.permissions[1].id);
+    const monitor = controller.monitor({ projectId: project.id });
+    assert.equal(monitor.unchanged, false);
+    if (!monitor.unchanged) {
+      const executions = monitor.snapshot.agents.flatMap(
+        (agent) => agent.executions,
+      );
+      assert.equal(executions.length, 2);
+      assert.equal(new Set(executions.map((item) => item.executionId)).size, 2);
+      assert.ok(executions.every((item) => item.activity === "waiting_input"));
+      assert.ok(
+        store
+          .events(run.id)
+          .filter((event) => event.type === "PERMISSION_REQUESTED")
+          .every((event) => event.metadata?.activity === "waiting_input"),
+      );
+    }
     for (const p of [...run.permissions])
       await controller.reply(run.id, p.id, true);
     await result;
@@ -294,6 +310,11 @@ test("real Git task workspaces overlap two Controller steps, route evidence/perm
     }
     assert.equal(run.inputTokens, 33);
     assert.equal(run.permissions.length, 0);
+    const monitorEvents = store
+      .events(run.id)
+      .filter((event) => event.metadata?.executionId);
+    assert.ok(monitorEvents.length > 0);
+    assert.ok(monitorEvents.every((event) => event.metadata!.taskId));
     assert.notEqual(run.commands[0].artifactId, run.commands[1].artifactId);
     for (const task of work.slice(0, 2)) {
       assert.equal(task.changes.length, 1);
