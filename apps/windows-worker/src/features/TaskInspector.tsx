@@ -8,6 +8,7 @@ import {
 } from "../../shared/inspector";
 import { runLabels, type RunDetail } from "../../shared/runs";
 import type { Project } from "../../shared/contracts";
+import type { Role } from "../../shared/contracts";
 import { useRunDetail } from "../lib/use-run-detail";
 import { RunPanel } from "./RunPanel";
 import { ActivityLog } from "./ActivityLog";
@@ -24,6 +25,7 @@ export function TaskInspector({
   onChat,
   onBoard,
   onAgents,
+  onOffice,
   onOpenWorkspace,
 }: {
   selection: InspectorSelection;
@@ -33,6 +35,7 @@ export function TaskInspector({
   onChat: (runId: string, conversationId: string | null) => Promise<void>;
   onBoard: (runId: string) => Promise<void>;
   onAgents: () => Promise<void>;
+  onOffice: (role: Role) => Promise<void>;
   onOpenWorkspace: (project: Project) => Promise<void>;
 }) {
   const feed = useRunDetail(selection.projectId, selection.runId);
@@ -144,6 +147,14 @@ export function TaskInspector({
             </button>
             <button disabled={busy} onClick={() => void action(onAgents)}>
               Xem đội ngũ
+            </button>
+            <button
+              disabled={busy}
+              onClick={() =>
+                void action(() => onOffice(task?.role ?? run.role))
+              }
+            >
+              Văn phòng
             </button>
             {capabilities?.stop && (
               <button

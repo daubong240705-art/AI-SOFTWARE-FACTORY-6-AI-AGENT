@@ -3,7 +3,7 @@ import test from "node:test";
 import { roles } from "../shared/defaults";
 import type { AgentExecution, MonitorSnapshot } from "../shared/monitor";
 import type { MonitorState } from "../src/lib/monitor-store";
-import { selectOffice } from "../src/features/office/state";
+import { officeTarget, selectOffice } from "../src/features/office/state";
 
 function fixture(): MonitorState {
   const snapshot: MonitorSnapshot = {
@@ -58,6 +58,64 @@ function execution(
     activityAt: null,
   };
 }
+
+test("office opens only the exact role/execution or queued task from a fresh project snapshot", () => {
+  const state = fixture();
+  const be = state.snapshot!.agents.find((a) => a.role === "be")!;
+  be.executions = [
+    execution("first", "editing"),
+    execution("second", "testing"),
+  ];
+  be.waiting = [{ taskId: "queued", title: "Queued", reason: "Chờ lượt" }];
+  assert.deepEqual(
+    officeTarget(state, "project", "be", { executionId: "second" }),
+    {
+      projectId: "project",
+      runId: "run",
+      taskId: "second",
+      executionId: "second",
+    },
+  );
+  assert.deepEqual(officeTarget(state, "project", "be", { taskId: "queued" }), {
+    projectId: "project",
+    runId: "run",
+    taskId: "queued",
+  });
+  assert.equal(
+    officeTarget(state, "project", "fe", { executionId: "second" }),
+    null,
+  );
+  assert.equal(
+    officeTarget(state, "project", "fe", { taskId: "queued" }),
+    null,
+  );
+  assert.equal(
+    officeTarget(state, "other", "be", { executionId: "second" }),
+    null,
+  );
+  assert.equal(
+    officeTarget({ ...state, stale: true }, "project", "be", {
+      executionId: "second",
+    }),
+    null,
+  );
+  assert.equal(
+    officeTarget({ ...state, error: "offline" }, "project", "be", {
+      taskId: "queued",
+    }),
+    null,
+  );
+  be.executions.pop();
+  assert.equal(
+    officeTarget(state, "project", "be", { executionId: "second" }),
+    null,
+  );
+  be.executions = [{ ...execution("direct", "running"), taskId: null }];
+  assert.deepEqual(
+    officeTarget(state, "project", "be", { executionId: "direct" }),
+    { projectId: "project", runId: "run", taskId: null, executionId: "direct" },
+  );
+});
 test("office preserves simultaneous identities, models, urgent permission and remaining lane", () => {
   const state = fixture(),
     be = state.snapshot!.agents.find((a) => a.role === "be")!;

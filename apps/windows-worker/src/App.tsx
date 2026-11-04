@@ -121,9 +121,17 @@ export function App() {
   const [openRunVersion, setOpenRunVersion] = useState(0);
   const [inspection, setInspection] = useState<InspectorSelection | null>(null);
   const [boardRunId, setBoardRunId] = useState<string | null>(null);
+  const [officeRole, setOfficeRole] = useState<Role | null>(null);
+  const [officeSelection, setOfficeSelection] =
+    useState<InspectorSelection | null>(null);
+  const [boardSelection, setBoardSelection] =
+    useState<InspectorSelection | null>(null);
   useEffect(() => {
     setInspection(null);
     setBoardRunId(null);
+    setOfficeRole(null);
+    setOfficeSelection(null);
+    setBoardSelection(null);
   }, [project?.id]);
   function inspect(
     runId: string,
@@ -821,7 +829,11 @@ export function App() {
                   <KanbanBoard
                     key={`${project.id}:${boardRunId}`}
                     initialRunId={boardRunId}
-                    onInspect={inspect}
+                    onInspect={(runId) => {
+                      if (boardSelection?.runId === runId)
+                        setInspection(boardSelection);
+                      else inspect(runId);
+                    }}
                     projectId={project.id}
                     projectName={project.name}
                     onOpenRun={(id, conversation) => {
@@ -869,6 +881,18 @@ export function App() {
                   <OfficeWorkspace
                     key={project.id}
                     projectId={project.id}
+                    selectedRole={officeRole}
+                    selection={officeSelection}
+                    onSelectRole={setOfficeRole}
+                    onInspect={(selection) => {
+                      setOfficeSelection(selection);
+                      setInspection(selection);
+                    }}
+                    onBoard={() => {
+                      setBoardRunId(null);
+                      setBoardSelection(null);
+                      void navigate("board");
+                    }}
                     state={monitor}
                     projectName={project.name}
                     onMonitor={() => void navigate("monitor")}
@@ -1433,6 +1457,7 @@ export function App() {
           onBoard={async (runId) => {
             await flushDraft();
             setBoardRunId(runId);
+            setBoardSelection(inspection);
             setInspection(null);
             await navigate("board");
           }}
@@ -1440,6 +1465,13 @@ export function App() {
             await flushDraft();
             setInspection(null);
             await navigate("monitor");
+          }}
+          onOffice={async (role) => {
+            await flushDraft();
+            setOfficeRole(role);
+            setOfficeSelection(inspection);
+            setInspection(null);
+            await navigate("office");
           }}
           onOpenWorkspace={openInspectorWorkspace}
         />

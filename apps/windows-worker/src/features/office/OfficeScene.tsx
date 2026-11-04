@@ -9,9 +9,14 @@ import {
   type OfficeProjection,
 } from "./layout";
 import { officeTones, type OfficeAgent } from "./state";
+import type { Role } from "../../../shared/contracts";
 
 type Props = {
   agents: OfficeAgent[];
+  selectedRole: Role | null;
+  hoveredRole: Role | null;
+  onSelectRole: (role: Role) => void;
+  onHoverRole: (role: Role | null) => void;
   view: { scale: number; x: number; z: number; reset: number };
   onProjection: (projection: OfficeProjection[]) => void;
   onLost: () => void;
@@ -91,7 +96,16 @@ function CameraRig({ view, onProjection, onLost, onReady, onView }: Props) {
   });
   return null;
 }
-function Furniture({ agents }: { agents: OfficeAgent[] }) {
+function Furniture({
+  agents,
+  selectedRole,
+  hoveredRole,
+  onSelectRole,
+  onHoverRole,
+}: Pick<
+  Props,
+  "agents" | "selectedRole" | "hoveredRole" | "onSelectRole" | "onHoverRole"
+>) {
   const cube = useMemo(() => new BoxGeometry(1, 1, 1), []);
   useEffect(() => () => cube.dispose(), [cube]);
   const box = (
@@ -115,12 +129,30 @@ function Furniture({ agents }: { agents: OfficeAgent[] }) {
       {box("plant-pot", [5.8, 0.3, -5.4], [0.6, 0.6, 0.6], "#ad8870")}
       {box("plant", [5.8, 1.1, -5.4], [0.85, 1.2, 0.85], "#688974")}
       {officeSeats.map(({ role, x, z, color }) => (
-        <group key={role} position={[x, 0, z]}>
+        <group
+          key={role}
+          position={[x, 0, z]}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (event.delta <= 5) onSelectRole(role);
+          }}
+          onPointerOver={(event) => {
+            event.stopPropagation();
+            onHoverRole(role);
+          }}
+          onPointerOut={() => onHoverRole(null)}
+        >
           {box(
             "mat",
             [0, 0.025, 0.3],
             [3.3, 0.035, 3.3],
-            role === "lead" ? "#766051" : "#55565b",
+            selectedRole === role
+              ? "#ac7959"
+              : hoveredRole === role
+                ? "#83715f"
+                : role === "lead"
+                  ? "#766051"
+                  : "#55565b",
           )}
           {box("top", [0, 0.95, 0], [2.6, 0.16, 1.25], "#ae9681")}
           {box("leg-l", [-1.04, 0.45, 0], [0.12, 0.9, 0.9], "#45434a")}
@@ -159,7 +191,7 @@ export default function OfficeScene(props: Props) {
       <color attach="background" args={["#202126"]} />
       <ambientLight intensity={1.8} />
       <directionalLight position={[5, 12, 8]} intensity={2.2} />
-      <Furniture agents={props.agents} />
+      <Furniture {...props} />
       <CameraRig {...props} />
     </Canvas>
   );

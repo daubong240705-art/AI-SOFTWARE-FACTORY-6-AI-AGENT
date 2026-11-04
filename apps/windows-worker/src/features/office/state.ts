@@ -1,4 +1,5 @@
 import type { Role } from "../../../shared/contracts";
+import type { InspectorSelection } from "../../../shared/inspector";
 import { roles } from "../../../shared/defaults";
 import {
   activityLabels,
@@ -99,4 +100,32 @@ export function selectOffice(state: MonitorState, projectId: string) {
         ? (snapshot.activeRun?.projectName ?? null)
         : null,
   };
+}
+
+export function officeTarget(
+  state: MonitorState,
+  projectId: string,
+  role: Role,
+  target: { executionId: string } | { taskId: string },
+): InspectorSelection | null {
+  const office = selectOffice(state, projectId);
+  if (!office.reliable) return null;
+  const agent = office.agents.find((a) => a.role === role);
+  if ("executionId" in target) {
+    const execution = agent?.executions.find(
+      (e) => e.executionId === target.executionId,
+    );
+    return execution
+      ? {
+          projectId,
+          runId: execution.runId,
+          taskId: execution.taskId,
+          executionId: execution.executionId,
+        }
+      : null;
+  }
+  return state.snapshot?.runId &&
+    agent?.waiting.some((t) => t.taskId === target.taskId)
+    ? { projectId, runId: state.snapshot.runId, taskId: target.taskId }
+    : null;
 }
