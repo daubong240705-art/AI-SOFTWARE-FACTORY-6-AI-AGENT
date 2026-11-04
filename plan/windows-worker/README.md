@@ -2,6 +2,8 @@
 
 Ngày lập: 04/11/2026. Trạng thái: **WW-1 đến WW-3, WW-4A/4B/4C đã triển khai**; [chạy desktop](../../apps/windows-worker/README.md), [bàn giao WW-4C](../../docs/windows-worker/ww4c-completion.md). WW-4D và WW-5 còn lại.
 
+Kế hoạch bổ sung: [nghiên cứu và nâng cấp agent](../agent-upgrade/README.md) — đã clone nguồn và lập các đợt AU-1–5, chưa triển khai code; giữ nguyên kiến trúc và roadmap WW hiện tại.
+
 Nguồn yêu cầu: [Đặc tả MVP](../../AI_Software_Factory_Lite_Windows_Worker_MVP.md). Chỉ dẫn mới nhất của người dùng: bỏ bước chứng minh runtime trên repo mẫu, tập trung hoàn thiện sản phẩm.
 
 ## 1. Phạm vi đã chốt
