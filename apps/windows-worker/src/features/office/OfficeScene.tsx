@@ -8,8 +8,10 @@ import {
   officeZoom,
   type OfficeProjection,
 } from "./layout";
+import { officeTones, type OfficeAgent } from "./state";
 
 type Props = {
+  agents: OfficeAgent[];
   view: { scale: number; x: number; z: number; reset: number };
   onProjection: (projection: OfficeProjection[]) => void;
   onLost: () => void;
@@ -89,7 +91,7 @@ function CameraRig({ view, onProjection, onLost, onReady, onView }: Props) {
   });
   return null;
 }
-function Furniture() {
+function Furniture({ agents }: { agents: OfficeAgent[] }) {
   const cube = useMemo(() => new BoxGeometry(1, 1, 1), []);
   useEffect(() => () => cube.dispose(), [cube]);
   const box = (
@@ -124,7 +126,12 @@ function Furniture() {
           {box("leg-l", [-1.04, 0.45, 0], [0.12, 0.9, 0.9], "#45434a")}
           {box("leg-r", [1.04, 0.45, 0], [0.12, 0.9, 0.9], "#45434a")}
           {box("screen", [0, 1.44, -0.2], [1, 0.65, 0.12], "#282e38")}
-          {box("display", [0, 1.44, -0.125], [0.85, 0.48, 0.02], color)}
+          {box(
+            "display",
+            [0, 1.44, -0.125],
+            [0.85, 0.48, 0.02],
+            officeTones[agents.find((a) => a.role === role)?.tone ?? "unknown"],
+          )}
           {box("stand", [0, 1.1, -0.2], [0.12, 0.25, 0.12], "#333840")}
           {box("keyboard", [0, 1.05, 0.3], [0.7, 0.045, 0.25], "#383b43")}
           {box("chair", [0, 0.42, 1.1], [0.85, 0.15, 0.85], "#383d47")}
@@ -152,7 +159,7 @@ export default function OfficeScene(props: Props) {
       <color attach="background" args={["#202126"]} />
       <ambientLight intensity={1.8} />
       <directionalLight position={[5, 12, 8]} intensity={2.2} />
-      <Furniture />
+      <Furniture agents={props.agents} />
       <CameraRig {...props} />
     </Canvas>
   );

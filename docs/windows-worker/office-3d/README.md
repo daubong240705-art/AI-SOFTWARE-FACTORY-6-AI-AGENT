@@ -1,5 +1,7 @@
 # V1.3D — D-01 và D-02
 
+**Cập nhật alpha.7:** D-03 đã triển khai; xem [bàn giao trạng thái execution](d03/README.md). Nội dung bên dưới giữ bằng chứng D-01/D-02 tại alpha.6. Còn D-04/D-05 và E.
+
 Bàn giao ngày 05/11/2026, Windows Worker `1.3.0-alpha.6`, nhánh `feature/worker-office-v1.3d`. Checkpoint `checkpoint/v13d-start-20261105` giữ trạng thái trước thay đổi. **D-01/D-02 hoàn thành; D-03–05 và E còn lại.**
 
 ## Chức năng

@@ -210,7 +210,7 @@ app.whenReady().then(async () => {
     assert.deepEqual(errors, []);
     const result = {
       passed: true,
-      version: "1.3.0-alpha.6",
+      version: require("../package.json").version,
       scope: "D-01/D-02",
       fixture: true,
       providerCalls: 0,

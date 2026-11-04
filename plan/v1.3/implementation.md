@@ -1,6 +1,6 @@
 # V1.3 — Backlog triển khai và nghiệm thu
 
-**V1.3A–C, UI foundation và D-01/D-02 đã triển khai; hiện tại `1.3.0-alpha.6`. D-03–05/E chưa hoàn thành.** [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [B](../../docs/windows-worker/v1.3b-completion.md), [C](../../docs/windows-worker/v1.3c-completion.md), [D-01/D-02 và giới hạn](../../docs/windows-worker/office-3d/README.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
+**V1.3A–C, UI foundation và D-01–03 đã triển khai; hiện tại `1.3.0-alpha.7`. D-04/D-05/E chưa hoàn thành.** [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [B](../../docs/windows-worker/v1.3b-completion.md), [C](../../docs/windows-worker/v1.3c-completion.md), [D-01/D-02](../../docs/windows-worker/office-3d/README.md), [D-03 và giới hạn](../../docs/windows-worker/office-3d/d03/README.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
 
 ## 0. Chuẩn bị trước thay đổi lớn
 
@@ -61,6 +61,8 @@
 ## V1.3D — Văn phòng 3D
 
 **D-01/D-02 hoàn thành** ở alpha.6: Three/R3F pin, phòng/bảy bàn/avatar hình học, camera orthographic pan/zoom/reset, nhãn HTML và tải riêng. Chưa đánh dấu toàn bộ D; D-03–05 còn lại. [Kiểm chứng và license](../../docs/windows-worker/office-3d/README.md).
+
+**D-03 hoàn thành** ở alpha.7: selector từ monitor chung, nhãn/màu màn hình theo hoạt động thật, chờ quyền/phụ thuộc, nhiều execution cùng role, chi tiết thu gọn và tiến độ xác minh. Trạng thái lỗi/stale/khác project không hiển thị hoạt động cũ. Nhãn tránh chồng chữ ở scene thấp. [Kiểm chứng D-03](../../docs/windows-worker/office-3d/d03/README.md). D-04/D-05 và E còn lại; chưa nghiệm thu model thật trong đợt này.
 
 | Mã | Công việc | Phụ thuộc | Kết quả nghiệm thu |
 |---|---|---|---|

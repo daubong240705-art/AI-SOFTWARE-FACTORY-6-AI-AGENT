@@ -1,0 +1,230 @@
+{
+  "passed": true,
+  "version": "1.3.0-alpha.7",
+  "scope": "D-01/D-02",
+  "fixture": true,
+  "providerCalls": 0,
+  "lazyLoaded": true,
+  "unmountVerified": true,
+  "contextLossNavigationVerified": true,
+  "gpu": {
+    "2d_canvas": "enabled",
+    "direct_rendering_display_compositor": "disabled_off_ok",
+    "gpu_compositing": "enabled",
+    "multiple_raster_threads": "enabled_on",
+    "opengl": "enabled_on",
+    "rasterization": "enabled",
+    "raw_draw": "disabled_off_ok",
+    "skia_graphite": "disabled_off",
+    "trees_in_viz": "disabled_off",
+    "video_decode": "enabled",
+    "video_encode": "enabled",
+    "webgl": "enabled",
+    "webgpu": "enabled",
+    "webnn": "disabled_off"
+  },
+  "scenarios": [
+    {
+      "window": {
+        "width": 1440,
+        "height": 960,
+        "zoom": 1
+      },
+      "scene": {
+        "width": 1139.2000732421875,
+        "height": 581.7000122070312,
+        "right": 1403.2000732421875,
+        "viewport": 1427,
+        "labels": [
+          {
+            "role": "Lead",
+            "visible": true,
+            "inside": true,
+            "text": "LeadRảnh"
+          },
+          {
+            "role": "PM",
+            "visible": true,
+            "inside": true,
+            "text": "PMRảnh"
+          },
+          {
+            "role": "BA",
+            "visible": true,
+            "inside": true,
+            "text": "BARảnh"
+          },
+          {
+            "role": "BE",
+            "visible": true,
+            "inside": true,
+            "text": "BERảnh"
+          },
+          {
+            "role": "FE",
+            "visible": true,
+            "inside": true,
+            "text": "FERảnh"
+          },
+          {
+            "role": "TEST",
+            "visible": true,
+            "inside": true,
+            "text": "TESTRảnh"
+          },
+          {
+            "role": "DEVOPS",
+            "visible": true,
+            "inside": true,
+            "text": "DEVOPSRảnh"
+          }
+        ],
+        "canvas": {
+          "width": 1421,
+          "height": 725
+        },
+        "webgl": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+        "rootOverflow": false
+      },
+      "zoomChangesScene": true,
+      "panChangesScene": true,
+      "wheelChangesScene": true,
+      "resetRestoresCamera": true
+    },
+    {
+      "window": {
+        "width": 850,
+        "height": 700,
+        "zoom": 1
+      },
+      "scene": {
+        "width": 556,
+        "height": 329.70001220703125,
+        "right": 816,
+        "viewport": 836,
+        "labels": [
+          {
+            "role": "Lead",
+            "visible": true,
+            "inside": true,
+            "text": "LeadRảnh"
+          },
+          {
+            "role": "PM",
+            "visible": true,
+            "inside": true,
+            "text": "PMRảnh"
+          },
+          {
+            "role": "BA",
+            "visible": true,
+            "inside": true,
+            "text": "BARảnh"
+          },
+          {
+            "role": "BE",
+            "visible": true,
+            "inside": true,
+            "text": "BERảnh"
+          },
+          {
+            "role": "FE",
+            "visible": true,
+            "inside": true,
+            "text": "FERảnh"
+          },
+          {
+            "role": "TEST",
+            "visible": true,
+            "inside": true,
+            "text": "TESTRảnh"
+          },
+          {
+            "role": "DEVOPS",
+            "visible": true,
+            "inside": true,
+            "text": "DEVOPSRảnh"
+          }
+        ],
+        "canvas": {
+          "width": 693,
+          "height": 410
+        },
+        "webgl": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+        "rootOverflow": false
+      },
+      "zoomChangesScene": true,
+      "panChangesScene": true,
+      "wheelChangesScene": true,
+      "resetRestoresCamera": true
+    },
+    {
+      "window": {
+        "width": 1100,
+        "height": 800,
+        "zoom": 1.25
+      },
+      "scene": {
+        "width": 577.5999755859375,
+        "height": 300,
+        "right": 837.5999755859375,
+        "viewport": 870,
+        "labels": [
+          {
+            "role": "Lead",
+            "visible": true,
+            "inside": true,
+            "text": "LeadRảnh"
+          },
+          {
+            "role": "PM",
+            "visible": true,
+            "inside": true,
+            "text": "PMRảnh"
+          },
+          {
+            "role": "BA",
+            "visible": true,
+            "inside": true,
+            "text": "BARảnh"
+          },
+          {
+            "role": "BE",
+            "visible": true,
+            "inside": true,
+            "text": "BERảnh"
+          },
+          {
+            "role": "FE",
+            "visible": true,
+            "inside": true,
+            "text": "FERảnh"
+          },
+          {
+            "role": "TEST",
+            "visible": true,
+            "inside": true,
+            "text": "TESTRảnh"
+          },
+          {
+            "role": "DEVOPS",
+            "visible": true,
+            "inside": true,
+            "text": "DEVOPSRảnh"
+          }
+        ],
+        "canvas": {
+          "width": 864,
+          "height": 448
+        },
+        "webgl": "WebGL 2.0 (OpenGL ES 3.0 Chromium)",
+        "rootOverflow": false
+      },
+      "zoomChangesScene": true,
+      "panChangesScene": true,
+      "wheelChangesScene": true,
+      "resetRestoresCamera": true
+    }
+  ],
+  "rendererErrors": []
+}

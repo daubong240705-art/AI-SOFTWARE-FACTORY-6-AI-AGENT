@@ -868,6 +868,7 @@ export function App() {
                 (project ? (
                   <OfficeWorkspace
                     key={project.id}
+                    projectId={project.id}
                     state={monitor}
                     projectName={project.name}
                     onMonitor={() => void navigate("monitor")}

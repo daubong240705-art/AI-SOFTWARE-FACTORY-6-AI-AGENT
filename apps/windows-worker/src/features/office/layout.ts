@@ -29,3 +29,53 @@ export type OfficeProjection = {
   y: number;
   visible: boolean;
 };
+
+// Keep HTML text readable independently of the room's camera scale.
+export function placeOfficeLabels(
+  items: (OfficeProjection & { width: number; height: number })[],
+  width: number,
+  height: number,
+) {
+  const placed: { left: number; top: number; width: number; height: number }[] =
+    [];
+  return [...items]
+    .sort((a, b) => a.y - b.y)
+    .map((item) => {
+      const left = Math.max(
+        4,
+        Math.min(width - item.width - 4, item.x - item.width / 2),
+      );
+      const initial = Math.max(
+        4,
+        Math.min(height - item.height - 4, item.y - item.height),
+      );
+      const candidates = [
+        initial,
+        ...placed.flatMap((p) => [
+          p.top + p.height + 4,
+          p.top - item.height - 4,
+        ]),
+      ].sort((a, b) => Math.abs(a - initial) - Math.abs(b - initial));
+      const top = candidates.find(
+        (y) =>
+          y >= 4 &&
+          y + item.height <= height - 4 &&
+          placed.every(
+            (p) =>
+              left + item.width + 4 <= p.left ||
+              left >= p.left + p.width + 4 ||
+              y + item.height + 4 <= p.top ||
+              y >= p.top + p.height + 4,
+          ),
+      );
+      const visible = item.visible && top !== undefined;
+      if (visible)
+        placed.push({ left, top, width: item.width, height: item.height });
+      return {
+        ...item,
+        x: left + item.width / 2,
+        y: (top ?? initial) + item.height,
+        visible,
+      };
+    });
+}
