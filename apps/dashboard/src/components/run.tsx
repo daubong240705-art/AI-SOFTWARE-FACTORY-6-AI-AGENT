@@ -363,7 +363,7 @@ export function RunPage({ id }: { id: string }) {
               </details>
             ))}
           </section>
-          {canWrite && (
+          {canWrite && !["completed", "cancelled"].includes(run.status) && (
             <section className="panel">
               <h2>Thao tác</h2>
               <label>
@@ -482,8 +482,8 @@ export function RunPage({ id }: { id: string }) {
               approver/admin.
             </div>
           )}
-          <section className="panel">
-            <h2>Lịch sử phê duyệt</h2>
+          <details className="panel">
+            <summary>Lịch sử phê duyệt · {data.approvals.length}</summary>
             {data.approvals.length === 0 && (
               <p className="muted">Chưa có quyết định.</p>
             )}
@@ -503,10 +503,10 @@ export function RunPage({ id }: { id: string }) {
                 </small>
               </div>
             ))}
-          </section>
+          </details>
           {data.model_calls.length > 0 && (
-            <section className="panel">
-              <h2>Lần gọi model</h2>
+            <details className="panel">
+              <summary>Lần gọi model · {data.model_calls.length}</summary>
               <div className="table-scroll">
                 <table>
                   <thead>
@@ -533,12 +533,12 @@ export function RunPage({ id }: { id: string }) {
                   </tbody>
                 </table>
               </div>
-            </section>
+            </details>
           )}
-          <section className="panel">
-            <h2>
+          <details className="panel">
+            <summary>
               Timeline <span className="muted">· {events.length} sự kiện</span>
-            </h2>
+            </summary>
             <ol className="timeline">
               {events.map((e) => (
                 <li key={e.id}>
@@ -558,7 +558,7 @@ export function RunPage({ id }: { id: string }) {
               ))}
             </ol>
             {events.length === 0 && <p className="muted">Chưa có sự kiện.</p>}
-          </section>
+          </details>
         </>
       )}
     </Frame>

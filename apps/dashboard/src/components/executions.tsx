@@ -3,6 +3,15 @@ import { useState } from "react";
 import { RunDetail } from "@/lib/api";
 import { ErrorBox, useAuth } from "./workspace";
 
+const states: Record<string, string> = {
+  pending: "Đang chờ",
+  leased: "Đang chạy",
+  succeeded: "Đạt",
+  failed: "Lỗi",
+  waiting_release: "Chờ phát hành",
+  cancelled: "Đã hủy",
+};
+
 export function Executions({
   data,
   reload,
@@ -36,18 +45,24 @@ export function Executions({
   }
   return (
     <section className="panel">
-      <h2>Thực thi và bằng chứng</h2>
+      <h2>Thực thi</h2>
       <ErrorBox message={error} />
       <p className="muted">
-        Model theo run:{" "}
+        Model:{" "}
         {Object.entries(data.run.config_snapshot.models ?? {})
+          .filter(([role]) => ["pm", "ba", "be", "fe"].includes(role))
           .map(([r, m]) => `${r.toUpperCase()}: ${m}`)
           .join(" · ")}
       </p>
       {data.external_links.map((link) => (
         <p key={link.kind + link.external_id}>
           <a href={link.url} target="_blank" rel="noreferrer">
-            {link.kind} #{link.external_id} ↗
+            {link.kind === "merge_request"
+              ? "MR"
+              : link.kind === "work_package"
+                ? "Work package"
+                : "Bug"}{" "}
+            #{link.external_id} ↗
           </a>
         </p>
       ))}
@@ -60,9 +75,13 @@ export function Executions({
       {data.executions.map((item) => (
         <details key={item.id} open={item.state === "waiting_release"}>
           <summary>
-            {item.role.toUpperCase()} · lần {item.attempt} · {item.state}
+            {item.role.toUpperCase()} · lần {item.attempt} ·{" "}
+            {states[item.state] ?? item.state}
           </summary>
-          <p className="hash">Candidate SHA: {item.candidate_sha}</p>
+          <p className="hash">
+            Candidate SHA:{" "}
+            {String(item.result.candidate_sha ?? item.candidate_sha)}
+          </p>
           <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
             {JSON.stringify(item.result, null, 2)}
           </pre>
