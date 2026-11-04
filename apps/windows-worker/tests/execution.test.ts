@@ -28,6 +28,7 @@ import {
 import { ExecutionStopped } from "../electron/runtime/stopped";
 import { ModelProxy } from "../electron/gateway/model-proxy";
 import { RequestBudget } from "../electron/gateway/request-budget";
+import { Executions } from "../electron/runtime/executions";
 import { OpenCodeRuntime } from "../electron/runtime/opencode";
 import { RunController } from "../electron/controller/runs";
 import { Store } from "../electron/storage/database";
@@ -541,6 +542,92 @@ test("Full access fallback approves only permitted requests using the immutable 
     });
     assert.equal(replies, 1);
     assert.equal(x.run.permissions[0].id, "denied-role");
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("Controller retains its run lock when any lane cannot stop, then retries containment", async () => {
+  const x = fixture();
+  try {
+    const executions = new Executions();
+    Object.assign(x.active, { executions });
+    let attempts = 0,
+      healthy = 0;
+    executions.open("a").runtime = {
+      close: async () => {
+        if (++attempts === 1) throw new Error("Process still active");
+      },
+    };
+    executions.open("b").runtime = {
+      close: async () => {
+        healthy++;
+      },
+    };
+    await assert.rejects(x.controller.stop(x.run.id));
+    assert.equal(x.controller.view().activeId, x.run.id);
+    assert.equal(x.run.state, "cancelling");
+    assert.equal(healthy, 1);
+    await x.controller.stop(x.run.id);
+    assert.equal(attempts, 2);
+    assert.equal(x.controller.view().activeId, null);
+    assert.equal(x.run.state, "cancelled");
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("closed proxy cannot start or reopen its listener", async () => {
+  const settings = defaultSettings();
+  settings.gatewayUrl = "http://127.0.0.1:1/v1";
+  const proxy = new ModelProxy(settings, undefined, "chosen", () => {});
+  await proxy.close();
+  await assert.rejects(proxy.start(), /closed/);
+  const starting = new ModelProxy(settings, undefined, "chosen", () => {});
+  const result = starting.start();
+  const assertion = assert.rejects(result, /closed/);
+  await starting.close();
+  await assertion;
+  await starting.close();
+});
+
+test("permission tickets route colliding native IDs to their originating task runtime", async () => {
+  const x = fixture();
+  try {
+    Object.assign(x.active, { executions: new Executions() });
+    const first = task(x.run);
+    const second = { ...task(x.run), id: "t2" };
+    x.run.tasks.push(first, second);
+    const replies: string[] = [];
+    for (const work of [first, second]) {
+      x.run.currentTaskId = work.id;
+      x.active.runtime = {
+        reply: async (id: string) => {
+          replies.push(work.id + ":" + id);
+        },
+      };
+      const permission = {
+        id: "same-native-id",
+        permission: "bash",
+        patterns: ["npm test"],
+      };
+      x.internal.onPermission(x.active, permission);
+      x.internal.onPermission(x.active, permission);
+    }
+    assert.equal(x.run.permissions.length, 2);
+    const [a, b] = x.run.permissions.map((p) => p.id);
+    assert.notEqual(a, b);
+    await x.controller.reply(x.run.id, a, true);
+    assert.deepEqual(replies, [first.id + ":same-native-id"]);
+    assert.equal(first.state, "running");
+    assert.equal(second.state, "blocked");
+    await assert.rejects(x.controller.reply(x.run.id, a, true));
+    await x.controller.reply(x.run.id, b, true);
+    assert.deepEqual(replies, [
+      first.id + ":same-native-id",
+      "t2:same-native-id",
+    ]);
+    assert.equal(x.run.state, "running");
   } finally {
     x.cleanup();
   }

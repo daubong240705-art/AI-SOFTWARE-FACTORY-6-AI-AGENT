@@ -29,12 +29,14 @@ export class ModelProxy {
     this.onFailure?.(error);
   }
   async start(): Promise<string> {
+    if (this.closed) throw new Error("Execution proxy is closed");
     const endpoint = new URL(
       this.settings.gatewayUrl.replace(/\/+$/, "") + "/chat/completions",
     );
     const ca = this.settings.caPath
       ? [...rootCertificates, await readFile(this.settings.caPath, "utf8")]
       : undefined;
+    if (this.closed) throw new Error("Execution proxy is closed");
     this.server = createServer(async (req, res) => {
       const fail = (status: number, message: string) => {
         if (res.destroyed || res.writableEnded) return;
@@ -199,6 +201,10 @@ export class ModelProxy {
       this.server!.once("error", reject);
       this.server!.listen(0, "127.0.0.1", resolve);
     });
+    if (this.closed) {
+      await this.close();
+      throw new Error("Execution proxy closed during startup");
+    }
     const address = this.server.address();
     if (!address || typeof address === "string")
       throw new Error("Không mở được proxy model local.");

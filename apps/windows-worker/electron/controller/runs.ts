@@ -38,6 +38,7 @@ import { Store } from "../storage/database";
 import { OpenCodeRuntime } from "../runtime/opencode";
 import { ModelProxy } from "../gateway/model-proxy";
 import { RequestBudget } from "../gateway/request-budget";
+import { Executions } from "../runtime/executions";
 import { canonicalDirectory } from "../workspace/projects";
 import { changes, snapshot, type Snapshot } from "../workspace/snapshot";
 import { captureGit } from "../workspace/git-evidence";
@@ -48,6 +49,15 @@ type Active = {
   runtime?: OpenCodeRuntime;
   proxy?: ModelProxy;
   budget?: RequestBudget;
+  executions?: Executions;
+  permissionRoutes?: Map<
+    string,
+    {
+      runtime: OpenCodeRuntime;
+      nativeId: string;
+      taskId: string | null;
+    }
+  >;
   baseline?: Snapshot;
   desired?: "cancelled" | "failed";
   stopError?: string;
@@ -348,8 +358,11 @@ export class RunController {
     } finally {
       clearTimeout(deadline);
       try {
-        await active.runtime?.close();
-        await active.proxy?.close();
+        if (active.executions) await active.executions.stop();
+        else {
+          await active.runtime?.close();
+          await active.proxy?.close();
+        }
       } catch {
         run.state = "cancelling";
         run.error =
@@ -474,6 +487,8 @@ export class RunController {
       run.settings.maxRequests,
     ));
     const model = task?.model ?? run.model;
+    const executions = (active.executions ??= new Executions());
+    const execution = executions.open(randomUUID(), task?.id);
     active.proxy = new ModelProxy(
       { ...run.settings, maxRequests: remaining },
       key,
@@ -493,6 +508,7 @@ export class RunController {
       budget,
     );
     active.secrets.push(active.proxy.token);
+    execution.proxy = active.proxy;
     try {
       const url = await active.proxy.start();
       this.check(active);
@@ -550,6 +566,7 @@ export class RunController {
         },
         context,
       );
+      execution.runtime = active.runtime;
       run.sessionId = await active.runtime.start();
       if (task) task.sessionId = run.sessionId;
       this.check(active);
@@ -583,8 +600,7 @@ export class RunController {
         failure(reason.code, reason.message, active.secrets),
       );
     } finally {
-      await active.runtime?.close();
-      await active.proxy.close();
+      await executions.close(execution.id);
       active.runtime = undefined;
       active.proxy = undefined;
       this.check(active);
@@ -628,8 +644,25 @@ export class RunController {
       });
       return;
     }
+    const runtime = active.runtime;
+    if (!runtime) return;
+    active.permissionRoutes ??= new Map();
+    if (
+      [...active.permissionRoutes.values()].some(
+        (route) =>
+          route.runtime === runtime && route.nativeId === permission.id,
+      )
+    )
+      return;
+    const ticket = active.executions ? randomUUID() : permission.id;
+    active.permissionRoutes.set(ticket, {
+      runtime,
+      nativeId: permission.id,
+      taskId: owner?.id ?? null,
+    });
     active.run.permissions.push({
       ...permission,
+      id: ticket,
       patterns: permission.patterns.map((p) => redact(p, active.secrets)),
     });
     active.run.state = "blocked";
@@ -818,6 +851,11 @@ export class RunController {
       !active.run.permissions.some((p) => p.id === requestId)
     )
       throw new Error("Yêu cầu quyền đã hết hiệu lực.");
+    const route = active.permissionRoutes?.get(requestId);
+    const runtime =
+      route?.runtime ?? (!active.executions ? active.runtime : undefined);
+    if (!runtime) throw new Error("Phiên yêu cầu quyền không còn hoạt động.");
+    const nativeId = route?.nativeId ?? requestId;
     if (!allow) {
       const reason = failure(
         "permission-denied",
@@ -827,24 +865,29 @@ export class RunController {
       active.failure ??= reason;
       active.stopError ??= reason.message;
       try {
-        await active.runtime!.reply(requestId, false);
+        await runtime.reply(nativeId, false);
       } finally {
         if (this.active === active)
           await this.stop(runId, "failed", reason.message, reason);
       }
       return;
     }
-    await active.runtime!.reply(requestId, true);
+    await runtime.reply(nativeId, true);
     if (this.active !== active || active.desired) return;
     active.run.permissions = active.run.permissions.filter(
       (p) => p.id !== requestId,
     );
+    active.permissionRoutes?.delete(requestId);
     active.run.state = active.run.permissions.length ? "blocked" : "running";
     const task = active.run.tasks.find(
-      (t) => t.id === active.run.currentTaskId,
+      (t) => t.id === (route?.taskId ?? active.run.currentTaskId),
     );
     if (task)
-      task.state = active.run.permissions.length ? "blocked" : "running";
+      task.state = [...(active.permissionRoutes?.values() ?? [])].some(
+        (pending) => pending.taskId === task.id,
+      )
+        ? "blocked"
+        : "running";
     this.record(
       active,
       "PERMISSION_RESOLVED",
@@ -895,8 +938,11 @@ export class RunController {
       "RUN_CANCELLING",
       error || "Đang dừng runtime và tiến trình con.",
     );
-    await active.runtime?.close();
-    await active.proxy?.close();
+    if (active.executions) await active.executions.stop();
+    else {
+      await active.runtime?.close();
+      await active.proxy?.close();
+    }
     await active.finished;
     // Retry path when a previous process-tree termination could not be confirmed.
     if (this.active === active) {
