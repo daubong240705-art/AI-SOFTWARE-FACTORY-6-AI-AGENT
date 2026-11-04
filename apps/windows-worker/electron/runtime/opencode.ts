@@ -263,12 +263,17 @@ export class OpenCodeRuntime {
       error:
         info && "error" in info && info.error
           ? this.errorInfo(info.error)
-          : info?.finish === "tool-calls"
+          : info?.finish === "length"
             ? failure(
                 "invalid-output",
-                "Runtime dừng khi công cụ chưa hoàn tất hoặc quyền đã bị từ chối.",
+                "Model đã chạm giới hạn output 8.192 token trước khi hoàn tất phản hồi. Reasoning cũng có thể dùng hết giới hạn này. Chọn model phù hợp hơn hoặc chia nhỏ yêu cầu rồi tạo lượt mới; kết quả hiện có được giữ lại.",
               )
-            : null,
+            : info?.finish === "tool-calls"
+              ? failure(
+                  "invalid-output",
+                  "Runtime dừng khi công cụ chưa hoàn tất hoặc quyền đã bị từ chối.",
+                )
+              : null,
     };
   }
   errorText(error: unknown): string {

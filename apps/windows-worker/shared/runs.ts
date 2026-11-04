@@ -47,6 +47,16 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  integration?: {
+    workspace: string;
+    origin: { id: string; source: string; baseHead: string };
+    state: "ready" | "applying" | "conflict" | "verified";
+    sourceVersion: string;
+    taskIds: string[];
+    conflicts: string[];
+    evidence?: import("./evidence").TaskEvidence;
+    baseline: import("./evidence").TaskEvidence;
+  };
   workspaceOrigin?: { id: string; source: string; baseHead: string };
   checkpoints?: import("./lifecycle").Checkpoint[];
   recoveryOf?: string;

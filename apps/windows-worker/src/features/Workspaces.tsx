@@ -10,10 +10,12 @@ export function Workspaces({
   projectId,
   active,
   onOpen,
+  integrationId,
 }: {
   projectId: string;
   active: boolean;
   onOpen: (project: Project) => Promise<void>;
+  integrationId?: string;
 }) {
   const [items, setItems] = useState<OwnedWorkspace[]>([]),
     [error, setError] = useState(""),
@@ -76,6 +78,7 @@ export function Workspaces({
       {items.map((item) => (
         <div className="command-result" key={item.id}>
           <strong>
+            {item.id === integrationId ? "Bản tích hợp · " : ""}
             {item.head.slice(0, 8)} ·{" "}
             {item.state === "ready" ? "Sẵn sàng" : "Cần kiểm tra"}
           </strong>

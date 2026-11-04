@@ -14,6 +14,7 @@ export type FailureCode =
   | "configuration"
   | "evidence-unverified"
   | "integration-pending"
+  | "integration-conflict"
   | "needs-context"
   | "interrupted"
   | "runtime";
@@ -49,6 +50,7 @@ export const failureLabels: Record<FailureCode, string> = {
   configuration: "Cần cấu hình",
   "evidence-unverified": "Chưa đủ bằng chứng",
   "integration-pending": "Chờ tích hợp source",
+  "integration-conflict": "Xung đột tích hợp",
   "needs-context": "Cần bổ sung",
   interrupted: "Bị gián đoạn",
   runtime: "Lỗi runtime",

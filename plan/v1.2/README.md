@@ -6,7 +6,7 @@ Baseline V1.1 `fcfac1d`; checkpoint trước thay đổi `checkpoint/v12a-202611
 |---|---|---|
 | V1.2A | Worktree manager, ownership/provenance, mở thành project, cleanup có preview và recovery | Hoàn thành, `1.2.0-alpha.1` |
 | V1.2B | Scheduler tối đa hai root task độc lập; workspace theo task/attempt; budget/process ownership theo execution; chờ tích hợp trước dependency | Hoàn thành phạm vi cô lập, `1.2.0-alpha.2` |
-| V1.2C | Tích hợp trên đúng baseline, phát hiện conflict, test source đã hợp nhất; báo cáo throughput so với tuần tự | Chưa triển khai |
+| V1.2C | Tích hợp trên đúng baseline, phát hiện conflict, test source đã hợp nhất; báo cáo throughput so với tuần tự | Đã triển khai `1.2.0-alpha.3`; model acceptance/benchmark chưa đạt |
 
 V1.2A giữ một Controller và một run đang hoạt động. Workspace là worktree detached tại HEAD đã xác định, không branch tự động hoặc commit source người dùng. Mở worktree qua project hiện có; Controller xác minh ownership trước khi tạo runtime và lưu origin vào run/export. Đây là nền tảng PAR-02/03, chưa có scheduler song song hoặc merge tự động.
 
@@ -16,4 +16,4 @@ Manifest atomic trong userData/workspaces/UUID, kèm Git lock có tên ownership
 
 Tiêu chí V1.2A: Git thật chứng minh source/index độc lập; repo bẩn bị chặn; dirty/ignored/new commit/foreign lock/junction/reference được bảo vệ; interrupted create/unlock có lối phục hồi; UI create/open/preview/remove dùng IPC hẹp; Controller chặn ownership sai trước request model. [Bàn giao và bằng chứng](../../docs/windows-worker/v1.2a-completion.md).
 
-V1.2B đã bổ sung task ownership, resource locks và giới hạn concurrency vào Controller hiện có; không tạo orchestrator thứ hai. [Bàn giao V1.2B](../../docs/windows-worker/v1.2b-completion.md). V1.2C phải xử lý kết quả chưa commit và evidence trên source tích hợp trước khi gọi V1.2 hoàn thành. Không suy ra chạy song song luôn nhanh hơn.
+V1.2B đã bổ sung task ownership, resource locks và giới hạn concurrency vào Controller hiện có; không tạo orchestrator thứ hai. [Bàn giao V1.2B](../../docs/windows-worker/v1.2b-completion.md). [V1.2C](../../docs/windows-worker/v1.2c-completion.md) đã tích hợp kết quả và chạy TEST phụ thuộc, có conflict/data retention và UI mở bản tích hợp. DeepSeek Flash đã sửa/test source hợp nhất nhưng review còn lỗi ref/giới hạn output; chưa gọi V1.2 hoàn thành hoặc công bố tăng tốc.

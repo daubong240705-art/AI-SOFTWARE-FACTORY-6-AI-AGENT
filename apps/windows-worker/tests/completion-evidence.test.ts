@@ -237,6 +237,38 @@ test("fake, cross-run, wrong session, stale attempt and missing evidence become 
   }
 });
 
+test("integrated catalog omits stale commands while preserving valid per-file evidence", async () => {
+  const x = await setup();
+  try {
+    const version = sourceVersion(await snapshot(x.root))!;
+    assert.ok(
+      evidenceCatalog(x.run, x.latest, version).refs.some(
+        (r) => r.kind === "command",
+      ),
+    );
+    await writeFile(join(x.root, "unrelated.txt"), "new integrated output");
+    const catalog = evidenceCatalog(
+      x.run,
+      x.latest,
+      sourceVersion(await snapshot(x.root))!,
+    );
+    assert.equal(
+      catalog.refs.some((r) => r.kind === "command"),
+      false,
+    );
+    assert.ok(catalog.omitted > 0);
+    assert.ok(catalog.refs.some((r) => r.kind === "file"));
+    const review = x.review();
+    await x.verify(review);
+    assert.equal(review.verification?.verified, true);
+    const stale = x.review(x.commandRef);
+    await x.verify(stale);
+    assert.equal(stale.status, "blocked");
+  } finally {
+    await x.cleanup();
+  }
+});
+
 test("testing requires successful commands with stored output and unchanged source; semantic relevance stays with Lead", async () => {
   const x = await setup();
   try {

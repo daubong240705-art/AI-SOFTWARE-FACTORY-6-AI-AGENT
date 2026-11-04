@@ -132,6 +132,7 @@ export type TaskState =
   | "cancelled"
   | "skipped";
 export type TeamTask = {
+  baseEvidence?: TaskEvidence;
   workspace?: string;
   workspaceOrigin?: { id: string; source: string; baseHead: string };
   failure?: ExecutionFailure;

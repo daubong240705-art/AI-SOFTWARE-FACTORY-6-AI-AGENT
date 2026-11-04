@@ -54,3 +54,27 @@ test("dispatcher protects overlapping scopes and waits for integrated dependenci
     ["t1"],
   );
 });
+
+test("integrated dispatcher waits for all coding output before TEST, and admits dependent work only after integration", () => {
+  const be = { ...task("t1", "api"), role: "be" } as TeamTask;
+  const fe = { ...task("t2", "ui", ["t1"]), role: "fe" } as TeamTask;
+  const testTask = { ...task("t3", "tests", ["t1"]), role: "test" } as TeamTask;
+  be.state = "completed";
+  assert.deepEqual(
+    isolatedDispatch([be, fe, testTask], new Set(), new Set()),
+    [],
+  );
+  assert.deepEqual(
+    isolatedDispatch([be, fe, testTask], new Set(), new Set(["t1"])).map(
+      (t) => t.id,
+    ),
+    ["t2"],
+  );
+  fe.state = "completed";
+  assert.deepEqual(
+    isolatedDispatch([be, fe, testTask], new Set(), new Set(["t1", "t2"])).map(
+      (t) => t.id,
+    ),
+    ["t3"],
+  );
+});

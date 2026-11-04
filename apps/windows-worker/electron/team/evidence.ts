@@ -82,7 +82,11 @@ export function commandRef(
     callId: command.callId,
   };
 }
-export function evidenceCatalog(run: Run, latest: Map<string, TeamTask>) {
+export function evidenceCatalog(
+  run: Run,
+  latest: Map<string, TeamTask>,
+  currentVersion?: string,
+) {
   const refs: EvidenceRef[] = [];
   let omitted = 0;
   for (const [taskId, task] of latest) {
@@ -90,6 +94,14 @@ export function evidenceCatalog(run: Run, latest: Map<string, TeamTask>) {
     const candidates: EvidenceRef[] = commands
       .map((c) => commandRef(run, taskId, task, c))
       .filter((r): r is EvidenceRef => !!r);
+    if (currentVersion) {
+      for (let i = candidates.length - 1; i >= 0; i--) {
+        if (candidates[i].sourceVersion !== currentVersion) {
+          candidates.splice(i, 1);
+          omitted++;
+        }
+      }
+    }
     if (task.evidence && task.sessionId) {
       const paths = [
         ...new Set([

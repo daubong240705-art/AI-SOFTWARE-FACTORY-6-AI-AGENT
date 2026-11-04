@@ -18,9 +18,12 @@ const { git } = require("../electron/workspace/git-evidence.ts");
 const { recoverOwnedJobs } = require("../electron/runtime/owned-process.ts");
 const { redact } = require("../electron/runtime/security.ts");
 const { Worktrees } = require("../electron/workspace/worktrees.ts");
+const sequential = process.argv.includes("--sequential");
 const artifacts = resolve(
   __dirname,
-  "../../../.cache/asf-research/parallel-live",
+  sequential
+    ? "../../../.cache/asf-research/integration-sequential-live"
+    : "../../../.cache/asf-research/integration-live",
 );
 mkdirSync(artifacts, { recursive: true });
 const directory = mkdtempSync(join(artifacts, "data-"));
@@ -29,6 +32,7 @@ app.whenReady().then(async () => {
   let store,
     controller,
     secret,
+    runId,
     code = 0;
   try {
     const previous = new Database(
@@ -53,9 +57,9 @@ app.whenReady().then(async () => {
     }
     if (!secret)
       throw new Error("No model key available; no live request sent.");
-    settings.teamExecution = "isolated-pair";
+    settings.teamExecution = sequential ? "sequential" : "isolated-pair";
     settings.permissionMode = "full-access";
-    settings.maxRequests = 20;
+    settings.maxRequests = 40;
     settings.timeoutMinutes = 4;
     settings.agents.forEach((a) => {
       a.model = "ds/deepseek-v4-flash";
@@ -92,32 +96,37 @@ app.whenReady().then(async () => {
       "lead",
       "team",
     );
+    runId = initial.id;
     while (controller.isBusy()) await new Promise((r) => setTimeout(r, 200));
     const run = store.run(initial.id);
-    assert.equal(run.state, "needs_input", run.error);
-    assert.equal(run.failure?.code, "integration-pending", run.error);
+    assert.equal(run.state, "completed", run.error);
+    if (!sequential)
+      assert.equal(run.integration?.state, "verified", run.error);
     const roots = run.tasks.filter(
       (t) => t.kind === "work" && !t.dependsOn.length,
     );
     assert.equal(roots.length, 2);
     assert.ok(
       roots.every(
-        (t) => t.state === "completed" && t.workspaceOrigin && t.workspace,
+        (t) =>
+          t.state === "completed" &&
+          (sequential || (t.workspaceOrigin && t.workspace)),
       ),
     );
-    assert.ok(
-      Date.parse(roots[0].startedAt) < Date.parse(roots[1].endedAt) &&
-        Date.parse(roots[1].startedAt) < Date.parse(roots[0].endedAt),
-    );
-    assert.equal(run.tasks.find((t) => t.id === "t3").sessionId, null);
-    assert.equal(run.review, null);
-    assert.ok(run.requests > 0 && run.requests <= 20);
+    if (!sequential)
+      assert.ok(
+        Date.parse(roots[0].startedAt) < Date.parse(roots[1].endedAt) &&
+          Date.parse(roots[1].startedAt) < Date.parse(roots[0].endedAt),
+      );
+    assert.ok(run.tasks.find((t) => t.id === "t3").sessionId);
+    assert.equal(run.review?.verification?.verified, true);
+    assert.ok(run.requests > 0 && run.requests <= 40);
     for (const task of roots) {
       const file = task.allowedPaths[0];
       assert.ok(["sum.cjs", "multiply.cjs"].includes(file));
       // Independently verify bytes, rather than trusting a shell wrapper's exit status.
       execFileSync("node", ["--test", file.replace(".cjs", ".test.cjs")], {
-        cwd: task.workspace,
+        cwd: task.workspace ?? source,
         windowsHide: true,
         timeout: 10000,
         env: {
@@ -137,23 +146,54 @@ app.whenReady().then(async () => {
             c.command.includes("node --test"),
         ),
       );
-      assert.equal(store.workspaceReferenced(task.workspace), true);
-      await assert.rejects(
-        new Worktrees(directory, (path) =>
-          store.workspaceReferenced(path),
-        ).previewRemoval(task.workspaceOrigin.id),
-      );
+      if (!sequential) {
+        assert.equal(store.workspaceReferenced(task.workspace), true);
+        await assert.rejects(
+          new Worktrees(directory, (path) =>
+            store.workspaceReferenced(path),
+          ).previewRemoval(task.workspaceOrigin.id),
+        );
+      }
     }
-    for (const [file, content] of Object.entries(originals))
-      assert.equal(readFileSync(join(source, file), "utf8"), content);
-    assert.equal((await git(source, ["status", "--porcelain"])).toString(), "");
+    if (!sequential)
+      for (const [file, content] of Object.entries(originals))
+        assert.equal(readFileSync(join(source, file), "utf8"), content);
+    if (!sequential)
+      assert.equal(
+        (await git(source, ["status", "--porcelain"])).toString(),
+        "",
+      );
+    const finalWorkspace = run.integration?.workspace ?? source;
+    execFileSync("node", ["--test", "sum.test.cjs", "multiply.test.cjs"], {
+      cwd: finalWorkspace,
+      windowsHide: true,
+      timeout: 10000,
+      env: {
+        PATH: process.env.PATH,
+        SystemRoot: process.env.SystemRoot,
+        TEMP: process.env.TEMP,
+        TMP: process.env.TMP,
+      },
+    });
+    if (!sequential)
+      assert.ok(
+        run.commands.some(
+          (command) =>
+            command.taskId === "t3" &&
+            command.sourceVersion === run.integration.sourceVersion &&
+            command.exitCode === 0,
+        ),
+      );
     await recoverOwnedJobs(directory);
     writeFileSync(
       join(artifacts, "result.json"),
       JSON.stringify(
         {
           passed: true,
-          kind: "real-9router-opencode-isolated-pair",
+          kind: sequential
+            ? "real-9router-sequential-comparison"
+            : "real-9router-integrated-pair",
+          durationMs: Date.parse(run.endedAt) - Date.parse(run.createdAt),
           model: "ds/deepseek-v4-flash",
           report: JSON.parse(store.report(run.id, [secret])),
         },
@@ -168,11 +208,26 @@ app.whenReady().then(async () => {
         model: "ds/deepseek-v4-flash",
         requests: run.requests,
         commands: run.commands.length,
-        overlappingTasks: roots.map((t) => t.id),
-        originalSourceUnchanged: true,
+        overlappingTasks:
+          Date.parse(roots[0].startedAt) < Date.parse(roots[1].endedAt) &&
+          Date.parse(roots[1].startedAt) < Date.parse(roots[0].endedAt),
+        originalSourceUnchanged: !sequential,
       }),
     );
   } catch (error) {
+    if (store && runId)
+      writeFileSync(
+        join(directory, "failure.json"),
+        JSON.stringify(
+          {
+            passed: false,
+            error: redact(String(error), secret ? [secret] : []),
+            report: JSON.parse(store.report(runId, secret ? [secret] : [])),
+          },
+          null,
+          2,
+        ),
+      );
     console.error(
       redact(
         error instanceof Error ? error.message : String(error),

@@ -4,6 +4,7 @@ import { inScope, type TeamTask } from "../../shared/team";
 export function isolatedDispatch(
   tasks: readonly TeamTask[],
   activeIds: ReadonlySet<string>,
+  integratedIds?: ReadonlySet<string>,
 ): TeamTask[] {
   if (activeIds.size >= 2) return [];
   const active = tasks.filter((task) => activeIds.has(task.id));
@@ -14,9 +15,21 @@ export function isolatedDispatch(
     if (
       task.kind !== "work" ||
       task.state !== "queued" ||
-      task.dependsOn.length ||
+      (integratedIds
+        ? task.dependsOn.some((id) => !integratedIds.has(id))
+        : task.dependsOn.length > 0) ||
       !task.allowedPaths.length ||
       activeIds.has(task.id)
+    )
+      continue;
+    if (
+      integratedIds &&
+      task.role === "test" &&
+      tasks.some(
+        (other) =>
+          ["be", "fe", "devops"].includes(other.role) &&
+          !integratedIds.has(other.id),
+      )
     )
       continue;
     const overlaps = [...active, ...chosen].some((other) =>

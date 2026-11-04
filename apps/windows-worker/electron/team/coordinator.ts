@@ -13,7 +13,12 @@ import type { Snapshot } from "../workspace/snapshot";
 import { ExecutionStopped } from "../runtime/stopped";
 import { sourcePolicyError, rolePolicy } from "./policy";
 import { buildHandoff, workReportInstructions } from "./handoff";
-import { criteria, evidenceCatalog, verifyEvidence } from "./evidence";
+import {
+  criteria,
+  evidenceCatalog,
+  verifyEvidence,
+  sourceVersion,
+} from "./evidence";
 import type { EvidenceStore } from "../storage/evidence";
 import { selectTaskSkills, skillCatalogSummary } from "./skills";
 import { WorkerError, failure, classifyFailure } from "../runtime/failure";
@@ -134,6 +139,8 @@ export async function coordinate(
   isolated?: {
     prepare(task: TeamTask): Promise<void>;
     stop(error: unknown): void;
+    integrate?(task: TeamTask): Promise<void>;
+    currentWorkspace?(): string;
   },
 ): Promise<void> {
   const parallel = run.settings.teamExecution === "isolated-pair";
@@ -151,7 +158,7 @@ export async function coordinate(
     const workspace = task.workspace ?? run.workspace;
     let before: Snapshot | undefined;
     try {
-      before = await snapshot(workspace);
+      before = await snapshot(workspace, parallel && !!evidenceStore, secrets);
       if (!before.complete)
         throw new TeamBlocked(
           "Không thể xác minh toàn bộ phạm vi source workspace. " +
@@ -162,6 +169,12 @@ export async function coordinate(
           "incomplete-snapshot",
         );
       await saveCheckpoint?.("before-task", before, task.id);
+      if (parallel && ["work", "fix"].includes(task.kind))
+        task.baseEvidence = evidenceStore?.saveTaskSnapshot(
+          before,
+          [],
+          task.allowedPaths,
+        );
       task.summary = await step(task, prompt);
       check();
       const after = await snapshot(
@@ -282,9 +295,18 @@ export async function coordinate(
       });
       let text: string;
       try {
+        if (parallel && kind === "review") {
+          await isolated?.prepare(task);
+          instructions =
+            "Integrated source: catalog excludes stale commands. Every TEST criterion and requiresCommand=true must use method=command with successful TEST command refs on the current integrated source. Do not copy historical command refs from handoff.\n" +
+            instructions;
+        }
         text = await perform(
           task,
-          instructions +
+          (parallel && kind === "plan"
+            ? "Chế độ tích hợp cô lập: task độc lập chạy trong worktree riêng; dependency chỉ chạy sau khi kết quả tích hợp. Với sửa code, lập TEST phụ thuộc mọi task sửa code để kiểm tra source hợp nhất. Không dùng lệnh test trên từng worktree riêng để kết luận cả yêu cầu đã đạt.\n"
+            : "") +
+            instructions +
             (issue
               ? `\nOutput trước không hợp lệ: ${issue.slice(0, 1500)}. Trả lại JSON đúng schema.`
               : ""),
@@ -366,7 +388,14 @@ export async function coordinate(
       throw new TeamBlocked("Thiếu quản lý execution cô lập.", "configuration");
     for (;;) {
       check();
-      const batch = isolatedDispatch(work, new Set());
+      const integratedIds = isolated.integrate
+        ? new Set(
+            work
+              .filter((task) => run.integration?.taskIds.includes(task.id))
+              .map((task) => task.id),
+          )
+        : undefined;
+      const batch = isolatedDispatch(work, new Set(), integratedIds);
       if (!batch.length) break;
       // Git manager mutations are serialized; runtimes overlap only after ownership is persisted.
       for (const task of batch) {
@@ -391,38 +420,55 @@ export async function coordinate(
           "Task cô lập chưa đạt; giữ workspace để kiểm tra.",
           "tool-test-failure",
         );
+      for (const task of batch) await isolated.integrate?.(task);
     }
-    for (const task of work)
-      if (task.state === "queued") {
-        task.state = "blocked";
-        task.error = "Chờ tích hợp source của dependency trước khi thực thi.";
+    if (!isolated.integrate) {
+      for (const task of work)
+        if (task.state === "queued") {
+          task.state = "blocked";
+          task.error = "Chờ tích hợp source của dependency trước khi thực thi.";
+        }
+      run.summary =
+        "Task độc lập đã được thực thi trong workspace riêng. Kết quả còn chờ tích hợp; chưa kiểm thử source hợp nhất. Mở Workspace để xem từng kết quả.";
+      record("INTEGRATION_PENDING", run.summary, null);
+      throw new TeamBlocked(run.summary, "integration-pending");
+    }
+    if (work.some((task) => task.state !== "completed"))
+      throw new TeamBlocked(
+        "Dependency chưa có kết quả tích hợp.",
+        "integration-pending",
+      );
+  }
+  if (!parallel)
+    for (const task of work) {
+      check();
+      if (
+        task.dependsOn.some(
+          (id) => work.find((t) => t.id === id)?.state !== "completed",
+        )
+      ) {
+        task.state = "skipped";
+        task.error = "Dependency chưa hoàn thành";
+        record("TASK_SKIPPED", task.id);
+        continue;
       }
-    run.summary =
-      "Task độc lập đã được thực thi trong workspace riêng. Kết quả còn chờ tích hợp; chưa kiểm thử source hợp nhất. Mở Workspace để xem từng kết quả.";
-    record("INTEGRATION_PENDING", run.summary, null);
-    throw new TeamBlocked(run.summary, "integration-pending");
-  }
-  for (const task of work) {
-    check();
-    if (
-      task.dependsOn.some(
-        (id) => work.find((t) => t.id === id)?.state !== "completed",
-      )
-    ) {
-      task.state = "skipped";
-      task.error = "Dependency chưa hoàn thành";
-      record("TASK_SKIPPED", task.id);
-      continue;
+      await workTask(task);
     }
-    await workTask(task);
-  }
   for (;;) {
     check();
-    const catalog = evidenceCatalog(run, latest);
+    const catalog = evidenceCatalog(
+      run,
+      latest,
+      parallel
+        ? sourceVersion(
+            await snapshot(isolated?.currentWorkspace?.() ?? run.workspace),
+          )
+        : undefined,
+    );
     const acceptance = criteria(work);
     const review = await structured(
       "review",
-      `Đánh giá yêu cầu: ${run.prompt}\nKế hoạch: ${JSON.stringify(plan)}\nKết quả mới nhất: ${JSON.stringify(buildHandoff(run, latest, [...latest.keys()]))}\nTiêu chí có ID: ${JSON.stringify(acceptance)}\nEvidence có sẵn: ${JSON.stringify(catalog)}\nReview cả yêu cầu và chất lượng. taskId là ID gốc giao fix; attemptId là lần thực thi thật. report chỉ là tự khai. Chọn refs nguyên vẹn từ catalog; không bịa ID/hash. Có thể dùng lệnh TEST mới nhất để chứng minh AC của task phụ thuộc. Bạn phải đối chiếu ý nghĩa lệnh/file với tiêu chí; exit 0 không tự chứng minh đúng yêu cầu. Claim test/build cần method=command và command ref; docs/source có thể dùng method=source và file ref. Catalog omitted/truncated nghĩa là thiếu context, không suy đoán. Không đủ bằng chứng thì unverified/blocked.\nChỉ xuất JSON: {"version":2,"status":"completed|fix|blocked","summary":"kết quả và cách chạy","acceptance":[{"criterionId":"t1:ac1","criterion":"nguyên văn AC","status":"passed|failed|unverified","evidence":"giải thích sự liên quan của bằng chứng","method":"command|source","refs":[]}],"fixes":[{"taskId":"t1","instructions":"lỗi cần sửa"}],"limitations":[]} . Bao phủ đúng một lần mỗi criterionId, kể cả tiêu chí trùng chữ. completed chỉ khi mọi task/AC đạt và refs hợp lệ. fix chỉ giao BE/FE/DEVOPS gốc cần sửa. blocked nếu thiếu thông tin/capability/evidence. fixes rỗng nếu completed/blocked.`,
+      `${parallel ? "Review the integrated source. All TEST criteria and requiresCommand=true criteria need method=command with the latest TEST command refs from the current catalog. Historical handoff commands are not valid refs. " : ""}Evidence ownership: file refs ONLY support criteria with the SAME taskId. For t1 criteria use t1 file refs; NEVER add t3/TEST file refs. Only command refs from dependent TEST may support ancestor criteria. Every ref must be authorized; an invalid supplementary ref blocks the whole criterion. Đánh giá yêu cầu: ${run.prompt}\nKế hoạch: ${JSON.stringify(plan)}\nKết quả mới nhất: ${JSON.stringify(buildHandoff(run, latest, [...latest.keys()]))}\nTiêu chí có ID: ${JSON.stringify(acceptance)}\nEvidence có sẵn: ${JSON.stringify(catalog)}\nReview cả yêu cầu và chất lượng. taskId là ID gốc giao fix; attemptId là lần thực thi thật. report chỉ là tự khai. Chọn refs nguyên vẹn từ catalog; không bịa ID/hash. Có thể dùng lệnh TEST mới nhất để chứng minh AC của task phụ thuộc. Bạn phải đối chiếu ý nghĩa lệnh/file với tiêu chí; exit 0 không tự chứng minh đúng yêu cầu. Claim test/build cần method=command và command ref; docs/source có thể dùng method=source và file ref. Catalog omitted/truncated nghĩa là thiếu context, không suy đoán. Không đủ bằng chứng thì unverified/blocked.\nChỉ xuất JSON: {"version":2,"status":"completed|fix|blocked","summary":"kết quả và cách chạy","acceptance":[{"criterionId":"t1:ac1","criterion":"nguyên văn AC","status":"passed|failed|unverified","evidence":"giải thích sự liên quan của bằng chứng","method":"command|source","refs":[]}],"fixes":[{"taskId":"t1","instructions":"lỗi cần sửa"}],"limitations":[]} . Bao phủ đúng một lần mỗi criterionId, kể cả tiêu chí trùng chữ. completed chỉ khi mọi task/AC đạt và refs hợp lệ. fix chỉ giao BE/FE/DEVOPS gốc cần sửa. blocked nếu thiếu thông tin/capability/evidence. fixes rỗng nếu completed/blocked.`,
       async (text) => {
         const r = parseJSON(text, reviewSchema);
         verifyEvidence(
@@ -430,7 +476,7 @@ export async function coordinate(
           run,
           work,
           latest,
-          await snapshot(run.workspace),
+          await snapshot(isolated?.currentWorkspace?.() ?? run.workspace),
           evidenceStore,
         );
         validateReview(
@@ -444,6 +490,28 @@ export async function coordinate(
     run.summary = review.summary;
     record("LEAD_REVIEW", JSON.stringify(review));
     if (review.status === "completed") {
+      if (
+        parallel &&
+        work.some(
+          (task) => !rolePolicy(task.role).readOnly && task.changes.length,
+        ) &&
+        ![...latest.values()].some(
+          (task) =>
+            task.role === "test" &&
+            task.state === "completed" &&
+            run.commands.some(
+              (command) =>
+                command.taskId === task.id &&
+                command.status === "completed" &&
+                command.exitCode === 0 &&
+                command.sourceVersion === run.integration?.sourceVersion,
+            ),
+        )
+      )
+        throw new TeamBlocked(
+          "Chưa có TEST thành công trên đúng source tích hợp cuối cùng.",
+          "evidence-unverified",
+        );
       run.state = "completed";
       return;
     }
@@ -470,12 +538,26 @@ export async function coordinate(
         instructions: fix.instructions,
         dependsOn: [original.id],
       });
+      if (parallel) await isolated?.prepare(task);
       await workTask(task);
+      if (parallel) await isolated?.integrate?.(task);
       fixed.push(original.id);
       latest.set(original.id, task);
     }
-    for (const original of affectedTasks(work, fixed)) {
+    const affected = affectedTasks(work, fixed);
+    // Every source change invalidates commands bound to the combined source hash,
+    // including TEST tasks without an explicit dependency on the fixed task.
+    if (parallel) {
+      for (const task of work)
+        if (task.role === "test" && !affected.includes(task))
+          affected.push(task);
+      affected.sort(
+        (a, b) => Number(a.role === "test") - Number(b.role === "test"),
+      );
+    }
+    for (const original of affected) {
       if (
+        !parallel &&
         original.role !== "test" &&
         latest.get(original.id)!.state === "completed"
       )
@@ -491,7 +573,11 @@ export async function coordinate(
         task.state = "skipped";
         task.error = "Dependency chưa đạt sau vòng sửa";
         run.tasks.push(task);
-      } else await workTask(task);
+      } else {
+        if (parallel) await isolated?.prepare(task);
+        await workTask(task);
+        if (parallel) await isolated?.integrate?.(task);
+      }
       latest.set(original.id, task);
     }
   }

@@ -11,6 +11,8 @@ import { ExecutionFacts } from "./ExecutionFacts";
 import { failureLabels } from "../../shared/execution";
 import { ActivityLog } from "./ActivityLog";
 import { RecoveryActions } from "./RecoveryActions";
+import { IntegrationResult } from "./IntegrationResult";
+import type { Project } from "../../shared/contracts";
 import { useState } from "react";
 
 export function RunPanel({
@@ -19,12 +21,14 @@ export function RunPanel({
   onPermission,
   busy,
   showPermissions = true,
+  onOpenWorkspace,
 }: {
   detail: RunDetail | null;
   tab: string;
   onPermission: (id: string, allow: boolean) => void;
   busy: boolean;
   showPermissions?: boolean;
+  onOpenWorkspace?: (project: Project) => Promise<void>;
 }) {
   const [exportStatus, setExportStatus] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -172,6 +176,9 @@ export function RunPanel({
             </div>
           </section>
         ))}
+      {["changes", "result"].includes(tab) && run.integration && (
+        <IntegrationResult run={run} busy={busy} onOpen={onOpenWorkspace} />
+      )}
       {tab === "activity" && <ActivityLog key={run.id} detail={detail} />}
       {tab === "changes" && (
         <>

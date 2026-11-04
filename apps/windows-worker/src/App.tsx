@@ -1000,8 +1000,8 @@ export function App() {
                           </select>
                         </label>
                         <p className="muted small">
-                          Workspace riêng cần repo sạch. Kết quả chờ tích hợp;
-                          task phụ thuộc chưa chạy.
+                          Repo sạch · tích hợp trong workspace riêng · kiểm thử
+                          source hợp nhất.
                         </p>
                         <label>
                           OpenCode executable

@@ -23,6 +23,7 @@ export type Conversation = {
 };
 export type ConversationSummary = Omit<Conversation, "draft">;
 export type ChatMessage = {
+  integrationId?: string;
   failureCode?: import("./execution").FailureCode;
   retryOf?: string;
   sequence: number;

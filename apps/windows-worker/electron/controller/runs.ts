@@ -13,6 +13,7 @@ import { emptyMetrics, addUsage, syncMetrics } from "../runtime/metrics";
 import { autoApproves } from "../runtime/permissions";
 import { recoverOwnedJobs } from "../runtime/owned-process";
 import { Worktrees } from "../workspace/worktrees";
+import { Integration } from "../workspace/integration";
 import {
   checkpoint,
   inspectWorkspace,
@@ -329,6 +330,31 @@ export class RunController {
           this.store.workspaceReferenced(path),
         );
         const baseline = active.isolatedBaseline;
+        const createOwned = async () => {
+          this.check(active);
+          if (fingerprint(await inspectWorkspace(run)) !== baseline)
+            throw new TeamBlocked(
+              "Source gốc đã đổi trước thao tác tích hợp.",
+              "workspace-changed",
+            );
+          const owned = await worktrees.create(run.projectId, run.workspace);
+          this.check(active);
+          if (fingerprint(await inspectWorkspace(run)) !== baseline)
+            throw new TeamBlocked(
+              "Source gốc đổi khi tạo workspace.",
+              "workspace-changed",
+            );
+          return owned;
+        };
+        const integration = new Integration(
+          this.store,
+          worktrees,
+          run,
+          createOwned,
+          () => this.check(active),
+          (type, text) => this.record(active, type, text, null),
+          active.secrets,
+        );
         await coordinate(
           run,
           (task, prompt) => this.step(active, key, executable, task, prompt),
@@ -351,16 +377,15 @@ export class RunController {
           },
           {
             prepare: async (task) => {
+              if (!run.tasks.includes(task)) run.tasks.push(task);
+              await integration.initialize();
               this.check(active);
               if (fingerprint(await inspectWorkspace(run)) !== baseline)
                 throw new TeamBlocked(
                   "Source gốc đổi trước khi tạo workspace task.",
                   "workspace-changed",
                 );
-              const owned = await worktrees.create(
-                run.projectId,
-                run.workspace,
-              );
+              const owned = await createOwned();
               task.workspace = owned.path;
               task.workspaceOrigin = {
                 id: owned.id,
@@ -368,6 +393,7 @@ export class RunController {
                 baseHead: owned.head,
               };
               this.record(active, "TASK_WORKSPACE", owned.id, task.id);
+              await integration.seed(owned);
               this.check(active);
               if (fingerprint(await inspectWorkspace(run)) !== baseline)
                 throw new TeamBlocked(
@@ -375,6 +401,8 @@ export class RunController {
                   "workspace-changed",
                 );
             },
+            integrate: (task) => integration.accept(task),
+            currentWorkspace: () => run.integration?.workspace ?? run.workspace,
             stop: (error) => {
               const reason = classifyFailure(error, active.secrets);
               void this.stop(run.id, "failed", reason.message, reason).catch(
@@ -383,6 +411,16 @@ export class RunController {
             },
           },
         );
+        if (run.integration && ["completed"].includes(run.state)) {
+          await integration.validate();
+          run.integration.state = "verified";
+          this.record(
+            active,
+            "INTEGRATION_VERIFIED",
+            run.integration.sourceVersion,
+            null,
+          );
+        }
       } else {
         run.summary = await this.step(active, key, executable);
         if (
@@ -515,10 +553,12 @@ export class RunController {
       if (this.active === active) this.active = undefined;
       active.secrets = [];
       if (!this.shuttingDown) {
-        if (run.state === "completed") this.advance(run.id);
+        if (run.state === "completed" && !run.integration) this.advance(run.id);
         else
           this.store.queue.hold(
-            "Lượt trước chưa hoàn tất. Kiểm tra kết quả rồi chọn Chạy tiếp.",
+            run.integration
+              ? "Kết quả nằm trong workspace tích hợp. Mở làm dự án trước khi chạy tiếp."
+              : "Lượt trước chưa hoàn tất. Kiểm tra kết quả rồi chọn Chạy tiếp.",
             run.id,
           );
       }
@@ -1169,6 +1209,11 @@ export class RunController {
       throw new Error(
         "Cấu hình đã thay đổi. Xóa yêu cầu và gửi lại với cấu hình mới.",
       );
+    this.store.project(item.projectId);
+    if (item.afterRunId && this.store.run(item.afterRunId).integration)
+      throw new Error(
+        "Mở bản tích hợp làm dự án để tiếp tục trên kết quả, hàng chờ cũ vẫn trỏ source gốc.",
+      );
     const before = this.active;
     try {
       return this.store.queue.claim(item.id, (q) => {
@@ -1205,9 +1250,12 @@ export class RunController {
   }
   retry(id: string): Run {
     const previous = this.store.run(id);
-    if (previous.failure?.code === "integration-pending")
+    if (
+      previous.integration ||
+      previous.failure?.code === "integration-pending"
+    )
       throw new Error(
-        "Kết quả đang chờ tích hợp. Mở Workspace để xem; thử lại không hợp nhất source.",
+        "Kết quả nằm trong workspace riêng. Mở Workspace để xem bản tích hợp; không phát lại lên source gốc.",
       );
     if (["queued", "running", "blocked", "cancelling"].includes(previous.state))
       throw new Error("Lượt này chưa kết thúc.");
@@ -1225,9 +1273,9 @@ export class RunController {
   }
   private async inspectRecovery(id: string): Promise<RecoveryPreview> {
     const run = this.store.run(id);
-    if (run.failure?.code === "integration-pending")
+    if (run.integration || run.failure?.code === "integration-pending")
       throw new Error(
-        "Kết quả đang chờ tích hợp. Mở Workspace; tạo attempt mới sẽ không hợp nhất kết quả cũ.",
+        "Kết quả nằm trong workspace riêng. Mở Workspace để xem và tiếp tục trên bản tích hợp; không phục hồi lên source gốc.",
       );
     if (
       !["interrupted", "failed", "needs_input", "cancelled"].includes(run.state)

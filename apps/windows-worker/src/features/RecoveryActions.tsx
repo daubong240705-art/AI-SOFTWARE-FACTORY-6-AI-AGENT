@@ -11,6 +11,13 @@ export function RecoveryActions({
   const [preview, setPreview] = useState<RecoveryPreview | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  if (run.integration)
+    return (
+      <p className="small muted">
+        Mở bản tích hợp để xem và tiếp tục. Lượt này không tự phát lại lên
+        source gốc.
+      </p>
+    );
   if (run.failure?.code === "integration-pending")
     return (
       <p className="small muted">

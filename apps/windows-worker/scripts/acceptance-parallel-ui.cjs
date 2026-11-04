@@ -1,19 +1,40 @@
 // Read the completed live fixture through the real renderer/IPC, with no new model requests.
 const { app, BrowserWindow } = require("electron");
-const { readFileSync, writeFileSync, mkdirSync } = require("node:fs");
+const {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  readdirSync,
+  statSync,
+  existsSync,
+} = require("node:fs");
 const { resolve, join, relative, isAbsolute } = require("node:path");
 const assert = require("node:assert/strict");
 const artifacts = resolve(
   __dirname,
-  "../../../.cache/asf-research/parallel-live",
+  "../../../.cache/asf-research/integration-live",
 );
-const result = JSON.parse(readFileSync(join(artifacts, "result.json"), "utf8"));
-assert.equal(result.passed, true);
+const incomplete = process.argv.includes("--incomplete");
+const reportPath = incomplete
+  ? readdirSync(artifacts)
+      .filter(
+        (n) =>
+          n.startsWith("data-") &&
+          existsSync(join(artifacts, n, "failure.json")),
+      )
+      .map((n) => join(artifacts, n, "failure.json"))
+      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs)[0]
+  : join(artifacts, "result.json");
+const result = JSON.parse(readFileSync(reportPath, "utf8"));
+assert.equal(result.passed, !incomplete);
 const tasks = result.report.run.tasks.filter((t) => t.workspace);
 const directory = resolve(tasks[0].workspace, "../../..");
 const rel = relative(artifacts, directory);
 assert.ok(rel && !rel.startsWith("..") && !isAbsolute(rel));
-const output = resolve(__dirname, "../../../.cache/asf-research/parallel-ui");
+const output = resolve(
+  __dirname,
+  "../../../.cache/asf-research/integration-ui",
+);
 mkdirSync(output, { recursive: true });
 app.setPath("userData", directory);
 BrowserWindow.prototype.show = function () {};
@@ -50,7 +71,7 @@ app.whenReady().then(async () => {
     );
     await until(() =>
       js(
-        `document.querySelector('[aria-label="Kết quả workspace riêng"]')?.querySelectorAll('details').length===2`,
+        `document.querySelector('[aria-label="Kết quả workspace riêng"]')?.querySelectorAll('details').length>=3`,
       ),
     );
     await js(
@@ -83,7 +104,7 @@ app.whenReady().then(async () => {
     );
     await until(() =>
       js(
-        `document.querySelector('.run-result')?.textContent.includes('Chưa có thao tác tích hợp tự động')`,
+        `document.querySelector('[aria-label="Bản tích hợp"]')?.textContent.includes(${JSON.stringify(incomplete ? "Bản tích hợp chờ xác minh" : "Bản tích hợp đã xác minh")})`,
       ),
     );
     assert.equal(
@@ -97,7 +118,34 @@ app.whenReady().then(async () => {
     );
     await until(() =>
       js(
-        `document.querySelectorAll('.workspace-tools .command-result').length===2`,
+        `document.querySelectorAll('.workspace-tools .command-result').length>=5`,
+      ),
+    );
+    assert.equal(
+      await js(
+        `document.querySelector('.workspace-tools').textContent.includes('Bản tích hợp')`,
+      ),
+      true,
+    );
+    await js(
+      `[...document.querySelectorAll('[role="tab"]')].find(e=>e.textContent==='Kết quả').click()`,
+    );
+    await until(() =>
+      js(`!!document.querySelector('[aria-label="Bản tích hợp"] button')`),
+    );
+    await js(
+      `document.querySelector('[aria-label="Bản tích hợp"] button').click()`,
+    );
+    await until(() =>
+      js(
+        `document.querySelector('.workspace-tools')===null && !document.querySelector('[aria-label="Bản tích hợp"]')`,
+      ),
+    );
+    const projects = await js(`window.worker.bootstrap()`);
+    assert.equal(projects.ok, true);
+    assert.ok(
+      projects.value.projects.some(
+        (p) => p.path === result.report.run.integration.workspace,
       ),
     );
     writeFileSync(
@@ -105,12 +153,17 @@ app.whenReady().then(async () => {
       JSON.stringify(
         {
           passed: true,
-          kind: "real-electron-immutable-task-evidence",
+          kind: incomplete
+            ? "real-electron-unverified-integrated-result"
+            : "real-electron-integrated-task-evidence",
           checks: [
             "separate task results visible",
             "immutable source evidence through IPC",
-            "pending integration hides recovery replay",
-            "both retained workspaces discoverable",
+            incomplete
+              ? "unverified integration honestly labeled with source version"
+              : "verified integration and source version visible",
+            "retained task and integration workspaces discoverable",
+            "integrated result opens as project through IPC",
           ],
         },
         null,
@@ -118,7 +171,7 @@ app.whenReady().then(async () => {
       ),
     );
     console.log(
-      "PASS: Electron task workspace results, immutable evidence and integration-pending UI.",
+      "PASS: Electron integrated result, immutable evidence and open-result IPC.",
     );
   } catch (error) {
     const win = BrowserWindow.getAllWindows()[0];

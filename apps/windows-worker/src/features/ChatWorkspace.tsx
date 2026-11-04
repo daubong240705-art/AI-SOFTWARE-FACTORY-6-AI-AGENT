@@ -587,6 +587,7 @@ export function ChatWorkspace({
                           </button>
                         )}
                         {!isActive(message.state) &&
+                          !message.integrationId &&
                           message.failureCode !== "integration-pending" &&
                           message.state !== "completed" && (
                             <button
@@ -901,6 +902,7 @@ export function ChatWorkspace({
               <Workspaces
                 key={project.id}
                 projectId={project.id}
+                integrationId={panelDetail?.run.integration?.origin.id}
                 active={!!activeId}
                 onOpen={onOpenWorkspace}
               />
@@ -913,6 +915,7 @@ export function ChatWorkspace({
             ) : (
               <RunPanel
                 detail={panelDetail}
+                onOpenWorkspace={onOpenWorkspace}
                 tab={panel}
                 busy={busy}
                 showPermissions={false}

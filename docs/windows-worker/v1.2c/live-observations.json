@@ -1,0 +1,120 @@
+{
+  "model": "ds/deepseek-v4-flash",
+  "runtime": "OpenCode 1.19.5",
+  "completedAcceptance": false,
+  "comparisonValid": false,
+  "note": "Observed unsuccessful review runs only. Durations include model variability and review failures; not a speedup benchmark.",
+  "runs": [
+    {
+      "runId": "6c2ad8f2-760d-467a-b760-931afc1ca1f4",
+      "mode": "isolated-pair",
+      "state": "needs_input",
+      "durationMs": 80555,
+      "requests": 17,
+      "commands": 8,
+      "rootOverlap": true,
+      "combinedTestsIndependentlyPassed": true,
+      "originalUnchanged": true,
+      "integratedTasks": [
+        "t1",
+        "t2",
+        "t3"
+      ],
+      "integrationState": "ready",
+      "failure": "evidence-unverified",
+      "reviewIssues": [
+        "t1:ac3: Lệnh thiếu, thất bại hoặc thuộc source cũ. Tiêu chí kiểm thử cần command evidence thành công.",
+        "t2:ac2: Lệnh thiếu, thất bại hoặc thuộc source cũ.",
+        "t2:ac3: Lệnh thiếu, thất bại hoặc thuộc source cũ.",
+        "t3:ac1: Tiêu chí kiểm thử cần command evidence thành công."
+      ],
+      "reviewStartedAt": "2026-11-04T15:05:12.739Z"
+    },
+    {
+      "runId": "5e1c3287-c18a-4f98-92fe-bfeeb6d8acab",
+      "mode": "isolated-pair",
+      "state": "failed",
+      "durationMs": 107229,
+      "requests": 19,
+      "commands": 13,
+      "rootOverlap": true,
+      "combinedTestsIndependentlyPassed": true,
+      "originalUnchanged": true,
+      "integratedTasks": [
+        "t1",
+        "t2",
+        "t3"
+      ],
+      "integrationState": "ready",
+      "failure": "invalid-output",
+      "reviewIssues": [],
+      "reviewStartedAt": "2026-11-04T15:22:31.952Z"
+    },
+    {
+      "runId": "fb303f44-34fc-490b-be9c-d0ee23b6f726",
+      "mode": "isolated-pair",
+      "state": "needs_input",
+      "durationMs": 121254,
+      "requests": 21,
+      "commands": 11,
+      "rootOverlap": true,
+      "combinedTestsIndependentlyPassed": true,
+      "originalUnchanged": true,
+      "integratedTasks": [
+        "t1",
+        "t2",
+        "t3"
+      ],
+      "integrationState": "ready",
+      "failure": "evidence-unverified",
+      "reviewIssues": [
+        "t1:ac1: Evidence không thuộc task hoặc TEST phụ thuộc của tiêu chí.",
+        "t1:ac3: Evidence không thuộc task hoặc TEST phụ thuộc của tiêu chí.",
+        "t2:ac1: Evidence không thuộc task hoặc TEST phụ thuộc của tiêu chí.",
+        "t2:ac3: Evidence không thuộc task hoặc TEST phụ thuộc của tiêu chí."
+      ],
+      "reviewStartedAt": "2026-11-04T15:16:41.947Z"
+    },
+    {
+      "runId": "55e26b7c-bd2b-4435-8c04-866af328dd52",
+      "mode": "isolated-pair",
+      "state": "failed",
+      "durationMs": 110316,
+      "requests": 20,
+      "commands": 9,
+      "rootOverlap": true,
+      "combinedTestsIndependentlyPassed": true,
+      "originalUnchanged": true,
+      "integratedTasks": [
+        "t1",
+        "t2",
+        "t3"
+      ],
+      "integrationState": "ready",
+      "failure": "invalid-output",
+      "reviewIssues": [],
+      "reviewStartedAt": "2026-11-04T15:09:10.711Z"
+    },
+    {
+      "runId": "eb991b02-74aa-4327-a1e9-cfa5b60bc01f",
+      "mode": "sequential",
+      "state": "needs_input",
+      "durationMs": 108915,
+      "requests": 20,
+      "commands": 11,
+      "rootOverlap": false,
+      "combinedTestsIndependentlyPassed": true,
+      "originalUnchanged": null,
+      "integratedTasks": [],
+      "integrationState": null,
+      "failure": "evidence-unverified",
+      "reviewIssues": [
+        "t1:ac1: Evidence không thuộc task hoặc TEST phụ thuộc của tiêu chí.",
+        "t1:ac2: Lệnh thiếu, thất bại hoặc thuộc source cũ. Tiêu chí kiểm thử cần command evidence thành công.",
+        "t1:ac3: Lệnh thiếu, thất bại hoặc thuộc source cũ. Tiêu chí kiểm thử cần command evidence thành công.",
+        "t3:ac3: Lệnh thiếu, thất bại hoặc thuộc source cũ. Tiêu chí kiểm thử cần command evidence thành công."
+      ],
+      "reviewStartedAt": "2026-11-04T15:19:43.812Z"
+    }
+  ]
+}

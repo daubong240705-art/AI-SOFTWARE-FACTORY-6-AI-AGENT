@@ -409,6 +409,7 @@ export class Worktrees {
   async verifyTask(id: string, baseHead: string): Promise<OwnedWorkspace> {
     const value = await this.read(id);
     const registration = await this.identity(value);
+    await this.noFilters(value.path);
     if (
       value.state !== "ready" ||
       value.head !== baseHead ||

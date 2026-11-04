@@ -133,6 +133,7 @@ export class Store {
       const run = JSON.parse(row.value) as Run;
       return (
         matches(run.workspace) ||
+        (run.integration && matches(run.integration.workspace)) ||
         run.tasks?.some((task) => task.workspace && matches(task.workspace))
       );
     });
@@ -391,6 +392,7 @@ export class Store {
           retryOf: run.retryOf,
           recoveryOf: run.recoveryOf,
           workspaceOrigin: run.workspaceOrigin,
+          integration: run.integration,
           workspace: run.workspace,
           teamExecution: run.settings.teamExecution ?? "sequential",
           checkpoints: run.checkpoints,
@@ -408,6 +410,8 @@ export class Store {
             sessionId: t.sessionId,
             workspace: t.workspace,
             workspaceOrigin: t.workspaceOrigin,
+            baseEvidence: t.baseEvidence,
+            evidence: t.evidence,
             changes: t.changes,
           })),
           review: run.review,

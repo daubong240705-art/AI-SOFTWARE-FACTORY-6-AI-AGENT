@@ -137,14 +137,16 @@ export class Conversations {
     for (const message of messages) {
       const row = this.db
         .prepare(
-          "SELECT json_extract(value,'$.retryOf') AS retryOf,json_extract(value,'$.failure.code') AS failureCode FROM runs WHERE id=?",
+          "SELECT json_extract(value,'$.retryOf') AS retryOf,json_extract(value,'$.failure.code') AS failureCode,json_extract(value,'$.integration.origin.id') AS integrationId FROM runs WHERE id=?",
         )
         .get(message.runId) as {
         retryOf: string | null;
+        integrationId: string | null;
         failureCode: ChatMessage["failureCode"];
       };
       if (row.retryOf) message.retryOf = row.retryOf;
       if (row.failureCode) message.failureCode = row.failureCode;
+      if (row.integrationId) message.integrationId = row.integrationId;
     }
     return { conversation, messages, hasEarlier };
   }

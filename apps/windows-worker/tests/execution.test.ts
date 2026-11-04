@@ -34,6 +34,48 @@ import { RunController } from "../electron/controller/runs";
 import { Store } from "../electron/storage/database";
 import { ExecutionFacts } from "../src/features/ExecutionFacts";
 
+test("runtime refuses length-limited responses even when partial text looks valid", async () => {
+  const x = fixture();
+  try {
+    const runtime = new OpenCodeRuntime(
+      "unused",
+      x.directory,
+      x.run,
+      { url: "http://127.0.0.1:1", token: "fixture" },
+      { event: () => {}, permission: () => {}, failure: () => {} },
+      {
+        prompt: "fixture",
+        instructions: "fixture",
+        allowedPaths: ["."],
+        readOnly: true,
+        allowShell: false,
+      },
+    );
+    Object.assign(runtime, {
+      session: "fixture",
+      client: {
+        session: {
+          prompt: async () => ({
+            data: {
+              info: { finish: "length" },
+              parts: [{ type: "text", text: "{}" }],
+            },
+          }),
+          messages: async () => ({ data: [] }),
+        },
+      },
+    });
+    const result = await runtime.prompt();
+    assert.equal(result.text, "{}");
+    assert.equal(result.error?.code, "invalid-output");
+    assert.match(result.error!.message, /8.192 token/);
+    assert.match(result.error!.message, /Reasoning/);
+  } finally {
+    x.store.close();
+    rmSync(x.directory, { recursive: true, force: true });
+  }
+});
+
 function fixture() {
   const directory = mkdtempSync(join(tmpdir(), "asf-execution-"));
   const source = join(directory, "source");
