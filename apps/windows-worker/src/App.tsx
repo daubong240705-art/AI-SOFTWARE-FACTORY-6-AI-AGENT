@@ -51,6 +51,7 @@ import { useMonitor } from "./lib/use-monitor";
 import { TaskInspector } from "./features/TaskInspector";
 import { ProjectOverview } from "./features/ProjectOverview";
 import { GlobalInbox } from "./features/GlobalInbox";
+import { GitWorkspace } from "./features/GitWorkspace";
 import type { InboxItem } from "../shared/inbox";
 import type { InspectorSelection } from "../shared/inspector";
 import { HistoryTools } from "./features/HistoryTools";
@@ -73,6 +74,7 @@ async function value<T>(promise: Promise<Reply<T>>): Promise<T> {
   return result.value;
 }
 type Page =
+  | "git"
   | "inbox"
   | "overview"
   | "project"
@@ -792,6 +794,14 @@ export function App() {
               }
             >
               <button
+                className={page === "git" ? "active" : ""}
+                onClick={() => navigate("git")}
+                title="Git local"
+              >
+                <GitBranch size={18} />
+                <span>Git</span>
+              </button>
+              <button
                 className={page === "office" ? "active" : ""}
                 onClick={() => navigate("office")}
                 title="Văn phòng"
@@ -988,6 +998,33 @@ export function App() {
           ) : (
             <>
               {page === "inbox" && <GlobalInbox onOpen={openInboxItem} />}
+              {page === "git" &&
+                (project ? (
+                  <GitWorkspace
+                    key={project.id}
+                    projectId={project.id}
+                    activeRunId={runtime.activeId}
+                    onInspect={inspect}
+                    onAskLead={(id) => void openWorkChat(id)}
+                    onConversation={(id, conversation) => {
+                      if (id)
+                        void act("conversation", () =>
+                          openInspectedChat(id, conversation),
+                        );
+                      else if (conversation)
+                        void openConversation(conversation);
+                    }}
+                  />
+                ) : (
+                  <Empty
+                    icon={<GitBranch size={28} />}
+                    title="Chọn dự án để xem Git"
+                  >
+                    <button onClick={() => void chooseProject()}>
+                      Chọn dự án
+                    </button>
+                  </Empty>
+                ))}
               {page === "overview" &&
                 (project ? (
                   <ProjectOverview

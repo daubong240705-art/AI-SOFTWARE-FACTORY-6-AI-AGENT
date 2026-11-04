@@ -56,6 +56,8 @@ import { Worktrees } from "./workspace/worktrees";
 import { ReadinessProbe } from "./workspace/readiness";
 import { readinessSchema } from "../shared/readiness";
 import { inboxQuerySchema, inboxSeenSchema } from "../shared/inbox";
+import { gitSnapshotSchema, gitDiffSchema } from "../shared/git";
+import { browseGit, browseGitDiff } from "./workspace/git-browser";
 
 app.setName("ASF Windows Worker");
 let store: Store;
@@ -89,6 +91,48 @@ function key(): string | undefined {
   }
 }
 function registerIPC(): void {
+  const gitPending = new Set<string>();
+  async function gitRead<T>(
+    projectId: string,
+    fn: (path: string, secrets: string[]) => Promise<T>,
+  ) {
+    const project = store.project(projectId);
+    if (gitPending.has(projectId))
+      throw Error("Đang đọc Git của dự án. Chờ thao tác hiện tại kết thúc.");
+    gitPending.add(projectId);
+    try {
+      let secret: string | undefined;
+      try {
+        secret = key();
+      } catch {
+        /* Git metadata does not require credentials. */
+      }
+      return await fn(project.path, secret ? [secret] : []);
+    } finally {
+      gitPending.delete(projectId);
+    }
+  }
+  handle(channels.gitSnapshot, (input) => {
+    const query = gitSnapshotSchema.parse(input);
+    return gitRead(query.projectId, async (path, secrets) => {
+      const data = await browseGit(path, query, secrets);
+      const refs = store.board.gitReferences(
+        query.projectId,
+        data.commits.map((c) => c.subject),
+      );
+      for (const commit of data.commits)
+        commit.workItems = refs.filter((ref) =>
+          new RegExp(`\\b${ref.code}\\b`, "i").test(commit.subject),
+        );
+      return data;
+    });
+  });
+  handle(channels.gitDiff, (input) => {
+    const query = gitDiffSchema.parse(input);
+    return gitRead(query.projectId, (path, secrets) =>
+      browseGitDiff(path, query, secrets),
+    );
+  });
   const readiness = new ReadinessProbe();
   handle(channels.inbox, (input) => {
     let secret: string | undefined;

@@ -118,6 +118,12 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  gitSnapshot(
+    input: import("./git").GitSnapshotRequest,
+  ): Promise<Reply<import("./git").GitSnapshot>>;
+  gitDiff(
+    input: import("./git").GitDiffRequest,
+  ): Promise<Reply<import("./git").GitDiff>>;
   inbox(
     input: import("zod").z.infer<typeof import("./inbox").inboxQuerySchema>,
   ): Promise<Reply<import("./inbox").InboxPage>>;

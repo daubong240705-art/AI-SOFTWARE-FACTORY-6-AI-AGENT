@@ -3,6 +3,8 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  gitSnapshot: (input) => ipcRenderer.invoke(channels.gitSnapshot, input),
+  gitDiff: (input) => ipcRenderer.invoke(channels.gitDiff, input),
   inbox: (input) => ipcRenderer.invoke(channels.inbox, input),
   inboxSeen: (input) => ipcRenderer.invoke(channels.inboxSeen, input),
   readiness: (input) => ipcRenderer.invoke(channels.readiness, input),

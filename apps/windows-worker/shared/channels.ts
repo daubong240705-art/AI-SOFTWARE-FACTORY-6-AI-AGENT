@@ -1,4 +1,6 @@
 export const channels = {
+  gitSnapshot: "worker:git-snapshot",
+  gitDiff: "worker:git-diff",
   inbox: "worker:inbox",
   inboxSeen: "worker:inbox-seen",
   readiness: "worker:readiness",

@@ -40,6 +40,29 @@ const decode = (item: ItemRow): BoardItem => {
 };
 export class BoardStore {
   constructor(private db: Database.Database) {}
+  gitReferences(
+    projectId: string,
+    subjects: string[],
+  ): { id: string; code: string }[] {
+    const numbers = [
+      ...new Set(
+        subjects.flatMap((subject) =>
+          [...subject.matchAll(/\bW-(\d{4,9})\b/gi)].map((m) => Number(m[1])),
+        ),
+      ),
+    ].slice(0, 100);
+    if (!numbers.length) return [];
+    return (
+      this.db
+        .prepare(
+          `SELECT id,number FROM board_items WHERE project_id=? AND number IN (${numbers.map(() => "?").join(",")})`,
+        )
+        .all(projectId, ...numbers) as { id: string; number: number }[]
+    ).map((row) => ({
+      id: row.id,
+      code: `W-${String(row.number).padStart(4, "0")}`,
+    }));
+  }
   item(id: string): BoardItem {
     const item = this.db
       .prepare(`SELECT ${fields} FROM board_items WHERE id=?`)
