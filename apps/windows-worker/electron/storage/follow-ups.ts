@@ -25,7 +25,7 @@ export class FollowUps {
     return (
       this.db
         .prepare(
-          "SELECT value,(SELECT item_id FROM board_links WHERE follow_up_id=follow_ups.id) AS boardItemId FROM follow_ups WHERE (? IS NULL OR conversation_id=?) ORDER BY sequence",
+          "SELECT value,(SELECT item_id FROM work_submissions WHERE follow_up_id=follow_ups.id) AS boardItemId FROM follow_ups WHERE (? IS NULL OR conversation_id=?) ORDER BY sequence",
         )
         .all(conversationId ?? null, conversationId ?? null) as {
         value: string;
@@ -39,7 +39,7 @@ export class FollowUps {
   get(id: string): FollowUp {
     const row = this.db
       .prepare(
-        "SELECT value,(SELECT item_id FROM board_links WHERE follow_up_id=follow_ups.id) AS boardItemId FROM follow_ups WHERE id=?",
+        "SELECT value,(SELECT item_id FROM work_submissions WHERE follow_up_id=follow_ups.id) AS boardItemId FROM follow_ups WHERE id=?",
       )
       .get(id) as { value: string; boardItemId: string | null } | undefined;
     if (!row) throw new Error("Yêu cầu không còn trong hàng chờ.");

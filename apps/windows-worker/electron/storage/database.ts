@@ -6,6 +6,7 @@ import { existsSync } from "node:fs";
 import { Conversations } from "./conversations";
 import { FollowUps } from "./follow-ups";
 import { BoardStore } from "./board";
+import { migrateWorkItems } from "./work-migration";
 import type { BoardRun } from "../../shared/board";
 import { EvidenceStore } from "./evidence";
 import { failure } from "../runtime/failure";
@@ -41,7 +42,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 7)
+      if (version > 8)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -123,6 +124,7 @@ export class Store {
           `);
         })();
       }
+      migrateWorkItems(this.db, directory, version);
       this.board = new BoardStore(this.db);
     } catch (error) {
       this.db.close();
@@ -223,7 +225,10 @@ export class Store {
       throw new Error(
         "Dự án có thẻ Kanban. Giữ dự án trong danh sách để bảo toàn backlog và liên kết.",
       );
-    this.db.prepare("DELETE FROM projects WHERE id=?").run(id);
+    this.db.transaction(() => {
+      this.db.prepare("DELETE FROM work_counters WHERE project_id=?").run(id);
+      this.db.prepare("DELETE FROM projects WHERE id=?").run(id);
+    })();
   }
   saveDraft(id: string, draft: string): void {
     this.project(id);
@@ -499,6 +504,7 @@ export class Store {
       {
         version: 1,
         boardLinks: this.board.links().filter((link) => link.runId === id),
+        workItem: this.board.runReference(id),
         exportedAt: new Date().toISOString(),
         run: {
           id: run.id,
@@ -562,8 +568,7 @@ export class Store {
         protectedIds.add(r.id);
     for (const q of this.queue.list())
       if (q.afterRunId) protectedIds.add(q.afterRunId);
-    for (const link of this.board.links())
-      if (link.runId) protectedIds.add(link.runId);
+    for (const id of this.board.protectedRunIds()) protectedIds.add(id);
     const refs = (value: unknown, result: Set<string>) => {
       if (!value || typeof value !== "object") return;
       for (const [key, item] of Object.entries(value)) {
@@ -611,7 +616,7 @@ export class Store {
     if (!ticket || ticket.expires < Date.now())
       throw new Error("Bản xem trước dọn dữ liệu đã hết hạn.");
     const ids = new Set(ticket.ids);
-    if (this.board.links().some((link) => link.runId && ids.has(link.runId)))
+    if (this.board.protectedRunIds().some((id) => ids.has(id)))
       throw new Error("Có liên kết Kanban mới; tải lại bản xem trước.");
     const queued = this.queue.list();
     const rows = this.db.prepare("SELECT value FROM runs").all() as {

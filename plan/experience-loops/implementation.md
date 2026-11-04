@@ -1,6 +1,6 @@
 # Kế hoạch triển khai cải thiện trải nghiệm
 
-Trạng thái: **UX-01 đã hoàn thành; tiếp theo UX-02**. Baseline `34213d7` / Worker `1.3.0-alpha.8` / SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md).
+Trạng thái: **UX-01–02 đã hoàn thành; tiếp theo UX-03**. Worker `1.3.0-alpha.8` / SQLite **8** sau UX-02; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md).
 
 ## 1. Nguyên tắc triển khai
 
@@ -31,6 +31,8 @@ Trạng thái: **UX-01 đã hoàn thành; tiếp theo UX-02**. Baseline `34213d7
 **Bàn giao:** màn hình làm việc hàng ngày rõ ràng hơn, chưa cần đổi entity Board. Kiểm tra type/build/format, selector attention bằng test trạng thái thật và UI regression các màn hình bị ảnh hưởng.
 
 ### UX-02 — Hồ sơ công việc bền vững (P0)
+
+**Đã triển khai U2-01–05.** BoardItem hiện có được mở rộng, thêm lịch sử requirement/submission/attempt và trao đổi; không tạo hệ thống ticket riêng. Giới hạn, migration và kiểm chứng ghi trong [bàn giao](../../docs/windows-worker/ux02-completion.md).
 
 **Phụ thuộc:** UX-01. Đây là thay đổi dữ liệu chính đầu tiên.
 
@@ -168,4 +170,4 @@ UX-01–06 khoảng **16–24 ngày công**, cần điều chỉnh sau UX-02. UX
 
 ## 6. Lát cắt bắt đầu
 
-**UX-01 đã bàn giao.** Lát cắt tiếp theo là UX-02: hồ sơ công việc, revision và lịch sử submission trên BoardItem hiện có. Không tiếp tục D-05 hoặc dựng lại 3D trong quá trình này.
+**UX-01–02 đã bàn giao.** Lát cắt tiếp theo là UX-03: ChatHost và trò chuyện theo ngữ cảnh công việc, tái sử dụng hồ sơ/revision/conversation của UX-02. Không tiếp tục D-05 hoặc dựng lại 3D trong quá trình này.

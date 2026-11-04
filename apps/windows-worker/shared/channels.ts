@@ -1,4 +1,9 @@
 export const channels = {
+  workItemDetail: "worker:work-item-detail",
+  workItemComments: "worker:work-item-comments",
+  addWorkComment: "worker:work-comment-add",
+  materializeWorkItem: "worker:work-item-materialize",
+  exportWorkItem: "worker:work-item-export",
   taskFileDiff: "worker:task-file-diff",
   createBoardItem: "worker:board-create",
   boardItem: "worker:board-item",

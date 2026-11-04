@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
@@ -11,6 +11,7 @@ import { defaultSettings } from "../shared/defaults";
 import { createBoardItemSchema, updateBoardItemSchema } from "../shared/board";
 import type { Run } from "../shared/runs";
 import type { TeamTask } from "../shared/team";
+import { stripWorkSchema } from "./legacy-board-fixture";
 
 function setup() {
   const parent = resolve(".cache");
@@ -451,7 +452,7 @@ test("board links protect retention and preview revalidation, persist exports an
       itemId: item.id,
       runId: old.id,
       followUpId: null,
-      conversationId: randomUUID(),
+      conversationId: x.store.conversations.create(x.project.id).id,
       queued: false,
       createdAt: new Date().toISOString(),
     }));
@@ -465,6 +466,379 @@ test("board links protect retention and preview revalidation, persist exports an
     x.store.createRun(next);
     x.store.updateRun(next);
     assert.equal(x.store.board.link(item.id)!.runId, next.id);
+  } finally {
+    x.close();
+  }
+});
+
+test("work revisions, idempotent comments and submissions persist without rewriting old prompts or duplicating cards", () => {
+  const x = setup();
+  try {
+    let item = x.create("Original", "ready");
+    assert.equal(item.code, "W-0001");
+    assert.equal(x.create("Other").code, "W-0002");
+    const chat = x.store.conversations.create(x.project.id);
+    const first = fixture(x, {
+      createdAt: "2020-01-01T00:00:00Z",
+      conversationId: chat.id,
+      prompt: "Original snapshot",
+    });
+    x.store.createRun(first);
+    x.store.updateRun(first);
+    const submit = (run: Run, key: string) =>
+      x.store.board.submit(
+        { id: item.id, version: item.version, submissionKey: key },
+        () => ({
+          itemId: item.id,
+          runId: run.id,
+          followUpId: null,
+          conversationId: chat.id,
+          queued: false,
+          createdAt: run.createdAt,
+        }),
+      );
+    const key = randomUUID();
+    submit(first, key);
+    assert.equal(submit(first, key).runId, first.id);
+    item = x.store.board.item(item.id);
+    const oldVersion = item.version;
+    item = x.store.board.update({
+      id: item.id,
+      version: item.version,
+      patch: { body: "Revised", criteria: ["Acceptance"] },
+    });
+    assert.equal(item.revision, 2);
+    assert.throws(
+      () =>
+        x.store.board.update({
+          id: item.id,
+          version: oldVersion,
+          patch: { title: "Stale" },
+        }),
+      /thay đổi/,
+    );
+    let page = x.controller.monitor({ projectId: x.project.id, board: {} });
+    if (!page.unchanged)
+      assert.equal(
+        page.snapshot.board!.cards.find((c) => c.itemId === item.id)!.column,
+        "ready",
+      );
+    const second = fixture(x, {
+      conversationId: chat.id,
+      createdAt: "2020-01-02T00:00:00Z",
+    });
+    x.store.createRun(second);
+    x.store.updateRun(second);
+    submit(second, randomUUID());
+    const retry = fixture(x, {
+      retryOf: first.id,
+      attemptRoot: first.id,
+      createdAt: "2020-01-03T00:00:00Z",
+    });
+    x.store.createRun(retry);
+    x.store.updateRun(retry);
+    page = x.controller.monitor({ projectId: x.project.id, board: {} });
+    if (!page.unchanged) {
+      assert.equal(page.snapshot.board!.total, 2);
+      assert.equal(
+        page.snapshot.board!.cards.find((c) => c.itemId === item.id)!.runId,
+        second.id,
+      );
+    }
+    const ref = { projectId: x.project.id, itemId: item.id };
+    const id = randomUUID();
+    const comment = { ...ref, clientId: id, body: "Ghi chú tiếng Việt" };
+    assert.deepEqual(
+      x.store.board.addComment(comment),
+      x.store.board.addComment(comment),
+    );
+    assert.throws(
+      () => x.store.board.addComment({ ...comment, body: "Other" }),
+      /nội dung khác/,
+    );
+    assert.throws(
+      () => x.store.board.detail({ ...ref, projectId: randomUUID() }),
+      /không thuộc/,
+    );
+    const reopened = new Store(x.directory);
+    const detail = reopened.board.detail(ref);
+    assert.equal(detail.comments.length, 1);
+    assert.equal(detail.submissions.length, 2);
+    assert.equal(
+      detail.revisions.find((r) => r.revision === 1)!.body,
+      "Yêu cầu",
+    );
+    assert.deepEqual(detail.revisions[0].criteria, ["Acceptance"]);
+    assert.equal(reopened.run(first.id).prompt, "Original snapshot");
+    assert.equal(JSON.parse(reopened.report(first.id)).workItem.revision, 1);
+    assert.equal(reopened.board.exportItem(ref).attempts.length, 3);
+    const deepLink = projectBoard(
+      reopened.board.summaries(x.project.id),
+      reopened.board.projectionLinks(x.project.id),
+      reopened.boardRuns(x.project.id),
+      [],
+      { runId: first.id },
+    );
+    assert.equal(deepLink.total, 1);
+    assert.equal(deepLink.cards[0].itemId, item.id);
+    assert.equal(reopened.retention(1, 0).runIds.length, 0);
+    reopened.close();
+  } finally {
+    x.close();
+  }
+});
+
+test("materializing a legacy retry lineage is explicit, project scoped and idempotent", () => {
+  const x = setup();
+  try {
+    const first = fixture(x),
+      retry = fixture(x, { retryOf: first.id, attemptRoot: first.id });
+    x.store.createRun(first);
+    x.store.updateRun(first);
+    x.store.createRun(retry);
+    x.store.updateRun(retry);
+    assert.equal(x.store.board.summaries(x.project.id).length, 0);
+    assert.throws(
+      () =>
+        x.store.board.materialize({ projectId: randomUUID(), runId: first.id }),
+      /không thuộc/,
+    );
+    const item = x.store.board.materialize({
+      projectId: x.project.id,
+      runId: first.id,
+    });
+    assert.equal(
+      x.store.board.materialize({ projectId: x.project.id, runId: retry.id })
+        .id,
+      item.id,
+    );
+    assert.equal(
+      x.store.board.detail({ projectId: x.project.id, itemId: item.id })
+        .revisions[0].origin,
+      "legacy",
+    );
+    const page = x.controller.monitor({ projectId: x.project.id, board: {} });
+    if (!page.unchanged) assert.equal(page.snapshot.board!.total, 1);
+  } finally {
+    x.close();
+  }
+});
+
+test("schema7 upgrade backs up populated planning, archived, linked retry and held queue records", () => {
+  const x = setup();
+  let reopened: Store | undefined;
+  const planning = x.create("Planning"),
+    archived = x.create("Archived");
+  x.store.board.archive({
+    id: archived.id,
+    version: archived.version,
+    archived: true,
+  });
+  const linked = x.create("Linked", "ready"),
+    queued = x.create("Queued", "ready");
+  const chat = x.store.conversations.create(x.project.id);
+  const first = fixture(x, { conversationId: chat.id }),
+    retry = fixture(x, {
+      conversationId: chat.id,
+      retryOf: first.id,
+      attemptRoot: first.id,
+    });
+  x.store.createRun(first);
+  x.store.updateRun(first);
+  x.store.board.submit({ id: linked.id, version: linked.version }, () => ({
+    itemId: linked.id,
+    runId: first.id,
+    followUpId: null,
+    conversationId: chat.id,
+    queued: false,
+    createdAt: first.createdAt,
+  }));
+  x.store.createRun(retry);
+  x.store.updateRun(retry);
+  const follow = x.store.queue.add({
+    projectId: x.project.id,
+    conversationId: chat.id,
+    prompt: "Snapshot held",
+    role: "lead",
+    mode: "team",
+    settings: x.settings,
+    afterRunId: null,
+    state: "held",
+    reason: "Manual",
+  });
+  x.store.board.submit({ id: queued.id, version: queued.version }, () => ({
+    itemId: queued.id,
+    runId: null,
+    followUpId: follow.id,
+    conversationId: chat.id,
+    queued: true,
+    createdAt: follow.createdAt,
+  }));
+  x.store.close();
+  try {
+    const db = new Database(join(x.directory, "worker.sqlite"));
+    stripWorkSchema(db);
+    db.pragma("user_version=7");
+    db.close();
+    reopened = new Store(x.directory);
+    assert.ok(
+      existsSync(
+        join(x.directory, "worker.schema7.pre-work-items.backup.sqlite"),
+      ),
+    );
+    const backup = new Database(
+      join(x.directory, "worker.schema7.pre-work-items.backup.sqlite"),
+      { readonly: true },
+    );
+    assert.equal(backup.pragma("user_version", { simple: true }), 7);
+    assert.equal(
+      (
+        backup.prepare("SELECT count(*) AS n FROM board_items").get() as {
+          n: number;
+        }
+      ).n,
+      4,
+    );
+    backup.close();
+    assert.equal(reopened.board.item(planning.id).id, planning.id);
+    assert.ok(reopened.board.item(archived.id).archivedAt);
+    const detail = reopened.board.detail({
+      projectId: x.project.id,
+      itemId: linked.id,
+    });
+    assert.equal(detail.submissions[0].currentRunId, retry.id);
+    assert.equal(detail.submissions[0].attempts.length, 2);
+    assert.equal(reopened.queue.get(follow.id).state, "held");
+    assert.equal(reopened.queue.get(follow.id).boardItemId, queued.id);
+    assert.throws(() => reopened!.queue.edit(follow.id, "Replace"), /Kanban/);
+    const snapshot = reopened.board.detail({
+      projectId: x.project.id,
+      itemId: queued.id,
+    });
+    assert.equal(snapshot.submissions[0].followUpId, follow.id);
+    reopened.queue.remove(follow.id);
+    assert.equal(
+      reopened.board.detail({ projectId: x.project.id, itemId: queued.id })
+        .submissions[0].state,
+      "removed",
+    );
+    assert.equal(
+      reopened.board.create({
+        projectId: x.project.id,
+        title: "Next",
+        body: "",
+        priority: 0,
+        suggestedRole: null,
+        planningState: "backlog",
+      }).code,
+      "W-0005",
+    );
+  } finally {
+    reopened?.close();
+    rmSync(x.directory, { recursive: true, force: true });
+  }
+});
+
+test("work pages bound revisions/comments and traverse without gaps; queue snapshots keep their original revision", () => {
+  const x = setup();
+  try {
+    let item = x.create("Paged", "ready");
+    const ref = { projectId: x.project.id, itemId: item.id };
+    const chat = x.store.conversations.create(x.project.id);
+    x.store.queue.add({
+      projectId: x.project.id,
+      conversationId: chat.id,
+      prompt: "Held",
+      role: "lead",
+      mode: "team",
+      settings: x.settings,
+      afterRunId: null,
+      state: "held",
+      reason: "Manual",
+    });
+    const first = x.controller.submitBoard({
+      id: item.id,
+      version: item.version,
+      submissionKey: randomUUID(),
+    });
+    for (let i = 0; i < 25; i++) {
+      item = x.store.board.item(item.id);
+      item = x.store.board.update({
+        id: item.id,
+        version: item.version,
+        patch: { body: `Revision ${i}` },
+      });
+    }
+    for (let i = 0; i < 55; i++)
+      x.store.board.addComment({
+        ...ref,
+        clientId: randomUUID(),
+        body: `Comment ${i}`,
+      });
+    const page = x.store.board.detail(ref);
+    assert.equal(page.revisions.length, 20);
+    assert.equal(page.hasEarlierRevisions, true);
+    const rest = x.store.board.detail({
+      ...ref,
+      before: page.revisions.at(-1)!.revision,
+    });
+    assert.equal(rest.revisions.length, 6);
+    assert.equal(rest.hasEarlierRevisions, false);
+    assert.equal(
+      new Set([...page.revisions, ...rest.revisions].map((r) => r.revision))
+        .size,
+      26,
+    );
+    assert.equal(page.comments.length, 50);
+    assert.equal(page.hasEarlierComments, true);
+    const older = x.store.board.commentPage({
+      ...ref,
+      before: page.comments.at(-1)!.sequence,
+    });
+    assert.equal(older.comments.length, 5);
+    assert.equal(older.hasMore, false);
+    assert.equal(
+      new Set([...page.comments, ...older.comments].map((c) => c.id)).size,
+      55,
+    );
+    assert.equal(page.submissions[0].revision, 1);
+    assert.ok(x.store.queue.get(first.followUpId!).prompt.includes("Yêu cầu"));
+    assert.ok(
+      !x.store.queue.get(first.followUpId!).prompt.includes("Revision 24"),
+    );
+    assert.throws(
+      () =>
+        x.controller.submitBoard({
+          id: item.id,
+          version: item.version,
+          submissionKey: randomUUID(),
+        }),
+      /chờ lượt/,
+    );
+    x.store.queue.remove(first.followUpId!);
+    const key = randomUUID();
+    item = x.store.board.item(item.id);
+    const next = x.controller.submitBoard({
+      id: item.id,
+      version: item.version,
+      submissionKey: key,
+    });
+    assert.equal(
+      x.store.queue.get(next.followUpId!).conversationId,
+      first.conversationId,
+    );
+    assert.equal(x.store.queue.get(next.followUpId!).boardItemId, item.id);
+    assert.equal(x.store.board.detail(ref).submissions[0].revision, 26);
+    x.store.queue.remove(next.followUpId!);
+    assert.throws(
+      () =>
+        x.controller.submitBoard({
+          id: item.id,
+          version: item.version,
+          submissionKey: key,
+        }),
+      /bỏ khỏi/,
+    );
   } finally {
     x.close();
   }

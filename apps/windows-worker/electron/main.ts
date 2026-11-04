@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { writeFile } from "node:fs/promises";
 import { z } from "zod";
+import { redact } from "./runtime/security";
 import { monitorRequestSchema } from "../shared/monitor";
 import {
   createBoardItemSchema,
@@ -17,6 +18,10 @@ import {
   moveBoardItemSchema,
   boardVersionSchema,
   submitBoardItemSchema,
+  workItemPageSchema,
+  workCommentSchema,
+  workItemRefSchema,
+  materializeWorkItemSchema,
 } from "../shared/board";
 import { evidenceRefSchema } from "../shared/evidence";
 import { readEvidence } from "./team/evidence";
@@ -390,6 +395,42 @@ function registerIPC(): void {
   handle(channels.createBoardItem, (input) =>
     store.board.create(createBoardItemSchema.parse(input)),
   );
+  handle(channels.workItemDetail, (input) =>
+    store.board.detail(workItemPageSchema.parse(input)),
+  );
+  handle(channels.workItemComments, (input) =>
+    store.board.commentPage(workItemPageSchema.parse(input)),
+  );
+  handle(channels.addWorkComment, (input) =>
+    store.board.addComment(workCommentSchema.parse(input)),
+  );
+  handle(channels.materializeWorkItem, (input) =>
+    store.board.materialize(materializeWorkItemSchema.parse(input)),
+  );
+  handle(channels.exportWorkItem, async (input) => {
+    const ref = workItemRefSchema.parse(input);
+    const report = store.board.exportItem(ref);
+    const target = await dialog.showSaveDialog(window!, {
+      title: "Xuất hồ sơ công việc",
+      defaultPath: `${report.item.code}.json`,
+      filters: [{ name: "JSON", extensions: ["json"] }],
+    });
+    if (target.canceled || !target.filePath) return false;
+    const secret = key();
+    await writeFile(
+      target.filePath,
+      JSON.stringify(
+        report,
+        (_field, value) =>
+          typeof value === "string"
+            ? redact(value, secret ? [secret] : [], Infinity)
+            : value,
+        2,
+      ),
+      "utf8",
+    );
+    return true;
+  });
   handle(channels.boardItem, (input) =>
     store.board.item(idSchema.parse(input)),
   );

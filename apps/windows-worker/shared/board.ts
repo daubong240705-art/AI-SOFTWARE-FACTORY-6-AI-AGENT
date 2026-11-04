@@ -24,6 +24,7 @@ const id = z.string().uuid();
 const itemFields = {
   title: z.string().trim().min(1).max(160),
   body: z.string().trim().max(12000),
+  criteria: z.array(z.string().trim().min(1).max(500)).max(30).optional(),
   suggestedRole: z.enum(roles).nullable(),
   priority: z.number().int().min(0).max(2),
   planningState: z.enum(["backlog", "ready"]),
@@ -48,7 +49,7 @@ export const moveBoardItemSchema = boardVersionSchema
   })
   .strict();
 export const submitBoardItemSchema = boardVersionSchema
-  .extend({ conversationId: id.optional() })
+  .extend({ conversationId: id.optional(), submissionKey: id.optional() })
   .strict();
 export const boardQuerySchema = z
   .object({
@@ -74,7 +75,14 @@ export const boardQuerySchema = z
   })
   .strict();
 export type BoardQuery = z.infer<typeof boardQuerySchema>;
-export type BoardItem = z.infer<typeof createBoardItemSchema> & {
+export type BoardItem = Omit<
+  z.infer<typeof createBoardItemSchema>,
+  "criteria"
+> & {
+  criteria: string[];
+  code: string;
+  revision: number;
+  conversationId: string | null;
   id: string;
   version: number;
   position: number;
@@ -87,6 +95,8 @@ export type BoardLink = {
   runId: string | null;
   followUpId: string | null;
   createdAt: string;
+  current?: boolean;
+  revision?: number;
 };
 export type BoardSubmission = BoardLink & {
   conversationId: string;
@@ -129,6 +139,7 @@ export type BoardProgress = {
   passed: number;
 };
 export type BoardCard = {
+  code?: string;
   key: string;
   itemId: string | null;
   version: number | null;
@@ -149,6 +160,69 @@ export type BoardCard = {
   progress: BoardProgress;
   workTypes: string[];
   changes: number;
+};
+export const workItemRefSchema = z
+  .object({ projectId: id, itemId: id })
+  .strict();
+export const workItemPageSchema = workItemRefSchema
+  .extend({
+    before: z.number().int().positive().optional(),
+    offset: z.number().int().min(0).max(100000).optional(),
+  })
+  .strict();
+export const workCommentSchema = workItemRefSchema
+  .extend({
+    clientId: id,
+    body: z.string().trim().min(1).max(6000),
+  })
+  .strict();
+export const materializeWorkItemSchema = z
+  .object({ projectId: id, runId: id })
+  .strict();
+export type WorkRevision = {
+  revision: number;
+  title: string;
+  body: string;
+  criteria: string[];
+  createdAt: string;
+  origin: "user" | "legacy";
+};
+export type WorkComment = {
+  id: string;
+  sequence: number;
+  body: string;
+  createdAt: string;
+  actor: "user";
+};
+export type WorkAttempt = {
+  id: string;
+  state: string;
+  role: string;
+  model: string;
+  createdAt: string;
+  endedAt: string | null;
+};
+export type WorkSubmission = {
+  id: string;
+  itemId: string;
+  revision: number;
+  runId: string | null;
+  currentRunId: string | null;
+  followUpId: string | null;
+  conversationId: string;
+  state: string;
+  createdAt: string;
+  attempts: WorkAttempt[];
+  hasEarlierAttempts: boolean;
+};
+export type WorkItemDetail = {
+  item: BoardItem;
+  revisions: WorkRevision[];
+  hasEarlierRevisions: boolean;
+  comments: WorkComment[];
+  hasEarlierComments: boolean;
+  submissions: WorkSubmission[];
+  hasMoreSubmissions: boolean;
 };
 export type BoardPage = {
   cards: BoardCard[];

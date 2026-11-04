@@ -142,7 +142,7 @@ export class RunController {
     if (request.board)
       data.board = projectBoard(
         this.store.board.summaries(request.projectId),
-        this.store.board.links(),
+        this.store.board.projectionLinks(request.projectId),
         this.store.boardRuns(request.projectId),
         this.store.queue.list(),
         request.board,
@@ -162,9 +162,10 @@ export class RunController {
         this.store.project(item.projectId);
         const conversationId =
           request.conversationId ??
+          item.conversationId ??
           this.store.conversations.create(item.projectId).id;
         this.store.conversations.context(conversationId, item.projectId);
-        const prompt = `${item.title}\n\n${item.body}${item.suggestedRole && item.suggestedRole !== "lead" ? `\nRole gợi ý: ${item.suggestedRole.toUpperCase()}. Lead chọn role cần thiết theo yêu cầu.` : ""}`;
+        const prompt = `${item.code} · yêu cầu v${item.revision}\n${item.title}\n\n${item.body}${item.criteria.length ? `\n\nTiêu chí hoàn thành:\n${item.criteria.map((text) => `- ${text}`).join("\n")}` : ""}${item.suggestedRole && item.suggestedRole !== "lead" ? `\nRole gợi ý: ${item.suggestedRole.toUpperCase()}. Lead chọn role cần thiết theo yêu cầu.` : ""}`;
         const queued = !!this.active || this.store.queue.list().length > 0;
         const next = queued
           ? this.enqueue(item.projectId, conversationId, prompt, "lead", "team")

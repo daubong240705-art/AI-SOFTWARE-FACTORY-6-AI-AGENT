@@ -1,10 +1,10 @@
 import { Select } from "../ui/Select";
+import { WorkItemPanel } from "./WorkItemPanel";
 import { useEffect, useRef, useState } from "react";
 import {
   boardColumns,
   boardColumnLabels,
   type BoardCard,
-  type BoardItem,
   type BoardQuery,
 } from "../../shared/board";
 import { roles, type Reply, type Role } from "../../shared/contracts";
@@ -18,6 +18,7 @@ async function unwrap<T>(reply: Promise<Reply<T>>) {
 const blank = {
   title: "",
   body: "",
+  criteria: "",
   suggestedRole: null as Role | null,
   priority: 0,
   planningState: "backlog" as "backlog" | "ready",
@@ -40,22 +41,31 @@ export function KanbanBoard({
     initialRunId ? { runId: initialRunId, showStopped: true } : {},
   );
   const monitor = useMonitor(projectId, query);
-  const [editing, setEditing] = useState<BoardItem | "new" | null>(null);
+  const [editing, setEditing] = useState<"new" | null>(null);
   const [draft, setDraft] = useState(blank);
   const [selected, setSelected] = useState<BoardCard | null>(null);
+  const [view, setView] = useState<"board" | "list">("board");
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const lock = useRef(false),
     dialog = useRef<HTMLDialogElement>(null);
+  const initialHandled = useRef(false);
+  const savedScroll = useRef<{ selector: string; left: number; top: number }[]>(
+    [],
+  );
   const page = monitor.snapshot?.board;
   useEffect(() => {
     if (editing) dialog.current?.showModal();
     else dialog.current?.close();
   }, [editing]);
   useEffect(() => {
-    if (!selected && initialRunId && page) setSelected(page.cards[0] ?? null);
-    else if (selected && page)
-      setSelected(page.cards.find((card) => card.key === selected.key) ?? null);
+    if (!initialHandled.current && initialRunId && page) {
+      initialHandled.current = true;
+      setSelected(page.cards[0] ?? null);
+    } else if (selected && page)
+      setSelected(
+        page.cards.find((card) => card.key === selected.key) ?? selected,
+      );
   }, [page]);
   async function action(fn: () => Promise<void>) {
     if (lock.current) return;
@@ -79,18 +89,36 @@ export function KanbanBoard({
     setSelected(null);
     setQuery({ ...query, ...patch, offset: 0 });
   }
-  async function edit(card: BoardCard) {
-    await action(async () => {
-      const item = await unwrap(window.worker.boardItem(card.itemId!));
-      setDraft({
-        title: item.title,
-        body: item.body,
-        suggestedRole: item.suggestedRole,
-        priority: item.priority,
-        planningState: item.planningState,
-      });
-      setEditing(item);
+  function closeWorkItem() {
+    const key = selected?.key;
+    setSelected(null);
+    requestAnimationFrame(() => {
+      for (const saved of savedScroll.current) {
+        const element = document.querySelector<HTMLElement>(saved.selector);
+        if (element) {
+          element.scrollLeft = saved.left;
+          element.scrollTop = saved.top;
+        }
+      }
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>("[data-work-key]"),
+      )
+        .find((button) => button.dataset.workKey === key)
+        ?.focus({ preventScroll: true });
     });
+  }
+  function openWorkItem(card: BoardCard) {
+    savedScroll.current = [
+      ".kanban-columns",
+      ".work-list",
+      ...boardColumns.map((column) => `.kanban-column.${column}`),
+    ].flatMap((selector) => {
+      const element = document.querySelector<HTMLElement>(selector);
+      return element
+        ? [{ selector, left: element.scrollLeft, top: element.scrollTop }]
+        : [];
+    });
+    setSelected(card);
   }
   function move(
     card: BoardCard,
@@ -154,6 +182,20 @@ export function KanbanBoard({
         </div>
       )}
       <div className="board-filters">
+        <div className="work-view-switch" aria-label="Kiểu hiển thị công việc">
+          <button
+            aria-pressed={view === "board"}
+            onClick={() => setView("board")}
+          >
+            Board
+          </button>
+          <button
+            aria-pressed={view === "list"}
+            onClick={() => setView("list")}
+          >
+            Danh sách
+          </button>
+        </div>
         {query.runId && (
           <button onClick={() => filter({ runId: undefined })}>
             Bỏ lọc lượt chạy
@@ -277,130 +319,164 @@ export function KanbanBoard({
               Sau
             </button>
           </div>
-          <div
-            className="kanban-columns"
-            role="region"
-            aria-label="Các cột công việc"
-            tabIndex={0}
-          >
-            {boardColumns.map((column) => (
-              <section
-                key={column}
-                className={`kanban-column ${column}`}
-                onDragOver={(e) => {
-                  if (["backlog", "ready"].includes(column)) e.preventDefault();
-                }}
-                onDrop={(event) => drop(event, column)}
-              >
-                <header>
-                  <strong>{boardColumnLabels[column]}</strong>
-                  <span>
-                    {page.cards.filter((card) => card.column === column).length}
-                  </span>
-                </header>
-                {page.cards
-                  .filter((card) => card.column === column)
-                  .map((card) => (
-                    <article
-                      key={card.key}
-                      className={`board-task ${selected?.key === card.key ? "selected" : ""}`}
-                      draggable={
-                        card.kind === "planning" &&
-                        !card.archived &&
-                        !busy &&
-                        !stale
+          {view === "list" ? (
+            <div
+              className="work-list"
+              role="region"
+              aria-label="Danh sách công việc"
+              tabIndex={0}
+            >
+              <table>
+                <thead>
+                  <tr>
+                    <th>Mã</th>
+                    <th>Công việc</th>
+                    <th>Trạng thái</th>
+                    <th>Role</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {page.cards.map((card) => (
+                    <tr key={card.key}>
+                      <td>{card.code ?? "—"}</td>
+                      <td>
+                        <button
+                          className="board-card-title"
+                          data-work-key={card.key}
+                          onClick={() => openWorkItem(card)}
+                        >
+                          {card.title}
+                        </button>
+                      </td>
+                      <td>{boardColumnLabels[card.column]}</td>
+                      <td>{card.role.toUpperCase()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div
+              className="kanban-columns"
+              role="region"
+              aria-label="Các cột công việc"
+              tabIndex={0}
+            >
+              {boardColumns.map((column) => (
+                <section
+                  key={column}
+                  className={`kanban-column ${column}`}
+                  onDragOver={(e) => {
+                    if (["backlog", "ready"].includes(column))
+                      e.preventDefault();
+                  }}
+                  onDrop={(event) => drop(event, column)}
+                >
+                  <header>
+                    <strong>{boardColumnLabels[column]}</strong>
+                    <span>
+                      {
+                        page.cards.filter((card) => card.column === column)
+                          .length
                       }
-                      onDragStart={(event) => {
-                        event.dataTransfer.setData(
-                          "application/x-asf-board",
-                          card.key,
-                        );
-                        event.dataTransfer.effectAllowed = "move";
-                      }}
-                      onDragOver={(event) => {
-                        if (card.kind === "planning") event.preventDefault();
-                      }}
-                      onDrop={(event) =>
-                        drop(
-                          event,
-                          column,
-                          card.kind === "planning" ? card.itemId! : undefined,
-                        )
-                      }
-                    >
-                      <button
-                        className="board-card-title"
-                        onClick={() => {
-                          setSelected(card);
-                          if (card.runId) onInspect(card.runId);
+                    </span>
+                  </header>
+                  {page.cards
+                    .filter((card) => card.column === column)
+                    .map((card) => (
+                      <article
+                        key={card.key}
+                        className={`board-task ${selected?.key === card.key ? "selected" : ""}`}
+                        draggable={
+                          card.kind === "planning" &&
+                          !card.archived &&
+                          !busy &&
+                          !stale
+                        }
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData(
+                            "application/x-asf-board",
+                            card.key,
+                          );
+                          event.dataTransfer.effectAllowed = "move";
                         }}
+                        onDragOver={(event) => {
+                          if (card.kind === "planning") event.preventDefault();
+                        }}
+                        onDrop={(event) =>
+                          drop(
+                            event,
+                            column,
+                            card.kind === "planning" ? card.itemId! : undefined,
+                          )
+                        }
                       >
-                        {card.title}
-                      </button>
-                      <div className="board-card-meta">
-                        <span>{card.role.toUpperCase()}</span>
-                        <span>
-                          {card.kind === "planning"
-                            ? ["Thường", "Cao", "Gấp"][card.priority]
-                            : card.reason}
-                        </span>
-                      </div>
-                      {card.kind === "runtime" && card.progress.tasks > 0 && (
-                        <small>
-                          {card.progress.verified}/{card.progress.tasks} task
-                          xác minh
-                          {card.changes ? ` · ${card.changes} file` : ""}
-                        </small>
-                      )}
-                      {card.kind === "planning" && !card.archived && (
-                        <div className="board-card-actions">
-                          <Select
-                            aria-label={`Chuyển ${card.title}`}
-                            disabled={busy || stale}
-                            value={card.column}
-                            onValueChange={(value) =>
-                              void move(card, value as "backlog" | "ready")
-                            }
-                          >
-                            <option value="backlog">Chưa làm</option>
-                            <option value="ready">Sẵn sàng</option>
-                          </Select>
-                          <button
-                            disabled={busy || stale}
-                            onClick={() => void edit(card)}
-                          >
-                            Sửa
-                          </button>
-                          {card.column === "ready" && (
-                            <button
+                        <button
+                          className="board-card-title"
+                          data-work-key={card.key}
+                          onClick={() => {
+                            openWorkItem(card);
+                          }}
+                        >
+                          {card.code && (
+                            <small className="work-code">{card.code}</small>
+                          )}
+                          {card.title}
+                        </button>
+                        <div className="board-card-meta">
+                          <span>{card.role.toUpperCase()}</span>
+                          <span>
+                            {card.kind === "planning"
+                              ? ["Thường", "Cao", "Gấp"][card.priority]
+                              : card.reason}
+                          </span>
+                        </div>
+                        {card.kind === "runtime" && card.progress.tasks > 0 && (
+                          <small>
+                            {card.progress.verified}/{card.progress.tasks} task
+                            xác minh
+                            {card.changes ? ` · ${card.changes} file` : ""}
+                          </small>
+                        )}
+                        {card.kind === "planning" && !card.archived && (
+                          <div className="board-card-actions">
+                            <Select
+                              aria-label={`Chuyển ${card.title}`}
                               disabled={busy || stale}
-                              onClick={() =>
-                                void action(async () => {
-                                  await unwrap(
-                                    window.worker.submitBoardItem({
-                                      id: card.itemId!,
-                                      version: card.version!,
-                                    }),
-                                  );
-                                })
+                              value={card.column}
+                              onValueChange={(value) =>
+                                void move(card, value as "backlog" | "ready")
                               }
                             >
-                              Gửi Lead
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                {!page.cards.some((card) => card.column === column) && (
-                  <p className="column-empty">Trống</p>
-                )}
-              </section>
-            ))}
-          </div>
+                              <option value="backlog">Chưa làm</option>
+                              <option value="ready">Sẵn sàng</option>
+                            </Select>
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  {!page.cards.some((card) => card.column === column) && (
+                    <p className="column-empty">Trống</p>
+                  )}
+                </section>
+              ))}
+            </div>
+          )}
         </>
       )}
-      {selected && (
+      {selected?.itemId && (
+        <WorkItemPanel
+          key={selected.itemId}
+          projectId={projectId}
+          itemId={selected.itemId}
+          onClose={closeWorkItem}
+          onInspect={onInspect}
+          onConversation={onOpenRun}
+          onChanged={() => void monitor.refresh?.()}
+          activeRunId={monitor.snapshot?.activeRun?.id ?? null}
+        />
+      )}
+      {selected && !selected.itemId && (
         <aside className="board-details" aria-label="Chi tiết thẻ">
           <header>
             <strong>{selected.title}</strong>
@@ -421,6 +497,30 @@ export function KanbanBoard({
             </p>
           )}
           <div className="board-detail-actions">
+            {selected.runId && (
+              <button
+                disabled={busy || stale}
+                onClick={() =>
+                  void action(async () => {
+                    const item = await unwrap(
+                      window.worker.materializeWorkItem({
+                        projectId,
+                        runId: selected.runId!,
+                      }),
+                    );
+                    setSelected({
+                      ...selected,
+                      itemId: item.id,
+                      version: item.version,
+                      code: item.code,
+                      key: `item:${item.id}`,
+                    });
+                  })
+                }
+              >
+                Lưu thành công việc
+              </button>
+            )}
             {selected.runId && (
               <button onClick={() => onInspect(selected.runId!)}>
                 Chi tiết công việc
@@ -476,35 +576,6 @@ export function KanbanBoard({
                 Dừng lượt chạy
               </button>
             )}
-            {selected.kind === "planning" && (
-              <>
-                {!selected.archived && (
-                  <button
-                    disabled={busy || stale}
-                    onClick={() => void edit(selected)}
-                  >
-                    Sửa thẻ
-                  </button>
-                )}
-                <button
-                  disabled={busy || stale}
-                  onClick={() =>
-                    void action(async () => {
-                      await unwrap(
-                        window.worker.archiveBoardItem({
-                          id: selected.itemId!,
-                          version: selected.version!,
-                          archived: !selected.archived,
-                        }),
-                      );
-                      setSelected(null);
-                    })
-                  }
-                >
-                  {selected.archived ? "Khôi phục thẻ" : "Lưu trữ thẻ"}
-                </button>
-              </>
-            )}
           </div>
         </aside>
       )}
@@ -523,14 +594,13 @@ export function KanbanBoard({
             void action(async () => {
               if (editing === "new")
                 await unwrap(
-                  window.worker.createBoardItem({ projectId, ...draft }),
-                );
-              else if (editing)
-                await unwrap(
-                  window.worker.updateBoardItem({
-                    id: editing.id,
-                    version: editing.version,
-                    patch: draft,
+                  window.worker.createBoardItem({
+                    projectId,
+                    ...draft,
+                    criteria: draft.criteria
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean),
                   }),
                 );
               setEditing(null);
@@ -557,6 +627,16 @@ export function KanbanBoard({
               maxLength={12000}
               value={draft.body}
               onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+            />
+          </label>
+          <label>
+            Tiêu chí hoàn thành · mỗi dòng một tiêu chí
+            <textarea
+              aria-label="Tiêu chí hoàn thành"
+              rows={3}
+              maxLength={15030}
+              value={draft.criteria}
+              onChange={(e) => setDraft({ ...draft, criteria: e.target.value })}
             />
           </label>
           <div className="board-editor-row">

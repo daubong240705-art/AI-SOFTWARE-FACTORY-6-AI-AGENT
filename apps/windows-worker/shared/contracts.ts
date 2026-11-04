@@ -118,6 +118,25 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  workItemDetail(
+    input: import("zod").z.infer<typeof import("./board").workItemPageSchema>,
+  ): Promise<Reply<import("./board").WorkItemDetail>>;
+  workItemComments(
+    input: import("zod").z.infer<typeof import("./board").workItemPageSchema>,
+  ): Promise<
+    Reply<{ comments: import("./board").WorkComment[]; hasMore: boolean }>
+  >;
+  addWorkComment(
+    input: import("zod").z.infer<typeof import("./board").workCommentSchema>,
+  ): Promise<Reply<import("./board").WorkComment>>;
+  materializeWorkItem(
+    input: import("zod").z.infer<
+      typeof import("./board").materializeWorkItemSchema
+    >,
+  ): Promise<Reply<import("./board").BoardItem>>;
+  exportWorkItem(
+    input: import("zod").z.infer<typeof import("./board").workItemRefSchema>,
+  ): Promise<Reply<boolean>>;
   createBoardItem(
     input: import("zod").z.infer<
       typeof import("./board").createBoardItemSchema

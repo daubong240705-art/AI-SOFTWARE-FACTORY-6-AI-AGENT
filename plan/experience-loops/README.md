@@ -1,6 +1,6 @@
 # ASF — Cải thiện trải nghiệm từ CrewHub Loops
 
-Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01 đã triển khai; UX-02–08 còn trong kế hoạch**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md).
+Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–02 đã triển khai; tiếp theo UX-03**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md).
 
 Đã bổ sung [đợt làm gọn giao diện](../../docs/windows-worker/ux01-ui-refinement.md) theo ảnh phản hồi: bốn trang chính, menu dự án tập trung, hội thoại theo ngữ cảnh và Tổng quan giới hạn nội dung mặc định. Đây là bố cục hiện hành thay cho header có nhiều nút trong UX-01 đầu tiên.
 

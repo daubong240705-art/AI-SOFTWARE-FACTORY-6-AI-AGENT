@@ -118,20 +118,46 @@ export function projectBoard(
   const cards: BoardCard[] = [];
   const extraSearch = new Map<string, string>();
   const rootIds = new Map<string, string>();
+  const queriedItems = new Set(
+    query.runId
+      ? links
+          .filter((link) => link.runId === query.runId)
+          .map((link) => link.itemId)
+      : [],
+  );
   for (const run of runs) {
     const link = byRun.get(run.id),
       item = link ? byItem.get(link.itemId) : undefined;
+    if (link?.current === false) continue;
     const card = runCard(run, secrets);
     if (item) {
       Object.assign(card, {
         key: `item:${item.id}`,
         itemId: item.id,
+        code: item.code,
         version: item.version,
         title: redact(item.title, secrets, 160),
         priority: item.priority,
         position: item.position,
         archived: !!item.archivedAt,
       });
+      if (link?.revision && link.revision < item.revision) {
+        if (
+          [
+            "completed",
+            "failed",
+            "cancelled",
+            "interrupted",
+            "needs_input",
+          ].includes(run.state)
+        ) {
+          card.column = "ready";
+          card.reason = "Yêu cầu mới chưa gửi Lead";
+          card.stopped = false;
+          card.progress.verified = 0;
+          card.progress.passed = 0;
+        } else card.reason += ` · yêu cầu v${link.revision}`;
+      }
     }
     cards.push(card);
     rootIds.set(card.key, run.rootId);
@@ -147,13 +173,16 @@ export function projectBoard(
   );
   for (const item of items) {
     if (linkedRunItems.has(item.id)) continue;
-    const link = links.find((link) => link.itemId === item.id);
+    const link = links.find(
+      (link) => link.itemId === item.id && link.current !== false,
+    );
     const pending = link?.followUpId
       ? queue.find((q) => q.id === link.followUpId)
       : undefined;
     cards.push({
       key: `item:${item.id}`,
       itemId: item.id,
+      code: item.code,
       version: item.version,
       kind: link ? "runtime" : "planning",
       title: redact(item.title, secrets, 160),
@@ -181,7 +210,7 @@ export function projectBoard(
       archived: !!item.archivedAt,
       updatedAt: item.updatedAt,
       runId: link?.runId ?? null,
-      conversationId: pending?.conversationId ?? null,
+      conversationId: pending?.conversationId ?? item.conversationId,
       followUpId: link?.followUpId ?? null,
       stopped: false,
       progress: { tasks: 0, executed: 0, verified: 0, criteria: 0, passed: 0 },
@@ -206,12 +235,13 @@ export function projectBoard(
       (!query.conversationId || card.conversationId === query.conversationId) &&
       (!query.runId ||
         card.runId === query.runId ||
+        (!!card.itemId && queriedItems.has(card.itemId)) ||
         rootIds.get(card.key) === query.runId) &&
       (!query.workType || card.workTypes.includes(query.workType)) &&
       (!search ||
-        normalize(`${card.title} ${extraSearch.get(card.key) ?? ""}`).includes(
-          search,
-        )),
+        normalize(
+          `${card.code ?? ""} ${card.title} ${extraSearch.get(card.key) ?? ""}`,
+        ).includes(search)),
   );
   filtered.sort((a, b) =>
     a.kind !== b.kind
