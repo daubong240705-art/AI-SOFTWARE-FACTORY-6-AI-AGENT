@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
+import { Conversations } from "./conversations";
 import { normalizeRun, type Run, type RunEvent } from "../../shared/runs";
 import {
   defaultSettings,
@@ -13,19 +14,23 @@ import {
 
 export class Store {
   private db: Database.Database;
+  readonly conversations: Conversations;
   constructor(directory: string) {
     mkdirSync(directory, { recursive: true });
     this.db = new Database(join(directory, "worker.sqlite"));
-    this.db.pragma("journal_mode = WAL");
-    this.db.pragma("foreign_keys = ON");
-    const version = this.db.pragma("user_version", { simple: true }) as number;
-    if (version > 3)
-      throw new Error(
-        "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
-      );
-    if (!version)
-      this.db.transaction(() => {
-        this.db.exec(`
+    try {
+      this.db.pragma("journal_mode = WAL");
+      this.db.pragma("foreign_keys = ON");
+      const version = this.db.pragma("user_version", {
+        simple: true,
+      }) as number;
+      if (version > 4)
+        throw new Error(
+          "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
+        );
+      if (!version)
+        this.db.transaction(() => {
+          this.db.exec(`
         CREATE TABLE settings (id INTEGER PRIMARY KEY CHECK(id = 1), value TEXT NOT NULL);
         CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL,
           path_key TEXT NOT NULL UNIQUE, lastOpenedAt TEXT NOT NULL, draft TEXT NOT NULL DEFAULT '');
@@ -33,17 +38,17 @@ export class Store {
         CREATE TABLE credentials (id INTEGER PRIMARY KEY CHECK(id = 1), encrypted BLOB NOT NULL);
         PRAGMA user_version = 1;
       `);
-        this.db
-          .prepare("INSERT INTO settings VALUES (1, ?)")
-          .run(JSON.stringify(defaultSettings()));
-      })();
-    if (version < 2) {
-      if (version === 1) {
-        const backup = join(directory, "worker.schema1.backup.sqlite");
-        if (!existsSync(backup)) this.db.prepare("VACUUM INTO ?").run(backup);
-      }
-      this.db.transaction(() => {
-        this.db.exec(`
+          this.db
+            .prepare("INSERT INTO settings VALUES (1, ?)")
+            .run(JSON.stringify(defaultSettings()));
+        })();
+      if (version < 2) {
+        if (version === 1) {
+          const backup = join(directory, "worker.schema1.backup.sqlite");
+          if (!existsSync(backup)) this.db.prepare("VACUUM INTO ?").run(backup);
+        }
+        this.db.transaction(() => {
+          this.db.exec(`
           CREATE TABLE runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL, value TEXT NOT NULL);
           CREATE UNIQUE INDEX one_active_run ON runs ((1)) WHERE state IN ('queued','running','blocked','cancelling');
           CREATE TABLE tasks (id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNIQUE REFERENCES runs(id), role TEXT NOT NULL, state TEXT NOT NULL, instructions TEXT NOT NULL);
@@ -51,15 +56,15 @@ export class Store {
           CREATE INDEX run_events ON events(run_id, sequence);
           PRAGMA user_version = 2;
         `);
-      })();
-    }
-    if (version < 3) {
-      if (version === 2) {
-        const backup = join(directory, "worker.schema2.backup.sqlite");
-        if (!existsSync(backup)) this.db.prepare("VACUUM INTO ?").run(backup);
+        })();
       }
-      this.db.transaction(() => {
-        this.db.exec(`
+      if (version < 3) {
+        if (version === 2) {
+          const backup = join(directory, "worker.schema2.backup.sqlite");
+          if (!existsSync(backup)) this.db.prepare("VACUUM INTO ?").run(backup);
+        }
+        this.db.transaction(() => {
+          this.db.exec(`
           ALTER TABLE tasks RENAME TO tasks_v2;
           CREATE TABLE tasks (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES runs(id), role TEXT NOT NULL, state TEXT NOT NULL, instructions TEXT NOT NULL, value TEXT);
           INSERT INTO tasks (id,run_id,role,state,instructions) SELECT id,run_id,role,state,instructions FROM tasks_v2;
@@ -67,7 +72,12 @@ export class Store {
           CREATE INDEX tasks_run ON tasks(run_id);
           PRAGMA user_version = 3;
         `);
-      })();
+        })();
+      }
+      this.conversations = new Conversations(this.db, directory, version);
+    } catch (error) {
+      this.db.close();
+      throw error;
     }
   }
   settings(): Settings {
@@ -179,6 +189,7 @@ export class Store {
   }
   createRun(run: Run): void {
     this.db.transaction(() => {
+      this.conversations.attach(run);
       this.db
         .prepare("INSERT INTO runs VALUES (?,?,?,?,?)")
         .run(
@@ -193,6 +204,7 @@ export class Store {
           "INSERT INTO tasks (id,run_id,role,state,instructions) VALUES (?,?,?,?,?)",
         )
         .run(randomUUID(), run.id, run.role, run.state, run.prompt);
+      this.conversations.messagesFor(run);
       this.event(run.id, "RUN_QUEUED", "Đã nhận yêu cầu.");
     })();
   }
@@ -235,6 +247,7 @@ export class Store {
         this.db
           .prepare("UPDATE tasks SET state=? WHERE run_id=?")
           .run(run.state, run.id);
+      this.conversations.sync(run);
       if (event) this.event(run.id, event.type, event.text);
     })();
   }

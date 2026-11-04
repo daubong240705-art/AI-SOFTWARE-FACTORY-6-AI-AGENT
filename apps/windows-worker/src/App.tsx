@@ -6,24 +6,17 @@ import {
   ChevronRight,
   Clock3,
   Code2,
-  ExternalLink,
-  FileCode2,
   Folder,
   FolderOpen,
-  GitBranch,
   History,
   KeyRound,
   Layers,
-  ListTodo,
   LoaderCircle,
   PanelLeftClose,
-  Play,
-  Square,
   Plus,
   RefreshCw,
   Save,
   Settings2,
-  ShieldCheck,
   Terminal,
   Trash2,
   TriangleAlert,
@@ -40,8 +33,9 @@ import type {
   ToolStatus,
 } from "../shared/contracts";
 import { defaultSettings } from "../shared/defaults";
-import { RunPanel } from "./features/RunPanel";
-import type { RunDetail, RuntimeView } from "../shared/runs";
+import { ChatWorkspace } from "./features/ChatWorkspace";
+import type { ConversationSummary } from "../shared/chat";
+import type { RuntimeView } from "../shared/runs";
 import { runLabels } from "../shared/runs";
 
 const names: Record<Role, { label: string; description: string }> = {
@@ -80,14 +74,13 @@ function Empty({
 }
 
 export function App() {
+  const didLoad = useRef(false);
+  const chatFlush = useRef<() => Promise<unknown>>(() => Promise.resolve());
   const [boot, setBoot] = useState<Bootstrap | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [page, setPage] = useState<Page>("project");
   const [project, setProject] = useState<Project | null>(null);
   const [status, setStatus] = useState<ProjectStatus | null>(null);
-  const [draft, setDraft] = useState("");
-  const [draftStatus, setDraftStatus] = useState("");
-  const [tab, setTab] = useState("activity");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [tools, setTools] = useState<ToolStatus[] | null>(null);
@@ -110,12 +103,11 @@ export function App() {
     activeId: null,
     runs: [],
   });
+  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [chatRefresh, setChatRefresh] = useState(0);
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
-  const [detail, setDetail] = useState<RunDetail | null>(null);
-  const [executionMode, setExecutionMode] = useState<"team" | "direct">("team");
-  const [executionRole, setExecutionRole] = useState<Role>("be");
-  const draftRef = useRef(draft);
-  draftRef.current = draft;
   const dirty =
     boot &&
     (JSON.stringify(settings) !== JSON.stringify(boot.settings) ||
@@ -148,8 +140,11 @@ export function App() {
     return data;
   }
   useEffect(() => {
+    if (didLoad.current) return;
+    didLoad.current = true;
     void act("load", async () => {
-      await load();
+      const data = await load();
+      if (data.projects[0]) await selectProject(data.projects[0]);
     });
   }, []);
   useEffect(() => {
@@ -160,13 +155,6 @@ export function App() {
         const next = await value(window.worker.runtimeView());
         if (!mounted) return;
         setRuntime(next);
-        const runId =
-          selectedRun ??
-          next.runs.find((run) => run.projectId === project?.id)?.id;
-        if (runId) {
-          const result = await value(window.worker.runDetail(runId));
-          if (mounted) setDetail(result);
-        } else if (mounted) setDetail(null);
       } catch {
         /* Keep persisted content during a transient IPC refresh failure. */
       }
@@ -206,70 +194,76 @@ export function App() {
       active = false;
     };
   }, [project?.id, project?.lastOpenedAt]);
-  // Debounced drafts are persisted by project; settings never contain the task text.
   useEffect(() => {
-    if (!project) return;
-    const id = project.id;
-    const timer = setTimeout(() => {
-      value(window.worker.saveDraft({ id, draft }))
-        .then(() => setDraftStatus(draft ? "Đã lưu nháp" : ""))
-        .catch(() => setDraftStatus("Chưa lưu được nháp"));
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [project?.id, draft]);
-
-  async function flushDraft() {
-    if (project)
-      await value(
-        window.worker.saveDraft({ id: project.id, draft: draftRef.current }),
-      );
-  }
-  function selectProject(selected: Project) {
-    setProject(selected);
-    setDraft(selected.draft);
-    setDraftStatus("");
-    setPage("project");
-    setSelectedRun(null);
-    setDetail(null);
-  }
-  async function startTask() {
-    await act("run", async () => {
-      if (!project) return;
-      await flushDraft();
-      await save();
-      const run = await value(
-        window.worker.startRun({
-          projectId: project.id,
-          prompt: draft,
-          role: executionMode === "team" ? "lead" : executionRole,
-          mode: executionMode,
-        }),
-      );
-      setSelectedRun(run.id);
-      setDetail({ run, events: [] });
-      setRuntime((current) => ({ ...current, activeId: run.id }));
-      setTab("activity");
-    });
-  }
-  async function stopTask() {
-    if (runtime.activeId)
-      await act("stop", async () => {
-        await value(window.worker.stopRun(runtime.activeId!));
-        setRuntime(await value(window.worker.runtimeView()));
-      });
-  }
-  async function permissionReply(id: string, allow: boolean) {
-    if (detail)
-      await act("permission", async () => {
-        await value(
-          window.worker.replyPermission({
-            runId: detail.run.id,
-            requestId: id,
-            allow,
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout>;
+    async function refresh() {
+      try {
+        const items = await value(
+          window.worker.conversations({
+            projectId: project?.id,
+            search: conversationSearch,
           }),
         );
-        setDetail(await value(window.worker.runDetail(detail.run.id)));
-      });
+        if (alive) setConversations(items);
+      } catch {
+        /* Keep the last list if refresh fails. */
+      }
+      if (alive) timer = setTimeout(() => void refresh(), 1500);
+    }
+    void refresh();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [project?.id, conversationSearch, chatRefresh]);
+  async function flushDraft() {
+    await chatFlush.current();
+  }
+  async function selectProject(selected: Project) {
+    const items = await value(
+      window.worker.conversations({ projectId: selected.id }),
+    );
+    const selectedChat =
+      items[0] ?? (await value(window.worker.createConversation(selected.id)));
+    setProject(selected);
+    setConversations(items);
+    setConversationId(selectedChat.id);
+    setPage("project");
+    setSelectedRun(null);
+    setConversationSearch("");
+  }
+  async function newConversation() {
+    if (!project) {
+      await chooseProject();
+      return;
+    }
+    await act("conversation", async () => {
+      await flushDraft();
+      const created = await value(window.worker.createConversation(project.id));
+      setConversationId(created.id);
+      setSelectedRun(null);
+      setPage("project");
+      setChatRefresh((n) => n + 1);
+      setConversationSearch("");
+    });
+  }
+  async function openConversation(id: string) {
+    await act("conversation", async () => {
+      await flushDraft();
+      const detail = await value(window.worker.conversation(id));
+      const selected =
+        boot?.projects.find((p) => p.id === detail.conversation.projectId) ??
+        null;
+      setProject(selected);
+      setConversationId(id);
+      setSelectedRun(null);
+      setPage("project");
+    });
+  }
+  async function openActive() {
+    const active = runtime.runs.find((r) => r.id === runtime.activeId);
+    if (active?.conversationId) await openConversation(active.conversationId);
   }
   async function chooseProject() {
     await act("project", async () => {
@@ -278,7 +272,7 @@ export function App() {
       if (selected) {
         const data = await value(window.worker.bootstrap());
         setBoot(data);
-        selectProject(selected);
+        await selectProject(selected);
       }
     });
   }
@@ -288,7 +282,7 @@ export function App() {
       const opened = await value(window.worker.openProject(selected.id));
       const data = await value(window.worker.bootstrap());
       setBoot(data);
-      selectProject(opened);
+      await selectProject(opened);
     });
   }
   async function save() {
@@ -362,7 +356,16 @@ export function App() {
     setPresetOpen(false);
     tell("Đã áp dụng preset. Bấm Lưu cấu hình để giữ thay đổi.");
   }
-  function navigate(next: Page) {
+  async function navigate(next: Page) {
+    try {
+      await flushDraft();
+    } catch (error) {
+      tell(
+        error instanceof Error ? error.message : "Không lưu được nháp.",
+        "error",
+      );
+      return;
+    }
     if (page === "settings" && next !== "settings" && keyInput.current?.value) {
       keyInput.current.value = "";
       setKeyAction("keep");
@@ -503,7 +506,7 @@ export function App() {
             title="Dự án"
           >
             <Folder size={18} />
-            <span>Dự án</span>
+            <span>Trò chuyện</span>
             {project && <span className="nav-dot" />}
           </button>
           <button
@@ -564,6 +567,50 @@ export function App() {
             <span className="recent-empty">Chưa có dự án</span>
           )}
         </div>
+        <div className="conversation-nav">
+          <button
+            className="new-conversation"
+            disabled={!!busy}
+            onClick={() => void newConversation()}
+          >
+            <Plus size={16} />
+            Cuộc trò chuyện mới
+          </button>
+          <input
+            className="conversation-search"
+            aria-label="Tìm cuộc trò chuyện"
+            placeholder="Tìm cuộc trò chuyện…"
+            value={conversationSearch}
+            onChange={(event) => setConversationSearch(event.target.value)}
+            maxLength={200}
+          />
+          <div className="conversation-list">
+            {conversations.map((item) => (
+              <button
+                key={item.id}
+                title={item.title}
+                className={
+                  conversationId === item.id && page === "project"
+                    ? "selected"
+                    : ""
+                }
+                disabled={!!busy}
+                onClick={() => void openConversation(item.id)}
+              >
+                <span>{item.title}</span>
+                <small>
+                  {new Date(item.updatedAt).toLocaleDateString("vi-VN", {
+                    day: "2-digit",
+                    month: "2-digit",
+                  })}
+                </small>
+              </button>
+            ))}
+            {!conversations.length && (
+              <span className="recent-empty">Chưa có cuộc trò chuyện</span>
+            )}
+          </div>
+        </div>
         <div className="sidebar-bottom">
           <div className="local-state">
             <span className="status-dot" />
@@ -582,13 +629,13 @@ export function App() {
         </div>
       </aside>
       <div className="main-column">
-        <header className="topbar">
+        <header className={`topbar ${page === "project" ? "chat-topbar" : ""}`}>
           <div className="breadcrumb">
             Workspace
             <ChevronRight size={14} />
             <span>
               {page === "project"
-                ? "Dự án"
+                ? "Trò chuyện"
                 : page === "history"
                   ? "Lịch sử"
                   : "Cài đặt"}
@@ -596,10 +643,10 @@ export function App() {
           </div>
           <span className="phase-badge">
             <span />
-            Desktop · WW-3
+            Desktop · WW-4A
           </span>
         </header>
-        <main>
+        <main className={page === "project" ? "chat-main" : ""}>
           {notice && (
             <div
               className={`notice ${notice.kind}`}
@@ -642,263 +689,24 @@ export function App() {
           ) : (
             <>
               {page === "project" && (
-                <>
-                  <div className="page-heading">
-                    <div>
-                      <div className="eyebrow">WORKSPACE</div>
-                      <h1>{project?.name ?? "Dự án của bạn"}</h1>
-                      <div className="muted path" title={project?.path}>
-                        {project?.path ?? "Chọn thư mục source để bắt đầu."}
-                      </div>
-                    </div>
-                    <div className="inline">
-                      {project && (
-                        <button
-                          disabled={!!busy}
-                          onClick={() =>
-                            void act("reveal", async () => {
-                              await value(
-                                window.worker.revealProject(project.id),
-                              );
-                            })
-                          }
-                        >
-                          <ExternalLink size={16} />
-                          Mở thư mục
-                        </button>
-                      )}
-                      <button
-                        className={project ? "" : "primary"}
-                        onClick={() => void chooseProject()}
-                        disabled={!!busy}
-                      >
-                        <Plus size={16} />
-                        Chọn dự án
-                      </button>
-                    </div>
-                  </div>
-                  {project && (
-                    <div className="project-meta">
-                      <span>
-                        <GitBranch size={14} />
-                        {status?.branch ??
-                          (status ? "Chưa có Git" : "Đang đọc Git…")}
-                      </span>
-                      {status?.gitRoot && (
-                        <span>{status.changedFiles} file thay đổi</span>
-                      )}
-                      {status?.error && (
-                        <span className="muted">{status.error}</span>
-                      )}
-                      <button
-                        className="icon-button"
-                        title="Làm mới Git"
-                        aria-label="Làm mới Git"
-                        disabled={!!busy}
-                        onClick={() =>
-                          void act("git", async () => {
-                            setStatus(
-                              await value(
-                                window.worker.projectStatus(project.id),
-                              ),
-                            );
-                          })
-                        }
-                      >
-                        <RefreshCw size={14} />
-                      </button>
-                    </div>
-                  )}
-                  <div className="workspace-grid">
-                    <div className="work-column">
-                      <section className="card composer">
-                        <div className="card-heading">
-                          <h2>
-                            <ListTodo size={17} />
-                            Yêu cầu
-                          </h2>
-                          <span className="muted small">{draftStatus}</span>
-                        </div>
-                        <textarea
-                          aria-label="Yêu cầu phát triển"
-                          placeholder={
-                            project
-                              ? "Bạn muốn xây dựng hoặc thay đổi điều gì?"
-                              : "Chọn một dự án trước khi nhập yêu cầu."
-                          }
-                          disabled={!project}
-                          value={draft}
-                          maxLength={32000}
-                          onChange={(event) => {
-                            setDraft(event.target.value);
-                            setDraftStatus("Đang lưu…");
-                          }}
-                          onBlur={() =>
-                            void flushDraft().catch(() =>
-                              setDraftStatus("Chưa lưu được nháp"),
-                            )
-                          }
-                        />
-                        <div className="composer-footer">
-                          <span>
-                            <span className="status-dot muted-dot" />
-                            {detail ? runLabels[detail.run.state] : "Sẵn sàng"}
-                          </span>
-                          <div className="inline">
-                            <select
-                              aria-label="Chế độ thực thi"
-                              value={executionMode}
-                              disabled={!!runtime.activeId || !!busy}
-                              onChange={(event) =>
-                                setExecutionMode(
-                                  event.target.value as "team" | "direct",
-                                )
-                              }
-                            >
-                              <option value="team">Lead tự phân công</option>
-                              <option value="direct">Một agent</option>
-                            </select>
-                            {executionMode === "direct" && (
-                              <select
-                                className="execution-role"
-                                aria-label="Agent thực thi"
-                                value={executionRole}
-                                onChange={(event) =>
-                                  setExecutionRole(event.target.value as Role)
-                                }
-                                disabled={!!runtime.activeId || !!busy}
-                              >
-                                {settings.agents
-                                  .filter((agent) => agent.enabled)
-                                  .map((agent) => (
-                                    <option key={agent.role} value={agent.role}>
-                                      {names[agent.role].label}
-                                    </option>
-                                  ))}
-                              </select>
-                            )}
-                            {runtime.activeId ? (
-                              <button
-                                className="danger"
-                                disabled={busy === "stop"}
-                                onClick={() => void stopTask()}
-                              >
-                                <Square size={14} />
-                                Dừng
-                              </button>
-                            ) : (
-                              <button
-                                className="primary"
-                                disabled={
-                                  !project ||
-                                  !draft.trim() ||
-                                  !!busy ||
-                                  !settings.agents.find(
-                                    (agent) =>
-                                      agent.enabled &&
-                                      agent.role ===
-                                        (executionMode === "team"
-                                          ? "lead"
-                                          : executionRole),
-                                  )?.model
-                                }
-                                onClick={() => void startTask()}
-                              >
-                                <Play size={14} fill="currentColor" />
-                                Chạy yêu cầu
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <div className="runtime-note">
-                          <Terminal size={14} />
-                          <span>
-                            {runtime.activeId
-                              ? "Một tác vụ đang hoạt động."
-                              : executionMode === "team"
-                                ? "Lead phân công · Model theo vai trò"
-                                : "Một agent thực thi"}
-                          </span>
-                        </div>
-                      </section>
-                      <section className="card output-card">
-                        <div
-                          className="tabs"
-                          role="tablist"
-                          aria-label="Kết quả công việc"
-                        >
-                          {[
-                            ["activity", "Hoạt động", <Terminal size={15} />],
-                            ["changes", "Thay đổi", <FileCode2 size={15} />],
-                            ["result", "Kết quả", <CheckCircle2 size={15} />],
-                          ].map(([id, label, icon]) => (
-                            <button
-                              key={id as string}
-                              role="tab"
-                              aria-selected={tab === id}
-                              className={tab === id ? "selected" : ""}
-                              onClick={() => setTab(id as string)}
-                            >
-                              {icon}
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-                        <div role="tabpanel">
-                          <RunPanel
-                            detail={detail}
-                            tab={tab}
-                            onPermission={(id, allow) =>
-                              void permissionReply(id, allow)
-                            }
-                            busy={!!busy}
-                          />
-                        </div>
-                      </section>
-                    </div>
-                    <div className="team-column">
-                      {team}
-                      <div className="workspace-hint">
-                        <ShieldCheck size={16} />
-                        <span>Source local. Model kết nối qua 9Router.</span>
-                      </div>
-                    </div>
-                  </div>
-                  {!project && (
-                    <section className="recent-cards">
-                      <div className="section-title">
-                        <h2>Dự án gần đây</h2>
-                        <span className="muted small">
-                          {boot.projects.length} dự án
-                        </span>
-                      </div>
-                      {boot.projects.length ? (
-                        <div className="project-cards">
-                          {boot.projects.map((item) => (
-                            <button
-                              key={item.id}
-                              className="project-card"
-                              disabled={!!busy}
-                              onClick={() => void openProject(item)}
-                            >
-                              <FolderOpen size={21} />
-                              <div>
-                                <strong>{item.name}</strong>
-                                <small title={item.path}>{item.path}</small>
-                              </div>
-                              <ChevronRight size={16} />
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="no-projects">
-                          <Folder size={18} />
-                          Chưa có dự án. Source của bạn sẽ giữ nguyên trên máy.
-                        </div>
-                      )}
-                    </section>
-                  )}
-                </>
+                <ChatWorkspace
+                  key={conversationId ?? "empty"}
+                  draftFlush={chatFlush}
+                  project={project}
+                  status={status}
+                  conversationId={conversationId}
+                  settings={settings}
+                  models={models}
+                  runtime={runtime}
+                  initialRunId={selectedRun}
+                  saveSettings={save}
+                  setModel={(role, model) => updateAgent(role, { model })}
+                  onNew={() => void newConversation()}
+                  onChooseProject={() => void chooseProject()}
+                  onSettings={() => navigate("settings")}
+                  onChanged={() => setChatRefresh((n) => n + 1)}
+                  onActive={() => void openActive()}
+                />
               )}
               {page === "history" && (
                 <>
@@ -936,12 +744,11 @@ export function App() {
                                     window.worker.openProject(selected.id),
                                   );
                                   setProject(opened);
-                                  setDraft(opened.draft);
                                 } else setProject(null);
+                                setConversationId(run.conversationId ?? null);
                                 setSelectedRun(run.id);
-                                setDetail(null);
+
                                 setPage("project");
-                                setTab("result");
                               })
                             }
                           >
@@ -1404,8 +1211,8 @@ export function App() {
             </div>
             <p>{remove.name}</p>
             <p className="muted">
-              Source trên máy được giữ nguyên. Bản nháp trong ứng dụng sẽ được
-              xóa.
+              Bỏ dự án khỏi danh sách gần đây. Source và lịch sử hội thoại được
+              giữ lại.
             </p>
             <div className="modal-actions">
               <button disabled={!!busy} onClick={() => setRemove(null)}>
@@ -1416,10 +1223,10 @@ export function App() {
                 disabled={!!busy}
                 onClick={() =>
                   void act("remove", async () => {
+                    await flushDraft();
                     await value(window.worker.removeProject(remove.id));
                     if (project?.id === remove.id) {
                       setProject(null);
-                      setDraft("");
                     }
                     const data = await value(window.worker.bootstrap());
                     setBoot(data);

@@ -32,6 +32,8 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  conversationId?: string | null;
+  context?: { text: string; runIds: string[] };
   mode: "direct" | "team";
   tasks: TeamTask[];
   profiles: ProfileSnapshot[];
@@ -74,6 +76,7 @@ export type RunSummary = Pick<
   | "model"
   | "state"
   | "createdAt"
+  | "conversationId"
 >;
 export type RuntimeView = { activeId: string | null; runs: RunSummary[] };
 export const isActive = (state: RunState): boolean =>

@@ -3,6 +3,16 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  conversations: (input) => ipcRenderer.invoke(channels.conversations, input),
+  conversation: (id, before) =>
+    ipcRenderer.invoke(channels.conversation, { id, before }),
+  createConversation: (id) =>
+    ipcRenderer.invoke(channels.createConversation, id),
+  renameConversation: (input) =>
+    ipcRenderer.invoke(channels.renameConversation, input),
+  saveConversationDraft: (input) =>
+    ipcRenderer.invoke(channels.saveConversationDraft, input),
+  openExternal: (url) => ipcRenderer.invoke(channels.openExternal, url),
   startRun: (input) => ipcRenderer.invoke(channels.startRun, input),
   stopRun: (id) => ipcRenderer.invoke(channels.stopRun, id),
   runtimeView: () => ipcRenderer.invoke(channels.runtimeView),

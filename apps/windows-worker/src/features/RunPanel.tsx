@@ -9,11 +9,13 @@ export function RunPanel({
   tab,
   onPermission,
   busy,
+  showPermissions = true,
 }: {
   detail: RunDetail | null;
   tab: string;
   onPermission: (id: string, allow: boolean) => void;
   busy: boolean;
+  showPermissions?: boolean;
 }) {
   if (!detail)
     return (
@@ -39,7 +41,7 @@ export function RunPanel({
           {formatRequestUsage(run.requests, run.settings.maxRequests)}
         </span>
       </div>
-      {run.mode === "team" && (
+      {run.mode === "team" && tab === "activity" && (
         <div className="task-board">
           <div className="small muted">
             Vòng sửa {run.fixRound}/{run.settings.maxFixRounds} ·{" "}
@@ -87,35 +89,36 @@ export function RunPanel({
           ))}
         </div>
       )}
-      {run.permissions.map((permission) => (
-        <section className="permission-box" key={permission.id}>
-          <strong>
-            <TriangleAlert size={16} />
-            Cho phép công cụ một lần?
-          </strong>
-          <div>{permission.permission}</div>
-          <pre>{permission.patterns.join("\n")}</pre>
-          <p className="muted small">
-            Shell chạy bằng quyền Windows của bạn, có thể tác động ngoài
-            workspace.
-          </p>
-          <div className="inline">
-            <button
-              disabled={busy}
-              onClick={() => onPermission(permission.id, false)}
-            >
-              Từ chối
-            </button>
-            <button
-              disabled={busy}
-              className="primary"
-              onClick={() => onPermission(permission.id, true)}
-            >
-              Cho phép một lần
-            </button>
-          </div>
-        </section>
-      ))}
+      {showPermissions &&
+        run.permissions.map((permission) => (
+          <section className="permission-box" key={permission.id}>
+            <strong>
+              <TriangleAlert size={16} />
+              Cho phép công cụ một lần?
+            </strong>
+            <div>{permission.permission}</div>
+            <pre>{permission.patterns.join("\n")}</pre>
+            <p className="muted small">
+              Shell chạy bằng quyền Windows của bạn, có thể tác động ngoài
+              workspace.
+            </p>
+            <div className="inline">
+              <button
+                disabled={busy}
+                onClick={() => onPermission(permission.id, false)}
+              >
+                Từ chối
+              </button>
+              <button
+                disabled={busy}
+                className="primary"
+                onClick={() => onPermission(permission.id, true)}
+              >
+                Cho phép một lần
+              </button>
+            </div>
+          </section>
+        ))}
       {tab === "activity" && (
         <div className="event-list">
           {events.map((event) => (

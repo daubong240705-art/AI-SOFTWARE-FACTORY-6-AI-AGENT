@@ -91,6 +91,7 @@ function registerIPC(): void {
     const request = z
       .object({
         projectId: idSchema,
+        conversationId: idSchema.optional(),
         prompt: z.string().trim().min(1).max(32000),
         role: z.enum(roles),
         mode: z.enum(["direct", "team"]).optional(),
@@ -102,7 +103,54 @@ function registerIPC(): void {
       request.prompt,
       request.role,
       request.mode,
+      request.conversationId,
     );
+  });
+  handle(channels.conversations, (input) =>
+    store.conversations.list(
+      z
+        .object({
+          projectId: idSchema.optional(),
+          search: z.string().max(200).optional(),
+        })
+        .strict()
+        .parse(input),
+    ),
+  );
+  handle(channels.conversation, (input) => {
+    const request = z
+      .object({ id: idSchema, before: z.number().int().positive().optional() })
+      .strict()
+      .parse(input);
+    return store.conversations.get(request.id, request.before);
+  });
+  handle(channels.createConversation, (input) =>
+    store.conversations.create(idSchema.parse(input)),
+  );
+  handle(channels.renameConversation, (input) => {
+    const request = z
+      .object({ id: idSchema, title: z.string().trim().min(1).max(100) })
+      .strict()
+      .parse(input);
+    return store.conversations.rename(request.id, request.title);
+  });
+  handle(channels.saveConversationDraft, (input) => {
+    const request = z
+      .object({ id: idSchema, draft: z.string().max(32000) })
+      .strict()
+      .parse(input);
+    return store.conversations.draft(request.id, request.draft);
+  });
+  handle(channels.openExternal, async (input) => {
+    const url = z.string().url().max(2048).parse(input);
+    const parsed = new URL(url);
+    if (
+      !["http:", "https:"].includes(parsed.protocol) ||
+      parsed.username ||
+      parsed.password
+    )
+      throw new Error("Chỉ mở liên kết HTTP/HTTPS.");
+    await shell.openExternal(parsed.href);
   });
   handle(channels.stopRun, (input) => controller.stop(idSchema.parse(input)));
   handle(channels.runtimeView, (input) => {

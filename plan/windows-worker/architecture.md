@@ -71,6 +71,8 @@ Controller chỉ đánh dấu hoàn thành sau khi đã đối chiếu kết qu�
 | `settings` | gateway URL, CA path, runtime path/version, giới hạn, schema version |
 | `agent_settings` | role, enabled, model ID, preset |
 | `runs` | project, yêu cầu, state, workspace baseline, settings snapshot, timestamps |
+| `conversations` (WW-4) | project, tiêu đề, timestamps, draft và liên kết lịch sử |
+| `messages` (WW-4) | conversation, user/assistant, nội dung hiển thị, run/attempt refs, thứ tự và trạng thái streaming |
 | `tasks` | run, role, dependency, mục tiêu, scope, AC, state, fix round |
 | `events` | sequence, run/task/session, type, timestamp, payload đã redaction |
 | `command_results` | argv/display command, cwd, exit code, duration, output reference |
@@ -117,6 +119,6 @@ Không tự replay lệnh sau crash hoặc mất gateway. Khôi phục metadata/
 
 ## 10. Giao diện
 
-Sidebar nhỏ: **Dự án**, **Lịch sử**, **Cài đặt**. Workspace chính gồm yêu cầu và Run/Stop, team thu gọn, task hiện tại, các tab **Hoạt động / Thay đổi / Kết quả**. Một dòng trạng thái tổng quát; chỉ mở chi tiết khi cần.
+WW-4 chuyển sang giao diện hội thoại: sidebar project/phiên ở trái, chat trung tâm, composer cố định dưới và panel phải mở theo nhu cầu cho diff/task/lệnh/preview. Run/Stop, chọn model theo role và quyền shell giữ nguyên chức năng; chỉ thay cách trình bày. Conversation chứa nhiều message/run; mỗi lượt thực thi vẫn có baseline, budget và evidence riêng. [Thiết kế và thứ tự WW-4A đến WW-4D](phase-4-workspace.md).
 
 Segoe UI/system font, nội dung 14px trở lên, tương phản rõ, bảng và form gọn; màu cam theo reference 9Router. Không mô tả dài dưới mỗi field, không nhân vật hoạt hình hoặc dashboard thống kê trang trí. Lỗi có nguyên nhân và thao tác khắc phục cụ thể.

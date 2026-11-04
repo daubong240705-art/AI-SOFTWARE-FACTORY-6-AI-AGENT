@@ -7,11 +7,15 @@ const child = spawn(
   [
     join(
       __dirname,
-      process.argv[2] === "team"
-        ? "acceptance-team.cjs"
-        : process.argv[2] === "stop"
-          ? "acceptance-stop.cjs"
-          : "acceptance-live.cjs",
+      process.argv[2] === "chat-live"
+        ? "acceptance-chat-live.cjs"
+        : process.argv[2] === "chat-ui"
+          ? "acceptance-chat-ui.cjs"
+          : process.argv[2] === "team"
+            ? "acceptance-team.cjs"
+            : process.argv[2] === "stop"
+              ? "acceptance-stop.cjs"
+              : "acceptance-live.cjs",
     ),
   ],
   { env, stdio: "inherit", windowsHide: true },

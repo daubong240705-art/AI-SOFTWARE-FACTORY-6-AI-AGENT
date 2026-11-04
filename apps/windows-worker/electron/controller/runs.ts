@@ -55,6 +55,7 @@ export class RunController {
             model,
             state,
             createdAt,
+            conversationId,
           }) => ({
             id,
             projectId,
@@ -64,6 +65,7 @@ export class RunController {
             model,
             state,
             createdAt,
+            conversationId,
           }),
         ),
     };
@@ -76,6 +78,7 @@ export class RunController {
     prompt: string,
     role: Role,
     mode: "direct" | "team" = "direct",
+    conversationId?: string,
   ): Run {
     if (mode === "team") role = "lead";
     if (this.active)
@@ -92,7 +95,12 @@ export class RunController {
         `Bật và chọn model cho ${role.toUpperCase()} trong Đội agent.`,
       );
     const key = this.readKey();
+    const context = conversationId
+      ? this.store.conversations.context(conversationId, projectId)
+      : undefined;
     const run: Run = {
+      conversationId,
+      context,
       mode,
       tasks: [],
       profiles: mode === "team" ? loadProfiles() : [],
@@ -297,14 +305,23 @@ export class RunController {
         },
         task
           ? {
-              prompt: prompt!,
+              prompt: [run.context?.text, prompt!].filter(Boolean).join("\n\n"),
               instructions: run.profiles.find((p) => p.role === task.role)!
                 .instructions,
               readOnly: ["lead", "pm", "ba", "test"].includes(task.role),
               allowShell: !["lead", "pm", "ba"].includes(task.role),
               allowedPaths: task.allowedPaths,
             }
-          : undefined,
+          : run.context?.text
+            ? {
+                prompt:
+                  run.context.text + "\n\nYêu cầu hiện tại:\n" + run.prompt,
+                instructions: "",
+                readOnly: false,
+                allowShell: true,
+                allowedPaths: ["."],
+              }
+            : undefined,
       );
       run.sessionId = await active.runtime.start();
       if (task) task.sessionId = run.sessionId;

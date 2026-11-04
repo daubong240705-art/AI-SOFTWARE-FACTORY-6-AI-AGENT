@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { roles } from "./defaults";
 import type { Run, RunDetail, RuntimeView } from "./runs";
+import type {
+  ConversationSummary,
+  ConversationDetail,
+  Conversation,
+} from "./chat";
 
 export { roles, defaultSettings } from "./defaults";
 export type Role = (typeof roles)[number];
@@ -108,11 +113,27 @@ export type Bootstrap = {
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
   startRun(input: {
+    conversationId?: string;
     mode?: "direct" | "team";
     projectId: string;
     prompt: string;
     role: Role;
   }): Promise<Reply<Run>>;
+  conversations(input: {
+    projectId?: string;
+    search?: string;
+  }): Promise<Reply<ConversationSummary[]>>;
+  conversation(id: string, before?: number): Promise<Reply<ConversationDetail>>;
+  createConversation(projectId: string): Promise<Reply<Conversation>>;
+  renameConversation(input: {
+    id: string;
+    title: string;
+  }): Promise<Reply<Conversation>>;
+  saveConversationDraft(input: {
+    id: string;
+    draft: string;
+  }): Promise<Reply<void>>;
+  openExternal(url: string): Promise<Reply<void>>;
   stopRun(id: string): Promise<Reply<void>>;
   runtimeView(): Promise<Reply<RuntimeView>>;
   runDetail(id: string): Promise<Reply<RunDetail>>;

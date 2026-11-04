@@ -1,6 +1,6 @@
 # Windows AI Worker — Kế hoạch triển khai sản phẩm
 
-Ngày lập: 04/11/2026. Trạng thái: **WW-1 đến WW-3 đã triển khai**; [chạy desktop](../../apps/windows-worker/README.md), [evidence đội agent DeepSeek Flash](../../docs/windows-worker/ww3-completion.md). WW-4 và WW-5 chưa triển khai.
+Ngày lập: 04/11/2026. Trạng thái: **WW-1 đến WW-3 và WW-4A đã triển khai**; [chạy desktop](../../apps/windows-worker/README.md), [bàn giao chat WW-4A](../../docs/windows-worker/ww4a-completion.md). WW-4B/4C/4D và WW-5 còn lại.
 
 Nguồn yêu cầu: [Đặc tả MVP](../../AI_Software_Factory_Lite_Windows_Worker_MVP.md). Chỉ dẫn mới nhất của người dùng: bỏ bước chứng minh runtime trên repo mẫu, tập trung hoàn thiện sản phẩm.
 
@@ -30,7 +30,7 @@ Không chạy kiểm chứng model, SSH, build hay test trong công việc lập
 | WW-1 | [Desktop, project và cấu hình](phase-1-desktop.md) | Mở app, chọn source, cấu hình gateway và đội agent |
 | WW-2 | [Thực thi công việc với OpenCode](phase-2-execution.md) | Gửi task, sửa source thật, xem activity và dừng tác vụ |
 | WW-3 | [Lead và sáu role](phase-3-team.md) | Giao việc tự động, model theo role, sửa lỗi có giới hạn |
-| WW-4 | [Hoàn thiện trải nghiệm làm việc](phase-4-workspace.md) | Diff, kết quả build/test, lịch sử, phục hồi và local preview |
+| WW-4 | [Chat và trải nghiệm làm việc](phase-4-workspace.md) | Hội thoại như Codex/Claude, streaming/follow-up, diff, phục hồi và local preview |
 | WW-5 | [Đóng gói Windows và bàn giao](phase-5-release.md) | Bộ cài, dữ liệu bền vững, hướng dẫn sử dụng ngắn |
 
 Thứ tự: WW-1 → WW-2 → WW-3 → WW-4 → WW-5. Khung history, result và process manager được tạo sớm, hoàn thiện ở phase tương ứng; không viết lại UI giữa các phase.
@@ -53,7 +53,7 @@ Phiên bản dependency cụ thể được pin vào lockfile khi dựng app; k�
 ## 5. Cách triển khai và theo dõi
 
 - Đặt code trong `apps/windows-worker/`, tách khỏi dashboard và worker Linux hiện tại.
-- Mỗi đầu việc có mã `WW<phase>-<số>`. WW-1/WW-2/WW-3 đã triển khai; WW-4 và WW-5 **chưa làm**.
+- Mỗi đầu việc có mã `WW<phase>-<số>`. WW-1/WW-2/WW-3 và WW-4A đã triển khai; WW-4B/4C/4D và WW-5 còn lại.
 - Mỗi phase kết thúc bằng commit có phạm vi rõ, cập nhật mục đã hoàn thành và giới hạn thực tế. Không tick chỉ vì đã có màn hình hoặc mock.
 - Không bắt buộc tạo OpenProject WP, MR remote hay pipeline release ASF để phát triển desktop local.
 - Không build image ASF mỗi lần sửa desktop. Nếu thêm CI, chỉ check desktop khi thay đổi path liên quan; build installer theo yêu cầu phát hành.

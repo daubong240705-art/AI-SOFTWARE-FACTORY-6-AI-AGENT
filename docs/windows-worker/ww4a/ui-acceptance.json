@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "checks": [
+    "Real built Electron main/preload/renderer and SQLite IPC",
+    "Isolated data; no provider calls; explicit transcript fixture",
+    "Per-conversation draft survives switching",
+    "Panel changes/polling preserve unsent draft",
+    "Conversation rename persists",
+    "No horizontal overflow at 850x700",
+    "Renderer has no Node integration"
+  ],
+  "rendererErrors": []
+}

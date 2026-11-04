@@ -1,4 +1,10 @@
 export const channels = {
+  conversations: "worker:conversations",
+  conversation: "worker:conversation",
+  createConversation: "worker:create-conversation",
+  renameConversation: "worker:rename-conversation",
+  saveConversationDraft: "worker:conversation-draft",
+  openExternal: "worker:open-external",
   startRun: "worker:start-run",
   stopRun: "worker:stop-run",
   runtimeView: "worker:runtime-view",
