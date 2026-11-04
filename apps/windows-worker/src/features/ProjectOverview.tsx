@@ -33,7 +33,11 @@ export function ProjectOverview({
     taskId?: string | null,
     executionId?: string,
   ) => void;
-  onChat: (runId: string, conversationId: string | null) => void;
+  onChat: (
+    runId: string,
+    conversationId: string | null,
+    questions?: boolean,
+  ) => void;
   onConversation: (id: string) => void;
 }) {
   const [allAttention, setAllAttention] = useState(false);
@@ -181,10 +185,18 @@ export function ProjectOverview({
                           aria-label={`${item.action}: ${item.title}`}
                           disabled={unavailable}
                           onClick={() => {
-                            if (item.runId && item.label !== "Cần bổ sung")
+                            if (
+                              item.runId &&
+                              item.label !== "Cần bổ sung" &&
+                              item.label !== "Cần trả lời"
+                            )
                               onInspect(item.runId);
                             else if (item.runId)
-                              onChat(item.runId, item.conversationId);
+                              onChat(
+                                item.runId,
+                                item.conversationId,
+                                item.label === "Cần trả lời",
+                              );
                             else if (item.conversationId)
                               onConversation(item.conversationId);
                           }}

@@ -11,6 +11,7 @@ import { pathToFileURL } from "node:url";
 import { writeFile } from "node:fs/promises";
 import { z } from "zod";
 import { chatSendSchema } from "../shared/chat";
+import { answerQuestionsSchema, questionRefSchema } from "../shared/questions";
 import { redact } from "./runtime/security";
 import { monitorRequestSchema } from "../shared/monitor";
 import {
@@ -79,6 +80,15 @@ function key(): string | undefined {
   }
 }
 function registerIPC(): void {
+  handle(channels.questionSet, (input) =>
+    store.questions.get(questionRefSchema.parse(input)),
+  );
+  handle(channels.saveQuestionDraft, (input) =>
+    store.questions.draft(answerQuestionsSchema.parse(input)),
+  );
+  handle(channels.answerQuestions, (input) =>
+    controller.answerQuestions(answerQuestionsSchema.parse(input)),
+  );
   handle(channels.taskFileDiff, (input) => {
     const ref = evidenceRefSchema.parse(input);
     return store.evidence.taskDiff(controller.detail(ref.runId).run, ref);
@@ -367,6 +377,7 @@ function registerIPC(): void {
       .parse(input);
     return {
       ...store.conversations.get(request.id, request.before),
+      questionSets: store.questions.list(request.id),
       queue: store.queue.list(request.id),
     };
   });

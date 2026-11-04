@@ -3,6 +3,11 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  questionSet: (input) => ipcRenderer.invoke(channels.questionSet, input),
+  saveQuestionDraft: (input) =>
+    ipcRenderer.invoke(channels.saveQuestionDraft, input),
+  answerQuestions: (input) =>
+    ipcRenderer.invoke(channels.answerQuestions, input),
   workChatForRun: (input) => ipcRenderer.invoke(channels.workChatForRun, input),
   sendChat: (input) => ipcRenderer.invoke(channels.sendChat, input),
   workChat: (input) => ipcRenderer.invoke(channels.workChat, input),

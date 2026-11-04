@@ -8,6 +8,7 @@ import { FollowUps } from "./follow-ups";
 import { BoardStore } from "./board";
 import { migrateWorkItems } from "./work-migration";
 import { migrateChatRequests } from "./chat-requests";
+import { Questions } from "./questions";
 import {
   chatSendSchema,
   type ChatSend,
@@ -36,6 +37,7 @@ export class Store {
   readonly queue: FollowUps;
   readonly evidence: EvidenceStore;
   readonly board: BoardStore;
+  readonly questions: Questions;
   private retentionTickets = new Map<
     string,
     { ids: string[]; expires: number }
@@ -49,7 +51,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 9)
+      if (version > 10)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -133,6 +135,7 @@ export class Store {
       }
       migrateWorkItems(this.db, directory, version);
       migrateChatRequests(this.db, directory, version);
+      this.questions = new Questions(this.db, directory, version);
       this.board = new BoardStore(this.db);
     } catch (error) {
       this.db.close();
@@ -274,6 +277,8 @@ export class Store {
     return this.project(id);
   }
   removeProject(id: string): void {
+    if (this.questions.hasProject(id))
+      throw new Error("Giữ dự án có lịch sử câu hỏi; chưa hỗ trợ xóa hẳn.");
     const active = this.runs().find(
       (run) =>
         run.projectId === id &&
@@ -342,6 +347,7 @@ export class Store {
   createRun(run: Run): void {
     this.db.transaction(() => {
       this.conversations.attach(run);
+      this.questions.supersede(run.conversationId!);
       this.db
         .prepare("INSERT INTO runs VALUES (?,?,?,?,?)")
         .run(
@@ -457,6 +463,7 @@ export class Store {
           .prepare("UPDATE tasks SET state=? WHERE run_id=?")
           .run(run.state, run.id);
       this.conversations.sync(run);
+      this.questions.publish(run);
       if (event) this.event(run.id, event.type, event.text, event.metadata);
     })();
   }
@@ -570,6 +577,7 @@ export class Store {
         boardLinks: this.board.links().filter((link) => link.runId === id),
         workItem: this.board.runReference(id),
         workContext: run.workContext,
+        questionSets: [this.questions.forRun(run.id)].filter(Boolean),
         exportedAt: new Date().toISOString(),
         run: {
           id: run.id,
@@ -634,6 +642,7 @@ export class Store {
     for (const q of this.queue.list())
       if (q.afterRunId) protectedIds.add(q.afterRunId);
     for (const id of this.board.protectedRunIds()) protectedIds.add(id);
+    for (const id of this.questions.protectedRunIds()) protectedIds.add(id);
     const refs = (value: unknown, result: Set<string>) => {
       if (!value || typeof value !== "object") return;
       for (const [key, item] of Object.entries(value)) {
@@ -681,6 +690,10 @@ export class Store {
     if (!ticket || ticket.expires < Date.now())
       throw new Error("Bản xem trước dọn dữ liệu đã hết hạn.");
     const ids = new Set(ticket.ids);
+    if (this.questions.protectedRunIds().some((id) => ids.has(id)))
+      throw new Error(
+        "Có câu hỏi mới tham chiếu lịch sử này; tải lại bản xem trước.",
+      );
     if (this.board.protectedRunIds().some((id) => ids.has(id)))
       throw new Error("Có liên kết Kanban mới; tải lại bản xem trước.");
     const queued = this.queue.list();

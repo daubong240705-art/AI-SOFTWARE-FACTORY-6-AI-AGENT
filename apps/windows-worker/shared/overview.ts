@@ -2,6 +2,7 @@ import type { RunSummary } from "./runs";
 import type { TimelineEntry } from "./inspector";
 
 export type OverviewRun = RunSummary & {
+  questionState?: import("./questions").QuestionSet["state"];
   endedAt: string | null;
   summary: string;
   error: string;
@@ -20,6 +21,13 @@ export type OverviewQueued = {
   createdAt: string;
 };
 export type ProjectOverviewData = {
+  questions?: {
+    id: string;
+    runId: string;
+    conversationId: string;
+    summary: string;
+    createdAt: string;
+  }[];
   runs: OverviewRun[];
   queue: OverviewQueued[];
   timelineRunId: string | null;
@@ -47,7 +55,7 @@ export function attentionItems(data: ProjectOverviewData): AttentionItem[] {
       label = "Chờ cấp quyền";
       reason = `${run.permissions} yêu cầu quyền đang chờ`;
       action = "Xem quyền";
-    } else if (run.state === "needs_input") {
+    } else if (run.state === "needs_input" && !run.questionState) {
       label = "Cần bổ sung";
       reason ||= "Lead cần thêm ngữ cảnh để tiếp tục.";
       action = "Bổ sung ngữ cảnh";
@@ -73,6 +81,16 @@ export function attentionItems(data: ProjectOverviewData): AttentionItem[] {
     ];
   });
   return [
+    ...(data.questions ?? []).map((q) => ({
+      key: `questions:${q.id}`,
+      title: q.summary,
+      reason: "Lead đang chờ câu trả lời nghiệp vụ.",
+      label: "Cần trả lời",
+      action: "Trả lời câu hỏi",
+      runId: q.runId,
+      conversationId: q.conversationId,
+      at: q.createdAt,
+    })),
     ...runs,
     ...data.queue
       .filter((q) => q.state === "held")

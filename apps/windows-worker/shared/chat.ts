@@ -78,6 +78,7 @@ export type ChatMessage = {
   createdAt: string;
 };
 export type ConversationDetail = {
+  questionSets?: import("./questions").QuestionSet[];
   conversation: Conversation;
   messages: ChatMessage[];
   hasEarlier: boolean;

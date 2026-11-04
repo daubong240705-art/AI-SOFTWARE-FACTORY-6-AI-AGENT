@@ -1,4 +1,7 @@
 export const channels = {
+  questionSet: "worker:question-set",
+  saveQuestionDraft: "worker:question-draft",
+  answerQuestions: "worker:answer-questions",
   sendChat: "worker:chat-send",
   workChat: "worker:work-chat",
   workChatForRun: "worker:work-chat-for-run",

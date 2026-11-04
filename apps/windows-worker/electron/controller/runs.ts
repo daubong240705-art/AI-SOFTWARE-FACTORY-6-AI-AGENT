@@ -1,5 +1,10 @@
 import { coordinate, TeamBlocked } from "../team/coordinator";
 import {
+  answerQuestionsSchema,
+  answersPrompt,
+  type AnswerQuestions,
+} from "../../shared/questions";
+import {
   commandArtifactId,
   sourceVersion,
   upsertCommand,
@@ -144,6 +149,11 @@ export class RunController {
         run ? this.store.events(run.id, true) : [],
         secrets,
       );
+      data.overview.questions = this.store.questions
+        .pending(request.projectId)
+        .map((q) => ({ ...q, summary: redact(q.summary, secrets, 160) }));
+      for (const item of data.overview.runs)
+        item.questionState = this.store.questions.stateForRun(item.id);
     }
     if (request.board)
       data.board = projectBoard(
@@ -191,6 +201,38 @@ export class RunController {
     }
   }
   private active?: Active;
+  answerQuestions(input: AnswerQuestions) {
+    const data = answerQuestionsSchema.parse(input),
+      before = this.active;
+    if (this.shuttingDown || this.workspaceBusy)
+      throw new Error("Ứng dụng đang đóng hoặc xử lý workspace.");
+    try {
+      return this.store.questions.submit(data, (set, answers) => {
+        const source = this.store.run(set.sourceRunId);
+        if (source.integration)
+          throw new Error("Mở bản tích hợp làm dự án để tiếp tục.");
+        return this.sendChat({
+          requestId: set.id,
+          projectId: set.projectId,
+          conversationId: set.conversationId,
+          prompt: answersPrompt(set, source.prompt, answers),
+          role: "lead",
+          mode: "team",
+          ...(set.workItemId
+            ? {
+                workContext: {
+                  itemId: set.workItemId,
+                  revision: set.revision!,
+                },
+              }
+            : {}),
+        });
+      });
+    } catch (error) {
+      if (this.active !== before) this.active = before;
+      throw error;
+    }
+  }
   sendChat(input: ChatSend) {
     const request = chatSendSchema.parse(input),
       before = this.active;

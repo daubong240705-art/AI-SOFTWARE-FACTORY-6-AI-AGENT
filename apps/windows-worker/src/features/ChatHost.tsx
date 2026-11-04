@@ -1,6 +1,7 @@
 import { Select } from "../ui/Select";
 import { Popover } from "../ui/Popover";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { QuestionCards } from "./QuestionCards";
 import {
   ArrowDown,
   ArrowUp,
@@ -151,6 +152,7 @@ export function ChatHost({
   const savedScroll = useRef(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const nearBottom = useRef(true);
+  const seenQuestions = useRef(new Set<string>());
   useEffect(() => {
     if (!visible) return;
     const position = savedScroll.current,
@@ -162,9 +164,21 @@ export function ChatHost({
   }, [visible, presentation]);
   const [newContent, setNewContent] = useState(false);
   const writes = useRef<Promise<unknown>>(Promise.resolve());
+  const questionFlushes = useRef(new Map<string, () => Promise<unknown>>());
+  const registerQuestionFlush = useCallback(
+    (id: string, flush: (() => Promise<unknown>) | null) => {
+      if (flush) questionFlushes.current.set(id, flush);
+      else questionFlushes.current.delete(id);
+    },
+    [],
+  );
   const actionLock = useRef(false);
   useEffect(() => {
-    const flush = () => writes.current;
+    const flush = () =>
+      Promise.all([
+        writes.current,
+        ...[...questionFlushes.current.values()].map((fn) => fn()),
+      ]);
     draftFlush.current = flush;
     return () => {
       if (draftFlush.current === flush)
@@ -272,6 +286,29 @@ export function ChatHost({
       .map((m) => m.id + ":" + m.content.length + ":" + m.state)
       .join("|"),
   ]);
+  const pendingQuestions =
+    chat?.questionSets
+      ?.filter((set) => set.state === "pending")
+      .map((set) => set.id)
+      .join(",") ?? "";
+  useEffect(() => {
+    if (!visible) return;
+    const id = pendingQuestions
+      .split(",")
+      .find((key) => key && !seenQuestions.current.has(key));
+    if (!id) return;
+    seenQuestions.current.add(id);
+    const frame = requestAnimationFrame(() => {
+      const card = scrollRef.current?.querySelector<HTMLElement>(
+        `[data-question-set="${id}"]`,
+      );
+      if (card) {
+        nearBottom.current = false;
+        card.scrollIntoView({ block: "start" });
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pendingQuestions, visible]);
   async function action(fn: () => Promise<void>) {
     if (actionLock.current) return false;
     actionLock.current = true;
@@ -795,6 +832,22 @@ export function ChatHost({
                       </time>
                     </div>
                   </article>
+                ))}
+              </div>
+            )}
+            {!!chat?.questionSets?.length && (
+              <div className="chat-transcript question-sets">
+                {chat.questionSets.map((set) => (
+                  <QuestionCards
+                    key={set.id}
+                    set={set}
+                    beforeSubmit={saveSettings}
+                    registerFlush={registerQuestionFlush}
+                    onChanged={() => {
+                      setRefresh((n) => n + 1);
+                      onChanged();
+                    }}
+                  />
                 ))}
               </div>
             )}

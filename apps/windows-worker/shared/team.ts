@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { questionDecisionSchema } from "./questions";
 import type { Role, Settings } from "./contracts";
 import type { ChangedFile } from "./runs";
 import { evidenceRefSchema, type TaskEvidence } from "./evidence";
@@ -67,6 +68,7 @@ export const planSchema = z
   .strict();
 export type TeamPlan = z.infer<typeof planSchema>;
 export const leadDecisionSchema = z.union([
+  questionDecisionSchema,
   z.object({ reply: z.string().trim().min(1).max(12000) }).strict(),
   planSchema,
 ]);

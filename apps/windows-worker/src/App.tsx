@@ -160,7 +160,11 @@ export function App() {
     if (project)
       setInspection({ projectId: project.id, runId, taskId, executionId });
   }
-  async function openInspectedChat(runId: string, conversation: string | null) {
+  async function openInspectedChat(
+    runId: string,
+    conversation: string | null,
+    questions = false,
+  ) {
     await flushDraft();
     const context = project
       ? await value(
@@ -170,7 +174,7 @@ export function App() {
     setChatContext(context);
     setChatDock(false);
     setOpenRunVersion((n) => n + 1);
-    setSelectedRun(runId);
+    setSelectedRun(questions ? null : runId);
     setConversationId(context?.conversationId ?? conversation);
     setInspection(null);
     await navigate("project");
@@ -935,9 +939,9 @@ export function App() {
                     state={monitor}
                     onRefresh={() => void monitor.refresh?.()}
                     onInspect={inspect}
-                    onChat={(runId, conversation) =>
+                    onChat={(runId, conversation, questions) =>
                       void act("conversation", () =>
-                        openInspectedChat(runId, conversation),
+                        openInspectedChat(runId, conversation, questions),
                       )
                     }
                     onConversation={(id) => void openConversation(id)}

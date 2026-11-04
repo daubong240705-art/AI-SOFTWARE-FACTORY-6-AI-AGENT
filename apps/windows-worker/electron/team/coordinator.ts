@@ -1,4 +1,5 @@
 import type { Run } from "../../shared/runs";
+import { questionProtocol } from "../../shared/questions";
 import {
   parseJSON,
   leadDecisionSchema,
@@ -304,6 +305,7 @@ export async function coordinate(
             ? "Chế độ tích hợp cô lập: task độc lập chạy trong worktree riêng; dependency chỉ chạy sau khi kết quả tích hợp. Với sửa code, lập TEST phụ thuộc mọi task sửa code để kiểm tra source hợp nhất. Không dùng lệnh test trên từng worktree riêng để kết luận cả yêu cầu đã đạt.\n"
             : "") +
             instructions +
+            (kind === "plan" ? questionProtocol : "") +
             (issue
               ? `\nOutput trước không hợp lệ: ${issue.slice(0, 1500)}. Trả lại JSON đúng schema.`
               : ""),
@@ -319,12 +321,14 @@ export async function coordinate(
             run.summary =
               "reply" in received
                 ? received.reply
-                : received.tasks.length
-                  ? "Đề xuất chưa thực hiện:\n" +
-                    received.tasks
-                      .map((t) => `- ${t.role.toUpperCase()}: ${t.title}`)
-                      .join("\n")
-                  : (received.blockedReason ?? "");
+                : "questions" in received
+                  ? received.summary
+                  : received.tasks.length
+                    ? "Đề xuất chưa thực hiện:\n" +
+                      received.tasks
+                        .map((t) => `- ${t.role.toUpperCase()}: ${t.title}`)
+                        .join("\n")
+                    : (received.blockedReason ?? "");
           } catch {
             /* Raw schema output stays on the task; never present it as verified work. */
           }
@@ -351,12 +355,17 @@ export async function coordinate(
     `Bạn là Lead, chỉ đọc, không shell/sửa file. Hãy hiểu ý định từ yêu cầu và lịch sử trò chuyện. Với lời chào, câu hỏi, trao đổi ý tưởng/kế hoạch/trạng thái: trả lời tự nhiên bằng tiếng Việt, không ép giao việc. Nếu cần làm rõ trước khi thực hiện, hỏi ngắn đúng thông tin còn thiếu. Dùng nhánh trả lời: {"reply":"nội dung người dùng sẽ thấy, có thể dùng Markdown"}. Không thêm tasks hoặc blockedReason vào nhánh này. Không tuyên bố đã sửa file/chạy test nếu chưa có evidence.\nKhi người dùng yêu cầu thực hiện và đủ ngữ cảnh (kể cả câu tiếp nối như tiếp tục), dùng nhánh kế hoạch phía dưới ngay, không hỏi xác nhận lại. Đọc cấu trúc repo khi cần. Yêu cầu: ${run.prompt}\nRole khả dụng: ${JSON.stringify(run.settings.agents.filter((a) => a.enabled && a.model))}. Chọn ít role nhất cần thiết. Không tự thay model. Nếu công việc cần role/capability chưa có, blockedReason nêu rõ và tasks=[]. Lời chào/câu hỏi không phải blocker. Mỗi task scope tối thiểu và AC kiểm chứng được. PM/BA chỉ đọc, TEST chỉ đọc và chạy lệnh; DEVOPS chỉ local, không detached server. Không cần TEST phải giải thích testingReason. Task theo thứ tự phụ thuộc.\nSkill catalog: ${JSON.stringify(skillCatalogSummary(run.skillCatalog))}\nworkType chọn docs|analysis|implementation|bugfix|testing|local-dev đúng mục tiêu. skillIds chỉ đề xuất ID từ catalog phù hợp role/loại task, tối đa 3, không trùng; [] dùng lựa chọn mặc định của Controller. Không lấy path/URL bên ngoài hoặc dùng skill để mở quyền. Docs/analysis thường không cần skill tác vụ. Chỉ xuất một JSON envelope, không markdown bên ngoài. Nhánh kế hoạch giữ cấu trúc:\n{"blockedReason":null,"testingReason":"","tasks":[{"id":"t1","role":"be","title":"...","instructions":"...","allowedPaths":["src"],"acceptance":["..."],"dependsOn":[],"workType":"implementation","skillIds":[]}]}`,
     (text) => {
       const plan = parseJSON(text, leadDecisionSchema);
-      if ("reply" in plan) return plan;
+      if ("reply" in plan || "questions" in plan) return plan;
       validatePlan(plan, run.settings);
       for (const task of plan.tasks) newTask(run, { ...task, kind: "work" });
       return plan;
     },
   );
+  if ("questions" in decision) {
+    run.questionRequest = decision;
+    run.summary = decision.summary;
+    throw new TeamBlocked(decision.summary);
+  }
   if ("reply" in decision) {
     run.summary = decision.reply;
     run.state = "completed";

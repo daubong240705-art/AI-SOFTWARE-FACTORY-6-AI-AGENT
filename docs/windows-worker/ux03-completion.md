@@ -44,6 +44,8 @@ node scripts/run-acceptance.cjs ui-foundation
 
 **Model thật chưa nghiệm thu:** script `chat-context-live` đọc cấu hình DB chính bằng kết nối readonly, dùng project/DB riêng trong cache và một lượt Lead team chỉ trao đổi. Tiến trình riêng không giải mã được ciphertext của app, nên dừng trước provider call; không thay credentials. Có thể chạy bằng `NINE_ROUTER_API_KEY` được cung cấp qua môi trường của tiến trình, không hardcode hoặc ghi key vào báo cáo. Không coi fixture là bằng chứng chất lượng phản hồi model.
 
+Cập nhật sau UX-04: tiến trình kiểm thử đã đọc được key mà không đổi credentials. Đã tách source fixture khỏi DB/runtime data và kiểm chứng questions → answers → reply bằng hai request DeepSeek Flash thật, đúng work context và không sửa file. [Bằng chứng và giới hạn](ux04-completion.md). Nội dung phía trên ghi nhận giới hạn tại thời điểm bàn giao UX-03; streaming model thật trong dock vẫn chưa nghiệm thu.
+
 ## Bảo trì DB chính
 
 DB: `%APPDATA%\ASF Windows Worker\worker.sqlite`. Trước bảo trì không có active run hoặc queue; DB có 15 lượt terminal, 2 project, 7 hội thoại, 30 message, 661 event và 28 task. Không xóa các dữ liệu này hoặc credentials/settings.

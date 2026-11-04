@@ -11,6 +11,9 @@ const { RunController } = require("../electron/controller/runs.ts");
 const cache = resolve(__dirname, "../.cache");
 mkdirSync(cache, { recursive: true });
 const directory = mkdtempSync(join(cache, "chat-context-live-"));
+const source = join(directory, "source");
+mkdirSync(source);
+const questionsMode = process.argv.includes("--questions");
 const livePath = join(
   app.getPath("appData"),
   "ASF Windows Worker",
@@ -57,7 +60,7 @@ app.whenReady().then(async () => {
     settings.permissionMode = "ask";
     store = new Store(join(directory, "data"));
     store.save(settings, undefined);
-    const project = store.addProject(directory);
+    const project = store.addProject(source);
     const item = store.board.create({
       projectId: project.id,
       title: "Giữ bản nháp chat",
@@ -76,8 +79,9 @@ app.whenReady().then(async () => {
       requestId: crypto.randomUUID(),
       projectId: project.id,
       conversationId: context.conversationId,
-      prompt:
-        "Mình đang trao đổi ý tưởng thôi. Bạn hiểu mục tiêu công việc hiện tại là gì? Trả lời tối đa hai câu tiếng Việt, không lập plan, không dùng tool hay thay đổi file.",
+      prompt: questionsMode
+        ? "Tôi chưa quyết định bản nháp chỉ lưu trên máy hay đồng bộ nhiều máy. Trước khi triển khai, hãy hỏi tôi quyết định nghiệp vụ này bằng protocol questions v1, một câu bắt buộc với hai lựa chọn. Không dùng tool hoặc thay đổi file."
+        : "Mình đang trao đổi ý tưởng thôi. Bạn hiểu mục tiêu công việc hiện tại là gì? Trả lời tối đa hai câu tiếng Việt, không lập plan, không dùng tool hay thay đổi file.",
       mode: "team",
       role: "lead",
       workContext: { itemId: item.id, revision: 1 },
@@ -94,27 +98,84 @@ app.whenReady().then(async () => {
       "Lead turn exceeded deadline",
     );
     const run = store.run(receipt.runId);
-    assert.equal(run.state, "completed", run.error);
-    assert.ok(run.requests > 0 && run.summary.trim());
+    assert.equal(
+      run.state,
+      questionsMode ? "needs_input" : "completed",
+      run.error,
+    );
+    assert.ok(
+      run.requests > 0 && run.summary.trim(),
+      run.error || "Expected a real provider response",
+    );
     assert.equal(run.workContext.itemId, item.id);
-    assert.equal(run.tasks.length, 0);
+    assert.ok(run.tasks.every((task) => task.kind === "plan"));
+    if (questionsMode) {
+      const questions = store.questions.list(context.conversationId);
+      assert.equal(questions.length, 1);
+      assert.equal(questions[0].state, "pending");
+      assert.equal(questions[0].questions[0].required, true);
+      assert.deepEqual(questions[0].answers, []);
+    }
     assert.equal(run.changes.length, 0);
     assert.equal(run.commands.length, 0);
     assert.equal(
       run.profiles.find((profile) => profile.role === "lead").version,
-      "1.3.1",
+      "1.3.2",
     );
     const evidence = {
       passed: true,
+      mode: questionsMode ? "questions" : "reply",
       model,
       requests: run.requests,
       state: run.state,
       summary: run.summary,
       context: { code: context.code, revision: context.revision },
-      tasks: 0,
+      workerTasks: 0,
       commands: 0,
       changes: 0,
     };
+    if (questionsMode) {
+      const set = store.questions.list(context.conversationId)[0];
+      const input = {
+        projectId: project.id,
+        conversationId: context.conversationId,
+        setId: set.id,
+        version: set.recordVersion,
+        answers: set.questions.map((question) => ({
+          questionId: question.id,
+          optionId: question.options[0]?.id ?? null,
+          text: "Chọn phương án này cho ví dụ kiểm thử. Hiện chỉ trao đổi ý tưởng, hãy xác nhận đã hiểu lựa chọn bằng một câu tiếng Việt, không lập plan, không hỏi lại, không dùng tool, không sửa file.",
+        })),
+      };
+      const accepted = controller.answerQuestions(input);
+      assert.equal(
+        controller.answerQuestions(input).receipt.runId,
+        accepted.receipt.runId,
+      );
+      const nextId = accepted.receipt.runId,
+        finishBy = Date.now() + 150000;
+      while (controller.view().activeId && Date.now() < finishBy) {
+        for (const permission of controller.detail(nextId).run.permissions)
+          await controller.reply(nextId, permission.id, false);
+        await new Promise((done) => setTimeout(done, 500));
+      }
+      assert.equal(controller.view().activeId, null);
+      const next = store.run(nextId);
+      assert.equal(next.state, "completed", next.error);
+      assert.ok(next.requests > 0 && next.summary.trim());
+      assert.ok(next.tasks.every((task) => task.kind === "plan"));
+      assert.equal(next.commands.length, 0);
+      assert.equal(next.changes.length, 0);
+      evidence.continuation = {
+        state: next.state,
+        requests: next.requests,
+        summary: next.summary,
+        duplicateRunPrevented: true,
+        workerTasks: 0,
+        changes: 0,
+        commands: 0,
+      };
+    }
     writeFileSync(
       join(directory, "acceptance.json"),
       JSON.stringify(evidence, null, 2),

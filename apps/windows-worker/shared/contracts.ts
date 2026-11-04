@@ -118,6 +118,17 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  questionSet(
+    input: import("zod").z.infer<
+      typeof import("./questions").questionRefSchema
+    >,
+  ): Promise<Reply<import("./questions").QuestionSet>>;
+  saveQuestionDraft(
+    input: import("./questions").AnswerQuestions,
+  ): Promise<Reply<import("./questions").QuestionSet>>;
+  answerQuestions(
+    input: import("./questions").AnswerQuestions,
+  ): Promise<Reply<import("./questions").QuestionSet>>;
   workChatForRun(input: {
     projectId: string;
     runId: string;
