@@ -54,6 +54,7 @@ type ExecutionContext = {
   seen: Set<string>;
   approvedPermissions: Set<string>;
   sourceObservation?: { version: string; at: number };
+  commandObservations?: Map<string, { version: string; at: number }>;
   closed: boolean;
 };
 type Active = {
@@ -84,6 +85,7 @@ type Active = {
   visibleSteps?: Map<string, string>;
   lastTextAt?: number;
   sourceObservation?: { version: string; at: number };
+  commandObservations?: Map<string, { version: string; at: number }>;
 };
 export class RunController {
   private active?: Active;
@@ -917,7 +919,24 @@ export class RunController {
     if (state.status === "completed") run.toolsCompleted++;
     // Anchor command evidence to an observation made BEFORE execution as well
     // as the post-command snapshot. Timestamps alone cannot detect deletions.
-    const before = observation.sourceObservation;
+    const commandKey = `${taskId ?? "direct"}:${part.sessionID}:${part.callID}`;
+    if (
+      part.tool === "bash" &&
+      state.status === "running" &&
+      !reconciled &&
+      observation.sourceObservation
+    ) {
+      // Parallel tool calls need the observation that preceded their own start,
+      // not the observation updated when another command finishes.
+      const observations = (observation.commandObservations ??= new Map());
+      if (!observations.has(commandKey))
+        observations.set(commandKey, { ...observation.sourceObservation });
+    }
+    const before =
+      part.tool === "bash"
+        ? (observation.commandObservations?.get(commandKey) ??
+          observation.sourceObservation)
+        : observation.sourceObservation;
     const mutatesSource = ![
       "read",
       "glob",
@@ -1006,6 +1025,8 @@ export class RunController {
         );
       }
     }
+    if (part.tool === "bash" && ["completed", "error"].includes(state.status))
+      observation.commandObservations?.delete(commandKey);
     this.record(
       active,
       state.status === "completed"

@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "kind": "real-electron-integrated-task-evidence",
+  "checks": [
+    "separate task results visible",
+    "immutable source evidence through IPC",
+    "verified integration and source version visible",
+    "retained task and integration workspaces discoverable",
+    "integrated result opens as project through IPC"
+  ]
+}

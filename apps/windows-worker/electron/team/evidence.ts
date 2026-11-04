@@ -139,6 +139,26 @@ export function evidenceCatalog(
   }
   return { refs, omitted };
 }
+
+/** Ownership only; integrity/source freshness is checked separately. */
+export function supportsCriterion(
+  ref: EvidenceRef,
+  criterionTaskId: string,
+  task: TeamTask,
+  work: readonly TeamTask[],
+): boolean {
+  if (ref.taskId === criterionTaskId) return true;
+  if (ref.kind !== "command" || task.role !== "test") return false;
+  const covers = (id: string, seen = new Set<string>()): boolean => {
+    if (id === criterionTaskId) return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return (work.find((t) => t.id === id)?.dependsOn ?? []).some((dep) =>
+      covers(dep, seen),
+    );
+  };
+  return !task.dependsOn.length || covers(ref.taskId);
+}
 export function verifyEvidence(
   review: EvidenceReview,
   run: Run,
@@ -183,22 +203,7 @@ export function verifyEvidence(
           task.state !== "completed"
         )
           throw new Error("Sai run/task/attempt/session hoặc task chưa đạt.");
-        const covers = (id: string, seen = new Set<string>()): boolean => {
-          if (id === criterion.taskId) return true;
-          if (seen.has(id)) return false;
-          seen.add(id);
-          return (work.find((t) => t.id === id)?.dependsOn ?? []).some((dep) =>
-            covers(dep, seen),
-          );
-        };
-        if (
-          ref.taskId !== criterion.taskId &&
-          !(
-            ref.kind === "command" &&
-            task.role === "test" &&
-            (!task.dependsOn.length || covers(ref.taskId))
-          )
-        )
+        if (!supportsCriterion(ref, criterion.taskId, task, work))
           throw new Error(
             "Evidence không thuộc task hoặc TEST phụ thuộc của tiêu chí.",
           );

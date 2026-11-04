@@ -2,7 +2,6 @@ import type { Run } from "../../shared/runs";
 import {
   parseJSON,
   leadDecisionSchema,
-  reviewSchema,
   validatePlan,
   type TeamTask,
   type TeamReview,
@@ -13,18 +12,14 @@ import type { Snapshot } from "../workspace/snapshot";
 import { ExecutionStopped } from "../runtime/stopped";
 import { sourcePolicyError, rolePolicy } from "./policy";
 import { buildHandoff, workReportInstructions } from "./handoff";
-import {
-  criteria,
-  evidenceCatalog,
-  verifyEvidence,
-  sourceVersion,
-} from "./evidence";
+import { verifyEvidence, sourceVersion } from "./evidence";
 import type { EvidenceStore } from "../storage/evidence";
 import { selectTaskSkills, skillCatalogSummary } from "./skills";
 import { WorkerError, failure, classifyFailure } from "../runtime/failure";
 import { emptyMetrics, syncMetrics } from "../runtime/metrics";
 import type { FailureCode } from "../../shared/execution";
 import { isolatedDispatch } from "./dispatch";
+import { reviewContext, reviewPrompt } from "./review-context";
 export class TeamBlocked extends WorkerError {
   constructor(message: string, code: FailureCode = "needs-context") {
     super(failure(code, message));
@@ -297,9 +292,6 @@ export async function coordinate(
       try {
         if (parallel && kind === "review") {
           await isolated?.prepare(task);
-          instructions =
-            "Integrated source: catalog excludes stale commands. Every TEST criterion and requiresCommand=true must use method=command with successful TEST command refs on the current integrated source. Do not copy historical command refs from handoff.\n" +
-            instructions;
         }
         text = await perform(
           task,
@@ -456,21 +448,26 @@ export async function coordinate(
     }
   for (;;) {
     check();
-    const catalog = evidenceCatalog(
-      run,
-      latest,
-      parallel
-        ? sourceVersion(
-            await snapshot(isolated?.currentWorkspace?.() ?? run.workspace),
-          )
-        : undefined,
-    );
-    const acceptance = criteria(work);
+    let context: ReturnType<typeof reviewContext>;
+    try {
+      context = reviewContext(
+        run,
+        work,
+        latest,
+        await snapshot(isolated?.currentWorkspace?.() ?? run.workspace),
+        evidenceStore,
+      );
+    } catch (error) {
+      throw new TeamBlocked(
+        error instanceof Error ? error.message : "Thiếu context review.",
+        "evidence-unverified",
+      );
+    }
     const review = await structured(
       "review",
-      `${parallel ? "Review the integrated source. All TEST criteria and requiresCommand=true criteria need method=command with the latest TEST command refs from the current catalog. Historical handoff commands are not valid refs. " : ""}Evidence ownership: file refs ONLY support criteria with the SAME taskId. For t1 criteria use t1 file refs; NEVER add t3/TEST file refs. Only command refs from dependent TEST may support ancestor criteria. Every ref must be authorized; an invalid supplementary ref blocks the whole criterion. Đánh giá yêu cầu: ${run.prompt}\nKế hoạch: ${JSON.stringify(plan)}\nKết quả mới nhất: ${JSON.stringify(buildHandoff(run, latest, [...latest.keys()]))}\nTiêu chí có ID: ${JSON.stringify(acceptance)}\nEvidence có sẵn: ${JSON.stringify(catalog)}\nReview cả yêu cầu và chất lượng. taskId là ID gốc giao fix; attemptId là lần thực thi thật. report chỉ là tự khai. Chọn refs nguyên vẹn từ catalog; không bịa ID/hash. Có thể dùng lệnh TEST mới nhất để chứng minh AC của task phụ thuộc. Bạn phải đối chiếu ý nghĩa lệnh/file với tiêu chí; exit 0 không tự chứng minh đúng yêu cầu. Claim test/build cần method=command và command ref; docs/source có thể dùng method=source và file ref. Catalog omitted/truncated nghĩa là thiếu context, không suy đoán. Không đủ bằng chứng thì unverified/blocked.\nChỉ xuất JSON: {"version":2,"status":"completed|fix|blocked","summary":"kết quả và cách chạy","acceptance":[{"criterionId":"t1:ac1","criterion":"nguyên văn AC","status":"passed|failed|unverified","evidence":"giải thích sự liên quan của bằng chứng","method":"command|source","refs":[]}],"fixes":[{"taskId":"t1","instructions":"lỗi cần sửa"}],"limitations":[]} . Bao phủ đúng một lần mỗi criterionId, kể cả tiêu chí trùng chữ. completed chỉ khi mọi task/AC đạt và refs hợp lệ. fix chỉ giao BE/FE/DEVOPS gốc cần sửa. blocked nếu thiếu thông tin/capability/evidence. fixes rỗng nếu completed/blocked.`,
+      reviewPrompt(run.prompt, context.packet),
       async (text) => {
-        const r = parseJSON(text, reviewSchema);
+        const r = context.parse(text);
         verifyEvidence(
           r,
           run,

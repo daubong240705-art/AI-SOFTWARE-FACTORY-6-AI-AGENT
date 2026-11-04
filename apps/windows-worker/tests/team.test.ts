@@ -351,7 +351,7 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
         if (task.kind === "plan") return JSON.stringify(plan);
         if (task.kind === "review") {
           const packet = JSON.parse(
-            prompt.split("Kết quả mới nhất: ")[1].split("\n")[0],
+            prompt.split("D\u1eef li\u1ec7u review: ")[1].split("\n")[0],
           );
           const backend = packet.tasks.find(
             (t: { taskId: string }) => t.taskId === "t1",
@@ -367,20 +367,35 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
                   { taskId: "t1", instructions: "Repair backend" },
                 ])
               : review("completed");
-          if (result.status === "completed") {
-            const catalog: { refs: EvidenceRef[] } = JSON.parse(
-              prompt.split("Evidence có sẵn: ")[1].split("\n")[0],
-            );
-            for (const ac of result.acceptance)
-              ac.refs = catalog.refs
-                .filter(
-                  (r) =>
-                    r.taskId === ac.criterionId.split(":")[0] &&
-                    r.kind === (ac.method === "command" ? "command" : "file"),
-                )
-                .slice(0, 1);
-          }
-          return JSON.stringify(result);
+          const response = {
+            ...result,
+            version: 3,
+            acceptance: result.acceptance.map((ac) => {
+              const criterion = packet.criteria.find(
+                (c: { criterionId: string }) =>
+                  c.criterionId === ac.criterionId,
+              );
+              return {
+                criterionId: ac.criterionId,
+                status: ac.status,
+                evidence: ac.evidence,
+                method: ac.method,
+                refs:
+                  result.status === "completed"
+                    ? criterion.evidenceIds
+                        .filter(
+                          (id: string) =>
+                            packet.evidence.find(
+                              (e: { id: string; kind: string }) => e.id === id,
+                            )?.kind ===
+                            (ac.method === "command" ? "command" : "file"),
+                        )
+                        .slice(0, 1)
+                    : [],
+              };
+            }),
+          };
+          return JSON.stringify(response);
         }
         if (task.id === "t3-retry-1") {
           const packet = JSON.parse(
@@ -442,6 +457,8 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
 
 test("TEST cannot pass without command evidence; retries are bounded and cancellation prevents scheduling", async () => {
   const directory = mkdtempSync(join(tmpdir(), "asf-team-limits-"));
+  const evidenceDirectory = mkdtempSync(join(tmpdir(), "asf-team-proof-"));
+  const store = new Store(evidenceDirectory);
   try {
     const run = fixture(directory);
     let executions = 0;
@@ -458,10 +475,10 @@ test("TEST cannot pass without command evidence; retries are bounded and cancell
           if (task.kind === "review")
             return JSON.stringify({
               ...review("completed"),
+              version: 3,
               acceptance: [
                 {
                   criterionId: "t1:ac1",
-                  criterion: "t1 AC",
                   status: "passed",
                   evidence: "Model says so",
                   method: "command",
@@ -474,6 +491,7 @@ test("TEST cannot pass without command evidence; retries are bounded and cancell
         },
         () => {},
         () => {},
+        store.evidence,
       ),
       TeamBlocked,
     );
@@ -510,10 +528,10 @@ test("TEST cannot pass without command evidence; retries are bounded and cancell
             : task.kind === "review"
               ? JSON.stringify({
                   ...review("fix", [{ taskId: "t1", instructions: "Fix" }]),
+                  version: 3,
                   acceptance: [
                     {
                       criterionId: "t1:ac1",
-                      criterion: "t1 AC",
                       status: "failed",
                       evidence: "Failure",
                       method: "source",
@@ -524,11 +542,14 @@ test("TEST cannot pass without command evidence; retries are bounded and cancell
               : "Work",
         () => {},
         () => {},
+        store.evidence,
       ),
       /hết số vòng/,
     );
     assert.equal(bounded.tasks.filter((t) => t.kind === "fix").length, 0);
   } finally {
+    store.close();
+    rmSync(evidenceDirectory, { recursive: true, force: true });
     rmSync(directory, { recursive: true, force: true });
   }
 });

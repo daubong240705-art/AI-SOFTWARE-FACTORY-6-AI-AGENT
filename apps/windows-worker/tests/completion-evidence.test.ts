@@ -31,6 +31,11 @@ import { RunController } from "../electron/controller/runs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { RunPanel } from "../src/features/RunPanel";
+import {
+  reviewContext,
+  reviewMaxChars,
+  reviewPrompt,
+} from "../electron/team/review-context";
 
 async function setup() {
   const directory = await mkdtemp(join(tmpdir(), "asf-completion-"));
@@ -158,6 +163,213 @@ async function setup() {
     cleanup,
   };
 }
+
+test("compact review resolves exact immutable refs and criteria, rejects forged aliases and preserves strict verification", async () => {
+  const x = await setup();
+  try {
+    const context = reviewContext(
+      x.run,
+      [x.task],
+      x.latest,
+      await snapshot(x.root),
+      x.store.evidence,
+    );
+    const wire = {
+      version: 3,
+      status: "completed",
+      summary: "Checked source",
+      fixes: [],
+      limitations: [],
+      acceptance: context.packet.criteria.map((c) => ({
+        criterionId: c.criterionId,
+        status: "passed",
+        method: "source",
+        evidence: "Read source",
+        refs: [context.packet.evidence.find((e) => e.kind === "file")!.id],
+      })),
+    };
+    const result = context.parse(JSON.stringify(wire));
+    assert.equal(result.version, 2);
+    assert.equal(result.acceptance[0].criterion, x.task.acceptance[0]);
+    assert.deepEqual(result.acceptance[0].refs[0], x.fileRef);
+    await x.verify(result);
+    assert.equal(result.verification?.verified, true);
+    assert.throws(() =>
+      context.parse(
+        JSON.stringify({ ...wire, verification: { verified: true } }),
+      ),
+    );
+    for (const patch of [
+      { refs: ["e999"] },
+      { refs: ["e1", "e1"] },
+      { criterionId: "t9:ac1" },
+      { refs: [x.fileRef] },
+    ]) {
+      const forged = structuredClone(wire);
+      Object.assign(forged.acceptance[0], patch);
+      assert.throws(() => context.parse(JSON.stringify(forged)));
+    }
+    const stale = context.parse(JSON.stringify(wire));
+    await writeFile(join(x.root, "src", "a.ts"), "edited after packet");
+    await x.verify(stale);
+    assert.equal(stale.status, "blocked");
+    const prompt = reviewPrompt(x.run.prompt, context.packet);
+    assert.ok(!prompt.includes(x.run.id));
+    assert.ok(!prompt.includes(x.fileRef.sessionId));
+  } finally {
+    await x.cleanup();
+  }
+});
+
+test("compact review limits eligible evidence by task and command requirement, and omits corrupt/stale command output", async () => {
+  const x = await setup();
+  try {
+    const tester = {
+      ...x.task,
+      id: "t2",
+      originalTaskId: "t2",
+      role: "test" as const,
+      dependsOn: ["t1"],
+      sessionId: "test-session",
+    };
+    x.latest.set("t2", tester);
+    const context = reviewContext(
+      x.run,
+      [x.task, tester],
+      x.latest,
+      await snapshot(x.root),
+      x.store.evidence,
+    );
+    const testFile = context.packet.evidence.find(
+      (e) => e.taskId === "t2" && e.kind === "file",
+    )!;
+    assert.ok(testFile);
+    assert.equal(
+      context.packet.criteria[0].evidenceIds.includes(testFile.id),
+      false,
+    );
+    assert.deepEqual(
+      context.packet.criteria
+        .filter((c) => c.taskId === "t2")
+        .map((c) => c.evidenceIds),
+      [[], []],
+    );
+    const wire = {
+      version: 3,
+      status: "blocked",
+      summary: "Missing tests",
+      fixes: [],
+      limitations: [],
+      acceptance: context.packet.criteria.map((c) => ({
+        criterionId: c.criterionId,
+        status: "unverified",
+        method: "source",
+        evidence: "Missing",
+        refs: [] as string[],
+      })),
+    };
+    wire.acceptance[0].refs = [testFile.id];
+    assert.throws(() => context.parse(JSON.stringify(wire)), /không hợp lệ/);
+    x.store.evidence.saveCommand(
+      x.run.id,
+      x.run.commands[0].artifactId!,
+      "corrupt output",
+    );
+    const corrupt = reviewContext(
+      x.run,
+      [x.task],
+      x.latest,
+      await snapshot(x.root),
+      x.store.evidence,
+    );
+    assert.equal(
+      corrupt.packet.evidence.some((e) => e.kind === "command"),
+      false,
+    );
+    assert.ok(corrupt.packet.omitted.unavailable > 0);
+    x.store.evidence.saveCommand(
+      x.run.id,
+      x.run.commands[0].artifactId!,
+      x.run.commands[0].output,
+    );
+    await writeFile(join(x.root, "other.txt"), "integrated output");
+    const fresh = reviewContext(
+      x.run,
+      [x.task],
+      x.latest,
+      await snapshot(x.root),
+      x.store.evidence,
+    );
+    assert.equal(
+      fresh.packet.evidence.some((e) => e.kind === "command"),
+      false,
+    );
+  } finally {
+    await x.cleanup();
+  }
+});
+
+test("review packet bounds escaped evidence, preserves truncation and failures instead of claiming coverage", async () => {
+  const x = await setup();
+  try {
+    const output = '"\\\n'.repeat(20000);
+    for (let i = 1; i <= 6; i++) {
+      const task = {
+        ...x.task,
+        id: `t${i}`,
+        sessionId: `s${i}`,
+        evidence: x.task.evidence,
+        summary: output,
+      };
+      x.latest.set(task.id, task);
+      for (let c = 0; c < 4; c++) {
+        const artifactId = commandArtifactId(
+          x.run.id,
+          task.id,
+          task.sessionId,
+          String(c),
+        );
+        x.store.evidence.saveCommand(x.run.id, artifactId, output);
+        x.run.commands.push({
+          ...x.run.commands[0],
+          taskId: task.id,
+          sessionId: task.sessionId,
+          callId: String(c),
+          artifactId,
+          artifactHash: createHash("sha256").update(output).digest("hex"),
+          output,
+        });
+      }
+    }
+    x.run.commands.push({
+      ...x.run.commands[0],
+      status: "error",
+      exitCode: 1,
+      command: "npm test",
+      output: "failure details",
+    });
+    const context = reviewContext(
+      x.run,
+      [...x.latest.values()],
+      x.latest,
+      await snapshot(x.root),
+      x.store.evidence,
+    );
+    assert.ok(JSON.stringify(context.packet).length <= reviewMaxChars);
+    assert.ok(context.packet.evidence.some((e) => e.content.truncated));
+    assert.equal(
+      context.packet.tasks.find((t) => t.taskId === "t1")!.failedCommands.total,
+      1,
+    );
+    assert.ok(
+      context.packet.tasks
+        .find((t) => t.taskId === "t1")!
+        .failedCommands.items[0].output.text.includes("failure"),
+    );
+  } finally {
+    await x.cleanup();
+  }
+});
 
 test("stable AC IDs distinguish duplicate text; missing, duplicate and invented IDs cannot complete", async () => {
   const x = await setup();
@@ -461,6 +673,82 @@ test("controller keeps colliding call IDs separate across tasks/sessions, reject
   }
 });
 
+test("overlapping commands retain their own pre-start observation without accepting source edits or late attribution", async () => {
+  const x = await setup();
+  try {
+    const controller = new RunController(x.store, x.directory, () => undefined);
+    const start = Date.now() - 20;
+    await utimes(
+      join(x.root, "src", "a.ts"),
+      new Date(start - 1000),
+      new Date(start - 1000),
+    );
+    const version = sourceVersion(await snapshot(x.root))!;
+    const active = {
+      run: x.run,
+      secrets: [],
+      seen: new Set<string>(),
+      sourceObservation: { version, at: start - 1000 },
+    };
+    const invoke = controller as unknown as {
+      onEvent(
+        active: unknown,
+        event: Event,
+        reconciled?: boolean,
+      ): Promise<void>;
+    };
+    const event = (call: string, status: "running" | "completed"): Event =>
+      ({
+        type: "message.part.updated",
+        properties: {
+          part: {
+            type: "tool",
+            id: call,
+            sessionID: "session1",
+            callID: call,
+            tool: "bash",
+            state: {
+              status,
+              input: { command: "node --test" },
+              output: "tests passed",
+              title: "test",
+              metadata: { exit: 0 },
+              time: { start, end: Date.now() },
+            },
+          },
+        },
+      }) as unknown as Event;
+    x.run.currentTaskId = "t1";
+    x.run.commands = [];
+    for (const id of ["one", "two", "three"])
+      await invoke.onEvent(active, event(id, "running"));
+    await invoke.onEvent(active, event("one", "completed"));
+    assert.ok(active.sourceObservation.at > start);
+    await invoke.onEvent(active, event("two", "completed"));
+    assert.equal(
+      x.run.commands.find((c) => c.callId === "one")!.sourceVersion,
+      version,
+    );
+    assert.equal(
+      x.run.commands.find((c) => c.callId === "two")!.sourceVersion,
+      version,
+    );
+    await unlink(join(x.root, "src", "a.ts"));
+    await invoke.onEvent(active, event("three", "completed"));
+    assert.equal(
+      x.run.commands.find((c) => c.callId === "three")!.sourceVersion,
+      undefined,
+    );
+    await invoke.onEvent(active, event("late", "completed"), true);
+    assert.equal(
+      x.run.commands.find((c) => c.callId === "late")!.sourceVersion,
+      undefined,
+    );
+  } finally {
+    await x.cleanup();
+  }
+});
+
 test("coordinator persists and blocks a completed model claim without evidence, with no formatting retry", async () => {
   const x = await setup();
   try {
@@ -491,7 +779,7 @@ test("coordinator persists and blocks a completed model claim without evidence, 
             });
           if (task.kind === "review")
             return JSON.stringify({
-              version: 2,
+              version: 3,
               status: "completed",
               summary: "Done",
               fixes: [],
@@ -499,7 +787,6 @@ test("coordinator persists and blocks a completed model claim without evidence, 
               acceptance: [
                 {
                   criterionId: "t1:ac1",
-                  criterion: "Documented",
                   status: "passed",
                   evidence: "Model says so",
                   method: "source",

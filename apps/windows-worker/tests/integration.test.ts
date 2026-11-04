@@ -239,24 +239,24 @@ test("coordinator runs dependency tests on integrated source and reruns them aft
             ],
           });
         if (task.kind === "review") {
-          const criteria: { criterionId: string; criterion: string }[] =
-            JSON.parse(prompt.split("Tiêu chí có ID: ")[1].split("\n")[0]);
-          const refs = (
-            JSON.parse(prompt.split("Evidence có sẵn: ")[1].split("\n")[0]) as {
-              refs: EvidenceRef[];
-            }
-          ).refs;
-          const testRef = refs.find(
-            (ref) => ref.kind === "command" && ref.taskId === "t3",
-          )!;
+          const packet = JSON.parse(
+            prompt.split("D\u1eef li\u1ec7u review: ")[1].split("\n")[0],
+          );
+          const criteria = packet.criteria as {
+            criterionId: string;
+            criterion: string;
+          }[];
+          const testRef = packet.evidence.find(
+            (e: { kind: string; taskId: string }) =>
+              e.kind === "command" && e.taskId === "t3",
+          )?.id;
           assert.ok(testRef);
           return JSON.stringify({
-            version: 2,
+            version: 3,
             status: reviews++ === 0 ? "fix" : "completed",
             summary: "Verified combined source",
             acceptance: criteria.map((criterion) => ({
               criterionId: criterion.criterionId,
-              criterion: criterion.criterion,
               status: "passed",
               evidence: "Combined test",
               method: "command",
