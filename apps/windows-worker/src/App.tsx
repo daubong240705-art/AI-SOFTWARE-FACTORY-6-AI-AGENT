@@ -18,6 +18,7 @@ import {
   LoaderCircle,
   PanelLeftClose,
   Play,
+  Square,
   Plus,
   RefreshCw,
   Save,
@@ -39,6 +40,9 @@ import type {
   ToolStatus,
 } from "../shared/contracts";
 import { defaultSettings } from "../shared/defaults";
+import { RunPanel } from "./features/RunPanel";
+import type { RunDetail, RuntimeView } from "../shared/runs";
+import { runLabels } from "../shared/runs";
 
 const names: Record<Role, { label: string; description: string }> = {
   lead: { label: "Lead", description: "Điều phối" },
@@ -102,6 +106,13 @@ export function App() {
   });
   const [remove, setRemove] = useState<Project | null>(null);
   const [compact, setCompact] = useState(false);
+  const [runtime, setRuntime] = useState<RuntimeView>({
+    activeId: null,
+    runs: [],
+  });
+  const [selectedRun, setSelectedRun] = useState<string | null>(null);
+  const [detail, setDetail] = useState<RunDetail | null>(null);
+  const [executionRole, setExecutionRole] = useState<Role>("be");
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const dirty =
@@ -140,6 +151,32 @@ export function App() {
       await load();
     });
   }, []);
+  useEffect(() => {
+    let mounted = true;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const next = await value(window.worker.runtimeView());
+        if (!mounted) return;
+        setRuntime(next);
+        const runId =
+          selectedRun ??
+          next.runs.find((run) => run.projectId === project?.id)?.id;
+        if (runId) {
+          const result = await value(window.worker.runDetail(runId));
+          if (mounted) setDetail(result);
+        } else if (mounted) setDetail(null);
+      } catch {
+        /* Keep persisted content during a transient IPC refresh failure. */
+      }
+      if (mounted) timer = setTimeout(() => void poll(), 900);
+    }
+    void poll();
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
+  }, [selectedRun, project?.id]);
   useEffect(() => {
     if (page !== "settings")
       setKeyAction((current) => (current === "replace" ? "keep" : current));
@@ -191,6 +228,46 @@ export function App() {
     setDraft(selected.draft);
     setDraftStatus("");
     setPage("project");
+    setSelectedRun(null);
+    setDetail(null);
+  }
+  async function startTask() {
+    await act("run", async () => {
+      if (!project) return;
+      await flushDraft();
+      await save();
+      const run = await value(
+        window.worker.startRun({
+          projectId: project.id,
+          prompt: draft,
+          role: executionRole,
+        }),
+      );
+      setSelectedRun(run.id);
+      setDetail({ run, events: [] });
+      setRuntime((current) => ({ ...current, activeId: run.id }));
+      setTab("activity");
+    });
+  }
+  async function stopTask() {
+    if (runtime.activeId)
+      await act("stop", async () => {
+        await value(window.worker.stopRun(runtime.activeId!));
+        setRuntime(await value(window.worker.runtimeView()));
+      });
+  }
+  async function permissionReply(id: string, allow: boolean) {
+    if (detail)
+      await act("permission", async () => {
+        await value(
+          window.worker.replyPermission({
+            runId: detail.run.id,
+            requestId: id,
+            allow,
+          }),
+        );
+        setDetail(await value(window.worker.runDetail(detail.run.id)));
+      });
   }
   async function chooseProject() {
     await act("project", async () => {
@@ -517,7 +594,7 @@ export function App() {
           </div>
           <span className="phase-badge">
             <span />
-            Desktop · WW-1
+            Desktop · WW-2
           </span>
         </header>
         <main>
@@ -663,20 +740,61 @@ export function App() {
                         <div className="composer-footer">
                           <span>
                             <span className="status-dot muted-dot" />
-                            Chưa chạy
+                            {detail ? runLabels[detail.run.state] : "Sẵn sàng"}
                           </span>
-                          <button
-                            className="primary"
-                            disabled
-                            title="Thực thi OpenCode sẽ có ở WW-2"
-                          >
-                            <Play size={14} fill="currentColor" />
-                            Chạy yêu cầu
-                          </button>
+                          <div className="inline">
+                            <select
+                              className="execution-role"
+                              aria-label="Agent thực thi"
+                              value={executionRole}
+                              onChange={(event) =>
+                                setExecutionRole(event.target.value as Role)
+                              }
+                              disabled={!!runtime.activeId || !!busy}
+                            >
+                              {settings.agents
+                                .filter((agent) => agent.enabled)
+                                .map((agent) => (
+                                  <option key={agent.role} value={agent.role}>
+                                    {names[agent.role].label}
+                                  </option>
+                                ))}
+                            </select>
+                            {runtime.activeId ? (
+                              <button
+                                className="danger"
+                                disabled={busy === "stop"}
+                                onClick={() => void stopTask()}
+                              >
+                                <Square size={14} />
+                                Dừng
+                              </button>
+                            ) : (
+                              <button
+                                className="primary"
+                                disabled={
+                                  !project ||
+                                  !draft.trim() ||
+                                  !!busy ||
+                                  !settings.agents.find(
+                                    (agent) => agent.role === executionRole,
+                                  )?.model
+                                }
+                                onClick={() => void startTask()}
+                              >
+                                <Play size={14} fill="currentColor" />
+                                Chạy yêu cầu
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="runtime-note">
                           <Terminal size={14} />
-                          <span>Thực thi OpenCode sẽ được nối ở WW-2.</span>
+                          <span>
+                            {runtime.activeId
+                              ? "Một tác vụ đang hoạt động."
+                              : "Một agent mỗi lượt chạy · Lead điều phối ở WW-3."}
+                          </span>
                         </div>
                       </section>
                       <section className="card output-card">
@@ -703,28 +821,14 @@ export function App() {
                           ))}
                         </div>
                         <div role="tabpanel">
-                          {tab === "activity" ? (
-                            <Empty
-                              icon={<Terminal size={25} />}
-                              title="Chưa có hoạt động"
-                            >
-                              Các bước thực thi sẽ xuất hiện tại đây.
-                            </Empty>
-                          ) : tab === "changes" ? (
-                            <Empty
-                              icon={<FileCode2 size={25} />}
-                              title="Chưa có thay đổi từ agent"
-                            >
-                              Diff sẽ có khi runtime bắt đầu làm việc.
-                            </Empty>
-                          ) : (
-                            <Empty
-                              icon={<CheckCircle2 size={25} />}
-                              title="Chưa có kết quả"
-                            >
-                              Chưa có yêu cầu nào được thực thi.
-                            </Empty>
-                          )}
+                          <RunPanel
+                            detail={detail}
+                            tab={tab}
+                            onPermission={(id, allow) =>
+                              void permissionReply(id, allow)
+                            }
+                            busy={!!busy}
+                          />
                         </div>
                       </section>
                     </div>
@@ -779,15 +883,60 @@ export function App() {
                       <div className="eyebrow">WORKSPACE</div>
                       <h1>Lịch sử</h1>
                     </div>
-                    <span className="pill">0 lượt chạy</span>
+                    <span className="pill">
+                      {runtime.runs.length} lượt gần nhất
+                    </span>
                   </div>
                   <section className="card">
-                    <Empty
-                      icon={<Clock3 size={28} />}
-                      title="Chưa có lượt chạy"
-                    >
-                      Các bản nháp nằm trong từng dự án.
-                    </Empty>
+                    {!runtime.runs.length ? (
+                      <Empty
+                        icon={<Clock3 size={28} />}
+                        title="Chưa có lượt chạy"
+                      >
+                        Các bản nháp nằm trong từng dự án.
+                      </Empty>
+                    ) : (
+                      <div className="run-history">
+                        {runtime.runs.map((run) => (
+                          <button
+                            key={run.id}
+                            disabled={!!busy}
+                            onClick={() =>
+                              void act("history", async () => {
+                                await flushDraft();
+                                const selected = boot.projects.find(
+                                  (project) => project.id === run.projectId,
+                                );
+                                if (selected) {
+                                  const opened = await value(
+                                    window.worker.openProject(selected.id),
+                                  );
+                                  setProject(opened);
+                                  setDraft(opened.draft);
+                                } else setProject(null);
+                                setSelectedRun(run.id);
+                                setDetail(null);
+                                setPage("project");
+                                setTab("result");
+                              })
+                            }
+                          >
+                            <div>
+                              <strong>{run.prompt.slice(0, 100)}</strong>
+                              <small>
+                                {run.projectName} · {run.role.toUpperCase()} ·{" "}
+                                {new Date(run.createdAt).toLocaleString(
+                                  "vi-VN",
+                                )}
+                              </small>
+                            </div>
+                            <span className={`run-state ${run.state}`}>
+                              {runLabels[run.state]}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </section>
                 </>
               )}
@@ -1101,8 +1250,8 @@ export function App() {
                           </label>
                         </div>
                         <p className="muted small">
-                          Được lưu cho WW-2/WW-3. Runtime chưa thực thi giới hạn
-                          ở WW-1.
+                          Timeout và request được chặn theo lượt chạy. Vòng sửa
+                          tự động thuộc WW-3.
                         </p>
                       </section>
                     </div>
@@ -1127,7 +1276,9 @@ export function App() {
             ) : (
               <>
                 <Code2 size={13} />
-                Runtime chưa kết nối
+                {runtime.activeId
+                  ? "OpenCode đang hoạt động"
+                  : "OpenCode 1.19.5 · sẵn sàng cấu hình"}
               </>
             )}
           </span>

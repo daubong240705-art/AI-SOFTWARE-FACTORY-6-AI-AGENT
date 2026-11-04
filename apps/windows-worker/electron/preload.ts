@@ -3,6 +3,12 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  startRun: (input) => ipcRenderer.invoke(channels.startRun, input),
+  stopRun: (id) => ipcRenderer.invoke(channels.stopRun, id),
+  runtimeView: () => ipcRenderer.invoke(channels.runtimeView),
+  runDetail: (id) => ipcRenderer.invoke(channels.runDetail, id),
+  replyPermission: (input) =>
+    ipcRenderer.invoke(channels.replyPermission, input),
   bootstrap: () => ipcRenderer.invoke(channels.bootstrap),
   chooseProject: () => ipcRenderer.invoke(channels.chooseProject),
   openProject: (id) => ipcRenderer.invoke(channels.openProject, id),

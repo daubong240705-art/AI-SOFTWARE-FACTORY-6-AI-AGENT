@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { access, realpath, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import type { ProjectStatus, ToolStatus } from "../../shared/contracts";
+import { resolveRuntime } from "../runtime/security";
 
 export async function canonicalDirectory(path: string): Promise<string> {
   try {
@@ -96,11 +97,23 @@ export async function projectStatus(path: string): Promise<ProjectStatus> {
 export async function checkTools(runtimePath: string): Promise<ToolStatus[]> {
   return Promise.all(
     [
-      ["OpenCode", runtimePath || "opencode"],
+      ["OpenCode", runtimePath],
       ["Git", "git"],
       ["Node.js", "node"],
       ["Python", "python"],
     ].map(async ([name, executable]) => {
+      if (name === "OpenCode") {
+        try {
+          executable = resolveRuntime(executable);
+        } catch {
+          return {
+            name,
+            path: executable,
+            available: false,
+            version: "Chọn opencode.exe trong Cài đặt.",
+          };
+        }
+      }
       // Never invoke .cmd/.bat through a shell: runtime executables must be native binaries.
       if (/\.(cmd|bat)$/i.test(executable))
         return {

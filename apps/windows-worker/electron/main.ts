@@ -15,7 +15,9 @@ import {
   saveSettingsSchema,
   type Bootstrap,
   type Reply,
+  roles,
 } from "../shared/contracts";
+import { RunController } from "./controller/runs";
 import { Store } from "./storage/database";
 import {
   canonicalDirectory,
@@ -30,6 +32,8 @@ let window: BrowserWindow | null = null;
 let rendererUrl = "";
 let fetchingModels = false;
 let checkingTools = false;
+let controller: RunController;
+let quitting = false;
 
 function bootstrap(): Bootstrap {
   return {
@@ -83,6 +87,36 @@ function registerIPC(): void {
   const empty = (input: unknown): void => {
     z.undefined().parse(input);
   };
+  handle(channels.startRun, (input) => {
+    const request = z
+      .object({
+        projectId: idSchema,
+        prompt: z.string().trim().min(1).max(32000),
+        role: z.enum(roles),
+      })
+      .strict()
+      .parse(input);
+    return controller.start(request.projectId, request.prompt, request.role);
+  });
+  handle(channels.stopRun, (input) => controller.stop(idSchema.parse(input)));
+  handle(channels.runtimeView, (input) => {
+    empty(input);
+    return controller.view();
+  });
+  handle(channels.runDetail, (input) =>
+    controller.detail(idSchema.parse(input)),
+  );
+  handle(channels.replyPermission, (input) => {
+    const request = z
+      .object({
+        runId: idSchema,
+        requestId: z.string().min(1).max(200),
+        allow: z.boolean(),
+      })
+      .strict()
+      .parse(input);
+    return controller.reply(request.runId, request.requestId, request.allow);
+  });
   handle(channels.bootstrap, (input) => {
     empty(input);
     return bootstrap();
@@ -235,6 +269,7 @@ else {
   app.whenReady().then(async () => {
     try {
       store = new Store(app.getPath("userData"));
+      controller = new RunController(store, app.getPath("userData"), key);
       registerIPC();
       await createWindow();
       app.on("activate", () => {
@@ -253,3 +288,20 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 app.on("will-quit", () => store?.close());
+app.on("before-quit", (event) => {
+  if (quitting || !controller?.view().activeId) return;
+  event.preventDefault();
+  void controller
+    .shutdown()
+    .then(() => {
+      quitting = true;
+      app.quit();
+    })
+    .catch(() => {
+      if (!window) void createWindow();
+      dialog.showErrorBox(
+        "Chưa dừng được runtime",
+        "Không thể xác nhận tiến trình đã dừng. Hãy bấm Dừng trong ứng dụng trước khi thoát.",
+      );
+    });
+});

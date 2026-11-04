@@ -1,4 +1,9 @@
 export const channels = {
+  startRun: "worker:start-run",
+  stopRun: "worker:stop-run",
+  runtimeView: "worker:runtime-view",
+  runDetail: "worker:run-detail",
+  replyPermission: "worker:reply-permission",
   bootstrap: "worker:bootstrap",
   chooseProject: "worker:choose-project",
   openProject: "worker:open-project",

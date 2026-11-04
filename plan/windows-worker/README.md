@@ -1,6 +1,6 @@
 # Windows AI Worker — Kế hoạch triển khai sản phẩm
 
-Ngày lập: 04/11/2026. Trạng thái: **WW-1 đã triển khai**; [chạy desktop](../../apps/windows-worker/README.md). WW-2 đến WW-5 chưa triển khai.
+Ngày lập: 04/11/2026. Trạng thái: **WW-1 và WW-2 đã triển khai**; [chạy desktop](../../apps/windows-worker/README.md), [evidence DeepSeek Flash](../../docs/windows-worker/ww2-completion.md). WW-3 đến WW-5 chưa triển khai.
 
 Nguồn yêu cầu: [Đặc tả MVP](../../AI_Software_Factory_Lite_Windows_Worker_MVP.md). Chỉ dẫn mới nhất của người dùng: bỏ bước chứng minh runtime trên repo mẫu, tập trung hoàn thiện sản phẩm.
 
@@ -53,7 +53,7 @@ Phiên bản dependency cụ thể được pin vào lockfile khi dựng app; k�
 ## 5. Cách triển khai và theo dõi
 
 - Đặt code trong `apps/windows-worker/`, tách khỏi dashboard và worker Linux hiện tại.
-- Mỗi đầu việc có mã `WW<phase>-<số>`. WW-1 đã triển khai; các đầu việc WW-2 đến WW-5 **chưa làm**.
+- Mỗi đầu việc có mã `WW<phase>-<số>`. WW-1/WW-2 đã triển khai; các đầu việc WW-3 đến WW-5 **chưa làm**.
 - Mỗi phase kết thúc bằng commit có phạm vi rõ, cập nhật mục đã hoàn thành và giới hạn thực tế. Không tick chỉ vì đã có màn hình hoặc mock.
 - Không bắt buộc tạo OpenProject WP, MR remote hay pipeline release ASF để phát triển desktop local.
 - Không build image ASF mỗi lần sửa desktop. Nếu thêm CI, chỉ check desktop khi thay đổi path liên quan; build installer theo yêu cầu phát hành.

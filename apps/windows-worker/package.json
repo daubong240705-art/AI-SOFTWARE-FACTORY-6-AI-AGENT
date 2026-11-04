@@ -20,6 +20,7 @@
     "format:check": "prettier --check electron shared src scripts tests *.json electron.vite.config.ts"
   },
   "dependencies": {
+    "@opencode-ai/sdk": "1.19.5",
     "better-sqlite3": "13.0.3",
     "lucide-react": "1.68.0",
     "react": "19.3.1",

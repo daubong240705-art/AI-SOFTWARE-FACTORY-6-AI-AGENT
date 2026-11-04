@@ -1,3 +1,209 @@
+.execution-role {
+  width: 95px;
+  font-size: 12px;
+  padding: 8px;
+}
+.run-panel {
+  min-height: 230px;
+}
+.run-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #303034;
+}
+.run-state {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 4px 8px;
+  background: #2d2d35;
+  color: #b6b6c3;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.run-state.running,
+.run-state.queued {
+  color: #ffc1aa;
+  background: #fa8c6915;
+}
+.run-state.completed {
+  color: #a8d5ba;
+  background: #78bb9815;
+}
+.run-state.failed,
+.run-state.interrupted {
+  color: #eaa29d;
+  background: #db7b7315;
+}
+.run-state.blocked {
+  color: #e6c68c;
+  background: #b8954a15;
+}
+.event-list {
+  max-height: 440px;
+  overflow: auto;
+  padding: 8px 18px 18px;
+}
+.event-row {
+  display: flex;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid #2c2c31;
+  font-size: 12px;
+}
+.event-marker {
+  margin-top: 6px;
+  width: 5px;
+  height: 5px;
+  background: #bd8b78;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.event-row time {
+  font-size: 10px;
+  color: #777783;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+.event-row > div {
+  min-width: 0;
+}
+.event-type {
+  color: #858594;
+  font-size: 10px;
+  text-transform: capitalize;
+}
+.event-row p {
+  margin-top: 5px;
+  color: #c9c9d2;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.permission-box {
+  margin: 14px 18px;
+  padding: 14px;
+  border: 1px solid #776044;
+  background: #372e24;
+  border-radius: 7px;
+}
+.permission-box strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.permission-box pre {
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.permission-box p {
+  margin: 12px 0;
+  line-height: 1.6;
+}
+.permission-box .inline {
+  justify-content: flex-end;
+}
+.changes-list,
+.run-result {
+  padding: 18px;
+}
+.changes-list > p,
+.run-result > p {
+  line-height: 1.7;
+  margin-top: 12px;
+}
+.changed-file {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 1px solid #343439;
+  padding: 12px 0;
+}
+.changed-file code {
+  font-size: 12px;
+  flex: 1;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.final-summary {
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0 0 18px;
+}
+.command-result {
+  margin-top: 12px;
+  border: 1px solid #35353d;
+  border-radius: 6px;
+}
+.command-result summary {
+  padding: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.command-result summary code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.command-result pre {
+  padding: 12px;
+  max-height: 280px;
+  overflow: auto;
+  font-size: 11px;
+  border-top: 1px solid #35353d;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.run-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 13px;
+  font-size: 11px;
+  color: #9696a3;
+  border-top: 1px solid #35353d;
+  padding-top: 15px;
+  margin-top: 18px;
+}
+.run-facts span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.run-history > button {
+  width: 100%;
+  justify-content: space-between;
+  border: 0;
+  border-bottom: 1px solid #35353a;
+  border-radius: 0;
+  background: transparent;
+  padding: 17px 20px;
+  gap: 16px;
+  text-align: left;
+}
+.run-history strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: normal;
+}
+.run-history small {
+  display: block;
+  font-size: 11px;
+  color: #8e8e9a;
+  margin-top: 7px;
+}
 :root {
   font-family: "Segoe UI", system-ui, sans-serif;
   color: #ececee;

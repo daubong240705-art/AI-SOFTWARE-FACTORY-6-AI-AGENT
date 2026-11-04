@@ -2,6 +2,8 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import type { Run, RunEvent } from "../../shared/runs";
 import {
   defaultSettings,
   settingsSchema,
@@ -17,7 +19,7 @@ export class Store {
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("foreign_keys = ON");
     const version = this.db.pragma("user_version", { simple: true }) as number;
-    if (version > 1)
+    if (version > 2)
       throw new Error(
         "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
       );
@@ -35,6 +37,22 @@ export class Store {
           .prepare("INSERT INTO settings VALUES (1, ?)")
           .run(JSON.stringify(defaultSettings()));
       })();
+    if (version < 2) {
+      if (version === 1) {
+        const backup = join(directory, "worker.schema1.backup.sqlite");
+        if (!existsSync(backup)) this.db.prepare("VACUUM INTO ?").run(backup);
+      }
+      this.db.transaction(() => {
+        this.db.exec(`
+          CREATE TABLE runs (id TEXT PRIMARY KEY, project_id TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL, value TEXT NOT NULL);
+          CREATE UNIQUE INDEX one_active_run ON runs ((1)) WHERE state IN ('queued','running','blocked','cancelling');
+          CREATE TABLE tasks (id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNIQUE REFERENCES runs(id), role TEXT NOT NULL, state TEXT NOT NULL, instructions TEXT NOT NULL);
+          CREATE TABLE events (sequence INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL REFERENCES runs(id), type TEXT NOT NULL, text TEXT NOT NULL, at TEXT NOT NULL);
+          CREATE INDEX run_events ON events(run_id, sequence);
+          PRAGMA user_version = 2;
+        `);
+      })();
+    }
   }
   settings(): Settings {
     return settingsSchema.parse(
@@ -89,6 +107,13 @@ export class Store {
     return this.project(id);
   }
   removeProject(id: string): void {
+    const active = this.runs().find(
+      (run) =>
+        run.projectId === id &&
+        ["queued", "running", "blocked", "cancelling"].includes(run.state),
+    );
+    if (active)
+      throw new Error("Dừng tác vụ trước khi bỏ dự án khỏi danh sách.");
     this.db.prepare("DELETE FROM projects WHERE id=?").run(id);
   }
   saveDraft(id: string, draft: string): void {
@@ -135,5 +160,83 @@ export class Store {
   }
   close(): void {
     this.db.close();
+  }
+  createRun(run: Run): void {
+    this.db.transaction(() => {
+      this.db
+        .prepare("INSERT INTO runs VALUES (?,?,?,?,?)")
+        .run(
+          run.id,
+          run.projectId,
+          run.state,
+          run.createdAt,
+          JSON.stringify(run),
+        );
+      this.db
+        .prepare("INSERT INTO tasks VALUES (?,?,?,?,?)")
+        .run(randomUUID(), run.id, run.role, run.state, run.prompt);
+      this.event(run.id, "RUN_QUEUED", "Đã nhận yêu cầu.");
+    })();
+  }
+  run(id: string): Run {
+    const row = this.db.prepare("SELECT value FROM runs WHERE id=?").get(id) as
+      | { value: string }
+      | undefined;
+    if (!row) throw new Error("Không tìm thấy lượt chạy.");
+    return JSON.parse(row.value);
+  }
+  runs(): Run[] {
+    return (
+      this.db
+        .prepare("SELECT value FROM runs ORDER BY created_at DESC LIMIT 50")
+        .all() as { value: string }[]
+    ).map((row) => JSON.parse(row.value));
+  }
+  updateRun(run: Run, event?: { type: string; text: string }): void {
+    this.db.transaction(() => {
+      this.db
+        .prepare("UPDATE runs SET state=?,value=? WHERE id=?")
+        .run(run.state, JSON.stringify(run), run.id);
+      this.db
+        .prepare("UPDATE tasks SET state=? WHERE run_id=?")
+        .run(run.state, run.id);
+      if (event) this.event(run.id, event.type, event.text);
+    })();
+  }
+  event(runId: string, type: string, text: string): void {
+    const count = (
+      this.db
+        .prepare("SELECT COUNT(*) AS n FROM events WHERE run_id=?")
+        .get(runId) as { n: number }
+    ).n;
+    if (count >= 2000) return;
+    this.db
+      .prepare("INSERT INTO events (run_id,type,text,at) VALUES (?,?,?,?)")
+      .run(runId, type, text.slice(0, 12000), new Date().toISOString());
+  }
+  events(id: string): RunEvent[] {
+    return this.db
+      .prepare(
+        "SELECT sequence,run_id AS runId,type,text,at FROM (SELECT * FROM events WHERE run_id=? ORDER BY sequence DESC LIMIT 300) ORDER BY sequence",
+      )
+      .all(id) as RunEvent[];
+  }
+  interruptRuns(): void {
+    for (const run of this.runs())
+      if (["queued", "running", "blocked", "cancelling"].includes(run.state)) {
+        this.updateRun(
+          {
+            ...run,
+            state: "interrupted",
+            permissions: [],
+            endedAt: new Date().toISOString(),
+            error: "Ứng dụng kết thúc ngoài dự kiến. Không tự chạy lại task.",
+          },
+          {
+            type: "RUN_INTERRUPTED",
+            text: "Lượt chạy bị gián đoạn; cần kiểm tra workspace trước khi thử lại.",
+          },
+        );
+      }
   }
 }

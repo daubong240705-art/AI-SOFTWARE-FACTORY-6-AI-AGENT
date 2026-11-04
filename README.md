@@ -1,6 +1,6 @@
 # AI Software Factory
 
-Ứng dụng Windows độc lập mới: [Windows Worker — WW-1](apps/windows-worker/README.md). Chọn source local, lưu cấu hình 9Router/model và đội agent trong desktop Electron; thực thi OpenCode thuộc WW-2. Xem [kế hoạch Windows Worker](plan/windows-worker/README.md).
+Ứng dụng Windows độc lập mới: [Windows Worker — WW-2](apps/windows-worker/README.md). Chọn source local, cấu hình 9Router/model và chạy một agent qua OpenCode với Run/Stop, activity, kết quả lệnh và lịch sử. Đã thử thật DeepSeek Flash; Lead điều phối thuộc WW-3. Xem [kế hoạch Windows Worker](plan/windows-worker/README.md).
 
 Nền tảng self-hosted điều phối sáu role PM, BA, BE, FE, TEST, DEVOPS tại <https://asf.lazy.local>. Phase5 có GitLab/OpenProject, worker coding qua OpenCode, model và kỹ năng cố định theo run, test trong sandbox và phê duyệt spec/release theo đúng phiên bản. Dashboard gọn theo tham khảo 9Router, dùng được trên desktop/mobile.
 

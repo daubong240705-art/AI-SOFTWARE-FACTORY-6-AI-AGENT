@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { roles } from "./defaults";
+import type { Run, RunDetail, RuntimeView } from "./runs";
 
 export { roles, defaultSettings } from "./defaults";
 export type Role = (typeof roles)[number];
@@ -106,6 +107,19 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  startRun(input: {
+    projectId: string;
+    prompt: string;
+    role: Role;
+  }): Promise<Reply<Run>>;
+  stopRun(id: string): Promise<Reply<void>>;
+  runtimeView(): Promise<Reply<RuntimeView>>;
+  runDetail(id: string): Promise<Reply<RunDetail>>;
+  replyPermission(input: {
+    runId: string;
+    requestId: string;
+    allow: boolean;
+  }): Promise<Reply<void>>;
   bootstrap(): Promise<Reply<Bootstrap>>;
   chooseProject(): Promise<Reply<Project | null>>;
   openProject(id: string): Promise<Reply<Project>>;
