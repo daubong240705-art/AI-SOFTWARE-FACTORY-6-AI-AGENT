@@ -37,11 +37,19 @@ test("controller locks before async startup and persists cancellation across reo
     );
     assert.ok(run.profiles[0].instructions.includes("# BE"));
     assert.deepEqual(store.run(run.id).profiles, run.profiles);
+    assert.equal(run.skillCatalog?.version, 1);
+    assert.deepEqual(store.run(run.id).skillSelection, run.skillSelection);
+    assert.ok(
+      run.skillSelection?.skills.some(
+        (skill) => skill.id === "implement-feature",
+      ),
+    );
     assert.equal(controller.view().activeId, null);
     assert.equal(controller.detail(run.id).run.state, "cancelled");
     store.close();
     store = new Store(directory);
     assert.equal(store.run(run.id).state, "cancelled");
+    assert.deepEqual(store.run(run.id).skillCatalog, run.skillCatalog);
     assert.ok(store.events(run.id).some((e) => e.type === "RUN_CANCELLED"));
     const pending = {
       ...store.run(run.id),

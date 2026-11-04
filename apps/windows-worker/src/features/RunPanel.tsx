@@ -81,6 +81,14 @@ export function RunPanel({
                 Phạm vi: {task.allowedPaths.join(", ")} · Phụ thuộc:{" "}
                 {task.dependsOn.join(", ") || "—"}
               </p>
+              <p className="small muted">
+                Kỹ năng:{" "}
+                {task.skillSelection
+                  ? task.skillSelection.skills
+                      .map((skill) => `${skill.id} ${skill.version}`)
+                      .join(", ") || "Rule nền"
+                  : "Theo profile cũ"}
+              </p>
               <ul className="small">
                 {task.acceptance.map((ac, i) => (
                   <li key={i}>{ac}</li>
@@ -208,6 +216,14 @@ export function RunPanel({
             </section>
           )}
           <div className="run-facts">
+            {run.mode === "direct" && run.skillSelection && (
+              <span>
+                Kỹ năng:{" "}
+                {run.skillSelection.skills
+                  .map((skill) => `${skill.id} ${skill.version}`)
+                  .join(", ") || "Rule nền"}
+              </span>
+            )}
             <span>
               <Clock3 size={13} />{" "}
               {formatDuration(

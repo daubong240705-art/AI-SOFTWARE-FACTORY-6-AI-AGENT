@@ -1,6 +1,6 @@
 # Kế hoạch triển khai theo đợt
 
-Trạng thái ngày 04/11/2026: **AU-0, AU-1, AU-2A và AU-2B hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md), [AU-2B](../../docs/windows-worker/au2b-completion.md). AU-3–5 chưa thực hiện. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
+Trạng thái ngày 04/11/2026: **AU-0, AU-1, AU-2A, AU-2B và AU-3 hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md), [AU-2B](../../docs/windows-worker/au2b-completion.md), [AU-3](../../docs/windows-worker/au3-completion.md). AU-4–5 chưa thực hiện. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
 
 ## Ranh giới và thứ tự
 
@@ -15,7 +15,7 @@ flowchart LR
   A[AU-0 clone và khảo sát: xong] --> B[AU-1 profile và policy: xong]
   B --> C[AU-2A handoff: xong]
   C --> D[AU-2B evidence gate: xong]
-  D --> E[AU-3 skills theo task]
+  D --> E[AU-3 skills theo task: xong]
   E --> F[AU-4 lỗi, model và số liệu]
   W[WW-4D lifecycle] --> F
   F --> G[AU-5 nghiệm thu và bàn giao]
@@ -91,6 +91,8 @@ Nghiệm thu: không thể completed bằng ID giả, evidence attempt cũ, fail
 
 ## AU-3 — Skills nhỏ và chọn theo tác vụ
 
+**Đã hoàn thành.** Catalog nội bộ bốn skill, metadata role/task-kind/capability/path/provenance, chọn tối đa ba skill và snapshot nội dung/version/hash vào run/task. Lead đề xuất ID trong allowlist; Controller kiểm tra trước chạy work và lúc tạo runtime context. Profile nền tách khỏi skill, docs/analysis không tải skill tác vụ, fix dùng bộ bugfix. Legacy dùng nguyên profile cũ; snapshot mới thiếu/sai thì dừng. 62/62 test, typecheck/build/format/native đạt. So sánh ký tự instruction cùng fixture và giới hạn trong [báo cáo AU-3](../../docs/windows-worker/au3-completion.md). Không đổi schema6, dependency hoặc quyền runtime.
+
 Phụ thuộc AU-2B. Owner BE + Lead cho catalog/prompt, TEST cho lựa chọn và quyền.
 
 - Thêm catalog nội bộ trong `electron/team/` hoặc file data đóng gói: `id`, `version`, `description`, `roles`, `taskKinds`, `requiredCapabilities`, `path`, content hash và nguồn gốc.
@@ -144,4 +146,4 @@ Ngưỡng: tất cả ca correctness/policy bắt buộc đạt; không tăng s�
 5. Review diff/scope/secret, cập nhật báo cáo, commit từng đợt và push GitHub theo quyền đã có. Không merge/main hoặc deploy ngoài phạm vi.
 6. Đo thực tế rồi mới quyết định cần agent/reviewer/tool/dependency mới. Nếu thiếu quyền/công cụ thì báo giới hạn cụ thể, không giả lập kết quả thành đạt.
 
-Mốc code tiếp theo: **AU-3 — catalog và lựa chọn skill theo task** trên nền AU-2B/WW-4C. Không cần chờ toàn bộ WW-4D để bắt đầu mốc này.
+Mốc tiếp theo: **AU-4 — lỗi, model và số liệu có nguồn**. Kiểm tra lifecycle WW-4D liên quan trước phần ownership/recovery; không thêm process manager hoặc cơ chế retry task chồng lên runtime.

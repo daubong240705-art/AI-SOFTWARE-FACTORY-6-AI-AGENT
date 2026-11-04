@@ -8,9 +8,10 @@ const { randomUUID } = require("node:crypto");
 require("tsx/cjs");
 const { Store } = require("../electron/storage/database.ts");
 const { defaultSettings } = require("../shared/defaults.ts");
+const { RunController } = require("../electron/controller/runs.ts");
 const directory = mkdtempSync(join(tmpdir(), "asf-ww1-electron-"));
 app.setPath("userData", directory);
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   let store;
   let exitCode = 0;
   try {
@@ -25,6 +26,26 @@ app.whenReady().then(() => {
     store.close();
     store = new Store(directory);
     assert.equal(safeStorage.decryptString(store.encryptedKey()), secret);
+    const settings = defaultSettings();
+    settings.gatewayUrl = "https://unused.example/v1";
+    settings.agents.find((agent) => agent.role === "be").model = "fixture";
+    store.save(settings, safeStorage.encryptString(secret));
+    const project = store.addProject(directory);
+    const controller = new RunController(store, directory, () => undefined);
+    const run = controller.start(
+      project.id,
+      "Update README documentation",
+      "be",
+    );
+    await controller.stop(run.id);
+    assert.equal(run.skillCatalog.version, 1);
+    assert.equal(run.skillCatalog.skills.length, 4);
+    assert.deepEqual(run.skillSelection.skills, []);
+    store.close();
+    store = new Store(directory);
+    assert.deepEqual(store.run(run.id).skillCatalog, run.skillCatalog);
+    assert.deepEqual(store.run(run.id).skillSelection, run.skillSelection);
+    assert.equal(store.run(run.id).state, "cancelled");
     for (const filename of readdirSync(directory).filter((name) =>
       name.startsWith("worker.sqlite"),
     )) {
@@ -36,7 +57,7 @@ app.whenReady().then(() => {
     store.close();
     store = undefined;
     console.log(
-      "PASS: Electron SQLite and Windows secure storage persist ciphertext without plaintext key.",
+      "PASS: Electron SQLite persists skill snapshots after cancel/reopen; Windows secure storage keeps ciphertext without plaintext key.",
     );
   } catch (error) {
     console.error(

@@ -1,5 +1,6 @@
 import type { Role, Settings } from "./contracts";
 import type { TeamTask, TeamReview, ProfileSnapshot } from "./team";
+import type { SkillCatalogSnapshot, SkillSelection } from "./skills";
 
 export type RunState =
   | "needs_input"
@@ -40,6 +41,8 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  skillCatalog?: SkillCatalogSnapshot;
+  skillSelection?: SkillSelection;
   partialText?: string;
   retryOf?: string;
   attemptRoot?: string;

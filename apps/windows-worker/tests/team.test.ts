@@ -10,6 +10,8 @@ import {
 import { editScopes } from "../electron/runtime/scope";
 import { ExecutionStopped } from "../electron/runtime/stopped";
 import { taskReport } from "../electron/team/handoff";
+import { loadProfiles } from "../electron/team/profiles";
+import { loadSkillCatalog } from "../electron/team/skills";
 import { commandArtifactId, sourceVersion } from "../electron/team/evidence";
 import { snapshot } from "../electron/workspace/snapshot";
 import type { EvidenceRef } from "../shared/evidence";
@@ -51,7 +53,8 @@ function fixture(workspace: string): Run {
     model: "model-lead",
     mode: "team",
     tasks: [],
-    profiles: [],
+    profiles: loadProfiles(),
+    skillCatalog: loadSkillCatalog(),
     currentTaskId: null,
     fixRound: 0,
     review: null,
@@ -185,6 +188,20 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
       async (task, prompt) => {
         task.sessionId = `session-${task.id}`;
         calls.push(task.id);
+        assert.ok(task.skillSelection);
+        assert.ok(task.skillSelection.skills.length <= 3);
+        if (task.kind === "plan")
+          assert.deepEqual(task.skillSelection.skills, []);
+        if (task.kind === "review")
+          assert.deepEqual(
+            task.skillSelection.skills.map((s) => s.id),
+            ["testing"],
+          );
+        if (task.kind === "fix")
+          assert.deepEqual(
+            task.skillSelection.skills.map((s) => s.id),
+            ["fix-bug", "testing"],
+          );
         assert.equal(task.model, `model-${task.role}`);
         if (task.kind === "plan") return JSON.stringify(plan);
         if (task.kind === "review") {
@@ -416,6 +433,7 @@ test("schema2 migration backs up history and persists independent task states", 
     delete legacy.mode;
     delete legacy.tasks;
     delete legacy.profiles;
+    delete legacy.skillCatalog;
     db.prepare("INSERT INTO runs VALUES (?,?,?,?,?)").run(
       run.id,
       run.projectId,
@@ -434,6 +452,7 @@ test("schema2 migration backs up history and persists independent task states", 
     store = new Store(directory);
     assert.ok(existsSync(join(directory, "worker.schema2.backup.sqlite")));
     assert.equal(store.run(run.id).mode, "direct");
+    assert.equal(store.run(run.id).skillCatalog, undefined);
     run.tasks = [
       newTask(run, { ...planned("t1", "be"), kind: "work" }),
       newTask(run, { ...planned("t2", "test", ["t1"]), kind: "work" }),

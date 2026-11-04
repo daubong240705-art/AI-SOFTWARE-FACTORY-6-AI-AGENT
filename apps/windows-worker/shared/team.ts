@@ -2,7 +2,15 @@ import { z } from "zod";
 import type { Role, Settings } from "./contracts";
 import type { ChangedFile } from "./runs";
 import { evidenceRefSchema, type TaskEvidence } from "./evidence";
+import {
+  skillIdSchema,
+  workTypeSchema,
+  type SkillId,
+  type WorkType,
+  type SkillSelection,
+} from "./skills";
 export type ProfileSnapshot = {
+  skillMode?: "task-v1";
   role: Role;
   version: string;
   hash: string;
@@ -41,6 +49,12 @@ export const plannedTaskSchema = z
     allowedPaths: z.array(safePath).min(1).max(12),
     acceptance: z.array(z.string().min(1).max(400)).min(1).max(8),
     dependsOn: z.array(z.string()).max(12),
+    workType: workTypeSchema.optional(),
+    skillIds: z
+      .array(skillIdSchema)
+      .max(3)
+      .refine((ids) => new Set(ids).size === ids.length, "Skill ID bị trùng.")
+      .optional(),
   })
   .strict();
 export const planSchema = z
@@ -113,6 +127,9 @@ export type TaskState =
   | "cancelled"
   | "skipped";
 export type TeamTask = {
+  workType?: WorkType;
+  skillIds?: SkillId[];
+  skillSelection?: SkillSelection;
   originalTaskId?: string;
   evidence?: TaskEvidence;
   id: string;

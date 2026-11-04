@@ -5,6 +5,12 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadProfiles } from "../electron/team/profiles";
+import {
+  loadSkillCatalog,
+  selectSkills,
+  inferWorkType,
+  selectTaskSkills,
+} from "../electron/team/skills";
 import { runtimeContext, sourcePolicyError } from "../electron/team/policy";
 import { runtimePermissions } from "../electron/runtime/permissions";
 import { changes, snapshot } from "../electron/workspace/snapshot";
@@ -14,11 +20,18 @@ import type { Role } from "../shared/contracts";
 import type { TeamTask } from "../shared/team";
 
 function runFor(role: Role, workspace: string): Run {
+  const skillCatalog = loadSkillCatalog();
   return {
     role,
     workspace,
     prompt: "Review the current change",
     profiles: loadProfiles([role]),
+    skillCatalog,
+    skillSelection: selectSkills(
+      skillCatalog,
+      role,
+      inferWorkType(role, "Review the current change"),
+    ),
     settings: defaultSettings(),
   } as Run;
 }
@@ -33,7 +46,7 @@ test("direct role profiles and runtime permissions stay consistent with and with
         : undefined;
       const context = runtimeContext(run);
       const permission = runtimePermissions(run.workspace, context);
-      assert.equal(context.instructions, run.profiles[0].instructions);
+      assert.ok(context.instructions.startsWith(run.profiles[0].instructions));
       assert.equal(context.readOnly, expectedReadOnly, role);
       assert.deepEqual(context.allowedPaths, ["."]);
       assert.ok(context.prompt.endsWith(run.prompt));
@@ -57,14 +70,21 @@ test("team and direct use the same policy; missing profile fails closed and task
   for (const role of roles) {
     const task = {
       role,
+      kind: "work",
+      title: "Implement this task",
       allowedPaths: ["src"],
       instructions: "Implement this task",
     } as TeamTask;
+    task.skillSelection = selectTaskSkills(run, task);
     const team = runtimeContext(run, task, "Controller-specified schema");
-    const direct = runtimeContext({ ...run, role });
+    const direct = runtimeContext(runFor(role, tmpdir()));
     assert.equal(team.readOnly, direct.readOnly);
     assert.equal(team.allowShell, direct.allowShell);
-    assert.equal(team.instructions, direct.instructions);
+    assert.ok(
+      team.instructions.startsWith(
+        run.profiles.find((p) => p.role === role)!.instructions,
+      ),
+    );
     assert.deepEqual(team.allowedPaths, ["src"]);
     assert.equal(team.prompt, "Controller-specified schema");
     team.allowedPaths.push("other");
@@ -92,11 +112,15 @@ test("runtime edit scopes preserve secret denies after allowed paths, including 
       assert.fail("BE must have scoped edits");
     assert.equal(direct.edit["*"], "deny");
     assert.equal(direct.edit["apps/worker/**"], "allow");
-    const context = runtimeContext(
-      run,
-      { role: "be", allowedPaths: ["src"] } as TeamTask,
-      "Work",
-    );
+    const task = {
+      role: "be",
+      kind: "work",
+      title: "Work",
+      instructions: "Work",
+      allowedPaths: ["src"],
+    } as TeamTask;
+    task.skillSelection = selectTaskSkills(run, task);
+    const context = runtimeContext(run, task, "Work");
     const scoped = runtimePermissions(workspace, context);
     if (typeof scoped.edit === "string")
       assert.fail("BE must have scoped edits");
@@ -162,13 +186,8 @@ test("profile snapshots record content versions and hashes; selected direct role
       profile.hash,
       createHash("sha256").update(profile.instructions).digest("hex"),
     );
-    for (const skill of profile.skills) {
-      assert.equal(
-        skill.version,
-        ["testing", "fix-bug"].includes(skill.name) ? "1.1.0" : "1.0.0",
-      );
-      assert.match(skill.hash, /^[a-f0-9]{64}$/);
-    }
+    assert.equal(profile.skillMode, "task-v1");
+    assert.deepEqual(profile.skills, []);
     assert.deepEqual(loadProfiles([profile.role]), [profile]);
   }
 });

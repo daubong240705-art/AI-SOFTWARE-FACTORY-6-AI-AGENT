@@ -5,6 +5,7 @@ import {
   upsertCommand,
 } from "../team/evidence";
 import { loadProfiles } from "../team/profiles";
+import { inferWorkType, loadSkillCatalog, selectSkills } from "../team/skills";
 import { rolePolicy, runtimeContext, sourcePolicyError } from "../team/policy";
 import { ExecutionStopped } from "../runtime/stopped";
 import type { TeamTask } from "../../shared/team";
@@ -152,6 +153,7 @@ export class RunController {
       mode,
       tasks: [],
       profiles: loadProfiles(mode === "team" ? undefined : [role]),
+      skillCatalog: loadSkillCatalog(),
       currentTaskId: null,
       fixRound: 0,
       review: null,
@@ -180,6 +182,12 @@ export class RunController {
       inputTokens: 0,
       outputTokens: 0,
     };
+    if (mode === "direct")
+      run.skillSelection = selectSkills(
+        run.skillCatalog!,
+        role,
+        inferWorkType(role, prompt),
+      );
     this.store.createRun(run);
     const active: Active = { run, secrets: key ? [key] : [], seen: new Set() };
     this.active = active;

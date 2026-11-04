@@ -2,13 +2,9 @@ import type { Role } from "../../shared/contracts";
 import type { Run, ChangedFile } from "../../shared/runs";
 import { inScope, type TeamTask } from "../../shared/team";
 import type { RuntimeContext } from "../runtime/permissions";
-
-export function rolePolicy(role: Role) {
-  return {
-    readOnly: ["lead", "pm", "ba", "test"].includes(role),
-    allowShell: !["lead", "pm", "ba"].includes(role),
-  };
-}
+import { rolePolicy } from "./role-policy";
+import { selectedInstructions } from "./skills";
+export { rolePolicy } from "./role-policy";
 
 export function runtimeContext(
   run: Run,
@@ -21,7 +17,7 @@ export function runtimeContext(
     throw new Error(`Thiếu profile snapshot cho ${role.toUpperCase()}.`);
   return {
     ...rolePolicy(role),
-    instructions: profile.instructions,
+    instructions: selectedInstructions(run, task, profile),
     allowedPaths: [...(task?.allowedPaths ?? ["."])],
     prompt: [
       run.context?.text,

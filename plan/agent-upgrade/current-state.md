@@ -8,6 +8,8 @@ Cập nhật AU-2A cùng ngày: G4 đã có handoff bounded với trạng thái 
 
 Cập nhật AU-2B cùng ngày: completion của team dùng review v2 và evidence refs có kiểu; thiếu/sai evidence chuyển AC thành unverified và chặn completed. Command artifact gắn run/attempt/session/call, source có quan sát trước/sau; file snapshot lưu theo task/scope và mở được từ AC. Giữ schema6, evidence legacy không được gán verified. Phần integrity/reference của G3/G6 đã xử lý; đánh giá ngữ nghĩa bằng chứng vẫn thuộc Lead, lifecycle/retention và nghiệm thu model thật còn trong các mốc sau. Xem [báo cáo AU-2B](../../docs/windows-worker/au2b-completion.md).
 
+Cập nhật AU-3 cùng ngày: phần catalog/chọn skill của G7 đã xử lý. Profile mới chỉ chứa rule nền; bốn skill được catalog hóa và chọn theo workType/role/capability, tối đa ba skill/task. Run chụp catalog, task/direct chụp lựa chọn cùng nội dung/version/hash; không đọc lại file skill khi thực thi các task sau. Đề xuất ID sai bị từ chối trước work; runtime quyền/model/scope giữ nguyên. Legacy giữ nguyên nội dung đã lưu; schema6 không đổi. 62/62 test và native storage đạt; chi tiết trong [báo cáo AU-3](../../docs/windows-worker/au3-completion.md).
+
 ## Hai lớp sản phẩm đang cùng repository
 
 **Factory Lite legacy:** Python FastAPI, LangGraph, PostgreSQL/Redis và Linux worker. [graph.py](../../orchestrator/graph.py) chạy PM → BA → approval → execution boundary; [state.py](../../orchestrator/state.py) giữ reference và trạng thái. [coding.py](../../workers/coding.py) có Docker task cho Linux, trusted test mount và model proxy; TEST/DEVOPS không đồng nghĩa có đầy đủ agent model như desktop. Không chuyển mô hình Docker/Linux này vào Windows, không sửa luồng tích hợp legacy trong chương trình nâng cấp này.
