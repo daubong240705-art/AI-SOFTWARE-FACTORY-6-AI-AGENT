@@ -1,4 +1,10 @@
 export const channels = {
+  commandOutput: "worker:command-output",
+  evidence: "worker:evidence",
+  fileDiff: "worker:file-diff",
+  previewRestore: "worker:preview-restore",
+  restoreFile: "worker:restore-file",
+  revealFile: "worker:reveal-file",
   enqueue: "worker:enqueue",
   editFollowUp: "worker:edit-follow-up",
   removeFollowUp: "worker:remove-follow-up",

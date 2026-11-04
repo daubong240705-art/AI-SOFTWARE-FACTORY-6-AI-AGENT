@@ -1,9 +1,18 @@
-import { readdir, readFile, lstat } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { readdir, readFile, lstat, realpath } from "node:fs/promises";
+import { join, relative, isAbsolute } from "node:path";
 import { createHash } from "node:crypto";
 import type { ChangedFile } from "../../shared/runs";
+import type { FileVersion } from "../../shared/evidence";
+import { redact } from "../runtime/security";
 
-export type Snapshot = { files: Record<string, string>; complete: boolean };
+export type Snapshot = {
+  files: Record<string, string>;
+  complete: boolean;
+  entries?: Record<string, FileVersion>;
+  blobs?: Map<string, Buffer>;
+  enumerationComplete?: boolean;
+  contentComplete?: boolean;
+};
 const excluded = new Set([
   ".git",
   "node_modules",
@@ -18,8 +27,25 @@ const excluded = new Set([
 ]);
 const sensitive =
   /(^\.env($|\.)|\.(pem|key|pfx|p12)$|^(auth|credentials)\.json$)/i;
-export async function snapshot(root: string): Promise<Snapshot> {
-  const result: Snapshot = { files: {}, complete: true };
+export const includeSourcePath = (path: string) =>
+  path.split("/").every((part) => !excluded.has(part) && !sensitive.test(part));
+export async function snapshot(
+  root: string,
+  capture = false,
+  secrets: string[] = [],
+): Promise<Snapshot> {
+  const result: Snapshot = {
+    files: Object.create(null),
+    complete: true,
+    ...(capture
+      ? {
+          entries: Object.create(null),
+          blobs: new Map<string, Buffer>(),
+          enumerationComplete: true,
+          contentComplete: true,
+        }
+      : {}),
+  };
   let bytes = 0;
   let entries = 0;
   async function walk(directory: string): Promise<void> {
@@ -28,17 +54,27 @@ export async function snapshot(root: string): Promise<Snapshot> {
       items = await readdir(directory, { withFileTypes: true });
     } catch {
       result.complete = false;
+      result.enumerationComplete = false;
       return;
     }
     for (const item of items) {
       if (excluded.has(item.name) || sensitive.test(item.name)) continue;
       if (++entries > 8000) {
         result.complete = false;
+        result.enumerationComplete = false;
         return;
       }
       const path = join(directory, item.name);
+      const name = relative(root, path).replaceAll("\\", "/");
       if (item.isSymbolicLink()) {
         result.complete = false;
+        if (result.entries)
+          result.entries[name] = {
+            hash: null,
+            size: 0,
+            mode: 0,
+            reason: "Liên kết tượng trưng: không đọc hoặc khôi phục.",
+          };
         continue;
       }
       if (item.isDirectory()) {
@@ -48,19 +84,57 @@ export async function snapshot(root: string): Promise<Snapshot> {
       if (!item.isFile()) continue;
       try {
         const info = await lstat(path);
+        if (!info.isFile() || info.isSymbolicLink())
+          throw new Error("File type changed");
         if (info.size > 1024 * 1024 || bytes + info.size > 48 * 1024 * 1024) {
           result.complete = false;
+          if (result.entries)
+            result.entries[name] = {
+              hash: null,
+              size: info.size,
+              mode: info.mode,
+              stamp: `${info.size}:${info.mtimeMs}`,
+              reason: "Vượt giới hạn snapshot (1 MB/file, 48 MB/lượt).",
+            };
           continue;
         }
         const data = await readFile(path);
         bytes += data.length;
-        result.files[relative(root, path).replaceAll("\\", "/")] = createHash(
-          "sha256",
-        )
-          .update(data)
-          .digest("hex");
+        const hash = createHash("sha256").update(data).digest("hex");
+        result.files[name] = hash;
+        if (result.entries) {
+          const after = await lstat(path);
+          const real = relative(root, await realpath(path));
+          const unstable =
+            real.startsWith("..") ||
+            isAbsolute(real) ||
+            after.isSymbolicLink() ||
+            after.size !== info.size ||
+            after.mtimeMs !== info.mtimeMs ||
+            after.ino !== info.ino;
+          const secret =
+            redact(data.toString("utf8"), secrets, Infinity) !==
+            data.toString("utf8");
+          const reason = unstable
+            ? "File thay đổi trong lúc chụp."
+            : secret
+              ? "Nội dung có mẫu credential; chỉ lưu hash."
+              : undefined;
+          result.entries[name] = {
+            hash,
+            size: data.length,
+            mode: info.mode,
+            reason,
+          };
+          if (!reason) result.blobs!.set(hash, data);
+          else {
+            result.contentComplete = false;
+            if (unstable) result.complete = false;
+          }
+        }
       } catch {
         result.complete = false;
+        result.enumerationComplete = false;
       }
     }
   }

@@ -25,6 +25,7 @@ import {
   projectStatus,
 } from "./workspace/projects";
 import { fetchModels } from "./gateway/client";
+import { WorkspaceFiles } from "./workspace/files";
 
 app.setName("ASF Windows Worker");
 let store: Store;
@@ -56,6 +57,11 @@ function key(): string | undefined {
   }
 }
 function registerIPC(): void {
+  const files = new WorkspaceFiles(
+    store,
+    () => controller.assertWorkspaceIdle(),
+    (fn) => controller.workspaceAction(fn),
+  );
   function handle<T>(
     channel: string,
     action: (input: unknown) => Promise<T> | T,
@@ -87,6 +93,39 @@ function registerIPC(): void {
   const empty = (input: unknown): void => {
     z.undefined().parse(input);
   };
+  const fileInput = z
+    .object({ runId: idSchema, path: z.string().min(1).max(4096) })
+    .strict();
+  handle(channels.evidence, (input) =>
+    store.evidence.view(idSchema.parse(input)),
+  );
+  handle(channels.commandOutput, (input) => {
+    const q = z
+      .object({ runId: idSchema, callId: z.string().min(1).max(200) })
+      .strict()
+      .parse(input);
+    return store.evidence.command(q.runId, q.callId);
+  });
+  handle(channels.fileDiff, (input) => {
+    const q = fileInput
+      .extend({
+        comparison: z.enum(["run", "staged", "unstaged"]),
+        source: z.enum(["before", "after"]),
+      })
+      .strict()
+      .parse(input);
+    return store.evidence.diff(q.runId, q.path, q.comparison, q.source);
+  });
+  handle(channels.previewRestore, (input) => {
+    const q = fileInput.parse(input);
+    return files.preview(q.runId, q.path);
+  });
+  handle(channels.restoreFile, (input) => files.restore(idSchema.parse(input)));
+  handle(channels.revealFile, async (input) => {
+    const q = fileInput.parse(input);
+    const path = await files.resolve(q.runId, q.path);
+    shell.showItemInFolder(path);
+  });
   handle(channels.startRun, (input) => {
     const request = z
       .object({
@@ -379,7 +418,7 @@ app.on("window-all-closed", () => {
 });
 app.on("will-quit", () => store?.close());
 app.on("before-quit", (event) => {
-  if (quitting || !controller?.view().activeId) return;
+  if (quitting || !controller?.isBusy()) return;
   event.preventDefault();
   void controller
     .shutdown()

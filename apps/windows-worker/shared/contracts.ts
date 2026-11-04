@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { roles } from "./defaults";
 import type { Run, RunDetail, RuntimeView } from "./runs";
+import type { EvidenceView, FileDiff, RestorePreview } from "./evidence";
 import type {
   ConversationSummary,
   ConversationDetail,
@@ -113,6 +114,23 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  commandOutput(input: {
+    runId: string;
+    callId: string;
+  }): Promise<Reply<string>>;
+  evidence(id: string): Promise<Reply<EvidenceView>>;
+  fileDiff(input: {
+    runId: string;
+    path: string;
+    comparison: "run" | "staged" | "unstaged";
+    source: "before" | "after";
+  }): Promise<Reply<FileDiff>>;
+  previewRestore(input: {
+    runId: string;
+    path: string;
+  }): Promise<Reply<RestorePreview>>;
+  restoreFile(token: string): Promise<Reply<void>>;
+  revealFile(input: { runId: string; path: string }): Promise<Reply<void>>;
   enqueue(input: {
     projectId: string;
     conversationId: string;

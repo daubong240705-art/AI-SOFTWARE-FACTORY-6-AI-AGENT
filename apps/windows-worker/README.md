@@ -1,6 +1,6 @@
 # ASF Windows Worker
 
-WW-4B: chat theo project, phản hồi trực tiếp, hàng chờ có thể sửa/xóa và thử lại có liên kết lịch sử. Lead phân công sáu vai trò, model riêng theo role và vòng sửa lỗi giới hạn qua OpenCode 1.19.5 + 9Router. Hỗ trợ chạy một agent, quyền shell từng lần và Dừng.
+WW-4C: chat theo project, streaming/hàng chờ, diff lịch sử, staged/source và khôi phục từng file có kiểm tra xung đột. Lead phân công sáu vai trò, model riêng theo role và vòng sửa lỗi giới hạn qua OpenCode 1.19.5 + 9Router. Hỗ trợ chạy một agent, quyền shell từng lần và Dừng.
 
 ## Chạy ứng dụng
 
@@ -31,7 +31,7 @@ better-sqlite3 13 cung cấp binary Node-API dùng chung Node/Electron; không c
 5. **Runtime & công cụ**: dùng OpenCode **1.19.5**. App tìm native executable trong PATH hoặc bản cài npm global; có thể chọn `opencode.exe` thủ công. Bản khác bị từ chối để tránh sai API. **Đọc phiên bản** không cài thêm công cụ.
 6. Chọn **Cuộc trò chuyện mới** hoặc mở phiên bên trái. Nhập yêu cầu, chọn **Lead tự phân công** / **Một agent**, role và model trong composer. Enter gửi, Shift+Enter xuống dòng; bộ gõ IME không bị gửi ngoài ý muốn. Settings/profile/skill được snapshot vào run; chỉ một run hoạt động toàn app.
 7. Shell cần **Cho phép** hoặc **Từ chối** trên thẻ trong chat. Nút hình vuông dừng runtime và cây tiến trình; nút gửi hoặc Enter thêm yêu cầu vào hàng chờ khi đang chạy. Có **Sửa/Xóa** trước khi thực thi. Sau thành công chạy tiếp tuần tự; lỗi/hủy/mở lại app giữ hàng chờ để chọn **Chạy tiếp**. **Thử lại · lượt mới** dùng yêu cầu cũ và cấu hình hiện tại, giữ nguyên lỗi và kết quả lần trước. Chat hiển thị dần câu trả lời; câu trả lời ngắn có thể chỉ hiện khi kết thúc do bộ lọc giữ đuôi dữ liệu.
-8. Bấm **Hoạt động**, **Thay đổi** dưới phản hồi hoặc nút mở panel ở góc phải. Panel chứa task/role/model/session, file thay đổi, lệnh và AC; đóng panel để tập trung chat. Diff từng dòng và local preview còn thuộc WW-4C/4D.
+8. Bấm **Hoạt động**, **Thay đổi** dưới phản hồi hoặc nút mở panel ở góc phải. Chọn file để xem diff theo dòng; **Trong lượt/Có sẵn** tách phần sửa sẵn, chọn staged/source để xem Git snapshot. Có sao chép patch và mở vị trí file. **Xem trước khôi phục → Khôi phục file này** trả về nội dung trước run, giữ Git index; thay đổi mới gây xung đột và được giữ nguyên. Panel Kết quả có lệnh/CWD/thời gian/exit code/output; đóng panel để tập trung chat.
 9. Bấm tên phiên để đổi tên; tìm kiếm bên trái hỗ trợ tiếng Việt có/không dấu và không phân biệt hoa thường. Bản nháp lưu riêng mỗi phiên. Hội thoại dài có **Xem tin nhắn trước**; lịch sử run cũ vẫn mở được từ **Lịch sử**.
 
 Đóng cửa sổ bản cũ đang mở rồi chạy `npm start` để nạp main/preload mới.
@@ -41,7 +41,7 @@ Bỏ project khỏi danh sách không xóa source hoặc hội thoại. Mở l�
 ## Dữ liệu và credential
 
 - SQLite đặt trong `app.getPath('userData')`, trên Windows thường là `%APPDATA%\ASF Windows Worker\worker.sqlite`.
-- Database schema v5 thêm `follow_ups`, giữ conversation/message/run/task/evidence. Trước nâng schema4 có `worker.schema4.backup.sqlite`; backup các phiên bản trước vẫn giữ. Run gián đoạn ghi interrupted, hàng chờ giữ để người dùng chủ động chạy tiếp. Không tự replay khi mở app. Snapshot cấu hình khác hiện tại thì hàng chờ báo cần xóa/gửi lại, không âm thầm chọn model khác.
+- Database schema v6 thêm snapshot/blob, bản dự phòng khôi phục và artifact lệnh; giữ conversation/message/run/task/hàng chờ. Trước nâng schema5 có `worker.schema5.backup.sqlite`; backup các phiên bản trước vẫn giữ. Run gián đoạn ghi interrupted, hàng chờ giữ để người dùng chủ động chạy tiếp. Không tự replay khi mở app. Snapshot cấu hình khác hiện tại thì hàng chờ báo cần xóa/gửi lại, không âm thầm chọn model khác.
 - Key mới chỉ tồn tại tạm trong ô password để gửi qua IPC, không đưa vào React state, localStorage hoặc trả lại từ main process. Sau lưu/navigate, ô nhập bị xóa. SQLite chỉ giữ ciphertext do Electron safeStorage tạo; không có fallback plaintext.
 - Đổi origin gateway yêu cầu nhập key mới hoặc xóa key cũ. Catalog cũ bị xóa khi đổi gateway/CA/key. Không tự theo redirect mang Authorization.
 - TLS luôn xác minh. CA PEM được thêm vào trust mặc định cho catalog và model proxy; không sửa trust store Windows.
@@ -50,7 +50,7 @@ Bỏ project khỏi danh sách không xóa source hoặc hội thoại. Mở l�
 - Source dùng làm context có thể đi tới gateway/provider. Chỉ dùng repo tin cậy: shell chạy bằng tài khoản Windows, không xem chọn folder là sandbox hệ điều hành. Không cấp admin/SSH/deploy hoặc tự commit/push.
 - Mỗi task dùng một OpenCode session/server tuần tự, bind loopback, Basic auth random, config/data/cache riêng. Tắt project config, formatter tự động, plugin/MCP/skills bên ngoài và provider khác; không sửa cấu hình global. Controller là nơi điều phối duy nhất, tắt native delegation.
 - API key 9Router giữ ở parent proxy; child chỉ nhận token execution tạm, token vô hiệu khi run kết thúc. Proxy pin model, hạn mức request vật lý, giới hạn output mỗi request và không theo redirect. Không cấp provider key qua argv hoặc environment child.
-- Snapshot giới hạn 8.000 entry, 48 MB tổng, 1 MB/file, bỏ dependency, secret file và symlink; UI báo nếu không đầy đủ. Những file thay đổi đồng thời bởi người dùng cũng có thể xuất hiện, không gán tuyệt đối mọi thay đổi cho agent.
+- Snapshot giới hạn 8.000 entry, 48 MB mỗi lần chụp, 1 MB/file; Git content tối đa 100 file dirty/16 MB. Bỏ dependency, secret file và symlink; source có mẫu credential chỉ giữ hash. UI báo giới hạn, không khôi phục file thiếu snapshot. Những thay đổi đồng thời bởi người dùng cũng có thể xuất hiện, không gán mọi thay đổi cho agent. Khôi phục dùng hard link tạo mới trên NTFS; không thay thế file mới đang tồn tại. File tạm dự phòng còn lại khi lỗi được giữ để xử lý; retention/recovery nâng cao thuộc WW-4D.
 - App không lưu reasoning vào bảng events/báo cáo UI. OpenCode vẫn quản lý session/metadata riêng trong thư mục runtime local. Giới hạn request không cam kết chi phí tuyệt đối nếu gateway tự retry/route.
 
 ## Kiểm tra phát triển
@@ -78,6 +78,6 @@ Thử thật 04/11/2026 qua chính Controller/Electron với **`ds/deepseek-v4-f
 
 ## Phạm vi tiếp theo
 
-[WW-4B đã hoàn thành](../../docs/windows-worker/ww4b-completion.md): streaming, hàng chờ bền vững, retry liên kết và context tối đa bốn lượt với tham chiếu file/command/AC. Mỗi lần gửi tạo run/baseline/budget mới. Hủy/gián đoạn giữ nội dung đã nhận với trạng thái rõ. Chỉ assistant text được hiển thị; reasoning và JSON nội bộ của Lead không đưa vào chat.
+[WW-4C đã hoàn thành](../../docs/windows-worker/ww4c-completion.md): diff/history, Git snapshot staged/source, khôi phục từng file và bằng chứng lệnh. Giữ streaming, hàng chờ, retry và context có tham chiếu file/command/AC. Lượt cũ không có snapshot chỉ hiện danh sách file, không lấy source hiện tại thay lịch sử.
 
-WW-4C tiếp tục diff/restore; WW-4D preview/phục hồi; WW-5 bộ cài. [Kế hoạch đầy đủ](../../plan/windows-worker/README.md). App độc lập với ASF web; không cần build image hoặc deploy lại các VM.
+WW-4D tiếp tục preview/phục hồi/retention; WW-5 bộ cài. [Kế hoạch đầy đủ](../../plan/windows-worker/README.md). App độc lập với ASF web; không cần build image hoặc deploy lại các VM.

@@ -3,6 +3,12 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  commandOutput: (input) => ipcRenderer.invoke(channels.commandOutput, input),
+  evidence: (id) => ipcRenderer.invoke(channels.evidence, id),
+  fileDiff: (input) => ipcRenderer.invoke(channels.fileDiff, input),
+  previewRestore: (input) => ipcRenderer.invoke(channels.previewRestore, input),
+  restoreFile: (token) => ipcRenderer.invoke(channels.restoreFile, token),
+  revealFile: (input) => ipcRenderer.invoke(channels.revealFile, input),
   enqueue: (input) => ipcRenderer.invoke(channels.enqueue, input),
   editFollowUp: (input) => ipcRenderer.invoke(channels.editFollowUp, input),
   removeFollowUp: (id) => ipcRenderer.invoke(channels.removeFollowUp, id),

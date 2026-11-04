@@ -70,10 +70,10 @@ WW-4A hoàn thành ngày 04/11/2026: schema4, chuyển toàn bộ run cũ, draft
 
 - [x] WW-4A: hội thoại nhiều lượt, bản nháp, lịch sử cũ và shell chat/composer/panel dùng được.
 - [x] WW-4B: streaming, hàng chờ, retry/attempt và context có file/command refs. [Bàn giao và evidence](../../docs/windows-worker/ww4b-completion.md).
-- [ ] WW-4C: baseline, diff snapshot và restore từng file.
+- [x] WW-4C: baseline, diff snapshot và restore từng file. [Bàn giao và giới hạn](../../docs/windows-worker/ww4c-completion.md).
 - [ ] WW-4D: local preview, lifecycle/recovery và retention/export.
 
-- [ ] Diff/history/report dùng được trên project đang có thay đổi.
+- [x] Diff/history/report dùng được trên project đang có thay đổi.
 - [ ] Kết quả lệnh và local preview có quản lý vòng đời.
 - [ ] Retry/crash không làm mất evidence hoặc tự replay thao tác nguy hiểm.
 - [ ] UI gọn và đầy đủ trạng thái; không còn nút cốt lõi chỉ có hình thức.

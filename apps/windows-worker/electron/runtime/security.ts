@@ -3,7 +3,11 @@ import { delimiter, join, isAbsolute } from "node:path";
 import { execFile } from "node:child_process";
 
 export const SUPPORTED_VERSION = "1.19.5";
-export function redact(text: string, secrets: string[] = []): string {
+export function redact(
+  text: string,
+  secrets: string[] = [],
+  limit = 16000,
+): string {
   let result = text;
   for (const secret of secrets.filter(Boolean))
     result = result.split(secret).join("[REDACTED]");
@@ -13,7 +17,7 @@ export function redact(text: string, secrets: string[] = []): string {
       /((?:api[_-]?key|password|secret|token)\s*[=:]\s*["']?)[^\s"',}]+/gi,
       "$1[REDACTED]",
     )
-    .slice(0, 16000);
+    .slice(0, limit);
 }
 export function resolveRuntime(configured: string): string {
   const candidates = configured

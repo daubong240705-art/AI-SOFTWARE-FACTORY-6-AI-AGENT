@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { Conversations } from "./conversations";
 import { FollowUps } from "./follow-ups";
+import { EvidenceStore } from "./evidence";
 import { normalizeRun, type Run, type RunEvent } from "../../shared/runs";
 import {
   defaultSettings,
@@ -17,6 +18,7 @@ export class Store {
   private db: Database.Database;
   readonly conversations: Conversations;
   readonly queue: FollowUps;
+  readonly evidence: EvidenceStore;
   constructor(directory: string) {
     mkdirSync(directory, { recursive: true });
     this.db = new Database(join(directory, "worker.sqlite"));
@@ -26,7 +28,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 5)
+      if (version > 6)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -78,6 +80,7 @@ export class Store {
       }
       this.conversations = new Conversations(this.db, directory, version);
       this.queue = new FollowUps(this.db, directory, version);
+      this.evidence = new EvidenceStore(this.db, directory, version);
     } catch (error) {
       this.db.close();
       throw error;

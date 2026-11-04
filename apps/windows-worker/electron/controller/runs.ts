@@ -19,6 +19,7 @@ import { OpenCodeRuntime } from "../runtime/opencode";
 import { ModelProxy } from "../gateway/model-proxy";
 import { canonicalDirectory } from "../workspace/projects";
 import { changes, snapshot, type Snapshot } from "../workspace/snapshot";
+import { captureGit } from "../workspace/git-evidence";
 import { resolveRuntime, runtimeVersion, redact } from "../runtime/security";
 
 type Active = {
@@ -36,6 +37,28 @@ type Active = {
 };
 export class RunController {
   private active?: Active;
+  private workspaceBusy = false;
+  private workspaceTask?: Promise<unknown>;
+  isBusy(): boolean {
+    return !!this.active || this.workspaceBusy;
+  }
+  assertWorkspaceIdle(): void {
+    if (this.active || this.workspaceBusy)
+      throw new Error("Dừng lượt đang chạy trước khi khôi phục file.");
+  }
+  async workspaceAction<T>(fn: () => Promise<T>): Promise<T> {
+    this.assertWorkspaceIdle();
+    if (this.shuttingDown) throw new Error("Ứng dụng đang đóng.");
+    this.workspaceBusy = true;
+    try {
+      const task = fn();
+      this.workspaceTask = task;
+      return await task;
+    } finally {
+      this.workspaceBusy = false;
+      this.workspaceTask = undefined;
+    }
+  }
   private shuttingDown = false;
   constructor(
     private store: Store,
@@ -90,6 +113,10 @@ export class RunController {
     settingsSnapshot?: Settings,
   ): Run {
     if (this.shuttingDown) throw new Error("Ứng dụng đang đóng.");
+    if (this.workspaceBusy)
+      throw new Error(
+        "Đang khôi phục file. Chờ thao tác kết thúc trước khi chạy.",
+      );
     if (mode === "team") role = "lead";
     if (this.active)
       throw new Error(
@@ -183,7 +210,15 @@ export class RunController {
       const executable = resolveRuntime(run.settings.runtimePath);
       run.runtimeVersion = await runtimeVersion(executable);
       this.check(active);
-      active.baseline = await snapshot(run.workspace);
+      active.baseline = await snapshot(run.workspace, true, active.secrets);
+      const gitBefore = await captureGit(run.workspace, true, active.secrets);
+      this.store.evidence.begin(
+        run.id,
+        run.workspace,
+        active.baseline,
+        gitBefore,
+      );
+      active.baseline.blobs?.clear();
       run.baselineComplete = active.baseline.complete;
       this.check(active);
       run.state = "running";
@@ -240,7 +275,12 @@ export class RunController {
       }
       if (active.baseline) {
         try {
-          const after = await snapshot(run.workspace);
+          const after = await snapshot(run.workspace, true, active.secrets);
+          this.store.evidence.finish(
+            run.id,
+            after,
+            await captureGit(run.workspace, true, active.secrets),
+          );
           run.changes = changes(active.baseline, after).slice(0, 500);
           run.baselineComplete &&= after.complete;
         } catch {
@@ -468,7 +508,19 @@ export class RunController {
     );
     if (state.status === "completed") run.toolsCompleted++;
     if (part.tool === "bash") {
+      const rawOutput =
+        state.status === "completed"
+          ? state.output
+          : state.status === "error"
+            ? state.error
+            : "";
+      const fullOutput = redact(rawOutput, active.secrets, 256000);
+      this.store.evidence.saveCommand(run.id, part.callID, fullOutput);
       const result = {
+        cwd: redact(String(input.workdir ?? run.workspace), active.secrets),
+        startedAt: state.time.start,
+        endedAt: "end" in state.time ? state.time.end : undefined,
+        outputTruncated: fullOutput.length > 16000 || rawOutput.length > 256000,
         taskId: run.currentTaskId ?? undefined,
         callId: part.callID,
         command: redact(String(input.command ?? ""), active.secrets),
@@ -563,6 +615,7 @@ export class RunController {
   }
   async shutdown(): Promise<void> {
     this.shuttingDown = true;
+    await this.workspaceTask;
     this.store.queue.hold("Ứng dụng đã đóng. Chọn Chạy tiếp để tiếp tục.");
     if (this.active) await this.stop(this.active.run.id);
   }

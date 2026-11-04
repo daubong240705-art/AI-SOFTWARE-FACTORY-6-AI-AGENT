@@ -24,6 +24,10 @@ export type ChangedFile = {
   kind: "added" | "modified" | "deleted";
 };
 export type CommandResult = {
+  cwd?: string;
+  startedAt?: number;
+  endedAt?: number;
+  outputTruncated?: boolean;
   taskId?: string;
   callId: string;
   command: string;

@@ -1,8 +1,10 @@
-import { Clock3, FileCode2, Terminal, TriangleAlert } from "lucide-react";
+import { Clock3, Terminal, TriangleAlert } from "lucide-react";
 import type { RunDetail } from "../../shared/runs";
 import { runLabels } from "../../shared/runs";
 import { formatDuration } from "../lib/formatDuration";
 import { formatRequestUsage } from "../lib/formatRequestUsage";
+import { ChangesPanel } from "./ChangesPanel";
+import { CommandEvidence } from "./CommandEvidence";
 
 export function RunPanel({
   detail,
@@ -135,39 +137,7 @@ export function RunPanel({
           ))}
         </div>
       )}
-      {tab === "changes" && (
-        <div className="changes-list">
-          {!run.baselineComplete && (
-            <p className="warning-text small">
-              Danh sách giới hạn ở file source đã quét; bỏ qua dependency, file
-              nhạy cảm và file lớn.
-            </p>
-          )}
-          {run.changes.length ? (
-            run.changes.map((file) => (
-              <div key={file.path} className="changed-file">
-                <FileCode2 size={16} />
-                <code>{file.path}</code>
-                <span className="pill">
-                  {file.kind === "added"
-                    ? "Thêm"
-                    : file.kind === "deleted"
-                      ? "Xóa"
-                      : "Sửa"}
-                </span>
-              </div>
-            ))
-          ) : (
-            <div className="empty">
-              <FileCode2 size={24} />
-              <strong>Chưa ghi nhận thay đổi</strong>
-            </div>
-          )}
-          <p className="muted small">
-            So sánh source trước/sau lượt chạy. Diff từng dòng sẽ có ở WW-4.
-          </p>
-        </div>
-      )}
+      {tab === "changes" && <ChangesPanel key={run.id} run={run} />}
       {tab === "result" && (
         <div className="run-result">
           {run.error && (
@@ -212,24 +182,11 @@ export function RunPanel({
                 Lệnh đã thực thi
               </h2>
               {run.commands.map((command) => (
-                <details
-                  className="command-result"
+                <CommandEvidence
                   key={command.callId}
-                  open={command.status === "error"}
-                >
-                  <summary>
-                    <code>{command.command}</code>
-                    {command.taskId && (
-                      <span className="pill">{command.taskId}</span>
-                    )}
-                    <span className="pill">
-                      {command.exitCode === null
-                        ? command.status
-                        : `exit ${command.exitCode}`}
-                    </span>
-                  </summary>
-                  <pre>{command.output || "Chưa có output."}</pre>
-                </details>
+                  runId={run.id}
+                  command={command}
+                />
               ))}
             </section>
           )}

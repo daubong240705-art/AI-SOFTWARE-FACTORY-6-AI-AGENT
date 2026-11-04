@@ -617,3 +617,105 @@
   font-size: 12px;
   padding: 3px 8px;
 }
+.source-changes {
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.source-changes p {
+  margin: 0;
+}
+.source-changes .tabs {
+  display: flex;
+  flex-wrap: wrap;
+}
+.snapshot-files {
+  display: grid;
+  max-height: 230px;
+  overflow: auto;
+  gap: 4px;
+}
+.snapshot-files button {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  text-align: left;
+  gap: 6px;
+  min-width: 0;
+  padding: 9px;
+}
+.snapshot-files button.selected {
+  border-color: var(--accent);
+  background: #332821;
+}
+.snapshot-files code,
+.snapshot-files small {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.snapshot-files code {
+  flex: 1;
+  min-width: 0;
+}
+.snapshot-files small {
+  flex-basis: 100%;
+}
+.diff-toolbar {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+.diff-toolbar select {
+  flex: 1;
+  min-width: 0;
+}
+.unified-diff {
+  overflow: auto;
+  max-height: 440px;
+  background: #151518;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font:
+    11px/1.65 Consolas,
+    monospace;
+}
+.diff-line {
+  display: flex;
+  min-width: max-content;
+  white-space: pre;
+  padding-right: 10px;
+}
+.diff-line code {
+  font: inherit;
+}
+.diff-number {
+  width: 32px;
+  flex-shrink: 0;
+  text-align: right;
+  padding-right: 7px;
+  color: #777784;
+  user-select: none;
+}
+.diff-hunk {
+  color: #8bb5d0;
+  background: #20252e;
+}
+.diff-add {
+  background: #173024;
+  color: #b6e3c5;
+}
+.diff-delete {
+  background: #392123;
+  color: #efb2b2;
+}
+.restore-preview {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #9e7056;
+  border-radius: 8px;
+}
+.restore-trigger {
+  justify-self: start;
+}

@@ -164,7 +164,9 @@ test("schema4 migration keeps drafts and backs up before creating durable queue"
   x.store.close();
   try {
     const db = new Database(join(x.directory, "worker.sqlite"));
-    db.exec("DROP TABLE follow_ups; PRAGMA user_version=4");
+    db.exec(
+      "DROP TABLE command_artifacts; DROP TABLE file_recoveries; DROP TABLE workspace_evidence; DROP TABLE workspace_blobs; DROP TABLE follow_ups; PRAGMA user_version=4",
+    );
     db.close();
     const reopened = new Store(x.directory);
     try {
