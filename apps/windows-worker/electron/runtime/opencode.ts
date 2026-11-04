@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import type { OpencodeClient, Config, Event } from "@opencode-ai/sdk/v2/client";
 import type { Run, Permission } from "../../shared/runs";
 import { redact } from "./security";
-import { editScopes } from "./scope";
+import { runtimePermissions, type RuntimeContext } from "./permissions";
 import { VisibleText } from "./visible-text";
 
 export type RuntimeHooks = {
@@ -13,13 +13,6 @@ export type RuntimeHooks = {
   event: (event: Event) => void;
   permission: (permission: Permission) => void;
   failure: (message: string) => void;
-};
-export type RuntimeContext = {
-  prompt: string;
-  instructions: string;
-  readOnly: boolean;
-  allowShell: boolean;
-  allowedPaths: string[];
 };
 export class OpenCodeRuntime {
   private child?: ChildProcess;
@@ -37,7 +30,7 @@ export class OpenCodeRuntime {
     private run: Run,
     private proxy: { url: string; token: string },
     private hooks: RuntimeHooks,
-    private context?: RuntimeContext,
+    private context: RuntimeContext,
   ) {}
   async start(): Promise<string> {
     const { createOpencodeClient } = await import("@opencode-ai/sdk/v2/client");
@@ -79,27 +72,6 @@ export class OpenCodeRuntime {
       OPENCODE_SERVER_PASSWORD: this.serverPassword,
       ASF_EXECUTION_TOKEN: this.proxy.token,
     });
-    const filePolicy = {
-      "*": "allow",
-      "**/.env": "deny",
-      "**/.env.*": "deny",
-      ".env": "deny",
-      ".env.*": "deny",
-      "**/*.pem": "deny",
-      "**/*.key": "deny",
-      "*.pem": "deny",
-      "*.key": "deny",
-      "*.pfx": "deny",
-      "*.p12": "deny",
-      "auth.json": "deny",
-      "credentials.json": "deny",
-      "**/credentials.json": "deny",
-      "**/auth.json": "deny",
-      "**/.git/**": "deny",
-      ".git": "deny",
-      ".git/**": "deny",
-      "**/.git": "deny",
-    } as const;
     const config: Config = {
       model: `nine_router/${this.run.model}`,
       small_model: `nine_router/${this.run.model}`,
@@ -137,33 +109,7 @@ export class OpenCodeRuntime {
           steps: this.run.settings.maxRequests,
         },
       },
-      permission: {
-        "*": "deny",
-        read: filePolicy,
-        edit: this.context?.readOnly
-          ? "deny"
-          : this.context
-            ? {
-                ...editScopes(this.run.workspace, this.context.allowedPaths),
-                ...Object.fromEntries(
-                  Object.entries(filePolicy).filter(([key]) => key !== "*"),
-                ),
-              }
-            : filePolicy,
-        glob: "allow",
-        grep: "allow",
-        list: "allow",
-        bash: this.context && !this.context.allowShell ? "deny" : "ask",
-        external_directory: "deny",
-        todowrite: "allow",
-        question: "deny",
-        task: "deny",
-        webfetch: "deny",
-        websearch: "deny",
-        skill: "deny",
-        lsp: "deny",
-        doom_loop: "ask",
-      },
+      permission: runtimePermissions(this.run.workspace, this.context),
     };
     env.OPENCODE_CONFIG_CONTENT = JSON.stringify(config);
     if (this.closed) throw new Error("Đã dừng trước khi runtime khởi động.");
@@ -279,10 +225,8 @@ export class OpenCodeRuntime {
         directory: this.run.workspace,
         agent: "worker",
         model: { providerID: "nine_router", modelID: this.run.model },
-        system: `${this.context?.instructions ?? ""}\nYou are a ${this.run.role.toUpperCase()} coding agent. Work only in ${this.run.workspace}. Read existing project conventions first. Do not read credentials, modify .git, commit, push, or deploy. ${this.context?.readOnly ? "You are read-only. Never modify files." : "Use tools to make requested changes within the assigned scope."} Shell commands require explicit permission. Do not delegate. Report files changed, actual command results and limitations in Vietnamese. Never claim tests passed without command evidence.`,
-        parts: [
-          { type: "text", text: this.context?.prompt ?? this.run.prompt },
-        ],
+        system: `${this.context.instructions}\nYou are a ${this.run.role.toUpperCase()} agent. Work only in ${this.run.workspace}. Read existing project conventions first. Do not read credentials, modify .git, commit, push, or deploy. ${this.context.readOnly ? "You are read-only. Never modify files, including through shell commands." : "Use tools to make requested changes within the assigned scope."} ${this.context.allowShell ? "Shell commands require explicit permission." : "Shell commands are disabled for this role."} Do not delegate. Report actual results and limitations in Vietnamese. Never claim tests passed without command evidence.`,
+        parts: [{ type: "text", text: this.context.prompt }],
       },
       { throwOnError: true, signal: this.streamAbort.signal },
     );

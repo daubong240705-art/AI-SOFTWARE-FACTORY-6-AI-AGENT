@@ -38,6 +38,8 @@ better-sqlite3 13 cung cấp binary Node-API dùng chung Node/Electron; không c
 
 Bỏ project khỏi danh sách không xóa source hoặc hội thoại. Mở lại lịch sử của project đã bỏ vẫn đọc được; cần chọn lại source trước khi gửi yêu cầu. Không tự init Git, stash, reset, commit hoặc push.
 
+**Một agent** dùng đúng profile, model và quyền của role đã chọn, kể cả khi có lịch sử chat: Lead/PM/BA chỉ đọc, không shell; TEST chỉ đọc source và chạy lệnh cần quyền; BE/FE/DEVOPS được sửa source trong phạm vi. Chọn BE/FE/DEVOPS hoặc **Lead tự phân công** khi cần viết code. Lead trong chat trực tiếp trả lời bình thường; JSON plan/review chỉ dùng khi Controller điều phối. Nếu lượt chỉ đọc có thay đổi source hoặc thiếu snapshot, app báo **Cần bổ sung**, giữ diff để kiểm tra và không chạy tiếp hàng chờ tự động.
+
 ## Dữ liệu và credential
 
 - SQLite đặt trong `app.getPath('userData')`, trên Windows thường là `%APPDATA%\ASF Windows Worker\worker.sqlite`.
@@ -81,3 +83,5 @@ Thử thật 04/11/2026 qua chính Controller/Electron với **`ds/deepseek-v4-f
 [WW-4C đã hoàn thành](../../docs/windows-worker/ww4c-completion.md): diff/history, Git snapshot staged/source, khôi phục từng file và bằng chứng lệnh. Giữ streaming, hàng chờ, retry và context có tham chiếu file/command/AC. Lượt cũ không có snapshot chỉ hiện danh sách file, không lấy source hiện tại thay lịch sử.
 
 WW-4D tiếp tục preview/phục hồi/retention; WW-5 bộ cài. [Kế hoạch đầy đủ](../../plan/windows-worker/README.md). App độc lập với ASF web; không cần build image hoặc deploy lại các VM.
+
+[AU-1 hoàn thành](../../docs/windows-worker/au1-completion.md): profile/policy thống nhất direct/team, prompt bàn giao và version/hash theo nội dung; 43/43 test, typecheck/build/format đạt. [Kế hoạch nâng cấp agent](../../plan/agent-upgrade/README.md) tiếp tục AU-2A handoff có cấu trúc.

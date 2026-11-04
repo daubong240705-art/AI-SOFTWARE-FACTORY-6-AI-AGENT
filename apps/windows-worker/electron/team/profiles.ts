@@ -14,9 +14,11 @@ const skillMap: Record<Role, string[]> = {
   devops: ["local-dev", "fix-bug"],
 };
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
-export function loadProfiles(): ProfileSnapshot[] {
+export function loadProfiles(
+  selected: readonly Role[] = roles,
+): ProfileSnapshot[] {
   const root = resolve(__dirname, "../..");
-  return roles.map((role) => {
+  return selected.map((role) => {
     const text = readFileSync(
       join(root, "agent-profiles", role + ".md"),
       "utf8",
@@ -28,14 +30,20 @@ export function loadProfiles(): ProfileSnapshot[] {
     const instructions = [text, ...skills.map((s) => s.text)].join("\n\n");
     return {
       role,
-      version: "1.0.0",
+      version: version(text, /^# .+ — (\d+\.\d+\.\d+)\r?$/m),
       hash: hash(instructions),
       instructions,
       skills: skills.map((s) => ({
         name: s.name,
-        version: "1.0.0",
+        version: version(s.text, /^version: (\d+\.\d+\.\d+)\r?$/m),
         hash: hash(s.text),
       })),
     };
   });
+}
+
+function version(text: string, pattern: RegExp): string {
+  const value = text.match(pattern)?.[1];
+  if (!value) throw new Error("Profile/skill thiếu phiên bản hợp lệ.");
+  return value;
 }

@@ -1,6 +1,6 @@
 # Kế hoạch nâng cấp AI Software Factory
 
-Ngày chốt khảo sát ban đầu: 04/11/2026. **AU-0 hoàn thành: source tham khảo đã clone và kế hoạch đã lập. AU-1 đến AU-5 chưa triển khai.**
+Ngày cập nhật: 04/11/2026. **AU-0 và AU-1 hoàn thành**; [báo cáo AU-1](../../docs/windows-worker/au1-completion.md). AU-2 đến AU-5 chưa triển khai.
 
 | Tài liệu | Nội dung |
 |---|---|
@@ -14,4 +14,4 @@ Giữ Factory Lite + Windows Worker; Controller hiện tại là nơi duy nhất
 
 Thứ tự ưu tiên: **AU-1 → AU-2 → AU-3 → AU-4 → AU-5**. AU-1 có thể bắt đầu trên baseline WW-4C; không cần đợi WW-4D. Các công việc tự nâng cấp kéo dài hoặc cần preview/process recovery chỉ bắt đầu sau khi phần lifecycle tương ứng của WW-4D được nghiệm thu. WW-5 vẫn là kế hoạch đóng gói riêng.
 
-Đợt code đầu tiên là **AU-1: thống nhất profile và quyền của direct/team, chuẩn hóa prompt bàn giao**. Chưa bật cơ chế app tự sửa source của chính nó liên tục.
+**AU-1 đã thống nhất profile và quyền của direct/team, chuẩn hóa prompt bàn giao.** Mốc code tiếp theo là AU-2A: handoff có cấu trúc. Chưa bật cơ chế app tự sửa source của chính nó liên tục.

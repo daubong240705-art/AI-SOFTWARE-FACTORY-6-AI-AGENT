@@ -1,6 +1,6 @@
 # Kế hoạch triển khai theo đợt
 
-Trạng thái ngày 04/11/2026: AU-0 xong; mọi mục code phía dưới đều **chưa thực hiện**. Đây là backlog để triển khai trực tiếp vào Windows Worker hiện có. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
+Trạng thái ngày 04/11/2026: **AU-0 và AU-1 hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md). AU-2–5 chưa thực hiện. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
 
 ## Ranh giới và thứ tự
 
@@ -12,7 +12,7 @@ Trạng thái ngày 04/11/2026: AU-0 xong; mọi mục code phía dưới đều
 
 ```mermaid
 flowchart LR
-  A[AU-0 clone và khảo sát: xong] --> B[AU-1 profile và policy]
+  A[AU-0 clone và khảo sát: xong] --> B[AU-1 profile và policy: xong]
   B --> C[AU-2A handoff]
   C --> D[AU-2B evidence gate]
   D --> E[AU-3 skills theo task]
@@ -30,6 +30,8 @@ flowchart LR
 - Kiểm tra đợt này: manifest/paths/license hash, checkout sạch, cache bị ignore, local links và `git diff --check`. Không build/test app vì chưa sửa sản phẩm.
 
 ## AU-1 — Profile và quyền nhất quán
+
+**Đã hoàn thành AU1-01–04.** Direct/team dùng chung context/policy; direct snapshot profile và hậu kiểm source readonly; 7 profile và 2 skill cập nhật; version đọc từ nội dung; README cập nhật. Không cần thêm UI hint vì composer đã có lựa chọn role. Kiểm tra: 43/43 test, typecheck/build/format đạt; không gọi model thật. Chi tiết và giới hạn trong báo cáo AU-1.
 
 Mục tiêu: chọn role nào trong direct cũng thực sự áp dụng hướng dẫn và policy role đó, có hoặc không có lịch sử chat. Không thêm request model hoặc lượt review.
 
@@ -88,7 +90,7 @@ Phụ thuộc AU-2B. Owner BE + Lead cho catalog/prompt, TEST cho lựa chọn v
 - Thêm catalog nội bộ trong `electron/team/` hoặc file data đóng gói: `id`, `version`, `description`, `roles`, `taskKinds`, `requiredCapabilities`, `path`, content hash và nguồn gốc.
 - Giữ rule nền ngắn cho mọi role; chọn trong các skill implement-feature/fix-bug/testing/local-dev theo mục tiêu task. Lead có thể đề xuất ID từ allowlist; Controller quyết định hợp lệ và áp giới hạn. Không lấy path/URL do model chỉ định, không cho skill mở quyền tool.
 - Bổ sung nội dung review/handoff vào profile sẵn có trước khi tách thành skill mới. Tách skill chỉ khi được tái sử dụng và giúp giảm prompt.
-- Snapshot skill/version/hash đã chọn vào task/run; không hardcode version cho mọi nội dung. Run đang chạy giữ snapshot kể cả file skill đã đổi sau đó. Dữ liệu cũ có fallback rõ ràng.
+- Snapshot skill/version/hash đã chọn vào task/run; phần đọc version từ nội dung đã có ở AU-1, AU-3 mở rộng cho lựa chọn theo task. Run đang chạy giữ snapshot kể cả file skill đã đổi sau đó. Dữ liệu cũ có fallback rõ ràng.
 - Không bật `skill` tool/external discovery, không cài hooks hoặc dependency của ECC/Superpowers. Dùng tối đa 3 skill tác vụ cho một task làm giới hạn ban đầu; rule nền không tính vào số này.
 
 File dự kiến: `electron/team/profiles.ts`, mới catalog/selector, `shared/team.ts`, các skill nội bộ, test profile/catalog, cấu hình đóng gói tài nguyên nếu cần.
@@ -136,4 +138,4 @@ Ngưỡng: tất cả ca correctness/policy bắt buộc đạt; không tăng s�
 5. Review diff/scope/secret, cập nhật báo cáo, commit từng đợt và push GitHub theo quyền đã có. Không merge/main hoặc deploy ngoài phạm vi.
 6. Đo thực tế rồi mới quyết định cần agent/reviewer/tool/dependency mới. Nếu thiếu quyền/công cụ thì báo giới hạn cụ thể, không giả lập kết quả thành đạt.
 
-Mốc code tiếp theo cụ thể: **AU1-01 → AU1-02 → AU1-03 → AU1-04** trên nền WW-4C. Không cần chờ toàn bộ WW-4D để bắt đầu mốc này.
+Mốc code tiếp theo cụ thể: **AU2A-01 → AU2A-02 → AU2A-03** trên nền AU-1/WW-4C. Không cần chờ toàn bộ WW-4D để bắt đầu mốc này.

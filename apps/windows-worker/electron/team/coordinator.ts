@@ -1,7 +1,5 @@
-import type { Role } from "../../shared/contracts";
 import type { Run } from "../../shared/runs";
 import {
-  inScope,
   parseJSON,
   planSchema,
   reviewSchema,
@@ -11,9 +9,9 @@ import {
 } from "../../shared/team";
 import { changes, snapshot } from "../workspace/snapshot";
 import { ExecutionStopped } from "../runtime/stopped";
+import { sourcePolicyError } from "./policy";
 export class TeamBlocked extends Error {}
 export type Step = (task: TeamTask, prompt: string) => Promise<string>;
-const readonly = (role: Role) => ["lead", "pm", "ba", "test"].includes(role);
 export function newTask(
   run: Run,
   input: Pick<
@@ -126,15 +124,13 @@ export async function coordinate(
       task.commandIds = run.commands
         .filter((c) => c.taskId === task.id)
         .map((c) => c.callId);
-      if (
-        !after.complete ||
-        task.changes.some(
-          (c) => readonly(task.role) || !inScope(c.path, task.allowedPaths),
-        )
-      )
-        throw new TeamBlocked(
-          `Task ${task.id} thay đổi ngoài phạm vi hoặc snapshot không đầy đủ. Kiểm tra diff; ứng dụng không tự hoàn tác.`,
-        );
+      const violation = sourcePolicyError(
+        task.role,
+        task.allowedPaths,
+        task.changes,
+        after.complete,
+      );
+      if (violation) throw new TeamBlocked(`Task ${task.id}: ${violation}`);
       task.error = verificationError(run, task);
       task.state = task.error ? "failed" : "completed";
       return task.summary;

@@ -234,6 +234,11 @@ test("controller attaches cancelled attempt and snapshots previous context witho
     const result = store.run(run.id);
     assert.ok(result.context?.text.includes("Previous feature complete"));
     assert.equal(result.context?.runIds.length, 1);
+    assert.deepEqual(
+      result.profiles.map((profile) => profile.role),
+      ["be"],
+    );
+    assert.ok(result.profiles[0].instructions.includes("# BE"));
     assert.equal(result.state, "cancelled");
     const detail = store.conversations.get(chat.id);
     assert.equal(detail.messages.length, 4);

@@ -31,6 +31,12 @@ test("controller locks before async startup and persists cancellation across reo
     );
     assert.throws(() => store.removeProject(project.id), /Dừng tác vụ/);
     await controller.stop(run.id);
+    assert.deepEqual(
+      run.profiles.map((profile) => profile.role),
+      ["be"],
+    );
+    assert.ok(run.profiles[0].instructions.includes("# BE"));
+    assert.deepEqual(store.run(run.id).profiles, run.profiles);
     assert.equal(controller.view().activeId, null);
     assert.equal(controller.detail(run.id).run.state, "cancelled");
     store.close();

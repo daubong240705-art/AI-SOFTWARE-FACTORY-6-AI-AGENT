@@ -1,5 +1,6 @@
 import { coordinate, TeamBlocked } from "../team/coordinator";
 import { loadProfiles } from "../team/profiles";
+import { rolePolicy, runtimeContext, sourcePolicyError } from "../team/policy";
 import { ExecutionStopped } from "../runtime/stopped";
 import type { TeamTask } from "../../shared/team";
 import { randomUUID } from "node:crypto";
@@ -144,7 +145,7 @@ export class RunController {
       context,
       mode,
       tasks: [],
-      profiles: mode === "team" ? loadProfiles() : [],
+      profiles: loadProfiles(mode === "team" ? undefined : [role]),
       currentTaskId: null,
       fixRound: 0,
       review: null,
@@ -220,6 +221,14 @@ export class RunController {
       );
       active.baseline.blobs?.clear();
       run.baselineComplete = active.baseline.complete;
+      if (
+        run.mode === "direct" &&
+        rolePolicy(run.role).readOnly &&
+        !run.baselineComplete
+      )
+        throw new TeamBlocked(
+          "Không thể xác minh toàn bộ phạm vi source chỉ đọc.",
+        );
       this.check(active);
       run.state = "running";
       run.startedAt = new Date().toISOString();
@@ -287,6 +296,22 @@ export class RunController {
           run.baselineComplete = false;
         }
       }
+      if (
+        run.mode === "direct" &&
+        rolePolicy(run.role).readOnly &&
+        run.state === "completed"
+      ) {
+        const violation = sourcePolicyError(
+          run.role,
+          ["."],
+          run.changes,
+          run.baselineComplete,
+        );
+        if (violation) {
+          run.state = "needs_input";
+          run.error = violation;
+        }
+      }
       run.permissions = [];
       run.currentTaskId = null;
       for (const task of run.tasks) {
@@ -332,6 +357,7 @@ export class RunController {
   ): Promise<string> {
     this.check(active);
     const { run } = active;
+    const context = runtimeContext(run, task, prompt);
     const remaining = run.settings.maxRequests - run.requests;
     if (remaining <= 0)
       throw new Error("Đã hết số request cho toàn bộ lượt chạy.");
@@ -406,25 +432,7 @@ export class RunController {
             void this.stop(run.id, "failed", message).catch(() => {});
           },
         },
-        task
-          ? {
-              prompt: [run.context?.text, prompt!].filter(Boolean).join("\n\n"),
-              instructions: run.profiles.find((p) => p.role === task.role)!
-                .instructions,
-              readOnly: ["lead", "pm", "ba", "test"].includes(task.role),
-              allowShell: !["lead", "pm", "ba"].includes(task.role),
-              allowedPaths: task.allowedPaths,
-            }
-          : run.context?.text
-            ? {
-                prompt:
-                  run.context.text + "\n\nYêu cầu hiện tại:\n" + run.prompt,
-                instructions: "",
-                readOnly: false,
-                allowShell: true,
-                allowedPaths: ["."],
-              }
-            : undefined,
+        context,
       );
       run.sessionId = await active.runtime.start();
       if (task) task.sessionId = run.sessionId;
