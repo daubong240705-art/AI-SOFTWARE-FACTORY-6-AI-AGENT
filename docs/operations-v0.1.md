@@ -10,14 +10,16 @@ Project GitLab: <https://gitlab.lazy.local/ai-factory/ai-software-factory>. Runn
 
 ## Phát hành
 
-1. Push branch, tạo MR vào protected `main`; backend/frontend/build/package phải đạt. Không push trực tiếp main.
-2. Maintainer merge MR; đợi pipeline **main** hoàn tất check/build/package.
+1. Push branch, tạo MR vào protected `main`; backend/frontend checks phải đạt. Push thông thường không build image. Không push trực tiếp main.
+2. Maintainer merge MR. Khi cần phát hành, mở **Build → Pipelines → New pipeline**, chọn **main** và đặt **BUILD_RELEASE=1**; đợi pipeline này hoàn tất check/build/package. Trên branch cũng có thể chạy BUILD_RELEASE=1 để kiểm tra build trước merge, nhưng không có job production deploy.
 3. Chạy manual job `deploy_control` trên đúng main SHA hiện tại. CI chuyển duy nhất SHA/pipeline/job ID qua SSH forced-command; `.14` xác minh GitLab, checksum, image config ID và OCI revision trước load image. Không build trên deploy host.
 4. Mở `/healthz` xác nhận `release_sha`, `/readyz`, rồi đăng nhập. Audit tại `/opt/asf-control/deploy-audit.jsonl`; marker `current`, `previous` và `releases/<SHA>/manifest.json`.
 
 Registry chưa bật: image archive + checksum/manifest là artifact GitLab, hạn 14 ngày. Image đã load trên `.14` vẫn còn sau hạn artifact; GitLab artifact không phải backup lâu dài. Hiện giữ tất cả release/image ASF trên host để bảo toàn rollback. Theo dõi dung lượng trước mỗi release; chỉ xóa image ASF cũ sau khi xác nhận không thuộc current/previous và giữ tối thiểu ba release thành công. Không dùng `docker system prune` trên máy dùng chung.
 
 Cấu hình Compose/wrapper là quyền quản trị host, không lấy tùy ý từ artifact. Khi thay đổi file vận hành, quản trị viên review và cài bản mới root-owned trước release. GitLab variables `ASF_DEPLOY_KEY`, `ASF_DEPLOY_KNOWN_HOSTS` là protected file, scope production. Read-only GitLab token trên host hết hạn 03/11/2027, cần rotate trước hạn; token không cấp cho API/dashboard/worker.
+
+Chi tiết hai cách chạy và cache ở [pipeline phát triển](agent-tools-and-ci.md). Release Phase5 schema0004 vẫn cần hoàn tất review tương thích/rollback trước khi cập nhật policy host; việc đơn giản hóa CI không cho phép bỏ bước này.
 
 ## Kiểm tra và restart
 
