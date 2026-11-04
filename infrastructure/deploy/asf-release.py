@@ -150,12 +150,48 @@ def health(sha: str):
     raise RuntimeError("Release health check failed")
 
 
-def activate(sha: str):
+def database_schema() -> str:
+    return subprocess.check_output(
+        [
+            "docker",
+            "compose",
+            "--project-name",
+            "asf-control",
+            "--env-file",
+            str(ETC / "release-base.env"),
+            "-f",
+            str(ROOT / "compose.yml"),
+            "exec",
+            "-T",
+            "postgres",
+            "psql",
+            "-U",
+            "asf",
+            "-d",
+            "asf",
+            "-Atc",
+            "SELECT version_num FROM alembic_version",
+        ],
+        text=True,
+    ).strip()
+
+
+def rollback_compatible(manifest: dict, actual: str) -> bool:
+    supported = manifest.get("supported_schemas", [manifest["schema"]])
+    return isinstance(supported, list) and actual in supported
+
+
+def activate(sha: str, migrate: bool = True):
     # Only application containers are replaced; DB/Redis and volumes are independent.
     dc(sha, "up", "-d", "--wait", "--wait-timeout", "120", "postgres", "redis")
     dc(sha, "stop", "dispatcher", "workflow-worker", "api", "dashboard")
-    dc(sha, "run", "--rm", "--no-deps", "migrate")
-    dc(sha, "up", "-d", "--no-deps", "api", "dashboard", "dispatcher", "workflow-worker")
+    if migrate:
+        dc(sha, "run", "--rm", "--no-deps", "migrate")
+    manifest = json.loads((ROOT / "releases" / sha / "manifest.json").read_text())
+    services = ["api", "dashboard"]
+    if migrate or manifest["schema"] == database_schema():
+        services += ["dispatcher", "workflow-worker"]
+    dc(sha, "up", "-d", "--no-deps", *services)
     health(sha)
 
 
@@ -192,14 +228,27 @@ def main():
             (release / "manifest.json").write_text(json.dumps(manifest, indent=2))
         # Pre-migration, off-host DB backup is mandatory after the initial installation.
         if previous:
+            prior = json.loads((ROOT / "releases" / previous / "manifest.json").read_text())
+            if not rollback_compatible(prior, manifest["schema"]):
+                raise RuntimeError("Install a compatible rollback release before changing schema")
             command(["/usr/local/sbin/asf-backup"])
         try:
             activate(sha)
         except Exception:
             audit("deploy.failed", sha=sha)
             if previous:
-                activate(previous)
-                audit("deploy.rolled_back", sha=previous, failed_sha=sha)
+                prior_manifest = json.loads(
+                    (ROOT / "releases" / previous / "manifest.json").read_text()
+                )
+                actual = database_schema()
+                if rollback_compatible(prior_manifest, actual):
+                    activate(previous, migrate=False)
+                    audit("deploy.rolled_back", sha=previous, failed_sha=sha, schema=actual)
+                else:
+                    audit("deploy.rollback_blocked", sha=previous, actual_schema=actual)
+                    raise RuntimeError(
+                        "Previous application does not support the current schema"
+                    ) from None
             raise
         if previous:
             (ROOT / "previous").write_text(previous + "\n")

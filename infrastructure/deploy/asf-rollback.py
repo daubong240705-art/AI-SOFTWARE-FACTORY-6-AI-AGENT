@@ -17,13 +17,6 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX)
         previous = (root / "previous").read_text().strip()
         current = (root / "current").read_text().strip()
-        schemas = [
-            json.loads((root / "releases" / s / "manifest.json").read_text())["schema"]
-            for s in [previous, current]
-        ]
-        if schemas[0] != schemas[1]:
-            raise SystemExit("Schema compatibility review required; no automatic DB downgrade")
-        subprocess.run(["/usr/local/sbin/asf-backup"], check=True)
         # Extensionless executable: explicitly use the Python source loader.
         from importlib.machinery import SourceFileLoader
 
@@ -32,7 +25,14 @@ def main():
         )
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        module.activate(previous)
+        manifest = json.loads((root / "releases" / previous / "manifest.json").read_text())
+        actual = module.database_schema()
+        if not module.rollback_compatible(manifest, actual):
+            raise SystemExit(
+                "Previous application does not support current schema; no DB downgrade"
+            )
+        subprocess.run(["/usr/local/sbin/asf-backup"], check=True)
+        module.activate(previous, migrate=False)
         (root / "current").write_text(previous + "\n")
         (root / "previous").write_text(current + "\n")
         module.audit("rollback.manual", sha=previous, previous=current)
