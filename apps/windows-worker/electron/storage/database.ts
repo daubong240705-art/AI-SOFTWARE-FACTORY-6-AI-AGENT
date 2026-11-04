@@ -10,6 +10,7 @@ import { migrateWorkItems } from "./work-migration";
 import { migrateChatRequests } from "./chat-requests";
 import { Questions } from "./questions";
 import { Reports } from "./reports";
+import { Inbox } from "./inbox";
 import {
   chatSendSchema,
   type ChatSend,
@@ -40,6 +41,7 @@ export class Store {
   readonly board: BoardStore;
   readonly questions: Questions;
   readonly reports: Reports;
+  readonly inbox: Inbox;
   private retentionTickets = new Map<
     string,
     { ids: string[]; expires: number }
@@ -53,7 +55,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 11)
+      if (version > 12)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -147,6 +149,7 @@ export class Store {
         this.board,
         (id) => this.run(id),
       );
+      this.inbox = new Inbox(this.db, directory, version);
     } catch (error) {
       this.db.close();
       throw error;

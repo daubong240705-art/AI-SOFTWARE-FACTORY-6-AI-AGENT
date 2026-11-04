@@ -10,6 +10,7 @@ import {
 } from "../../shared/board";
 import { roles, type Reply, type Role } from "../../shared/contracts";
 import { useMonitor } from "../lib/use-monitor";
+import { workTemplates, applyWorkTemplate } from "../../shared/templates";
 
 async function unwrap<T>(reply: Promise<Reply<T>>) {
   const result = await reply;
@@ -48,6 +49,10 @@ export function KanbanBoard({
   const monitor = useMonitor(visible ? projectId : null, query);
   const [editing, setEditing] = useState<"new" | null>(null);
   const [draft, setDraft] = useState(blank);
+  const [template, setTemplate] = useState("");
+  const originalTemplate = template
+    ? applyWorkTemplate(template)
+    : { body: "", criteria: "" };
   const [selected, setSelected] = useState<BoardCard | null>(null);
   const [view, setView] = useState<"board" | "list">("board");
   const [busy, setBusy] = useState(false),
@@ -176,6 +181,7 @@ export function KanbanBoard({
           disabled={busy}
           onClick={() => {
             setDraft(blank);
+            setTemplate("");
             setEditing("new");
           }}
         >
@@ -620,6 +626,31 @@ export function KanbanBoard({
           }}
         >
           <h2>{editing === "new" ? "Thêm việc" : "Sửa công việc"}</h2>
+          <label>
+            Mẫu công việc
+            <Select
+              aria-label="Mẫu công việc"
+              value={template}
+              disabled={
+                draft.body !== originalTemplate.body ||
+                draft.criteria !== originalTemplate.criteria
+              }
+              onValueChange={(id) => {
+                setDraft({
+                  ...draft,
+                  ...(id ? applyWorkTemplate(id) : { body: "", criteria: "" }),
+                });
+                setTemplate(id);
+              }}
+            >
+              <option value="">Viết yêu cầu mới</option>
+              {workTemplates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </Select>
+          </label>
           <label>
             Tiêu đề
             <input

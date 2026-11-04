@@ -256,7 +256,7 @@ test("schema8 chat migration backs up existing drafts and work revisions before 
     store.close();
     const db = new Database(join(directory, "worker.sqlite"));
     db.exec(
-      "DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; DROP TABLE question_sets; DROP TABLE chat_requests;PRAGMA user_version=8",
+      "DROP TABLE inbox_seen; DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; DROP TABLE question_sets; DROP TABLE chat_requests;PRAGMA user_version=8",
     );
     db.close();
     store = new Store(directory);
@@ -353,7 +353,7 @@ test("schema3 migration preserves all 65 historical runs, old drafts, timestamps
     store = undefined;
     const db = new Database(join(directory, "worker.sqlite"));
     db.exec(
-      "DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; DROP TABLE question_sets; DROP TABLE chat_requests; DROP TABLE work_comments; DROP TABLE work_attempts; DROP TABLE work_submissions; DROP TABLE work_revisions; DROP TABLE work_counters; DROP TABLE board_links; DROP TABLE board_items; DROP TABLE command_artifacts; DROP TABLE file_recoveries; DROP TABLE workspace_evidence; DROP TABLE workspace_blobs; DROP TABLE follow_ups; DROP TABLE messages; DROP TABLE conversations; PRAGMA user_version=3",
+      "DROP TABLE inbox_seen; DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; DROP TABLE question_sets; DROP TABLE chat_requests; DROP TABLE work_comments; DROP TABLE work_attempts; DROP TABLE work_submissions; DROP TABLE work_revisions; DROP TABLE work_counters; DROP TABLE board_links; DROP TABLE board_items; DROP TABLE command_artifacts; DROP TABLE file_recoveries; DROP TABLE workspace_evidence; DROP TABLE workspace_blobs; DROP TABLE follow_ups; DROP TABLE messages; DROP TABLE conversations; PRAGMA user_version=3",
     );
     for (let i = 0; i < 65; i++) {
       const run = runFor(project.id, directory, { prompt: `Lượt cũ ${i}` });

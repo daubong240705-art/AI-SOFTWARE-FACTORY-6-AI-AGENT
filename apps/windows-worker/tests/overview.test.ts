@@ -198,6 +198,8 @@ test("overview renders current execution, permission attention and another proje
   function render(projectId: string) {
     return renderToStaticMarkup(
       createElement(ProjectOverview, {
+        projectId,
+        onSettings() {},
         state: {
           snapshot: {
             ...projectMonitor(

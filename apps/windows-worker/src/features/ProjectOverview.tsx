@@ -10,6 +10,7 @@ import { attentionItems } from "../../shared/overview";
 import { activityLabels } from "../../shared/monitor";
 import { isActive, runLabels } from "../../shared/runs";
 import type { MonitorState } from "../lib/monitor-store";
+import { ProjectReadiness } from "./ProjectReadiness";
 
 function time(value: string) {
   return new Date(value).toLocaleString("vi-VN", {
@@ -26,6 +27,8 @@ export function ProjectOverview({
   onChat,
   onConversation,
   onReport,
+  projectId,
+  onSettings,
 }: {
   state: MonitorState;
   onRefresh: () => void;
@@ -41,6 +44,8 @@ export function ProjectOverview({
   ) => void;
   onConversation: (id: string) => void;
   onReport?: (id: string) => void;
+  projectId: string;
+  onSettings: () => void;
 }) {
   const [allAttention, setAllAttention] = useState(false);
   const [allResults, setAllResults] = useState(false);
@@ -72,6 +77,11 @@ export function ProjectOverview({
           <RefreshCw size={16} />
         </button>
       </div>
+      <ProjectReadiness
+        key={projectId}
+        projectId={projectId}
+        onSettings={onSettings}
+      />
       {unavailable && (
         <div
           className={`notice ${state.error ? "error" : ""}`}

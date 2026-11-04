@@ -1,6 +1,6 @@
 # Kế hoạch triển khai cải thiện trải nghiệm
 
-Trạng thái: **UX-01–05 đã triển khai; tiếp theo UX-06**. Worker `1.3.0-alpha.8` / SQLite **11** sau UX-05; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md).
+Trạng thái: **UX-01–06 đã triển khai; tiếp theo UX-07 Git local (tùy chọn)**. Worker `1.3.0-alpha.8` / SQLite **12** sau UX-06; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
 
 ## 1. Nguyên tắc triển khai
 
@@ -98,6 +98,8 @@ UX-04 đã bổ sung bằng chứng model thật về ngữ cảnh và phản h�
 
 ### UX-06 — Mẫu phát triển, readiness và Team (P1)
 
+**Đã triển khai.** Bốn mẫu điền nháp, readiness local theo yêu cầu, Team mặc định danh sách và inbox nhiều project có seen riêng. Không thêm preset override/model call/poller theo project. Giới hạn/migration/kiểm chứng trong [bàn giao UX-06](../../docs/windows-worker/ux06-completion.md).
+
 **Phụ thuộc:** UX-01–05. Không chặn người dùng chat ngay nếu môi trường đã sẵn sàng.
 
 - Mẫu Feature/Bug/Review/Docs từ work types/skills đóng gói; không thêm Marketplace hoặc tự tải skills/hooks ngoài.
@@ -178,4 +180,4 @@ UX-01–06 khoảng **16–24 ngày công**, cần điều chỉnh sau UX-02. UX
 
 ## 6. Lát cắt bắt đầu
 
-**UX-01–02 đã bàn giao.** Lát cắt tiếp theo là UX-03: ChatHost và trò chuyện theo ngữ cảnh công việc, tái sử dụng hồ sơ/revision/conversation của UX-02. Không tiếp tục D-05 hoặc dựng lại 3D trong quá trình này.
+**UX-01–06 đã bàn giao.** Lát cắt tiếp theo là UX-07 Git local: branch/dirty/history/link công việc, truy vấn giới hạn và không tự commit/push. Chưa mở rộng ảnh/Mermaid hoặc lịch/quy tắc cùng lúc. Không tiếp tục D-05 hoặc dựng lại 3D trong quá trình này.

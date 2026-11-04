@@ -33,6 +33,7 @@ export function AgentMonitor({
   ) => void;
 }) {
   const [filter, setFilter] = useState("all");
+  const [view, setView] = useState<"list" | "cards">("list");
   const snapshot = state.snapshot;
   const agents = snapshot?.agents ?? [];
   return (
@@ -67,6 +68,23 @@ export function AgentMonitor({
               </p>
             )}
           <div className="monitor-filters" aria-label="Lọc agent">
+            <div
+              className="work-view-switch"
+              aria-label="Kiểu hiển thị đội ngũ"
+            >
+              <button
+                aria-pressed={view === "list"}
+                onClick={() => setView("list")}
+              >
+                Danh sách
+              </button>
+              <button
+                aria-pressed={view === "cards"}
+                onClick={() => setView("cards")}
+              >
+                Thẻ
+              </button>
+            </div>
             {(
               [
                 "all",
@@ -114,7 +132,7 @@ export function AgentMonitor({
               </button>
             )}
           </div>
-          <div className="agent-grid">
+          <div className={`agent-grid ${view === "list" ? "agent-list" : ""}`}>
             {agents
               .filter((a) => filter === "all" || a.availability === filter)
               .map((agent) => (
@@ -186,7 +204,8 @@ export function AgentMonitor({
                     </div>
                   ))}
                   {!agent.executions.length && agent.lastFinished && (
-                    <div className="agent-last">
+                    <details className="agent-last">
+                      <summary>Lần gần nhất</summary>
                       {agent.lastFinished.outcome === "completed"
                         ? "Vừa kết thúc"
                         : agent.lastFinished.outcome === "failed"
@@ -205,7 +224,7 @@ export function AgentMonitor({
                           Xem chi tiết
                         </button>
                       )}
-                    </div>
+                    </details>
                   )}
                   {agent.availability === "unconfigured" && (
                     <button className="subtle" onClick={onSettings}>

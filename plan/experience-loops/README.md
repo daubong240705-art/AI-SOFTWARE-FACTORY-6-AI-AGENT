@@ -1,6 +1,6 @@
 # ASF — Cải thiện trải nghiệm từ CrewHub Loops
 
-Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–05 đã triển khai; tiếp theo UX-06**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md).
+Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–06 đã triển khai; tiếp theo UX-07 Git local (tùy chọn)**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
 
 Đã bổ sung [đợt làm gọn giao diện](../../docs/windows-worker/ux01-ui-refinement.md) theo ảnh phản hồi: bốn trang chính, menu dự án tập trung, hội thoại theo ngữ cảnh và Tổng quan giới hạn nội dung mặc định. Đây là bố cục hiện hành thay cho header có nhiều nút trong UX-01 đầu tiên.
 
@@ -46,7 +46,7 @@ Tạm dừng phát triển 3D theo yêu cầu người dùng. Giữ phần D-01�
 
 **UX-01 Tổng quan/điều hướng → UX-02 Hồ sơ công việc → UX-03 Chat theo ngữ cảnh → UX-04 Câu hỏi → UX-05 Kết quả → UX-06 Mẫu công việc/Team.** UX-07 Git và UX-08 lịch/quy tắc là mở rộng sau, không chặn vòng làm việc chính.
 
-UX-01 thêm Tổng quan/điều hướng gọn; UX-02 thêm hồ sơ công việc; UX-03 thêm chat theo ngữ cảnh; UX-04 thêm câu hỏi nghiệp vụ và continuation idempotent; UX-05 thêm báo cáo bất biến, bằng chứng và nghiệm thu tùy chọn. Worker vẫn `1.3.0-alpha.8`, SQLite 11; chưa phát hành stable. [Bàn giao UX-05](../../docs/windows-worker/ux05-completion.md).
+UX-01 thêm Tổng quan/điều hướng gọn; UX-02 thêm hồ sơ công việc; UX-03 thêm chat theo ngữ cảnh; UX-04 thêm câu hỏi nghiệp vụ và continuation idempotent; UX-05 thêm báo cáo bất biến, bằng chứng và nghiệm thu tùy chọn. Worker vẫn `1.3.0-alpha.8`, SQLite 12; chưa phát hành stable. UX-06 thêm mẫu điền nháp, readiness local, Team danh sách và hộp thư chung. [Bàn giao UX-06](../../docs/windows-worker/ux06-completion.md). [Bàn giao UX-05](../../docs/windows-worker/ux05-completion.md).
 
 ## Phạm vi khảo sát và giới hạn
 

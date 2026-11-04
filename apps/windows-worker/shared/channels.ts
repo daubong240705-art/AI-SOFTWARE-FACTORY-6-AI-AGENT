@@ -1,4 +1,7 @@
 export const channels = {
+  inbox: "worker:inbox",
+  inboxSeen: "worker:inbox-seen",
+  readiness: "worker:readiness",
   workReport: "worker:work-report",
   reportDecision: "worker:report-decision",
   reportPolicy: "worker:report-policy",

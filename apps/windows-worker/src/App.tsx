@@ -6,6 +6,7 @@ import {
   GitBranch,
   LayoutDashboard,
   MessageSquare,
+  Inbox,
   MoreHorizontal,
   ChevronDown,
   Check,
@@ -49,6 +50,8 @@ import { KanbanBoard } from "./features/KanbanBoard";
 import { useMonitor } from "./lib/use-monitor";
 import { TaskInspector } from "./features/TaskInspector";
 import { ProjectOverview } from "./features/ProjectOverview";
+import { GlobalInbox } from "./features/GlobalInbox";
+import type { InboxItem } from "../shared/inbox";
 import type { InspectorSelection } from "../shared/inspector";
 import { HistoryTools } from "./features/HistoryTools";
 import type { ConversationSummary, WorkChatContext } from "../shared/chat";
@@ -70,6 +73,7 @@ async function value<T>(promise: Promise<Reply<T>>): Promise<T> {
   return result.value;
 }
 type Page =
+  | "inbox"
   | "overview"
   | "project"
   | "history"
@@ -146,7 +150,9 @@ export function App() {
   const [boardSelection, setBoardSelection] =
     useState<InspectorSelection | null>(null);
   useEffect(() => {
-    setInspection(null);
+    setInspection((previous) =>
+      previous?.projectId === project?.id ? previous : null,
+    );
     setBoardRunId(null);
     setOfficeRole(null);
     setOfficeSelection(null);
@@ -185,6 +191,47 @@ export function App() {
     setBoot(data);
     setInspection(null);
     await selectProject(selected);
+  }
+  async function openInboxItem(item: InboxItem) {
+    await flushDraft();
+    const data = await value(window.worker.bootstrap());
+    const selected = data.projects.find((p) => p.id === item.projectId);
+    if (!selected)
+      throw new Error("Dự án không còn trong danh sách. Cập nhật hộp thư.");
+    setBoot(data);
+    if (item.kind === "question" && item.runId) {
+      const context = await value(
+        window.worker.workChatForRun({
+          projectId: selected.id,
+          runId: item.runId,
+        }),
+      );
+      setChatContext(context);
+      setConversationId(context?.conversationId ?? item.conversationId);
+      setSelectedRun(null);
+      setLeadFocusVersion((n) => n + 1);
+    } else if (item.kind === "queue" && item.conversationId) {
+      await value(window.worker.conversation(item.conversationId));
+      setChatContext(null);
+      setConversationId(item.conversationId);
+      setSelectedRun(null);
+    } else {
+      setChatContext(null);
+      setConversationId(item.conversationId);
+      setSelectedRun(null);
+    }
+    setProject(selected);
+    setChatDock(false);
+    if (item.kind === "question" || item.kind === "queue") {
+      setInspection(null);
+      await navigate("project");
+    } else if (item.runId) {
+      setInspection({
+        projectId: selected.id,
+        runId: item.runId,
+        ...(item.kind === "report" ? { initialTab: "result" as const } : {}),
+      });
+    }
   }
   const monitor = useMonitor(
     project && ["overview", "project", "monitor", "office"].includes(page)
@@ -692,6 +739,14 @@ export function App() {
         </div>
         <nav aria-label="Điều hướng chính">
           <button
+            className={page === "inbox" ? "active" : ""}
+            onClick={() => navigate("inbox")}
+            title="Hộp thư"
+          >
+            <Inbox size={18} />
+            <span>Hộp thư</span>
+          </button>
+          <button
             className={page === "overview" ? "active" : ""}
             onClick={() => navigate("overview")}
             title="Tổng quan"
@@ -932,9 +987,12 @@ export function App() {
             </Empty>
           ) : (
             <>
+              {page === "inbox" && <GlobalInbox onOpen={openInboxItem} />}
               {page === "overview" &&
                 (project ? (
                   <ProjectOverview
+                    projectId={project.id}
+                    onSettings={() => void navigate("settings")}
                     onReport={(runId) => {
                       if (project)
                         setInspection({

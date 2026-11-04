@@ -118,6 +118,15 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  inbox(
+    input: import("zod").z.infer<typeof import("./inbox").inboxQuerySchema>,
+  ): Promise<Reply<import("./inbox").InboxPage>>;
+  inboxSeen(
+    input: import("zod").z.infer<typeof import("./inbox").inboxSeenSchema>,
+  ): Promise<Reply<void>>;
+  readiness(
+    input: import("zod").z.infer<typeof import("./readiness").readinessSchema>,
+  ): Promise<Reply<import("./readiness").Readiness>>;
   workReport(
     input: import("./reports").ReportRef,
   ): Promise<Reply<import("./reports").ReportView>>;

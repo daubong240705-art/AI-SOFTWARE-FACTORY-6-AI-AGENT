@@ -174,7 +174,7 @@ async function main() {
     await js(
       "document.querySelectorAll('nav[aria-label=\"Điều hướng chính\"] > button').length",
     ),
-    4,
+    5,
   );
   assert.equal(
     await js("document.querySelector('.overview-activity').open"),

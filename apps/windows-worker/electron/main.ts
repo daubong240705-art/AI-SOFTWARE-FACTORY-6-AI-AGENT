@@ -53,6 +53,9 @@ import { WorkspaceFiles } from "./workspace/files";
 import { LocalCommands, commandCatalog } from "./workspace/commands";
 import { recoverOwnedJobs } from "./runtime/owned-process";
 import { Worktrees } from "./workspace/worktrees";
+import { ReadinessProbe } from "./workspace/readiness";
+import { readinessSchema } from "../shared/readiness";
+import { inboxQuerySchema, inboxSeenSchema } from "../shared/inbox";
 
 app.setName("ASF Windows Worker");
 let store: Store;
@@ -86,6 +89,39 @@ function key(): string | undefined {
   }
 }
 function registerIPC(): void {
+  const readiness = new ReadinessProbe();
+  handle(channels.inbox, (input) => {
+    let secret: string | undefined;
+    try {
+      secret = key();
+    } catch {
+      /* Inbox remains usable without credentials. */
+    }
+    return store.inbox.list(
+      inboxQuerySchema.parse(input),
+      secret ? [secret] : [],
+    );
+  });
+  handle(channels.inboxSeen, (input) =>
+    store.inbox.seen(inboxSeenSchema.parse(input)),
+  );
+  handle(channels.readiness, (input) => {
+    const data = readinessSchema.parse(input);
+    const project = store.project(data.projectId);
+    let credential: "available" | "unreadable" | "none" = "none";
+    try {
+      credential = key() ? "available" : "none";
+    } catch {
+      credential = "unreadable";
+    }
+    return readiness.check({
+      ...data,
+      path: project.path,
+      settings: store.settings(),
+      credential,
+      busy: controller.isBusy() || local.busy(),
+    });
+  });
   handle(channels.workReport, (input) =>
     controller.workReport(reportRefSchema.parse(input)),
   );

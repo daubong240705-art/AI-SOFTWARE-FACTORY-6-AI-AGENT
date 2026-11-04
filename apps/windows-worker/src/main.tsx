@@ -12,6 +12,7 @@ import "./ui/select.css";
 import "./ui/popover.css";
 import "./office.css";
 import "./overview.css";
+import "./readiness-inbox.css";
 import type { WorkerAPI } from "../shared/contracts";
 
 declare global {
