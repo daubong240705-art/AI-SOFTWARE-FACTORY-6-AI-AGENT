@@ -22,7 +22,7 @@ Kiểm chứng browser dùng Chromium headless riêng, không dùng profile cá 
 
 Chi tiết kết quả runtime/reconnect/restart được ghi tại [phase-3-evidence.json](phase-3-evidence.json). Không commit password, cookie hay private browser state.
 
-Ảnh đã kiểm tra: đăng nhập (`phase-3-screenshots/login.png`, ?nh local), run sau restart (`phase-3-screenshots/after-restart.png`, ?nh local), mobile (`phase-3-screenshots/mobile.png`, ?nh local).
+Ảnh đã kiểm tra: đăng nhập (`phase-3-screenshots/login.png`, ảnh local), run sau restart (`phase-3-screenshots/after-restart.png`, ảnh local), mobile (`phase-3-screenshots/mobile.png`, ảnh local).
 
 Migration cũng đã nâng 0002 → 0003 → hạ 0002 → nâng 0003 trên DB disposable khác, giữ project/approval cũ và gán đúng nguồn danh tính legacy. Toàn stack đã `down`/`up` không xóa volume; browser dùng cookie trước restart vẫn đăng nhập, còn bốn artifact v1/v2, hai quyết định, 13 event và timeline replay đầy đủ. Kiểm chứng restart có thể chạy lại bằng `tests/dashboard-restart.cjs` sau smoke và restart stack.
 

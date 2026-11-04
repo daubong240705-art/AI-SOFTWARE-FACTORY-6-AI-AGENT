@@ -29,7 +29,7 @@ Deployment identity SSH chỉ chấp nhận `deploy <full SHA> <pipeline ID> <jo
 - Runtime ASF: tổng hard limit **2.5625 GiB RAM / 2.6 CPU**; bốn tiến trình ứng dụng non-root/read-only, không Docker socket/privileged. Model key chỉ có ở workflow worker. `.14` còn khoảng 41–42 GB sau load hai release.
 - 10 container Safe School/Portainer cũ giữ nguyên thời điểm khởi động, đang chạy. Hai container ITCare dừng lúc 02:20 ngày 04/11 trước deploy ASF; người dùng xác nhận chủ động dừng và yêu cầu giữ nguyên. Không restart/recreate/xóa các container cũ.
 
-Bằng chứng đã lọc secret ở [phase-4-evidence.json](phase-4-evidence.json); ảnh sau restart (`phase-4-screenshots/after-restart.png`, ?nh local), mobile (`phase-4-screenshots/mobile.png`, ?nh local). Không commit credential/cookie/dump/browser storage state. Admin bootstrap lưu ngoài repo tại máy người vận hành, `C:\Users\ADMIN\.asf\production-admin.json`, thư mục ACL giới hạn ADMIN/SYSTEM/Administrators.
+Bằng chứng đã lọc secret ở [phase-4-evidence.json](phase-4-evidence.json); ảnh sau restart (`phase-4-screenshots/after-restart.png`, ảnh local), mobile (`phase-4-screenshots/mobile.png`, ảnh local). Không commit credential/cookie/dump/browser storage state. Admin bootstrap lưu ngoài repo tại máy người vận hành, `C:\Users\ADMIN\.asf\production-admin.json`, thư mục ACL giới hạn ADMIN/SYSTEM/Administrators.
 
 Trong lần deploy đầu đã phát hiện và sửa: CRLF ở script chuyển từ Windows (thêm `.gitattributes` LF), Docker containerd trả manifest digest tại `.Id` (so sánh config bytes sau `docker image save`), YAML tmpfs có dấu phẩy chưa quote. Wrapper chặn các lần lỗi trước khi báo release healthy; bản sửa đã vào MR !2 và release cuối. Dịch vụ dữ liệu ASF được giữ nguyên, không ảnh hưởng stack khác.
 

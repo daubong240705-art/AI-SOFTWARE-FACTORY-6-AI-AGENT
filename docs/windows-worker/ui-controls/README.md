@@ -26,11 +26,11 @@ Không gọi model hoặc dùng database/credential người dùng. Không thay 
 
 ## Ảnh
 
-- Đội ngũ (`agents-desktop.png`, ?nh local)
-- Board (`kanban-desktop.png`, ?nh local) · cửa sổ nhỏ (`kanban-small.png`, ?nh local)
-- Menu dropdown (`dropdown-desktop.png`, ?nh local)
-- Chat (`chat-panel-desktop.png`, ?nh local) · Inspector (`inspector-desktop.png`, ?nh local)
-- Cài đặt (`settings-desktop.png`, ?nh local) · cửa sổ nhỏ (`settings-small.png`, ?nh local)
+- Đội ngũ (`agents-desktop.png`, ảnh local)
+- Board (`kanban-desktop.png`, ảnh local) · cửa sổ nhỏ (`kanban-small.png`, ảnh local)
+- Menu dropdown (`dropdown-desktop.png`, ảnh local)
+- Chat (`chat-panel-desktop.png`, ảnh local) · Inspector (`inspector-desktop.png`, ảnh local)
+- Cài đặt (`settings-desktop.png`, ảnh local) · cửa sổ nhỏ (`settings-small.png`, ảnh local)
 
 Các thư mục `inspector/` và `evidence/` chứa kết quả regression bổ sung, tách khỏi bằng chứng các phiên bản trước.
 

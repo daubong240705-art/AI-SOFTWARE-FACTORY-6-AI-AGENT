@@ -26,7 +26,7 @@ Lệnh có CWD, timestamp bắt đầu/kết thúc, thời lượng, exit code v
 - `npm test`: **38/38 đạt**. Các kiểm tra mới bao gồm source đã staged + sửa tiếp trước run, diff lịch sử sau reopen, restore giữ index/baseline, file thêm/xóa/rename/binary/CRLF/large/credential, xung đột sau preview, junction, migration schema5 và khóa workspace/chờ shutdown.
 - `npm run typecheck`, `npm run build`, `npm run test:native`, `npm run format:check`.
 - [UI acceptance](ww4c/ui-acceptance.json) chạy bản main/preload/renderer đã build, SQLite/Git/IPC thật trong fixture riêng. Kiểm tra ba loại diff, preview, từ chối thay đổi mới, restore giữ phần sửa sẵn/index, lịch sử diff sau restore, output lệnh và panel 850×700.
-- Ảnh diff (`ww4c/diff-with-panel.png`, ?nh local), preview khôi phục (`ww4c/restore-preview.png`, ?nh local), cửa sổ nhỏ (`ww4c/diff-small.png`, ?nh local), bằng chứng lệnh (`ww4c/command-evidence.png`, ?nh local). Nội dung ảnh là fixture giao diện.
+- Ảnh diff (`ww4c/diff-with-panel.png`, ảnh local), preview khôi phục (`ww4c/restore-preview.png`, ảnh local), cửa sổ nhỏ (`ww4c/diff-small.png`, ảnh local), bằng chứng lệnh (`ww4c/command-evidence.png`, ảnh local). Nội dung ảnh là fixture giao diện.
 - [Lượt thật qua 9Router](ww4c/live-evidence.json): `ds/deepseek-v4-flash`, hai request, đọc kiểu dữ liệu sản phẩm và chạy đúng `node --version` được cho phép. Controller lưu snapshot trước/sau và artifact lệnh có CWD/thời gian/exit 0. Không sửa source hoặc shell ngoài lệnh đó.
 
 Chạy UI: `npm run build` rồi `node scripts/run-acceptance.cjs evidence-ui`. Chạy model thật: `node scripts/run-acceptance.cjs evidence-live`, cần `NINE_ROUTER_API_KEY` trong môi trường cha. Cả hai dùng app data tạm, không thay dữ liệu app đang dùng hoặc cấu hình OpenCode global.

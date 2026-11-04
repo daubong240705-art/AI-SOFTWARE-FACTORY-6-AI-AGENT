@@ -16,7 +16,7 @@ Schema5 thêm `follow_ups`; trước nâng schema4 lưu `worker.schema4.backup.s
 
 - [Model thật](ww4b/live-chat.json): DeepSeek **`ds/deepseek-v4-flash`** qua 9Router, một lượt trả lời, một follow-up tự chạy sau đó và một lần thử lại lượt đã hủy. Ba lượt model thành công, mỗi lượt một request; lượt hủy trước startup dùng 0 request. Follow-up nhắc lại đúng marker từ lượt đầu, tham chiếu đúng context; thời điểm bắt đầu sau thời điểm kết thúc lượt trước. Quan sát được partial text trong trạng thái running. Không shell hoặc thay đổi source.
 - [UI acceptance](ww4b/ui-acceptance.json): bản Electron đã build, main/preload/renderer và SQLite/IPC thật trong dữ liệu tạm. Sửa/xóa hàng chờ, Enter thêm yêu cầu đang giữ, bảo toàn draft khi polling, hiển thị partial interrupted và nút retry. Không tràn ngang ở 850×700; composer vẫn hiện.
-- Ảnh chat và hàng chờ (`ww4b/chat-queue.png`, ?nh local), cửa sổ nhỏ (`ww4b/chat-small.png`, ?nh local). Nội dung ảnh là fixture UI, không phải lượt trả lời model mới.
+- Ảnh chat và hàng chờ (`ww4b/chat-queue.png`, ảnh local), cửa sổ nhỏ (`ww4b/chat-small.png`, ảnh local). Nội dung ảnh là fixture UI, không phải lượt trả lời model mới.
 - `npm run typecheck`, `npm test` (**32/32**), `npm run test:native`, `npm run build`, `npm run format:check`.
 - Test bao gồm migration schema4, giữ thứ tự và rollback claim, khóa một run, hủy/khôi phục hàng chờ, thay cấu hình/project, retry/history và lọc text/delta/reasoning/prompt.
 

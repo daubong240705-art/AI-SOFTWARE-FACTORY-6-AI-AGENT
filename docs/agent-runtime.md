@@ -36,7 +36,7 @@ Probe không tạo run, không ghi GitLab/OpenProject, không tự thêm model v
 
 ## Kiểm chứng của mốc này
 
-54 backend tests trên PostgreSQL/Redis riêng; Ruff/mypy; frontend lint/typecheck và production build đạt. Chromium qua BFF thật đã chạy đăng ký → rotate → revoke, ẩn token/tải lại, desktop 1440px/mobile 390px không tràn trang và không có page error. Ảnh desktop (`phase-5-screenshots/agent-workers.png`, ?nh local), mobile (`phase-5-screenshots/agent-workers-mobile.png`, ?nh local).
+54 backend tests trên PostgreSQL/Redis riêng; Ruff/mypy; frontend lint/typecheck và production build đạt. Chromium qua BFF thật đã chạy đăng ký → rotate → revoke, ẩn token/tải lại, desktop 1440px/mobile 390px không tràn trang và không có page error. Ảnh desktop (`phase-5-screenshots/agent-workers.png`, ảnh local), mobile (`phase-5-screenshots/agent-workers-mobile.png`, ảnh local).
 
 BE/FE smoke bằng OpenCode thật sửa đúng file với 4/7 request, charge 11.335/22.722 token theo usage gateway. Đây là hai task tổng hợp độc lập, không phải lần chạy lại toàn chuỗi PM → deploy trên image cuối. Thử mặc định cũ 20.000 đã bị chặn sau 2 request vì context/tool schema; giữ kết quả thất bại làm evidence và tăng grant mặc định lên 60.000. Runtime vẫn bị chặn tiếp theo ngân sách run.
 
