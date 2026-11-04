@@ -4,6 +4,8 @@ Baseline: `3e3cd60` trên nhánh `feature/windows-worker-ww4c`. Nhánh nghiên c
 
 Cập nhật AU-1 ngày 04/11/2026: G1 đã xử lý; bảy profile dùng `1.1.0`, profile/skill version được đọc từ nội dung nên phần metadata G7 đã xử lý. G2–G6/G8 và catalog theo task của G7 còn trong backlog. Các mô tả/bằng chứng dưới đây giữ theo baseline khảo sát; [báo cáo trạng thái mới](../../docs/windows-worker/au1-completion.md).
 
+Cập nhật AU-2A cùng ngày: G4 đã có handoff bounded với trạng thái cắt và reference gốc; map latest giữ đúng attempt. Năm profile Lead/BE/FE/TEST/DEVOPS lên `1.2.0`, PM/BA giữ `1.1.0`. G3/G6 vẫn cần evidence gate; reference hiện chưa chứng nhận artifact tồn tại hoặc đúng identity khi call ID trùng. Xem [báo cáo AU-2A](../../docs/windows-worker/au2a-completion.md).
+
 ## Hai lớp sản phẩm đang cùng repository
 
 **Factory Lite legacy:** Python FastAPI, LangGraph, PostgreSQL/Redis và Linux worker. [graph.py](../../orchestrator/graph.py) chạy PM → BA → approval → execution boundary; [state.py](../../orchestrator/state.py) giữ reference và trạng thái. [coding.py](../../workers/coding.py) có Docker task cho Linux, trusted test mount và model proxy; TEST/DEVOPS không đồng nghĩa có đầy đủ agent model như desktop. Không chuyển mô hình Docker/Linux này vào Windows, không sửa luồng tích hợp legacy trong chương trình nâng cấp này.

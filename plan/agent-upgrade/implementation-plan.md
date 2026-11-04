@@ -1,6 +1,6 @@
 # Kế hoạch triển khai theo đợt
 
-Trạng thái ngày 04/11/2026: **AU-0 và AU-1 hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md). AU-2–5 chưa thực hiện. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
+Trạng thái ngày 04/11/2026: **AU-0, AU-1 và AU-2A hoàn thành**; [kết quả AU-1](../../docs/windows-worker/au1-completion.md), [AU-2A](../../docs/windows-worker/au2a-completion.md). AU-2B–5 chưa thực hiện. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
 
 ## Ranh giới và thứ tự
 
@@ -13,7 +13,7 @@ Trạng thái ngày 04/11/2026: **AU-0 và AU-1 hoàn thành**; [kết quả AU-
 ```mermaid
 flowchart LR
   A[AU-0 clone và khảo sát: xong] --> B[AU-1 profile và policy: xong]
-  B --> C[AU-2A handoff]
+  B --> C[AU-2A handoff: xong]
   C --> D[AU-2B evidence gate]
   D --> E[AU-3 skills theo task]
   E --> F[AU-4 lỗi, model và số liệu]
@@ -50,6 +50,8 @@ Kiểm tra: test trọng tâm policy/runtime/team; sau đó `npm run typecheck`,
 
 ## AU-2A — Bàn giao gọn, truy vết được
 
+**Đã hoàn thành AU2A-01–03.** Packet dùng chung dependency/review, giữ task/attempt ID, report bốn mục dễ đọc và fallback legacy; giới hạn 32.000 ký tự sau JSON serialize, có truncation/count/source refs. 48/48 test, typecheck/build/format đạt; không gọi model thật hoặc thay completion gate. Chi tiết trong báo cáo AU-2A.
+
 Phụ thuộc AU-1. Scope 2A chưa đổi kết luận completion, chưa migration schema evidence.
 
 | Task | Owner | File dự kiến | Kết quả |
@@ -76,6 +78,8 @@ Phụ thuộc 2A; checkpoint riêng trước đổi data contract. Đây là tha
 | AU2B-04 | TEST | `tests/team.test.ts`, `tests/evidence.test.ts`, `tests/native-storage.cjs` nếu migration | Ref giả, stale attempt, AC trùng chữ, command thất bại/không liên quan và dữ liệu cũ |
 
 Quy tắc: command pass phải là lệnh completed/exit 0 của đúng attempt; claim kiểm thử phải có command evidence, không chỉ file diff. Claim tài liệu/source có thể dùng file/artifact evidence phù hợp thay vì ép chạy test. Lead vẫn chịu trách nhiệm đối chiếu sự liên quan giữa AC và bằng chứng; validator xác thực tính toàn vẹn/reference, không tuyên bố tự chứng minh được ngữ nghĩa của mọi lệnh.
+
+Phát hiện khi làm AU-2A: controller và artifact schema6 hiện dùng call ID trong phạm vi run. AU-2B cần xử lý identity task/attempt/session ở cả command capture và storage để không ghi đè artifact nếu call ID trùng, rồi mới coi ref là bằng chứng hợp lệ. Không tự gán task cho artifact legacy khi không xác minh được.
 
 Chưa đủ evidence thì `unverified`, không được completed. Review không chỉ tin câu trả lời implementer. Không tự xóa failed command hoặc nới quy tắc verification hiện tại để làm xanh kết quả; xử lý expected-failure/TDD nếu cần bằng contract riêng có test, ngoài scope 2B ban đầu.
 
@@ -138,4 +142,4 @@ Ngưỡng: tất cả ca correctness/policy bắt buộc đạt; không tăng s�
 5. Review diff/scope/secret, cập nhật báo cáo, commit từng đợt và push GitHub theo quyền đã có. Không merge/main hoặc deploy ngoài phạm vi.
 6. Đo thực tế rồi mới quyết định cần agent/reviewer/tool/dependency mới. Nếu thiếu quyền/công cụ thì báo giới hạn cụ thể, không giả lập kết quả thành đạt.
 
-Mốc code tiếp theo cụ thể: **AU2A-01 → AU2A-02 → AU2A-03** trên nền AU-1/WW-4C. Không cần chờ toàn bộ WW-4D để bắt đầu mốc này.
+Mốc code tiếp theo cụ thể: **AU2B-01 → AU2B-02 → AU2B-03 → AU2B-04** trên nền AU-2A/WW-4C. Không cần chờ toàn bộ WW-4D để bắt đầu mốc này.

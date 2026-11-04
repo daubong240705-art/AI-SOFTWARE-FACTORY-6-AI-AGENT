@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { editScopes } from "../electron/runtime/scope";
 import { ExecutionStopped } from "../electron/runtime/stopped";
+import { taskReport } from "../electron/team/handoff";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -167,11 +168,22 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
     let reviews = 0;
     await coordinate(
       run,
-      async (task) => {
+      async (task, prompt) => {
         calls.push(task.id);
         assert.equal(task.model, `model-${task.role}`);
         if (task.kind === "plan") return JSON.stringify(plan);
-        if (task.kind === "review")
+        if (task.kind === "review") {
+          const packet = JSON.parse(
+            prompt.split("Kết quả mới nhất: ")[1].split("\n")[0],
+          );
+          const backend = packet.tasks.find(
+            (t: { taskId: string }) => t.taskId === "t1",
+          );
+          assert.equal(backend.attemptId, reviews === 0 ? "t1" : "t1-fix-1");
+          const tested = packet.tasks.find(
+            (t: { taskId: string }) => t.taskId === "t3",
+          );
+          assert.equal(tested.attemptId, reviews === 0 ? "t3" : "t3-retry-1");
           return JSON.stringify(
             reviews++ === 0
               ? review("fix", [
@@ -179,6 +191,17 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
                 ])
               : review("completed"),
           );
+        }
+        if (task.id === "t3-retry-1") {
+          const packet = JSON.parse(
+            prompt.split("Bàn giao: ")[1].split("\n")[0],
+          );
+          assert.equal(packet.tasks.length, 1);
+          assert.equal(packet.tasks[0].taskId, "t1");
+          assert.equal(packet.tasks[0].attemptId, "t1-fix-1");
+          assert.equal(packet.tasks[0].report.format, "legacy");
+          assert.equal(packet.tasks[0].report.verified, false);
+        }
         if (task.role === "test")
           run.commands.push({
             taskId: task.id,
@@ -195,6 +218,7 @@ test("failed TEST is repaired selectively with per-role models, fresh evidence a
     );
     assert.equal(run.state, "completed");
     assert.equal(run.fixRound, 1);
+    assert.equal(calls.length, 8); // No report parsing/formatting model round trips.
     assert.equal(calls.filter((id) => id === "t2").length, 1);
     assert.ok(calls.includes("t1-fix-1"));
     assert.ok(calls.includes("t3-retry-1"));
@@ -367,6 +391,9 @@ test("schema2 migration backs up history and persists independent task states", 
       newTask(run, { ...planned("t2", "test", ["t1"]), kind: "work" }),
     ];
     run.tasks[0].state = "completed";
+    run.tasks[0].summary =
+      "Trạng thái: done\nKết quả: Đã sửa src/api.ts\nBlocker: —\nChưa xác minh: Chưa mở UI";
+    run.tasks[1].summary = "Legacy report must remain intact";
     store.updateRun(run);
     store.close();
     store = undefined;
@@ -382,6 +409,11 @@ test("schema2 migration backs up history and persists independent task states", 
     inspect.close();
     store = new Store(directory);
     assert.equal(store.run(run.id).tasks.length, 2);
+    const stored = store.run(run.id);
+    assert.equal(stored.tasks[0].summary, run.tasks[0].summary);
+    assert.equal(taskReport(stored.tasks[0].summary).status, "done");
+    assert.equal(stored.tasks[1].summary, "Legacy report must remain intact");
+    assert.equal(taskReport(stored.tasks[1].summary).format, "legacy");
   } finally {
     store?.close();
     rmSync(directory, { recursive: true, force: true });

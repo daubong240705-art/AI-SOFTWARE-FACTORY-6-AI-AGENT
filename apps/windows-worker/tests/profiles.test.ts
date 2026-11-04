@@ -154,7 +154,10 @@ test("profile snapshots record content versions and hashes; selected direct role
     [...roles],
   );
   for (const profile of profiles) {
-    assert.equal(profile.version, "1.1.0");
+    assert.equal(
+      profile.version,
+      ["pm", "ba"].includes(profile.role) ? "1.1.0" : "1.2.0",
+    );
     assert.equal(
       profile.hash,
       createHash("sha256").update(profile.instructions).digest("hex"),

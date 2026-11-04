@@ -70,7 +70,7 @@ Các test mặc định dùng SQLite/thư mục tạm và gateway HTTP loopback 
 
 - Lead chọn ít role cần thiết; không tự gọi đủ sáu role. Task có AC, scope, dependency và model được kiểm tra trước khi thực thi. Không có TEST phải ghi lý do; thiếu thông tin/role/model thì kết thúc ở **Cần bổ sung**, không giữ khóa run hay tự đổi model.
 - Lead/PM/BA chỉ đọc, không shell; TEST chỉ đọc và shell cần quyền; BE/FE/DEVOPS được sửa trong scope và shell cần quyền. Scope edit được chuyển về gốc Git để hỗ trợ thư mục con trong monorepo. Controller kiểm tra thay đổi source sau mỗi task; lệch scope thì dừng và giữ diff cho người dùng.
-- Handoff chỉ chuyển AC, tóm tắt, file và lệnh liên quan. UI liên kết task, role, model, session, scope, phụ thuộc, kết quả và blocker. TEST không được tính hoàn thành nếu thiếu lệnh có exit 0.
+- Handoff chỉ chuyển dependency liên quan, giữ task ID gốc/lần thực thi và lệnh đúng attempt; ưu tiên blocker/lệnh lỗi, ghi rõ phần bị cắt trong packet tối đa 32.000 ký tự. Báo cáo task gồm Trạng thái/Kết quả/Blocker/Chưa xác minh; văn bản cũ vẫn giữ nguyên. Đây là thông tin bàn giao, chưa phải chứng nhận evidence. UI liên kết task, role, model, session, scope, phụ thuộc, kết quả và blocker. TEST không được tính hoàn thành nếu thiếu lệnh có exit 0.
 - Deadline và request cap dùng chung toàn run, kể cả lập kế hoạch, sửa JSON và review. JSON sai chỉ được sửa thêm một lần mỗi bước. Tối đa hai vòng sửa code theo cài đặt; chỉ sửa task được Lead chỉ định và chạy lại kiểm tra/phụ thuộc liên quan. Lần thất bại trước được giữ nguyên trong lịch sử.
 - DEVOPS hỗ trợ local build/package/cấu hình và cách chạy. Preview chạy lâu dài có quản lý tiến trình thuộc WW-4; ở WW-3 không tách server nền, không SSH/deploy.
 
@@ -84,4 +84,6 @@ Thử thật 04/11/2026 qua chính Controller/Electron với **`ds/deepseek-v4-f
 
 WW-4D tiếp tục preview/phục hồi/retention; WW-5 bộ cài. [Kế hoạch đầy đủ](../../plan/windows-worker/README.md). App độc lập với ASF web; không cần build image hoặc deploy lại các VM.
 
-[AU-1 hoàn thành](../../docs/windows-worker/au1-completion.md): profile/policy thống nhất direct/team, prompt bàn giao và version/hash theo nội dung; 43/43 test, typecheck/build/format đạt. [Kế hoạch nâng cấp agent](../../plan/agent-upgrade/README.md) tiếp tục AU-2A handoff có cấu trúc.
+[AU-1 hoàn thành](../../docs/windows-worker/au1-completion.md): profile/policy thống nhất direct/team, prompt bàn giao và version/hash theo nội dung; 43/43 test, typecheck/build/format đạt. [Kế hoạch nâng cấp agent](../../plan/agent-upgrade/README.md).
+
+[AU-2A hoàn thành](../../docs/windows-worker/au2a-completion.md): handoff dependency/review có cấu trúc, giới hạn context, không thêm bước gọi model; 48/48 test, typecheck/build/format đạt. Tiếp theo AU-2B xác thực completion theo evidence.
