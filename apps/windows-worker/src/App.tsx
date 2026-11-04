@@ -12,6 +12,7 @@ import {
   History,
   KeyRound,
   Layers,
+  Box,
   LoaderCircle,
   PanelLeftClose,
   Plus,
@@ -37,6 +38,7 @@ import { defaultSettings } from "../shared/defaults";
 import { version } from "../package.json";
 import { ChatWorkspace } from "./features/ChatWorkspace";
 import { AgentMonitor } from "./features/AgentMonitor";
+import { OfficeWorkspace } from "./features/OfficeWorkspace";
 import { KanbanBoard } from "./features/KanbanBoard";
 import { useMonitor } from "./lib/use-monitor";
 import { TaskInspector } from "./features/TaskInspector";
@@ -60,7 +62,7 @@ async function value<T>(promise: Promise<Reply<T>>): Promise<T> {
   if (!result.ok) throw new Error(result.error);
   return result.value;
 }
-type Page = "project" | "history" | "settings" | "monitor" | "board";
+type Page = "project" | "history" | "settings" | "monitor" | "board" | "office";
 type Notice = { kind: "error" | "success"; text: string };
 
 function Empty({
@@ -147,7 +149,9 @@ export function App() {
     await selectProject(selected);
   }
   const monitor = useMonitor(
-    project && ["project", "monitor"].includes(page) ? project.id : null,
+    project && ["project", "monitor", "office"].includes(page)
+      ? project.id
+      : null,
   );
   const dirty =
     boot &&
@@ -558,6 +562,14 @@ export function App() {
             <span>Đội ngũ</span>
           </button>
           <button
+            className={page === "office" ? "active" : ""}
+            onClick={() => navigate("office")}
+            title="Văn phòng"
+          >
+            <Box size={18} />
+            <span>Văn phòng</span>
+          </button>
+          <button
             className={page === "project" ? "active" : ""}
             onClick={() => navigate("project")}
             title="Dự án"
@@ -695,11 +707,13 @@ export function App() {
                 ? "Trò chuyện"
                 : page === "monitor"
                   ? "Đội ngũ"
-                  : page === "board"
-                    ? "Công việc"
-                    : page === "history"
-                      ? "Lịch sử"
-                      : "Cài đặt"}
+                  : page === "office"
+                    ? "Văn phòng"
+                    : page === "board"
+                      ? "Công việc"
+                      : page === "history"
+                        ? "Lịch sử"
+                        : "Cài đặt"}
             </span>
           </div>
           {page === "project" && project && (
@@ -725,7 +739,9 @@ export function App() {
               ? "chat-main"
               : page === "board"
                 ? "board-main"
-                : ""
+                : page === "office"
+                  ? "office-main"
+                  : ""
           }
         >
           {notice && (
@@ -842,6 +858,24 @@ export function App() {
                   <Empty
                     icon={<Layers size={28} />}
                     title="Chọn dự án để xem đội ngũ"
+                  >
+                    <button onClick={() => void chooseProject()}>
+                      Chọn dự án
+                    </button>
+                  </Empty>
+                ))}
+              {page === "office" &&
+                (project ? (
+                  <OfficeWorkspace
+                    key={project.id}
+                    state={monitor}
+                    projectName={project.name}
+                    onMonitor={() => void navigate("monitor")}
+                  />
+                ) : (
+                  <Empty
+                    icon={<Box size={28} />}
+                    title="Chọn dự án để mở văn phòng"
                   >
                     <button onClick={() => void chooseProject()}>
                       Chọn dự án

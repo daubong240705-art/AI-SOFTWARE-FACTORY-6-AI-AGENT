@@ -1,6 +1,6 @@
 # V1.3 mở rộng — Agent Monitor, Kanban và AI Office 3D
 
-Ngày lập: 04/11/2026; cập nhật 05/11/2026. **A–C đã triển khai; hiện tại `1.3.0-alpha.3`. D–E chưa triển khai.** Người dùng đã chọn tên V1.3 mở rộng thay cho V1.13. [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [B](../../docs/windows-worker/v1.3b-completion.md), [C và bằng chứng](../../docs/windows-worker/v1.3c-completion.md).
+Ngày lập: 04/11/2026; cập nhật 05/11/2026. **A–C, UI foundation và D-01/D-02 đã triển khai; hiện tại `1.3.0-alpha.6`. D-03–05 và E còn lại.** Người dùng đã chọn tên V1.3 mở rộng thay cho V1.13. [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [B](../../docs/windows-worker/v1.3b-completion.md), [C](../../docs/windows-worker/v1.3c-completion.md), [D-01/D-02](../../docs/windows-worker/office-3d/README.md).
 
 ## 1. Kết quả cần đạt
 
@@ -55,7 +55,7 @@ Factory Lite + Windows Worker và một Controller tiếp tục là kiến trúc
 | V1.3A — đã triển khai | Hợp đồng trạng thái và snapshot chung, agent monitor 2D | Baseline hiện tại | 2–3 ngày (ước lượng ban đầu) |
 | V1.3B — đã triển khai | Kanban, backlog local, liên kết task/run, thao tác hợp lệ | A | 3–4 ngày (ước lượng ban đầu) |
 | V1.3C — đã triển khai | Inspector, timeline gọn, Chat dùng dữ liệu chung | A, B | 2–3 ngày (ước lượng ban đầu) |
-| V1.3D | Văn phòng 3D, bảy vị trí, chọn agent và ánh xạ trạng thái | A, C | 3–5 ngày |
+| V1.3D — D-01/D-02 đã triển khai | Đã có phòng/camera; còn chọn agent và ánh xạ trạng thái execution | A, C | 3–5 ngày (ước lượng ban đầu) |
 | V1.3E | Tối ưu, fallback, nghiệm thu và bàn giao | B, C, D | 2–3 ngày |
 
 \* Tổng khoảng **12–18 ngày công**, là ước lượng lập kế hoạch cho một luồng triển khai chính, không phải lịch cam kết hoặc thời gian chạy model. A–C tạo bản alpha có giá trị sử dụng trước; D–E hoàn thiện V1.3. Mỗi đợt chỉ đánh dấu hoàn thành sau khi có bằng chứng tương ứng.
@@ -73,6 +73,6 @@ Factory Lite + Windows Worker và một Controller tiếp tục là kiến trúc
 
 ## 7. Điểm bắt đầu khi code
 
-Đã hoàn thiện **V1.3A–C**: bảng agent 2D, Kanban/backlog local, inspector/timeline và cache chi tiết Chat dùng chung. Tiếp theo triển khai **V1.3D — văn phòng 3D**, rồi E đo hiệu năng, fallback và nghiệm thu model thật. Không cần chuẩn bị VM để bắt đầu D.
+Đã hoàn thiện **V1.3A–C**, UI foundation và **D-01/D-02**: thêm phòng bảy vị trí, camera pan/zoom/reset, lazy load và đường về 2D. Tiếp theo **D-03/D-04 — trạng thái execution và chọn agent/task**, sau đó D-05/E đo hiệu năng, fallback và nghiệm thu model thật. Không cần chuẩn bị VM.
 
-V1.3A thêm snapshot/trạng thái và migration schema 7; B–C dùng schema này. A–C không thêm dependency hoặc thay credentials/cấu hình hệ thống. File roadmap người dùng cung cấp được giữ nguyên. Bước code tiếp theo là V1.3D.
+V1.3A thêm snapshot/trạng thái và migration schema 7; B–C/D dùng schema này. D-01 thêm Three/R3F pin phiên bản, không đổi credentials/cấu hình hệ thống. File roadmap người dùng cung cấp được giữ nguyên. Bước code tiếp theo là D-03.

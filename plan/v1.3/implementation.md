@@ -1,6 +1,6 @@
 # V1.3 — Backlog triển khai và nghiệm thu
 
-**V1.3A–C đã triển khai; hiện tại `1.3.0-alpha.3`. D–E chưa triển khai.** [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [B](../../docs/windows-worker/v1.3b-completion.md), [C và giới hạn](../../docs/windows-worker/v1.3c-completion.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
+**V1.3A–C, UI foundation và D-01/D-02 đã triển khai; hiện tại `1.3.0-alpha.6`. D-03–05/E chưa hoàn thành.** [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [B](../../docs/windows-worker/v1.3b-completion.md), [C](../../docs/windows-worker/v1.3c-completion.md), [D-01/D-02 và giới hạn](../../docs/windows-worker/office-3d/README.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
 
 ## 0. Chuẩn bị trước thay đổi lớn
 
@@ -59,6 +59,8 @@
 **Mốc bàn giao:** alpha 2D đầy đủ A–C; có thể dùng trong lúc triển khai D. Chưa gọi V1.3 đầy đủ nếu thiếu 3D/fallback.
 
 ## V1.3D — Văn phòng 3D
+
+**D-01/D-02 hoàn thành** ở alpha.6: Three/R3F pin, phòng/bảy bàn/avatar hình học, camera orthographic pan/zoom/reset, nhãn HTML và tải riêng. Chưa đánh dấu toàn bộ D; D-03–05 còn lại. [Kiểm chứng và license](../../docs/windows-worker/office-3d/README.md).
 
 | Mã | Công việc | Phụ thuộc | Kết quả nghiệm thu |
 |---|---|---|---|
