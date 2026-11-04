@@ -246,7 +246,9 @@ test("schema 11 migration backs up, preserves settings/runs and reopens schema 1
   try {
     const r = x.run();
     const db = new Database(join(x.data, "worker.sqlite"));
-    db.exec("DROP TABLE inbox_seen; PRAGMA user_version=11");
+    db.exec(
+      "DROP TABLE chat_images; DROP TABLE inbox_seen; PRAGMA user_version=11",
+    );
     db.close();
     const reopened = new Store(x.data);
     try {

@@ -1,3 +1,5 @@
+import { imageLimits, type ChatImage } from "../../shared/images";
+import { ChatImages } from "./ChatImages";
 import { Select } from "../ui/Select";
 import { Popover } from "../ui/Popover";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -8,6 +10,7 @@ import {
   Check,
   Copy,
   FileCode2,
+  ImagePlus,
   FolderOpen,
   MoreHorizontal,
   LoaderCircle,
@@ -110,6 +113,11 @@ export function ChatHost({
   const composing = useRef(false);
   const [draft, setDraft] = useState("");
   const draftRef = useRef("");
+  const [images, setImages] = useState<ChatImage[]>([]);
+  const imagesRef = useRef<ChatImage[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const imageImportLock = useRef(false);
+  const imageWrites = useRef<Promise<unknown>>(Promise.resolve());
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const initialized = useRef(false);
@@ -177,6 +185,7 @@ export function ChatHost({
     const flush = () =>
       Promise.all([
         writes.current,
+        imageWrites.current,
         ...[...questionFlushes.current.values()].map((fn) => fn()),
       ]);
     draftFlush.current = flush;
@@ -246,6 +255,32 @@ export function ChatHost({
           };
         });
         if (!initialized.current) {
+          let restoredImages = detail.draftImages ?? [];
+          try {
+            const raw = localStorage.getItem(
+              `asf-chat-pending:${conversationId}`,
+            );
+            const pending = raw ? (JSON.parse(raw) as ChatSend) : null;
+            if (
+              pending?.projectId === project?.id &&
+              pending?.conversationId === conversationId &&
+              pending.prompt === detail.conversation.draft.trim() &&
+              pending.imageIds?.length
+            ) {
+              const available = [
+                ...restoredImages,
+                ...detail.messages.flatMap((m) => m.images ?? []),
+                ...(detail.queue ?? []).flatMap((q) => q.images ?? []),
+              ];
+              const refs = pending.imageIds.map((id) =>
+                available.find((image) => image.id === id),
+              );
+              if (refs.every((image): image is ChatImage => !!image))
+                restoredImages = refs;
+            }
+          } catch {}
+          setImages(restoredImages);
+          imagesRef.current = restoredImages;
           setDraft(detail.conversation.draft);
           draftRef.current = detail.conversation.draft;
           setTitle(detail.conversation.title);
@@ -327,16 +362,79 @@ export function ChatHost({
       setBusy(false);
     }
   }
+  async function attachImages(files: File[]) {
+    if (!project || !conversationId || busy || imageImportLock.current) return;
+    imageImportLock.current = true;
+    const operation = action(async () => {
+      if (files.length + imagesRef.current.length > imageLimits.count)
+        throw Error("Mỗi tin nhắn tối đa 4 ảnh.");
+      for (const file of files) {
+        if (!["image/png", "image/jpeg"].includes(file.type))
+          throw Error("Chỉ nhận ảnh PNG hoặc JPEG.");
+        if (file.size > imageLimits.inputBytes)
+          throw Error("Ảnh vượt giới hạn 5 MB.");
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(",")[1]);
+          reader.onerror = () => reject(Error("Không đọc được ảnh."));
+          reader.readAsDataURL(file);
+        });
+        const next = await unwrap(
+          window.worker.importChatImage({
+            projectId: project.id,
+            conversationId,
+            name: file.name,
+            base64,
+          }),
+        );
+        imagesRef.current = next;
+        setImages(next);
+        requestRef.current = null;
+        try {
+          localStorage.removeItem(`asf-chat-pending:${conversationId}`);
+        } catch {}
+      }
+    });
+    imageWrites.current = operation;
+    try {
+      await operation;
+    } finally {
+      imageImportLock.current = false;
+    }
+  }
+  async function removeImage(image: ChatImage) {
+    const operation = action(async () => {
+      const next = await unwrap(
+        window.worker.removeChatImage({
+          projectId: image.projectId,
+          conversationId: image.conversationId,
+          id: image.id,
+        }),
+      );
+      imagesRef.current = next;
+      setImages(next);
+      requestRef.current = null;
+      try {
+        localStorage.removeItem(`asf-chat-pending:${conversationId}`);
+      } catch {}
+    });
+    imageWrites.current = operation;
+    await operation;
+  }
   async function send() {
     if (busy || !conversationId || !project || !draftRef.current.trim()) return;
     await action(async () => {
       const submitted = draftRef.current.trim();
+      const sentImages = imagesRef.current;
       await writes.current;
       await saveSettings();
       const intent = {
         projectId: project.id,
         conversationId,
         prompt: submitted,
+        ...(imagesRef.current.length
+          ? { imageIds: imagesRef.current.map((image) => image.id) }
+          : {}),
         role: roleForModel,
         mode,
         ...(workContext
@@ -374,6 +472,8 @@ export function ChatHost({
           "Tin nhắn này đã bỏ khỏi hàng chờ. Sửa nội dung để gửi lần mới.",
         );
       requestRef.current = null;
+      imagesRef.current = [];
+      setImages([]);
       try {
         localStorage.removeItem(`asf-chat-pending:${conversationId}`);
       } catch {}
@@ -401,6 +501,7 @@ export function ChatHost({
                   conversationId,
                   role: "user",
                   content: submitted,
+                  images: sentImages,
                   runId,
                   state: "queued",
                   createdAt: new Date().toISOString(),
@@ -723,7 +824,10 @@ export function ChatHost({
                       )}
                     </div>
                     {message.role === "user" ? (
-                      <div className="user-content">{message.content}</div>
+                      <>
+                        <div className="user-content">{message.content}</div>
+                        <ChatImages images={message.images ?? []} />
+                      </>
                     ) : message.content ? (
                       <ChatMarkdown text={message.content} />
                     ) : (
@@ -947,6 +1051,22 @@ export function ChatHost({
               </div>
             ))}
             <div className="chat-composer">
+              <ChatImages
+                images={images}
+                onRemove={(image) => void removeImage(image)}
+                disabled={busy}
+              />
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/png,image/jpeg"
+                multiple
+                hidden
+                onChange={(event) => {
+                  void attachImages(Array.from(event.target.files ?? []));
+                  event.target.value = "";
+                }}
+              />
               <textarea
                 ref={inputRef}
                 aria-label="Nhắn tin cho agent"
@@ -964,6 +1084,13 @@ export function ChatHost({
                   draftRef.current = text;
                   setDraft(text);
                   saveDraft(text);
+                }}
+                onPaste={(event) => {
+                  const files = Array.from(event.clipboardData.files);
+                  if (files.length) {
+                    event.preventDefault();
+                    void attachImages(files);
+                  }
                 }}
                 onCompositionStart={() => {
                   composing.current = true;
@@ -986,6 +1113,20 @@ export function ChatHost({
               />
               <div className="chat-composer-controls">
                 <div className="chat-options">
+                  <button
+                    className="icon-button"
+                    aria-label="Đính kèm ảnh"
+                    title="PNG/JPEG · Tối đa 4 ảnh · Model cần hỗ trợ ảnh"
+                    disabled={
+                      busy ||
+                      !loaded ||
+                      !conversationId ||
+                      images.length >= imageLimits.count
+                    }
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <ImagePlus size={16} />
+                  </button>
                   <Select
                     aria-label="Chế độ thực thi"
                     value={mode}

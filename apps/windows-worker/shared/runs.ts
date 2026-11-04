@@ -48,6 +48,7 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  imageIds?: string[];
   questionRequest?: import("./questions").QuestionDecision;
   workContext?: import("./chat").WorkChatSnapshot;
   observation?: import("./monitor").ExecutionObservation;

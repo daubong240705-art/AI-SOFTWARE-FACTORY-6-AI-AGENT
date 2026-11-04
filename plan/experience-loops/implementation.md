@@ -1,6 +1,6 @@
 # Kế hoạch triển khai cải thiện trải nghiệm
 
-Trạng thái: **UX-01–06 và UX-07 Git local đã triển khai; ảnh/Mermaid và UX-08 chưa triển khai**. Worker `1.3.0-alpha.8` / SQLite **12** sau UX-06; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
+Trạng thái: **UX-01–06 và UX-07 Git local + ảnh đính kèm đã triển khai; Mermaid và UX-08 chưa triển khai**. Worker `1.3.0-alpha.8` / SQLite **13** sau UX-07 ảnh; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
 
 ## 1. Nguyên tắc triển khai
 
@@ -112,7 +112,7 @@ UX-04 đã bổ sung bằng chứng model thật về ngữ cảnh và phản h�
 
 ### UX-07 — Git và nội dung phong phú (P2, tùy chọn)
 
-**Đã triển khai phần Git local.** Branch/dirty/history/diff hiện tại và liên kết mã `W-xxxx` được đọc bounded, không tự commit/push, không thêm migration. Ảnh/Mermaid vẫn để sau. Chi tiết trong [bàn giao UX-07](../../docs/windows-worker/ux07-completion.md).
+**Đã triển khai Git local và ảnh đính kèm.** Branch/dirty/history/diff hiện tại và liên kết mã `W-xxxx` được đọc bounded, không tự commit/push. Ảnh PNG/JPEG có kho dữ liệu theo project/hội thoại, queue/retry/export/retention và giao thức nội bộ; SQLite 13. Chi tiết trong [bàn giao Git](../../docs/windows-worker/ux07-completion.md) và [ảnh đính kèm](../../docs/windows-worker/ux07-images-completion.md). Mermaid còn lại.
 
 Git local đọc branch/dirty/history và link work item trước; diff hiện tại tái sử dụng `PatchView`, evidence theo run tiếp tục ở inspector. GitHub PR/issues chỉ khi có `gh` và tài khoản người dùng, không thêm GitLab Server. Query giới hạn/thời gian timeout, không ngầm push/commit.
 
@@ -182,4 +182,4 @@ UX-01–06 khoảng **16–24 ngày công**, cần điều chỉnh sau UX-02. UX
 
 ## 6. Lát cắt bắt đầu
 
-**UX-01–06 và UX-07 Git local đã bàn giao.** Ảnh/Mermaid, remote PR/issues và UX-08 lịch/quy tắc vẫn là các lát cắt tùy chọn cần thiết kế riêng trước khi làm. Không tiếp tục D-05 hoặc dựng lại 3D trong quá trình này.
+**UX-01–06 và UX-07 Git local + ảnh đính kèm đã bàn giao.** Mermaid, remote PR/issues và UX-08 lịch/quy tắc vẫn là các lát cắt tùy chọn cần thiết kế riêng trước khi làm. Không tiếp tục D-05 hoặc dựng lại 3D trong quá trình này.

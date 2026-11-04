@@ -247,6 +247,13 @@ export class Conversations {
         const run = JSON.parse(row.value) as Run;
         return JSON.stringify({
           runId,
+          images: run.imageIds?.length
+            ? {
+                count: run.imageIds.length,
+                included: false,
+                note: "Ảnh lượt trước không được gửi lại. Yêu cầu người dùng đính kèm nếu cần xem trực tiếp.",
+              }
+            : undefined,
           retryOf: run.retryOf,
           files: run.changes.slice(0, 20),
           commands: run.commands.slice(-8).map((c) => ({

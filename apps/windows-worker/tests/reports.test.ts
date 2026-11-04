@@ -481,7 +481,7 @@ test("schema10 backup preserves credentials and conversations; legacy history is
   x.store.close();
   const db = new Database(join(x.data, "worker.sqlite"));
   db.exec(
-    "DROP TABLE inbox_seen; DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; PRAGMA user_version=10",
+    "DROP TABLE chat_images; DROP TABLE inbox_seen; DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; PRAGMA user_version=10",
   );
   db.close();
   const reopened = new Store(x.data);

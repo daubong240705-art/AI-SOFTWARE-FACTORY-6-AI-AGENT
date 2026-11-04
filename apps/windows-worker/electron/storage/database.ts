@@ -1,3 +1,4 @@
+import { Images } from "./images";
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { join, basename, resolve } from "node:path";
@@ -42,6 +43,7 @@ export class Store {
   readonly questions: Questions;
   readonly reports: Reports;
   readonly inbox: Inbox;
+  readonly images: Images;
   private retentionTickets = new Map<
     string,
     { ids: string[]; expires: number }
@@ -55,7 +57,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 12)
+      if (version > 13)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -150,6 +152,7 @@ export class Store {
         (id) => this.run(id),
       );
       this.inbox = new Inbox(this.db, directory, version);
+      this.images = new Images(this.db, directory, version);
     } catch (error) {
       this.db.close();
       throw error;
@@ -164,6 +167,21 @@ export class Store {
           }
         ).value,
       ),
+    );
+  }
+  conversationImages(projectId: string, conversationId: string, runId: string) {
+    const row = this.db
+      .prepare(
+        "SELECT json_extract(value,'$.imageIds') AS ids FROM runs WHERE id=? AND project_id=? AND json_extract(value,'$.conversationId')=?",
+      )
+      .get(runId, projectId, conversationId) as
+      | { ids: string | null }
+      | undefined;
+    if (!row) throw Error("Không tìm thấy lượt chạy trong hội thoại.");
+    return this.images.refs(
+      projectId,
+      conversationId,
+      row.ids ? JSON.parse(row.ids) : [],
     );
   }
   sendChat(
@@ -203,8 +221,10 @@ export class Store {
             data.conversationId,
           )
         : undefined;
+      this.images.refs(data.projectId, data.conversationId, data.imageIds);
       const result = launch(snapshot),
         state: ChatReceipt["state"] = result.followUpId ? "queued" : "running";
+      this.images.sent(data.projectId, data.conversationId, data.imageIds);
       if (snapshot) this.board.attachChat(data.requestId, snapshot, result);
       this.db
         .prepare("INSERT INTO chat_requests VALUES (?,?,?,?,?,?,?,?,?)")
@@ -588,7 +608,7 @@ export class Store {
         "SELECT sequence,type,text,at FROM events WHERE run_id=? ORDER BY sequence",
       )
       .all(id);
-    return JSON.stringify(
+    const report = JSON.stringify(
       {
         version: 1,
         result:
@@ -601,6 +621,9 @@ export class Store {
         boardLinks: this.board.links().filter((link) => link.runId === id),
         workItem: this.board.runReference(id),
         workContext: run.workContext,
+        imageRefs: run.conversationId
+          ? this.images.refs(run.projectId, run.conversationId, run.imageIds)
+          : [],
         questionSets: [this.questions.forRun(run.id)].filter(Boolean),
         exportedAt: new Date().toISOString(),
         run: {
@@ -651,6 +674,17 @@ export class Store {
         typeof value === "string" ? redact(value, secrets, Infinity) : value,
       2,
     );
+    const output = JSON.parse(report);
+    output.images = run.conversationId
+      ? this.images
+          .parts(run.projectId, run.conversationId, run.imageIds)
+          .map((part, i) => ({
+            id: run.imageIds![i],
+            mime: part.mime,
+            base64: part.url.split(",")[1],
+          }))
+      : [];
+    return JSON.stringify(output, null, 2);
   }
   retention(days: number, keep: number): RetentionPreview {
     const runs = (
@@ -793,6 +827,7 @@ export class Store {
             .prepare("DELETE FROM workspace_blobs WHERE hash=?")
             .run(row.hash);
     })();
+    this.images.gc();
     return ids.size;
   }
 }

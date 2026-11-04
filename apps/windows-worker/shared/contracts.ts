@@ -160,6 +160,12 @@ export interface WorkerAPI {
     projectId: string;
     runId: string;
   }): Promise<Reply<import("./chat").WorkChatContext | null>>;
+  importChatImage(
+    input: import("zod").z.infer<typeof import("./images").imageImportSchema>,
+  ): Promise<Reply<import("./images").ChatImage[]>>;
+  removeChatImage(
+    input: import("zod").z.infer<typeof import("./images").imageRefSchema>,
+  ): Promise<Reply<import("./images").ChatImage[]>>;
   sendChat(
     input: import("./chat").ChatSend,
   ): Promise<Reply<import("./chat").ChatReceipt>>;

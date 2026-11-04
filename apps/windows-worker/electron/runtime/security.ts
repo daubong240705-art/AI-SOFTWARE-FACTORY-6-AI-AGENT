@@ -12,6 +12,7 @@ export function redact(
   for (const secret of secrets.filter(Boolean))
     result = result.split(secret).join("[REDACTED]");
   return result
+    .replace(/data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+/gi, "[IMAGE DATA]")
     .replace(/(Bearer\s+)[A-Za-z0-9._~+\/-]+/gi, "$1[REDACTED]")
     .replace(
       /((?:api[_-]?key|password|secret|token)\s*[=:]\s*["']?)[^\s"',}]+/gi,

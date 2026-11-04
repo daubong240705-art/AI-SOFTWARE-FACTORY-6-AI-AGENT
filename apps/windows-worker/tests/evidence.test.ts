@@ -327,7 +327,7 @@ test("schema5 backup preserves history before evidence migration; workspace acti
     x.store.close();
     const db = new Database(join(x.directory, "data", "worker.sqlite"));
     db.exec(
-      "DROP TABLE inbox_seen; DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; DROP TABLE question_sets; DROP TABLE chat_requests; DROP TABLE work_comments; DROP TABLE work_attempts; DROP TABLE work_submissions; DROP TABLE work_revisions; DROP TABLE work_counters; DROP TABLE board_links; DROP TABLE board_items; DROP TABLE command_artifacts;DROP TABLE file_recoveries;DROP TABLE workspace_evidence;DROP TABLE workspace_blobs;PRAGMA user_version=5",
+      "DROP TABLE chat_images; DROP TABLE inbox_seen; DROP TABLE report_decisions; DROP TABLE report_policies; DROP TABLE reports; DROP TABLE question_sets; DROP TABLE chat_requests; DROP TABLE work_comments; DROP TABLE work_attempts; DROP TABLE work_submissions; DROP TABLE work_revisions; DROP TABLE work_counters; DROP TABLE board_links; DROP TABLE board_items; DROP TABLE command_artifacts;DROP TABLE file_recoveries;DROP TABLE workspace_evidence;DROP TABLE workspace_blobs;PRAGMA user_version=5",
     );
     db.close();
     const migrated = new Store(join(x.directory, "data"));

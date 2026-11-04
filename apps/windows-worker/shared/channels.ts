@@ -1,4 +1,6 @@
 export const channels = {
+  importChatImage: "worker:image-import",
+  removeChatImage: "worker:image-remove",
   gitSnapshot: "worker:git-snapshot",
   gitDiff: "worker:git-diff",
   inbox: "worker:inbox",

@@ -297,6 +297,7 @@ export class RunController {
               request.role,
               request.mode,
               snapshot,
+              request.imageIds,
             )
           : this.start(
               request.projectId,
@@ -307,6 +308,7 @@ export class RunController {
               undefined,
               undefined,
               snapshot,
+              request.imageIds,
             );
         return {
           runId: queued ? null : result.id,
@@ -397,6 +399,7 @@ export class RunController {
     retryOf?: string,
     settingsSnapshot?: Settings,
     workContext?: WorkChatSnapshot,
+    imageIds?: string[],
   ): Run {
     if (this.shuttingDown) throw new Error("Ứng dụng đang đóng.");
     if (this.workspaceBusy)
@@ -426,7 +429,12 @@ export class RunController {
     const context = workContext
       ? withWorkContext(history, workContext)
       : history;
+    if (imageIds?.length) {
+      if (!conversationId) throw Error("Ảnh cần gắn với hội thoại.");
+      this.store.images.refs(projectId, conversationId, imageIds);
+    }
     const run: Run = {
+      imageIds,
       workContext,
       retryOf,
       attemptRoot: retryOf
@@ -853,6 +861,12 @@ export class RunController {
       this.check(active);
     }
     const context = runtimeContext(run, task, prompt);
+    if (run.conversationId && (!task || task.kind === "plan"))
+      context.images = this.store.images.parts(
+        run.projectId,
+        run.conversationId,
+        run.imageIds,
+      );
     const remaining = run.settings.maxRequests - run.requests;
     if (remaining <= 0)
       throw new WorkerError(
@@ -1471,6 +1485,7 @@ export class RunController {
     role: Role,
     mode: "direct" | "team",
     workContext?: WorkChatSnapshot,
+    imageIds?: string[],
   ): FollowUp {
     this.store.project(projectId);
     this.store.conversations.context(conversationId, projectId);
@@ -1485,7 +1500,9 @@ export class RunController {
       .list(conversationId)
       .some((q) => q.state === "held");
     const waiting = !!this.active && !held;
+    this.store.images.refs(projectId, conversationId, imageIds);
     return this.store.queue.add({
+      imageIds,
       workContext,
       projectId,
       conversationId,
@@ -1540,6 +1557,7 @@ export class RunController {
           undefined,
           q.settings,
           q.workContext,
+          q.imageIds,
         );
         return { id: run.id, value: run };
       });
@@ -1583,6 +1601,7 @@ export class RunController {
       previous.id,
       undefined,
       previous.workContext,
+      previous.imageIds,
     );
   }
   async recovery(id: string): Promise<RecoveryPreview> {
@@ -1656,6 +1675,7 @@ export class RunController {
       previous.id,
       undefined,
       previous.workContext,
+      previous.imageIds,
     );
     const active = this.active!;
     active.run.recoveryOf = previous.id;

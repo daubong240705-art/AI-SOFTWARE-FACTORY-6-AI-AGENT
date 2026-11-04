@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChatImages } from "./ChatImages";
 import type { FollowUp } from "../../shared/chat";
 export function FollowUpCard({
   item,
@@ -42,6 +43,7 @@ export function FollowUpCard({
       ) : (
         <p>{item.prompt}</p>
       )}
+      <ChatImages images={item.images ?? []} />
       {item.reason && <span className="muted small">{item.reason}</span>}
       <div className="inline">
         {editing ? (

@@ -1,11 +1,15 @@
 import {
   app,
+  protocol,
   BrowserWindow,
   dialog,
   ipcMain,
   safeStorage,
   shell,
 } from "electron";
+import { importImage } from "./images";
+import { serveImage } from "./storage/images";
+import { imageRefSchema } from "../shared/images";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { writeFile } from "node:fs/promises";
@@ -59,6 +63,12 @@ import { inboxQuerySchema, inboxSeenSchema } from "../shared/inbox";
 import { gitSnapshotSchema, gitDiffSchema } from "../shared/git";
 import { browseGit, browseGitDiff } from "./workspace/git-browser";
 
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "asf-image",
+    privileges: { standard: true, secure: true, supportFetchAPI: true },
+  },
+]);
 app.setName("ASF Windows Worker");
 let store: Store;
 let window: BrowserWindow | null = null;
@@ -91,6 +101,11 @@ function key(): string | undefined {
   }
 }
 function registerIPC(): void {
+  handle(channels.importChatImage, (input) => importImage(store.images, input));
+  handle(channels.removeChatImage, (input) => {
+    const ref = imageRefSchema.parse(input);
+    return store.images.detach(ref.projectId, ref.conversationId, ref.id);
+  });
   const gitPending = new Set<string>();
   async function gitRead<T>(
     projectId: string,
@@ -450,9 +465,10 @@ function registerIPC(): void {
       .parse(input);
     store.queue.edit(q.id, q.prompt);
   });
-  handle(channels.removeFollowUp, (input) =>
-    store.queue.remove(idSchema.parse(input)),
-  );
+  handle(channels.removeFollowUp, (input) => {
+    store.queue.remove(idSchema.parse(input));
+    store.images.gc();
+  });
   handle(channels.resumeFollowUp, (input) =>
     controller.resume(idSchema.parse(input)),
   );
@@ -473,10 +489,31 @@ function registerIPC(): void {
       .object({ id: idSchema, before: z.number().int().positive().optional() })
       .strict()
       .parse(input);
+    const detail = store.conversations.get(request.id, request.before);
+    for (const message of detail.messages) {
+      if (message.role === "user") {
+        message.images = store.conversationImages(
+          detail.conversation.projectId,
+          request.id,
+          message.runId,
+        );
+      }
+    }
     return {
-      ...store.conversations.get(request.id, request.before),
+      ...detail,
+      draftImages: store.images.drafts(
+        detail.conversation.projectId,
+        request.id,
+      ),
       questionSets: store.questions.list(request.id),
-      queue: store.queue.list(request.id),
+      queue: store.queue.list(request.id).map((item) => ({
+        ...item,
+        images: store.images.refs(
+          item.projectId,
+          item.conversationId,
+          item.imageIds,
+        ),
+      })),
     };
   });
   handle(channels.createConversation, (input) =>
@@ -750,6 +787,9 @@ else {
   app.whenReady().then(async () => {
     try {
       store = new Store(app.getPath("userData"));
+      protocol.handle("asf-image", (request) =>
+        serveImage(store.images, request),
+      );
       controller = new RunController(store, app.getPath("userData"), key);
       local = new LocalCommands(app.getPath("userData"), () => {
         const value = key();

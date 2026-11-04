@@ -1,9 +1,11 @@
 import type { RunState } from "./runs";
 import type { Role, Settings } from "./contracts";
 import { z } from "zod";
+import { imageIdsSchema, type ChatImage } from "./images";
 import { roles } from "./defaults";
 export const chatSendSchema = z
   .object({
+    imageIds: imageIdsSchema.optional(),
     requestId: z.string().uuid(),
     projectId: z.string().uuid(),
     conversationId: z.string().uuid(),
@@ -40,6 +42,8 @@ export type ChatReceipt = {
   state: "running" | "queued" | "removed";
 };
 export type FollowUp = {
+  images?: ChatImage[];
+  imageIds?: string[];
   immutable?: boolean;
   workContext?: WorkChatSnapshot;
   boardItemId?: string;
@@ -65,6 +69,7 @@ export type Conversation = {
 };
 export type ConversationSummary = Omit<Conversation, "draft">;
 export type ChatMessage = {
+  images?: ChatImage[];
   integrationId?: string;
   failureCode?: import("./execution").FailureCode;
   retryOf?: string;
@@ -78,6 +83,7 @@ export type ChatMessage = {
   createdAt: string;
 };
 export type ConversationDetail = {
+  draftImages?: ChatImage[];
   questionSets?: import("./questions").QuestionSet[];
   conversation: Conversation;
   messages: ChatMessage[];

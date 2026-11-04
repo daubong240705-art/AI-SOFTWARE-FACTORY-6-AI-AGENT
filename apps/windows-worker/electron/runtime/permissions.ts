@@ -2,6 +2,7 @@ import type { Config } from "@opencode-ai/sdk/v2/client";
 import { editScopes } from "./scope";
 
 export type RuntimeContext = {
+  images?: { type: "file"; mime: string; filename: string; url: string }[];
   prompt: string;
   instructions: string;
   readOnly: boolean;

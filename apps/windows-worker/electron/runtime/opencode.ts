@@ -100,6 +100,15 @@ export class OpenCodeRuntime {
             [this.run.model]: {
               name: this.run.model,
               tool_call: true,
+              ...(this.context.images?.length
+                ? {
+                    attachment: true,
+                    modalities: {
+                      input: ["text" as const, "image" as const],
+                      output: ["text" as const],
+                    },
+                  }
+                : {}),
               limit: { context: 128000, output: 8192 },
             },
           },
@@ -232,7 +241,10 @@ export class OpenCodeRuntime {
         agent: "worker",
         model: { providerID: "nine_router", modelID: this.run.model },
         system: `${this.context.instructions}\nYou are a ${this.run.role.toUpperCase()} agent. Work only in ${this.run.workspace}. Read existing project conventions first. Do not read credentials, modify .git, commit, push, or deploy. ${this.context.readOnly ? "You are read-only. Never modify files, including through shell commands." : "Use tools to make requested changes within the assigned scope."} ${this.context.allowShell ? (this.context.permissionMode === "full-access" ? "Shell commands within role and scope are preapproved for this run." : "Shell commands require explicit permission.") : "Shell commands are disabled for this role."} Do not delegate. Report actual results and limitations in Vietnamese. Never claim tests passed without command evidence.`,
-        parts: [{ type: "text", text: this.context.prompt }],
+        parts: [
+          { type: "text", text: this.context.prompt },
+          ...(this.context.images ?? []),
+        ],
       },
       { throwOnError: true, signal: this.streamAbort.signal },
     );
@@ -288,6 +300,17 @@ export class OpenCodeRuntime {
         : (JSON.stringify(error) ?? "Lỗi runtime không xác định."),
       [this.proxy.token, this.serverPassword],
     );
+    if (
+      this.context.images?.length &&
+      /(?:image|vision|multimodal)/i.test(text) &&
+      /(?:unsupported|not support|does not support|invalid|not allowed)/i.test(
+        text,
+      )
+    )
+      return failure(
+        "configuration",
+        "Model hoặc gateway không nhận ảnh. Chọn model hỗ trợ ảnh rồi gửi lại; ứng dụng không tự đổi model.",
+      );
     if (/request_limit/i.test(text))
       return failure("budget-exhausted", "Đã hết số request cho lượt chạy.");
     if (/authentication|401|403|ProviderAuth/i.test(text))
