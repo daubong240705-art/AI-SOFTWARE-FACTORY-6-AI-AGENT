@@ -30,6 +30,8 @@ class Project(Base):
     slug: Mapped[str] = mapped_column(String(80))
     description: Mapped[str] = mapped_column(Text, default="", server_default="")
     repository_url: Mapped[str | None] = mapped_column(String(500))
+    integration_profile: Mapped[str | None] = mapped_column(String(80))
+    agent_models: Mapped[dict[str, str]] = mapped_column(JSONB, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -58,6 +60,9 @@ class Run(Base):
     requirement: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), default="created", server_default="created")
     mode: Mapped[str] = mapped_column(String(16), default="mock", server_default="mock")
+    config_snapshot: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, default=dict, server_default="{}"
+    )
     spec_version: Mapped[int] = mapped_column(default=1, server_default="1")
     generation: Mapped[int] = mapped_column(default=1, server_default="1")
     retry_count: Mapped[int] = mapped_column(default=0, server_default="0")
@@ -202,4 +207,65 @@ class AuditLog(Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     action: Mapped[str] = mapped_column(String(40))
     target: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ExternalLink(Base):
+    __tablename__ = "external_links"
+    __table_args__ = (UniqueConstraint("run_id", "kind", "version", name="uq_external_link"),)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(40))
+    version: Mapped[int] = mapped_column(default=1)
+    external_id: Mapped[str] = mapped_column(String(120))
+    url: Mapped[str] = mapped_column(String(500))
+    data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+
+
+class CodingWorker(Base):
+    __tablename__ = "coding_workers"
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    capabilities: Mapped[list[str]] = mapped_column(JSONB)
+    active: Mapped[bool] = mapped_column(default=True, server_default="true")
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Execution(Base):
+    __tablename__ = "executions"
+    __table_args__ = (UniqueConstraint("run_id", "role", "attempt", name="uq_execution_attempt"),)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(16))
+    attempt: Mapped[int] = mapped_column(default=1)
+    state: Mapped[str] = mapped_column(String(24), default="pending")
+    worker_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("coding_workers.id"))
+    lease_token_hash: Mapped[str | None] = mapped_column(String(64))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    generation: Mapped[int] = mapped_column(default=1)
+    input: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    result: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ReleaseApproval(Base):
+    __tablename__ = "release_approvals"
+    __table_args__ = (UniqueConstraint("execution_id", name="uq_release_execution"),)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    execution_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("executions.id", ondelete="CASCADE"))
+    actor_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    candidate_sha: Mapped[str] = mapped_column(String(40))
+    pipeline_id: Mapped[int] = mapped_column()
+    job_id: Mapped[int] = mapped_column()
+    comment: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class WebhookDelivery(Base):
+    __tablename__ = "webhook_deliveries"
+    delivery_id: Mapped[str] = mapped_column(String(128), primary_key=True)
+    project_id: Mapped[int] = mapped_column()
+    payload_hash: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "kind": "real-electron-npm-fixture",
+  "checks": [
+    "reopen and clear stale approval",
+    "recovery preview and abort",
+    "export JSON",
+    "retention and IPC validation",
+    "local npm server and preview",
+    "keep working on close",
+    "stop before quit"
+  ]
+}

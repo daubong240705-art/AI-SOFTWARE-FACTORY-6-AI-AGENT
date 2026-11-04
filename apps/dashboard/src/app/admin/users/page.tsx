@@ -101,10 +101,7 @@ export default function Users() {
           </section>
           <section className="panel">
             <h2>Thành viên · {users.length}</h2>
-            <p className="muted">
-              Đổi quyền hoặc khóa tài khoản sẽ thu hồi các phiên đăng nhập của
-              tài khoản đó.
-            </p>
+
             <div className="table-scroll">
               <table>
                 <thead>

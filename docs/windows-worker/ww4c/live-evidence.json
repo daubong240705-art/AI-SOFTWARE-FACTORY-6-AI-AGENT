@@ -1,0 +1,828 @@
+{
+  "passed": true,
+  "model": "ds/deepseek-v4-flash",
+  "detail": {
+    "run": {
+      "conversationId": "12a472b3-1080-4a62-8361-d9ae40b010cc",
+      "mode": "direct",
+      "tasks": [],
+      "profiles": [],
+      "currentTaskId": null,
+      "fixRound": 0,
+      "review": null,
+      "id": "46387c60-8732-41c2-bcb9-7531959a752e",
+      "projectId": "840be4fc-df9c-4ad2-ae03-5f771a290d5e",
+      "projectName": "windows-worker",
+      "workspace": "E:\\GIT\\AI-SOFTWARE-FACTORY-6-AI-AGENT\\apps\\windows-worker",
+      "prompt": "Chỉ đọc shared/evidence.ts để hiểu các kiểu snapshot. Chạy đúng một lệnh shell: node --version. Không dùng lệnh shell khác, không sửa file, không commit. Tóm tắt ngắn ba kiểu dữ liệu chính và báo phiên bản Node thực tế bằng tiếng Việt.",
+      "role": "be",
+      "model": "ds/deepseek-v4-flash",
+      "state": "completed",
+      "createdAt": "2026-11-04T10:23:38.102Z",
+      "startedAt": "2026-11-04T10:23:40.079Z",
+      "endedAt": "2026-11-04T10:23:48.945Z",
+      "sessionId": "ses_e59ea03eeffeaBgeSCIHJ3FQTD",
+      "summary": "Đã đọc `shared/evidence.ts` và chạy đúng một lệnh `node --version`.\n\nBa kiểu dữ liệu chính:\n- **FileVersion / GitEntry / GitEvidence**: snapshot cấp file và Git (hash, size, mode, trạng thái index/worktree, HEAD, indexHash).\n- **EvidenceFile / EvidenceView**: danh sách file thay đổi (added/modified/deleted) kèm before/after, cờ `preExisting`, rename; view tổng hợp theo run (complete, finished, headBefore/After, files/existing).\n- **FileDiff / RestorePreview**: diff/patch (binary, reason, canRestore, comparison run/staged/unstaged) và preview khôi phục kèm token, action, expiresAt.\n\nPhiên bản Node thực tế: **v22.20.0**.",
+      "error": "",
+      "settings": {
+        "gatewayUrl": "https://ai.lazy.local/v1",
+        "caPath": "E:\\GIT\\AI-SOFTWARE-FACTORY-6-AI-AGENT\\caddy-root.crt",
+        "runtimePath": "",
+        "timeoutMinutes": 4,
+        "maxRequests": 8,
+        "maxFixRounds": 2,
+        "agents": [
+          {
+            "role": "lead",
+            "enabled": true,
+            "model": "ds/deepseek-v4-flash"
+          },
+          {
+            "role": "pm",
+            "enabled": true,
+            "model": "ds/deepseek-v4-flash"
+          },
+          {
+            "role": "ba",
+            "enabled": true,
+            "model": "ds/deepseek-v4-flash"
+          },
+          {
+            "role": "be",
+            "enabled": true,
+            "model": "ds/deepseek-v4-flash"
+          },
+          {
+            "role": "fe",
+            "enabled": true,
+            "model": "ds/deepseek-v4-flash"
+          },
+          {
+            "role": "test",
+            "enabled": true,
+            "model": "ds/deepseek-v4-flash"
+          },
+          {
+            "role": "devops",
+            "enabled": true,
+            "model": "ds/deepseek-v4-flash"
+          }
+        ]
+      },
+      "changes": [],
+      "commands": [
+        {
+          "cwd": "E:\\GIT\\AI-SOFTWARE-FACTORY-6-AI-AGENT\\apps\\windows-worker",
+          "startedAt": 1793787824799,
+          "endedAt": 1793787825339,
+          "outputTruncated": false,
+          "callId": "call_01_QNhgb5IBoAZuYAr0i9n00129",
+          "command": "node --version",
+          "status": "completed",
+          "output": "v22.20.0\r\n",
+          "exitCode": 0
+        }
+      ],
+      "permissions": [],
+      "requests": 2,
+      "baselineComplete": false,
+      "toolsCompleted": 2,
+      "runtimeVersion": "1.19.5",
+      "inputTokens": 4971,
+      "outputTokens": 293,
+      "partialText": "Đã đọc `shared/evidence.ts` và chạy đúng một lệnh `node --version`.\n\nBa kiểu dữ liệu chính:\n- **FileVersion / GitEntry / GitEvidence**: snapshot cấp file và Git (hash, size, mode, trạng thái index/worktree, HEAD, indexHash).\n- **EvidenceFile / EvidenceView**: danh sách file thay đổi (added/modified/deleted) kèm before/after, cờ `preExisting`, rename; view tổng hợp theo run (complete, finished, headBefore/After, files/existing).\n- **FileDiff / RestorePreview**: dif"
+    },
+    "events": [
+      {
+        "sequence": 1,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "RUN_QUEUED",
+        "text": "Đã nhận yêu cầu.",
+        "at": "2026-11-04T10:23:38.103Z"
+      },
+      {
+        "sequence": 2,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "RUN_STARTED",
+        "text": "direct · ds/deepseek-v4-flash · OpenCode 1.19.5",
+        "at": "2026-11-04T10:23:40.080Z"
+      },
+      {
+        "sequence": 3,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "SESSION_STARTED",
+        "text": "direct · ses_e59ea03eeffeaBgeSCIHJ3FQTD",
+        "at": "2026-11-04T10:23:41.103Z"
+      },
+      {
+        "sequence": 4,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "MODEL_REQUEST",
+        "text": "Request 1/8 · ds/deepseek-v4-flash · direct",
+        "at": "2026-11-04T10:23:42.654Z"
+      },
+      {
+        "sequence": 5,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "TOOL_STARTED",
+        "text": "read · E:\\GIT\\AI-SOFTWARE-FACTORY-6-AI-AGENT\\apps\\windows-worker\\shared\\evidence.ts",
+        "at": "2026-11-04T10:23:44.727Z"
+      },
+      {
+        "sequence": 6,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "TOOL_COMPLETED",
+        "text": "read · E:\\GIT\\AI-SOFTWARE-FACTORY-6-AI-AGENT\\apps\\windows-worker\\shared\\evidence.ts",
+        "at": "2026-11-04T10:23:44.737Z"
+      },
+      {
+        "sequence": 7,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "TOOL_STARTED",
+        "text": "bash · node --version",
+        "at": "2026-11-04T10:23:44.808Z"
+      },
+      {
+        "sequence": 8,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "PERMISSION_REQUESTED",
+        "text": "bash: node --version",
+        "at": "2026-11-04T10:23:44.828Z"
+      },
+      {
+        "sequence": 9,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "PERMISSION_RESOLVED",
+        "text": "Cho phép công cụ một lần.",
+        "at": "2026-11-04T10:23:45.027Z"
+      },
+      {
+        "sequence": 10,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "TOOL_COMPLETED",
+        "text": "bash · node --version",
+        "at": "2026-11-04T10:23:45.384Z"
+      },
+      {
+        "sequence": 11,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "MODEL_STEP",
+        "text": "Kết thúc bước model · input 2332, output 96",
+        "at": "2026-11-04T10:23:45.384Z"
+      },
+      {
+        "sequence": 12,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "MODEL_REQUEST",
+        "text": "Request 2/8 · ds/deepseek-v4-flash · direct",
+        "at": "2026-11-04T10:23:45.392Z"
+      },
+      {
+        "sequence": 13,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "MODEL_STEP",
+        "text": "Kết thúc bước model · input 2639, output 197",
+        "at": "2026-11-04T10:23:47.223Z"
+      },
+      {
+        "sequence": 14,
+        "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+        "type": "RUN_COMPLETED",
+        "text": "Runtime đã kết thúc. Xem báo cáo và kết quả lệnh để đánh giá yêu cầu.",
+        "at": "2026-11-04T10:23:48.945Z"
+      }
+    ]
+  },
+  "view": {
+    "runId": "46387c60-8732-41c2-bcb9-7531959a752e",
+    "complete": false,
+    "finished": true,
+    "beforeAt": "2026-11-04T10:23:40.077Z",
+    "afterAt": "2026-11-04T10:23:48.944Z",
+    "headBefore": "4d1d4d58ad7780133368b18b39bf5594cef8dfc7",
+    "headAfter": "4d1d4d58ad7780133368b18b39bf5594cef8dfc7",
+    "indexChanged": false,
+    "preExistingCount": 26,
+    "files": [],
+    "existing": [
+      {
+        "path": "electron/controller/runs.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "47980e2e4286574068fb7cafa716cd3db0f3baec9df1479acb85c573649a04f6",
+          "size": 24409,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "after": {
+          "hash": "47980e2e4286574068fb7cafa716cd3db0f3baec9df1479acb85c573649a04f6",
+          "size": 24409,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "electron/main.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "d8eb3e47a37a427500835a6424991c0ccb2d68ff6ba6ede44163c1df2b3b56f6",
+          "size": 13517,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "d8eb3e47a37a427500835a6424991c0ccb2d68ff6ba6ede44163c1df2b3b56f6",
+          "size": 13517,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "electron/preload.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "0d0efba641e69701200302be73096a8a6b48dea131821e5200f3324fdfd9a23a",
+          "size": 2658,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "0d0efba641e69701200302be73096a8a6b48dea131821e5200f3324fdfd9a23a",
+          "size": 2658,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "electron/runtime/security.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "109aff61948b8047a7945306344df85d9cfd6a64df8bd56dfa184f1e849e7156",
+          "size": 2248,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "109aff61948b8047a7945306344df85d9cfd6a64df8bd56dfa184f1e849e7156",
+          "size": 2248,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "electron/storage/database.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "569e377219a9391241de7ce2525bc9feb73a3a888539efad1b902791fa812d19",
+          "size": 11437,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "569e377219a9391241de7ce2525bc9feb73a3a888539efad1b902791fa812d19",
+          "size": 11437,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "electron/workspace/snapshot.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "33474daa9476a0f0c7830ee2e87586a7262518e5d5f3a2e3e509430bacede24e",
+          "size": 4663,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "after": {
+          "hash": "33474daa9476a0f0c7830ee2e87586a7262518e5d5f3a2e3e509430bacede24e",
+          "size": 4663,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "package-lock.json",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "d7bf33aa44d3762ac6c08c3dd7aa309ab36c7d9d3384fd29434ffbeb305c18fc",
+          "size": 164124,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "d7bf33aa44d3762ac6c08c3dd7aa309ab36c7d9d3384fd29434ffbeb305c18fc",
+          "size": 164124,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "package.json",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "ad6bba4a999ffa9aac111de8cd054d019faf68bee3e1e5389960cb0dfea2fc4b",
+          "size": 1400,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "ad6bba4a999ffa9aac111de8cd054d019faf68bee3e1e5389960cb0dfea2fc4b",
+          "size": 1400,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "scripts/run-acceptance.cjs",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "1e317acde4e13b2345c99bbe7c43ddbbb31b747bfa529c786690ea0196631897",
+          "size": 1075,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "1e317acde4e13b2345c99bbe7c43ddbbb31b747bfa529c786690ea0196631897",
+          "size": 1075,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "shared/channels.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "a53c3921893bb219fd8a6032d2ebf6bf93f57a06211ba8ae68c072c616c3452e",
+          "size": 1334,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "a53c3921893bb219fd8a6032d2ebf6bf93f57a06211ba8ae68c072c616c3452e",
+          "size": 1334,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "shared/contracts.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "e16d919213e3a8b1505575f77686786a01dc6975e5b2d1faefb07ae80a36f7cf",
+          "size": 5640,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "after": {
+          "hash": "e16d919213e3a8b1505575f77686786a01dc6975e5b2d1faefb07ae80a36f7cf",
+          "size": 5640,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "shared/runs.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "7286b776f5aefbaed64c5dd2d0f660b49d89823836d254801491e009fc2f64ff",
+          "size": 2712,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "7286b776f5aefbaed64c5dd2d0f660b49d89823836d254801491e009fc2f64ff",
+          "size": 2712,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "src/chat.css",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "0801124e839edd968ae270efe9b9cb103d66800edb156ffe582030942c28bf54",
+          "size": 12533,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "0801124e839edd968ae270efe9b9cb103d66800edb156ffe582030942c28bf54",
+          "size": 12533,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "src/features/RunPanel.tsx",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "f75fec8d878a424ae2c4cbcb1abfbfcf8475935c065c020164a58ae3d2730f5c",
+          "size": 7457,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "f75fec8d878a424ae2c4cbcb1abfbfcf8475935c065c020164a58ae3d2730f5c",
+          "size": 7457,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "tests/chat.test.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "8c05f236ff97e60e4de58dc0081c27df23672af026f0ff05732cb10bc4077a08",
+          "size": 8940,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "8c05f236ff97e60e4de58dc0081c27df23672af026f0ff05732cb10bc4077a08",
+          "size": 8940,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "tests/follow-ups.test.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "662c70aca5f4f14e2e0430f401f68ae8fe70907d3b63398a5753f5b9ba44107e",
+          "size": 8464,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "662c70aca5f4f14e2e0430f401f68ae8fe70907d3b63398a5753f5b9ba44107e",
+          "size": 8464,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "tests/team.test.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "d0c137f506d1a5dfe83a780272d908e65a4473358bd93c04f471055208019197",
+          "size": 12708,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "d0c137f506d1a5dfe83a780272d908e65a4473358bd93c04f471055208019197",
+          "size": 12708,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": " ",
+          "worktree": "M"
+        },
+        "gitAfter": {
+          "index": " ",
+          "worktree": "M"
+        }
+      },
+      {
+        "path": "electron/storage/evidence.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "873b756d2c060779553cdea60a340e3f2d51e6b63c4fd1724cb0bd81140861cb",
+          "size": 10385,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "873b756d2c060779553cdea60a340e3f2d51e6b63c4fd1724cb0bd81140861cb",
+          "size": 10385,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": "?",
+          "worktree": "?"
+        },
+        "gitAfter": {
+          "index": "?",
+          "worktree": "?"
+        }
+      },
+      {
+        "path": "electron/workspace/files.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "64c76d22b3f13f34a886e30221fd4e66ac755830af207de54e09e27590b80722",
+          "size": 8365,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "after": {
+          "hash": "64c76d22b3f13f34a886e30221fd4e66ac755830af207de54e09e27590b80722",
+          "size": 8365,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "gitBefore": {
+          "index": "?",
+          "worktree": "?"
+        },
+        "gitAfter": {
+          "index": "?",
+          "worktree": "?"
+        }
+      },
+      {
+        "path": "electron/workspace/git-evidence.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "e9937af6f55e3f346882ea57a3d8817b20a2030fd48802ddf328f8bfca7cb8b7",
+          "size": 5521,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "after": {
+          "hash": "e9937af6f55e3f346882ea57a3d8817b20a2030fd48802ddf328f8bfca7cb8b7",
+          "size": 5521,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "gitBefore": {
+          "index": "?",
+          "worktree": "?"
+        },
+        "gitAfter": {
+          "index": "?",
+          "worktree": "?"
+        }
+      },
+      {
+        "path": "scripts/acceptance-evidence-live.cjs",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "96ee87c7817269f637bcba6d1dfe7ebc11d6b880933c042adcfb19f7c7633174",
+          "size": 3051,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "96ee87c7817269f637bcba6d1dfe7ebc11d6b880933c042adcfb19f7c7633174",
+          "size": 3051,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": "?",
+          "worktree": "?"
+        },
+        "gitAfter": {
+          "index": "?",
+          "worktree": "?"
+        }
+      },
+      {
+        "path": "scripts/acceptance-evidence-ui.cjs",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "120a87a0660b1f28b702eaa1f8593ff5d3654df6a04514535be9e6a76d24a49b",
+          "size": 7520,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "120a87a0660b1f28b702eaa1f8593ff5d3654df6a04514535be9e6a76d24a49b",
+          "size": 7520,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": "?",
+          "worktree": "?"
+        },
+        "gitAfter": {
+          "index": "?",
+          "worktree": "?"
+        }
+      },
+      {
+        "path": "shared/evidence.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "054c78e07afcaaeb46a3c67011efe79dc22c239b3aae42ace1502f9c59f82750",
+          "size": 1272,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "after": {
+          "hash": "054c78e07afcaaeb46a3c67011efe79dc22c239b3aae42ace1502f9c59f82750",
+          "size": 1272,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "gitBefore": {
+          "index": "?",
+          "worktree": "?"
+        },
+        "gitAfter": {
+          "index": "?",
+          "worktree": "?"
+        }
+      },
+      {
+        "path": "src/features/ChangesPanel.tsx",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "1d785af4110af7382efef7684365eb82ac881e36f6b16d27f3960857e495f7a6",
+          "size": 10873,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "1d785af4110af7382efef7684365eb82ac881e36f6b16d27f3960857e495f7a6",
+          "size": 10873,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": "?",
+          "worktree": "?"
+        },
+        "gitAfter": {
+          "index": "?",
+          "worktree": "?"
+        }
+      },
+      {
+        "path": "src/features/CommandEvidence.tsx",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "830749dc1b89fa689d19fe003697342a97cc34a05ee018145b73d7c173b4f99b",
+          "size": 1866,
+          "mode": 33206
+        },
+        "after": {
+          "hash": "830749dc1b89fa689d19fe003697342a97cc34a05ee018145b73d7c173b4f99b",
+          "size": 1866,
+          "mode": 33206
+        },
+        "gitBefore": {
+          "index": "?",
+          "worktree": "?"
+        },
+        "gitAfter": {
+          "index": "?",
+          "worktree": "?"
+        }
+      },
+      {
+        "path": "tests/evidence.test.ts",
+        "kind": "modified",
+        "preExisting": true,
+        "before": {
+          "hash": "44f670bd64eadf4928979297f5fc12431295d405573b4e12f01f4a5cd20d5b38",
+          "size": 11411,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "after": {
+          "hash": "44f670bd64eadf4928979297f5fc12431295d405573b4e12f01f4a5cd20d5b38",
+          "size": 11411,
+          "mode": 33206,
+          "reason": "Nội dung có mẫu credential; chỉ lưu hash."
+        },
+        "gitBefore": {
+          "index": "?",
+          "worktree": "?"
+        },
+        "gitAfter": {
+          "index": "?",
+          "worktree": "?"
+        }
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "callId": "call_01_QNhgb5IBoAZuYAr0i9n00129",
+      "output": "v22.20.0\r\n"
+    }
+  ]
+}

@@ -6,11 +6,11 @@ TRANSITIONS = {
     "created": {"planning", "cancelled", "failed"},
     "planning": {"waiting_approval", "cancelled", "failed"},
     "waiting_approval": {"running", "rejected", "cancelled", "failed"},
-    "running": {"waiting_integration", "cancelled", "failed"},
+    "running": {"waiting_integration", "completed", "cancelled", "failed"},
     "failed": {"created"},
     "rejected": {"created"},
     "cancelled": set(),
-    "waiting_integration": set(),
+    "waiting_integration": {"cancelled"},
 }
 
 

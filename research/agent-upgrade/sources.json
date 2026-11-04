@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-11-04T10:42:28.346538+00:00",
+  "baseline": "3e3cd60",
+  "checkpoint": "checkpoint/agent-research-20261104",
+  "external_scripts_executed": false,
+  "code_copied": false,
+  "repositories": [
+    {
+      "name": "opencode",
+      "url": "https://github.com/anomalyco/opencode",
+      "branch": "dev",
+      "commit": "b3fd4a75fe539a65168139cec2edd29ceb7724f6",
+      "commit_time": "2026-11-04T04:29:54-06:00",
+      "local_path": ".cache/asf-research/sources/opencode",
+      "license": {
+        "spdx": "MIT",
+        "path": "LICENSE",
+        "sha256_git_blob": "625f0f619133f89bbbb2abe37369613dfa1885eba1e50d02170deb62bb42cb6b",
+        "scope": "Root license only; recheck subtree and third-party licenses before copying."
+      },
+      "inspected_paths": [
+        "packages/core/src/agent.ts",
+        "packages/core/src/permission.ts",
+        "packages/core/src/config/plugin/skill.ts"
+      ],
+      "runtime_compatibility": {
+        "installed_version": "1.19.5",
+        "tag": "v1.19.5",
+        "commit": "810c0eba1a7348036f8bdf61e6632d0c36c6876c",
+        "checkout_changed": false,
+        "read_method": "git show v1.19.5:<path>",
+        "inspected_paths": [
+          "packages/opencode/src/agent/agent.ts",
+          "packages/opencode/src/tool/task.ts",
+          "packages/opencode/src/session/processor.ts",
+          "packages/opencode/src/permission/index.ts",
+          "packages/opencode/src/permission/evaluate.ts",
+          "packages/opencode/src/skill/index.ts",
+          "packages/core/src/v1/permission.ts",
+          "packages/core/src/skill.ts",
+          "packages/web/src/content/docs/agents.mdx",
+          "packages/web/src/content/docs/permissions.mdx"
+        ],
+        "note": "Latest dev package.json is 2.2.5. Do not apply its API to pinned 1.19.5 or upgrade runtime as part of this plan."
+      }
+    },
+    {
+      "name": "superpowers",
+      "url": "https://github.com/obra/superpowers",
+      "branch": "main",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "commit_time": "2026-11-03T14:17:07-08:00",
+      "local_path": ".cache/asf-research/sources/superpowers",
+      "license": {
+        "spdx": "MIT",
+        "path": "LICENSE",
+        "sha256_git_blob": "a37e0e9697144819e1d965176ac4ae5bc3fa02d11e7812036bbcadf6dafe2400",
+        "scope": "Root license only; recheck subtree and third-party licenses before copying."
+      },
+      "inspected_paths": [
+        "skills/subagent-driven-development/implementer-prompt.md",
+        "skills/subagent-driven-development/task-reviewer-prompt.md",
+        "skills/subagent-driven-development/scripts/task-brief",
+        "skills/subagent-driven-development/references/fix-loop.md",
+        "skills/test-driven-development/SKILL.md",
+        "skills/systematic-debugging/SKILL.md",
+        "skills/verification-before-completion/SKILL.md"
+      ]
+    },
+    {
+      "name": "ecc",
+      "url": "https://github.com/affaan-m/ECC",
+      "branch": "main",
+      "commit": "b38be6a7f6350964d59328b52f0624e1d1d552d1",
+      "commit_time": "2026-10-29T20:06:32-07:00",
+      "local_path": ".cache/asf-research/sources/ecc",
+      "license": {
+        "spdx": "MIT",
+        "path": "LICENSE",
+        "sha256_git_blob": "326146379f01bb137c0a5d3c54770c1aa31076705c8b88a7f6b26a460f6221b2",
+        "scope": "Root license only; recheck subtree and third-party licenses before copying."
+      },
+      "inspected_paths": [
+        "rules/common/development-workflow.md",
+        "rules/common/hooks.md",
+        "hooks/hooks.json",
+        "scripts/hooks/pre-bash-dispatcher.js",
+        "scripts/lib/hook-flags.js",
+        "skills/verification-loop/SKILL.md"
+      ]
+    },
+    {
+      "name": "paperclip",
+      "url": "https://github.com/paperclipai/paperclip",
+      "branch": "master",
+      "commit": "cf51936587963c26e3ddc7eb1365a07b2f8df5a6",
+      "commit_time": "2026-11-04T02:39:50-06:00",
+      "local_path": ".cache/asf-research/sources/paperclip",
+      "license": {
+        "spdx": "MIT",
+        "path": "LICENSE",
+        "sha256_git_blob": "7f8a27f0979bded50e240caa8c8c29f3088ddf87032cb83e5a9732bff91d18b4",
+        "scope": "Root license only; recheck subtree and third-party licenses before copying."
+      },
+      "inspected_paths": [
+        "skills/paperclip/SKILL.md",
+        "skills/paperclip/references/workflows.md",
+        "server/src/services/issues.ts"
+      ]
+    },
+    {
+      "name": "open-swe",
+      "url": "https://github.com/langchain-ai/open-swe",
+      "branch": "main",
+      "commit": "d43b69d8fc5a42b795017c18d87ba31de03c6066",
+      "commit_time": "2026-11-04T01:14:02Z",
+      "local_path": ".cache/asf-research/sources/open-swe",
+      "license": {
+        "spdx": "MIT",
+        "path": "LICENSE",
+        "sha256_git_blob": "61e5e8faf0b76db76793ecd8aa0edca36a82bd8dba279d2a31972f026c132423",
+        "scope": "Root license only; recheck subtree and third-party licenses before copying."
+      },
+      "inspected_paths": [
+        "openwiki/architecture/middleware-stack.md",
+        "openswe/graphs/agent.py",
+        "openswe/middleware/record_run_usage.py",
+        "mda/rt/middleware.py",
+        "mda/rt/task_retry.py",
+        "mda/rt/model_calls.py",
+        "mda/rt/session_handoff.py"
+      ]
+    }
+  ]
+}

@@ -17,12 +17,14 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from asf_api.auth import OperatorDep, UserDep
 from asf_api.auth_routes import router as auth_router
 from asf_api.db import engine, get_session
+from asf_api.execution_routes import router as execution_router
 from asf_api.models import AuditLog, Project
 from asf_api.run_routes import router
 from asf_api.schemas import ProjectCreate, ProjectList, ProjectRead
 from asf_api.stream import router as stream_router
 from shared.config import get_settings
 from shared.logging import configure_logging
+from shared.profiles import model_selection, profiles
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -43,6 +45,7 @@ app = FastAPI(title="AI Software Factory", version="0.1.0", lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(stream_router)
 app.include_router(router)
+app.include_router(execution_router)
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
@@ -111,7 +114,7 @@ def readiness() -> JSONResponse:
             checkpoints = connection.execute(
                 text("SELECT to_regclass('asf_checkpoints.checkpoints') IS NOT NULL")
             ).scalar()
-            checks["schema"] = version == "0003_auth" and bool(checkpoints)
+            checks["schema"] = version == "0004_agents" and bool(checkpoints)
     except Exception:
         logger.warning("Database readiness check failed")
     try:
@@ -127,6 +130,15 @@ def readiness() -> JSONResponse:
 
 @app.post("/api/projects", response_model=ProjectRead, status_code=201)
 def create_project(payload: ProjectCreate, session: SessionDep, actor: OperatorDep) -> Project:
+    try:
+        model_selection(payload.agent_models)
+        if payload.integration_profile:
+            profile = profiles().get(payload.integration_profile)
+            if not profile or not profile.enabled or actor.role != "admin":
+                raise HTTPException(403, "integration_profile_not_allowed")
+            payload.repository_url = profile.repository_url
+    except ValueError:
+        raise HTTPException(422, "model_not_allowed") from None
     project = Project(**payload.model_dump())
     session.add(project)
     session.add(AuditLog(user_id=actor.id, action="project.created", target=project.slug))
@@ -137,6 +149,46 @@ def create_project(payload: ProjectCreate, session: SessionDep, actor: OperatorD
         if getattr(exc.orig, "sqlstate", None) == "23505":
             raise HTTPException(409, "Project slug already exists") from None
         raise
+    return project
+
+
+@app.get("/api/configuration")
+def configuration(_: UserDep) -> dict[str, Any]:
+    return {
+        "models": settings.model_catalog,
+        "default_model": settings.router_model,
+        "profiles": [
+            {"id": key, **value.model_dump()} for key, value in profiles().items() if value.enabled
+        ],
+    }
+
+
+@app.patch("/api/projects/{project_id}", response_model=ProjectRead)
+def configure_project(
+    project_id: uuid.UUID, payload: ProjectCreate, session: SessionDep, actor: OperatorDep
+) -> Project:
+    project = session.get(Project, project_id, with_for_update=True)
+    if not project:
+        raise HTTPException(404, "project_not_found")
+    if actor.role != "admin":
+        raise HTTPException(403, "admin_required")
+    try:
+        model_selection(payload.agent_models)
+    except ValueError:
+        raise HTTPException(422, "model_not_allowed") from None
+    if payload.integration_profile:
+        profile = profiles().get(payload.integration_profile)
+        if not profile or not profile.enabled:
+            raise HTTPException(422, "integration_profile_not_allowed")
+        payload.repository_url = profile.repository_url
+    for key, value in payload.model_dump().items():
+        setattr(project, key, value)
+    session.add(AuditLog(user_id=actor.id, action="project.configured", target=str(project.id)))
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(409, "project_configuration_conflict") from None
     return project
 
 

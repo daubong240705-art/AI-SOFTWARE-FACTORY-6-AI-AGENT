@@ -1,4 +1,5 @@
 "use client";
+import { Executions } from "./executions";
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { date, fetchApi, labels, RunDetail, TimelineEvent } from "@/lib/api";
@@ -221,7 +222,7 @@ export function RunPage({ id }: { id: string }) {
         <code className="run-id">{id}</code>
         <div className="actions">
           <span className={`connection ${connected ? "online" : ""}`}>
-            {connected ? "● Trực tiếp" : "◌ Đang kết nối lại · dự phòng 10s"}
+            {connected ? "● Trực tiếp" : "◌ Đang kết nối lại"}
           </span>
           <button
             onClick={() => {
@@ -256,27 +257,26 @@ export function RunPage({ id }: { id: string }) {
             <div
               className={`notice ${run.mode === "mock" ? "simulation" : ""}`}
             >
-              {run.mode === "mock"
-                ? "MÔ PHỎNG — plan/spec là dữ liệu mô phỏng, không gọi model."
-                : "CHẾ ĐỘ THẬT — PM/BA có thể gọi model qua 9Router."}{" "}
-              BE/FE/TEST/DEVOPS chưa thực thi code, test hoặc deploy.
+              {run.mode === "mock" ? "Mô phỏng · Không gọi model" : "Live"}
             </div>
             {run.error_code && (
               <ErrorBox message={`Workflow: ${run.error_code}`} />
             )}
             {run.status === "waiting_integration" && (
               <div className="notice">
-                Đã qua gate phê duyệt và đang chờ tích hợp Agent ở Phase 5.
+                Đã duyệt đặc tả. Run này chưa có kết nối dự án để thực thi
+                coding/test/deploy.
               </div>
             )}
           </section>
+          <Executions data={data} reload={load} />
           <div className="metric-grid">
             <div>
-              <span>Khoảng thời gian ghi nhận</span>
+              <span>Thời gian</span>
               <strong>{elapsed}s</strong>
             </div>
             <div>
-              <span>Task phiên bản hiện tại</span>
+              <span>Task hoàn tất</span>
               <strong>
                 {
                   data.tasks.filter(
@@ -299,20 +299,14 @@ export function RunPage({ id }: { id: string }) {
               </strong>
             </div>
             <div>
-              <span>Token tính budget</span>
+              <span>Ngân sách token</span>
               <strong>
                 {data.usage.charged_tokens.toLocaleString()} /{" "}
                 {run.token_budget.toLocaleString()}
               </strong>
             </div>
           </div>
-          <p className="muted">
-            Thời gian tính từ lúc tạo đến lần cập nhật gần nhất, gồm cả chờ
-            duyệt. Token đầu vào/đầu ra: {data.usage.input_tokens ?? "chưa có"}{" "}
-            / {data.usage.output_tokens ?? "chưa có"}. Chi phí tiền tệ chưa được
-            tính.
-          </p>
-          <h2>Sáu Agent</h2>
+          <h2>Agent</h2>
           <div className="role-grid">
             {["pm", "ba", "be", "fe", "test", "devops"].map((role) => {
               const task = data.tasks.find(
@@ -344,7 +338,7 @@ export function RunPage({ id }: { id: string }) {
             })}
           </div>
           <section className="panel">
-            <h2>Plan, spec và các phiên bản</h2>
+            <h2>Tài liệu</h2>
             {data.artifacts.length === 0 && (
               <p className="muted">
                 Chưa có artifact. Nội dung sẽ xuất hiện khi PM/BA hoàn thành.
@@ -354,7 +348,11 @@ export function RunPage({ id }: { id: string }) {
               <details
                 className="artifact"
                 key={a.id}
-                open={a.spec_version === run.spec_version}
+                open={
+                  a.kind === "spec" &&
+                  run.status === "waiting_approval" &&
+                  a.spec_version === run.spec_version
+                }
               >
                 <summary>
                   {a.kind.toUpperCase()} · v{a.spec_version}{" "}
@@ -365,11 +363,11 @@ export function RunPage({ id }: { id: string }) {
               </details>
             ))}
           </section>
-          {canWrite && (
+          {canWrite && !["completed", "cancelled"].includes(run.status) && (
             <section className="panel">
-              <h2>Thao tác với run</h2>
+              <h2>Thao tác</h2>
               <label>
-                Nhận xét / lý do (bắt buộc)
+                Lý do
                 <textarea
                   value={comment}
                   onChange={(e) => {
@@ -484,8 +482,8 @@ export function RunPage({ id }: { id: string }) {
               approver/admin.
             </div>
           )}
-          <section className="panel">
-            <h2>Lịch sử phê duyệt</h2>
+          <details className="panel">
+            <summary>Lịch sử phê duyệt · {data.approvals.length}</summary>
             {data.approvals.length === 0 && (
               <p className="muted">Chưa có quyết định.</p>
             )}
@@ -505,10 +503,10 @@ export function RunPage({ id }: { id: string }) {
                 </small>
               </div>
             ))}
-          </section>
+          </details>
           {data.model_calls.length > 0 && (
-            <section className="panel">
-              <h2>Lần gọi model</h2>
+            <details className="panel">
+              <summary>Lần gọi model · {data.model_calls.length}</summary>
               <div className="table-scroll">
                 <table>
                   <thead>
@@ -535,12 +533,12 @@ export function RunPage({ id }: { id: string }) {
                   </tbody>
                 </table>
               </div>
-            </section>
+            </details>
           )}
-          <section className="panel">
-            <h2>
+          <details className="panel">
+            <summary>
               Timeline <span className="muted">· {events.length} sự kiện</span>
-            </h2>
+            </summary>
             <ol className="timeline">
               {events.map((e) => (
                 <li key={e.id}>
@@ -560,7 +558,7 @@ export function RunPage({ id }: { id: string }) {
               ))}
             </ol>
             {events.length === 0 && <p className="muted">Chưa có sự kiện.</p>}
-          </section>
+          </details>
         </>
       )}
     </Frame>

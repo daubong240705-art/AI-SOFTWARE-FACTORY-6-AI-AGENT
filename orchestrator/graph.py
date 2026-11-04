@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from agents.contracts import mock_content
 from integrations.router import generate
+from integrations.work_packages import sync
 from orchestrator.service import Fence, artifact, event, get_run, store_artifact
 from orchestrator.state import WorkflowError, WorkflowState, transition
 
@@ -53,10 +54,14 @@ def build_graph(saver: PostgresSaver, fence: Fence) -> Any:
             return {kind + "_id": str(result.id)}
 
     def pm(state: WorkflowState) -> dict[str, str]:
-        return draft(state, "pm")
+        result = draft(state, "pm")
+        sync(uuid.UUID(state["run_id"]), fence)
+        return result
 
     def ba(state: WorkflowState) -> dict[str, str]:
-        return draft(state, "ba")
+        result = draft(state, "ba")
+        sync(uuid.UUID(state["run_id"]), fence)
+        return result
 
     def gate(state: WorkflowState) -> dict[str, str]:
         with SessionLocal.begin() as session:
@@ -100,16 +105,20 @@ def build_graph(saver: PostgresSaver, fence: Fence) -> Any:
         return {}
 
     def boundary(state: WorkflowState) -> dict[str, str]:
+        from orchestrator.executions import start
+
         with SessionLocal.begin() as session:
             run = get_run(session, uuid.UUID(state["run_id"]), fence)
             if run.status != "running":
                 raise WorkflowError("approval_required")
+            if start(session, run):
+                return {}
             run.status = transition(run.status, "waiting_integration")
             event(
                 session,
                 run,
                 "run.waiting_integration",
-                {"reason": "Development roles are not implemented in Phase 2"},
+                {"reason": "Live run with an enabled integration profile is required"},
             )
         return {}
 

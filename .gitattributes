@@ -3,3 +3,5 @@
 *.service text eol=lf
 *.timer text eol=lf
 infrastructure/deploy/ssh-entry text eol=lf
+infrastructure/deploy/stage-ssh-entry text eol=lf
+infrastructure/deploy/asf-validation-firewall text eol=lf
