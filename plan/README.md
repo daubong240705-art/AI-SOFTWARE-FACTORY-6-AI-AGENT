@@ -1,5 +1,7 @@
 # Kế hoạch triển khai — AI Software Factory (6 AI Agent)
 
+> **Kế hoạch sản phẩm hiện hành — 05/11/2026:** [Factory V2: hợp nhất CrewHub Loops, WSL2 và đội đa lĩnh vực](factory-v2/README.md). Gồm bộ chín ảnh UI tham chiếu, tiêu chí giống trên 90%, behavior contracts và 40 ticket F0–F8. Các phase/Worker V1 bên dưới giữ làm lịch sử; không áp dụng ràng buộc sáu/bảy role, Windows-native hoặc LangGraph bắt buộc cho V2. Chưa triển khai Host/UI V2.
+
 > **Hướng sản phẩm Windows mới:** [Windows AI Worker — kế hoạch chi tiết](windows-worker/README.md), gồm kiến trúc và WW-1 đến WW-5. Theo yêu cầu người dùng, bắt đầu trực tiếp từ desktop, bỏ phase chứng minh runtime riêng; Standalone độc lập, không thay đổi lộ trình hoặc trạng thái deployment ASF bên dưới.
 
 > **Lộ trình hiện hành từ 04/11/2026:** [Bắt đầu code và deploy v0.1](lo-trinh-code-v0.md), theo [ADR-004](../docs/adr/ADR-004-release-first.md). Thứ tự mới: **khung ứng dụng → workflow → dashboard → deploy ASF lần đầu → tích hợp/Agent thật → template và nghiệm thu toàn luồng**. Không chờ toàn bộ Phase 0 cũ để bắt đầu code. Các bảng Phase 0–5 bên dưới là baseline tham khảo, không phải thứ tự hiện hành.

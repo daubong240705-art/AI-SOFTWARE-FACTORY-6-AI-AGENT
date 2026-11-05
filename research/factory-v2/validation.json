@@ -1,0 +1,17 @@
+{
+  "scope": "Documentation validation only; no application build/test or runtime/model execution.",
+  "canonical_documents_checked": 5,
+  "historical_entrypoints_checked": 7,
+  "relative_links_checked": 112,
+  "screenshots_hashes_dimensions_checked": 9,
+  "prior_plan_snapshots_checked": 13,
+  "prior_research_manifest_hashes_checked": 4,
+  "pinned_upstream_source_hashes_checked": 59,
+  "unique_planned_tickets": 40,
+  "business_parity_categories": 15,
+  "business_parity_weight_total": 100,
+  "mandatory_acceptance_cases": 20,
+  "git_diff_check": "passed",
+  "screenshots_tracked": false,
+  "application_code_db_or_credentials_changed": false
+}

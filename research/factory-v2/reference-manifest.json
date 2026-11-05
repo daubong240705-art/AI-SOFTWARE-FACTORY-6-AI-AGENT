@@ -1,0 +1,298 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-11-05T16:33:29.435307+00:00",
+  "user_facing_date": "2026-11-05",
+  "baseline": "793f0818eb2f79fece9fccd03a95aea4c0937c22",
+  "checkpoint": "checkpoint/factory-v2-consolidated-20261105",
+  "canonical_plan": "plan/factory-v2/README.md",
+  "scope": "Consolidated implementation plan and screenshot-derived design reference; no app implementation or environment migration.",
+  "method": "Reuse previously pinned source/document research; directly inspect all nine current local screenshots; extract raster color counts and propose normalized design targets.",
+  "screenshots": [
+    {
+      "id": "UI-01",
+      "path": "crewhub/image.png",
+      "screen": "New project wizard",
+      "width": 3200,
+      "height": 2000,
+      "sha256": "5e708dba98f33914fb9116c3e7cc332b50c91387b8700d3ddf9b2c0503690ff8",
+      "visually_inspected": true,
+      "tracked_in_git": false
+    },
+    {
+      "id": "UI-02",
+      "path": "crewhub/image copy.png",
+      "screen": "Automations Graph",
+      "width": 3200,
+      "height": 2000,
+      "sha256": "f0fd2f3189c423a7cf64dbaeea89a6df1770427dc6d37b0b5dcb1e9a2381c379",
+      "visually_inspected": true,
+      "tracked_in_git": false
+    },
+    {
+      "id": "UI-03",
+      "path": "crewhub/image copy 2.png",
+      "screen": "Team",
+      "width": 3200,
+      "height": 2000,
+      "sha256": "78142bb578d244443827646eaf52ecabaa1e75274e1b2131405089337750424e",
+      "visually_inspected": true,
+      "tracked_in_git": false
+    },
+    {
+      "id": "UI-04",
+      "path": "crewhub/image copy 3.png",
+      "screen": "Board and Lead chat dock",
+      "width": 3200,
+      "height": 2000,
+      "sha256": "80b17fac3bb926523a166d1a02aba7b9def0110e12ecb8d04635f7e3c9884a76",
+      "visually_inspected": true,
+      "tracked_in_git": false
+    },
+    {
+      "id": "UI-05",
+      "path": "crewhub/image copy 4.png",
+      "screen": "Reports",
+      "width": 3200,
+      "height": 2000,
+      "sha256": "466a65ca91426bbe79347899699769d3956f579f6f16a6898b8b28b344e0f4a2",
+      "visually_inspected": true,
+      "tracked_in_git": false
+    },
+    {
+      "id": "UI-06",
+      "path": "crewhub/image copy 5.png",
+      "screen": "Scheduled tasks",
+      "width": 3200,
+      "height": 2000,
+      "sha256": "1d9e0e46a33c6061b1970919dafd201c0dd1cbef1986a88ce4f5337b7eac97a3",
+      "visually_inspected": true,
+      "tracked_in_git": false
+    },
+    {
+      "id": "UI-07",
+      "path": "crewhub/image copy 6.png",
+      "screen": "Git",
+      "width": 3200,
+      "height": 2000,
+      "sha256": "0070d945f92aa1c0d830396802da74f5c22dfa745ade82fb2fb078dfa037c1de",
+      "visually_inspected": true,
+      "tracked_in_git": false
+    },
+    {
+      "id": "UI-08",
+      "path": "crewhub/image copy 7.png",
+      "screen": "Dashboard",
+      "width": 3200,
+      "height": 2000,
+      "sha256": "b002af05882ee36695c528089bdc88fdb845698e3b09231609befa3ee72ba240",
+      "visually_inspected": true,
+      "tracked_in_git": false
+    },
+    {
+      "id": "UI-09",
+      "path": "crewhub/image copy 8.png",
+      "screen": "Setup",
+      "width": 3200,
+      "height": 2000,
+      "sha256": "23a713f95f627d18c27c322a641f2db07450f40f78aefae4b084bfeb4b85f9dd",
+      "visually_inspected": true,
+      "tracked_in_git": false
+    }
+  ],
+  "reference_geometry": {
+    "source_pixels": [
+      3200,
+      2000
+    ],
+    "original_dpr_or_zoom_known": false,
+    "proposed_comparison_css_viewport": [
+      1600,
+      1000
+    ],
+    "proposed_comparison_dpr": 2,
+    "observed_sidebar_fraction_approx": 0.1546875,
+    "proposed_sidebar_css_px": 248,
+    "proposed_topbar_css_px": 52,
+    "proposed_projectbar_css_px": 54
+  },
+  "palette": {
+    "observed_flat_raster_colors": [
+      "#232323",
+      "#2C2C2C",
+      "#3D3D3D",
+      "#FDFDFD"
+    ],
+    "normalized_proposed_accents": [
+      "#FE676F",
+      "#FD8F52"
+    ],
+    "exact_upstream_css_verified": false,
+    "font_proposal": "Archivo Variable with verified Vietnamese glyph coverage; World design-system reference, not proven screenshot font."
+  },
+  "similarity_targets": {
+    "visual_overall_minimum": 92,
+    "visual_each_screen_minimum": 91,
+    "business_local_minimum": 92,
+    "percent_pixels_claim": false,
+    "currently_achieved_or_measured": false,
+    "critical_flows_all_required": true
+  },
+  "prior_plans": [
+    {
+      "path": "plan/worker-v2/README.md",
+      "revision": "793f081",
+      "sha256": "ae83c6bcc1d14ea71b87ed7b11a1b91bd5536696b806d7f5cbe9506e5ba477ab"
+    },
+    {
+      "path": "plan/worker-v2/architecture.md",
+      "revision": "793f081",
+      "sha256": "266c2ab4b34500b94ba66eea678a98d5d8bd52d513efe47a8d45ac015a23b9da"
+    },
+    {
+      "path": "plan/worker-v2/automations.md",
+      "revision": "793f081",
+      "sha256": "4e4885894651011fca2805fcfc56ac1f1fd4f5f7331278bc7b934f4008d58320"
+    },
+    {
+      "path": "plan/worker-v2/implementation.md",
+      "revision": "793f081",
+      "sha256": "c518381b3d2f4745d35abe9c45139a4588b6cd4d996da616744d39ee03e33b77"
+    },
+    {
+      "path": "plan/worker-v2/loops-parity.md",
+      "revision": "793f081",
+      "sha256": "0fde9fc5ae6b3db8a852cb0e67446be82d45e9f698aa10bc91631d375cb760c2"
+    },
+    {
+      "path": "plan/worker-v2/multidomain.md",
+      "revision": "793f081",
+      "sha256": "c32be34b732d3d8b3338bed5c10cd8054284fcc85dfe731ea22eb39e620db298"
+    },
+    {
+      "path": "plan/worker-v2/paperclip-multidomain-research.md",
+      "revision": "793f081",
+      "sha256": "3306f05f601ef795c9bc27266d5fc92523990e2d7ce5adbfb166fc40cfd8e353"
+    },
+    {
+      "path": "plan/worker-v2/process-first-roadmap.md",
+      "revision": "793f081",
+      "sha256": "97b51fb65c95454b92a41111b668a7e0028b6827a6d712cbee8f2dbd0a5c07d8"
+    },
+    {
+      "path": "plan/worker-v2/process-first-wsl.md",
+      "revision": "793f081",
+      "sha256": "c1999a425716b7efa1859e1981f800f6843fd70005eb786c3da2f79603e92ea8"
+    },
+    {
+      "path": "plan/worker-v2/research.md",
+      "revision": "793f081",
+      "sha256": "bce3a4cb39ceadc5e20f3126f04bc910907c8b678ceadbe0bff71ac582225521"
+    },
+    {
+      "path": "plan/worker-v2/ux.md",
+      "revision": "793f081",
+      "sha256": "d3d71ff5a8647a2b3af470e9e71929e28b488ee9c781779bc4282f02d4974eef"
+    },
+    {
+      "path": "plan/experience-loops/crewhub-workspace-redesign.md",
+      "revision": "793f081",
+      "sha256": "66856647feb777d9b5b2be9f935d5a8d1ca4e57151fca00f8851c522e90285d3"
+    },
+    {
+      "path": "plan/experience-loops/README.md",
+      "revision": "793f081",
+      "sha256": "8da495ca94ec41d96662a22410895518fe49124f6599b1dc06df169fe27a6b84"
+    }
+  ],
+  "prior_research_manifests": [
+    {
+      "path": "research/worker-v2/sources.json",
+      "sha256": "f62a39bfc2835f1b8e68b28daa3f7a6393915378013bb2d5742d656c0f79e6c1"
+    },
+    {
+      "path": "research/worker-v2/multidomain-sources.json",
+      "sha256": "3e7a18642d41a35d852bf6c335acc38883327f30cff0daf9c26e3f0a419024e8"
+    },
+    {
+      "path": "research/worker-v2/loops-parity-sources.json",
+      "sha256": "4c7af592812177605b69db7b99088672614f9aee7f764d692c13f0b8b1431e96"
+    },
+    {
+      "path": "research/worker-v2/process-first-sources.json",
+      "sha256": "9ff82dd1917981d7d60ce67f22ee90be920670a791e57eea328f8b8fe0c96202"
+    }
+  ],
+  "upstream_snapshots": [
+    {
+      "repo": "EKINSOL-DEV/crewhub",
+      "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+      "root_license": "AGPL-3.0",
+      "role": "Connection/session reference; Codex stub at snapshot"
+    },
+    {
+      "repo": "EKINSOL-DEV/crewhub2",
+      "revision": "3a66363c9e799570887d72b18370d30112cd8e47",
+      "root_license": "AGPL-3.0",
+      "role": "Design-system/prototype reference; not working Loops runtime"
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "root_license": "MIT",
+      "role": "Adapter, claim, handoff, routine, work-product, document and budget mechanisms"
+    }
+  ],
+  "additional_prior_discussion_references": [
+    {
+      "url": "https://docs.langchain.com/oss/javascript/langgraph/overview",
+      "role": "Optional workflow engine; not a mandatory dependency"
+    },
+    {
+      "url": "https://docs.langchain.com/oss/javascript/langgraph/interrupts",
+      "role": "Interrupt/replay does not remove external-effect idempotency requirements"
+    },
+    {
+      "url": "https://docs.langchain.com/oss/javascript/langgraph/persistence",
+      "role": "Workflow persistence; not CLI process ownership"
+    }
+  ],
+  "decisions": {
+    "host": "WSL2 local Host with browser UI; Linux VM/remote profile later",
+    "langgraph": "Not required; reconsider only with demonstrated need and ADR",
+    "execution": "Pregranted routine tool execution, separate business decisions and output review",
+    "source_reuse": "Independent implementation; no upstream code or brand assets copied",
+    "legacy": "Preserve source/data, reuse useful boundaries, no mandatory fixed-role or Electron architecture"
+  },
+  "delivery": {
+    "stages": [
+      "F0",
+      "F1",
+      "F2",
+      "F3",
+      "F4",
+      "F5",
+      "F6",
+      "F7",
+      "F8"
+    ],
+    "planned_ticket_count": 40,
+    "first_usable_alpha": "F2",
+    "local_release": "F8"
+  },
+  "changes_in_this_work": {
+    "app_code_changed": false,
+    "db_changed": false,
+    "credentials_changed": false,
+    "wsl_started_or_modified": false,
+    "model_calls_made": false,
+    "external_repository_scripts_executed": false,
+    "upstream_assets_copied": false,
+    "screenshots_added_to_git": false
+  },
+  "limitations": [
+    "Screenshots are local ignored reference files, not distributed with plan commits.",
+    "Current nine-file screenshot mapping supersedes older eleven-file references.",
+    "No complete Loops backend source inspected; parity is scoped to documented local flows.",
+    "No V2 implementation, visual score, multi-runtime acceptance or Linux auth verified in this planning task."
+  ]
+}

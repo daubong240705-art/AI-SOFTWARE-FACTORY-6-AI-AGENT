@@ -1,5 +1,7 @@
 # Lộ trình mới — Quy trình trước, Host WSL2
 
+> **Lộ trình đã hợp nhất:** [Factory V2 F0–F8](../factory-v2/delivery-plan.md) thay P0–P5 làm thứ tự mở task mới. Giữ nguyên hướng tự chủ/WSL2, thêm UI CrewHub từ đầu và tiêu chí trên 90% trong [kế hoạch hiện hành](../factory-v2/README.md). Phần dưới là lịch sử đối chiếu.
+
 Ngày: 05/11/2026. **Chưa triển khai**. Lộ trình này thay thứ tự bắt buộc V2-01–07 khi theo hướng [process-first WSL2](process-first-wsl.md). Giữ backlog nghiệp vụ cũ để đối chiếu, không coi tất cả bảng/schema trước đây là yêu cầu implementation.
 
 ## Nguyên tắc phát triển

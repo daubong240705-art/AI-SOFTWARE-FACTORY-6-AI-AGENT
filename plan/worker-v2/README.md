@@ -1,5 +1,7 @@
 # Worker V2 — Đội AI đa lĩnh vực, nhiều runtime
 
+> **Đã hợp nhất:** dùng [Factory V2 — kế hoạch hiện hành](../factory-v2/README.md), [UI theo chín ảnh CrewHub](../factory-v2/design-reference.md) và [40 ticket F0–F8](../factory-v2/delivery-plan.md). Yêu cầu mới lấy CrewHub làm chuẩn trên 90%, thay palette/font/tab cũ; WSL2/web Host, không bắt LangGraph. Tài liệu dưới đây là lịch sử/đầu vào nghiên cứu, không là backlog triển khai song song.
+
 > **Định hướng mới nhất 05/11/2026:** người dùng yêu cầu không ràng buộc kiến trúc cũ. Đọc [quy trình mới và WSL2](process-first-wsl.md), [lộ trình P0–P5](process-first-roadmap.md) trước. Đề xuất hiện tại là web UI + Host/runtime trong WSL2, tự động quyền thao tác thường ngày, hỏi quyết định nghiệp vụ khi cần. Những đoạn bên dưới bắt buộc giữ Electron/Windows-native hoặc coi V2-01–07 là thứ tự phải theo đã được thay; giữ làm lịch sử thiết kế và backlog tham khảo. Chưa cài/migrate hoặc thay runtime/DB.
 
 Ngày khảo sát: **05/11/2026**. Trạng thái: **đã chốt đề xuất kiến trúc và kế hoạch; chưa triển khai runtime V2**.

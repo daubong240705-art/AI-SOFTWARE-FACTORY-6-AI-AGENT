@@ -1,5 +1,7 @@
 # Quy trình mới — Lead linh hoạt, WSL2 làm môi trường thực thi chính
 
+> **Đầu mối hiện hành:** [Factory V2](../factory-v2/README.md) hợp nhất hướng WSL2/quyền tự động của tài liệu này. Điều hướng, palette/font và thứ tự triển khai theo [UI chín ảnh](../factory-v2/design-reference.md) và [F0–F8](../factory-v2/delivery-plan.md), thay đề xuất giản lược tab ở mục 10 bên dưới.
+
 Ngày: 05/11/2026. Trạng thái: **đề xuất thay định hướng kiến trúc; chưa cài đặt/migrate/triển khai**. Yêu cầu mới của người dùng: không bị ràng buộc kiến trúc Worker hiện tại; thiết kế quy trình hợp lý, ít gián đoạn, linh hoạt agent và tự động hóa.
 
 **Ưu tiên tài liệu:** tài liệu này và [lộ trình mới](process-first-roadmap.md) thay các quyết định bắt buộc Windows-native/Electron, giữ nguyên controller/schema và thứ tự V2-01–07 trong kế hoạch trước. Ma trận nghiệp vụ [Loops](loops-parity.md), [automation semantics](automations.md) và các nhu cầu [đa lĩnh vực](multidomain.md) tiếp tục là đầu vào chức năng; không bắt triển khai mọi thành phần cũ hoặc nhập toàn bộ Paperclip. Đây không phải yêu cầu xóa source/dữ liệu cũ.
