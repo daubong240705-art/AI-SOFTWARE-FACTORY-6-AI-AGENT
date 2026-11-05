@@ -24,7 +24,14 @@ export async function recoverOwnedJobs(directory: string): Promise<void> {
   for (const file of await readdir(root)) {
     if (!/^[a-f0-9-]{36}\.json$/.test(file)) continue;
     const path = join(root, file);
-    const data = JSON.parse(await readFile(path, "utf8"));
+    let data;
+    try {
+      data = JSON.parse(await readFile(path, "utf8"));
+    } catch (error) {
+      // The owning host may close and remove its receipt after readdir.
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
     if (data.owner === ownerSession) continue;
     if (!/^Local\\ASF-[a-f0-9-]{36}$/.test(data.name))
       throw new Error("Job ownership metadata không hợp lệ.");
@@ -50,7 +57,11 @@ export async function recoverOwnedJobs(directory: string): Promise<void> {
         ),
       );
     }
-    await unlink(path);
+    try {
+      await unlink(path);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
   }
 }
 
