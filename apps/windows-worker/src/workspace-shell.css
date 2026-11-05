@@ -138,7 +138,28 @@
   display: grid;
   gap: 6px;
   text-align: left;
+  justify-content: stretch;
+  justify-items: start;
   white-space: normal;
+}
+.work-issue {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-left: 3px solid #e4a366;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  overflow-wrap: anywhere;
+}
+.work-issue h3 {
+  margin: 0 0 12px;
+}
+.work-issue-next {
+  font-weight: 500;
+}
+.work-issue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .work-progress-tasks button span {
   font-size: var(--text-sm);
@@ -282,7 +303,10 @@
 }
 .result-filters {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
+  grid-template-columns: minmax(180px, 1fr) minmax(150px, 190px) minmax(
+      170px,
+      230px
+    );
   align-items: center;
   gap: 12px;
 }

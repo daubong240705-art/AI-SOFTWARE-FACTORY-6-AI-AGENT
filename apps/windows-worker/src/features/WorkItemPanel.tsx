@@ -240,6 +240,19 @@ export function WorkItemPanel({
       : attempts
           .filter((a) => a.endedAt)
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.id);
+  const focusedAttempt = attempts.find((attempt) => attempt.id === currentRun);
+  const hasProblem =
+    !!focusedAttempt &&
+    ["failed", "interrupted", "blocked", "needs_input"].includes(
+      focusedAttempt.state,
+    );
+  const primaryTab: WorkTab = questions.some((set) => set.state === "pending")
+    ? "requirements"
+    : hasProblem
+      ? "progress"
+      : focusedAttempt?.state === "completed" && !pending
+        ? "result"
+        : "progress";
   return (
     <section
       className={`work-item-panel embedded ${tab === "discussion" ? "discussion-active" : ""} ${expanded ? "expanded" : ""}`}
@@ -257,21 +270,15 @@ export function WorkItemPanel({
           <button
             className="primary work-primary-action"
             disabled={busy}
-            onClick={() =>
-              void changeTab(
-                questions.some((set) => set.state === "pending")
-                  ? "requirements"
-                  : attempts.some((a) => a.endedAt) && !pending
-                    ? "result"
-                    : "progress",
-              )
-            }
+            onClick={() => void changeTab(primaryTab)}
           >
-            {questions.some((set) => set.state === "pending")
+            {primaryTab === "requirements"
               ? "Trả lời"
-              : attempts.some((a) => a.endedAt) && !pending
-                ? "Xem kết quả"
-                : "Xem tiến độ"}
+              : hasProblem
+                ? "Xem vấn đề"
+                : primaryTab === "result"
+                  ? "Xem kết quả"
+                  : "Xem tiến độ"}
           </button>
         )}
         <button
@@ -799,12 +806,14 @@ export function WorkItemPanel({
               <WorkProgress
                 projectId={projectId}
                 runId={currentRun}
+                activeRunId={activeRunId}
                 onInspect={onInspect}
                 questionState={
                   questions.find((set) => set.sourceRunId === currentRun)?.state
                 }
                 onRequirements={() => void changeTab("requirements")}
                 onResult={() => void changeTab("result")}
+                onDiscuss={onAskLead ? () => onAskLead(itemId) : undefined}
               />
             )}
             <details

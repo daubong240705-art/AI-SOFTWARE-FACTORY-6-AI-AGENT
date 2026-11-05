@@ -19,6 +19,7 @@ export function ProjectResults({
   const [page, setPage] = useState<ResultPage | null>(null);
   const [search, setSearch] = useState("");
   const [verification, setVerification] = useState("");
+  const [includeHistory, setIncludeHistory] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const generation = useRef(0);
@@ -30,6 +31,7 @@ export function ProjectResults({
       const reply = await window.worker.resultIndex({
         projectId,
         search,
+        includeHistory,
         ...(verification ? { verification: verification as ReportStatus } : {}),
         ...(more && page?.next ? { before: page.next } : {}),
       });
@@ -64,7 +66,7 @@ export function ProjectResults({
       clearTimeout(timer);
       generation.current++;
     };
-  }, [projectId, search, verification, refreshVersion]);
+  }, [projectId, search, verification, includeHistory, refreshVersion]);
   return (
     <section className="project-results" aria-label="Kết quả dự án">
       <div className="page-heading">
@@ -93,6 +95,14 @@ export function ProjectResults({
             </option>
           ))}
         </Select>
+        <Select
+          aria-label="Phạm vi kết quả"
+          value={includeHistory ? "history" : "delivery"}
+          onValueChange={(value) => setIncludeHistory(value === "history")}
+        >
+          <option value="delivery">Thay đổi bàn giao</option>
+          <option value="history">Gồm phân tích và lượt lỗi</option>
+        </Select>
       </div>
       {error && (
         <p className="notice error" role="alert">
@@ -108,7 +118,9 @@ export function ProjectResults({
         <p className="overview-empty">
           {search || verification
             ? "Không có kết quả phù hợp."
-            : "Chưa có kết quả công việc."}
+            : includeHistory
+              ? "Chưa có báo cáo công việc."
+              : "Chưa có thay đổi bàn giao. Xem lịch sử để đọc báo cáo phân tích hoặc lượt lỗi."}
         </p>
       )}
       <ul className="result-list">

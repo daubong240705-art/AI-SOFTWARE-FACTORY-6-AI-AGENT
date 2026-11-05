@@ -3,7 +3,6 @@ import type { Project } from "../../shared/contracts";
 import type { WorkspaceState } from "../lib/workspace-store";
 import type { ResultEntry } from "../../shared/workspace";
 import type { InboxItem } from "../../shared/inbox";
-import { inboxLabels } from "../../shared/inbox";
 import { reportStateLabel } from "../../shared/reports";
 import { Select } from "../ui/Select";
 import { useState } from "react";
@@ -120,10 +119,15 @@ export function WorkspaceHome({
                   disabled={busy || unavailable}
                   onClick={() => onAttention(item)}
                 >
-                  <strong>{item.title}</strong>
+                  <strong>
+                    {item.code ? `${item.code} · ` : ""}
+                    {item.title}
+                  </strong>
                   <small>
-                    {item.projectName} · {inboxLabels[item.kind]}
+                    {item.projectName} · {item.problem}
                   </small>
+                  {item.taskTitle && <small>{item.taskTitle}</small>}
+                  <span className="small muted">{item.nextAction}</span>
                 </button>
               </li>
             ))}
@@ -133,7 +137,7 @@ export function WorkspaceHome({
           )}
         </section>
         <section className="home-section">
-          <h2>Kết quả mới</h2>
+          <h2>Bàn giao mới</h2>
           <ul className="home-summary-list">
             {summary.data?.results.map((item) => (
               <li key={item.id}>
@@ -153,7 +157,7 @@ export function WorkspaceHome({
             ))}
           </ul>
           {summary.data && !summary.data.results.length && (
-            <p className="muted small">Chưa có kết quả công việc.</p>
+            <p className="muted small">Chưa có thay đổi bàn giao.</p>
           )}
         </section>
       </div>

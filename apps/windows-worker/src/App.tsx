@@ -268,6 +268,7 @@ export function App() {
     if (!selected)
       throw new Error("Dự án không còn trong danh sách. Cập nhật hộp thư.");
     setBoot(data);
+    if (project?.id !== selected.id) await selectProject(selected, page);
     if (item.runId) {
       const context = await value(
         window.worker.workChatForRun({
@@ -939,7 +940,9 @@ export function App() {
                   onOpen={openResult}
                 />
               )}
-              {page === "inbox" && <GlobalInbox onOpen={openInboxItem} />}
+              {page === "inbox" && (
+                <GlobalInbox onOpen={openInboxItem} projects={boot.projects} />
+              )}
               {page === "git" &&
                 (project ? (
                   <GitWorkspace

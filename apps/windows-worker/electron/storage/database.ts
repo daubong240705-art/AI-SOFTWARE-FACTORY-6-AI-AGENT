@@ -1,6 +1,7 @@
 import { Images } from "./images";
 import { Schedules } from "./schedules";
 import { migrateSchedules } from "./schedules-migration";
+import { migrateInboxDismissals } from "./inbox-migration";
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { join, basename, resolve } from "node:path";
@@ -61,7 +62,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 14)
+      if (version > 15)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -158,6 +159,7 @@ export class Store {
       this.inbox = new Inbox(this.db, directory, version);
       this.images = new Images(this.db, directory, version);
       migrateSchedules(this.db, directory, version);
+      migrateInboxDismissals(this.db, directory, version);
       this.schedules = new Schedules(this.db, this.board);
     } catch (error) {
       this.db.close();

@@ -8,6 +8,7 @@ export const resultQuerySchema = z
   .object({
     projectId: z.string().uuid().optional(),
     search: z.string().trim().max(200).default(""),
+    includeHistory: z.boolean().default(false),
     verification: z.enum(["pass", "fail", "not-run", "unknown"]).optional(),
     before: z
       .object({ at: z.string().max(80), id: z.string().uuid() })

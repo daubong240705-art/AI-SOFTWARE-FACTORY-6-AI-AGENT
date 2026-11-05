@@ -13,6 +13,7 @@ const api: WorkerAPI = {
   gitDiff: (input) => ipcRenderer.invoke(channels.gitDiff, input),
   inbox: (input) => ipcRenderer.invoke(channels.inbox, input),
   inboxSeen: (input) => ipcRenderer.invoke(channels.inboxSeen, input),
+  inboxDismiss: (input) => ipcRenderer.invoke(channels.inboxDismiss, input),
   readiness: (input) => ipcRenderer.invoke(channels.readiness, input),
   workReport: (input) => ipcRenderer.invoke(channels.workReport, input),
   reportFile: (input) => ipcRenderer.invoke(channels.reportFile, input),

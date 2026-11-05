@@ -95,6 +95,19 @@ async function main() {
   for (let i = 0; i < 24; i++)
     run(projects[0], { prompt: `Báo cáo Alpha ${i}` });
   run(projects[0], { prompt: "Tư vấn không phải kết quả", changes: [] });
+  run(projects[0], {
+    prompt: "Phân tích lịch sử",
+    changes: [],
+    commands: [
+      {
+        callId: "read",
+        command: "git status",
+        status: "completed",
+        exitCode: 0,
+        output: "clean",
+      },
+    ],
+  });
   const item = store.board.create({
     projectId: projects[1].id,
     title: "Hồ sơ Beta",
@@ -267,6 +280,23 @@ async function main() {
   await until(
     () => js("document.querySelectorAll('.result-list>li').length===24"),
     "Cursor pagination",
+  );
+  await input('[aria-label="Tìm kết quả"]', "PHAN TICH LICH SU");
+  await until(() =>
+    js("document.querySelectorAll('.result-list>li').length===0"),
+  );
+  await option("Phạm vi kết quả", "Gồm phân tích và lượt lỗi");
+  await until(() =>
+    js("document.querySelectorAll('.result-list>li').length===1"),
+  );
+  assert.ok(
+    await js(
+      "document.querySelector('.result-list').textContent.includes('Phân tích lịch sử')",
+    ),
+  );
+  await option("Phạm vi kết quả", "Thay đổi bàn giao");
+  await until(() =>
+    js("document.querySelectorAll('.result-list>li').length===0"),
   );
   await input('[aria-label="Tìm kết quả"]', "BAO CAO ALPHA 23");
   await until(

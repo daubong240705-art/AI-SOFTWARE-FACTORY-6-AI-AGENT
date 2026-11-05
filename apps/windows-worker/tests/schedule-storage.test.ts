@@ -290,7 +290,7 @@ test("schema13 migration creates a recoverable backup and preserves conversation
     x.store.setModels(["fixture-model"]);
     const db = x.raw();
     db.exec(
-      "DROP TABLE schedule_deliveries; DROP TABLE schedules; DROP TABLE schedule_control; PRAGMA user_version=13",
+      "DROP TABLE inbox_dismissals; DROP TABLE schedule_deliveries; DROP TABLE schedules; DROP TABLE schedule_control; PRAGMA user_version=13",
     );
     db.close();
     const reopened = new Store(x.directory);

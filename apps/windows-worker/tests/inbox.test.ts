@@ -8,6 +8,7 @@ import Database from "better-sqlite3";
 import { Store } from "../electron/storage/database";
 import { defaultSettings } from "../shared/defaults";
 import { normalizeRun, type Run } from "../shared/runs";
+import { runIssue, attentionTitle } from "../shared/attention";
 
 function setup() {
   const directory = mkdtempSync(join(tmpdir(), "asf-inbox-"));
@@ -247,7 +248,7 @@ test("schema 11 migration backs up, preserves settings/runs and reopens schema 1
     const r = x.run();
     const db = new Database(join(x.data, "worker.sqlite"));
     db.exec(
-      "DROP TABLE schedule_deliveries; DROP TABLE schedules; DROP TABLE schedule_control; DROP TABLE chat_images; DROP TABLE inbox_seen; PRAGMA user_version=11",
+      "DROP TABLE inbox_dismissals; DROP TABLE schedule_deliveries; DROP TABLE schedules; DROP TABLE schedule_control; DROP TABLE chat_images; DROP TABLE inbox_seen; PRAGMA user_version=11",
     );
     db.close();
     const reopened = new Store(x.data);
@@ -258,6 +259,331 @@ test("schema 11 migration backs up, preserves settings/runs and reopens schema 1
       assert.equal(reopened.run(r.id).prompt, r.prompt);
       assert.deepEqual(reopened.settings(), x.store.settings());
       assert.equal(reopened.inbox.list({ unreadOnly: true }).items.length, 1);
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("current work, revision and archive suppress obsolete alerts without deleting run history", () => {
+  const x = setup();
+  try {
+    const item = x.store.board.create({
+      projectId: x.projects[0].id,
+      title: "Readable work title",
+      body: "",
+      criteria: [],
+      suggestedRole: null,
+      planningState: "ready",
+      priority: 0,
+    });
+    const context = x.store.board.workChat({
+      projectId: item.projectId,
+      itemId: item.id,
+    });
+    const work = x.store.board.chatSnapshot(
+      item.projectId,
+      item.id,
+      item.revision,
+      context.conversationId,
+    );
+    const first = x.run(0, {
+      prompt: "# internal prompt\nDo many things",
+      workContext: work,
+      conversationId: context.conversationId,
+    });
+    x.store.board.attachChat(randomUUID(), work, {
+      runId: first.id,
+      followUpId: null,
+    });
+    let alert = x.store.inbox.list({ unreadOnly: false }).items[0];
+    assert.equal(alert.title, item.title);
+    assert.equal(alert.code, item.code);
+    assert.equal(alert.itemId, item.id);
+    const next = x.run(0, {
+      workContext: work,
+      conversationId: context.conversationId,
+      state: "completed",
+    });
+    x.store.board.attachChat(randomUUID(), work, {
+      runId: next.id,
+      followUpId: null,
+    });
+    assert.equal(x.store.inbox.count(), 0);
+    const failed = x.run(0, {
+      workContext: work,
+      conversationId: context.conversationId,
+    });
+    x.store.board.attachChat(randomUUID(), work, {
+      runId: failed.id,
+      followUpId: null,
+    });
+    assert.equal(x.store.inbox.count(), 1);
+    const current = x.store.board.item(item.id);
+    x.store.board.update({
+      id: item.id,
+      version: current.version,
+      patch: { body: "New requirement" },
+    });
+    assert.equal(x.store.inbox.count(), 0);
+    const revised = x.store.board.item(item.id);
+    const newer = x.run(0, {
+      workContext: x.store.board.chatSnapshot(
+        item.projectId,
+        item.id,
+        revised.revision,
+        context.conversationId,
+      ),
+    });
+    assert.equal(x.store.inbox.count(), 1);
+    x.store.board.archive({
+      id: item.id,
+      version: revised.version,
+      archived: true,
+    });
+    assert.equal(x.store.inbox.count(), 0);
+    assert.equal(x.store.run(first.id).state, "failed");
+    assert.equal(x.store.run(newer.id).state, "failed");
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("closed alerts are durable, reversible and token scoped; seen never closes or repairs work", () => {
+  const x = setup();
+  try {
+    const run = x.run(0, {
+      failure: {
+        code: "budget-exhausted",
+        message: "No request left",
+        retry: "none",
+      },
+    });
+    const item = x.store.inbox.list({ unreadOnly: false }).items[0];
+    assert.equal(item.problem, "Hết request");
+    assert.match(item.nextAction, /Chia nhỏ/);
+    x.store.inbox.seen({ key: item.key, token: item.token });
+    assert.equal(x.store.inbox.count(), 1);
+    x.store.inbox.dismiss({
+      key: item.key,
+      token: item.token,
+      dismissed: true,
+    });
+    assert.equal(x.store.inbox.count(), 0);
+    assert.equal(x.store.inbox.list({ unreadOnly: false }).items.length, 0);
+    const reopened = new Store(x.data);
+    try {
+      const closed = reopened.inbox.list({ unreadOnly: false, scope: "closed" })
+        .items[0];
+      assert.ok(closed.dismissed);
+      assert.equal(closed.unread, false);
+      assert.equal(reopened.run(run.id).state, "failed");
+      reopened.inbox.dismiss({
+        key: closed.key,
+        token: closed.token,
+        dismissed: false,
+      });
+      assert.equal(reopened.inbox.count(), 1);
+    } finally {
+      reopened.close();
+    }
+    x.store.inbox.dismiss({
+      key: item.key,
+      token: item.token,
+      dismissed: true,
+    });
+    run.failure = {
+      code: "provider-auth",
+      message: "Credential invalid",
+      retry: "none",
+    };
+    x.store.updateRun(run);
+    assert.equal(x.store.inbox.count(), 1);
+    assert.equal(
+      x.store.inbox.list({ unreadOnly: false, scope: "closed" }).items.length,
+      0,
+    );
+    assert.throws(
+      () =>
+        x.store.inbox.dismiss({
+          key: item.key,
+          token: item.token,
+          dismissed: true,
+        }),
+      /thay đổi/,
+    );
+    const permission = x.run(1, {
+      state: "blocked",
+      permissions: [{ id: "p", permission: "edit", patterns: ["file"] }],
+    });
+    const pending = x.store.inbox
+      .list({ unreadOnly: false })
+      .items.find((i) => i.runId === permission.id)!;
+    assert.equal(pending.canDismiss, false);
+    assert.throws(
+      () =>
+        x.store.inbox.dismiss({
+          key: pending.key,
+          token: pending.token,
+          dismissed: true,
+        }),
+      /Chỉ đóng/,
+    );
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("filters use persisted project and workflow category; legacy context-only chat is not work to resolve", () => {
+  const x = setup();
+  try {
+    const first = x.run(0);
+    x.run(1, {
+      state: "needs_input",
+      failure: {
+        code: "needs-context",
+        message: "Tell me more",
+        retry: "none",
+      },
+    });
+    x.run(1, {
+      state: "failed",
+      failure: {
+        code: "needs-context",
+        message: "Tell me more",
+        retry: "none",
+      },
+    });
+    const question = x.run(1, {
+      state: "needs_input",
+      failure: { code: "needs-context", message: "Need scope", retry: "none" },
+      questionRequest: {
+        version: 1,
+        kind: "questions",
+        summary: "Scope decision",
+        questions: [
+          { id: "q1", title: "Which scope?", required: true, options: [] },
+        ],
+      },
+    });
+    assert.equal(x.store.inbox.count(), 2);
+    assert.deepEqual(
+      x.store.inbox
+        .list({ unreadOnly: false, projectId: x.projects[0].id })
+        .items.map((i) => i.runId),
+      [first.id],
+    );
+    const decisions = x.store.inbox.list({
+      unreadOnly: false,
+      category: "decision",
+    }).items;
+    assert.equal(decisions.length, 1);
+    assert.equal(decisions[0].runId, question.id);
+    assert.equal(
+      x.store.inbox.list({ unreadOnly: false, category: "blocked" }).items
+        .length,
+      1,
+    );
+    assert.throws(
+      () =>
+        x.store.inbox.dismiss({
+          key: decisions[0].key,
+          token: decisions[0].token,
+          dismissed: true,
+        }),
+      /Chỉ đóng/,
+    );
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("issue projection finds latest failing task and distinguishes review from completed workers", () => {
+  const base = { state: "failed" as const, error: "Runtime failed", tasks: [] };
+  const failed = {
+    id: "t1",
+    role: "fe" as const,
+    title: "Build UI",
+    kind: "work" as const,
+    state: "failed" as const,
+    error: "npm build failed",
+    failure: {
+      code: "tool-test-failure" as const,
+      message: "Failed build",
+      retry: "manual" as const,
+    },
+  };
+  assert.equal(runIssue({ ...base, tasks: [failed] })!.taskId, "t1");
+  assert.match(runIssue({ ...base, tasks: [failed] })!.nextAction, /lệnh lỗi/);
+  const fixed = {
+    ...failed,
+    id: "t1-fix",
+    originalTaskId: "t1",
+    state: "completed" as const,
+    error: "",
+    failure: undefined,
+  };
+  const reviewed = runIssue({
+    ...base,
+    tasks: [failed, fixed],
+    review: {
+      status: "blocked",
+      summary: "Missing proof",
+      acceptance: [
+        {
+          criterion: "Build passes",
+          status: "unverified",
+          evidence: "Missing",
+        },
+      ],
+    },
+  })!;
+  assert.equal(reviewed.taskId, null);
+  assert.equal(reviewed.label, "Review chưa đạt");
+  assert.deepEqual(reviewed.criteria, ["Build passes"]);
+  assert.equal(runIssue({ ...base, state: "completed" }), null);
+  assert.equal(
+    attentionTitle("# W-0001 · **Readable**\nInternal details"),
+    "Readable",
+  );
+});
+
+test("schema14 backup precedes attention metadata and preserves runs, settings and read state", () => {
+  const x = setup();
+  try {
+    const run = x.run();
+    const item = x.store.inbox.list({ unreadOnly: false }).items[0];
+    x.store.inbox.seen({ key: item.key, token: item.token });
+    const db = new Database(join(x.data, "worker.sqlite"));
+    db.exec("DROP TABLE inbox_dismissals; PRAGMA user_version=14");
+    db.close();
+    const reopened = new Store(x.data);
+    try {
+      assert.equal(reopened.run(run.id).state, "failed");
+      assert.deepEqual(reopened.settings(), x.store.settings());
+      assert.equal(
+        reopened.inbox.list({ unreadOnly: false }).items[0].unread,
+        false,
+      );
+      const backup = new Database(
+        join(x.data, "worker.schema14.pre-attention.backup.sqlite"),
+        { readonly: true },
+      );
+      try {
+        assert.equal(backup.pragma("user_version", { simple: true }), 14);
+        assert.equal(
+          backup
+            .prepare(
+              "SELECT name FROM sqlite_master WHERE name='inbox_dismissals'",
+            )
+            .get(),
+          undefined,
+        );
+      } finally {
+        backup.close();
+      }
     } finally {
       reopened.close();
     }

@@ -20,6 +20,7 @@ import { sourceVersion, readEvidence } from "../team/evidence";
 import type { EvidenceStore } from "./evidence";
 import { patchFor } from "./evidence";
 import { redact } from "../runtime/security";
+import { attentionTitle } from "../../shared/attention";
 import type { BoardStore } from "./board";
 import {
   resultQuerySchema,
@@ -406,7 +407,8 @@ export class Reports {
       SELECT p.id,p.run_id AS runId,p.project_id AS projectId,project.name AS projectName,p.item_id AS itemId,CASE WHEN b.number IS NOT NULL THEN 'W-'||printf('%04d',b.number) END AS code,
         COALESCE(json_extract(p.value,'$.work.title'),json_extract(r.value,'$.prompt'),'Kết quả') AS title,
         substr(COALESCE(json_extract(p.value,'$.summary'),''),1,320) AS summary,
-        json_extract(p.value,'$.endedAt') AS at,json_extract(p.value,'$.verification') AS verification,
+        json_extract(p.value,'$.endedAt') AS at,json_extract(p.value,'$.verification') AS verification,r.state AS runState,
+        COALESCE(json_array_length(p.value,'$.changes'),0)>0 AS hasDelivery,
         ROW_NUMBER() OVER (PARTITION BY p.project_id,COALESCE(p.item_id,json_extract(r.value,'$.attemptRoot'),p.run_id) ORDER BY r.rowid DESC) AS rank
       FROM reports p JOIN runs r ON r.id=p.run_id JOIN projects project ON project.id=p.project_id
       LEFT JOIN board_items b ON b.id=p.item_id
@@ -415,7 +417,7 @@ export class Reports {
         OR COALESCE(json_array_length(p.value,'$.commands'),0)>0
         OR EXISTS(SELECT 1 FROM json_each(r.value,'$.tasks') t WHERE json_extract(t.value,'$.kind') IN ('work','fix')))
     ) SELECT id,runId,projectId,projectName,itemId,code,substr(title,1,160) AS title,summary,at,verification FROM ranked
-      WHERE rank=1 AND (? IS NULL OR verification=?)
+      WHERE rank=1 AND (?=1 OR (runState='completed' AND hasDelivery=1)) AND (? IS NULL OR verification=?)
       AND (?='' OR instr(result_search(title||' '||COALESCE(code,'')||' '||summary),result_search(?))>0)
       AND (? IS NULL OR at<? OR (at=? AND id<?))
       ORDER BY at DESC,id DESC LIMIT ?`,
@@ -423,6 +425,7 @@ export class Reports {
       .all(
         query.projectId ?? null,
         query.projectId ?? null,
+        +query.includeHistory,
         query.verification ?? null,
         query.verification ?? null,
         query.search,
@@ -441,7 +444,7 @@ export class Reports {
     );
     const items = page.map((row) => ({
       ...row,
-      title: redact(row.title, secrets, 160),
+      title: attentionTitle(redact(row.title, secrets, 160)),
       summary: redact(row.summary, secrets, 320),
       projectName: redact(row.projectName, secrets, 160),
       state: states.get(row.runId)!,

@@ -16,6 +16,7 @@ import { AcceptanceEvidence } from "./AcceptanceEvidence";
 import { CommandEvidence } from "./CommandEvidence";
 import { TaskChanges } from "./TaskChanges";
 import { RecoveryActions } from "./RecoveryActions";
+import { runIssue } from "../../shared/attention";
 
 export function TaskInspector({
   selection,
@@ -102,6 +103,7 @@ export function TaskInspector({
   const run = detail?.run,
     task = selected?.task;
   const capabilities = run ? runCapabilities(run, activeId) : null;
+  const issue = run ? runIssue(run) : null;
   const locked = busy || feed.stale || !!feed.error;
   const selectTask = (id: string) =>
     onSelect({ ...selection, taskId: id || null, executionId: undefined });
@@ -239,6 +241,26 @@ export function TaskInspector({
           </div>
           {tab === "overview" && (
             <div className="inspector-content">
+              {issue && (
+                <section className="work-issue" aria-label="Vấn đề cần xử lý">
+                  <h3>{issue.label}</h3>
+                  {issue.taskTitle && (
+                    <p>
+                      {issue.role?.toUpperCase()} · {issue.taskTitle}
+                    </p>
+                  )}
+                  <p>{issue.reason}</p>
+                  <p className="work-issue-next">{issue.nextAction}</p>
+                  {issue.taskId && task?.id !== issue.taskId && (
+                    <button
+                      disabled={locked}
+                      onClick={() => selectTask(issue.taskId!)}
+                    >
+                      Mở task gặp vấn đề
+                    </button>
+                  )}
+                </section>
+              )}
               {task && <p>{task.instructions}</p>}
               <dl className="inspector-facts">
                 <dt>Trạng thái</dt>
@@ -309,7 +331,7 @@ export function TaskInspector({
                   </p>
                 </section>
               ) : null}
-              {(task?.error || run.error) && (
+              {!issue && (task?.error || run.error) && (
                 <p className="warning-text">{task?.error || run.error}</p>
               )}
               {capabilities?.permission &&

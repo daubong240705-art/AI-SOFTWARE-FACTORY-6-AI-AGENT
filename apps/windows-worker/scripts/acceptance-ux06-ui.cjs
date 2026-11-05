@@ -289,13 +289,77 @@ async function main() {
     await js("document.querySelectorAll('.inbox-items li').length"),
     3,
   );
-  await click("Chưa đọc");
+  await js("document.querySelector('.inbox-unread input').click()");
   await until(() =>
     js("document.querySelectorAll('.inbox-items li').length === 2"),
   );
-  await click("Tất cả");
+  await js("document.querySelector('.inbox-unread input').click()");
   await until(() =>
     js("document.querySelectorAll('.inbox-items li').length === 3"),
+  );
+  // Closing is distinct from read and failed work. Reopen is durable through IPC.
+  await js(
+    "document.querySelector('button[aria-label^=\"Đóng cảnh báo:\"]').click()",
+  );
+  await until(() =>
+    js("document.querySelectorAll('.inbox-items li').length===2"),
+  );
+  assert.equal(
+    (await js(`window.worker.runDetail(${JSON.stringify(failed.id)})`)).value
+      .run.state,
+    "failed",
+  );
+  await click("Cảnh báo đã đóng");
+  await until(() =>
+    js("document.querySelectorAll('.inbox-items li').length===1"),
+  );
+  await js("document.querySelector('button[aria-label^=\"Mở lại:\"]').click()");
+  await until(() =>
+    js("document.querySelectorAll('.inbox-items li').length===0"),
+  );
+  await click("Đang cần xử lý");
+  await until(() =>
+    js("document.querySelectorAll('.inbox-items li').length===3"),
+  );
+  const option = async (label, text) => {
+    await until(() =>
+      js(
+        `document.querySelector('[aria-label=${JSON.stringify(label)}]')?.disabled===false`,
+      ),
+    );
+    await js(
+      `document.querySelector('[aria-label=${JSON.stringify(label)}]').click()`,
+    );
+    await until(() =>
+      js(
+        `Array.from(document.querySelectorAll('[role=option]')).some(e=>e.textContent.trim()===${JSON.stringify(text)})`,
+      ),
+    );
+    await js(
+      `Array.from(document.querySelectorAll('[role=option]')).find(e=>e.textContent.trim()===${JSON.stringify(text)}).click()`,
+    );
+  };
+  await option("Loại cần xử lý", "Cần quyết định");
+  await until(() =>
+    js("document.querySelectorAll('.inbox-items li').length===1"),
+  );
+  assert.ok(
+    await js(
+      "document.querySelector('.inbox-open').textContent.includes('Trả lời Lead')",
+    ),
+  );
+  await option("Loại cần xử lý", "Bị chặn");
+  await until(() =>
+    js("document.querySelectorAll('.inbox-items li').length===2"),
+  );
+  await option("Lọc dự án", projects[1].name);
+  await until(() =>
+    js("document.querySelectorAll('.inbox-items li').length===0"),
+  );
+  await option("Lọc dự án", "Mọi dự án");
+  await option("Loại cần xử lý", "Mọi loại");
+  await until(() =>
+    js("document.querySelectorAll('.inbox-items li').length===3"),
   );
   // A global inbox can open a different project's run without changing scope.
   await js(
@@ -304,6 +368,11 @@ async function main() {
   await until(
     () => js("!!document.querySelector('.task-inspector')"),
     "cross-project inspector",
+  );
+  assert.ok(
+    await js(
+      "document.querySelector('.task-inspector .work-issue').textContent.includes('trước khi tiếp tục')",
+    ),
   );
   assert.equal(
     await js("document.querySelector('.workspace-global-scope').textContent"),
@@ -338,11 +407,148 @@ async function main() {
     js("document.querySelectorAll('.inbox-items li').length === 3"),
   );
   await js(
-    "Array.from(document.querySelectorAll('.inbox-open')).find(b=>b.textContent.includes('Hàng chờ tạm giữ')).click()",
+    "Array.from(document.querySelectorAll('.inbox-open')).find(b=>b.textContent.includes('Xem hàng chờ')).click()",
   );
   await until(
     () => js("!!document.querySelector('.follow-up-card')"),
     "held queue conversation",
+  );
+  // A real linked task failure opens actionable progress, with internal steps collapsed.
+  const diagnosticStore = new Store(join(directory, "data"));
+  const workItem = diagnosticStore.board.create({
+    projectId: projects[0].id,
+    title: "Sửa giao diện báo cáo",
+    body: "",
+    criteria: [],
+    suggestedRole: null,
+    planningState: "ready",
+    priority: 0,
+  });
+  const workChat = diagnosticStore.board.workChat({
+    projectId: workItem.projectId,
+    itemId: workItem.id,
+  });
+  const snapshot = diagnosticStore.board.chatSnapshot(
+    workItem.projectId,
+    workItem.id,
+    1,
+    workChat.conversationId,
+  );
+  const task = {
+    id: "t1",
+    role: "fe",
+    title: "Căn lại bảng kết quả",
+    kind: "work",
+    state: "failed",
+    instructions: "Fix layout",
+    allowedPaths: ["src"],
+    acceptance: ["Build passes"],
+    dependsOn: [],
+    model: "fixture",
+    round: 0,
+    sessionId: null,
+    startedAt: null,
+    endedAt: null,
+    summary: "",
+    error: "Build chưa đạt",
+    changes: [],
+    commandIds: [],
+    failure: {
+      code: "tool-test-failure",
+      message: "Build chưa đạt",
+      retry: "manual",
+    },
+  };
+  const diagnosticRun = {
+    ...failed,
+    id: crypto.randomUUID(),
+    mode: "team",
+    prompt: "Internal prompt must not replace title",
+    conversationId: workChat.conversationId,
+    workContext: snapshot,
+    tasks: [
+      {
+        ...task,
+        id: "plan",
+        kind: "plan",
+        role: "lead",
+        state: "completed",
+        error: "",
+        failure: undefined,
+      },
+      task,
+    ],
+    failure: {
+      code: "tool-test-failure",
+      message: "Build chưa đạt",
+      retry: "manual",
+    },
+  };
+  diagnosticStore.createRun(diagnosticRun);
+  diagnosticStore.updateRun(diagnosticRun);
+  diagnosticStore.board.attachChat(crypto.randomUUID(), snapshot, {
+    runId: diagnosticRun.id,
+    followUpId: null,
+  });
+  diagnosticStore.close();
+  await nav("Hộp thư");
+  await until(() =>
+    js("document.querySelectorAll('.inbox-items li').length===4"),
+  );
+  await js(
+    "Array.from(document.querySelectorAll('.inbox-open')).find(b=>b.textContent.includes('Sửa giao diện báo cáo')).click()",
+  );
+  await until(() =>
+    js("!!document.querySelector('.work-progress .work-issue')"),
+  );
+  assert.equal(
+    await js(
+      "document.querySelector('.work-primary-action').textContent.trim()",
+    ),
+    "Xem vấn đề",
+  );
+  assert.ok(
+    await js(
+      "document.querySelector('.work-progress .work-issue').textContent.includes('Căn lại bảng kết quả')",
+    ),
+  );
+  assert.ok(
+    await js(
+      "document.querySelector('.work-progress .work-issue').textContent.includes('giao Lead sửa')",
+    ),
+  );
+  assert.equal(
+    await js("document.querySelectorAll('.work-progress-tasks>li').length"),
+    1,
+  );
+  assert.equal(
+    await js("document.querySelector('.work-progress details').open"),
+    false,
+  );
+  for (const [width, height, zoom] of [
+    [1366, 768, 1],
+    [850, 700, 1],
+    [1366, 768, 1.25],
+    [1366, 768, 1.5],
+  ]) {
+    win.setSize(width, height);
+    win.webContents.setZoomFactor(zoom);
+    await pause(200);
+    assert.ok(
+      await js(
+        "(()=>{const e=document.querySelector('.work-progress');return e.scrollWidth<=e.clientWidth+1 && getComputedStyle(document.querySelector('.work-progress-tasks button')).justifyItems==='start'})()",
+      ),
+    );
+    writeFileSync(
+      join(directory, `issue-${width}-${zoom}.png`),
+      (await win.webContents.capturePage()).toPNG(),
+    );
+  }
+  await js("document.querySelector('.work-issue-actions button').click()");
+  await until(() =>
+    js(
+      "document.querySelector('.task-inspector')?.textContent.includes('Căn lại bảng kết quả')",
+    ),
   );
   assert.equal(counts[channels.answerQuestions] || 0, 0);
   assert.equal(counts[channels.reportDecision] || 0, 0);

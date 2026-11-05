@@ -135,6 +135,9 @@ export interface WorkerAPI {
   inboxSeen(
     input: import("zod").z.infer<typeof import("./inbox").inboxSeenSchema>,
   ): Promise<Reply<void>>;
+  inboxDismiss(
+    input: import("zod").z.infer<typeof import("./inbox").inboxDismissSchema>,
+  ): Promise<Reply<void>>;
   readiness(
     input: import("zod").z.infer<typeof import("./readiness").readinessSchema>,
   ): Promise<Reply<import("./readiness").Readiness>>;

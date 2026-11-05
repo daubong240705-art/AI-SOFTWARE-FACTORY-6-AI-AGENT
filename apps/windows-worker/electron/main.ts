@@ -59,7 +59,11 @@ import { recoverOwnedJobs } from "./runtime/owned-process";
 import { Worktrees } from "./workspace/worktrees";
 import { ReadinessProbe } from "./workspace/readiness";
 import { readinessSchema } from "../shared/readiness";
-import { inboxQuerySchema, inboxSeenSchema } from "../shared/inbox";
+import {
+  inboxQuerySchema,
+  inboxSeenSchema,
+  inboxDismissSchema,
+} from "../shared/inbox";
 import { gitSnapshotSchema, gitDiffSchema } from "../shared/git";
 import { resultQuerySchema } from "../shared/workspace";
 import { browseGit, browseGitDiff } from "./workspace/git-browser";
@@ -177,6 +181,9 @@ function registerIPC(): void {
   });
   handle(channels.inboxSeen, (input) =>
     store.inbox.seen(inboxSeenSchema.parse(input)),
+  );
+  handle(channels.inboxDismiss, (input) =>
+    store.inbox.dismiss(inboxDismissSchema.parse(input)),
   );
   handle(channels.readiness, (input) => {
     const data = readinessSchema.parse(input);

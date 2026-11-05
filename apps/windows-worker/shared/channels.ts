@@ -7,6 +7,7 @@ export const channels = {
   gitDiff: "worker:git-diff",
   inbox: "worker:inbox",
   inboxSeen: "worker:inbox-seen",
+  inboxDismiss: "worker:inbox-dismiss",
   readiness: "worker:readiness",
   workReport: "worker:work-report",
   reportDecision: "worker:report-decision",

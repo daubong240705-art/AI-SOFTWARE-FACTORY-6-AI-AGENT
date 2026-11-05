@@ -125,6 +125,49 @@ test("results index scopes, uses stable cursors at identical timestamps and excl
   }
 });
 
+test("delivery defaults exclude failed changes and read-only commands while history retains reports", () => {
+  const x = setup();
+  try {
+    const document = x.run(0, {
+      prompt: "# Architecture document",
+      changes: [{ path: "docs/architecture.md", kind: "added" }],
+    });
+    const failed = x.run(0, { state: "failed", error: "Failed verification" });
+    const analysis = x.run(0, {
+      changes: [],
+      commands: [
+        {
+          callId: "c1",
+          command: "git status",
+          status: "completed",
+          exitCode: 0,
+          output: "clean",
+        },
+      ],
+    });
+    const defaults = x.store.reports.index({}).items;
+    assert.deepEqual(
+      defaults.map((i) => i.runId),
+      [document.id],
+    );
+    assert.equal(defaults[0].title, "Architecture document");
+    const history = x.store.reports.index({ includeHistory: true }).items;
+    assert.deepEqual(
+      new Set(history.map((i) => i.runId)),
+      new Set([document.id, failed.id, analysis.id]),
+    );
+    assert.equal(
+      x.store.reports.view(
+        { projectId: failed.projectId, runId: failed.id },
+        null,
+      ).report.runId,
+      failed.id,
+    );
+  } finally {
+    x.close();
+  }
+});
+
 test("results group retries and work submissions before filters and keep previous report explicitly stale", () => {
   const x = setup();
   try {

@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { RefreshCw, ChevronRight, MailCheck } from "lucide-react";
+import {
+  RefreshCw,
+  ChevronRight,
+  MailCheck,
+  Archive,
+  Undo2,
+} from "lucide-react";
+import { Select } from "../ui/Select";
+import type { Project } from "../../shared/contracts";
 import {
   inboxLabels,
   type InboxItem,
@@ -8,11 +16,16 @@ import {
 
 export function GlobalInbox({
   onOpen,
+  projects,
 }: {
   onOpen: (item: InboxItem) => Promise<void>;
+  projects: Project[];
 }) {
   const [page, setPage] = useState<InboxPage | null>(null);
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [category, setCategory] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [closed, setClosed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
@@ -26,6 +39,11 @@ export function GlobalInbox({
     try {
       const reply = await window.worker.inbox({
         unreadOnly,
+        scope: closed ? "closed" : "open",
+        ...(!closed && category
+          ? { category: category as "decision" | "blocked" }
+          : {}),
+        ...(projectId ? { projectId } : {}),
         ...(more && page?.next ? { before: page.next } : {}),
       });
       if (current !== generation.current) return;
@@ -60,7 +78,7 @@ export function GlobalInbox({
     return () => {
       generation.current++;
     };
-  }, [unreadOnly]);
+  }, [unreadOnly, category, projectId, closed]);
 
   async function action(fn: () => Promise<void>) {
     if (lock.current || busy) return;
@@ -95,23 +113,59 @@ export function GlobalInbox({
         <div className="work-view-switch" aria-label="Lọc mục cần xử lý">
           <button
             disabled={busy}
-            aria-pressed={!unreadOnly}
-            onClick={() => setUnreadOnly(false)}
+            aria-pressed={!closed}
+            onClick={() => setClosed(false)}
           >
-            Tất cả
+            Đang cần xử lý
           </button>
           <button
             disabled={busy}
-            aria-pressed={unreadOnly}
-            onClick={() => setUnreadOnly(true)}
+            aria-pressed={closed}
+            onClick={() => setClosed(true)}
           >
-            Chưa đọc
+            Cảnh báo đã đóng
           </button>
         </div>
-        <span className="muted small">
-          Mọi dự án{checkedAt ? ` · ${checkedAt}` : ""}
-        </span>
+        <Select
+          aria-label="Lọc dự án"
+          value={projectId}
+          onValueChange={setProjectId}
+          disabled={busy}
+        >
+          <option value="">Mọi dự án</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </Select>
+        <Select
+          aria-label="Loại cần xử lý"
+          value={category}
+          onValueChange={setCategory}
+          disabled={busy || closed}
+        >
+          <option value="">Mọi loại</option>
+          <option value="decision">Cần quyết định</option>
+          <option value="blocked">Bị chặn</option>
+        </Select>
+        <label className="inbox-unread">
+          <input
+            type="checkbox"
+            checked={unreadOnly}
+            disabled={busy}
+            onChange={(event) => setUnreadOnly(event.target.checked)}
+          />
+          Chưa đọc
+        </label>
       </div>
+      {closed && (
+        <p className="muted small">
+          Đóng cảnh báo chỉ bỏ nhắc nhở, công việc vẫn giữ nguyên trạng thái. Có
+          thể mở lại bên dưới.
+        </p>
+      )}
+      {checkedAt && <p className="muted small">Cập nhật {checkedAt}</p>}
       {error && (
         <p className="notice error" role="alert">
           {error}
@@ -124,7 +178,11 @@ export function GlobalInbox({
       )}
       {page && !page.items.length && (
         <p className="overview-empty">
-          {unreadOnly ? "Không có mục chưa đọc." : "Không có việc cần xử lý."}
+          {closed
+            ? "Không có cảnh báo đã đóng phù hợp."
+            : unreadOnly
+              ? "Không có mục chưa đọc phù hợp."
+              : "Không có việc cần xử lý phù hợp."}
         </p>
       )}
       <ul className="inbox-items">
@@ -142,18 +200,54 @@ export function GlobalInbox({
               <span className="inbox-body">
                 <span className="inbox-meta">
                   <strong>{item.projectName}</strong>
-                  <span>{inboxLabels[item.kind]}</span>
+                  <span>{item.problem}</span>
                   <time dateTime={item.at}>
                     {new Date(item.at).toLocaleString("vi-VN")}
                   </time>
                 </span>
-                <strong>{item.title || inboxLabels[item.kind]}</strong>
-                {item.detail && (
-                  <span className="muted small">{item.detail}</span>
+                <strong>
+                  {item.code ? `${item.code} · ` : ""}
+                  {item.title || inboxLabels[item.kind]}
+                </strong>
+                {item.taskTitle && (
+                  <span className="small">Task: {item.taskTitle}</span>
                 )}
+                {(item.kind === "failure" || item.kind === "queue") &&
+                  item.detail && (
+                    <span className="small muted inbox-reason">
+                      {item.detail}
+                    </span>
+                  )}
+                <span className="small muted">{item.nextAction}</span>
+                <span className="inbox-action small">{item.actionLabel}</span>
               </span>
               <ChevronRight size={16} />
             </button>
+            {item.canDismiss && (
+              <button
+                className="icon-button subtle"
+                disabled={busy || !!error}
+                aria-label={`${closed ? "Mở lại" : "Đóng cảnh báo"}: ${item.title}`}
+                title={
+                  closed
+                    ? "Mở lại cảnh báo"
+                    : "Đóng cảnh báo · giữ nguyên trạng thái công việc"
+                }
+                onClick={() =>
+                  void action(async () => {
+                    const reply = await window.worker.inboxDismiss({
+                      key: item.key,
+                      token: item.token,
+                      dismissed: !closed,
+                    });
+                    if (!reply.ok) throw new Error(reply.error);
+                    await load();
+                  })
+                }
+              >
+                {closed ? <Undo2 size={17} /> : <Archive size={17} />}
+              </button>
+            )}
             {item.unread && (
               <button
                 className="icon-button subtle inbox-seen"

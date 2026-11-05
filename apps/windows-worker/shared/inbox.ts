@@ -3,6 +3,9 @@ import { workStateLabels } from "./work-state";
 export const inboxQuerySchema = z
   .object({
     unreadOnly: z.boolean().default(false),
+    projectId: z.string().uuid().optional(),
+    category: z.enum(["decision", "blocked"]).optional(),
+    scope: z.enum(["open", "closed"]).optional(),
     before: z
       .object({ at: z.string().max(80), key: z.string().max(220) })
       .strict()
@@ -14,6 +17,9 @@ export const inboxSeenSchema = z
     key: z.string().min(1).max(220),
     token: z.string().regex(/^[a-f0-9]{64}$/),
   })
+  .strict();
+export const inboxDismissSchema = inboxSeenSchema
+  .extend({ dismissed: z.boolean() })
   .strict();
 export type InboxItem = {
   key: string;
@@ -27,6 +33,15 @@ export type InboxItem = {
   runId: string | null;
   conversationId: string | null;
   unread: boolean;
+  code: string | null;
+  itemId: string | null;
+  problem: string;
+  nextAction: string;
+  actionLabel: string;
+  taskId: string | null;
+  taskTitle: string | null;
+  canDismiss: boolean;
+  dismissed: boolean;
 };
 export type InboxPage = {
   items: InboxItem[];
