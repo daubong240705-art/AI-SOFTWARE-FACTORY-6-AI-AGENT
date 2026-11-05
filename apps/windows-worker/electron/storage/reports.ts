@@ -13,6 +13,8 @@ import {
   type ReportRef,
   type ReportDecision,
   type ReportStatus,
+  type ReportState,
+  reportCapabilities,
 } from "../../shared/reports";
 import { sourceVersion, readEvidence } from "../team/evidence";
 import type { EvidenceStore } from "./evidence";
@@ -299,6 +301,21 @@ export class Reports {
   setPolicy(input: import("zod").z.infer<typeof reportPolicySchema>) {
     const data = reportPolicySchema.parse(input);
     return this.db.transaction(() => {
+      if (data.runId) {
+        const state = this.state(data.runId);
+        const report = this.capture({
+          projectId: data.projectId,
+          runId: data.runId,
+        });
+        if (
+          !state ||
+          state.freshness === "stale" ||
+          report.work?.itemId !== data.itemId
+        )
+          throw new Error(
+            "Báo cáo đã hết hiệu lực. Mở công việc hiện tại để đổi chính sách.",
+          );
+      }
       const prior = this.policy(data.projectId, data.itemId);
       if (prior.version !== data.version)
         throw new Error("Chính sách đã thay đổi. Tải lại báo cáo.");
@@ -310,11 +327,66 @@ export class Reports {
       return this.policy(data.projectId, data.itemId);
     })();
   }
+  // Metadata only: no artifact reads, full report decoding or source hashing on
+  // monitor/detail polls. A missing report is never inferred from run.completed.
+  state(runId: string): ReportState | undefined {
+    return this.states(undefined, runId).get(runId);
+  }
+  states(projectId?: string, runId?: string): Map<string, ReportState> {
+    const rows = this.db
+      .prepare(
+        `SELECT
+      p.run_id AS runId,p.project_id AS projectId,
+      json_extract(p.value,'$.verification') AS verification,
+      COALESCE(policy.required,0) AS required,COALESCE(policy.version,0) AS policyVersion,
+      d.action AS action,
+      (p.item_id IS NOT NULL AND (b.id IS NULL OR b.revision IS NOT p.revision OR b.archived_at IS NOT NULL)) AS oldRevision,
+      EXISTS(SELECT 1 FROM work_attempts a JOIN work_submissions s ON s.id=a.submission_id JOIN runs r ON r.id=a.run_id
+        WHERE s.item_id=p.item_id AND r.rowid>(SELECT rowid FROM runs WHERE id=p.run_id)) AS later
+      FROM reports p LEFT JOIN board_items b ON b.id=p.item_id
+      LEFT JOIN report_policies policy ON policy.item_id=p.item_id
+      LEFT JOIN report_decisions d ON d.report_id=p.id
+      WHERE ${runId ? "p.run_id=?" : "p.project_id=?"}`,
+      )
+      .all(runId ?? projectId) as {
+      runId: string;
+      projectId: string;
+      verification: ReportStatus;
+      required: number;
+      policyVersion: number;
+      action: "accept" | "request-fix" | null;
+      oldRevision: number;
+      later: number;
+    }[];
+    return new Map(
+      rows.map((row) => [
+        row.runId,
+        {
+          report: {
+            runId: row.runId,
+            projectId: row.projectId,
+            verification: row.verification,
+          },
+          freshness: row.oldRevision || row.later ? "stale" : "unknown",
+          reasons: [
+            ...(row.oldRevision
+              ? ["Yêu cầu đã đổi phiên bản hoặc được lưu trữ."]
+              : []),
+            ...(row.later ? ["Công việc đã có lần thực hiện mới hơn."] : []),
+          ],
+          policy: { required: !!row.required, version: row.policyVersion },
+          decision: row.action ? { action: row.action } : null,
+        },
+      ]),
+    );
+  }
   view(input: ReportRef, currentVersion: string | null): ReportView {
     const report = this.capture(input),
       reasons: string[] = [];
     const artifactIssues: string[] = [];
     for (const command of report.commands) {
+      if (command.artifactState === "missing")
+        artifactIssues.push(`Thiếu artifact lệnh: ${command.command}`);
       if (command.artifactState !== "available") continue;
       try {
         const output = this.evidence.command(report.runId, command.artifactId!);
@@ -344,24 +416,9 @@ export class Reports {
         );
       }
     }
-    let stale = false;
-    if (report.work) {
-      const item = this.board.item(report.work.itemId);
-      if (item.revision !== report.work.revision || item.archivedAt) {
-        stale = true;
-        reasons.push("Yêu cầu đã đổi phiên bản hoặc được lưu trữ.");
-      }
-      const later = this.db
-        .prepare(
-          `SELECT 1 FROM work_attempts a JOIN work_submissions s ON s.id=a.submission_id JOIN runs r ON r.id=a.run_id
-        WHERE s.item_id=? AND r.rowid>(SELECT rowid FROM runs WHERE id=?) LIMIT 1`,
-        )
-        .get(item.id, report.runId);
-      if (later) {
-        stale = true;
-        reasons.push("Công việc đã có lần thực hiện mới hơn.");
-      }
-    }
+    const state = this.state(report.runId)!;
+    let stale = state.freshness === "stale";
+    reasons.push(...state.reasons);
     if (
       report.sourceVersion &&
       currentVersion &&
@@ -416,6 +473,7 @@ export class Reports {
         : null,
       canDecide:
         !stale &&
+        !row &&
         !!report.work &&
         !!report.conversationId &&
         !this.snapshotRun(report.runId).integration,
@@ -450,6 +508,8 @@ export class Reports {
         );
       if (data.action === "accept" && view.freshness !== "current")
         throw new Error("Chưa đối chiếu được source để nghiệm thu.");
+      if (data.action === "accept" && !reportCapabilities(view).accept)
+        throw new Error("Thiếu bằng chứng lưu trữ để nghiệm thu.");
       validate?.();
       let receipt: ChatReceipt | undefined;
       if (data.action === "request-fix") {

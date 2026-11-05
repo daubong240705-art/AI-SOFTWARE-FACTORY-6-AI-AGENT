@@ -1,5 +1,7 @@
 # R3B — Trạng thái chờ và tiến độ giữa các màn hình
 
+Cập nhật: [R3C đã hoàn thiện trạng thái kết quả/capability](workspace-r3c-completion.md); [Bash tự động](bash-autonomy-completion.md) đã thay Ask/Full access. Các mục chưa hoàn thành bên dưới ghi trạng thái tại thời điểm bàn giao R3B.
+
 Ngày 05/11/2026. Baseline `7ef1179`, checkpoint `63fceae`. Worker alpha.8 / SQLite14. [Kế hoạch](workspace-r3b-plan.md), [đề xuất Bash](bash-autonomy-proposal.md).
 
 ## Đã thay đổi

@@ -237,7 +237,34 @@ test("progress deduplicates fixes and never equates executed work with verified 
     limitations: [],
     verification: { verified: true, issues: [] },
   };
-  assert.equal(roster(run, null).progress.verifiedTasks, 1);
+  assert.equal(
+    roster(run, null).progress.verifiedTasks,
+    0,
+    "review claims alone are not stored report verification",
+  );
+  const report = {
+    report: {
+      runId: run.id,
+      projectId: run.projectId,
+      verification: "pass" as const,
+    },
+    freshness: "unknown" as const,
+    reasons: [],
+    policy: { required: false, version: 0 },
+    decision: null,
+  };
+  assert.equal(
+    projectMonitor(run.projectId, run.settings, run, null, [], report).progress
+      .verifiedTasks,
+    1,
+  );
+  assert.equal(
+    projectMonitor(run.projectId, run.settings, run, null, [], {
+      ...report,
+      freshness: "stale",
+    }).progress.verifiedTasks,
+    0,
+  );
   run.state = "running";
   assert.equal(
     roster(run).progress.verifiedTasks,

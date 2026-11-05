@@ -1,42 +1,76 @@
 import { useEffect, useRef, useState } from "react";
 import type { Run } from "../../shared/runs";
-import { reportStatusLabels, type ReportView } from "../../shared/reports";
+import {
+  reportStatusLabels,
+  reportCapabilities,
+  reportStateLabel,
+  type ReportView,
+} from "../../shared/reports";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { AcceptanceEvidence } from "./AcceptanceEvidence";
 import { CommandEvidence } from "./CommandEvidence";
 
-export function WorkReport({
-  run,
-  onInspect,
-  onChanged,
-}: {
+type Props = {
   run: Pick<Run, "id" | "projectId">;
   onInspect?: (id: string) => void;
   onChanged?: () => void;
-}) {
+};
+
+export function WorkReport(props: Props) {
+  return (
+    <WorkReportContent
+      key={`${props.run.projectId}:${props.run.id}`}
+      {...props}
+    />
+  );
+}
+
+function WorkReportContent({ run, onInspect, onChanged }: Props) {
   const [view, setView] = useState<ReportView | null>(null);
   const [error, setError] = useState("");
+  const [readFailed, setReadFailed] = useState(false);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [fixing, setFixing] = useState(false);
   const [comment, setComment] = useState("");
   const [diff, setDiff] = useState<{ path: string; text: string } | null>(null);
   const lock = useRef(false);
+  const generation = useRef(0);
   const request = useRef<{
     action: string;
     comment: string;
     id: string;
   } | null>(null);
   async function load() {
-    const reply = await window.worker.workReport({
-      projectId: run.projectId,
-      runId: run.id,
-    });
-    if (!reply.ok) throw new Error(reply.error);
-    setView(reply.value);
+    const token = generation.current;
+    try {
+      const reply = await window.worker.workReport({
+        projectId: run.projectId,
+        runId: run.id,
+      });
+      if (!reply.ok) {
+        if (generation.current === token) setReadFailed(true);
+        throw new Error(reply.error);
+      }
+      if (generation.current === token) {
+        setView(reply.value);
+        setReadFailed(false);
+      }
+    } catch (error) {
+      if (generation.current === token) setReadFailed(true);
+      throw error;
+    }
   }
   useEffect(() => {
     let live = true;
+    generation.current++;
+    setView(null);
+    setError("");
+    setStatus("");
+    setFixing(false);
+    setComment("");
+    setDiff(null);
+    request.current = null;
     void window.worker
       .workReport({ projectId: run.projectId, runId: run.id })
       .then((reply) => {
@@ -49,6 +83,7 @@ export function WorkReport({
       });
     return () => {
       live = false;
+      generation.current++;
     };
   }, [run.id, run.projectId]);
   async function act(fn: () => Promise<void>) {
@@ -56,18 +91,21 @@ export function WorkReport({
     lock.current = true;
     setBusy(true);
     setError("");
+    const token = generation.current;
     try {
       await fn();
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Không thực hiện được thao tác.",
-      );
+      if (generation.current === token)
+        setError(
+          e instanceof Error ? e.message : "Không thực hiện được thao tác.",
+        );
     } finally {
       lock.current = false;
       setBusy(false);
     }
   }
   async function decide(action: "accept" | "request-fix") {
+    const token = generation.current;
     const body = action === "accept" ? "" : comment.trim();
     if (request.current?.action !== action || request.current.comment !== body)
       request.current = { action, comment: body, id: crypto.randomUUID() };
@@ -79,17 +117,29 @@ export function WorkReport({
       comment: body,
     });
     if (!reply.ok) throw new Error(reply.error);
-    setView(reply.value);
-    setFixing(false);
+    if (generation.current === token) {
+      setView(reply.value);
+      setFixing(false);
+    }
     onChanged?.();
   }
-  if (!view)
+  if (
+    !view ||
+    view.report.runId !== run.id ||
+    view.report.projectId !== run.projectId
+  )
     return (
       <section className="work-report" aria-label="Báo cáo kết quả">
         <p role={error ? "alert" : "status"}>{error || "Đang tải báo cáo…"}</p>
+        {error && (
+          <button disabled={busy} onClick={() => void act(load)}>
+            Tải lại báo cáo
+          </button>
+        )}
       </section>
     );
   const { report, decision } = view;
+  const capabilities = reportCapabilities(view);
   return (
     <section className="work-report" aria-label="Báo cáo kết quả">
       <div className="report-heading">
@@ -105,6 +155,9 @@ export function WorkReport({
       <p className="small muted">
         {new Date(report.endedAt).toLocaleString("vi-VN")} ·{" "}
         {report.provenance.model}
+      </p>
+      <p className="small muted" role="status">
+        {reportStateLabel(view)}
       </p>
       {report.error && <p className="notice error">{report.error}</p>}
       {view.artifactIssues.length > 0 && (
@@ -209,7 +262,7 @@ export function WorkReport({
             <input
               type="checkbox"
               checked={view.policy.required}
-              disabled={busy}
+              disabled={busy || readFailed || !capabilities.setPolicy}
               onChange={(e) => {
                 const required = e.target.checked;
                 void act(async () => {
@@ -218,9 +271,11 @@ export function WorkReport({
                     itemId: report.work!.itemId,
                     version: view.policy.version,
                     required,
+                    runId: report.runId,
                   });
                   if (!reply.ok) throw new Error(reply.error);
-                  setView({ ...view, policy: reply.value });
+                  await load();
+                  onChanged?.();
                 });
               }}
             />
@@ -239,6 +294,9 @@ export function WorkReport({
                       ? "Chờ nghiệm thu"
                       : "Nghiệm thu tùy chọn"}
           </p>
+          {capabilities.reason && (
+            <p className="small muted">{capabilities.reason}</p>
+          )}
           {view.reasons.map((reason) => (
             <p className="small muted" key={reason}>
               {reason}
@@ -266,15 +324,13 @@ export function WorkReport({
             <>
               <div className="inline">
                 <button
-                  disabled={
-                    busy || !view.canDecide || view.freshness !== "current"
-                  }
+                  disabled={busy || readFailed || !capabilities.accept}
                   onClick={() => void act(() => decide("accept"))}
                 >
                   Nghiệm thu
                 </button>
                 <button
-                  disabled={busy || !view.canDecide}
+                  disabled={busy || readFailed || !capabilities.requestFix}
                   onClick={() => setFixing(!fixing)}
                 >
                   Yêu cầu sửa
@@ -299,7 +355,12 @@ export function WorkReport({
                   </label>
                   <button
                     className="primary"
-                    disabled={busy || !comment.trim()}
+                    disabled={
+                      busy ||
+                      readFailed ||
+                      !capabilities.requestFix ||
+                      !comment.trim()
+                    }
                   >
                     Gửi yêu cầu sửa
                   </button>

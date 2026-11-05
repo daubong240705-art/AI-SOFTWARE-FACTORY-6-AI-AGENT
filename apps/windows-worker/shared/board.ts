@@ -115,6 +115,7 @@ export type BoardTask = {
   workType?: string;
 };
 export type BoardRun = {
+  reportState?: import("./reports").ReportState;
   projectId?: string;
   commandCount?: number;
   permissionCount?: number;

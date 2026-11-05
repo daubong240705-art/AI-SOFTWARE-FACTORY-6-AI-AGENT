@@ -848,6 +848,7 @@ export function ChatHost({
                           {current?.run.id === message.runId
                             ? workStateView(current.run, {
                                 stale: currentFeed.stale,
+                                report: current.reportState,
                                 questionState: chat?.questionSets?.find(
                                   (set) => set.sourceRunId === message.runId,
                                 )?.state,

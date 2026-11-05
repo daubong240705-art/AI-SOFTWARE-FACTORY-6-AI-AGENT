@@ -280,7 +280,8 @@ export function ProjectOverview({
                           <span
                             className={run.verified ? "success-text" : "muted"}
                           >
-                            {run.verified ? "Đã xác minh" : "Chưa xác minh"}
+                            {run.workState?.label ??
+                              (run.verified ? "Đã xác minh" : "Chưa xác minh")}
                           </span>
                           <time dateTime={run.endedAt ?? run.createdAt}>
                             {time(run.endedAt ?? run.createdAt)}

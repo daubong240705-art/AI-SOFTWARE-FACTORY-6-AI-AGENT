@@ -96,7 +96,11 @@ test("work state distinguishes conversation, actual work, permissions, pending q
     questions.actions.map((action) => action.id),
     ["questions", "permissions"],
   );
-  assert.equal(questions.freshness, "stale");
+  assert.equal(
+    questions.freshness,
+    "unknown",
+    "feed staleness is not source staleness",
+  );
   run.state = "cancelling";
   assert.equal(
     workStateView(run, { questionState: "pending" }).label,

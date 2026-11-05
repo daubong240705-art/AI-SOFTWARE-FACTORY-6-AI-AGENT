@@ -563,6 +563,7 @@ export class Store {
     return rows.map((row) => normalizeRun(JSON.parse(row.value)));
   }
   *boardRuns(projectId: string): Iterable<BoardRun> {
+    const reportStates = this.reports.states(projectId);
     const rows = this.db
       .prepare(
         `WITH ranked AS (
@@ -594,6 +595,7 @@ export class Store {
     for (const row of rows as Iterable<Record<string, unknown>>)
       yield {
         ...row,
+        reportState: reportStates.get(row.id as string),
         state: row.state as string,
         reviewVerified: !!row.reviewVerified,
         tasks: JSON.parse(row.tasks as string),

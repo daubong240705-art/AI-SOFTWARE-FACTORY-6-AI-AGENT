@@ -1,6 +1,6 @@
 import { isActive, type Run } from "./runs";
 import type { QuestionSet } from "./questions";
-import type { ReportView } from "./reports";
+import { reportStateLabel, type ReportState } from "./reports";
 
 export type AvailableAction = {
   id: "questions" | "permissions" | "progress" | "result" | "recovery";
@@ -57,7 +57,7 @@ export function workStateView(
 export type WorkStateInput = {
   stale?: boolean;
   questionState?: QuestionSet["state"];
-  report?: ReportView;
+  report?: ReportState;
 };
 
 export function workStateFromFacts(
@@ -69,7 +69,7 @@ export function workStateFromFacts(
     input.report.report.projectId === run.projectId
       ? input.report
       : undefined;
-  const freshness = input.stale ? "stale" : (report?.freshness ?? "current");
+  const freshness = report?.freshness ?? "unknown";
   const blockers: WorkStateView["blockers"] = [];
   if (input.questionState === "pending")
     blockers.push({
@@ -137,14 +137,15 @@ export function workStateFromFacts(
           ? "Lead đã trả lời"
           : "Đã trả lời";
     else {
-      label =
-        report?.report.verification === "pass" && freshness === "current"
-          ? report.policy.required && report.decision?.action !== "accept"
-            ? workStateLabels.report
-            : "Hoàn thành"
-          : "Có kết quả · Chưa xác minh";
-      if (report?.decision?.action === "request-fix") label = "Đã yêu cầu sửa";
-      if (report?.freshness === "stale") label = "Kết quả phiên bản trước";
+      label = report
+        ? reportStateLabel(report, input.stale)
+        : "Có kết quả · Chưa xác minh";
+      if (report?.freshness === "unknown")
+        reason = "Source hiện tại chưa được đối chiếu; mở kết quả để kiểm tra.";
+      if (report?.freshness === "stale")
+        reason =
+          report.reasons?.join(" · ") ||
+          "Mở công việc hiện tại để xem yêu cầu mới nhất.";
       actions = [{ id: "result", label: "Xem kết quả" }];
     }
   } else {

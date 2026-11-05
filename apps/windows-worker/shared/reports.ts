@@ -26,6 +26,7 @@ export const reportPolicySchema = z
     itemId: z.string().uuid(),
     version: z.number().int().nonnegative(),
     required: z.boolean(),
+    runId: z.string().uuid().optional(),
   })
   .strict();
 export const reportFileSchema = reportRefSchema
@@ -106,6 +107,7 @@ export type Report = {
   };
 };
 export type ReportView = {
+  availability?: { acceptBlocked?: string; changeBlocked?: string };
   report: Report;
   artifactIssues: string[];
   checkedAt: string;
@@ -120,3 +122,57 @@ export type ReportView = {
   } | null;
   canDecide: boolean;
 };
+
+// Summary facts contain no source/output or user comments. Source freshness is
+// unknown until an explicit report check; SQLite can still prove supersession.
+export type ReportState = {
+  report: Pick<Report, "runId" | "projectId" | "verification">;
+  freshness: ReportView["freshness"];
+  reasons: string[];
+  policy: ReportView["policy"];
+  decision: Pick<NonNullable<ReportView["decision"]>, "action"> | null;
+};
+
+export function reportStateLabel(
+  report: ReportState,
+  unavailable = false,
+): string {
+  if (report.freshness === "stale") return "Kết quả phiên bản trước";
+  if (report.decision?.action === "request-fix") return "Đã yêu cầu sửa";
+  if (!unavailable && report.policy.required && !report.decision)
+    return "Chờ nghiệm thu";
+  if (report.report.verification === "pass" && !unavailable)
+    return report.freshness === "current"
+      ? "Hoàn thành"
+      : "Đã xác minh · Chưa đối chiếu source";
+  return "Có kết quả · Chưa xác minh";
+}
+
+export function reportCapabilities(view: ReportView) {
+  const changeBlocked = view.availability?.changeBlocked;
+  const canChange = !changeBlocked && view.freshness !== "stale";
+  const canDecide = canChange && view.canDecide && !view.decision;
+  return {
+    accept:
+      !!canDecide &&
+      view.freshness === "current" &&
+      !view.artifactIssues.length &&
+      !view.availability?.acceptBlocked,
+    requestFix: !!canDecide,
+    setPolicy: !!canChange && !!view.report.work,
+    reason:
+      changeBlocked ||
+      (view.freshness === "stale"
+        ? view.reasons.join(" · ") || "Kết quả đã hết hiệu lực."
+        : view.decision
+          ? "Báo cáo đã có quyết định."
+          : !view.canDecide
+            ? "Mở công việc hiện tại hoặc bản tích hợp để tiếp tục."
+            : view.artifactIssues.length
+              ? "Thiếu bằng chứng lưu trữ để nghiệm thu."
+              : view.availability?.acceptBlocked ||
+                (view.freshness === "unknown"
+                  ? "Đối chiếu source trước khi nghiệm thu."
+                  : "")),
+  };
+}

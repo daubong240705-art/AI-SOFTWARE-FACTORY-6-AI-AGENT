@@ -14,6 +14,11 @@ import { workStateFromFacts } from "../../shared/work-state";
 import type { RunState } from "../../shared/runs";
 
 function runCard(run: BoardRun, secrets: string[]): BoardCard {
+  const report =
+    run.reportState?.report.runId === run.id &&
+    run.reportState.report.projectId === run.projectId
+      ? run.reportState
+      : undefined;
   const workState = workStateFromFacts(
     {
       ...run,
@@ -31,7 +36,7 @@ function runCard(run: BoardRun, secrets: string[]): BoardCard {
         title: redact(task.title, secrets, 160),
       })),
     },
-    { questionState: run.questionState },
+    { questionState: run.questionState, report },
   );
   const tasks = latestBoardTasks(run.tasks);
   const stopped =
@@ -41,6 +46,15 @@ function runCard(run: BoardRun, secrets: string[]): BoardCard {
   const problematic =
     ["needs_input", "failed", "interrupted", "blocked"].includes(run.state) ||
     run.integrationState === "conflict";
+  const evidenceVerified =
+    run.state === "completed" &&
+    tasks.length > 0 &&
+    tasks.every((task) => task.state === "completed") &&
+    run.reviewVerified &&
+    report?.report.verification === "pass" &&
+    report.freshness !== "stale" &&
+    !!run.endedAt &&
+    (!run.integrationState || run.integrationState === "verified");
   let column: BoardColumn = "ready",
     reason = "Chờ lượt";
   if (problematic || stopped) {
@@ -57,11 +71,10 @@ function runCard(run: BoardRun, secrets: string[]): BoardCard {
         );
   } else if (run.state === "completed") {
     const verified =
-      tasks.length > 0 &&
-      tasks.every((task) => task.state === "completed") &&
-      run.reviewVerified &&
-      !!run.endedAt &&
-      (!run.integrationState || run.integrationState === "verified");
+      evidenceVerified &&
+      report &&
+      report.decision?.action !== "request-fix" &&
+      (!report.policy.required || report.decision?.action === "accept");
     column = verified ? "done" : "review";
     reason = verified
       ? "Đã xác minh"
@@ -99,15 +112,13 @@ function runCard(run: BoardRun, secrets: string[]): BoardCard {
       ["blocked", "needs_input"].includes(run.state)
         ? [workState.label, workState.reason].filter(Boolean).join(" · ")
         : workState.reason || workState.label;
-  const verified = column === "done";
+  const verified = evidenceVerified;
+  if (run.state === "completed" && report) {
+    reason = [workState.label, workState.reason].filter(Boolean).join(" · ");
+  }
   const criteria = tasks.reduce((sum, t) => sum + t.acceptanceCount, 0);
   return {
-    workState:
-      ["queued", "running", "blocked", "cancelling", "needs_input"].includes(
-        run.state,
-      ) || run.integrationState === "conflict"
-        ? workState
-        : undefined,
+    workState,
     key: `run:${run.rootId}`,
     itemId: null,
     version: null,

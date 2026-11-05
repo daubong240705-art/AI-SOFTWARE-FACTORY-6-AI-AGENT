@@ -359,15 +359,19 @@ test("runtime columns distinguish conversation, unverified work, review, stop, c
       verification: { verified: true, issues: [] },
     };
     x.store.updateRun(run);
-    assert.equal(card().column, "done");
-    assert.equal(card().progress.verified, 1);
+    assert.equal(
+      card().column,
+      "review",
+      "review claims without stored report evidence cannot mark Done",
+    );
+    assert.equal(card().progress.verified, 0);
     run.review.acceptance[0].status = "unverified";
     x.store.updateRun(run);
     assert.equal(card().column, "review");
     run.tasks = [];
     run.review = null;
     x.store.updateRun(run);
-    assert.equal(card().reason, "Có phản hồi, chưa có task");
+    assert.equal(card().reason, "Lead đã trả lời");
     run.state = "cancelled";
     x.store.updateRun(run);
     assert.equal(

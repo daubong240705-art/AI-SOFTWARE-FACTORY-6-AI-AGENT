@@ -131,12 +131,14 @@ export class RunController {
     const secrets = [...(this.active?.secrets ?? []), ...(key ? [key] : [])];
     // Reconcile question references once before projecting any of the views.
     const pendingQuestions = this.store.questions.pending(request.projectId);
+    const reportStates = this.store.reports.states(request.projectId);
     const data = projectMonitor(
       request.projectId,
       this.store.settings(),
       run,
       active,
       secrets,
+      run ? reportStates.get(run.id) : undefined,
     );
     const stateFor = (source: Run) =>
       workStateView(
@@ -148,7 +150,10 @@ export class RunController {
             title: redact(task.title, secrets, 160),
           })),
         },
-        { questionState: this.store.questions.stateForRun(source.id) },
+        {
+          questionState: this.store.questions.stateForRun(source.id),
+          report: reportStates.get(source.id),
+        },
       );
     if (run) data.workState = stateFor(run);
     if (request.overview) {
@@ -177,6 +182,9 @@ export class RunController {
         item.questionState = this.store.questions.stateForRun(item.id);
         const source = recent.find((candidate) => candidate.id === item.id);
         if (source) item.workState = stateFor(source);
+        item.verified =
+          reportStates.get(item.id)?.report.verification === "pass" &&
+          item.workState?.freshness !== "stale";
       }
     }
     if (request.board)
@@ -228,7 +236,22 @@ export class RunController {
   async workReport(input: import("../../shared/reports").ReportRef) {
     const report = this.store.reports.capture(input);
     const current = await snapshot(report.workspace);
-    return this.store.reports.view(input, sourceVersion(current) ?? null);
+    return {
+      ...this.store.reports.view(input, sourceVersion(current) ?? null),
+      availability: this.reportAvailability(),
+    };
+  }
+  reportAvailability() {
+    return {
+      changeBlocked:
+        this.shuttingDown || this.workspaceBusy
+          ? "Ứng dụng đang đóng hoặc xử lý workspace."
+          : undefined,
+      acceptBlocked:
+        this.active || this.store.queue.list().length
+          ? "Chờ lượt chạy và hàng chờ kết thúc trước khi nghiệm thu."
+          : undefined,
+    };
   }
   async reportDecision(input: import("../../shared/reports").ReportDecision) {
     const data = reportDecisionSchema.parse(input);
@@ -411,7 +434,11 @@ export class RunController {
     };
   }
   detail(id: string): RunDetail {
-    return { run: this.store.run(id), events: this.store.events(id) };
+    return {
+      run: this.store.run(id),
+      events: this.store.events(id),
+      reportState: this.store.reports.state(id),
+    };
   }
   start(
     projectId: string,

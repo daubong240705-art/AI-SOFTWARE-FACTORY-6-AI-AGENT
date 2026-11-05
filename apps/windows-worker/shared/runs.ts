@@ -108,7 +108,11 @@ export type Run = {
   inputTokens: number;
   outputTokens: number;
 };
-export type RunDetail = { run: Run; events: RunEvent[] };
+export type RunDetail = {
+  run: Run;
+  events: RunEvent[];
+  reportState?: import("./reports").ReportState;
+};
 export type RunSummary = Pick<
   Run,
   | "id"

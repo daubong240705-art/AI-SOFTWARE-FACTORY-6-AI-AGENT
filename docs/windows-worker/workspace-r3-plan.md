@@ -1,5 +1,7 @@
 # R3 — Lead, liên kết công việc và quyền Bash
 
+**Đã hoàn thành R3**: [R3A](workspace-r3a-completion.md), [R3B](workspace-r3b-completion.md), [R3C](workspace-r3c-completion.md). Phần Ask/Full access trong kế hoạch gốc dưới đây đã được thay bằng [Bash tự động theo vai trò](bash-autonomy-completion.md) theo yêu cầu tiếp theo của người dùng.
+
 Baseline `dc0227b`, Worker `1.3.0-alpha.8`, SQLite 14. Giữ Factory Lite/Windows Worker, một Controller, một active run và giới hạn lane/budget hiện có.
 
 ## Phạm vi

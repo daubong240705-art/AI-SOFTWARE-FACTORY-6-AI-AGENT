@@ -181,9 +181,13 @@ function registerIPC(): void {
       busy: controller.isBusy() || local.busy(),
     });
   });
-  handle(channels.workReport, (input) =>
-    controller.workReport(reportRefSchema.parse(input)),
-  );
+  handle(channels.workReport, async (input) => {
+    const view = await controller.workReport(reportRefSchema.parse(input));
+    if (local.busy())
+      view.availability.changeBlocked =
+        "Dừng lệnh local trước khi ghi quyết định.";
+    return view;
+  });
   handle(channels.reportFile, (input) =>
     store.reports.fileDiff(reportFileSchema.parse(input)),
   );
@@ -192,9 +196,11 @@ function registerIPC(): void {
       throw new Error("Dừng lệnh local trước khi ghi quyết định.");
     return controller.reportDecision(reportDecisionSchema.parse(input));
   });
-  handle(channels.reportPolicy, (input) =>
-    store.reports.setPolicy(reportPolicySchema.parse(input)),
-  );
+  handle(channels.reportPolicy, (input) => {
+    const availability = controller.reportAvailability();
+    if (availability.changeBlocked) throw new Error(availability.changeBlocked);
+    return store.reports.setPolicy(reportPolicySchema.parse(input));
+  });
   handle(channels.questionSet, (input) =>
     store.questions.get(questionRefSchema.parse(input)),
   );

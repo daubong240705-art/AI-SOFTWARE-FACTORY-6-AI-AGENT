@@ -14,6 +14,7 @@ import type {
 } from "../../shared/monitor";
 import { redact } from "../runtime/security";
 import { workStateView } from "../../shared/work-state";
+import type { ReportState } from "../../shared/reports";
 
 const live = (state: string) =>
   ["queued", "running", "blocked", "cancelling"].includes(state);
@@ -99,6 +100,7 @@ export function projectMonitor(
   run: Run | null,
   active: Run | null,
   secrets: string[] = [],
+  report?: ReportState,
 ): Omit<MonitorSnapshot, "epoch" | "revision" | "observedAt"> {
   // Latest attempt for each logical work item; plan/review and retries are not extra work.
   const current = new Map<string, TeamTask>();
@@ -108,6 +110,10 @@ export function projectMonitor(
   const tasks = [...current.values()];
   const selectedActive = active?.projectId === projectId ? active : null;
   const verified =
+    report?.report.runId === run?.id &&
+    report?.report.projectId === projectId &&
+    report?.report.verification === "pass" &&
+    report.freshness !== "stale" &&
     run?.state === "completed" &&
     !!run.endedAt &&
     (!run.integration || run.integration.state === "verified") &&
@@ -208,14 +214,17 @@ export function projectMonitor(
   return {
     projectId,
     workState: run
-      ? workStateView({
-          ...run,
-          error: redact(run.error, secrets, 240),
-          tasks: run.tasks.map((task) => ({
-            ...task,
-            title: redact(task.title, secrets, 160),
-          })),
-        })
+      ? workStateView(
+          {
+            ...run,
+            error: redact(run.error, secrets, 240),
+            tasks: run.tasks.map((task) => ({
+              ...task,
+              title: redact(task.title, secrets, 160),
+            })),
+          },
+          { report },
+        )
       : undefined,
     agents,
     activeRun: active

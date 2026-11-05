@@ -285,6 +285,13 @@ async function main() {
     const r = await js(`window.worker.workItemDetail(${ref})`);
     return r.value.submissions.length === 1;
   });
+  await until(
+    () =>
+      js(
+        "Array.from(document.querySelectorAll('.work-panel-tabs button')).some(b=>b.textContent.trim()==='Tiến độ' && !b.disabled)",
+      ),
+    "submission UI settled",
+  );
   await click("Tiến độ", "document.querySelector('.work-panel-tabs')");
   await until(() =>
     js(

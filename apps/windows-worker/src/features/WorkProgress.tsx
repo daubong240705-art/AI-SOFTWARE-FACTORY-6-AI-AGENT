@@ -21,7 +21,11 @@ export function WorkProgress({
   const feed = useRunDetail(projectId, runId);
   const run = feed.detail?.run;
   const state = run
-    ? workStateView(run, { questionState, stale: feed.stale || !!feed.error })
+    ? workStateView(run, {
+        questionState,
+        stale: feed.stale || !!feed.error,
+        report: feed.detail?.reportState,
+      })
     : null;
   return (
     <section className="work-progress" aria-label="Tiến độ thực hiện">

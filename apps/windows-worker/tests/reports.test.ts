@@ -17,7 +17,7 @@ import { defaultSettings } from "../shared/defaults";
 import { normalizeRun, type Run } from "../shared/runs";
 import { snapshot } from "../electron/workspace/snapshot";
 import { sourceVersion } from "../electron/team/evidence";
-import { reportDecisionSchema } from "../shared/reports";
+import { reportDecisionSchema, reportCapabilities } from "../shared/reports";
 
 async function setup(linked = true) {
   const directory = mkdtempSync(join(tmpdir(), "asf-reports-")),
@@ -277,11 +277,138 @@ test("commands distinguish pass/fail/not-run/unknown and export includes provena
       "missing",
     );
     assert.ok(x.store.reports.view(x.ref, x.version).artifactIssues.length);
+    assert.equal(
+      reportCapabilities(x.store.reports.view(x.ref, x.version)).accept,
+      false,
+    );
+    assert.throws(
+      () =>
+        x.store.reports.decide(
+          { ...x.ref, requestId: randomUUID(), action: "accept", comment: "" },
+          x.version,
+          () => {
+            throw Error("Unexpected launch");
+          },
+        ),
+      /bằng chứng/,
+    );
     assert.ok(x.store.reports.fileDiff({ ...x.ref, path: "a.txt" }).reason);
     assert.throws(
       () => x.store.reports.fileDiff({ ...x.ref, path: "../secret" }),
       /không thuộc/,
     );
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("report capabilities distinguish unknown source, decisions, missing evidence and runtime availability", async () => {
+  const x = await setup();
+  try {
+    x.finish();
+    const view = x.store.reports.view(x.ref, x.version);
+    assert.equal(reportCapabilities(view).accept, true);
+    assert.equal(
+      reportCapabilities({ ...view, freshness: "unknown" }).accept,
+      false,
+    );
+    assert.equal(
+      reportCapabilities({ ...view, freshness: "unknown" }).requestFix,
+      true,
+    );
+    assert.equal(
+      reportCapabilities({ ...view, freshness: "stale" }).requestFix,
+      false,
+    );
+    assert.equal(
+      reportCapabilities({ ...view, freshness: "stale" }).setPolicy,
+      false,
+    );
+    assert.equal(
+      reportCapabilities({ ...view, artifactIssues: ["Missing output"] })
+        .accept,
+      false,
+    );
+    assert.equal(
+      reportCapabilities({
+        ...view,
+        decision: { action: "accept", comment: "", createdAt: "now" },
+      }).requestFix,
+      false,
+    );
+    assert.equal(
+      reportCapabilities({ ...view, canDecide: false }).accept,
+      false,
+    );
+    const controller = new RunController(x.store, x.data, () => undefined);
+    const held = x.store.queue.add({
+      projectId: x.project.id,
+      conversationId: x.context.conversationId,
+      prompt: "Hold",
+      role: "lead",
+      mode: "team",
+      settings: x.run.settings,
+      afterRunId: null,
+      state: "held",
+      reason: "Fixture",
+    });
+    const busy = await controller.workReport(x.ref);
+    assert.equal(reportCapabilities(busy).accept, false);
+    assert.equal(reportCapabilities(busy).requestFix, true);
+    await assert.rejects(
+      controller.reportDecision({
+        ...x.ref,
+        requestId: randomUUID(),
+        action: "accept",
+        comment: "",
+      }),
+      /hàng chờ/,
+    );
+    x.store.queue.remove(held.id);
+    assert.equal(
+      reportCapabilities(await controller.workReport(x.ref)).accept,
+      true,
+    );
+    assert.equal(
+      reportCapabilities({
+        ...view,
+        availability: { changeBlocked: "Closing" },
+      }).requestFix,
+      false,
+    );
+  } finally {
+    x.cleanup();
+  }
+});
+
+test("new attempts supersede report metadata across restart without reading source or artifact output", async () => {
+  const x = await setup();
+  try {
+    x.finish();
+    assert.equal(x.store.reports.state(x.run.id)!.freshness, "unknown");
+    const next = {
+      ...x.run,
+      id: randomUUID(),
+      state: "running" as const,
+      endedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    x.store.createRun(next);
+    x.store.board.attachChat(randomUUID(), x.run.workContext!, {
+      runId: next.id,
+      followUpId: null,
+    });
+    assert.equal(x.store.reports.state(x.run.id)!.freshness, "stale");
+    assert.equal(x.store.reports.state(next.id), undefined);
+    assert.equal(x.store.reports.pending(x.project.id).length, 0);
+    assert.equal(x.store.reports.view(x.ref, x.version).canDecide, false);
+    const reopened = new Store(x.data);
+    assert.equal(reopened.reports.state(x.run.id)!.freshness, "stale");
+    assert.doesNotMatch(
+      JSON.stringify(reopened.reports.state(x.run.id)),
+      /Đã thực hiện|changed|Yêu cầu/,
+    );
+    reopened.close();
   } finally {
     x.cleanup();
   }
@@ -653,6 +780,92 @@ test("verified team evidence can pass; legacy and missing evidence never inherit
         x.store.reports.capture(x.ref).verification,
         variant === "valid" ? "pass" : "unknown",
       );
+      if (variant === "valid") {
+        const controller = new RunController(x.store, x.data, () => undefined);
+        const read = () => {
+          const response = controller.monitor({
+            projectId: x.project.id,
+            board: {},
+            overview: true,
+          });
+          assert.equal(response.unchanged, false);
+          if (response.unchanged) throw Error("Missing snapshot");
+          return response.snapshot;
+        };
+        let data = read();
+        const state = controller.detail(x.run.id).reportState!;
+        assert.equal(state.freshness, "unknown", "poll does not hash source");
+        assert.equal(data.board!.cards[0].column, "done");
+        assert.equal(
+          data.board!.cards[0].workState!.label,
+          data.workState!.label,
+        );
+        assert.equal(
+          data.overview!.runs[0].workState!.label,
+          data.workState!.label,
+        );
+        assert.equal(
+          data.workState!.label,
+          "Đã xác minh · Chưa đối chiếu source",
+        );
+        assert.equal(data.progress.verifiedTasks, 1);
+        x.store.reports.setPolicy({
+          projectId: x.project.id,
+          itemId: x.item.id,
+          version: 0,
+          required: true,
+          runId: x.run.id,
+        });
+        data = read();
+        assert.equal(data.board!.cards[0].column, "review");
+        assert.equal(
+          data.board!.cards[0].progress.verified,
+          data.progress.verifiedTasks,
+          "user acceptance does not erase technical evidence",
+        );
+        assert.equal(data.workState!.label, "Chờ nghiệm thu");
+        assert.equal(data.overview!.runs[0].workState!.label, "Chờ nghiệm thu");
+        assert.equal(
+          x.store.inbox
+            .list({ unreadOnly: false })
+            .items.find((i) => i.kind === "report")?.runId,
+          x.run.id,
+        );
+        x.store.reports.decide(
+          { ...x.ref, requestId: randomUUID(), action: "accept", comment: "" },
+          x.version,
+          () => {
+            throw Error("Accept must not launch");
+          },
+        );
+        assert.equal(read().board!.cards[0].column, "done");
+        assert.equal(x.store.reports.pending(x.project.id).length, 0);
+        const item = x.store.board.item(x.item.id);
+        x.store.board.update({
+          id: item.id,
+          version: item.version,
+          patch: { body: "Updated requirement" },
+        });
+        data = read();
+        assert.equal(data.board!.cards[0].column, "ready");
+        assert.equal(data.progress.verifiedTasks, 0);
+        assert.equal(data.workState!.label, "Kết quả phiên bản trước");
+        assert.equal(
+          controller.detail(x.run.id).reportState!.freshness,
+          "stale",
+        );
+        assert.throws(
+          () =>
+            x.store.reports.setPolicy({
+              projectId: x.project.id,
+              itemId: x.item.id,
+              version: 1,
+              required: false,
+              runId: x.run.id,
+            }),
+          /hết hiệu lực/,
+        );
+      }
     } finally {
       x.cleanup();
     }

@@ -1,10 +1,10 @@
 # Phương án tổ chức lại trải nghiệm ASF theo bộ ảnh CrewHub
 
-Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0–R2 và R3A đã hoàn thành; R3B và R4–R7 là kế hoạch.** [Baseline R0](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao R1](../../docs/windows-worker/workspace-r1-completion.md), [bàn giao R2](../../docs/windows-worker/workspace-r2-completion.md), [bàn giao R3A](../../docs/windows-worker/workspace-r3a-completion.md). Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
+Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0–R3 đã hoàn thành; R4–R7 là kế hoạch.** [Baseline R0](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao R1](../../docs/windows-worker/workspace-r1-completion.md), [bàn giao R2](../../docs/windows-worker/workspace-r2-completion.md), [bàn giao R3C](../../docs/windows-worker/workspace-r3c-completion.md). Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
 
 ## 1. Quyết định chính
 
-Cập nhật 05/11: [R3B đã đồng nhất trạng thái chờ/tiến độ](../../docs/windows-worker/workspace-r3b-completion.md) tại Board/Tổng quan/Đội ngũ và nhãn Cần xử lý. Report freshness/capability giữa mọi view còn tiếp tục; toàn R3 chưa hoàn thành. [Bash tự động](../../docs/windows-worker/bash-autonomy-proposal.md) mới là phương án, không thay quyền hiện hành.
+Cập nhật 05/11: **R3 đã hoàn thành** qua [R3B trạng thái chờ/tiến độ](../../docs/windows-worker/workspace-r3b-completion.md), [Bash tự động theo vai trò](../../docs/windows-worker/bash-autonomy-completion.md) và [R3C trạng thái kết quả/capability](../../docs/windows-worker/workspace-r3c-completion.md). Summary ghi rõ source chưa đối chiếu; report detail và Controller kiểm lại khi mở/ghi quyết định. R4–R7 còn là kế hoạch. Các mô tả Ask/Full access bên dưới là thiết kế gốc, đã được thay bằng policy tự động.
 
 Chuyển từ cách tổ chức theo màn hình kỹ thuật sang **dự án → công việc → trao đổi/thực hiện/kết quả**. Lead là điểm vào thống nhất; một công việc có một nơi để đọc yêu cầu, trả lời câu hỏi, theo dõi agent và xem kết quả. Những view khác chỉ mở đúng hồ sơ này.
 
@@ -225,9 +225,9 @@ Không ép R2 gom cả migration mới và toàn bộ prompt upgrade một commi
 
 ## 13. Thứ tự khuyến nghị
 
-**R1 — Shell và điều hướng**, **R2 — Hồ sơ công việc** và **R3A — Lead/quyền Bash** đã triển khai. R3A liên kết plan trước dispatch, không tạo submission cho trao đổi, thêm Full access theo lượt và bắt đầu dùng WorkStateView ở chat/tiến độ. R3B còn thống nhất trạng thái/capability cho Board, Cần xử lý và các view khác; sau đó kết nối Home/Team/Kết quả ở R4. Giữ lịch schema14 nhưng hoãn phần tự chạy đến R6.
+**R1 — Shell và điều hướng**, **R2 — Hồ sơ công việc** và **R3 — Lead/trạng thái/kết quả** đã triển khai. R3 liên kết plan trước dispatch, không tạo submission cho trao đổi, dùng projection chung và Bash tự động theo vai trò. Report summary không suy ra source current; chi tiết được đối chiếu khi mở và trước mutation. Tiếp theo kết nối Home/Team/Kết quả ở R4. Giữ lịch schema14 nhưng hoãn phần tự chạy đến R6.
 
-Ngoài phạm vi R0–R2 và R3A đã ghi trong bàn giao, các màn hình và cơ chế đề xuất còn lại chưa có trong bản build hiện hành.
+Ngoài phạm vi R0–R3 đã ghi trong bàn giao, các màn hình và cơ chế R4–R7 đề xuất còn lại chưa có trong bản build hiện hành.
 
 ## 14. Chi tiết để bắt đầu triển khai
 

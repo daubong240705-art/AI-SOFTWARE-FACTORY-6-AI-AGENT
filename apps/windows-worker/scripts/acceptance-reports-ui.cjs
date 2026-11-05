@@ -278,6 +278,20 @@ async function main() {
     reason: "No provider",
   });
   store.close();
+  await click("Đối chiếu lại");
+  await until(
+    () =>
+      js(
+        "Array.from(document.querySelectorAll('.report-acceptance button')).find(b=>b.textContent.trim()==='Nghiệm thu')?.disabled && Array.from(document.querySelectorAll('.report-acceptance button')).find(b=>b.textContent.trim()==='Yêu cầu sửa')?.disabled===false",
+      ),
+    "busy acceptance locked",
+  );
+  assert.equal(
+    await js(
+      "Array.from(document.querySelectorAll('.report-acceptance button')).find(b=>b.textContent.trim()==='Yêu cầu sửa')?.disabled",
+    ),
+    false,
+  );
   await click("Yêu cầu sửa");
   await js(
     "(()=>{const e=document.querySelector('.report-acceptance textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'Sửa căn lề tiếng Việt');e.dispatchEvent(new Event('input',{bubbles:true}));})()",
@@ -327,6 +341,11 @@ async function main() {
       "document.querySelector('.report-acceptance').textContent.includes('Báo cáo cũ')",
     ),
     true,
+  );
+  assert.equal(
+    await js("document.querySelector('.report-policy input').disabled"),
+    true,
+    "historical report cannot change current policy",
   );
   assert.deepEqual(errors, []);
   writeFileSync(
