@@ -1,0 +1,319 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-11-05T08:27:15.410950+00:00",
+  "baseline": "bf9b4977b1f26cb45dc5a0a095575b4148fda375",
+  "checkpoint": "checkpoint/worker-v2-design-20261105",
+  "research_method": "Static source inspection and official/product documentation; no upstream application execution.",
+  "external_scripts_executed": false,
+  "upstream_code_or_assets_copied_to_product": false,
+  "runtime_implementation_changed": false,
+  "repositories": [
+    {
+      "name": "crewhub",
+      "url": "https://github.com/EKINSOL-DEV/crewhub",
+      "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+      "root_license": "AGPL-3.0",
+      "reuse_decision": "Reference only; no source or assets copied into product.",
+      "files": [
+        {
+          "repo": "EKINSOL-DEV/crewhub",
+          "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+          "path": "README.md",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub/1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1/README.md",
+          "sha256": "6cf08ffb5703879b1f7ee25b11102f89d1f493adcf1cd796fab454ff97ef0cd3",
+          "bytes": 16390
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub",
+          "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+          "path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub/1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1/LICENSE",
+          "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+          "bytes": 34523
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub",
+          "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+          "path": "backend/app/services/connections/base.py",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub/1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1/backend/app/services/connections/base.py",
+          "sha256": "def2e9a19163ff833ad02e7306ee5861021abd3451e14df9db5045347b95362c",
+          "bytes": 13037
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub",
+          "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+          "path": "backend/app/services/connections/codex.py",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub/1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1/backend/app/services/connections/codex.py",
+          "sha256": "de7740521f99a64f483b7ba0945ff8cfa58c3c6eff8e2a9a6fd29c1ec57b3644",
+          "bytes": 7214
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub",
+          "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+          "path": "backend/app/services/connections/claude_code.py",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub/1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1/backend/app/services/connections/claude_code.py",
+          "sha256": "05f4528c097a53d99811e49b2179a6f92b758c3fb5592e96ca82330c10c69a6a",
+          "bytes": 29977
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub",
+          "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+          "path": "backend/app/services/connections/connection_manager.py",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub/1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1/backend/app/services/connections/connection_manager.py",
+          "sha256": "2e013acc87d1a922c13123622d755b131a39f0bc1a7e7e4b0db4deb3604ee5ce",
+          "bytes": 20620
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub",
+          "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+          "path": "backend/app/services/handoff.py",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub/1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1/backend/app/services/handoff.py",
+          "sha256": "585cab5397febe648d7b90f8a295e08626dd98f5dfe689a2c79ee14330f8092c",
+          "bytes": 9949
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub",
+          "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+          "path": "backend/app/services/agent_service.py",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub/1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1/backend/app/services/agent_service.py",
+          "sha256": "a854259182a9b2102826a0cbed75768f084d367a0c9660f2b198b76cd26806fb",
+          "bytes": 14546
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub",
+          "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+          "path": "docs/agent-handoff-plan.md",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub/1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1/docs/agent-handoff-plan.md",
+          "sha256": "f3ccfd48496e4e389a479b0c93114d5d3591488c40be47e3f260b813a1b1e4ac",
+          "bytes": 27012
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub",
+          "revision": "1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1",
+          "path": "frontend/src/components/sessions/ConnectionsView.tsx",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub/1bd8bb8ebf8daa6ff3f82a58cbc9dc7d5961b7c1/frontend/src/components/sessions/ConnectionsView.tsx",
+          "sha256": "3d3b8558e16738576a0a223516ba5126d9d82a1549528822e22bdc51b05ba310",
+          "bytes": 25402
+        }
+      ]
+    },
+    {
+      "name": "crewhub2",
+      "url": "https://github.com/EKINSOL-DEV/crewhub2",
+      "revision": "3a66363c9e799570887d72b18370d30112cd8e47",
+      "root_license": "AGPL-3.0",
+      "reuse_decision": "Reference only; no source or assets copied into product.",
+      "files": [
+        {
+          "repo": "EKINSOL-DEV/crewhub2",
+          "revision": "3a66363c9e799570887d72b18370d30112cd8e47",
+          "path": "README.md",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub2/3a66363c9e799570887d72b18370d30112cd8e47/README.md",
+          "sha256": "7042a302e1e688b7a87583cc7070b7afcd9b97d9717589dc6d9bf868c21cea66",
+          "bytes": 3856
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub2",
+          "revision": "3a66363c9e799570887d72b18370d30112cd8e47",
+          "path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub2/3a66363c9e799570887d72b18370d30112cd8e47/LICENSE",
+          "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0",
+          "bytes": 34523
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub2",
+          "revision": "3a66363c9e799570887d72b18370d30112cd8e47",
+          "path": "docs/DESIGN_SYSTEM.md",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub2/3a66363c9e799570887d72b18370d30112cd8e47/docs/DESIGN_SYSTEM.md",
+          "sha256": "179c091579f3a869831028bfd558ecccf1f816d3e8405820bcda77ad72ca8452",
+          "bytes": 7482
+        },
+        {
+          "repo": "EKINSOL-DEV/crewhub2",
+          "revision": "3a66363c9e799570887d72b18370d30112cd8e47",
+          "path": "packages/protocol/README.md",
+          "url": "https://raw.githubusercontent.com/EKINSOL-DEV/crewhub2/3a66363c9e799570887d72b18370d30112cd8e47/packages/protocol/README.md",
+          "sha256": "0e4b74d1e7f5628ab5b0831289a85a58cdb21037307357627f1dce6e500fbd4c",
+          "bytes": 633
+        }
+      ]
+    },
+    {
+      "name": "paperclip",
+      "url": "https://github.com/paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "root_license": "MIT",
+      "reuse_decision": "Reference only; no source or assets copied into product.",
+      "files": [
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "LICENSE",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/LICENSE",
+          "sha256": "7f8a27f0979bded50e240caa8c8c29f3088ddf87032cb83e5a9732bff91d18b4",
+          "bytes": 1069
+        },
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "packages/adapter-utils/src/types.ts",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/adapter-utils/src/types.ts",
+          "sha256": "66c50e05e29724a76bb983d5b87618f45695f7df4f6d26a620aa8c99dea864ff",
+          "bytes": 32033
+        },
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "packages/adapters/codex-local/src/server/execute.ts",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/adapters/codex-local/src/server/execute.ts",
+          "sha256": "956ae4298849902a07cb02d2a15fc4d9073882725c06423912e67bffd35c7dfb",
+          "bytes": 75586
+        },
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "packages/adapters/claude-local/src/server/execute.ts",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/adapters/claude-local/src/server/execute.ts",
+          "sha256": "3c3c587e6fff2e73c18aac0f2a327b05f99fca5675cec06025fd554ea6fd1632",
+          "bytes": 58463
+        },
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "packages/adapters/opencode-local/src/server/execute.ts",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/adapters/opencode-local/src/server/execute.ts",
+          "sha256": "e1c0f0b97f1f4e78f4fbb2ee2ba301da46032d974e2e77119861026ec1dc8f3d",
+          "bytes": 36108
+        },
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "server/src/services/heartbeat.ts",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/heartbeat.ts",
+          "sha256": "fa52daf0bb502fd1f273079adb655a60bed8535bcb02e0de873b5611bfaa4170",
+          "bytes": 195330
+        },
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "server/src/services/issues.ts",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/issues.ts",
+          "sha256": "698ba14799d769f89b34df7b000cc728b16b55354914b596d530a4422067ea67",
+          "bytes": 533638
+        },
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "packages/db/src/schema/agents.ts",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/agents.ts",
+          "sha256": "286c988f2cf3d30b20087c64631ff6964204a6be55ef89d743b3129b7085fb46",
+          "bytes": 3144
+        },
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "packages/db/src/schema/agent_task_sessions.ts",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/agent_task_sessions.ts",
+          "sha256": "7d5acb951c736befbb16ed8b8a1053e34920234f0114b314975347e41f5fecaa",
+          "bytes": 3532
+        },
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "skills/paperclip/SKILL.md",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/skills/paperclip/SKILL.md",
+          "sha256": "aa842591de803c1c4bcc44b3999775422967816b135c1b2c955d70d3e0f0a8b5",
+          "bytes": 72936
+        },
+        {
+          "repo": "paperclipai/paperclip",
+          "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+          "path": "docs/adapters/overview.md",
+          "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/docs/adapters/overview.md",
+          "sha256": "fc200f88d28675b0c1171e9a839fecaf7ba2f91f9b7be45775e324eb3200a675",
+          "bytes": 10336
+        }
+      ]
+    }
+  ],
+  "web_sources": [
+    {
+      "title": "CrewHub Loops",
+      "url": "https://crewhub.dev/loops",
+      "accessed_date": "2026-11-05",
+      "purpose": "Product claims and UX; not verified implementation source.",
+      "pinned": false
+    },
+    {
+      "title": "Codex App Server",
+      "url": "https://learn.chatgpt.com/docs/app-server",
+      "accessed_date": "2026-11-05",
+      "purpose": "Official local protocol; reached through developers.openai.com/codex/app-server/.",
+      "pinned": false
+    },
+    {
+      "title": "Claude Agent SDK overview",
+      "url": "https://code.claude.com/docs/en/agent-sdk/overview",
+      "accessed_date": "2026-11-05",
+      "purpose": "Runtime and authentication scope.",
+      "pinned": false
+    },
+    {
+      "title": "Claude headless",
+      "url": "https://code.claude.com/docs/en/headless",
+      "accessed_date": "2026-11-05",
+      "purpose": "CLI streaming and bare mode limitations.",
+      "pinned": false
+    },
+    {
+      "title": "Claude SDK TypeScript",
+      "url": "https://code.claude.com/docs/en/agent-sdk/typescript",
+      "accessed_date": "2026-11-05",
+      "purpose": "Tool permissions and hooks.",
+      "pinned": false
+    },
+    {
+      "title": "Claude SDK Skills",
+      "url": "https://code.claude.com/docs/en/agent-sdk/skills",
+      "accessed_date": "2026-11-05",
+      "purpose": "Runtime-specific skill configuration.",
+      "pinned": false
+    },
+    {
+      "title": "Claude SDK MCP",
+      "url": "https://code.claude.com/docs/en/agent-sdk/mcp",
+      "accessed_date": "2026-11-05",
+      "purpose": "Tool server configuration.",
+      "pinned": false
+    },
+    {
+      "title": "Agent Skills specification",
+      "url": "https://agentskills.io/specification",
+      "accessed_date": "2026-11-05",
+      "purpose": "Portable package format; not universal permission grants.",
+      "pinned": false
+    },
+    {
+      "title": "MCP architecture",
+      "url": "https://modelcontextprotocol.io/docs/learn/architecture",
+      "accessed_date": "2026-11-05",
+      "purpose": "Host/client/server and transports.",
+      "pinned": false
+    }
+  ],
+  "prior_research_manifest": "research/agent-upgrade/sources.json",
+  "local_cli_probes": {
+    "codex": {
+      "version": "0.166.0",
+      "authentication_verified": false
+    },
+    "opencode": {
+      "version": "1.19.5",
+      "authentication_verified": false
+    },
+    "claude": {
+      "found_in_path": false,
+      "installed_elsewhere": "unknown"
+    }
+  }
+}
