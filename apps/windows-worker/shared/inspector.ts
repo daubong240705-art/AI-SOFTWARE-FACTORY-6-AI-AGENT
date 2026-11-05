@@ -80,6 +80,8 @@ const milestones: Record<string, string> = {
   TASK_FINISHED: "Kết thúc task",
   TASK_SKIPPED: "Bỏ qua task",
   PLAN_ACCEPTED: "Lead đã phân công",
+  WORK_LINKED: "Đã liên kết công việc",
+  RUN_ACCESS_GRANTED: "Đã bật Full access cho lượt này",
   LEAD_REPLIED: "Lead đã trả lời",
   LEAD_REVIEW: "Lead đã review",
   RECOVERY_STARTED: "Bắt đầu attempt phục hồi",

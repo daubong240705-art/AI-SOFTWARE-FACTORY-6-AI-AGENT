@@ -72,7 +72,7 @@ export class Reports {
     } | null;
     const work = linked
       ? { ...linked, criteria: JSON.parse(linked.criteria) }
-      : run.workContext
+      : !run.leadAdmission && run.workContext
         ? {
             itemId: run.workContext.itemId,
             revision: run.workContext.revision,

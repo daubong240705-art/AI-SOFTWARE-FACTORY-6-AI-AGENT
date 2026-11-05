@@ -221,14 +221,18 @@ async function main() {
     ),
   );
   let detail = (await js(`window.worker.workItemDetail(${ref})`)).value;
-  assert.equal(detail.submissions.length, 1);
+  assert.equal(
+    detail.submissions.length,
+    0,
+    "Lead discussion does not create execution submissions",
+  );
   assert.equal(await js("window.__composer.value"), draft);
   await js(
     "document.querySelector('[aria-label=\"Gửi yêu cầu\"]').click();document.querySelector('[aria-label=\"Gửi yêu cầu\"]').click()",
   );
   await until(() => js("window.__composer.value===''"));
   detail = (await js(`window.worker.workItemDetail(${ref})`)).value;
-  assert.equal(detail.submissions.length, 1);
+  assert.equal(detail.submissions.length, 0);
   assert.ok(
     await js(
       "document.querySelector('.follow-up-list').textContent.includes('Đã lưu · đang giữ')",
@@ -254,7 +258,7 @@ async function main() {
   );
   assert.equal(
     (await js(`window.worker.workItemDetail(${ref})`)).value.submissions.length,
-    1,
+    0,
   );
   await js(
     "document.querySelector('[aria-label=\"Thay đổi ngữ cảnh\"]').click()",
@@ -266,8 +270,20 @@ async function main() {
   await js("document.querySelector('[aria-label=\"Gửi yêu cầu\"]').click()");
   await until(() => js("window.__composer.value===''"));
   detail = (await js(`window.worker.workItemDetail(${ref})`)).value;
-  assert.equal(detail.submissions.length, 2);
-  assert.equal(detail.submissions[0].revision, 2);
+  assert.equal(detail.submissions.length, 0);
+  const heldRequests = (
+    await js(
+      `window.worker.conversation(${JSON.stringify(context.conversationId)})`,
+    )
+  ).value.queue;
+  assert.equal(
+    heldRequests.length,
+    3,
+    "lost reply retry creates just one queue request",
+  );
+  assert.equal(heldRequests[1].leadAdmission, true);
+  assert.equal(heldRequests[1].workContext.revision, 1);
+  assert.equal(heldRequests[2].workContext.revision, 2);
   await setInput(
     '[aria-label="Nhắn tin cho agent"]',
     "Nháp giữ sau khi đóng dock",
@@ -361,7 +377,7 @@ async function main() {
   assert.equal(
     reopened.board.detail({ projectId: project.id, itemId: item.id })
       .submissions.length,
-    2,
+    0,
   );
   reopened.close();
   assert.deepEqual(errors, []);

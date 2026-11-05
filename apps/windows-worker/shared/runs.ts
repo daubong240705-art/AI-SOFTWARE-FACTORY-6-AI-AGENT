@@ -48,6 +48,8 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  leadAdmission?: boolean;
+  permissionUpgrade?: { at: string; from: "ask"; to: "full-access" };
   imageIds?: string[];
   questionRequest?: import("./questions").QuestionDecision;
   workContext?: import("./chat").WorkChatSnapshot;

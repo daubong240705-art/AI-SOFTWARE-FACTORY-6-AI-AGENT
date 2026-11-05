@@ -169,6 +169,46 @@ test("terminal report is immutable, exact revision/attempt survives restart, and
   }
 });
 
+test("Lead discussion report does not replace work evidence or create an acceptance request", async () => {
+  const x = await setup();
+  try {
+    x.store.reports.setPolicy({
+      projectId: x.project.id,
+      itemId: x.item.id,
+      version: 0,
+      required: true,
+    });
+    x.finish();
+    const original = x.store.reports.capture(x.ref);
+    const discussion: Run = {
+      ...x.run,
+      id: randomUUID(),
+      mode: "team",
+      leadAdmission: true,
+      prompt: "Explain the approach",
+      summary: "Here is the explanation",
+      changes: [],
+      commands: [],
+      review: null,
+    };
+    x.store.createRun(discussion);
+    const ref = { projectId: x.project.id, runId: discussion.id };
+    assert.equal(x.store.reports.capture(ref).work, null);
+    assert.equal(x.store.reports.view(ref, x.version).canDecide, false);
+    assert.deepEqual(
+      x.store.reports.pending(x.project.id).map((entry) => entry.runId),
+      [x.run.id],
+    );
+    assert.equal(
+      x.store.reports.itemHistory(x.project.id, x.item.id).length,
+      1,
+    );
+    assert.deepEqual(x.store.reports.capture(x.ref), original);
+  } finally {
+    x.cleanup();
+  }
+});
+
 test("commands distinguish pass/fail/not-run/unknown and export includes provenance, pinned diff and missing artifacts honestly", async () => {
   const x = await setup();
   try {

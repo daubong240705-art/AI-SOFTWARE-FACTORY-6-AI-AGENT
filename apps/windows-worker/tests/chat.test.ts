@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -10,6 +10,299 @@ import { defaultSettings } from "../shared/defaults";
 import type { Run } from "../shared/runs";
 import { withWorkContext } from "../shared/work-context";
 import type { ChatSend } from "../shared/chat";
+import { coordinate } from "../electron/team/coordinator";
+import { loadProfiles } from "../electron/team/profiles";
+import { loadSkillCatalog } from "../electron/team/skills";
+import { planSchema } from "../shared/team";
+
+const acceptedPlan = () =>
+  planSchema.parse({
+    blockedReason: null,
+    testingReason: "Documentation only",
+    tasks: [
+      {
+        id: "t1",
+        role: "be",
+        title: "Update docs",
+        instructions: "Update README",
+        allowedPaths: ["README.md"],
+        acceptance: ["Documented"],
+        dependsOn: [],
+      },
+    ],
+  });
+
+test("Lead conversation defers submission, admits before dispatch, and links idempotently through retry/restart", () => {
+  const directory = mkdtempSync(join(tmpdir(), "asf-admission-"));
+  let store = new Store(directory);
+  try {
+    const project = store.addProject(directory),
+      conversation = store.conversations.create(project.id);
+    const plan = acceptedPlan();
+    const run = runFor(project.id, directory, {
+      role: "lead",
+      mode: "team",
+      state: "running",
+      endedAt: null,
+      conversationId: conversation.id,
+      leadAdmission: true,
+    });
+    const request: ChatSend = {
+      requestId: crypto.randomUUID(),
+      projectId: project.id,
+      conversationId: conversation.id,
+      prompt: "Implement docs",
+      role: "lead",
+      mode: "team",
+      admission: "lead",
+    };
+    store.sendChat(request, () => {
+      store.createRun(run);
+      return { runId: run.id, followUpId: null };
+    });
+    assert.equal(store.board.summaries(project.id).length, 0);
+    assert.equal(
+      [...store.boardRuns(project.id)].length,
+      0,
+      "a conversation is not a runtime Board card",
+    );
+    run.settings.agents.forEach((agent) => {
+      agent.enabled = true;
+      agent.model = "fixture";
+    });
+    const work = store.admitPlan(run, plan);
+    Object.assign(run, { workContext: work });
+    assert.equal(store.board.summaries(project.id).length, 1);
+    assert.equal(
+      store.board.detail({ projectId: project.id, itemId: work.itemId })
+        .submissions.length,
+      1,
+    );
+    assert.deepEqual(store.admitPlan(run, plan), work);
+    assert.equal(
+      store.board.detail({ projectId: project.id, itemId: work.itemId })
+        .submissions.length,
+      1,
+    );
+    assert.deepEqual(
+      store.sendChat(request, () => {
+        throw Error("must not relaunch");
+      }).runId,
+      run.id,
+    );
+    run.state = "failed";
+    run.endedAt = new Date().toISOString();
+    store.updateRun(run);
+    const retry = {
+      ...run,
+      id: crypto.randomUUID(),
+      state: "running" as const,
+      endedAt: null,
+      retryOf: run.id,
+      attemptRoot: run.id,
+    };
+    store.createRun(retry);
+    const next = store.admitPlan(retry, plan);
+    assert.equal(next.itemId, work.itemId);
+    assert.equal(
+      store.board.detail({ projectId: project.id, itemId: work.itemId })
+        .submissions[0].attempts.length,
+      2,
+    );
+    store.close();
+    store = new Store(directory);
+    assert.equal(
+      store.board.contextForRun(project.id, retry.id)?.itemId,
+      work.itemId,
+    );
+    assert.equal(store.board.summaries(project.id).length, 1);
+    assert.equal(store.run(retry.id).workContext?.itemId, work.itemId);
+  } finally {
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("contextual Lead discussion and held queue keep execution unchanged until a valid plan; rollback does not leak an item", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "asf-admission-rollback-"));
+  const store = new Store(directory);
+  const source = join(directory, "source");
+  mkdirSync(source);
+  try {
+    const project = store.addProject(source),
+      item = store.board.create({
+        projectId: project.id,
+        title: "Existing work",
+        body: "Requirement",
+        criteria: [],
+        priority: 0,
+        suggestedRole: null,
+        planningState: "ready",
+      });
+    const work = store.board.workChat({
+      projectId: project.id,
+      itemId: item.id,
+    });
+    const request: ChatSend = {
+      requestId: crypto.randomUUID(),
+      projectId: project.id,
+      conversationId: work.conversationId,
+      prompt: "Explain this",
+      mode: "team",
+      role: "lead",
+      admission: "lead",
+      workContext: { itemId: item.id, revision: 1 },
+    };
+    const settings = defaultSettings();
+    settings.agents.forEach((agent) => {
+      agent.model = "fixture";
+    });
+    const queued = store.sendChat(request, (context) => ({
+      runId: null,
+      followUpId: store.queue.add({
+        projectId: project.id,
+        conversationId: work.conversationId,
+        prompt: request.prompt,
+        mode: "team",
+        role: "lead",
+        settings,
+        afterRunId: null,
+        state: "held",
+        reason: "Fixture",
+        workContext: context,
+        leadAdmission: true,
+      }).id,
+    }));
+    assert.equal(
+      store.board.detail({ projectId: project.id, itemId: item.id }).submissions
+        .length,
+      0,
+    );
+    const run = runFor(project.id, source, {
+      role: "lead",
+      mode: "team",
+      settings,
+      state: "running",
+      endedAt: null,
+      profiles: loadProfiles(),
+      skillCatalog: loadSkillCatalog(),
+      conversationId: work.conversationId,
+      leadAdmission: true,
+      workContext: store.board.chatSnapshot(
+        project.id,
+        item.id,
+        1,
+        work.conversationId,
+      ),
+    });
+    store.queue.claim(queued.followUpId!, () => {
+      store.createRun(run);
+      return { id: run.id, value: run };
+    });
+    let admissionCalls = 0;
+    await coordinate(
+      run,
+      async () => JSON.stringify({ reply: "Here is the explanation" }),
+      () => {},
+      () => {},
+      undefined,
+      [],
+      undefined,
+      undefined,
+      () => {
+        admissionCalls++;
+      },
+    );
+    assert.equal(admissionCalls, 0);
+    assert.equal(
+      store.board.detail({ projectId: project.id, itemId: item.id }).submissions
+        .length,
+      0,
+    );
+    assert.equal(store.queue.list().length, 0);
+    assert.equal(store.board.item(item.id).version, work.revision + 1);
+    run.state = "running";
+    store.admitPlan(run, acceptedPlan());
+    assert.equal(
+      store.board.detail({ projectId: project.id, itemId: item.id }).submissions
+        .length,
+      1,
+    );
+    run.state = "failed";
+    store.updateRun(run);
+    const newRun = {
+      ...run,
+      id: crypto.randomUUID(),
+      state: "running" as const,
+      workContext: undefined,
+      tasks: [],
+      conversationId: store.conversations.create(project.id).id,
+    };
+    store.createRun(newRun);
+    const originalAttach = store.board.attachChat.bind(store.board);
+    store.board.attachChat = () => {
+      throw Error("disk failure fixture");
+    };
+    assert.throws(
+      () => store.admitPlan(newRun, acceptedPlan()),
+      /disk failure/,
+    );
+    assert.equal(store.board.summaries(project.id).length, 1);
+    assert.equal(store.run(newRun.id).workContext, undefined);
+    assert.equal(newRun.workContext, undefined);
+    store.board.attachChat = originalAttach;
+    const admitted = store.admitPlan(newRun, acceptedPlan());
+    assert.equal(admitted.code, "W-0002", "counter must roll back with item");
+    store.updateRun({ ...store.run(newRun.id), state: "failed" });
+    const current = store.board.item(item.id);
+    store.board.update({
+      id: item.id,
+      version: current.version,
+      patch: { body: "New requirement" },
+    });
+    const stale = {
+      ...run,
+      id: crypto.randomUUID(),
+      state: "running" as const,
+      tasks: [],
+    };
+    store.createRun(stale);
+    assert.throws(
+      () => store.admitPlan(stale, acceptedPlan()),
+      /phiên bản mới/,
+    );
+    assert.equal(
+      store.board.detail({ projectId: project.id, itemId: item.id }).submissions
+        .length,
+      1,
+    );
+    let workSteps = 0;
+    await assert.rejects(
+      coordinate(
+        { ...newRun, id: crypto.randomUUID(), tasks: [] },
+        async (task) => {
+          if (task.kind !== "plan") workSteps++;
+          return JSON.stringify(acceptedPlan());
+        },
+        () => {},
+        () => {},
+        undefined,
+        [],
+        undefined,
+        undefined,
+        async () => {
+          await Promise.resolve();
+          throw Error("admission rejected");
+        },
+      ),
+      /admission rejected/,
+    );
+    assert.equal(workSteps, 0, "failed admission must prevent every work step");
+  } finally {
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
 
 function runFor(
   projectId: string,

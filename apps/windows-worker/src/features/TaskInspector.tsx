@@ -342,6 +342,20 @@ export function TaskInspector({
                             {allow ? "Cho phép một lần" : "Từ chối"}
                           </button>
                         ))}
+                        {["bash", "doom_loop"].includes(p.permission) && (
+                          <button
+                            disabled={locked}
+                            onClick={() =>
+                              void action(() =>
+                                unwrap(window.worker.grantRunAccess(run.id)),
+                              )
+                            }
+                          >
+                            {run.settings.permissionMode === "full-access"
+                              ? "Duyệt quyền còn chờ"
+                              : "Full access cho lượt này"}
+                          </button>
+                        )}
                       </div>
                     </section>
                   ))}

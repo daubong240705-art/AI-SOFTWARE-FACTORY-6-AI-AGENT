@@ -30,9 +30,14 @@ export function FollowUpCard({
           className="muted small"
           title={item.settings.agents.find((a) => a.role === item.role)?.model}
         >
-          {item.mode === "team" ? "Đội agent" : item.role.toUpperCase()}
+          {item.mode === "team" ? "Lead" : item.role.toUpperCase()}
         </span>
       </div>
+      {item.workContext && (
+        <span className="muted small">
+          {item.workContext.code} · v{item.workContext.revision}
+        </span>
+      )}
       {editing ? (
         <textarea
           aria-label="Sửa yêu cầu chờ"

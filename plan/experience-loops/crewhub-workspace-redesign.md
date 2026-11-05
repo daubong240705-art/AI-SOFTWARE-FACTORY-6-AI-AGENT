@@ -1,6 +1,6 @@
 # Phương án tổ chức lại trải nghiệm ASF theo bộ ảnh CrewHub
 
-Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0–R2 đã hoàn thành; R3–R7 là kế hoạch.** [Baseline R0](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao R1](../../docs/windows-worker/workspace-r1-completion.md), [bàn giao R2](../../docs/windows-worker/workspace-r2-completion.md). Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
+Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0–R2 và R3A đã hoàn thành; R3B và R4–R7 là kế hoạch.** [Baseline R0](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao R1](../../docs/windows-worker/workspace-r1-completion.md), [bàn giao R2](../../docs/windows-worker/workspace-r2-completion.md), [bàn giao R3A](../../docs/windows-worker/workspace-r3a-completion.md). Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
 
 ## 1. Quyết định chính
 
@@ -223,9 +223,9 @@ Không ép R2 gom cả migration mới và toàn bộ prompt upgrade một commi
 
 ## 13. Thứ tự khuyến nghị
 
-**R1 — Shell và điều hướng** và **R2 — Hồ sơ công việc** đã triển khai. Tiếp theo sửa liên kết chat/agent và trạng thái ở R3, rồi kết nối Home/Team/Kết quả. Giữ lịch schema14 nhưng hoãn phần tự chạy đến R6.
+**R1 — Shell và điều hướng**, **R2 — Hồ sơ công việc** và **R3A — Lead/quyền Bash** đã triển khai. R3A liên kết plan trước dispatch, không tạo submission cho trao đổi, thêm Full access theo lượt và bắt đầu dùng WorkStateView ở chat/tiến độ. R3B còn thống nhất trạng thái/capability cho Board, Cần xử lý và các view khác; sau đó kết nối Home/Team/Kết quả ở R4. Giữ lịch schema14 nhưng hoãn phần tự chạy đến R6.
 
-Ngoài phạm vi R0–R2 đã ghi trong bàn giao, các màn hình và cơ chế đề xuất còn lại chưa có trong bản build hiện hành.
+Ngoài phạm vi R0–R2 và R3A đã ghi trong bàn giao, các màn hình và cơ chế đề xuất còn lại chưa có trong bản build hiện hành.
 
 ## 14. Chi tiết để bắt đầu triển khai
 

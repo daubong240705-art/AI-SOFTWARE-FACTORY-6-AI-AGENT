@@ -629,6 +629,9 @@ function registerIPC(): void {
       .parse(input);
     return controller.reply(request.runId, request.requestId, request.allow);
   });
+  handle(channels.grantRunAccess, (input) =>
+    controller.grantRunAccess(idSchema.parse(input)),
+  );
   handle(channels.bootstrap, (input) => {
     empty(input);
     return bootstrap();

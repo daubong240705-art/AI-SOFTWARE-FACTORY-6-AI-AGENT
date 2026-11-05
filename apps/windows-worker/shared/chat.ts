@@ -12,6 +12,7 @@ export const chatSendSchema = z
     prompt: z.string().trim().min(1).max(32000),
     role: z.enum(roles),
     mode: z.enum(["direct", "team"]),
+    admission: z.literal("lead").optional(),
     workContext: z
       .object({
         itemId: z.string().uuid(),
@@ -20,7 +21,13 @@ export const chatSendSchema = z
       .strict()
       .optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (request) =>
+      !request.admission ||
+      (request.mode === "team" && request.role === "lead"),
+    "Trao đổi công việc phải gửi cho Lead.",
+  );
 export type ChatSend = z.infer<typeof chatSendSchema>;
 export type WorkChatContext = {
   projectId: string;
@@ -42,6 +49,7 @@ export type ChatReceipt = {
   state: "running" | "queued" | "removed";
 };
 export type FollowUp = {
+  leadAdmission?: boolean;
   images?: ChatImage[];
   imageIds?: string[];
   immutable?: boolean;

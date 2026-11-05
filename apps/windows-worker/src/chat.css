@@ -948,3 +948,16 @@
 .restore-trigger {
   justify-self: start;
 }
+.chat-recipient {
+  font-weight: 600;
+  font-size: var(--text-sm);
+  padding: 0 4px;
+}
+.chat-options > .ui-popover .ui-select {
+  display: block;
+  width: 100%;
+  margin-block: 6px;
+}
+.chat-options > .ui-popover .ui-select-trigger {
+  width: 100%;
+}

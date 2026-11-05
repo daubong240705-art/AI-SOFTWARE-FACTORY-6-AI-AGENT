@@ -14,6 +14,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { projectMonitor } from "../electron/controller/monitor";
 import { ProjectOverview } from "../src/features/ProjectOverview";
+import { workStateView } from "../shared/work-state";
+import type { ReportView } from "../shared/reports";
 
 function fixture(
   projectId: string = randomUUID(),
@@ -47,6 +49,49 @@ function fixture(
     ...patch,
   } as Run);
 }
+
+test("work state distinguishes conversation, actual work, permissions, pending questions and report evidence freshness", () => {
+  const run = fixture(undefined, { mode: "team", tasks: [] });
+  assert.equal(workStateView(run).label, "Lead đã trả lời");
+  run.tasks.push({
+    id: "t1",
+    kind: "work",
+    state: "completed",
+  } as Run["tasks"][number]);
+  assert.equal(workStateView(run).label, "Có kết quả · Chưa xác minh");
+  const report = {
+    report: { runId: run.id, projectId: run.projectId, verification: "pass" },
+    freshness: "current",
+    policy: { required: true },
+    decision: null,
+  } as ReportView;
+  assert.equal(workStateView(run, { report }).label, "Chờ nghiệm thu");
+  report.decision = { action: "accept", comment: "", createdAt: "now" };
+  assert.equal(workStateView(run, { report }).label, "Hoàn thành");
+  assert.equal(
+    workStateView(run, { report, stale: true }).label,
+    "Kết quả phiên bản trước",
+  );
+  report.report.runId = crypto.randomUUID();
+  assert.equal(
+    workStateView(run, { report }).label,
+    "Có kết quả · Chưa xác minh",
+  );
+  run.state = "blocked";
+  run.permissions = [{ id: "p", permission: "bash", patterns: [] }];
+  assert.equal(workStateView(run).label, "Chờ cấp quyền");
+  const questions = workStateView(run, {
+    questionState: "pending",
+    stale: true,
+  });
+  assert.equal(questions.label, "Cần bạn trả lời");
+  assert.equal(questions.freshness, "stale");
+  run.state = "cancelling";
+  assert.equal(
+    workStateView(run, { questionState: "pending" }).label,
+    "Đang dừng",
+  );
+});
 
 test("overview scopes and bounds data, redacts secrets and does not equate executed with verified", () => {
   const run = fixture(),

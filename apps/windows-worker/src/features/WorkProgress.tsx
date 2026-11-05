@@ -1,18 +1,28 @@
 import { useRunDetail } from "../lib/use-run-detail";
-import { runLabels } from "../../shared/runs";
+import { workStateView } from "../../shared/work-state";
+import type { QuestionSet } from "../../shared/questions";
 import { taskLabels } from "../../shared/inspector";
 
 export function WorkProgress({
   projectId,
   runId,
   onInspect,
+  questionState,
+  onRequirements,
+  onResult,
 }: {
   projectId: string;
   runId: string;
   onInspect: (id: string, taskId?: string) => void;
+  questionState?: QuestionSet["state"];
+  onRequirements?: () => void;
+  onResult?: () => void;
 }) {
   const feed = useRunDetail(projectId, runId);
   const run = feed.detail?.run;
+  const state = run
+    ? workStateView(run, { questionState, stale: feed.stale || !!feed.error })
+    : null;
   return (
     <section className="work-progress" aria-label="Tiến độ thực hiện">
       {(feed.error || feed.stale) && (
@@ -25,9 +35,25 @@ export function WorkProgress({
       ) : (
         <>
           <p>
-            <strong>{runLabels[run.state]}</strong>
-            {run.error ? ` · ${run.error}` : ""}
+            <strong>{state?.label}</strong>
+            {state?.reason ? ` · ${state.reason}` : ""}
           </p>
+          {state?.actions
+            .filter((action) => action.id !== "progress")
+            .map((action) => (
+              <button
+                key={action.id}
+                onClick={() =>
+                  action.id === "questions"
+                    ? onRequirements?.()
+                    : action.id === "result"
+                      ? onResult?.()
+                      : onInspect(run.id)
+                }
+              >
+                {action.label}
+              </button>
+            ))}
           {!run.tasks.length && (
             <p className="muted">
               Chưa có kế hoạch task. Trạng thái này không xác nhận công việc đã

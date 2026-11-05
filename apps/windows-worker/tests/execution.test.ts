@@ -628,6 +628,94 @@ test("Full access fallback approves only permitted requests using the immutable 
   }
 });
 
+test("explicit Full access upgrades only the chosen run, resolves waiting Bash once, retains other gates and supports retry", async () => {
+  const x = fixture();
+  try {
+    const work = task(x.run);
+    x.run.tasks.push(work);
+    x.run.currentTaskId = work.id;
+    x.run.state = "running";
+    x.run.settings.permissionMode = "ask";
+    const replies: string[] = [];
+    let fail = true;
+    x.active.runtime = {
+      reply: async (id: string) => {
+        if (id === "bash-wait" && fail) {
+          fail = false;
+          throw Error("lost permission reply");
+        }
+        replies.push(id);
+      },
+    };
+    x.internal.onPermission(x.active, {
+      id: "bash-wait",
+      permission: "bash",
+      patterns: ["npm test"],
+    });
+    x.internal.onPermission(x.active, {
+      id: "external",
+      permission: "external_directory",
+      patterns: ["../"],
+    });
+    const settingsBefore = x.store.settings();
+    await assert.rejects(
+      x.controller.grantRunAccess(crypto.randomUUID()),
+      /không còn/,
+    );
+    await assert.rejects(
+      x.controller.grantRunAccess(x.run.id),
+      /lost permission/,
+    );
+    assert.equal(x.run.settings.permissionMode, "full-access");
+    await x.controller.grantRunAccess(x.run.id);
+    assert.deepEqual(replies, ["bash-wait"]);
+    x.internal.onPermission(x.active, {
+      id: "bash-wait",
+      permission: "bash",
+      patterns: ["npm test"],
+    });
+    assert.deepEqual(
+      replies,
+      ["bash-wait"],
+      "a replay after resolving the waiting ticket must not execute twice",
+    );
+    assert.equal(x.run.permissions.length, 1);
+    assert.equal(x.run.permissions[0].permission, "external_directory");
+    assert.deepEqual(x.store.settings(), settingsBefore);
+    assert.ok(x.store.run(x.run.id).permissionUpgrade?.at);
+    assert.equal(
+      x.store.events(x.run.id).filter((e) => e.type === "RUN_ACCESS_GRANTED")
+        .length,
+      1,
+    );
+    x.internal.onPermission(x.active, {
+      id: "next-bash",
+      permission: "bash",
+      patterns: ["npm run build"],
+    });
+    await Promise.resolve();
+    assert.deepEqual(replies, ["bash-wait", "next-bash"]);
+    await x.controller.grantRunAccess(x.run.id);
+    assert.deepEqual(replies, ["bash-wait", "next-bash"]);
+    x.run.currentTaskId = null;
+    x.internal.onPermission(x.active, {
+      id: "lead-bash",
+      permission: "bash",
+      patterns: ["npm test"],
+    });
+    await x.controller.grantRunAccess(x.run.id);
+    assert.equal(
+      replies.includes("lead-bash"),
+      false,
+      "Lead still cannot run Bash",
+    );
+    x.run.state = "cancelling";
+    await assert.rejects(x.controller.grantRunAccess(x.run.id), /không còn/);
+  } finally {
+    x.cleanup();
+  }
+});
+
 test("Controller retains its run lock when any lane cannot stop, then retries containment", async () => {
   const x = fixture();
   try {

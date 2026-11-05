@@ -266,6 +266,7 @@ export class RunController {
           prompt: answersPrompt(set, source.prompt, answers),
           role: "lead",
           mode: "team",
+          ...(source.leadAdmission ? { admission: "lead" as const } : {}),
           ...(set.workItemId
             ? {
                 workContext: {
@@ -298,6 +299,7 @@ export class RunController {
               request.mode,
               snapshot,
               request.imageIds,
+              request.admission === "lead",
             )
           : this.start(
               request.projectId,
@@ -309,6 +311,7 @@ export class RunController {
               undefined,
               snapshot,
               request.imageIds,
+              request.admission === "lead",
             );
         return {
           runId: queued ? null : result.id,
@@ -400,6 +403,7 @@ export class RunController {
     settingsSnapshot?: Settings,
     workContext?: WorkChatSnapshot,
     imageIds?: string[],
+    leadAdmission = false,
   ): Run {
     if (this.shuttingDown) throw new Error("Ứng dụng đang đóng.");
     if (this.workspaceBusy)
@@ -434,6 +438,7 @@ export class RunController {
       this.store.images.refs(projectId, conversationId, imageIds);
     }
     const run: Run = {
+      leadAdmission,
       imageIds,
       workContext,
       retryOf,
@@ -670,6 +675,17 @@ export class RunController {
                 () => {},
               );
             },
+          },
+          (plan) => {
+            if (!run.leadAdmission) return;
+            this.check(active);
+            run.workContext = this.store.admitPlan(run, plan);
+            this.record(
+              active,
+              "WORK_LINKED",
+              `${run.workContext.code} · v${run.workContext.revision}`,
+              null,
+            );
           },
         );
         if (run.integration && ["completed"].includes(run.state)) {
@@ -1068,6 +1084,13 @@ export class RunController {
     const runtime = lane ? lane.runtime : active.runtime;
     if (!runtime) return;
     if (
+      [...(active.permissionRoutes?.values() ?? [])].some(
+        (route) =>
+          route.runtime === runtime && route.nativeId === permission.id,
+      )
+    )
+      return;
+    if (
       autoApproves(permission.permission, {
         ...rolePolicy(owner?.role ?? active.run.role),
         permissionMode: active.run.settings.permissionMode,
@@ -1342,6 +1365,54 @@ export class RunController {
       taskId,
     );
   }
+  async grantRunAccess(runId: string): Promise<void> {
+    const active = this.active;
+    if (
+      !active ||
+      active.run.id !== runId ||
+      active.desired ||
+      this.shuttingDown ||
+      !["running", "blocked", "queued"].includes(active.run.state)
+    )
+      throw Error(
+        "Lượt chạy không còn hoạt động. Cập nhật trạng thái trước khi cấp quyền.",
+      );
+    if (active.run.settings.permissionMode !== "full-access") {
+      const previous = active.run.settings;
+      active.run.settings = { ...previous, permissionMode: "full-access" };
+      active.run.permissionUpgrade = {
+        at: new Date().toISOString(),
+        from: "ask",
+        to: "full-access",
+      };
+      try {
+        this.record(
+          active,
+          "RUN_ACCESS_GRANTED",
+          "Người dùng bật Full access cho lượt này; giữ quyền vai trò và phạm vi.",
+          null,
+        );
+      } catch (error) {
+        active.run.settings = previous;
+        delete active.run.permissionUpgrade;
+        throw error;
+      }
+    }
+    for (const permission of [...active.run.permissions]) {
+      if (this.active !== active || active.desired) break;
+      const role =
+        active.run.tasks.find((task) => task.id === permission.taskId)?.role ??
+        active.run.role;
+      if (
+        autoApproves(permission.permission, {
+          ...rolePolicy(role),
+          permissionMode: "full-access",
+        }) &&
+        !active.permissionRoutes?.get(permission.id)?.resolving
+      )
+        await this.reply(runId, permission.id, true);
+    }
+  }
   async reply(runId: string, requestId: string, allow: boolean): Promise<void> {
     const active = this.active;
     if (
@@ -1386,6 +1457,22 @@ export class RunController {
     }
     if (this.active !== active || active.desired || route?.execution?.closed)
       return;
+    const owner = active.run.tasks.find(
+      (t) => t.id === (route?.taskId ?? active.run.currentTaskId),
+    );
+    const permission = active.run.permissions.find((p) => p.id === requestId);
+    if (
+      permission &&
+      autoApproves(permission.permission, {
+        ...rolePolicy(owner?.role ?? active.run.role),
+        permissionMode: active.run.settings.permissionMode,
+      })
+    ) {
+      (
+        route?.execution?.approvedPermissions ??
+        (active.approvedPermissions ??= new Set())
+      ).add(`${owner?.id ?? "direct"}:${nativeId}`);
+    }
     active.run.permissions = active.run.permissions.filter(
       (p) => p.id !== requestId,
     );
@@ -1486,6 +1573,7 @@ export class RunController {
     mode: "direct" | "team",
     workContext?: WorkChatSnapshot,
     imageIds?: string[],
+    leadAdmission = false,
   ): FollowUp {
     this.store.project(projectId);
     this.store.conversations.context(conversationId, projectId);
@@ -1502,6 +1590,7 @@ export class RunController {
     const waiting = !!this.active && !held;
     this.store.images.refs(projectId, conversationId, imageIds);
     return this.store.queue.add({
+      leadAdmission,
       imageIds,
       workContext,
       projectId,
@@ -1558,6 +1647,7 @@ export class RunController {
           q.settings,
           q.workContext,
           q.imageIds,
+          q.leadAdmission,
         );
         return { id: run.id, value: run };
       });
@@ -1602,6 +1692,7 @@ export class RunController {
       undefined,
       previous.workContext,
       previous.imageIds,
+      previous.leadAdmission,
     );
   }
   async recovery(id: string): Promise<RecoveryPreview> {
@@ -1676,6 +1767,7 @@ export class RunController {
       undefined,
       previous.workContext,
       previous.imageIds,
+      previous.leadAdmission,
     );
     const active = this.active!;
     active.run.recoveryOf = previous.id;

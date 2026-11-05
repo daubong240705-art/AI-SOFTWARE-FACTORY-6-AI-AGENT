@@ -127,6 +127,87 @@ function request(set: QuestionSet) {
   };
 }
 
+test("Lead answer continuation links its accepted plan without rewriting question answers or original report", () => {
+  const s = setup();
+  try {
+    s.run.leadAdmission = true;
+    const set = publish(s.store, s.run),
+      input = request(set);
+    const originalReport = s.store.reports.capture({
+      projectId: s.project.id,
+      runId: s.run.id,
+    });
+    const controller = new RunController(
+      s.store,
+      join(s.directory, "data"),
+      () => undefined,
+    );
+    s.store.queue.add({
+      projectId: s.project.id,
+      conversationId: s.conversation.id,
+      prompt: "Held",
+      role: "lead",
+      mode: "team",
+      settings: s.run.settings,
+      afterRunId: null,
+      state: "held",
+      reason: "No provider",
+    });
+    const answered = controller.answerQuestions(input);
+    assert.equal(s.store.board.summaries(s.project.id).length, 0);
+    const followUp = s.store.queue.get(answered.receipt!.followUpId!);
+    assert.equal(followUp.leadAdmission, true);
+    const continuation = fixture(s.project.id, s.conversation.id, s.source, {
+      leadAdmission: true,
+      prompt: followUp.prompt,
+    });
+    s.store.queue.claim(followUp.id, () => {
+      s.store.createRun(continuation);
+      return { id: continuation.id, value: continuation };
+    });
+    const work = s.store.admitPlan(continuation, {
+      blockedReason: null,
+      testingReason: "Docs fixture",
+      tasks: [
+        {
+          id: "t1",
+          role: "be",
+          title: "Document scope",
+          instructions: "Docs",
+          acceptance: ["Scope documented"],
+          allowedPaths: ["README.md"],
+          dependsOn: [],
+        },
+      ],
+    });
+    const linked = s.store.questions.get(input);
+    assert.equal(linked.workItemId, work.itemId);
+    assert.deepEqual(linked.answers, answered.answers);
+    assert.equal(work.title, s.run.prompt);
+    assert.equal(
+      s.store.board.contextForRun(s.project.id, s.run.id)?.itemId,
+      work.itemId,
+    );
+    assert.deepEqual(
+      s.store.reports.capture({ projectId: s.project.id, runId: s.run.id }),
+      originalReport,
+    );
+    assert.equal(
+      controller.answerQuestions(input).receipt!.runId,
+      continuation.id,
+    );
+    assert.equal(
+      s.store.runs().length,
+      2,
+      "replayed answer must not create another run",
+    );
+    assert.equal(s.store.board.summaries(s.project.id).length, 1);
+  } finally {
+    s.store.close();
+    rmSync(s.directory, { recursive: true, force: true });
+  }
+});
+
 test("versioned Lead questions preserve legacy decisions, reject malformed options and never schedule work", async () => {
   assert.equal(leadDecisionSchema.safeParse({ reply: "Chào" }).success, true);
   assert.equal(

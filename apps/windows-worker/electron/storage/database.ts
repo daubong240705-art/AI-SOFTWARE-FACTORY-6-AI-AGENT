@@ -21,6 +21,7 @@ import {
   type WorkChatSnapshot,
 } from "../../shared/chat";
 import type { BoardRun } from "../../shared/board";
+import { validatePlan, type TeamPlan } from "../../shared/team";
 import { EvidenceStore } from "./evidence";
 import { failure } from "../runtime/failure";
 import { redact } from "../runtime/security";
@@ -230,7 +231,8 @@ export class Store {
       const result = launch(snapshot),
         state: ChatReceipt["state"] = result.followUpId ? "queued" : "running";
       this.images.sent(data.projectId, data.conversationId, data.imageIds);
-      if (snapshot) this.board.attachChat(data.requestId, snapshot, result);
+      if (snapshot && !data.admission)
+        this.board.attachChat(data.requestId, snapshot, result);
       this.db
         .prepare("INSERT INTO chat_requests VALUES (?,?,?,?,?,?,?,?,?)")
         .run(
@@ -245,6 +247,130 @@ export class Store {
           snapshot?.itemId ?? null,
         );
       return { requestId: data.requestId, ...result, state };
+    })();
+  }
+  admitPlan(run: Run, plan: TeamPlan): WorkChatSnapshot {
+    // No in-memory mutation until this transaction commits. A failed link must
+    // prevent dispatch and must not leave an item, counter or receipt behind.
+    return this.db.transaction(() => {
+      const stored = this.run(run.id);
+      validatePlan(plan, run.settings);
+      if (plan.blockedReason || !plan.tasks.length)
+        throw Error("Chưa có kế hoạch thực thi hợp lệ.");
+      if (
+        run.mode !== "team" ||
+        stored.projectId !== run.projectId ||
+        stored.conversationId !== run.conversationId ||
+        !isActive(stored.state)
+      )
+        throw Error("Lượt nhận kế hoạch không còn hợp lệ.");
+      this.project(run.projectId);
+      if (!run.conversationId) throw Error("Kế hoạch cần hội thoại.");
+      this.conversations.context(run.conversationId, run.projectId);
+      const linked = this.board.runReference(run.id) as {
+        itemId: string;
+        revision: number;
+        title: string;
+        body: string;
+        criteria: string;
+      } | null;
+      let work: WorkChatSnapshot;
+      if (linked) {
+        // Existing Board submissions/retries keep their original snapshot.
+        const item = this.board.item(linked.itemId);
+        if (item.projectId !== run.projectId)
+          throw Error("Công việc không thuộc dự án.");
+        work = run.workContext ?? {
+          projectId: run.projectId,
+          itemId: item.id,
+          code: item.code,
+          title: linked.title,
+          body: linked.body,
+          criteria: JSON.parse(linked.criteria),
+          notes: [],
+          revision: linked.revision,
+          conversationId: run.conversationId,
+        };
+      } else if (run.workContext) {
+        work = this.board.chatSnapshot(
+          run.projectId,
+          run.workContext.itemId,
+          run.workContext.revision,
+          run.conversationId,
+        );
+      } else {
+        const question = this.db
+          .prepare(
+            `SELECT source_run_id FROM question_sets WHERE id IN
+          (SELECT request_id FROM chat_requests WHERE run_id=?) AND state='answered'`,
+          )
+          .get(run.id) as { source_run_id: string } | undefined;
+        const original = question
+          ? this.run(question.source_run_id).prompt
+          : run.prompt;
+        const item = this.board.create({
+          projectId: run.projectId,
+          title:
+            original
+              .split("\n")
+              .find((line) => line.trim())
+              ?.trim()
+              .slice(0, 160) || plan.tasks[0].title,
+          body: original.slice(0, 12000),
+          criteria: [
+            ...new Set(plan.tasks.flatMap((task) => task.acceptance)),
+          ].slice(0, 30),
+          priority: 0,
+          suggestedRole: null,
+          planningState: "ready",
+        });
+        this.db
+          .prepare("UPDATE board_items SET conversation_id=? WHERE id=?")
+          .run(run.conversationId, item.id);
+        work = this.board.chatSnapshot(
+          run.projectId,
+          item.id,
+          item.revision,
+          run.conversationId,
+        );
+      }
+      if (!linked) {
+        this.board.attachChat(`plan:${run.id}`, work, {
+          runId: run.id,
+          followUpId: null,
+        });
+        if (run.retryOf) {
+          const submission = this.board.runReference(run.id) as {
+            submissionId: string;
+          };
+          this.db
+            .prepare(
+              `INSERT OR IGNORE INTO work_attempts(run_id,submission_id)
+            SELECT id,? FROM runs WHERE project_id=? AND COALESCE(json_extract(value,'$.attemptRoot'),id)=?`,
+            )
+            .run(
+              submission.submissionId,
+              run.projectId,
+              run.attemptRoot ?? run.id,
+            );
+        }
+      }
+      this.db
+        .prepare(
+          `UPDATE chat_requests SET work_item_id=? WHERE run_id IN
+        (SELECT id FROM runs WHERE project_id=? AND COALESCE(json_extract(value,'$.attemptRoot'),id)=?)`,
+        )
+        .run(work.itemId, run.projectId, run.attemptRoot ?? run.id);
+      // Preserve submitted answer contents and the source run/report snapshots.
+      // Only the answered set's navigation ref is linked to this accepted plan.
+      this.db
+        .prepare(
+          `UPDATE question_sets SET work_item_id=?,revision=? WHERE id IN
+        (SELECT request_id FROM chat_requests WHERE run_id=?) AND work_item_id IS NULL AND state='answered'`,
+        )
+        .run(work.itemId, work.revision, run.id);
+      this.updateRun({ ...run, workContext: work });
+      return work;
     })();
   }
   projects(): Project[] {
@@ -458,7 +584,8 @@ export class Store {
        FROM json_each(ranked.value,'$.tasks') t) AS tasks,
       COALESCE(json_array_length(value,'$.changes'),0) AS changes,json_extract(value,'$.error') AS error
       FROM ranked
-      WHERE rn=1 ORDER BY created_at DESC,id DESC`,
+      WHERE rn=1 AND (COALESCE(json_extract(value,'$.leadAdmission'),0)=0 OR EXISTS
+        (SELECT 1 FROM work_attempts a WHERE a.run_id=ranked.id)) ORDER BY created_at DESC,id DESC`,
       )
       .iterate(projectId);
     for (const row of rows as Iterable<Record<string, unknown>>)

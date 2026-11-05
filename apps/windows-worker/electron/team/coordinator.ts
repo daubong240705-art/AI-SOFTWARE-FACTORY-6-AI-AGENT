@@ -5,6 +5,7 @@ import {
   leadDecisionSchema,
   validatePlan,
   type TeamTask,
+  type TeamPlan,
   type TeamReview,
   type EvidenceReview,
 } from "../../shared/team";
@@ -139,6 +140,7 @@ export async function coordinate(
     integrate?(task: TeamTask): Promise<void>;
     currentWorkspace?(): string;
   },
+  admitPlan?: (plan: TeamPlan) => Promise<void> | void,
 ): Promise<void> {
   const parallel = run.settings.teamExecution === "isolated-pair";
   async function perform(task: TeamTask, prompt: string): Promise<string> {
@@ -374,6 +376,9 @@ export async function coordinate(
   }
   const plan = decision;
   if (plan.blockedReason) throw new TeamBlocked(plan.blockedReason);
+  check();
+  await admitPlan?.(plan);
+  check();
   const work: TeamTask[] = plan.tasks.map((t) => ({
     ...newTask(run, { ...t, kind: "work" }),
     originalTaskId: t.id,

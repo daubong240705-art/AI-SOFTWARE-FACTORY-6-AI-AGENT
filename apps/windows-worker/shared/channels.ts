@@ -1,4 +1,5 @@
 export const channels = {
+  grantRunAccess: "worker:grant-run-access",
   importChatImage: "worker:image-import",
   removeChatImage: "worker:image-remove",
   gitSnapshot: "worker:git-snapshot",

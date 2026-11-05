@@ -84,6 +84,7 @@ export function Popover({
           aria-label={label}
           className="ui-popover-panel"
           onClick={(event) => {
+            if ((event.target as Element).closest(".ui-select")) return;
             if ((event.target as Element).closest("button")) {
               setOpen(false);
               trigger.current?.focus();

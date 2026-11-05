@@ -315,6 +315,7 @@ export interface WorkerAPI {
     requestId: string;
     allow: boolean;
   }): Promise<Reply<void>>;
+  grantRunAccess(runId: string): Promise<Reply<void>>;
   bootstrap(): Promise<Reply<Bootstrap>>;
   chooseProject(): Promise<Reply<Project | null>>;
   openProject(id: string): Promise<Reply<Project>>;

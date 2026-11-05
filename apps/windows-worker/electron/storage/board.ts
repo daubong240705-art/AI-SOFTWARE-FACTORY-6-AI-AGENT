@@ -503,15 +503,24 @@ export class BoardStore {
   }
   contextForRun(projectId: string, runId: string): WorkChatContext | null {
     const run = this.db
-      .prepare("SELECT id FROM runs WHERE id=? AND project_id=?")
-      .get(runId, projectId);
+      .prepare("SELECT value FROM runs WHERE id=? AND project_id=?")
+      .get(runId, projectId) as { value: string } | undefined;
     if (!run) throw new Error("Lượt chạy không thuộc dự án.");
     const row = this.db
       .prepare(
         "SELECT s.item_id FROM work_attempts a JOIN work_submissions s ON s.id=a.submission_id WHERE a.run_id=?",
       )
       .get(runId) as { item_id: string } | undefined;
-    return row ? this.workChat({ projectId, itemId: row.item_id }) : null;
+    const question = this.db
+      .prepare(
+        "SELECT work_item_id AS itemId FROM question_sets WHERE source_run_id=?",
+      )
+      .get(runId) as { itemId: string | null } | undefined;
+    const itemId =
+      row?.item_id ??
+      normalizeRun(JSON.parse(run.value)).workContext?.itemId ??
+      question?.itemId;
+    return itemId ? this.workChat({ projectId, itemId }) : null;
   }
   chatSnapshot(
     projectId: string,

@@ -34,6 +34,7 @@ import type { RuntimeView as View } from "../../shared/runs";
 import { useRunDetail } from "../lib/use-run-detail";
 import { runCapabilities } from "../../shared/inspector";
 import { isActive, runLabels } from "../../shared/runs";
+import { workStateView } from "../../shared/work-state";
 import type {
   ChatSend,
   ConversationDetail,
@@ -132,7 +133,7 @@ export function ChatHost({
   const [busy, setBusy] = useState(false);
   const [draftState, setDraftState] = useState("");
   const [mode, setMode] = useState<"team" | "direct">("team");
-  const [role, setRole] = useState<Role>("be");
+  const [role, setRole] = useState<Role>("lead");
   useEffect(() => {
     if (leadFocusVersion) {
       setMode("team");
@@ -443,6 +444,7 @@ export function ChatHost({
           : {}),
         role: roleForModel,
         mode,
+        ...(mode === "team" ? { admission: "lead" as const } : {}),
         ...(workContext
           ? {
               workContext: {
@@ -462,8 +464,11 @@ export function ChatHost({
       }
       if (
         !requestRef.current ||
-        JSON.stringify({ ...requestRef.current, requestId: undefined }) !==
-          JSON.stringify(intent)
+        JSON.stringify({
+          ...requestRef.current,
+          requestId: undefined,
+          admission: undefined,
+        }) !== JSON.stringify({ ...intent, admission: undefined })
       )
         requestRef.current = { ...intent, requestId: crypto.randomUUID() };
       try {
@@ -553,6 +558,14 @@ export function ChatHost({
         }),
       );
       setRefresh((n) => n + 1);
+    });
+  }
+  async function grantRunAccess() {
+    if (!current || currentFeed.stale || currentFeed.error) return;
+    await action(async () => {
+      await unwrap(window.worker.grantRunAccess(current.run.id));
+      await currentFeed.refresh?.();
+      onChanged();
     });
   }
   function showDetails(runId: string, tab: string) {
@@ -842,7 +855,14 @@ export function ChatHost({
                       )}
                       {message.role === "assistant" && (
                         <span className={`run-state ${message.state}`}>
-                          {runLabels[message.state]}
+                          {current?.run.id === message.runId
+                            ? workStateView(current.run, {
+                                stale: currentFeed.stale,
+                                questionState: chat?.questionSets?.find(
+                                  (set) => set.sourceRunId === message.runId,
+                                )?.state,
+                              }).label
+                            : runLabels[message.state]}
                         </span>
                       )}
                     </div>
@@ -1087,6 +1107,18 @@ export function ChatHost({
                   >
                     Cho phép
                   </button>
+                  {["bash", "doom_loop"].includes(p.permission) && (
+                    <button
+                      disabled={
+                        busy || currentFeed.stale || !!currentFeed.error
+                      }
+                      onClick={() => void grantRunAccess()}
+                    >
+                      {current.run.settings.permissionMode === "full-access"
+                        ? "Duyệt quyền còn chờ"
+                        : "Full access cho lượt này"}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -1112,7 +1144,9 @@ export function ChatHost({
                 aria-label="Nhắn tin cho agent"
                 placeholder={
                   project
-                    ? "Nhắn cho Lead hoặc giao việc…"
+                    ? mode === "team"
+                      ? "Trao đổi công việc với Lead…"
+                      : `Nhắn cho ${role.toUpperCase()}…`
                     : "Chọn dự án để bắt đầu"
                 }
                 value={draft}
@@ -1167,53 +1201,66 @@ export function ChatHost({
                   >
                     <ImagePlus size={16} />
                   </button>
-                  <Select
-                    aria-label="Chế độ thực thi"
-                    value={mode}
-                    onValueChange={(value) =>
-                      setMode(value as "team" | "direct")
-                    }
-                    disabled={busy || !!activeId}
+                  <span className="chat-recipient">
+                    {mode === "team" ? "Lead" : role.toUpperCase()}
+                  </span>
+                  <Popover
+                    label="Tùy chọn trao đổi"
+                    icon={<Settings2 size={15} />}
                   >
-                    <option value="team">Lead</option>
-                    <option value="direct">Một agent</option>
-                  </Select>
-                  {mode === "direct" && (
                     <Select
-                      aria-label="Vai trò thực thi"
-                      value={role}
-                      onValueChange={(value) => setRole(value as Role)}
+                      aria-label="Chế độ thực thi"
+                      value={mode}
+                      onValueChange={(value) =>
+                        setMode(value as "team" | "direct")
+                      }
                       disabled={busy || !!activeId}
                     >
-                      {settings.agents
-                        .filter((a) => a.enabled)
-                        .map((a) => (
-                          <option key={a.role} value={a.role}>
-                            {a.role.toUpperCase()}
+                      <option value="team">Lead</option>
+                      <option value="direct">Một agent</option>
+                    </Select>
+                    {mode === "direct" && (
+                      <Select
+                        aria-label="Vai trò thực thi"
+                        value={role}
+                        onValueChange={(value) => setRole(value as Role)}
+                        disabled={busy || !!activeId}
+                      >
+                        {settings.agents
+                          .filter((a) => a.enabled)
+                          .map((a) => (
+                            <option key={a.role} value={a.role}>
+                              {a.role.toUpperCase()}
+                            </option>
+                          ))}
+                      </Select>
+                    )}
+                    <Select
+                      aria-label={`Model ${roleForModel.toUpperCase()}`}
+                      title={model || "Chọn model"}
+                      value={model}
+                      onValueChange={(value) => setModel(roleForModel, value)}
+                      disabled={busy || !!activeId}
+                    >
+                      <option value="">Chọn model</option>
+                      {[...new Set([model, ...models])]
+                        .filter(Boolean)
+                        .map((m) => (
+                          <option key={m} value={m}>
+                            {m}
                           </option>
                         ))}
                     </Select>
-                  )}
-                  <Select
-                    aria-label={`Model ${roleForModel.toUpperCase()}`}
-                    title={model || "Chọn model"}
-                    value={model}
-                    onValueChange={(value) => setModel(roleForModel, value)}
-                    disabled={busy || !!activeId}
-                  >
-                    <option value="">Chọn model</option>
-                    {[...new Set([model, ...models])]
-                      .filter(Boolean)
-                      .map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                  </Select>
+                    <button onClick={onSettings}>Cấu hình đội agent</button>
+                  </Popover>
                   <Select
                     aria-label="Quyền thực thi"
                     title="Full access tự duyệt lệnh bằng quyền Windows của bạn. Giữ phạm vi vai trò và giới hạn lượt chạy."
-                    value={settings.permissionMode ?? "ask"}
+                    value={
+                      currentActive
+                        ? (current.run.settings.permissionMode ?? "ask")
+                        : (settings.permissionMode ?? "ask")
+                    }
                     onValueChange={(value) =>
                       setPermissionMode(value as Settings["permissionMode"])
                     }
@@ -1222,14 +1269,6 @@ export function ChatHost({
                     <option value="ask">Hỏi trước khi chạy</option>
                     <option value="full-access">Full access</option>
                   </Select>
-                  <button
-                    className="icon-button"
-                    aria-label="Cấu hình đội agent"
-                    title="Đội agent và giới hạn"
-                    onClick={onSettings}
-                  >
-                    <Settings2 size={15} />
-                  </button>
                 </div>
                 {activeId ? (
                   <button
@@ -1270,7 +1309,7 @@ export function ChatHost({
               <span>
                 {draftState ||
                   (activeId
-                    ? "Enter thêm hàng chờ · Shift+Enter xuống dòng"
+                    ? "Enter gửi Lead · Chờ lượt hiện tại kết thúc"
                     : "Enter gửi · Shift+Enter xuống dòng")}
               </span>
               {project && !conversationId && (

@@ -150,8 +150,18 @@ export function WorkItemPanel({
     let timer: ReturnType<typeof setTimeout>;
     async function poll() {
       try {
-        const chat = await value(window.worker.conversation(id!));
+        const [chat, nextDetail] = await Promise.all([
+          value(window.worker.conversation(id!)),
+          value(window.worker.workItemDetail({ projectId, itemId })),
+        ]);
         if (live) {
+          setDetail((previous) =>
+            previous?.item.version === nextDetail.item.version &&
+            JSON.stringify(previous.submissions) ===
+              JSON.stringify(nextDetail.submissions)
+              ? previous
+              : nextDetail,
+          );
           setQuestions(
             (chat.questionSets ?? []).filter(
               (set) => set.workItemId === itemId,
@@ -790,6 +800,11 @@ export function WorkItemPanel({
                 projectId={projectId}
                 runId={currentRun}
                 onInspect={onInspect}
+                questionState={
+                  questions.find((set) => set.sourceRunId === currentRun)?.state
+                }
+                onRequirements={() => void changeTab("requirements")}
+                onResult={() => void changeTab("result")}
               />
             )}
             <details
