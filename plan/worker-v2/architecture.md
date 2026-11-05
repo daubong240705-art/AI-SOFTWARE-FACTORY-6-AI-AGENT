@@ -2,6 +2,8 @@
 
 Trạng thái: thiết kế đề xuất, chưa phải API/schema đã triển khai. Đọc [phạm vi](README.md), [nghiên cứu](research.md) và [kế hoạch triển khai](implementation.md).
 
+Mở rộng đa lĩnh vực: [multidomain.md](multidomain.md) quy định goals, domain packs, workspace không Git, media assets, jobs, resource/budget admission và review. Các phần source/Git/FE/BE bên dưới chỉ áp dụng cho workflow phần mềm; không phải precondition cho mọi task.
+
 ## 1. Ranh giới hệ thống
 
 ```mermaid
@@ -75,7 +77,7 @@ interface ExecutionHandle {
 
 `RuntimeProbe` trả version, auth readiness không lộ secret, capabilities và compatibility errors. Capability phải phân biệt `supported`, `unsupported`, `unverified`: models discovery, resume, live input, interrupt, skills, MCP, structured output, usage, policy enforcement. Model catalog có thể là danh sách do runtime cung cấp hoặc cấu hình tường minh có nhãn nguồn; không giả danh sách đó đã được provider xác nhận.
 
-`ExecutionInput` chứa task/revision/attempt, immutable agent snapshot, worktree, source fingerprint, artifact refs, tool grants và budget/deadline. `ResumeInput` kiểm tra lại runtime/provider/config fingerprint; thay policy/skill/tool config không tương thích thì tạo session mới với context bàn giao. Không tự đổi model hoặc runtime khi lỗi.
+`ExecutionInput` chứa task/revision/attempt, immutable agent snapshot, workspace binding (worktree khi là code), input artifact fingerprints, source fingerprint khi có, tool grants và budget/deadline. `ResumeInput` kiểm tra lại runtime/provider/config fingerprint; thay policy/skill/tool config không tương thích thì tạo session mới với context bàn giao. Không tự đổi model hoặc runtime khi lỗi.
 
 Event chung gồm: session started, text delta, tool started/completed, artifact reported, usage checkpoint, progress, question, error, terminal. Giữ native metadata cần chẩn đoán trong log có redaction; không cố chuyển mọi event thành nội dung Chat. Chi phí không biết hiển thị `unknown`; usage cumulative phải tính delta theo session/checkpoint.
 
@@ -171,7 +173,7 @@ Agent trả lời trực tiếp agent khác theo task thread, nhưng không tự
 
 Task state: `backlog → ready → running → review → done`; nhánh `waiting`, `blocked`, `failed`, `cancelled`. Các reason code chi tiết gồm dependency, contract, file lock, runtime offline, quota, question, integration conflict. Board có thể gom các state thành cột dễ đọc nhưng không thay đổi state machine ở client.
 
-Một task chỉ ready khi assignee khả dụng, dependency/contract/source thỏa, quyền hợp lệ và đủ slot. Scheduler thực hiện claim nguyên tử với owner/lease/epoch; completion cần đúng epoch/revision/attempt. Lease hết hạn chưa đủ để chạy lại: phải đối chiếu process trước. Cancel/reassign tăng epoch và ngăn kết quả cũ ghi đè; terminal state chỉ được xác nhận sau khi xử lý ownership/process.
+Một task chỉ ready khi assignee khả dụng, dependency/input contract thỏa, source đã sẵn sàng nếu cần Git, quyền hợp lệ và đủ resource/budget slot. Scheduler thực hiện claim nguyên tử với owner/lease/epoch; completion cần đúng epoch/revision/attempt. Lease hết hạn chưa đủ để chạy lại: phải đối chiếu process/job trước. Cancel/reassign tăng epoch và ngăn kết quả cũ ghi đè; terminal state chỉ được xác nhận sau khi xử lý ownership/process. Job render/compute có lifecycle riêng và đánh thức task bằng sự kiện khi xong.
 
 Giới hạn đồng thời theo global/project/agent/connection/account và file scopes. Default gợi ý hai writer độc lập; mọi process Lead/reader/tool vẫn có budget, không mặc định vô hạn. Giới hạn dựa trên phép đo CPU/RAM/quota thực tế, không cam kết theo cấu hình VM cũ.
 
@@ -185,7 +187,7 @@ Recovery phân loại: lỗi bootstrap có bằng chứng chưa bắt đầu th�
 
 ## 8. Artifact và handoff
 
-Artifact chuẩn: requirement, data model, ERD/Mermaid, API contract/OpenAPI, decision, patch/commit, test report, review. Nội dung bất biến theo version, lưu file trong data directory có hash và index SQLite; DB có thể lưu body nhỏ. Không tự đưa mọi artifact vào source repo; người dùng có thể xem/xuất, và chỉ ghi vào workspace khi task yêu cầu.
+Artifact chuẩn gồm tài liệu (requirement, data model, ERD/Mermaid, contract, decision), code (patch/commit, test report), ảnh/âm thanh/video/dữ liệu và review. Nội dung bất biến theo version, lưu file trong data directory có hash và index SQLite; DB có thể lưu body nhỏ. Media binary/proxy không đưa nguyên khối qua IPC. Không tự đưa mọi artifact vào source repo; người dùng có thể xem/xuất, và chỉ ghi vào workspace khi task yêu cầu. Deliverable và review decision gắn đúng version, tiêu chí theo loại đầu ra như thiết kế mở rộng.
 
 Handoff tối thiểu có: kết quả, artifact refs, source/commit fingerprint, acceptance evidence, việc chưa xong, blocker và bước đề nghị tiếp theo. Consumer tải nội dung cần dùng, không chỉ nhận một summary có giới hạn ký tự.
 

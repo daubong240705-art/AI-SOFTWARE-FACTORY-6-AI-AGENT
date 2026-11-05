@@ -2,6 +2,8 @@
 
 Ngày: 05/11/2026. Đây là khảo sát tĩnh source và tài liệu, **không phải kết quả chạy thử các sản phẩm tham khảo**. Không chạy script, installer, hook hoặc skill lấy từ repo ngoài. Không chép source hay asset upstream vào sản phẩm.
 
+Nghiên cứu mở rộng cùng ngày về goals, org/delegation, routines, documents/work products, completion contracts và budget: [Paperclip cho đội đa lĩnh vực](paperclip-multidomain-research.md). Kết quả áp dụng và giới hạn 2.0/2.1 trong [thiết kế mở rộng](multidomain.md).
+
 Manifest đường dẫn, revision và SHA-256: [sources.json](../../research/worker-v2/sources.json). Các bản tải nằm trong `.cache/worker-v2-research/`, bị Git ignore. Snapshot là commit được GitHub trả về tại thời điểm khảo sát; không tự cập nhật theo nhánh upstream.
 
 ## 1. ASF hiện tại

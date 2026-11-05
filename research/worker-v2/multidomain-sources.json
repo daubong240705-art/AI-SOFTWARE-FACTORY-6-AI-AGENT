@@ -1,0 +1,290 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-11-05T15:39:00.486268+00:00",
+  "user_facing_date": "2026-11-05",
+  "design_baseline": "1e01391",
+  "checkpoint": "checkpoint/worker-v2-multidomain-20261105",
+  "scope": "Paperclip static source/docs research for multidomain agents, goals, delegation, routines, work products, budgets and long-running jobs.",
+  "repository": "https://github.com/paperclipai/paperclip",
+  "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+  "root_license": "MIT",
+  "license_evidence": "research/worker-v2/sources.json",
+  "upstream_scripts_executed": false,
+  "upstream_code_copied_to_product": false,
+  "runtime_or_database_modified": false,
+  "method": "Downloaded pinned source as reference data. Relevant schema/services and selected branches were inspected; this is not an execution or full repository audit.",
+  "files": [
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "README.md",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/README.md",
+      "sha256": "7025291164ffbbe092528c0b818c95326bf662f40dc482f6fe5347de8e138f01",
+      "bytes": 35773
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "docs/guides/board-operator/org-structure.md",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/docs/guides/board-operator/org-structure.md",
+      "sha256": "335e6ddf04a945553f42d9ee09e5ebbaf346dc04a7cf5eff4faafcc07cc8d2d7",
+      "bytes": 1491
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "docs/guides/board-operator/delegation.md",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/docs/guides/board-operator/delegation.md",
+      "sha256": "371f99aa566a5a74d9039d7f82c329dbe5c72b9bcde263a69fcc92c6429d08e9",
+      "bytes": 6205
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "docs/guides/board-operator/costs-and-budgets.md",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/docs/guides/board-operator/costs-and-budgets.md",
+      "sha256": "aad32a8278a1c8aafca56ae742b31aba98c15d3b361372e92b83b46340dd9f32",
+      "bytes": 1918
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "docs/guides/board-operator/execution-workspaces-and-runtime-services.md",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/docs/guides/board-operator/execution-workspaces-and-runtime-services.md",
+      "sha256": "1a84424713449c299b2931ab8dc0a7b0a1d0bb6dd13630bd9f1e8cb3351e4ffd",
+      "bytes": 11050
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "docs/guides/agent-developer/comments-and-communication.md",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/docs/guides/agent-developer/comments-and-communication.md",
+      "sha256": "77f716ca78f6be8045301ecb39c972d0366e02d06cdc200e43e9f978dbb3f2f9",
+      "bytes": 4370
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "docs/guides/agent-developer/heartbeat-protocol.md",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/docs/guides/agent-developer/heartbeat-protocol.md",
+      "sha256": "f44bdf67a19d0ffdbb10c2030aab168cf8d6d29cd84e6f1c4d76fdc8c032d381",
+      "bytes": 5484
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/goals.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/goals.ts",
+      "sha256": "357bab85625dd0afe33059edc8a6f6f9ad757c46f691fe2d287bfab6dc40945e",
+      "bytes": 955
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/projects.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/projects.ts",
+      "sha256": "093b6bcd810daadc5d84b4bf6ff5323a12a266989c0877ac63818cddd8dcbf37",
+      "bytes": 2220
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/issues.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/issues.ts",
+      "sha256": "93292cb682ea5da639444f4b612f40c8681389272dae2b51272313856f0d2602",
+      "bytes": 12570
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/approvals.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/approvals.ts",
+      "sha256": "71089e2b93e7cee4976f3ce52740895ec75d168ceda200407bc58e4874a598a5",
+      "bytes": 1317
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/assets.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/assets.ts",
+      "sha256": "eea952ffd860a093e47690f3786d6ed69ca73cef12a02ab800326f96e2ee2f85",
+      "bytes": 1274
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/documents.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/documents.ts",
+      "sha256": "b3e348e180fd67971d1222a1e2229f016a60e2c4911c8b20c2d4d291ceec52d5",
+      "bytes": 1920
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/routines.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/routines.ts",
+      "sha256": "6d6992abe2c1b800798884e40e455df0875f4eec343f7c8c3e4f3ed6898a1366",
+      "bytes": 10234
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/workflows.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/workflows.ts",
+      "sha256": "5e9c91413a8d64ff8ef8ddb5f81454cf3a902bb63c98424ab52b0179142ff9dc",
+      "bytes": 825
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/work_assessments.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/work_assessments.ts",
+      "sha256": "e1b45a14c8138b91646c116405a4df1fe0af88f16f0bdca113cb2eef83bddc5b",
+      "bytes": 3443
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/cost_events.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/cost_events.ts",
+      "sha256": "40393d8df6985c0602690fbccd50894c94c5689bde0676f4b2b40e63a5806e57",
+      "bytes": 4474
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "server/src/services/goals.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/goals.ts",
+      "sha256": "9fb73af5066b950718e2e679b66788ce880f7e0830664d31646499652142b2a9",
+      "bytes": 2153
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "server/src/services/budgets.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/budgets.ts",
+      "sha256": "a56672b49591f6eb2ffa2795001a502f2fc954b5216b4ce3f1b81d2d999d8aa8",
+      "bytes": 69322
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "server/src/services/routines.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/routines.ts",
+      "sha256": "3fc1cf6c7c87bf2f5bfaa0361e0b5979a5b28a57804588e915e32af42ae14178",
+      "bytes": 135308
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "server/src/services/workflows.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/workflows.ts",
+      "sha256": "3dd17c345ff98ddb0557d6960c44f2edb37f1730a362ad477e7c3c6bb3d7ccc5",
+      "bytes": 3812
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "server/src/services/work-products.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/work-products.ts",
+      "sha256": "722df78e4a6af9bd7a6bb6aa4671d2901bf425d2ffab0ba5834da6ad6bd87965",
+      "bytes": 18360
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "server/src/services/assets.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/assets.ts",
+      "sha256": "96f066cfb7450b11ad65af5e0c51dac26d1ca36cc36b5c6d452b7ee023e392d5",
+      "bytes": 549
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "server/src/services/documents.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/documents.ts",
+      "sha256": "8e0f89bf3d3f89d98797ad8a2b3c6d54b51db9ad9b39052baaeb23726ebb12f5",
+      "bytes": 33290
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "server/src/services/approvals.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/approvals.ts",
+      "sha256": "6ccbc3d04b59735a596645bb1da1a9da9e63dad86a4b49defb2636ef5ae98f34",
+      "bytes": 8518
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/issue_work_products.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/issue_work_products.ts",
+      "sha256": "b4c1229b2575fad437989a2cd74d2e0954dab17eaff59db25f19f8e272425601",
+      "bytes": 2669
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/completion_contracts.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/completion_contracts.ts",
+      "sha256": "b319c03d903caf16ee866e8bd27b56ccedcfa06cd5381a7f23c2aa31e68345a7",
+      "bytes": 2070
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/native_run_results.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/native_run_results.ts",
+      "sha256": "a6b790e6dbf42a4eba34057738e7db6cc13e0e762f9d005db225733a8e37b449",
+      "bytes": 2710
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/document_revisions.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/document_revisions.ts",
+      "sha256": "5aa74ba1316a382c5663ecdf815a235fbef5d63e36b95c35e6f1c86691ba4717",
+      "bytes": 1511
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/db/src/schema/budget_policies.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/db/src/schema/budget_policies.ts",
+      "sha256": "fd8a1a1d21d700c97a7b3b905992d13711fc7eed1328ff61a53c9cbd95c99460",
+      "bytes": 2300
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/shared/src/types/work-product.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/shared/src/types/work-product.ts",
+      "sha256": "db4c7db2345ed10aff51e08dccbf151271a0d415a257e3ef1221bdea55b55df7",
+      "bytes": 1994
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/shared/src/validators/work-product.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/shared/src/validators/work-product.ts",
+      "sha256": "26549b319831724d106b8a7268fce5d1d510d3015c7878108b3e8591b6c0649e",
+      "bytes": 3385
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "packages/shared/src/types/budget.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/packages/shared/src/types/budget.ts",
+      "sha256": "3ffde822c6a3ce4da7dad5ed6c111f07a0c415e584927328e89026a69c54ccc6",
+      "bytes": 2587
+    },
+    {
+      "repo": "paperclipai/paperclip",
+      "revision": "ea42a2e41715c70a6822a25683136e48e35ae811",
+      "path": "server/src/services/agents.ts",
+      "url": "https://raw.githubusercontent.com/paperclipai/paperclip/ea42a2e41715c70a6822a25683136e48e35ae811/server/src/services/agents.ts",
+      "sha256": "6b555833ad83f79f39fedab0df5e713b7fb6ce5524d2777e3bee5d6f5e4b0ccd",
+      "bytes": 10310
+    }
+  ]
+}

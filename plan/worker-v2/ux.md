@@ -2,17 +2,19 @@
 
 Thiết kế đề xuất. Mục tiêu: người dùng hiểu việc đang diễn ra, biết ai đang xử lý và chỉ thấy hành động cần thiết. Tham khảo luồng CrewHub Loops; dùng component/token riêng của ASF, không đưa 3D vào đợt này.
 
+Mở rộng đa lĩnh vực trong [multidomain.md](multidomain.md): phần dưới dùng nhãn **Đầu ra** thay cho tab **Tài liệu**; tài liệu là một bộ lọc đầu ra. Project có Git hoặc không; agent state và job render state được hiển thị riêng.
+
 ## 1. Điều hướng
 
 ```text
 Sidebar toàn app                   Project đang mở
   Tổng quan                       [Tên dự án]          [+ Công việc]
-  Cần xử lý [số việc]              Công việc | Chat | Tài liệu
+  Cần xử lý [số việc]              Công việc | Chat | Đầu ra
   Đội ngũ                         Khác: Git, Lịch, Thiết lập dự án
   Dự án
     Project A                     Công việc: Board / Danh sách
     Project B                     Chat: Lead + liên kết task
-    + Thêm dự án                  Tài liệu: yêu cầu / thiết kế / kết quả
+    + Thêm dự án                  Đầu ra: tài liệu / ảnh / âm thanh / video / source
   Cài đặt
     Kết nối runtime
     Skills & Tools
@@ -27,7 +29,7 @@ Tổng quan hiển thị việc đang chạy, việc cần quyết định, dự
 
 1. **Thêm kết nối**: chọn Codex/Claude Code/OpenCode; phát hiện executable và version; cấu hình xác thực bằng cơ chế runtime hỗ trợ; hiển thị trạng thái từng bước.
 2. **Tạo đội**: dùng mẫu hoặc tạo agent; chọn tên, nhiệm vụ, connection/model. Một agent hợp lệ đủ để bắt đầu; không bắt tạo đủ đội.
-3. **Chọn project/workspace**: gắn repo, chọn Lead và thành viên; chọn bộ quyền, mức concurrency.
+3. **Chọn project/workspace**: chọn mẫu lĩnh vực hoặc Tự do, gắn repo nếu cần hoặc chọn thư mục/artifact-only; chọn Lead và thành viên, bộ quyền và concurrency.
 4. **Giao việc**: nhập mục tiêu; Lead trả lời và tạo task có liên kết khi cần thực thi.
 
 Không dồn toàn bộ cấu hình nâng cao thành một form dài. Skill/tool là tùy chọn có thể bổ sung sau; lỗi thiếu model/auth phải chỉ tới đúng connection. Không hiện “Sẵn sàng” chỉ vì CLI có trong PATH.
@@ -79,13 +81,15 @@ Agent-to-agent messages hiện trong task thread hoặc timeline chuyên dụng,
 
 Hủy một tin đang gửi, dừng execution và hủy task là ba hành động khác nhau, nhãn và kết quả phải rõ. UI không hiển thị “Đã dừng” khi process vẫn chưa được xác nhận đã kết thúc.
 
-## 6. Tài liệu BA và kết quả
+## 6. Đầu ra, tài liệu BA và kết quả
 
-Trang Tài liệu nhóm theo loại và công việc: yêu cầu, data model/ERD, API contract, quyết định, báo cáo kiểm thử. Mỗi tài liệu có version, tác giả agent, thời gian, source/task liên quan, danh sách task đang dùng và nút xuất.
+Trang Đầu ra nhóm theo loại và công việc: tài liệu, ảnh, âm thanh, video, dữ liệu và source. Nhóm tài liệu gồm yêu cầu, data model/ERD, API contract, quyết định và báo cáo kiểm thử. Mỗi đầu ra có version, tác giả agent, thời gian, source/input/task liên quan, danh sách task đang dùng và nút xuất.
 
 Xem Markdown/Mermaid/JSON/OpenAPI với renderer phù hợp và tùy chọn source. Không cắt nội dung thiết kế chỉ còn summary. Version history/diff là thao tác phụ; contract stale có thông báo cụ thể về task bị ảnh hưởng.
 
-“Kết quả cần xem” chỉ xuất hiện khi cần review/ra quyết định. Tài liệu thông thường vẫn tìm được trong Tài liệu, không tự trở thành việc cần xử lý.
+Media preview dùng poster/proxy/player và metadata thay vì mở binary vào editor text. Review notes có timestamp cho video/audio; job progress ở task detail, tách trạng thái agent. Không xây NLE đầy đủ trong Worker. Quyết định approved chỉ áp dụng version cụ thể; sửa đầu ra cần đối chiếu lại review.
+
+“Kết quả cần xem” chỉ xuất hiện khi cần review/ra quyết định. Tài liệu thông thường vẫn tìm được trong Đầu ra, không tự trở thành việc cần xử lý.
 
 ## 7. Cần xử lý
 
@@ -98,6 +102,8 @@ Dedup theo task/attempt/reason; retry không tạo hàng loạt lỗi giống nh
 Connections: danh sách theo runtime, version, trạng thái auth, provider/model và số execution đang dùng. Nút Kiểm tra chỉ làm probe theo phạm vi hiển thị; gọi model có chi phí là bước kiểm tra riêng có nội dung rõ.
 
 Skills & Tools: hai tab, bộ lọc Installed/Enabled/Needs setup; nguồn, version/commit, giấy phép và agent đang dùng. Import wizard: chọn nguồn → preview → cấu hình → kiểm tra → cài/gắn. Dependencies/hook không tự chạy khi vừa dán URL. Không hiển thị một kho hàng nghìn tool chưa thể dùng như thể đã được cài.
+
+Bộ mẫu lĩnh vực ở bước tạo project và trong thư viện Extensions, không thêm một trang cấu hình bắt buộc. Pack cho biết agent/workflow/tool cần có; thiếu FFmpeg/API auth/encoder thì hiện đúng phần chưa sẵn sàng. Lịch cho biết host cần hoạt động; budget hiện unknown/pending rõ ràng khi chưa đối chiếu chi phí.
 
 Quyền là cấu hình theo profile và capability, không bảng hàng trăm toggle ngay lần đầu. Full access có mô tả phạm vi thực tế ngắn gọn; ranh giới enforced/unsupported truy cập được ở chi tiết.
 
