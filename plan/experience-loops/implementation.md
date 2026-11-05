@@ -1,6 +1,6 @@
 # Kế hoạch triển khai cải thiện trải nghiệm
 
-Trạng thái: **UX-01–06 và UX-07 Git local + ảnh đính kèm + Mermaid đã triển khai; UX-08 chưa triển khai**. Worker `1.3.0-alpha.8` / SQLite **13** sau UX-07 ảnh; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
+Trạng thái: **UX-01–06 và UX-07 Git local + ảnh đính kèm + Mermaid đã triển khai; UX-08 đã có nền tảng U8-01, chưa tích hợp vào app**. Worker `1.3.0-alpha.8` / SQLite **13** sau UX-07 ảnh; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
 
 ## 1. Nguyên tắc triển khai
 
@@ -120,7 +120,7 @@ Git local đọc branch/dirty/history và link work item trước; diff hiện t
 
 ### UX-08 — Lịch và quy tắc đơn giản (P2, sau ổn định)
 
-Thiết kế riêng khi bắt đầu: persistent Schedule/Rule/Delivery trong SQLite, timezone rõ, idempotency theo occurrence, preview hành động, toggle, history và queue chung. Đầu tiên chỉ rule allowlist tạo công việc/tóm tắt, không tùy ý shell từ rule. Graph chỉ là view đọc nếu danh sách chưa đủ.
+Đã có [thiết kế chi tiết và tiến độ U8-01–05](ux08-schedules.md). U8-01 triển khai contract/preview/tính occurrence thuần với timezone, DST và missed policy; chưa có SQLite/timer/UI. Lát cắt đầu chỉ tự tạo backlog, không tự chạy agent. Persistent Schedule/Delivery, unique receipt và transaction sẽ bổ sung ở U8-02. Tóm tắt bằng model để sau khi có ngân sách/chống vòng lặp. Không tùy ý shell từ rule; graph chỉ là view đọc nếu danh sách chưa đủ.
 
 Controller hiện có nhận delivery; không thêm orchestrator. Mỗi lần một active run toàn app. Khi tắt app/ngủ máy, lịch không chạy: hiển thị missed và gộp/bỏ qua theo policy, không chạy bù hàng loạt hay tự cài Windows service. Có giới hạn ngân sách, debounce, chống vòng lặp và nút tắt tất cả. Không coi mẫu minified graph từ ảnh là scope cần triển khai ngay.
 
@@ -182,4 +182,4 @@ UX-01–06 khoảng **16–24 ngày công**, cần điều chỉnh sau UX-02. UX
 
 ## 6. Lát cắt bắt đầu
 
-**UX-01–06 và UX-07 Git local + ảnh đính kèm + Mermaid đã bàn giao.** Remote PR/issues và UX-08 lịch/quy tắc vẫn là các lát cắt tùy chọn cần thiết kế riêng trước khi làm. Không tiếp tục D-05 hoặc dựng lại 3D trong quá trình này.
+**UX-01–06 và UX-07 Git local + ảnh đính kèm + Mermaid đã bàn giao.** UX-08 đã có thiết kế và nền tảng U8-01; tiếp theo U8-02 lưu SQLite/delivery nguyên tử trước khi tích hợp timer và UI. Remote PR/issues chưa triển khai. Không tiếp tục D-05 hoặc dựng lại 3D trong quá trình này.
