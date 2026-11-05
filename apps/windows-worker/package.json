@@ -20,6 +20,7 @@
     "format:check": "prettier --check electron shared src scripts tests *.json electron.vite.config.ts"
   },
   "dependencies": {
+    "@mermaid-js/tiny": "12.3.0",
     "@opencode-ai/sdk": "1.19.5",
     "@react-three/fiber": "9.8.2",
     "better-sqlite3": "13.0.3",

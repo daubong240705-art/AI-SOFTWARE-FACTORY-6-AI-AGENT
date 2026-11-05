@@ -83,7 +83,9 @@ Bỏ project khỏi danh sách không xóa source hoặc hội thoại. Mở l�
 
 ## Ảnh trong chat (UX-07)
 
-[Bàn giao ảnh đính kèm: migration, giới hạn và kiểm chứng](../../docs/windows-worker/ux07-images-completion.md). SQLite 13; nâng từ 12 tạo `worker.schema12.pre-images.backup.sqlite`. Chọn file hoặc dán PNG/JPEG, lưu nháp, xem ảnh lớn, giữ ảnh khi xếp hàng/chạy lại và xuất báo cáo. Tối đa 4 ảnh kèm yêu cầu bằng chữ; gateway/model được chọn phải hỗ trợ đọc ảnh. Sau build chạy `node scripts/run-acceptance.cjs images-ui`. Mermaid chưa triển khai.
+[Bàn giao ảnh đính kèm: migration, giới hạn và kiểm chứng](../../docs/windows-worker/ux07-images-completion.md). SQLite 13; nâng từ 12 tạo `worker.schema12.pre-images.backup.sqlite`. Chọn file hoặc dán PNG/JPEG, lưu nháp, xem ảnh lớn, giữ ảnh khi xếp hàng/chạy lại và xuất báo cáo. Tối đa 4 ảnh kèm yêu cầu bằng chữ; gateway/model được chọn phải hỗ trợ đọc ảnh. Sau build chạy `node scripts/run-acceptance.cjs images-ui`.
+
+[Mermaid](../../docs/windows-worker/ux07-mermaid-completion.md): khối mã `mermaid` có `Xem sơ đồ`, mã nguồn, sao chép và phóng to. Hỗ trợ flow/sequence/class/state/ER, nạp thư viện local khi cần, không tài nguyên bên ngoài hoặc cấu hình tùy ý. Sau build chạy `node scripts/run-acceptance.cjs mermaid-ui`. [Giấy phép](THIRD_PARTY_MERMAID_NOTICE.md).
 
 ## Kiểm tra phát triển
 

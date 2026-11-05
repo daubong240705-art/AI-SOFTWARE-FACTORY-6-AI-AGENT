@@ -1,7 +1,8 @@
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Copy } from "lucide-react";
-import { memo, useState } from "react";
+import { isValidElement, memo, useState } from "react";
+import { MermaidBlock } from "./MermaidBlock";
 import { ScrollRegion } from "../ui/primitives";
 function CodeBlock({ children }: { children: React.ReactNode }) {
   const [copied, setCopied] = useState(false);
@@ -51,7 +52,19 @@ export const ChatMarkdown = memo(function ChatMarkdown({
               <table>{children}</table>
             </ScrollRegion>
           ),
-          pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
+          pre: ({ children }) => {
+            if (
+              isValidElement<{ className?: string; children?: unknown }>(
+                children,
+              ) &&
+              children.props.className === "language-mermaid" &&
+              typeof children.props.children === "string"
+            ) {
+              const source = children.props.children;
+              return <MermaidBlock key={source} source={source} />;
+            }
+            return <CodeBlock>{children}</CodeBlock>;
+          },
           a: ({ href, children }) =>
             href && /^https?:\/\//i.test(href) ? (
               <a

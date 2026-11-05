@@ -1,0 +1,92 @@
+.mermaid-block {
+  margin: 12px 0;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+  background: var(--surface);
+}
+.diagram-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.diagram-toolbar button {
+  min-height: 28px;
+  padding: 3px 8px;
+  font-size: var(--text-sm);
+  background: transparent;
+}
+.mermaid-block > pre {
+  margin: 0;
+  max-height: 300px;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  padding: 12px;
+  text-align: left;
+}
+.diagram-error {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: var(--text-sm);
+  color: var(--warning);
+  overflow-wrap: anywhere;
+}
+.diagram-image {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  background: var(--surface);
+  border: 0;
+  border-radius: 0;
+}
+.diagram-image img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 320px;
+  margin: auto;
+  object-fit: contain;
+}
+.diagram-staging {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  width: 1600px;
+  visibility: hidden;
+  pointer-events: none;
+  contain: layout style;
+}
+.diagram-preview {
+  margin: auto;
+  padding: 16px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+}
+.diagram-preview::backdrop {
+  background: #000b;
+}
+.diagram-preview > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.diagram-preview > div {
+  overflow: auto;
+  max-height: calc(100dvh - 128px);
+  max-width: calc(100vw - 66px);
+}
+.diagram-preview img {
+  display: block;
+  max-width: none;
+}
