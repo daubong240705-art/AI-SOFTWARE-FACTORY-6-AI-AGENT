@@ -151,23 +151,34 @@
 }
 .board-agent-tasks button {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 6px;
   width: 100%;
   height: auto;
   text-align: left;
   white-space: normal;
   justify-items: stretch;
+  justify-content: stretch;
+  align-items: start;
   padding: 10px;
   overflow-wrap: anywhere;
 }
-.board-agent-tasks button > span:first-child {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+.board-agent-task-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
   gap: 6px 12px;
   font-size: var(--text-sm);
 }
-.board-agent-tasks button > span:last-of-type {
+.board-agent-task-state {
+  text-align: right;
+}
+.board-agent-tasks button > *,
+.board-agent-task-heading > * {
+  min-width: 0;
+}
+.board-agent-task-title,
+.board-agent-task-detail {
   line-height: 1.5;
 }
 .work-agent-details {

@@ -165,6 +165,61 @@ async function main() {
     await js("document.querySelector('.board-agent-tasks').textContent"),
     /BA · t1.*BE · t2.*FE · t3.*TEST · t4/s,
   );
+  // Check actual text geometry: text-align alone does not prevent the generic
+  // centered button rule from centering a shrink-to-content grid track.
+  for (const [width, height, zoom] of [
+    [1366, 768, 1],
+    [850, 700, 1],
+    [1366, 768, 1.5],
+  ]) {
+    win.setSize(width, height);
+    win.webContents.setZoomFactor(zoom);
+    for (const view of ["Board", "Danh sách"]) {
+      await click(view, "document.querySelector('.work-view-switch')");
+      await pause(150);
+      const geometry =
+        await js(`Array.from(document.querySelectorAll('.board-agent-tasks button')).map(button => {
+        const bounds = button.getBoundingClientRect(), style = getComputedStyle(button);
+        const contentLeft = bounds.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
+        const contentRight = bounds.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight);
+        const role = button.querySelector('strong').getBoundingClientRect();
+        const title = button.querySelector('.board-agent-task-title').getBoundingClientRect();
+        const detail = button.querySelector('.board-agent-task-detail').getBoundingClientRect();
+        const state = button.querySelector('.board-agent-task-state').getBoundingClientRect();
+        return { contentLeft, contentRight, roleLeft: role.left, titleLeft: title.left, detailLeft: detail.left, stateRight: state.right,
+          titleTop: title.top, roleBottom: role.bottom, detailTop: detail.top, titleBottom: title.bottom,
+          overflow: button.scrollWidth > button.clientWidth + 1 };
+      })`);
+      assert.equal(geometry.length, 4);
+      for (const row of geometry) {
+        assert.ok(
+          Math.abs(row.roleLeft - row.contentLeft) <= 1,
+          JSON.stringify(row),
+        );
+        assert.ok(
+          Math.abs(row.titleLeft - row.contentLeft) <= 1,
+          JSON.stringify(row),
+        );
+        assert.ok(
+          Math.abs(row.detailLeft - row.contentLeft) <= 1,
+          JSON.stringify(row),
+        );
+        assert.ok(
+          Math.abs(row.stateRight - row.contentRight) <= 1,
+          JSON.stringify(row),
+        );
+        assert.ok(row.titleTop >= row.roleBottom + 5, JSON.stringify(row));
+        assert.ok(row.detailTop >= row.titleBottom + 5, JSON.stringify(row));
+        assert.equal(row.overflow, false, JSON.stringify(row));
+      }
+      writeFileSync(
+        join(directory, `tasks-${view}-${width}-${zoom}.png`),
+        (await win.webContents.capturePage()).toPNG(),
+      );
+    }
+  }
+  win.setSize(1366, 768);
+  win.webContents.setZoomFactor(1);
   await click("Danh sách");
   await until(() =>
     js(

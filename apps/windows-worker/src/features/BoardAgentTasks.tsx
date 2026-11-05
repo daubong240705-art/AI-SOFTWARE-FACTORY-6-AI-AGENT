@@ -29,17 +29,17 @@ export function BoardAgentTasks({
               disabled={!card.runId}
               onClick={() => onInspect(card.runId!, task.id)}
             >
-              <span>
+              <span className="board-agent-task-heading">
                 <strong>
                   {task.role.toUpperCase()} · {task.id}
                 </strong>
-                <span>
+                <span className="board-agent-task-state">
                   {taskLabels[task.state as keyof typeof taskLabels] ??
                     task.state}
                 </span>
               </span>
-              <span>{task.title}</span>
-              <small className="muted">
+              <span className="board-agent-task-title">{task.title}</span>
+              <small className="board-agent-task-detail muted">
                 {task.dependsOn.length
                   ? `Phụ thuộc: ${task.dependsOn
                       .map((id) => {
