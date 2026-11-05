@@ -6,6 +6,8 @@ Baseline: `bf9b4977b1f26cb45dc5a0a095575b4148fda375`, nhánh `feature/worker-off
 
 Mở rộng 05/11/2026 theo yêu cầu đội AI làm video, thiết kế, nghiên cứu và lập kế hoạch: [thiết kế đa lĩnh vực](multidomain.md), [nghiên cứu Paperclip bổ sung](paperclip-multidomain-research.md). Checkpoint trước mở rộng: `checkpoint/worker-v2-multidomain-20261105` tại commit thiết kế `1e01391`. Những ví dụ phần mềm bên dưới là một workflow mẫu, không phải giới hạn sản phẩm.
 
+Yêu cầu tiếp theo lấy CrewHub Loops làm chuẩn nghiệp vụ: [ma trận tương đương Loops](loops-parity.md) và [automation engine + Graph/List](automations.md). Checkpoint `checkpoint/worker-v2-loops-parity-20261105` tại `87320cf`. Mở rộng này đưa project types, ticket/workflow cấu hình được, rules và graph editor vào phạm vi local 2.0; truy cập nhiều thiết bị thuộc profile 2.1 riêng. Chưa triển khai các khả năng mới.
+
 ## 1. Quyết định sản phẩm
 
 Thiết kế lại Worker thành ứng dụng desktop quản lý **mục tiêu, dự án, đội agent và đầu ra đa lĩnh vực**, có thể giao việc cho Codex, Claude Code và OpenCode trong cùng đội. Phần mềm, video, thiết kế, nội dung và nghiên cứu dùng chung lõi công việc; công cụ chuyên môn và bộ mẫu được gắn theo nhu cầu. Không tiếp tục mở rộng mô hình bảy role cố định bằng các điều kiện riêng lẻ.
@@ -26,6 +28,8 @@ Giữ Electron/React/TypeScript, SQLite và Windows local-first. Tái sử dụn
 | Làm việc ngoài phần mềm | Project không bắt Git; bộ mẫu lĩnh vực và đầu ra tài liệu/ảnh/âm thanh/video/source |
 | Chạy render hoặc xử lý dài | Job có tiến độ, quyền, tài nguyên, stop/recovery riêng; agent không phải ngồi chờ model |
 | Giao mục tiêu/lịch | Goal tùy chọn, task/subtask có owner; lịch có revision, dedup, skip/coalesce và budget |
+| Tự động hóa như Loops | Event → conditions → actions; agent/label/status targets, Rule List/Graph cùng một model, trace và công tắc project/rule |
+| Tùy biến nghiệp vụ | Project type, ticket/custom-field/workflow/review/rule templates; import/export không kèm secrets |
 
 “Tự do” nghĩa là người dùng không bị khóa vào bảy role hoặc một catalog nội bộ. Mỗi runtime vẫn có giới hạn về model, xác thực, tool và khả năng tiếp tục session; ứng dụng phải hiển thị những giới hạn này.
 
@@ -51,6 +55,8 @@ Phạm vi bản **2.0**:
 6. Migration từ V1 có backup, bảo toàn lịch sử và đường quay lại.
 7. Workspace có hoặc không Git; domain packs, đầu ra có kiểu, job runner, resource/budget admission và lịch chống trùng.
 8. Nghiệm thu Software, Research & Planning không repo, và Video Basic bằng FFmpeg/ffprobe với tài nguyên được cung cấp. Template Design/Content dùng lõi chung; công cụ chuyên sâu cần connection/tool riêng.
+9. Project type/ticket/workflow editor, rule engine và List/Graph, schedule → dispatch/report, lifecycle Draft/Proposed/On/Off; chống vòng lặp, simulation và history.
+10. Ticket review policy tách khỏi quyền Bash: human-final tương thích Loops, policy-auto theo bằng chứng hoặc hybrid. Search/views/archive/park và reports/comments nối cùng hồ sơ. Chức năng Git provider có phạm vi riêng, không đánh đồng local Git với GitHub PR/issues.
 
 Chưa nằm trong 2.0: 3D, marketplace công khai, tool chạy trên máy khác, điều phối phân tán, native subagent không giới hạn, extension JavaScript chạy trong Electron main, kết nối hệ quản lý dự án/server mới, điều khiển timeline NLE chuyên nghiệp, tạo video AI trả phí và tự đăng nội dung ngoài app. Có thể thêm sau khi lõi V2 ổn định.
 
@@ -85,10 +91,10 @@ Người dùng ↔ Lead (Codex)
 | V2-01 | Runtime interface + agent tùy ý; task/output/workspace không khóa vào code; chạy qua OpenCode hiện có | V2-00 |
 | V2-02 | Codex App Server hoạt động qua cùng interface | V2-01 |
 | V2-03 | Claude adapter và chọn runtime/model trên agent | V2-01; nghiệm thu đội hỗn hợp sau V2-02 |
-| V2-04 | Skills/MCP/CLI/domain packs, quyền cấu hình trước | V2-01; kiểm tra cả ba adapter sau V2-03 |
-| V2-05 | Mailbox, DAG, claims, artifacts, jobs/resources/budgets và routines | Mô hình V2-01; nối adapter/extension trước nghiệm thu |
-| V2-06 | UX đa lĩnh vực, preview đầu ra và tiến độ job, ít điều hướng thừa | UI tối thiểu có từ V2-01; hoàn thiện sau V2-05 |
-| V2-07 | Migration/recovery/đóng gói; nghiệm thu software, research, video | V2-02–06 |
+| V2-04 | Skills/MCP/CLI/domain packs, project types/templates/workflow editor, quyền cấu hình trước | V2-01; kiểm tra cả ba adapter sau V2-03 |
+| V2-05 | Mailbox/DAG/claims, artifacts/jobs/resources/budgets; rules engine, simulation/List và schedule dispatch | Mô hình V2-01; nối adapter/extension trước nghiệm thu |
+| V2-06 | UX đa lĩnh vực, automation Graph, output/job preview, reports/search/views; Git connector theo capability | UI tối thiểu có từ V2-01; hoàn thiện sau V2-05 |
+| V2-07 | Migration/recovery/đóng gói; nghiệm thu ba lĩnh vực và ma trận Loops local | V2-02–06 |
 
 Đọc [kiến trúc](architecture.md), [giao diện và hành trình sử dụng](ux.md), [backlog và điều kiện hoàn thành](implementation.md). Không đợi đến V2-06 mới làm UI, và không đợi đến V2-07 mới viết kiểm thử. Mỗi đợt phải có một lát cắt hoạt động thực tế.
 
@@ -99,5 +105,7 @@ Máy khảo sát có `codex-cli 0.166.0` và `opencode 1.19.5`. Lệnh `claude` 
 Có thể bắt đầu **V2-01 ngay trên source hiện tại**, không cần tạo VM hay cài một hệ điều phối mới. Codex/Claude cần kiểm tra phiên bản, xác thực và model trước khi nghiệm thu adapter tương ứng; không chặn việc tách lõi OpenCode. Giữ 9Router như một lựa chọn provider cho kết nối phù hợp; không mặc định mọi endpoint 9Router dùng được với Codex hoặc Claude.
 
 Video cần FFmpeg/ffprobe và storage/tài nguyên phù hợp, chưa được cài hoặc xác minh ở đợt thiết kế. Domain pack không tự mang theo mọi executable/API. Lịch local chỉ chạy khi Worker Host hoạt động; chưa có background service bắt buộc. Phạm vi đa lĩnh vực làm V2-04–07 lớn hơn kế hoạch gốc, cần chia các lát cắt trong backlog, không coi là một lần đổi nhãn giao diện.
+
+Chuẩn Loops bổ sung backlog LP-01–LP-08 theo [ma trận](loops-parity.md); không thể tuyên bố “y hệt 100%” từ trang giới thiệu và ảnh. Khi triển khai đối chiếu hành vi có evidence, ghi partial cho provider/remote chưa đạt. Không sao chép thương hiệu/asset hay đổi nền Windows sang WSL chỉ để giống kiến trúc tham khảo.
 
 Đây là thay đổi lớn về sản phẩm nên gọi là **Worker V2**, thay vì tiếp tục gắn thành một đợt sửa UI V1.3. Các đợt R0–R6 cũ không bị coi là chưa làm; chúng là nền được kế thừa.

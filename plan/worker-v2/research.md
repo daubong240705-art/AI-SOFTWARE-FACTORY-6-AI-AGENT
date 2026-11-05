@@ -4,6 +4,8 @@ Ngày: 05/11/2026. Đây là khảo sát tĩnh source và tài liệu, **không 
 
 Nghiên cứu mở rộng cùng ngày về goals, org/delegation, routines, documents/work products, completion contracts và budget: [Paperclip cho đội đa lĩnh vực](paperclip-multidomain-research.md). Kết quả áp dụng và giới hạn 2.0/2.1 trong [thiết kế mở rộng](multidomain.md).
 
+Đối chiếu Loops bổ sung: ảnh Automations người dùng cung cấp và trang sản phẩm được đọc lại ngày 05/11/2026; [ma trận nghiệp vụ](loops-parity.md), [rule engine đề xuất](automations.md), [manifest bằng chứng](../../research/worker-v2/loops-parity-sources.json). Phân biệt snapshot UI, claim sản phẩm và khả năng đã xác minh trong source ASF. Không coi classic/World là source Loops đầy đủ.
+
 Manifest đường dẫn, revision và SHA-256: [sources.json](../../research/worker-v2/sources.json). Các bản tải nằm trong `.cache/worker-v2-research/`, bị Git ignore. Snapshot là commit được GitHub trả về tại thời điểm khảo sát; không tự cập nhật theo nhánh upstream.
 
 ## 1. ASF hiện tại

@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-11-05T15:51:45.896134+00:00",
+  "user_facing_date": "2026-11-05",
+  "baseline": "87320cf",
+  "checkpoint": "checkpoint/worker-v2-loops-parity-20261105",
+  "purpose": "Define observable business parity with CrewHub Loops, automation rule semantics, List/Graph and local/remote scope.",
+  "evidence": [
+    {
+      "kind": "user_provided_image",
+      "description": "Automations graph for Cardroom project, attached in current user request.",
+      "observed": [
+        "Project switch",
+        "List/Graph toggle",
+        "Moment/Who/Label nodes",
+        "Rule edges and On/Off/Proposed/Draft states"
+      ],
+      "verification_scope": "Visible UI only, not engine behavior.",
+      "image_copied_to_repository": false
+    },
+    {
+      "kind": "product_webpage",
+      "url": "https://crewhub.dev/loops",
+      "accessed_date": "2026-11-05",
+      "published_version_label": "v2026.10.21",
+      "release_state_claim": "Beta coming soon; source/docs/releases open with beta.",
+      "verification_scope": "Product claims only; no independent end-to-end execution or full Loops source validation.",
+      "pinned": false
+    },
+    {
+      "kind": "workspace_source",
+      "files": [
+        {
+          "path": "apps/windows-worker/shared/schedules.ts",
+          "baseline": "87320cf",
+          "sha256": "9e88299a5722d9319a1c61f8abf3677c4ac43ca0871fd70548cddc78708285ee",
+          "bytes": 8219
+        },
+        {
+          "path": "apps/windows-worker/shared/board.ts",
+          "baseline": "87320cf",
+          "sha256": "c55e2adb46b7f103b817ecdda9e9fedd1d785c451d9929fba9691cb5416487b4",
+          "bytes": 6405
+        },
+        {
+          "path": "apps/windows-worker/electron/controller/schedules.ts",
+          "baseline": "87320cf",
+          "sha256": "900b911ff6ae3c2fdc02e757b3ec04109a43feeda9e2b99fe8f678ab56a24050",
+          "bytes": 6183
+        }
+      ]
+    }
+  ],
+  "prior_manifests": [
+    "research/worker-v2/sources.json",
+    "research/worker-v2/multidomain-sources.json"
+  ],
+  "external_scripts_executed": false,
+  "upstream_code_or_assets_copied": false,
+  "application_runtime_or_database_modified": false,
+  "new_automation_features_implemented": false
+}

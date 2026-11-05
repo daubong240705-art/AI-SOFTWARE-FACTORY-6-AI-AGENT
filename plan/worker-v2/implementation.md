@@ -4,6 +4,8 @@ Ngày lập: 05/11/2026. **Chỉ V2-00 hoàn thành ở mức nghiên cứu/tài
 
 Phạm vi đã mở rộng sang [đa lĩnh vực](multidomain.md) theo [nghiên cứu Paperclip bổ sung](paperclip-multidomain-research.md). Kế hoạch đợt giữ nguyên ID; tickets bổ sung bên dưới thuộc 2.0, không mặc định đã có. Software là lát cắt đầu, Research không Git và Video Basic là hai lát cắt kiểm chứng tính tổng quát trước phát hành.
 
+Yêu cầu tương đương CrewHub Loops bổ sung [LP-01–LP-08](loops-parity.md) và [automation engine/Graph/List](automations.md). Đây là phạm vi 2.0 desktop được mở rộng, chưa phải tính năng hoàn thành. Remote browser/runtime host là profile 2.1 riêng; Git provider actions chỉ được đánh dấu đạt khi có connector và evidence thực tế. Những quyết định cũ hoãn graph được thay bằng backlog này.
+
 ## 1. Quy tắc triển khai
 
 - Mỗi đợt một lát cắt dùng được: schema/host/IPC/UI/verification; không chỉ giao interface rỗng.
@@ -38,6 +40,7 @@ Mục tiêu: **người dùng tạo một agent mới ngoài bảy role, chọn 
 | 01-E | Agent editor tối thiểu, chọn Lead theo project, chọn agent cho task | Tạo/sửa/nhân bản/tắt agent, lỗi validation rõ |
 | 01-F | Chuyển đường execution hiện tại qua interface duy nhất | Một backend dispatch; chưa tăng concurrency toàn app |
 | 01-G | Task/input/output kind và workspace binding không phụ thuộc Git; goal/membership contracts | Project có repo hoặc không repo; source fingerprint chỉ bắt buộc cho workflow code; manager membership không cycle |
+| 01-H / LP-01 | ProjectType/Workflow/TicketTemplate version contracts; business statuses/categories và review authority | Custom fields có schema; execution state ổn định; human-final/policy-auto độc lập quyền Bash; legacy status mapping |
 
 Nghiệm thu: tạo agent thứ tám tên tùy ý, nhận task và có evidence; sửa agent không làm đổi snapshot attempt đang chạy; agent disabled không nhận việc mới; project không có Lead hợp lệ trả lỗi setup rõ; task V1/lịch sử/tài liệu BA vẫn đọc được. Tạo một project artifact-only, giao task tài liệu và xem đầu ra mà không clone repo/tạo commit. Unit/schema/migration tests, integration adapter OpenCode và desktop flows thực tế; không gọi đây là hỗ trợ multi-runtime cho tới V2-02/03.
 
@@ -75,6 +78,7 @@ Nghiệm thu: hai agent dùng hai runtime khác nhau, task/context không lẫn,
 | 04-G | Extension UI và package lifecycle | Cài/cấu hình/kiểm tra/gắn/cập nhật có trạng thái thật, lỗi chỉ đúng bước |
 | 04-H | DomainPackVersion và workflow/agent/validator templates | Bản mẫu không khóa role; version snapshot; không tự cài executable/chạy script khi import |
 | 04-I | Built-in Software, Research & Planning, Video Basic; Design/Content templates | Capability preflight hiện Needs setup cho tool chưa có; Video Basic có FFmpeg/ffprobe recipes được kiểm tra, không kèm lời hứa NLE |
+| 04-J / LP-01 | Project type/ticket/workflow editor, import/export và presets rule/review | Không kèm secrets/scripts tự chạy; preview version/migration; bind tùy agent; type mới dùng được không sửa source |
 
 Fixtures quan trọng: path traversal, symlink/junction thoát scope, package quá lớn, metadata hỏng, tool cùng tên, dependency thiếu, secret trong output và update thêm hook. Đây là kiểm tra import/tool boundary có tác dụng thực tế, không phải bộ kiểm thử mọi format bên ngoài.
 
@@ -95,12 +99,19 @@ Fixtures quan trọng: path traversal, symlink/junction thoát scope, package qu
 11. **05-K: Budget ledger.** Provider/media cost, pending/unknown accounting, reservations/settle; policy project/agent; metric khác đơn vị không cộng gộp, không hứa hard cap khi phí báo trễ.
 12. **05-L: Deliverable/review.** Typed media metadata, proxy refs, validators và completion authority; decision/evidence gắn đúng version; binary lưu file, không nhét SQLite/IPC.
 13. **05-M: Routines.** Kế thừa schedule hiện có, template revision snapshot, timezone, trigger/run dedup, skip/coalesce, sleep/resume policy; chỉ chạy khi host hoạt động, không tạo engine lịch song song.
+14. **05-N / LP-02:** AutomationEvent/RuleVersion/Evaluation/Run/ActionReceipt; typed triggers/conditions/actions, priority/conflict groups; transactional outbox và delegated policy. Evaluator không spawn runtime/job trực tiếp.
+15. **05-O / LP-03:** Lifecycle Draft/Proposed/Enabled/Disabled, global/project/rule switches, pending effect hold generation; agent proposal/auto-enable chỉ trong grants có sẵn. Pause không báo process đã dừng.
+16. **05-P / LP-04:** Rule List editor tối thiểu, simulation read-only, reason trace, action receipts; chống vòng lặp/event storm và stale writes. Không eval script từ JSON rule.
+17. **05-Q / LP-06:** Nối schedule due → rule/template → task dispatch/report trong cùng queue; action quyền đã cấp, occurrence dedup; không chỉ tạo backlog như V1. Report drafts/versions/comments và source refs.
+18. **05-R / LP-07:** Guarded custom workflow transitions, question/review cards, human-final/auto/hybrid, parked/snoozed/archive/restore. Đúng authority/evidence/revision; không cho graph kéo thẳng Done để bypass gate.
 
 Nghiệm thu: BA xuất contract v1; FE/BE chạy song song trong scopes độc lập và dùng v1; integration xong mới QA; QA report gắn source fingerprint; đổi contract thành v2 chỉ rõ consumer stale; agent hỏi agent khác qua đúng task; duplicate message không tạo execution trùng; crash trước/sau claim/start/ack không làm hai owner cùng tác động task. Conflict, quota và dependency hiện đúng waiting reason.
 
 Nghiệm thu bổ sung: task không Git chờ đúng input artifacts; render job hoàn thành khi agent đã kết thúc lượt vẫn cập nhật đúng task; cancelled/stale job không publish output vào revision mới; thiếu disk/encoder/budget trả đúng reason; đồng thời hai job không cùng giữ một slot độc quyền. Schedule qua restart không tạo run trùng; unknown cost không hiện 0. Chia 05-H–M thành PR/ticket riêng với tests phù hợp, không nhập cả Paperclip control plane để làm nhanh.
 
 Thứ tự nội bộ: A/B/C làm nền task ownership/mailbox; D/E/F mở artifact/dependency/review; H nối mục tiêu/delegation; I/J/K nối jobs với admission trước khi bật render cho người dùng; L hoàn thiện typed outputs/review; M nối trigger lịch vào đúng task/job queue. G chạy xuyên suốt các lát cắt recovery. Job UI không được bật trước resource/budget/policy checks tương ứng.
+
+N/O/P nối sau A/B/C và các domain command/evidence guards; Q cần M/N/O; R nối workflow contracts từ 01-H và review F/L. Rule conflict, duplicate events, pause race và cause-depth caps phải kiểm được trước bật automation thực. Schema/List có trước graph, không dùng canvas để quyết định semantics.
 
 ## 8. V2-06 — Hoàn thiện UX
 
@@ -116,6 +127,9 @@ Theo [ux.md](ux.md), cập nhật các màn hình hiện có thay vì thêm nhi�
 - Chọn bộ mẫu lĩnh vực khi tạo project; Git là tùy chọn. Project tabs dùng Công việc/Chat/Đầu ra; bộ lọc tài liệu/ảnh/audio/video/source trong Đầu ra.
 - Media preview/proxy, review notes theo thời điểm, output version/evidence; job progress riêng agent state, không hiển thị phần trăm giả.
 - Goal, budget và routine settings trong vùng phù hợp; không ép giao diện cá nhân thành bảng quản lý công ty nhiều tầng.
+- **LP-05:** Automation Graph hai chiều với canonical RuleVersion; typed nodes/edges, inspector, filters/zoom/minimap, layout riêng, keyboard/List fallback; chỉ edit những cấu trúc biểu diễn đầy đủ.
+- **LP-07:** Search toàn app theo scope/mã/từ, saved views, archive/park/snooze, recurring reports/comments; GitHub clone/commits/PR/issues qua connector/auth đã cấp, capability không có không hiện như đã chạy.
+- Project navigation theo chuẩn Loops: Tổng quan/Công việc/Đầu ra/Tự động hóa/Khác; Rules List/Graph, Lịch và History trong Tự động hóa; Lead chat dock có thể mở rộng. Không hiển thị mọi tab chi tiết ngang cấp.
 
 Nghiệm thu bằng các hành trình: setup → giao việc → xem ai làm → đọc câu hỏi → xem thiết kế → theo dõi song song → review → yêu cầu sửa. Kiểm tra các viewport/zoom trong UX; dữ liệu dài và Board nhiều card không kéo giãn page. Không ship status mock/đồ thị giả thay cho host events.
 
@@ -132,6 +146,8 @@ Nghiệm thu bằng các hành trình: setup → giao việc → xem ai làm →
 Nghiệm thu đầu cuối bắt buộc: **Lead Codex → Analyst Claude → UI Codex và API OpenCode song song → integrate → QA → review**. Có evidence task/artifact/source/test, một kịch bản duplicate và một kịch bản stop/crash. Nếu thiếu auth/CLI cho runtime nào, ghi rõ blocked/unverified cho runtime đó, không đánh dấu bản đa runtime đã nghiệm thu đầy đủ.
 
 Nghiệm thu đa lĩnh vực bắt buộc: **Research brief → report có nguồn → review** trên project không repo; và **video brief → storyboard → asset/audio song song → edit plan → FFmpeg preview → kiểm kỹ thuật/review → final export** từ input cung cấp. Không tự publish. Kiểm crash/cancel/out-of-disk và schedule skip/coalesce; contract/review chỉ áp dụng output version đúng. Chỉ ship nhãn hỗ trợ Video Basic sau khi chạy thật, không dựa vào việc registry có tên FFmpeg.
+
+**LP-08:** nghiệm thu [ma trận Loops local](loops-parity.md) từng dòng, đặc biệt rules thực thi/List-Graph round-trip/schedule dispatch/report/human-final vs policy-auto. Lưu trace/evidence thay ảnh mock; status partial/unverified cho connector thiếu. Migration V1 giữ custom status/legacy history và không tự replay rules/schedules. Chưa gọi tương đương remote nếu chưa triển khai profile host/browser/auth/TLS 2.1.
 
 ## 10. Phụ thuộc và các quyết định đã chốt
 
@@ -150,3 +166,5 @@ Không cần người dùng chọn lại kiến trúc cho mỗi đợt: Windows 
 Đợt code tiếp theo cụ thể là **V2-01**, bắt đầu từ shared schemas và wrapper OpenCode, không viết lại tất cả màn hình trước khi đường execution mới hoạt động.
 
 Các tích hợp sau 2.0: native NLE project/timeline, image/video generation provider chuyên sâu, social publishing, tool host từ xa và background service nhiều máy. Các domain template đơn giản có thể dùng lõi 2.0 ngay khi đủ tool, nhưng không được coi template là bằng chứng mọi chuyên môn đã hoạt động.
+
+Chuẩn Loops làm 2.0 lớn hơn bản agent đa runtime ban đầu. LP-01–08 là backlog có dependency riêng, không một commit “thêm Graph” ở cuối dự án. V2-01 phải chốt business workflow/review/rule-event contracts từ đầu để không quay lại hardcode role/status sau khi thêm adapter.

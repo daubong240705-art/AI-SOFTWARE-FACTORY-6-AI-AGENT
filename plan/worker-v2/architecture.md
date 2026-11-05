@@ -4,6 +4,8 @@ Trạng thái: thiết kế đề xuất, chưa phải API/schema đã triển k
 
 Mở rộng đa lĩnh vực: [multidomain.md](multidomain.md) quy định goals, domain packs, workspace không Git, media assets, jobs, resource/budget admission và review. Các phần source/Git/FE/BE bên dưới chỉ áp dụng cho workflow phần mềm; không phải precondition cho mọi task.
 
+Chuẩn nghiệp vụ mới: [loops-parity.md](loops-parity.md) bổ sung project/ticket/workflow templates, business statuses có semantic mapping và review authorities; [automations.md](automations.md) quy định rule engine theo event/condition/action. Automation evaluator dùng chung application services/outbox và scheduler, không thêm một nguồn dispatch khác; Graph/List chỉ là hai editor của cùng rule model.
+
 ## 1. Ranh giới hệ thống
 
 ```mermaid
@@ -171,7 +173,7 @@ Agent trả lời trực tiếp agent khác theo task thread, nhưng không tự
 
 ## 7. Scheduler, concurrency và source
 
-Task state: `backlog → ready → running → review → done`; nhánh `waiting`, `blocked`, `failed`, `cancelled`. Các reason code chi tiết gồm dependency, contract, file lock, runtime offline, quota, question, integration conflict. Board có thể gom các state thành cột dễ đọc nhưng không thay đổi state machine ở client.
+Execution state ổn định do Host quản lý: `backlog → ready → running → review → done`; nhánh `waiting`, `blocked`, `failed`, `cancelled`. Các reason code chi tiết gồm dependency, contract, file lock, runtime offline, quota, question, integration conflict. Business workflow/status có thể tùy biến theo project type và map về semantic categories, không sửa process state bằng kéo card. Archive/park/snooze là lifecycle/hold riêng; mọi transition qua command guards/authority trong [chuẩn Loops](loops-parity.md).
 
 Một task chỉ ready khi assignee khả dụng, dependency/input contract thỏa, source đã sẵn sàng nếu cần Git, quyền hợp lệ và đủ resource/budget slot. Scheduler thực hiện claim nguyên tử với owner/lease/epoch; completion cần đúng epoch/revision/attempt. Lease hết hạn chưa đủ để chạy lại: phải đối chiếu process/job trước. Cancel/reassign tăng epoch và ngăn kết quả cũ ghi đè; terminal state chỉ được xác nhận sau khi xử lý ownership/process. Job render/compute có lifecycle riêng và đánh thức task bằng sự kiện khi xong.
 

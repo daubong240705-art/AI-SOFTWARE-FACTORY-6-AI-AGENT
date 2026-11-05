@@ -4,6 +4,8 @@ Thiết kế đề xuất. Mục tiêu: người dùng hiểu việc đang diễ
 
 Mở rộng đa lĩnh vực trong [multidomain.md](multidomain.md): phần dưới dùng nhãn **Đầu ra** thay cho tab **Tài liệu**; tài liệu là một bộ lọc đầu ra. Project có Git hoặc không; agent state và job render state được hiển thị riêng.
 
+Chuẩn Loops mới trong [loops-parity.md](loops-parity.md) mở rộng project navigation: Tổng quan / Công việc / Đầu ra / Tự động hóa / Khác; Chat Lead ở dock hoặc full view khi cần. Tự động hóa có Rules [List/Graph], Lịch và History, theo [thiết kế automation](automations.md). Sơ đồ điều hướng tối giản bên dưới là nền, không bỏ các nghiệp vụ mở rộng.
+
 ## 1. Điều hướng
 
 ```text
@@ -118,3 +120,11 @@ Tái sử dụng Segoe UI và tokens hiện có; chuẩn hóa spacing, typograph
 - Kiểm tra thực tế tại 1366×768, 1920×1080, 850×700 và Windows zoom 150%; keyboard, contrast, screen-reader labels và dữ liệu dài/rỗng/lỗi.
 
 Không thêm acceptance test chỉ để xác nhận class CSS. Dùng geometry và user flow thật cho overflow/alignment, cùng component tests cần thiết cho hành vi. Ảnh QA giữ ngoài Git theo quy tắc hiện có.
+
+## 10. Automations List/Graph và loại dự án
+
+Project type editor cho sửa ticket fields/templates, workflow labels/transitions, skills, review policy và rule presets; preview/import/export trước áp dụng. Mapping status IDs/categories và version migration có validation, không đổi label UI rồi bỏ qua host logic.
+
+Rule List là đường cấu hình dễ đọc; Graph thể hiện moment/rule/agent/label, trạng thái Draft/Proposed/On/Off và các liên kết có ý nghĩa. Project switch tắt toàn bộ automation hiệu lực nhưng giữ On/Off riêng. Layout zoom/fit/minimap có scroll bounds; kéo node không đổi logic rule. Có inspector condition/action, simulation read-only và lịch sử vì sao rule chạy. Cạnh chưa được hỗ trợ editor chỉ đọc, không save làm mất logic.
+
+Human-final và policy-auto hiển thị theo project/template; final review khác tool permission. Scheduled và rules có liên kết nhưng không cùng kiểu định nghĩa. Search, saved filters, parked/snoozed/archive/restore và report comments dùng cùng hồ sơ, tránh tạo trang dữ liệu riêng lẻ không liên thông.

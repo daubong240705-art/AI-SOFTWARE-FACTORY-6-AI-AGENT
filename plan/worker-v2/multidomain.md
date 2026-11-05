@@ -4,6 +4,8 @@ Ngày: 05/11/2026. Trạng thái: **thiết kế mở rộng, chưa triển khai
 
 Nguồn chính: [Paperclip và quyết định áp dụng](paperclip-multidomain-research.md). Học cơ chế quản lý công việc, không nhập toàn bộ server, database, UI hay hệ phân cấp công ty của Paperclip.
 
+Mở rộng yêu cầu sau đó: [nghiệp vụ Loops](loops-parity.md), [rule engine/List/Graph](automations.md). Các tài liệu này đưa visual automation editor và project type/workflow editor vào 2.0; thay quyết định “chưa cần visual editor” ban đầu ở phần workflow bên dưới. Các ràng buộc jobs/media/resources vẫn giữ.
+
 ## 1. Sản phẩm sau mở rộng
 
 Worker là nơi người dùng giao mục tiêu, tổ chức đội AI và nhận đầu ra đã kiểm tra. Dự án có thể làm phần mềm, nghiên cứu, nội dung, thiết kế, video hoặc kết hợp các lĩnh vực. Không bắt mọi dự án phải có repository, bảy role, commit hoặc lệnh test.
@@ -107,7 +109,7 @@ Kiểm tra trước chạy trả về ba nhóm: đã sẵn sàng, thiếu cấu 
 
 ## 7. Workflow và giao tiếp
 
-Workflow template mô tả steps, dependency, input/output, acceptance, reviewer và budget/retry policy. Lead instantiate thành các task bền vững rồi bind agent. Có thể chỉnh trước chạy; chỉnh lúc đang chạy tạo revision, invalidate consumer tương ứng. Không cần visual editor trong 2.0; dùng form/danh sách bước có thể đọc được.
+Workflow template mô tả steps, dependency, input/output, acceptance, reviewer và budget/retry policy. Lead instantiate thành các task bền vững rồi bind agent. Có thể chỉnh trước chạy; chỉnh lúc đang chạy tạo revision, invalidate consumer tương ứng. Workflow form/danh sách dùng được độc lập; automation Graph/List của chuẩn Loops biên tập event-condition-action trên cùng model, không trộn cạnh task DAG với cạnh automation.
 
 Lead hoặc manager được cấp quyền đề nghị child task, nhưng Host kiểm tra membership, scope, task/budget/depth limits và chỉ scheduler dispatch. Manager không tự spawn process hoặc tự tạo agent vô hạn. Agent đề nghị bổ sung nhân sự/công cụ khi thiếu; chỉ tự tạo cấu hình từ template nếu project đã cấp quyền và có hạn mức, không tự mua tài khoản/cấp secrets.
 
