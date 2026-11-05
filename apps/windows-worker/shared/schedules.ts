@@ -3,15 +3,18 @@ import type { createBoardItemSchema } from "./board";
 
 // UX-08 starts with a passive backlog action. No shell, runtime/model overrides,
 // event triggers or automatic execution can be supplied through this contract.
-const instant = z.iso.datetime({ precision: 3 }).refine((value) => {
-  const date = new Date(value);
-  return (
-    Number.isFinite(date.getTime()) &&
-    date.toISOString() === value &&
-    date.getUTCFullYear() >= 2000 &&
-    date.getUTCFullYear() <= 2100
-  );
-}, "Thời điểm phải là UTC hợp lệ từ năm 2000 đến 2100.");
+export const scheduleInstantSchema = z.iso
+  .datetime({ precision: 3 })
+  .refine((value) => {
+    const date = new Date(value);
+    return (
+      Number.isFinite(date.getTime()) &&
+      date.toISOString() === value &&
+      date.getUTCFullYear() >= 2000 &&
+      date.getUTCFullYear() <= 2100
+    );
+  }, "Thời điểm phải là UTC hợp lệ từ năm 2000 đến 2100.");
+const instant = scheduleInstantSchema;
 const zone = z
   .string()
   .min(1)
@@ -59,6 +62,31 @@ export const scheduleDraftSchema = z
   .strict();
 export type ScheduleTiming = z.infer<typeof scheduleTimingSchema>;
 export type ScheduleDraft = z.infer<typeof scheduleDraftSchema>;
+export const scheduleRecordSchema = scheduleDraftSchema
+  .extend({
+    id: z.string().uuid(),
+    enabled: z.boolean(),
+    version: z.number().int().positive(),
+    nextAt: instant.nullable(),
+    createdAt: instant,
+    updatedAt: instant,
+  })
+  .strict();
+export type ScheduleRecord = z.infer<typeof scheduleRecordSchema>;
+export const scheduleDeliverySchema = z
+  .object({
+    occurrenceKey: z.string().min(40).max(300),
+    scheduleId: z.string().uuid(),
+    scheduleVersion: z.number().int().positive(),
+    dueAt: instant,
+    observedAt: instant,
+    state: z.enum(["created", "missed", "failed"]),
+    workItemId: z.string().uuid().nullable(),
+    reason: z.string().max(1000),
+    config: scheduleDraftSchema,
+  })
+  .strict();
+export type ScheduleDelivery = z.infer<typeof scheduleDeliverySchema>;
 export const scheduleGraceMs = 5 * 60 * 1000;
 
 function parts(format: Intl.DateTimeFormat, date: number): number[] {

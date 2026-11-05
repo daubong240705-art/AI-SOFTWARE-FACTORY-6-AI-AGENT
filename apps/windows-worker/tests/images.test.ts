@@ -323,7 +323,9 @@ test("schema12 upgrade creates backup before images, preserves drafts, source an
   try {
     x.store.conversations.draft(x.conversation.id, "kept");
     const db = new Database(join(x.directory, "worker.sqlite"));
-    db.exec("DROP TABLE chat_images; PRAGMA user_version=12");
+    db.exec(
+      "DROP TABLE schedule_deliveries; DROP TABLE schedules; DROP TABLE schedule_control; DROP TABLE chat_images; PRAGMA user_version=12",
+    );
     db.close();
     const reopened = new Store(x.directory);
     assert.ok(

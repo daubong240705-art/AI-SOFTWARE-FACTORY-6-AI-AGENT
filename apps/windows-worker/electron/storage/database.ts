@@ -1,4 +1,6 @@
 import { Images } from "./images";
+import { Schedules } from "./schedules";
+import { migrateSchedules } from "./schedules-migration";
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { join, basename, resolve } from "node:path";
@@ -44,6 +46,7 @@ export class Store {
   readonly reports: Reports;
   readonly inbox: Inbox;
   readonly images: Images;
+  readonly schedules: Schedules;
   private retentionTickets = new Map<
     string,
     { ids: string[]; expires: number }
@@ -57,7 +60,7 @@ export class Store {
       const version = this.db.pragma("user_version", {
         simple: true,
       }) as number;
-      if (version > 13)
+      if (version > 14)
         throw new Error(
           "Dữ liệu được tạo bởi bản mới hơn. Hãy cập nhật ứng dụng.",
         );
@@ -153,6 +156,8 @@ export class Store {
       );
       this.inbox = new Inbox(this.db, directory, version);
       this.images = new Images(this.db, directory, version);
+      migrateSchedules(this.db, directory, version);
+      this.schedules = new Schedules(this.db, this.board);
     } catch (error) {
       this.db.close();
       throw error;
@@ -310,6 +315,8 @@ export class Store {
     return this.project(id);
   }
   removeProject(id: string): void {
+    if (this.schedules.hasProject(id))
+      throw new Error("Giữ dự án có lịch đã lưu để bảo toàn lịch sử.");
     if (this.questions.hasProject(id))
       throw new Error("Giữ dự án có lịch sử câu hỏi; chưa hỗ trợ xóa hẳn.");
     const active = this.runs().find(

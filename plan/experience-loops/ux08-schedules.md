@@ -1,6 +1,6 @@
 # UX-08 — Lịch và quy tắc đơn giản
 
-Ngày: 2026-11-05. Baseline `06dfe2d`; checkpoint `checkpoint/ux08-start-20261105`. Worker `1.3.0-alpha.8`, SQLite 13. Giữ Factory Lite + Windows Worker, một Controller và một active run toàn app. 3D, remote PR/issues và WW-5 tiếp tục ngoài phạm vi.
+Ngày: 2026-11-05. Baseline `06dfe2d`; checkpoint `checkpoint/ux08-start-20261105`. Worker `1.3.0-alpha.8`, SQLite **14** sau U8-02. Giữ Factory Lite + Windows Worker, một Controller và một active run toàn app. 3D, remote PR/issues và WW-5 tiếp tục ngoài phạm vi.
 
 ## 1. Phạm vi sản phẩm
 
@@ -23,28 +23,28 @@ App đóng hoặc máy ngủ thì lịch không chạy. Lần kiểm tra sau ch�
 | Mã | Phạm vi | Trạng thái | Bằng chứng bắt buộc |
 |---|---|---|---|
 | U8-01 | Contract allowlist, preview, timezone, occurrence/key, missed policy | **Đã triển khai thư viện thuần** | Giờ Việt Nam, offset lẻ, đổi năm, DST gap/fold, grace, không catch-up, từ chối shell/override |
-| U8-02 | SQLite CRUD/version + delivery nguyên tử với BoardStore | Chưa triển khai | Upgrade schema 13 có backup; rollback/reopen; không tạo trùng; chặn sai project/version |
+| U8-02 | SQLite create/read/update/toggle/version + delivery nguyên tử với BoardStore | **Đã triển khai storage** | Upgrade schema 13 có backup; rollback/reopen; không tạo trùng; chặn sai project/version |
 | U8-03 | Tick main, resume, pause toàn cục, backpressure | Chưa triển khai | Một timer không reentrant; pause/restart/clock jump; không model/shell |
 | U8-04 | Danh sách/editor/preview/toggle/history/mở thẻ | Chưa triển khai | Empty/error/conflict; keyboard/narrow/zoom; preview không tạo thẻ, mặc định tắt |
 | U8-05 | Kiểm chứng tích hợp và bàn giao | Chưa triển khai | Electron + native SQLite, regression Board/Chat; không dùng dữ liệu thật |
 
-U8-01 chưa có màn hình, lưu schedule, timer hoặc tự tạo thẻ trong app. Không đánh dấu UX-08 hoàn thành trước U8-05.
+U8-01–02 chưa có màn hình, IPC hoặc timer. Schedule đã lưu được qua store nội bộ; delivery chỉ chạy khi có caller gọi store, chưa tự chạy trong app. Không đánh dấu UX-08 hoàn thành trước U8-05. Xem [bàn giao storage](../../docs/windows-worker/ux08-storage-completion.md).
 
 ## 4. Dữ liệu và transaction cho U8-02
 
-Migration tiếp theo từ SQLite 13 có backup theo pattern dự án; chốt số schema lúc triển khai. Đề xuất:
+Migration **13 → 14** đã triển khai, backup `worker.schema13.pre-schedules.backup.sqlite` trước upgrade. Cấu trúc đã có:
 
 - `schedules`: UUID, project FK, tên/config JSON đã validate, enabled, version, next_at UTC nullable, timestamps. Tối đa 20 lịch/project và 100 toàn app. Tạo mới disabled; bật/sửa tính mốc **sau hiện tại**, không kích hoạt bù.
 - `schedule_deliveries`: occurrence key unique, schedule FK, config/version snapshot, due_at/observed_at UTC, state (`created`, `missed`, `failed`), work_item_id FK nullable, lý do có giới hạn. Biên nhận không sửa lại; thẻ vẫn là BoardItem.
 - `schedule_control`: một hàng global pause bền vững. Unpause áp dụng missed policy; không đổi settings/credentials.
 
-Khóa U8-01 là `scheduleId:version:dueAt`. Đây mới là khóa xác định; **unique constraint và transaction U8-02 mới bảo đảm không tạo trùng thực tế**.
+Khóa là `scheduleId:version:dueAt`; U8-02 đã có unique constraint và transaction IMMEDIATE, cùng BoardStore/receipt/cursor. Mỗi thay đổi hoặc lần advance tăng version; config/version cũ được giữ trong receipt bất biến.
 
 1. Đọc lịch enabled đến hạn, tính `planScheduleTick`.
 2. Trong transaction kiểm tra lại enabled/version/next_at/pause và occurrence key. Có receipt rồi thì không tạo thẻ nữa.
 3. `due`: gọi `BoardStore.create`, insert receipt, advance next_at trong cùng transaction. `missed`: chỉ ghi receipt và advance. Lịch một lần kết thúc thì disable.
-4. Nếu tạo thẻ lỗi quota/config: rollback; transaction riêng kiểm tra lại version/next_at, ghi `failed` và tắt lịch. Không retry vô hạn mỗi tick. Crash trước commit giữ lịch cũ để thử lại an toàn.
-5. Mục tiêu retention: 1.000 receipt/lịch, 10.000 toàn app; chỉ prune hơn 90 ngày sau khi cursor đi qua. Bật lại luôn tính mốc tương lai, không replay vì receipt đã prune. Không xóa thẻ/run theo lịch sử lịch.
+4. Hiện tại lỗi tạo thẻ/receipt rollback toàn bộ và trả lỗi. **U8-03 phải bổ sung** transaction riêng kiểm tra version/next_at, ghi `failed` và tắt lịch trước khi nối timer; không retry vô hạn. Crash trước commit giữ lịch cũ để thử lại an toàn.
+5. **U8-03 phải bổ sung retention/backpressure trước khi bật timer**: mục tiêu 1.000 receipt/lịch, 10.000 toàn app; chỉ prune hơn 90 ngày sau khi cursor đi qua. Bật lại luôn tính mốc tương lai, không replay vì receipt đã prune. Không xóa thẻ/run theo lịch sử lịch.
 
 CRUD yêu cầu projectId + scheduleId + version, scope query theo project và optimistic update trong transaction. V1 dùng bật/tắt/sửa; xóa hẳn để lại sau khi có export/policy.
 
@@ -62,7 +62,7 @@ Danh sách gọn: tên, lịch/timezone, thời điểm tới, toggle, kết qu�
 
 Preview dùng cùng `previewSchedule` trong main; hiển thị giờ địa phương, UTC trong chi tiết. Preview không lưu/gọi model. Lưu tạo lịch disabled; người dùng bật sau khi xem preview. Lưu/bật phải khớp config/version đã preview; đổi field làm preview hết hiệu lực. Không graph editor/dropdown native mới.
 
-History tải theo yêu cầu, phân trang 50 receipt, trạng thái tạo thẻ/bỏ lỡ/lỗi và mở đúng thẻ. Trang lịch hiển thị điều kiện app đang mở; không lặp mô tả trên chat/card. Tick không tự điều hướng/giật focus.
+History tải theo yêu cầu, phân trang 50 receipt, trạng thái tạo thẻ/bỏ lỡ/lỗi và mở đúng thẻ. Store U8-02 mới trả tối đa 50 receipt gần nhất; cursor pagination bổ sung cùng IPC/UI U8-04. Trang lịch hiển thị điều kiện app đang mở; không lặp mô tả trên chat/card. Tick không tự điều hướng/giật focus.
 
 ## 7. Kiểm chứng và bàn giao
 
