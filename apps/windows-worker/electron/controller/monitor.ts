@@ -13,6 +13,7 @@ import type {
   MonitorSnapshot,
 } from "../../shared/monitor";
 import { redact } from "../runtime/security";
+import { workStateView } from "../../shared/work-state";
 
 const live = (state: string) =>
   ["queued", "running", "blocked", "cancelling"].includes(state);
@@ -206,6 +207,16 @@ export function projectMonitor(
   });
   return {
     projectId,
+    workState: run
+      ? workStateView({
+          ...run,
+          error: redact(run.error, secrets, 240),
+          tasks: run.tasks.map((task) => ({
+            ...task,
+            title: redact(task.title, secrets, 160),
+          })),
+        })
+      : undefined,
     agents,
     activeRun: active
       ? {

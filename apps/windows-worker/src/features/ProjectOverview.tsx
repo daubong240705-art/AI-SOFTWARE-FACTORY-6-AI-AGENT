@@ -110,7 +110,7 @@ export function ProjectOverview({
                 <div className="overview-active-heading">
                   <h2 id="working-title">Đang làm</h2>
                   <span className={`run-state ${active.state}`}>
-                    {runLabels[active.state]}
+                    {active.workState?.label ?? runLabels[active.state]}
                   </span>
                 </div>
                 <button

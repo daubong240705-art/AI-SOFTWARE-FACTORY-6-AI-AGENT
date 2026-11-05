@@ -108,8 +108,8 @@ async function main() {
   win = await until(() => BrowserWindow.getAllWindows()[0]);
   win.webContents.setBackgroundThrottling(false);
   const errors = [];
-  win.webContents.on("console-message", (_e, level, message) => {
-    if (level >= 3) errors.push(message);
+  win.webContents.on("console-message", (event) => {
+    if (event.level === "error") errors.push(event.message);
   });
   const js = async (code) => {
     try {
@@ -120,13 +120,41 @@ async function main() {
     }
   };
   const nav = async (title) => {
-    await js(`document.querySelector('nav button[title="${title}"]').click()`);
+    if (
+      title !== "Hộp thư" &&
+      !(await js("!!document.querySelector('.project-navigation')"))
+    ) {
+      await js(
+        `document.querySelector('[data-project-id="${projects[1].id}"]').click()`,
+      );
+      await until(() => js("!!document.querySelector('.project-navigation')"));
+    }
+    if (title === "Hộp thư") {
+      await js(
+        "document.querySelector('nav button[title=\"Cần xử lý · Mọi dự án\"]').click()",
+      );
+    } else if (["Đội ngũ", "Tổng quan"].includes(title)) {
+      await js(
+        "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+      );
+      await click(title === "Tổng quan" ? "Tổng quan dự án" : "Đội ngũ dự án");
+    } else {
+      await js(
+        `Array.from(document.querySelectorAll('.project-navigation button')).find(b=>b.textContent.trim()===${JSON.stringify(title)}).click()`,
+      );
+    }
     await pause(100);
   };
   const click = (text) =>
     js(
       `Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(text)} && b.getClientRects().length).click()`,
     );
+  await until(() => js("!!document.querySelector('.workspace-home')"));
+  await js(
+    `document.querySelector('[data-project-id="${projects[1].id}"]').click()`,
+  );
+  await until(() => js("!!document.querySelector('.project-navigation')"));
+  await nav("Tổng quan");
   await until(() => js("!!document.querySelector('.project-readiness')"));
   assert.equal(counts[channels.readiness] || 0, 0, "readiness must be lazy");
   await js("document.querySelector('.project-readiness summary').click()");
@@ -151,9 +179,11 @@ async function main() {
   );
   await nav("Công việc");
   await until(() => js("!!document.querySelector('.kanban-columns')"));
-  await click("Thêm việc");
-  await until(() => js("document.querySelector('.board-editor').open"));
-  await js("document.querySelector('[aria-label=\"Mẫu công việc\"]').click()");
+  await click("Tạo công việc");
+  await until(() => js("!!document.querySelector('.board-editor[open]')"));
+  await js(
+    "document.querySelector('.board-editor[open] [aria-label=\"Mẫu công việc\"]').click()",
+  );
   await until(
     () => js("!!document.querySelector('[role=\"option\"]')"),
     "template menu",
@@ -164,17 +194,19 @@ async function main() {
   await pause(60);
   assert.equal(
     await js(
-      "document.querySelector('[aria-label=\"Yêu cầu công việc\"]').value",
+      "document.querySelector('.board-editor[open] [aria-label=\"Yêu cầu công việc\"]').value",
     ),
     workTemplates.find((t) => t.id === "bug").body,
   );
   assert.equal(counts[channels.startRun] || 0, 0);
   assert.equal(counts[channels.submitBoardItem] || 0, 0);
   await js(
-    `(() => { const i=document.querySelector('[aria-label="Tiêu đề công việc"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'Template draft'); i.dispatchEvent(new Event('input',{bubbles:true})); })()`,
+    `(() => { const i=document.querySelector('.board-editor[open] [aria-label="Tiêu đề công việc"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'Template draft'); i.dispatchEvent(new Event('input',{bubbles:true})); })()`,
   );
-  await js("document.querySelector('.board-editor form').requestSubmit()");
-  await until(() => js("!document.querySelector('.board-editor').open"));
+  await js(
+    "document.querySelector('.board-editor[open] form').requestSubmit()",
+  );
+  await until(() => js("!document.querySelector('.board-editor[open]')"));
   assert.equal(counts[channels.createBoardItem], 1);
   await nav("Đội ngũ");
   await until(() =>
@@ -265,7 +297,7 @@ async function main() {
   await until(() =>
     js("document.querySelectorAll('.inbox-items li').length === 3"),
   );
-  // Cross-project inspector is kept open when selected project changes.
+  // A global inbox can open a different project's run without changing scope.
   await js(
     `Array.from(document.querySelectorAll('.inbox-open')).find(b=>b.textContent.includes('Fixture failure')).click()`,
   );
@@ -274,10 +306,13 @@ async function main() {
     "cross-project inspector",
   );
   assert.equal(
-    await js(
-      "document.querySelector('.workspace-project > button').textContent",
-    ),
-    projects[0].name,
+    await js("document.querySelector('.workspace-global-scope').textContent"),
+    "Toàn ứng dụng",
+  );
+  assert.equal(
+    (await js(`window.worker.runDetail(${JSON.stringify(failed.id)})`)).value
+      .run.projectId,
+    projects[0].id,
   );
   await js(
     "document.querySelector('button[aria-label=\"Đóng chi tiết công việc\"]').click()",

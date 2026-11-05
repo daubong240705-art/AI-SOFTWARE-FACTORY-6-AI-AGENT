@@ -119,7 +119,9 @@ export function AgentMonitor({
             </span>
             {snapshot.runState && (
               <span>
-                {runLabels[snapshot.runState as RunState] ?? snapshot.runState}
+                {snapshot.workState?.label ??
+                  runLabels[snapshot.runState as RunState] ??
+                  snapshot.runState}
               </span>
             )}
             {snapshot.runId && (

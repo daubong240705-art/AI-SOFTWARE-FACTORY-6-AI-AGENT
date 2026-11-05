@@ -389,6 +389,57 @@ test("runtime columns distinguish conversation, unverified work, review, stop, c
   }
 });
 
+test("Board, overview, roster and inbox agree on pending permissions without exporting command payload", () => {
+  const x = setup();
+  try {
+    const run = fixture(x, {
+      state: "blocked",
+      endedAt: null,
+      tasks: [task("t1", { state: "blocked" })],
+      permissions: [
+        {
+          id: "permission",
+          permission: "bash",
+          patterns: ["private-command-payload"],
+          taskId: "t1",
+        },
+      ],
+    });
+    x.store.createRun(run);
+    const response = x.controller.monitor({
+      projectId: x.project.id,
+      board: {},
+      overview: true,
+    });
+    assert.equal(response.unchanged, false);
+    if (response.unchanged) throw Error("Missing state");
+    const snapshot = response.snapshot;
+    const card = snapshot.board!.cards[0];
+    assert.equal(card.column, "blocked");
+    assert.equal(card.workState?.label, "Chờ cấp quyền");
+    assert.match(card.reason, /Chờ cấp quyền/);
+    assert.equal(snapshot.workState?.label, card.workState?.label);
+    assert.equal(
+      snapshot.overview!.runs[0].workState?.label,
+      card.workState?.label,
+    );
+    assert.equal(
+      x.store.inbox.list({ unreadOnly: false }).items[0].kind,
+      "permission",
+    );
+    assert.ok(!JSON.stringify(snapshot).includes("private-command-payload"));
+    run.permissions = [];
+    run.error = "Workspace unavailable";
+    x.store.updateRun(run);
+    const next = x.controller.monitor({ projectId: x.project.id, board: {} });
+    if (next.unchanged) throw Error("Missing update");
+    assert.equal(next.snapshot.workState?.label, "Cần xử lý");
+    assert.match(next.snapshot.board!.cards[0].reason, /Workspace unavailable/);
+  } finally {
+    x.close();
+  }
+});
+
 test("project history pagination/filtering exceeds 50 runs, deduplicates retry and excludes raw settings/output", () => {
   const x = setup();
   try {

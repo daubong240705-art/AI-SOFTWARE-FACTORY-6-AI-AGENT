@@ -6,6 +6,8 @@ Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–06 và UX-07 Git loc
 
 Đợt [làm gọn giao diện UX-01](../../docs/windows-worker/ux01-ui-refinement.md) là mốc trước R1; xem bàn giao R1 để dùng điều hướng hiện hành. Tổng quan dự án và các chức năng cũ vẫn truy cập được qua menu đúng phạm vi.
 
+Cập nhật R3B: [đã triển khai trạng thái chờ/tiến độ](../../docs/windows-worker/workspace-r3b-completion.md) cho Board/Tổng quan/Đội ngũ, Inbox dùng chung nhãn. Phần report freshness/capability ở mọi view còn tiếp tục; chưa đánh dấu toàn bộ R3 hoàn thành. [Phương án bỏ duyệt Bash](../../docs/windows-worker/bash-autonomy-proposal.md) là đề xuất riêng, chưa thay policy người dùng.
+
 ## Quyết định định hướng
 
 Tạm dừng phát triển 3D theo yêu cầu người dùng. Giữ phần D-01–04 đã có; hoãn D-05 và các hạng mục E phụ thuộc 3D. Chuyển ưu tiên sang trải nghiệm làm việc 2D: **giao việc tự nhiên → theo dõi công việc → trả lời khi thật sự cần → đọc kết quả có bằng chứng**.

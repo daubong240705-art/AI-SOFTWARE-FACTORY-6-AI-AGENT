@@ -95,6 +95,7 @@ export type AgentStatus = {
   } | null;
 };
 export type MonitorSnapshot = {
+  workState?: import("./work-state").WorkStateView;
   epoch: string;
   revision: number;
   projectId: string;

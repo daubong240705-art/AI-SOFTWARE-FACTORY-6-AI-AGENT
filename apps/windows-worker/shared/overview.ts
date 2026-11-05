@@ -1,7 +1,9 @@
 import type { RunSummary } from "./runs";
 import type { TimelineEntry } from "./inspector";
+import { workStateLabels } from "./work-state";
 
 export type OverviewRun = RunSummary & {
+  workState?: import("./work-state").WorkStateView;
   questionState?: import("./questions").QuestionSet["state"];
   endedAt: string | null;
   summary: string;
@@ -52,8 +54,11 @@ export function attentionItems(data: ProjectOverviewData): AttentionItem[] {
     let label = "",
       action = "Xem chi tiết",
       reason = run.error;
-    if (run.permissions && run.state !== "cancelling") {
-      label = "Chờ cấp quyền";
+    if (
+      run.permissions &&
+      ["running", "blocked", "queued"].includes(run.state)
+    ) {
+      label = workStateLabels.permission;
       reason = `${run.permissions} yêu cầu quyền đang chờ`;
       action = "Xem quyền";
     } else if (run.state === "needs_input" && !run.questionState) {
@@ -64,7 +69,11 @@ export function attentionItems(data: ProjectOverviewData): AttentionItem[] {
       label = "Xung đột source";
       reason ||= "Cần xem xung đột trước khi tích hợp.";
     } else if (["failed", "interrupted", "blocked"].includes(run.state)) {
-      label = run.state === "interrupted" ? "Bị gián đoạn" : "Cần xử lý";
+      label =
+        run.workState?.label ??
+        (run.state === "interrupted"
+          ? "Bị gián đoạn"
+          : workStateLabels.failure);
       reason ||= "Mở chi tiết để xem lỗi và cách tiếp tục.";
     }
     if (!label) return [];
@@ -86,7 +95,7 @@ export function attentionItems(data: ProjectOverviewData): AttentionItem[] {
       key: `report:${r.runId}`,
       title: r.title,
       reason: "Đối chiếu source và xem báo cáo trước khi quyết định.",
-      label: "Chờ nghiệm thu",
+      label: workStateLabels.report,
       action: "Xem báo cáo",
       runId: r.runId,
       conversationId: null,
@@ -96,7 +105,7 @@ export function attentionItems(data: ProjectOverviewData): AttentionItem[] {
       key: `questions:${q.id}`,
       title: q.summary,
       reason: "Lead đang chờ câu trả lời nghiệp vụ.",
-      label: "Cần trả lời",
+      label: workStateLabels.question,
       action: "Trả lời câu hỏi",
       runId: q.runId,
       conversationId: q.conversationId,
@@ -109,7 +118,7 @@ export function attentionItems(data: ProjectOverviewData): AttentionItem[] {
         key: `queue:${q.id}`,
         title: q.prompt,
         reason: q.reason || "Yêu cầu đang tạm giữ.",
-        label: "Hàng đợi tạm giữ",
+        label: workStateLabels.queue,
         action: "Mở hàng đợi",
         runId: null,
         conversationId: q.conversationId,

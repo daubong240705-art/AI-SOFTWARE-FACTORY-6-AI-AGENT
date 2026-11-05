@@ -4,6 +4,7 @@ import type { ProjectOverviewData } from "../../shared/overview";
 import { compactTimeline } from "../../shared/inspector";
 import { projectMonitor } from "./monitor";
 import { redact } from "../runtime/security";
+import { workStateView } from "../../shared/work-state";
 
 export function projectOverview(
   projectId: string,
@@ -25,6 +26,14 @@ export function projectOverview(
           null,
         ).progress;
         return {
+          workState: workStateView({
+            ...run,
+            error: redact(run.error, secrets, 240),
+            tasks: run.tasks.map((task) => ({
+              ...task,
+              title: redact(task.title, secrets, 160),
+            })),
+          }),
           id: run.id,
           projectId,
           projectName: redact(run.projectName, secrets, 160),

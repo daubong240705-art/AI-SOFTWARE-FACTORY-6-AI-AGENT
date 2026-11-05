@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { workStateLabels } from "./work-state";
 export const inboxQuerySchema = z
   .object({
     unreadOnly: z.boolean().default(false),
@@ -32,10 +33,4 @@ export type InboxPage = {
   hasMore: boolean;
   next: { at: string; key: string } | null;
 };
-export const inboxLabels: Record<InboxItem["kind"], string> = {
-  permission: "Chờ cấp quyền",
-  question: "Cần trả lời",
-  report: "Chờ nghiệm thu",
-  failure: "Cần xử lý",
-  queue: "Hàng chờ tạm giữ",
-};
+export const inboxLabels: Record<InboxItem["kind"], string> = workStateLabels;

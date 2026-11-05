@@ -569,7 +569,7 @@ export class Store {
       SELECT id,value,created_at,COALESCE(json_extract(value,'$.attemptRoot'),id) AS root,
       ROW_NUMBER() OVER (PARTITION BY COALESCE(json_extract(value,'$.attemptRoot'),id) ORDER BY created_at DESC,rowid DESC) AS rn
       FROM runs WHERE project_id=?
-    ) SELECT id,root AS rootId,json_extract(value,'$.conversationId') AS conversationId,json_extract(value,'$.state') AS state,
+    ) SELECT id,root AS rootId,json_extract(value,'$.projectId') AS projectId,json_extract(value,'$.conversationId') AS conversationId,json_extract(value,'$.state') AS state,
       json_extract(value,'$.mode') AS mode,json_extract(value,'$.prompt') AS prompt,
       json_extract(value,'$.model') AS model,json_extract(value,'$.role') AS role,created_at AS createdAt,
       json_extract(value,'$.endedAt') AS endedAt,json_extract(value,'$.integration.state') AS integrationState,
@@ -582,7 +582,10 @@ export class Store {
         'kind',json_extract(t.value,'$.kind'),'model',json_extract(t.value,'$.model'),'dependsOn',json_extract(t.value,'$.dependsOn'),
         'acceptanceCount',json_array_length(t.value,'$.acceptance'),'workType',json_extract(t.value,'$.workType')))
        FROM json_each(ranked.value,'$.tasks') t) AS tasks,
-      COALESCE(json_array_length(value,'$.changes'),0) AS changes,json_extract(value,'$.error') AS error
+      COALESCE(json_array_length(value,'$.changes'),0) AS changes,json_extract(value,'$.error') AS error,
+      COALESCE(json_array_length(value,'$.permissions'),0) AS permissionCount,
+      COALESCE(json_array_length(value,'$.commands'),0) AS commandCount,
+      (SELECT q.state FROM question_sets q WHERE q.source_run_id=ranked.id ORDER BY q.rowid DESC LIMIT 1) AS questionState
       FROM ranked
       WHERE rn=1 AND (COALESCE(json_extract(value,'$.leadAdmission'),0)=0 OR EXISTS
         (SELECT 1 FROM work_attempts a WHERE a.run_id=ranked.id)) ORDER BY created_at DESC,id DESC`,

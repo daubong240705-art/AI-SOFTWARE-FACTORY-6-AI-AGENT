@@ -208,6 +208,61 @@ test("Lead answer continuation links its accepted plan without rewriting questio
   }
 });
 
+test("pending and answered question states stay consistent across Board, overview, roster and inbox", () => {
+  const s = setup();
+  try {
+    const set = publish(s.store, s.run);
+    const controller = new RunController(s.store, s.directory, () => undefined);
+    const response = controller.monitor({
+      projectId: s.project.id,
+      board: {},
+      overview: true,
+    });
+    if (response.unchanged) throw Error("Missing state");
+    assert.equal(response.snapshot.workState?.label, "Cần trả lời");
+    assert.equal(
+      response.snapshot.board!.cards[0].workState?.label,
+      "Cần trả lời",
+    );
+    assert.equal(
+      response.snapshot.overview!.runs[0].workState?.label,
+      "Cần trả lời",
+    );
+    assert.equal(
+      attentionItems(response.snapshot.overview!).filter(
+        (item) => item.label === "Cần trả lời",
+      ).length,
+      1,
+    );
+    assert.equal(
+      s.store.inbox.list({ unreadOnly: false }).items[0].kind,
+      "question",
+    );
+    s.store.questions.submit(request(set), () => ({
+      requestId: set.id,
+      runId: null,
+      followUpId: null,
+      state: "running",
+    }));
+    const answered = controller.monitor({
+      projectId: s.project.id,
+      board: {},
+      overview: true,
+    });
+    if (answered.unchanged) throw Error("Missing update");
+    assert.equal(answered.snapshot.workState?.label, "Đã xử lý câu hỏi");
+    assert.equal(
+      answered.snapshot.board!.cards[0].workState?.label,
+      "Đã xử lý câu hỏi",
+    );
+    assert.equal(attentionItems(answered.snapshot.overview!).length, 0);
+    assert.equal(s.store.inbox.list({ unreadOnly: false }).items.length, 0);
+  } finally {
+    s.store.close();
+    rmSync(s.directory, { recursive: true, force: true });
+  }
+});
+
 test("versioned Lead questions preserve legacy decisions, reject malformed options and never schedule work", async () => {
   assert.equal(leadDecisionSchema.safeParse({ reply: "Chào" }).success, true);
   assert.equal(

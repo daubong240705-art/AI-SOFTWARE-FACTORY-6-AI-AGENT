@@ -161,6 +161,13 @@ async function main() {
     );
   };
   await until(() => js("!!document.querySelector('.workspace-home')"));
+  await until(
+    () =>
+      js(
+        `!!document.querySelector('[data-project-id="${project.id}"]:not(:disabled)')`,
+      ),
+    "project ready",
+  );
   await js(
     `document.querySelector('[data-project-id="${project.id}"]').click()`,
   );

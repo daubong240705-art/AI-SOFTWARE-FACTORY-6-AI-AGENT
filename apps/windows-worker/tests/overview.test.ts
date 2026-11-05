@@ -70,8 +70,15 @@ test("work state distinguishes conversation, actual work, permissions, pending q
   assert.equal(workStateView(run, { report }).label, "Hoàn thành");
   assert.equal(
     workStateView(run, { report, stale: true }).label,
-    "Kết quả phiên bản trước",
+    "Có kết quả · Chưa xác minh",
   );
+  assert.match(
+    workStateView(run, { report, stale: true }).reason,
+    /Chưa đồng bộ/,
+  );
+  report.freshness = "stale";
+  assert.equal(workStateView(run, { report }).label, "Kết quả phiên bản trước");
+  report.freshness = "current";
   report.report.runId = crypto.randomUUID();
   assert.equal(
     workStateView(run, { report }).label,
@@ -84,13 +91,47 @@ test("work state distinguishes conversation, actual work, permissions, pending q
     questionState: "pending",
     stale: true,
   });
-  assert.equal(questions.label, "Cần bạn trả lời");
+  assert.equal(questions.label, "Cần trả lời");
+  assert.deepEqual(
+    questions.actions.map((action) => action.id),
+    ["questions", "permissions"],
+  );
   assert.equal(questions.freshness, "stale");
   run.state = "cancelling";
   assert.equal(
     workStateView(run, { questionState: "pending" }).label,
     "Đang dừng",
   );
+});
+
+test("blocked and integration conflicts never look like normal work; answered questions do not ask again", () => {
+  const run = fixture(undefined, {
+    state: "blocked",
+    error: "Workspace unavailable",
+  });
+  assert.equal(workStateView(run).label, "Cần xử lý");
+  assert.equal(workStateView(run).actions[0].id, "recovery");
+  run.state = "needs_input";
+  assert.equal(workStateView(run).label, "Cần bổ sung");
+  assert.equal(
+    workStateView(run, { questionState: "answered" }).label,
+    "Đã xử lý câu hỏi",
+  );
+  assert.equal(
+    workStateView(run, { questionState: "superseded" }).label,
+    "Câu hỏi đã hết hiệu lực",
+  );
+  run.state = "running";
+  run.integration = { state: "conflict" } as NonNullable<Run["integration"]>;
+  assert.equal(workStateView(run).label, "Xung đột source");
+  run.permissions = [{ id: "p", permission: "bash", patterns: [] }];
+  assert.deepEqual(
+    workStateView(run).blockers.map((blocker) => blocker.label),
+    ["Chờ cấp quyền", "Xung đột source"],
+  );
+  run.state = "completed";
+  run.integration = undefined;
+  assert.equal(workStateView(run).label, "Lead đã trả lời");
 });
 
 test("overview scopes and bounds data, redacts secrets and does not equate executed with verified", () => {

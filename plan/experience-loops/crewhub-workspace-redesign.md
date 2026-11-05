@@ -4,6 +4,8 @@ Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0�
 
 ## 1. Quyết định chính
 
+Cập nhật 05/11: [R3B đã đồng nhất trạng thái chờ/tiến độ](../../docs/windows-worker/workspace-r3b-completion.md) tại Board/Tổng quan/Đội ngũ và nhãn Cần xử lý. Report freshness/capability giữa mọi view còn tiếp tục; toàn R3 chưa hoàn thành. [Bash tự động](../../docs/windows-worker/bash-autonomy-proposal.md) mới là phương án, không thay quyền hiện hành.
+
 Chuyển từ cách tổ chức theo màn hình kỹ thuật sang **dự án → công việc → trao đổi/thực hiện/kết quả**. Lead là điểm vào thống nhất; một công việc có một nơi để đọc yêu cầu, trả lời câu hỏi, theo dõi agent và xem kết quả. Những view khác chỉ mở đúng hồ sơ này.
 
 Ưu tiên cải tổ bố cục và vòng giao việc trước khi tiếp tục timer/UI của UX-08. Giữ storage lịch hiện có. Không viết lại runtime, thêm orchestrator/service, đổi sang WSL, nối Jira/OpenProject/GitLab Server hoặc tiếp tục 3D. Full access, evidence gate, budget, tối đa hai lane tương thích và một active run toàn app tiếp tục giữ.

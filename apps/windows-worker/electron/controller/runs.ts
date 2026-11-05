@@ -49,6 +49,7 @@ import type {
 } from "../../shared/runs";
 import { Store } from "../storage/database";
 import { projectOverview } from "./overview";
+import { workStateView } from "../../shared/work-state";
 import { OpenCodeRuntime } from "../runtime/opencode";
 import { ModelProxy } from "../gateway/model-proxy";
 import { RequestBudget } from "../gateway/request-budget";
@@ -128,6 +129,8 @@ export class RunController {
         : this.store.latestProjectRun(request.projectId);
     const key = this.readKey();
     const secrets = [...(this.active?.secrets ?? []), ...(key ? [key] : [])];
+    // Reconcile question references once before projecting any of the views.
+    const pendingQuestions = this.store.questions.pending(request.projectId);
     const data = projectMonitor(
       request.projectId,
       this.store.settings(),
@@ -135,6 +138,19 @@ export class RunController {
       active,
       secrets,
     );
+    const stateFor = (source: Run) =>
+      workStateView(
+        {
+          ...source,
+          error: redact(source.error, secrets, 240),
+          tasks: source.tasks.map((task) => ({
+            ...task,
+            title: redact(task.title, secrets, 160),
+          })),
+        },
+        { questionState: this.store.questions.stateForRun(source.id) },
+      );
+    if (run) data.workState = stateFor(run);
     if (request.overview) {
       const recent = this.store.recentProjectRuns(request.projectId);
       if (active?.projectId === request.projectId) {
@@ -150,14 +166,18 @@ export class RunController {
         run ? this.store.events(run.id, true) : [],
         secrets,
       );
-      data.overview.questions = this.store.questions
-        .pending(request.projectId)
-        .map((q) => ({ ...q, summary: redact(q.summary, secrets, 160) }));
+      data.overview.questions = pendingQuestions.map((q) => ({
+        ...q,
+        summary: redact(q.summary, secrets, 160),
+      }));
       data.overview.reports = this.store.reports
         .pending(request.projectId)
         .map((r) => ({ ...r, title: redact(r.title, secrets, 160) }));
-      for (const item of data.overview.runs)
+      for (const item of data.overview.runs) {
         item.questionState = this.store.questions.stateForRun(item.id);
+        const source = recent.find((candidate) => candidate.id === item.id);
+        if (source) item.workState = stateFor(source);
+      }
     }
     if (request.board)
       data.board = projectBoard(

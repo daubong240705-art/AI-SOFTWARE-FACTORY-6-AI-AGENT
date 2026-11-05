@@ -115,6 +115,10 @@ export type BoardTask = {
   workType?: string;
 };
 export type BoardRun = {
+  projectId?: string;
+  commandCount?: number;
+  permissionCount?: number;
+  questionState?: import("./questions").QuestionSet["state"];
   id: string;
   rootId: string;
   conversationId: string | null;
@@ -139,6 +143,7 @@ export type BoardProgress = {
   passed: number;
 };
 export type BoardCard = {
+  workState?: import("./work-state").WorkStateView;
   code?: string;
   key: string;
   itemId: string | null;

@@ -10,8 +10,29 @@ import type {
 import { latestBoardTasks } from "../../shared/board";
 import type { FollowUp } from "../../shared/chat";
 import { redact } from "../runtime/security";
+import { workStateFromFacts } from "../../shared/work-state";
+import type { RunState } from "../../shared/runs";
 
 function runCard(run: BoardRun, secrets: string[]): BoardCard {
+  const workState = workStateFromFacts(
+    {
+      ...run,
+      projectId: run.projectId ?? "",
+      state: run.state as RunState,
+      mode: run.mode === "team" ? "team" : "direct",
+      permissionCount: run.permissionCount ?? 0,
+      hasWork:
+        run.tasks.some((task) => ["work", "fix"].includes(task.kind)) ||
+        run.changes > 0 ||
+        (run.commandCount ?? 0) > 0,
+      error: redact(run.error, secrets, 240),
+      tasks: run.tasks.map((task) => ({
+        ...task,
+        title: redact(task.title, secrets, 160),
+      })),
+    },
+    { questionState: run.questionState },
+  );
   const tasks = latestBoardTasks(run.tasks);
   const stopped =
     ["cancelled"].includes(run.state) ||
@@ -67,9 +88,26 @@ function runCard(run: BoardRun, secrets: string[]): BoardCard {
         ? "Đang tích hợp source"
         : "Đang thực thi";
   }
+  if (
+    ["queued", "running", "blocked", "cancelling", "needs_input"].includes(
+      run.state,
+    ) ||
+    run.integrationState === "conflict"
+  )
+    reason =
+      workState.blockers.length ||
+      ["blocked", "needs_input"].includes(run.state)
+        ? [workState.label, workState.reason].filter(Boolean).join(" · ")
+        : workState.reason || workState.label;
   const verified = column === "done";
   const criteria = tasks.reduce((sum, t) => sum + t.acceptanceCount, 0);
   return {
+    workState:
+      ["queued", "running", "blocked", "cancelling", "needs_input"].includes(
+        run.state,
+      ) || run.integrationState === "conflict"
+        ? workState
+        : undefined,
     key: `run:${run.rootId}`,
     itemId: null,
     version: null,
@@ -156,6 +194,7 @@ export function projectBoard(
           card.stopped = false;
           card.progress.verified = 0;
           card.progress.passed = 0;
+          card.workState = undefined;
         } else card.reason += ` · yêu cầu v${link.revision}`;
       }
     }
