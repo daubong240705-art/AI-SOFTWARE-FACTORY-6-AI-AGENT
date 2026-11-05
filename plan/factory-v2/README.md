@@ -6,6 +6,8 @@ Ngày: **05/11/2026**. Trạng thái: **kế hoạch để triển khai; chưa x
 
 **Tiến độ 06/11/2026:** F0 hoàn tất: [baseline/reuse map](f0-01-baseline.md), [design baseline](f0-02-design-baseline.md) và [contracts/ADR](f0-03-contracts.md) Done. Nhánh `feature/factory-v2-foundation`, checkpoint mới `checkpoint/factory-v2-f0-03-20261106`. Có package TypeScript dùng chung và fixture offline; chưa scaffold Host/UI app, đổi DB hoặc cài WSL. Tiếp theo **F1-01 preflight WSL**, rồi Host/API/storage thật.
 
+**F1-01 đang thực hiện:** [WSL preflight và setup recipe](f1-01-preflight.md) đã kiểm Ubuntu Linux thật, 9Router health/auth/model và CA. Chưa có Node/agent runtime Linux; recipe đã chuẩn bị, chờ quyền ghi workspace `/home/lazy/factory-v2`. WSL đã khởi động; chưa cài thêm packages hay đổi cấu hình hệ thống. Checkpoint `checkpoint/factory-v2-f1-01-20261106`.
+
 **Đây là đầu mối kế hoạch hiện hành.** Gộp multi-runtime, Paperclip, đa lĩnh vực, Loops, quyền tự động và WSL2. CrewHub là tham chiếu trải nghiệm và vòng nghiệp vụ local; hình thức theo kế hoạch UI/UX 06/11, không bắt sao chép palette/font trên 90%. Giữ project tabs, Graph và hướng web/WSL đã chốt. Không yêu cầu xóa sản phẩm/dữ liệu cũ.
 
 ## 1. Đọc và triển khai theo bộ tài liệu nào?

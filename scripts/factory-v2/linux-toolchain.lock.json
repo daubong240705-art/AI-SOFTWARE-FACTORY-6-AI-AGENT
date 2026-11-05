@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "reviewedOn": "2026-11-06",
+  "platform": "linux-x64-glibc",
+  "node": {
+    "version": "22.23.4",
+    "url": "https://nodejs.org/dist/v22.23.4/node-v22.23.4-linux-x64.tar.xz",
+    "algorithm": "sha256",
+    "digest": "1805bcd35e6815559bd2eb97db438d3fdb0eb3a5e6a977b7c1badca76337e9ce",
+    "archiveRoot": "node-v22.23.4-linux-x64",
+    "destination": "node",
+    "license": "MIT and bundled third-party notices in distribution LICENSE",
+    "provenance": "https://nodejs.org/dist/v22.23.4/SHASUMS256.txt"
+  },
+  "opencode": {
+    "version": "1.19.5",
+    "url": "https://registry.npmjs.org/opencode-linux-x64/-/opencode-linux-x64-1.19.5.tgz",
+    "algorithm": "sha512",
+    "integrity": "sha512-i1qh7VooLGML9xX6ud93y0JA8j/1aPeDYRKjsmYXrJX1TjIWHgBBMkEbEJPZthpWbsJg//XfBgR6Kb7+NPaJiQ==",
+    "archiveRoot": "package",
+    "destination": "opencode",
+    "license": "MIT (opencode-ai 1.19.5 metadata); native subpackage omits license field",
+    "provenance": "https://registry.npmjs.org/opencode-linux-x64/1.19.5"
+  },
+  "caddyCa": {
+    "source": "caddy-root.crt",
+    "sha256": "364fc6615c952a558360a13f8cf09fa991d87792b5bec91e69952de5c3643aa4"
+  }
+}

@@ -2,7 +2,7 @@
 
 **Cập nhật UI/UX 06/11/2026:** [Kế hoạch UI/UX](uiux-upgrade.md) hiện hành: Light/Dark/System, Inter, vi/en, chat windows. [F0-02 design baseline](f0-02-design-baseline.md) Done; browser QA và Host/UI app chưa triển khai.
 
-Đọc [phạm vi hiện hành](README.md), [UI reference](design-reference.md), [behavior contracts](workflows.md) và [acceptance](acceptance.md). **06/11/2026: F0-01/F0-02/F0-03 Done, 37 ticket còn lại Planned.** Có package contracts; chưa triển khai Host/UI V2, fixture/contracts không chứng minh chức năng runtime.
+Đọc [phạm vi hiện hành](README.md), [UI reference](design-reference.md), [behavior contracts](workflows.md) và [acceptance](acceptance.md). **06/11/2026: 3 ticket F0 Done; F1-01 In progress; 36 ticket Planned.** Có package contracts và WSL preflight/recipe; chưa triển khai Host/UI V2, fixture/contracts không chứng minh chức năng runtime.
 
 ## 1. Cách thực hiện và bàn giao
 
@@ -26,7 +26,7 @@ Mức S/M/L chỉ độ lớn tương đối (S một boundary nhỏ, M nhiều 
 
 | Ticket / nhóm / cỡ | Việc phải làm và đầu ra | Phụ thuộc | Nghiệm thu |
 |---|---|---|---|
-| F1-01 OPS · M | Preflight Ubuntu/user/disk/filesystem/toolchain/network/CA/9Router; ghi installed/auth/compatible riêng; recipe setup đã xem xét | F0-01 | Linux CLI thật, không lấy version Windows; không lộ credentials; có đủ runtime đầu tiên dùng được |
+| F1-01 OPS · M · **In progress** | [WSL preflight/recipe](f1-01-preflight.md): Ubuntu/ext4/resources, 9Router auth/model/CA; setup rootless checksum-pinned | F0-01 | 10 tests Windows + WSL; còn thiếu Node/runtime Linux, chờ cấp workspace Linux; chưa đạt runtime đầu tiên dùng được |
 | F1-02 BE/OPS · M | Bootstrap Host/API, UI entrypoint, Linux state/workspace dirs, SQLite/outbox, start/stop recipe, local auth/origin checks | F0-03, F1-01 | Reboot Host không mất state, API mutation kiểm session/origin; không tạo DB V2 trên DB V1 |
 | F1-03 BE · L | Adapter đầu tiên theo auth thực tế Codex/OpenCode; streaming, session mapping, interrupt/process lifecycle, errors | F1-02 | Gửi việc thật qua protocol, lưu output, stop đúng owned process; protocol/auth failures có reason |
 | F1-04 BE/OPS · M | Execution profiles, effective-grants preflight, caches/network/tool permissions; startup resource defaults | F1-03 | Read/edit/shell/build/test trong scope chạy không Accept; ngoài quyền thành một blocker cấu hình, không flood |
