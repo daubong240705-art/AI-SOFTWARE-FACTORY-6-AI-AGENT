@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import type { Readiness } from "../../shared/readiness";
+import { setupDestination, type SetupSection } from "../../shared/setup";
 
 export function ProjectReadiness({
   projectId,
   onSettings,
 }: {
   projectId: string;
-  onSettings: () => void;
+  onSettings: (section?: SetupSection) => void;
 }) {
   const [value, setValue] = useState<Readiness | null>(null),
     [busy, setBusy] = useState(false),
@@ -17,9 +18,12 @@ export function ProjectReadiness({
     lock.current = true;
     setBusy(true);
     setError("");
+    setValue(null);
     try {
       const reply = await window.worker.readiness({ projectId, force });
       if (!reply.ok) throw Error(reply.error);
+      if (reply.value.projectId !== projectId)
+        throw Error("Kết quả không thuộc dự án.");
       setValue(reply.value);
     } catch (e) {
       setError(
@@ -57,26 +61,49 @@ export function ProjectReadiness({
       )}
       {value && (
         <>
-          <ul className="readiness-checks">
-            {value.checks.map((c) => (
-              <li key={c.id}>
-                <div>
-                  <strong>{c.label}</strong>
-                  <small>
-                    {c.level === "required" ? "Bắt buộc" : "Khuyến nghị"}
-                  </small>
-                </div>
-                <span>
-                  {c.status === "pass"
-                    ? "Đạt"
-                    : c.status === "fail"
-                      ? "Thiếu"
-                      : "Chưa xác định"}
-                </span>
-                <p className="muted small">{c.detail}</p>
-              </li>
-            ))}
-          </ul>
+          {!value.ready && (
+            <ul className="readiness-issues">
+              {value.checks
+                .filter((c) => c.level === "required" && c.status !== "pass")
+                .map((c) => (
+                  <li key={c.id}>
+                    <strong>{c.label}</strong>
+                    <span>{c.detail}</span>
+                    {setupDestination(c.id) && (
+                      <button
+                        disabled={busy}
+                        onClick={() => onSettings(setupDestination(c.id)!)}
+                      >
+                        Cấu hình {c.label}
+                      </button>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          )}
+          <details className="readiness-details">
+            <summary>Chi tiết kiểm tra</summary>
+            <ul className="readiness-checks">
+              {value.checks.map((c) => (
+                <li key={c.id}>
+                  <div>
+                    <strong>{c.label}</strong>
+                    <small>
+                      {c.level === "required" ? "Bắt buộc" : "Khuyến nghị"}
+                    </small>
+                  </div>
+                  <span>
+                    {c.status === "pass"
+                      ? "Đạt"
+                      : c.status === "fail"
+                        ? "Thiếu"
+                        : "Chưa xác định"}
+                  </span>
+                  <p className="muted small">{c.detail}</p>
+                </li>
+              ))}
+            </ul>
+          </details>
           <p className="small muted">
             {value.slot === "occupied"
               ? "Slot đang dùng; yêu cầu mới sẽ theo hàng chờ hiện có."
@@ -89,7 +116,7 @@ export function ProjectReadiness({
         <button disabled={busy} onClick={() => void check(true)}>
           Kiểm tra lại
         </button>
-        <button onClick={onSettings}>Cài đặt</button>
+        {!value && <button onClick={() => onSettings()}>Cài đặt</button>}
       </div>
     </details>
   );

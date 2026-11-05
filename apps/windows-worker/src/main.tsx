@@ -16,6 +16,7 @@ import "./readiness-inbox.css";
 import "./git.css";
 import "./diagrams.css";
 import "./workspace-shell.css";
+import "./settings.css";
 import type { WorkerAPI } from "../shared/contracts";
 
 declare global {

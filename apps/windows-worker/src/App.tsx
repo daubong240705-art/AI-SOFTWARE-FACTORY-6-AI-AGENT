@@ -1,3 +1,5 @@
+import { SettingsWorkspace } from "./features/SettingsWorkspace";
+import { setupIdentity, type SetupSection } from "../shared/setup";
 import { DetailHost } from "./features/DetailHost";
 import { WorkItemPanel, type WorkTab } from "./features/WorkItemPanel";
 import { Select } from "./ui/Select";
@@ -19,20 +21,13 @@ import {
   LayoutDashboard,
   MessageSquare,
   ChevronDown,
-  Check,
   CheckCircle2,
   Clock3,
   Code2,
-  FolderOpen,
-  KeyRound,
   Layers,
   Box,
   LoaderCircle,
   Plus,
-  RefreshCw,
-  Save,
-  Settings2,
-  Terminal,
   Trash2,
   TriangleAlert,
   Workflow,
@@ -45,7 +40,6 @@ import type {
   Reply,
   Role,
   Settings,
-  ToolStatus,
 } from "../shared/contracts";
 import { defaultSettings } from "../shared/defaults";
 import { ChatHost } from "./features/ChatHost";
@@ -64,15 +58,6 @@ import type { ConversationSummary, WorkChatContext } from "../shared/chat";
 import type { RuntimeView } from "../shared/runs";
 import { runLabels } from "../shared/runs";
 
-const names: Record<Role, { label: string; description: string }> = {
-  lead: { label: "Lead", description: "Điều phối" },
-  pm: { label: "PM", description: "Kế hoạch" },
-  ba: { label: "BA", description: "Yêu cầu" },
-  be: { label: "BE", description: "Backend" },
-  fe: { label: "FE", description: "Frontend" },
-  test: { label: "TEST", description: "Kiểm thử" },
-  devops: { label: "DEVOPS", description: "Môi trường local" },
-};
 async function value<T>(promise: Promise<Reply<T>>): Promise<T> {
   const result = await promise;
   if (!result.ok) throw new Error(result.error);
@@ -130,20 +115,11 @@ export function App() {
   const [status, setStatus] = useState<ProjectStatus | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [tools, setTools] = useState<ToolStatus[] | null>(null);
   const [keyAction, setKeyAction] = useState<"keep" | "replace" | "remove">(
     "keep",
   );
   const keyInput = useRef<HTMLInputElement>(null);
-  const [presetOpen, setPresetOpen] = useState(false);
-  const [preset, setPreset] = useState<"fast" | "balanced" | "quality">(
-    "balanced",
-  );
-  const [presetModels, setPresetModels] = useState({
-    fast: "",
-    planning: "",
-    coding: "",
-  });
+  const [setupSection, setSetupSection] = useState<SetupSection>("models");
   const [remove, setRemove] = useState<Project | null>(null);
   const [compact, setCompact] = useState(false);
   const [runtime, setRuntime] = useState<RuntimeView>({
@@ -485,8 +461,7 @@ export function App() {
     };
   }, [selectedRun, project?.id]);
   useEffect(() => {
-    if (page !== "settings")
-      setKeyAction((current) => (current === "replace" ? "keep" : current));
+    if (page !== "settings") setKeyAction("keep");
   }, [page]);
   useEffect(() => {
     if (!project) {
@@ -661,17 +636,11 @@ export function App() {
     setSettings(next.settings);
     return next;
   }
-  async function fetchCatalog() {
-    await act("models", async () => {
-      const next = await save();
-      const found = await value(window.worker.fetchModels());
-      setBoot({ ...next, models: found });
-      tell(
-        found.length
-          ? `Đã kết nối · ${found.length} model`
-          : "Đã kết nối. Gateway chưa cung cấp model nào.",
-      );
-    });
+  async function fetchCatalog(): Promise<string[]> {
+    const next = await save();
+    const found = await value(window.worker.fetchModels());
+    setBoot({ ...next, models: found });
+    return found;
   }
   function updateAgent(
     role: Role,
@@ -694,27 +663,9 @@ export function App() {
         }));
     });
   }
-  function applyPreset() {
-    const { fast, planning, coding } = presetModels;
-    if (!fast || !coding || (preset !== "fast" && !planning)) return;
-    setSettings((current) => ({
-      ...current,
-      agents: current.agents.map((agent) => ({
-        ...agent,
-        model:
-          agent.role === "be" || agent.role === "fe"
-            ? coding
-            : preset === "fast"
-              ? fast
-              : agent.role === "lead" ||
-                  agent.role === "ba" ||
-                  (preset === "quality" && ["pm", "test"].includes(agent.role))
-                ? planning
-                : fast,
-      })),
-    }));
-    setPresetOpen(false);
-    tell("Đã áp dụng preset. Bấm Lưu cấu hình để giữ thay đổi.");
+  async function openSetup(section: SetupSection = "models") {
+    setSetupSection(section);
+    await navigate("settings");
   }
   async function navigate(next: Page) {
     try {
@@ -726,10 +677,9 @@ export function App() {
       );
       return;
     }
-    if (page === "settings" && next !== "settings" && keyInput.current?.value) {
-      keyInput.current.value = "";
+    if (page === "settings" && next !== "settings") {
+      if (keyInput.current) keyInput.current.value = "";
       setKeyAction("keep");
-      tell("Key chưa lưu đã được xóa khỏi ô nhập.");
     }
     setWorkDetail(null);
     setInspection(null);
@@ -752,116 +702,6 @@ export function App() {
       setCreateRequest({ projectId: project.id, version: Date.now() });
     });
   }
-  const modelSelector = (
-    model: string,
-    change: (id: string) => void,
-    label: string,
-    disabled = false,
-  ) => (
-    <Select
-      aria-label={label}
-      value={model}
-      onValueChange={(value) => change(value)}
-      disabled={disabled || !!busy}
-    >
-      <option value="">Chọn model</option>
-      {model && !models.includes(model) && (
-        <option value={model}>{model} · ngoài catalog</option>
-      )}
-      {models.map((id) => (
-        <option value={id} key={id}>
-          {id}
-        </option>
-      ))}
-    </Select>
-  );
-
-  const team = (
-    <section className="card team-card">
-      <div className="card-heading">
-        <div>
-          <h2>Đội agent</h2>
-          <span className="muted small">
-            {settings.agents.filter((agent) => agent.enabled).length}/7 đang bật
-          </span>
-        </div>
-        <div className="inline">
-          <button
-            className="subtle"
-            onClick={() => setPresetOpen(true)}
-            disabled={!models.length || !!busy}
-          >
-            <Layers size={15} />
-            Preset
-          </button>
-          <button
-            className="subtle"
-            disabled={!dirty || !!busy}
-            onClick={() =>
-              void act("save", async () => {
-                await save();
-                tell("Đã lưu cấu hình.");
-              })
-            }
-          >
-            <Save size={15} />
-            Lưu
-          </button>
-        </div>
-      </div>
-      <div className="team-header">
-        <span>Agent</span>
-        <span>Model</span>
-        <span>Bật</span>
-      </div>
-      {settings.agents.map((agent) => (
-        <div
-          className={`agent-row ${!agent.enabled ? "inactive" : ""}`}
-          key={agent.role}
-        >
-          <div className="agent-info">
-            <div
-              className={`agent-avatar ${agent.role === "lead" ? "lead" : ""}`}
-            >
-              {agent.role === "lead" ? (
-                <Workflow size={17} />
-              ) : (
-                names[agent.role].label.slice(0, 2)
-              )}
-            </div>
-            <div>
-              <strong>{names[agent.role].label}</strong>
-              <small>{names[agent.role].description}</small>
-            </div>
-          </div>
-          {modelSelector(
-            agent.model,
-            (model) => updateAgent(agent.role, { model }),
-            `Model ${names[agent.role].label}`,
-            !agent.enabled,
-          )}
-          <button
-            type="button"
-            className="toggle"
-            role="switch"
-            aria-label={`Bật ${names[agent.role].label}`}
-            aria-checked={agent.enabled}
-            disabled={agent.role === "lead" || !!busy}
-            title={agent.role === "lead" ? "Lead luôn bật" : undefined}
-            onClick={() => updateAgent(agent.role, { enabled: !agent.enabled })}
-          >
-            <span />
-          </button>
-        </div>
-      ))}
-      {!models.length && (
-        <button className="card-link" onClick={() => navigate("settings")}>
-          Kết nối gateway để tải model <ArrowRight size={14} />
-        </button>
-      )}
-    </section>
-  );
-
   const conversationNavigation = (
     <div className="conversation-nav">
       <button
@@ -1121,7 +961,8 @@ export function App() {
                 (project ? (
                   <ProjectOverview
                     projectId={project.id}
-                    onSettings={() => void navigate("settings")}
+                    settingsIdentity={setupIdentity(boot.settings)}
+                    onSettings={(section) => void openSetup(section)}
                     onReport={(runId) => {
                       if (project)
                         showDetail({
@@ -1454,352 +1295,28 @@ export function App() {
                 </>
               )}
               {page === "settings" && (
-                <>
-                  <div className="page-heading">
-                    <div>
-                      <div className="eyebrow">PREFERENCES</div>
-                      <h1>Cài đặt</h1>
-                    </div>
-                    <div className="inline">
-                      {dirty && <span className="unsaved">Chưa lưu</span>}
-                      <button
-                        className="primary"
-                        disabled={!dirty || !!busy}
-                        onClick={() =>
-                          void act("save", async () => {
-                            await save();
-                            tell("Đã lưu cấu hình.");
-                          })
-                        }
-                      >
-                        {busy === "save" ? (
-                          <LoaderCircle className="spin" size={16} />
-                        ) : (
-                          <Save size={16} />
-                        )}
-                        Lưu cấu hình
-                      </button>
-                    </div>
-                  </div>
-                  <div className="settings-grid">
-                    <div className="settings-main">
-                      <section className="card settings-card">
-                        <div className="card-heading">
-                          <h2>
-                            <KeyRound size={17} />
-                            9Router
-                          </h2>
-                          <span className="pill">
-                            {boot.hasKey ? "Đã lưu key" : "Chưa có key"}
-                          </span>
-                        </div>
-                        <label>
-                          Gateway URL
-                          <input
-                            placeholder="https://router.example/v1"
-                            value={settings.gatewayUrl}
-                            onChange={(event) =>
-                              setSettings({
-                                ...settings,
-                                gatewayUrl: event.target.value,
-                              })
-                            }
-                            disabled={!!busy}
-                            spellCheck={false}
-                          />
-                        </label>
-                        <label>
-                          API key
-                          <div className="input-actions">
-                            <input
-                              ref={keyInput}
-                              type="password"
-                              autoComplete="new-password"
-                              placeholder={
-                                boot.hasKey
-                                  ? "Để trống để giữ key đã lưu"
-                                  : "Nhập API key"
-                              }
-                              disabled={!boot.secureStorage || !!busy}
-                              onChange={(event) =>
-                                setKeyAction(
-                                  event.target.value ? "replace" : "keep",
-                                )
-                              }
-                              aria-label="API key"
-                              spellCheck={false}
-                            />
-                            {boot.hasKey && (
-                              <button
-                                className={
-                                  keyAction === "remove" ? "danger" : ""
-                                }
-                                disabled={!!busy}
-                                onClick={() => {
-                                  if (keyInput.current)
-                                    keyInput.current.value = "";
-                                  setKeyAction(
-                                    keyAction === "remove" ? "keep" : "remove",
-                                  );
-                                }}
-                              >
-                                {keyAction === "remove" ? "Giữ key" : "Xóa key"}
-                              </button>
-                            )}
-                          </div>
-                        </label>
-                        {keyAction === "remove" && (
-                          <p className="warning-text">
-                            Key sẽ được xóa khi lưu.
-                          </p>
-                        )}
-                        {!boot.secureStorage && (
-                          <p className="warning-text">
-                            Windows secure storage không khả dụng. Không thể lưu
-                            API key.
-                          </p>
-                        )}
-                        <label>
-                          CA nội bộ{" "}
-                          <span className="muted optional">Tùy chọn</span>
-                          <div className="input-actions">
-                            <input
-                              value={settings.caPath}
-                              placeholder="Chọn file .crt hoặc .pem"
-                              onChange={(event) =>
-                                setSettings({
-                                  ...settings,
-                                  caPath: event.target.value,
-                                })
-                              }
-                              disabled={!!busy}
-                            />
-                            <button
-                              aria-label="Chọn CA nội bộ"
-                              onClick={() => void chooseFile("ca")}
-                              disabled={!!busy}
-                            >
-                              <FolderOpen size={16} />
-                            </button>
-                          </div>
-                        </label>
-                        <div className="settings-action">
-                          <span className="muted small">
-                            {models.length
-                              ? `${models.length} model trong catalog`
-                              : "Chưa tải catalog"}
-                          </span>
-                          <button
-                            onClick={() => void fetchCatalog()}
-                            disabled={!!busy || !settings.gatewayUrl}
-                          >
-                            {busy === "models" ? (
-                              <LoaderCircle size={15} className="spin" />
-                            ) : (
-                              <RefreshCw size={15} />
-                            )}
-                            Lưu & tải model
-                          </button>
-                        </div>
-                        <details className="setting-details">
-                          <summary>Thông tin kết nối</summary>
-                          <p>
-                            Gateway URL gồm API prefix, thường là /v1. Tải model
-                            chỉ đọc catalog, không gọi sinh code.
-                          </p>
-                          <p>
-                            API key được mã hóa bằng Windows secure storage.
-                            Source gửi trong context có thể đi qua 9Router tới
-                            nhà cung cấp model.
-                          </p>
-                          <p>
-                            Đổi máy chủ gateway cần nhập key mới hoặc xóa key
-                            cũ.
-                          </p>
-                        </details>
-                      </section>
-                      <section className="card settings-card">
-                        <div className="card-heading">
-                          <h2>
-                            <Terminal size={17} />
-                            Runtime & công cụ
-                          </h2>
-                        </div>
-                        <p className="muted small">
-                          Bash tự chạy theo vai trò bằng quyền Windows hiện tại.
-                          Lead giao việc; BE/FE/TEST/DEVOPS thực thi. Giới hạn
-                          lượt chạy và nút Dừng vẫn áp dụng.
-                        </p>
-                        <label>
-                          Thực thi nhóm
-                          <Select
-                            aria-label="Thực thi nhóm"
-                            value={settings.teamExecution ?? "sequential"}
-                            disabled={!!busy || !!runtime.activeId}
-                            onValueChange={(value) =>
-                              setSettings({
-                                ...settings,
-                                teamExecution:
-                                  value as Settings["teamExecution"],
-                              })
-                            }
-                          >
-                            <option value="sequential">Tuần tự</option>
-                            <option value="isolated-pair">
-                              Hai task độc lập · workspace riêng
-                            </option>
-                          </Select>
-                        </label>
-                        <p className="muted small">
-                          Repo sạch · tích hợp trong workspace riêng · kiểm thử
-                          source hợp nhất.
-                        </p>
-                        <label>
-                          OpenCode executable
-                          <div className="input-actions">
-                            <input
-                              placeholder="Tự tìm opencode trong PATH"
-                              value={settings.runtimePath}
-                              onChange={(event) =>
-                                setSettings({
-                                  ...settings,
-                                  runtimePath: event.target.value,
-                                })
-                              }
-                              disabled={!!busy}
-                            />
-                            <button
-                              aria-label="Chọn OpenCode executable"
-                              onClick={() => void chooseFile("runtime")}
-                              disabled={!!busy}
-                            >
-                              <FolderOpen size={16} />
-                            </button>
-                          </div>
-                        </label>
-                        <div className="settings-action">
-                          <span className="muted small">
-                            Chỉ đọc phiên bản, không cài công cụ.
-                          </span>
-                          <button
-                            disabled={!!busy}
-                            onClick={() =>
-                              void act("tools", async () => {
-                                await save();
-                                setTools(
-                                  await value(window.worker.checkTools()),
-                                );
-                              })
-                            }
-                          >
-                            {busy === "tools" ? (
-                              <LoaderCircle size={15} className="spin" />
-                            ) : (
-                              <RefreshCw size={15} />
-                            )}
-                            Đọc phiên bản
-                          </button>
-                        </div>
-                        {tools && (
-                          <div className="tool-list">
-                            {tools.map((tool) => (
-                              <div className="tool-row" key={tool.name}>
-                                <span>
-                                  {tool.available ? (
-                                    <Check size={15} className="success-text" />
-                                  ) : (
-                                    <TriangleAlert
-                                      size={15}
-                                      className="warning-text"
-                                    />
-                                  )}
-                                  <strong>{tool.name}</strong>
-                                </span>
-                                <div>
-                                  <span title={tool.path}>{tool.version}</span>
-                                  {!tool.available && (
-                                    <small>
-                                      {tool.name === "OpenCode"
-                                        ? "Chọn opencode.exe hoặc thêm vào PATH."
-                                        : `Cài ${tool.name} nếu dự án cần công cụ này.`}
-                                    </small>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </section>
-                      <section className="card settings-card">
-                        <div className="card-heading">
-                          <h2>
-                            <Settings2 size={17} />
-                            Giới hạn mặc định
-                          </h2>
-                          <span className="pill">Tuần tự</span>
-                        </div>
-                        <div className="limit-grid">
-                          <label>
-                            Timeout <span className="muted optional">phút</span>
-                            <input
-                              type="number"
-                              min="1"
-                              max="240"
-                              value={settings.timeoutMinutes}
-                              disabled={!!busy}
-                              onChange={(event) =>
-                                setSettings({
-                                  ...settings,
-                                  timeoutMinutes: Number(event.target.value),
-                                })
-                              }
-                            />
-                          </label>
-                          <label>
-                            Request tối đa
-                            <input
-                              type="number"
-                              min="1"
-                              max="1000"
-                              value={settings.maxRequests}
-                              disabled={!!busy}
-                              onChange={(event) =>
-                                setSettings({
-                                  ...settings,
-                                  maxRequests: Number(event.target.value),
-                                })
-                              }
-                            />
-                          </label>
-                          <label>
-                            Vòng sửa lỗi
-                            <Select
-                              value={settings.maxFixRounds}
-                              disabled={!!busy}
-                              onValueChange={(value) =>
-                                setSettings({
-                                  ...settings,
-                                  maxFixRounds: Number(value),
-                                })
-                              }
-                            >
-                              {[0, 1, 2].map((n) => (
-                                <option key={n} value={n}>
-                                  {n}
-                                </option>
-                              ))}
-                            </Select>
-                          </label>
-                        </div>
-                        <p className="muted small">
-                          Timeout và request được chặn theo lượt chạy. Vòng sửa
-                          tự động tối đa hai vòng cho toàn bộ yêu cầu.
-                        </p>
-                      </section>
-                    </div>
-                    <div className="team-column">{team}</div>
-                  </div>
-                </>
+                <SettingsWorkspace
+                  boot={boot}
+                  settings={settings}
+                  setSettings={setSettings}
+                  busy={busy}
+                  dirty={!!dirty}
+                  keyAction={keyAction}
+                  setKeyAction={setKeyAction}
+                  keyInput={keyInput}
+                  initialSection={setupSection}
+                  onSave={() =>
+                    void act("save", async () => {
+                      await save();
+                      tell("?? l?u c?u h?nh.");
+                    })
+                  }
+                  onCatalog={fetchCatalog}
+                  onChooseFile={(kind) => void chooseFile(kind)}
+                  onAction={act}
+                  active={!!runtime.activeId}
+                  onChanged={() => setChatRefresh((n) => n + 1)}
+                />
               )}
             </>
           )}
@@ -1826,87 +1343,6 @@ export function App() {
           </footer>
         )}
       </div>
-      {presetOpen && (
-        <div className="modal-backdrop">
-          <section
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="preset-title"
-          >
-            <div className="card-heading">
-              <h2 id="preset-title">Áp dụng preset</h2>
-              <button
-                className="icon-button"
-                aria-label="Đóng preset"
-                onClick={() => setPresetOpen(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <label>
-              Chế độ
-              <Select
-                value={preset}
-                onValueChange={(value) => setPreset(value as typeof preset)}
-              >
-                <option value="fast">Fast</option>
-                <option value="balanced">Balanced</option>
-                <option value="quality">Quality</option>
-              </Select>
-            </label>
-            <label>
-              Model nhanh
-              {modelSelector(
-                presetModels.fast,
-                (fast) => setPresetModels({ ...presetModels, fast }),
-                "Model nhanh",
-              )}
-            </label>
-            {preset !== "fast" && (
-              <label>
-                Model lập kế hoạch
-                {modelSelector(
-                  presetModels.planning,
-                  (planning) => setPresetModels({ ...presetModels, planning }),
-                  "Model lập kế hoạch",
-                )}
-              </label>
-            )}
-            <label>
-              Model coding
-              {modelSelector(
-                presetModels.coding,
-                (coding) => setPresetModels({ ...presetModels, coding }),
-                "Model coding",
-              )}
-            </label>
-            <p className="muted small">
-              BE/FE dùng model coding.{" "}
-              {preset === "fast"
-                ? "Các role còn lại dùng model nhanh."
-                : preset === "balanced"
-                  ? "Lead/BA dùng model lập kế hoạch."
-                  : "Lead/PM/BA/TEST dùng model lập kế hoạch."}{" "}
-              Trạng thái bật/tắt được giữ nguyên.
-            </p>
-            <div className="modal-actions">
-              <button onClick={() => setPresetOpen(false)}>Hủy</button>
-              <button
-                className="primary"
-                disabled={
-                  !presetModels.fast ||
-                  !presetModels.coding ||
-                  (preset !== "fast" && !presetModels.planning)
-                }
-                onClick={applyPreset}
-              >
-                Áp dụng
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
       {remove && (
         <div className="modal-backdrop">
           <section
