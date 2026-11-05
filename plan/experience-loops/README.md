@@ -1,6 +1,8 @@
 # ASF — Cải thiện trải nghiệm từ CrewHub Loops
 
-Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–06 và UX-07 Git local đã triển khai; ảnh/Mermaid và UX-08 chưa triển khai**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
+Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–06 và UX-07 Git local, ảnh/Mermaid đã triển khai; UX-08 có contract/storage tới schema 14, chưa timer/IPC/UI**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
+
+**Ưu tiên mới theo bộ ảnh `crewhub/`:** [Phương án tổ chức lại workspace](crewhub-workspace-redesign.md). Đây là kế hoạch R1–R7, chưa triển khai; thay định hướng navigation/Chat/Kết quả trong `design.md` cho đợt tiếp theo. Bắt đầu R1 shell → R2 hồ sơ công việc → R3 liên kết Lead/trạng thái; lịch tiếp tục ở R6.
 
 Đã bổ sung [đợt làm gọn giao diện](../../docs/windows-worker/ux01-ui-refinement.md) theo ảnh phản hồi: bốn trang chính, menu dự án tập trung, hội thoại theo ngữ cảnh và Tổng quan giới hạn nội dung mặc định. Đây là bố cục hiện hành thay cho header có nhiều nút trong UX-01 đầu tiên.
 
@@ -46,7 +48,7 @@ Tạm dừng phát triển 3D theo yêu cầu người dùng. Giữ phần D-01�
 
 **UX-01 Tổng quan/điều hướng → UX-02 Hồ sơ công việc → UX-03 Chat theo ngữ cảnh → UX-04 Câu hỏi → UX-05 Kết quả → UX-06 Mẫu công việc/Team.** UX-07 Git và UX-08 lịch/quy tắc là mở rộng sau, không chặn vòng làm việc chính.
 
-UX-01 thêm Tổng quan/điều hướng gọn; UX-02 thêm hồ sơ công việc; UX-03 thêm chat theo ngữ cảnh; UX-04 thêm câu hỏi nghiệp vụ và continuation idempotent; UX-05 thêm báo cáo bất biến, bằng chứng và nghiệm thu tùy chọn. Worker vẫn `1.3.0-alpha.8`, SQLite 12; chưa phát hành stable. UX-06 thêm mẫu điền nháp, readiness local, Team danh sách và hộp thư chung. UX-07 thêm Git local chỉ đọc, diff staged/unstaged, lịch sử giới hạn và link mã công việc. [Bàn giao UX-06](../../docs/windows-worker/ux06-completion.md), [UX-07](../../docs/windows-worker/ux07-completion.md).
+UX-01 thêm Tổng quan/điều hướng gọn; UX-02 thêm hồ sơ công việc; UX-03 thêm chat theo ngữ cảnh; UX-04 thêm câu hỏi nghiệp vụ và continuation idempotent; UX-05 thêm báo cáo bất biến, bằng chứng và nghiệm thu tùy chọn. Worker vẫn `1.3.0-alpha.8`, SQLite 14; chưa phát hành stable. UX-06 thêm mẫu điền nháp, readiness local, Team danh sách và hộp thư chung. UX-07 thêm Git local chỉ đọc, diff staged/unstaged, lịch sử giới hạn và link mã công việc. [Bàn giao UX-06](../../docs/windows-worker/ux06-completion.md), [UX-07](../../docs/windows-worker/ux07-completion.md).
 
 ## Phạm vi khảo sát và giới hạn
 
