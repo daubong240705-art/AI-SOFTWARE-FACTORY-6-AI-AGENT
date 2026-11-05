@@ -1,4 +1,5 @@
 import { SettingsWorkspace } from "./features/SettingsWorkspace";
+import { SchedulesWorkspace } from "./features/SchedulesWorkspace";
 import { setupIdentity, type SetupSection } from "../shared/setup";
 import { DetailHost } from "./features/DetailHost";
 import { WorkItemPanel, type WorkTab } from "./features/WorkItemPanel";
@@ -935,6 +936,13 @@ export function App() {
                   projectId={project.id}
                   refreshVersion={chatRefresh}
                   onOpen={openResult}
+                />
+              )}
+              {page === "schedules" && project && (
+                <SchedulesWorkspace
+                  key={project.id}
+                  projectId={project.id}
+                  onOpenItem={(id) => void openWorkItem(id)}
                 />
               )}
               {page === "inbox" && (

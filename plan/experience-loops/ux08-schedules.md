@@ -1,5 +1,7 @@
 # UX-08 — Lịch và quy tắc đơn giản
 
+> Cập nhật 05/11/2026: **U8-01–05 hoàn thành qua R6**, Worker alpha.8/SQLite15. [Bàn giao, cách dùng và kiểm chứng](../../docs/windows-worker/workspace-r6-completion.md). Các mục “phải bổ sung” bên dưới lưu thiết kế thời điểm U8-02; đã thực hiện ở R6.
+
 Ngày: 2026-11-05. Baseline `06dfe2d`; checkpoint `checkpoint/ux08-start-20261105`. Worker `1.3.0-alpha.8`, SQLite **14** sau U8-02. Giữ Factory Lite + Windows Worker, một Controller và một active run toàn app. 3D, remote PR/issues và WW-5 tiếp tục ngoài phạm vi.
 
 ## 1. Phạm vi sản phẩm
@@ -24,9 +26,9 @@ App đóng hoặc máy ngủ thì lịch không chạy. Lần kiểm tra sau ch�
 |---|---|---|---|
 | U8-01 | Contract allowlist, preview, timezone, occurrence/key, missed policy | **Đã triển khai thư viện thuần** | Giờ Việt Nam, offset lẻ, đổi năm, DST gap/fold, grace, không catch-up, từ chối shell/override |
 | U8-02 | SQLite create/read/update/toggle/version + delivery nguyên tử với BoardStore | **Đã triển khai storage** | Upgrade schema 13 có backup; rollback/reopen; không tạo trùng; chặn sai project/version |
-| U8-03 | Tick main, resume, pause toàn cục, backpressure | Chưa triển khai | Một timer không reentrant; pause/restart/clock jump; không model/shell |
-| U8-04 | Danh sách/editor/preview/toggle/history/mở thẻ | Chưa triển khai | Empty/error/conflict; keyboard/narrow/zoom; preview không tạo thẻ, mặc định tắt |
-| U8-05 | Kiểm chứng tích hợp và bàn giao | Chưa triển khai | Electron + native SQLite, regression Board/Chat; không dùng dữ liệu thật |
+| U8-03 | Tick main, resume, pause toàn cục, backpressure | **Hoàn thành R6** | Một timer không reentrant; pause/restart/clock jump; không model/shell |
+| U8-04 | Danh sách/editor/preview/toggle/history/mở thẻ | **Hoàn thành R6** | Empty/error/conflict; keyboard/narrow/zoom; preview không tạo thẻ, mặc định tắt |
+| U8-05 | Kiểm chứng tích hợp và bàn giao | **Hoàn thành R6** | Electron + native SQLite, regression Board/Chat; không dùng dữ liệu thật |
 
 U8-01–02 chưa có màn hình, IPC hoặc timer. Schedule đã lưu được qua store nội bộ; delivery chỉ chạy khi có caller gọi store, chưa tự chạy trong app. Không đánh dấu UX-08 hoàn thành trước U8-05. Xem [bàn giao storage](../../docs/windows-worker/ux08-storage-completion.md).
 

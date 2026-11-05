@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   Box,
+  CalendarClock,
   Folder,
   GitBranch,
   History,
@@ -32,6 +33,7 @@ export type WorkspacePage =
   | "settings"
   | "monitor"
   | "board"
+  | "schedules"
   | "office";
 
 export const isProjectPage = (page: WorkspacePage) =>
@@ -43,6 +45,7 @@ export const isProjectPage = (page: WorkspacePage) =>
     "board",
     "office",
     "results",
+    "schedules",
   ].includes(page);
 
 export function WorkspaceSidebar({
@@ -298,6 +301,13 @@ export function WorkspaceHeader({
               <span>Git local</span>
             </button>
             <button
+              aria-current={page === "schedules" ? "true" : undefined}
+              onClick={() => onNavigate("schedules")}
+            >
+              <CalendarClock size={16} />
+              <span>Lịch</span>
+            </button>
+            <button
               aria-current={page === "office" ? "true" : undefined}
               onClick={() => onNavigate("office")}
             >
@@ -313,7 +323,9 @@ export function WorkspaceHeader({
                   ? "Đội ngũ"
                   : page === "git"
                     ? "Git"
-                    : "Văn phòng"}
+                    : page === "schedules"
+                      ? "Lịch"
+                      : "Văn phòng"}
             </span>
           )}
         </nav>

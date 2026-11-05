@@ -16,11 +16,11 @@ Ngày 05/11/2026. Baseline `446bf2a`; checkpoint Git `checkpoint/source-cleanup-
 
 | Ưu tiên | Hạng mục | Trạng thái và điều kiện hoàn thành |
 |---|---|---|
-| 1 | R6 / UX-08 lịch | Mới có contract, preview, migration và storage. Còn tick main không reentrant, resume/pause, IPC và UI editor/history; cần ghi lỗi/tắt lịch, retention/backpressure trước bật timer. Theo [U8-03–05](../../plan/experience-loops/ux08-schedules.md). |
+| Đã hoàn thành | R6 / UX-08 lịch | Đã nối timer/resume, IPC, editor/preview/history, lỗi tắt lịch và quota/retention. [Bàn giao R6](workspace-r6-completion.md). |
 | 2 | Nghiệm thu bản stable | Cần đo lặp trên repo có dependency/build thật: thời gian, request, review đạt ngay, conflict, phục hồi và chất lượng giao việc. Các fixture hiện có không thay nghiệm thu model thật. Theo [giới hạn review](review-quality-completion.md) và R7 của [kế hoạch trải nghiệm](../../plan/experience-loops/crewhub-workspace-redesign.md). |
 | Hoãn | WW-5 bộ cài | Chưa đóng gói `.exe`/installer; người dùng đã chọn bỏ qua, không chặn phát triển tính năng. |
 | Hoãn | 3D D-05 và E liên quan | Giữ D-01–04 đang có; không phát triển tiếp khi chưa có yêu cầu mới. Không xóa dependency vì màn Văn phòng vẫn import/lazy-load chúng. |
-| Vận hành riêng | Reset database | Đợt trước chưa xóa DB vì lệnh bị cơ chế tự động chặn. Có [script reset thủ công](../../apps/windows-worker/scripts/reset-local-data.ps1); đợt dọn source này không chạy lại thao tác đó. |
+| Đã xử lý riêng | Reset database | Sau đợt dọn source, người dùng đã reset DB và cấu hình gateway/model/runtime đã được thiết lập lại. R6 không reset hay sửa settings/credential người dùng. |
 
 R0–R5, Bash tự động, projection trạng thái, Cần xử lý và mô tả task đã triển khai trong các bàn giao tương ứng; không coi những mục “còn lại” trong tài liệu lịch sử cũ là backlog hiện hành nếu đợt sau đã thay thế.
 
@@ -28,7 +28,7 @@ R0–R5, Bash tự động, projection trạng thái, Cần xử lý và mô t�
 
 - Migration/schema cũ và fixture tương thích: phục vụ DB cũ, backup và kiểm tra nâng cấp.
 - Tests, acceptance scripts và bằng chứng bàn giao: công việc đã hoàn thành vẫn cần hồi quy; không xóa chỉ vì bài kiểm tra từng đạt.
-- Module schedules/storage chưa nối UI: là phần triển khai có test của R6, không phải mã bỏ hoang.
+- Module schedules/storage đã nối UI qua R6, tiếp tục phục vụ lịch công việc.
 - API/dashboard/infrastructure self-hosted: có entrypoint và CI riêng; README root phân biệt rõ với Worker. Không có bằng chứng chúng đã được ngừng sử dụng để xóa toàn bộ.
 - Tài liệu kế hoạch/nghiên cứu và notices giấy phép: giữ lịch sử quyết định và nguồn tham khảo.
 

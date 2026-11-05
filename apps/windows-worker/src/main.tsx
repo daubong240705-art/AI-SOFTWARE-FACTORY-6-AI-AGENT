@@ -17,6 +17,7 @@ import "./git.css";
 import "./diagrams.css";
 import "./workspace-shell.css";
 import "./settings.css";
+import "./schedules.css";
 import type { WorkerAPI } from "../shared/contracts";
 
 declare global {

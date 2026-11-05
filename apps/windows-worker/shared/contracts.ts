@@ -119,6 +119,22 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  scheduleList(
+    projectId: string,
+  ): Promise<Reply<import("./schedules").ScheduleList>>;
+  schedulePreview(
+    input: z.infer<typeof import("./schedules").schedulePreviewSchema>,
+  ): Promise<Reply<import("./schedules").SchedulePreview>>;
+  scheduleSave(
+    input: z.infer<typeof import("./schedules").scheduleSaveSchema>,
+  ): Promise<Reply<import("./schedules").ScheduleRecord>>;
+  scheduleToggle(
+    input: z.infer<typeof import("./schedules").scheduleToggleSchema>,
+  ): Promise<Reply<import("./schedules").ScheduleRecord>>;
+  schedulePause(paused: boolean): Promise<Reply<void>>;
+  scheduleHistory(
+    input: z.infer<typeof import("./schedules").scheduleHistorySchema>,
+  ): Promise<Reply<import("./schedules").ScheduleHistory>>;
   workspaceSummary(): Promise<Reply<import("./workspace").WorkspaceSummary>>;
   resultIndex(
     input: import("./workspace").ResultQuery,

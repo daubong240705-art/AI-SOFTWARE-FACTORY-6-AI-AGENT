@@ -89,6 +89,44 @@ export const scheduleDeliverySchema = z
 export type ScheduleDelivery = z.infer<typeof scheduleDeliverySchema>;
 export const scheduleGraceMs = 5 * 60 * 1000;
 
+export const scheduleRefSchema = z
+  .object({
+    projectId: z.string().uuid(),
+    id: z.string().uuid(),
+    version: z.number().int().positive().max(999999),
+  })
+  .strict();
+export const schedulePreviewSchema = z
+  .object({ draft: scheduleDraftSchema, ref: scheduleRefSchema.optional() })
+  .strict();
+export const scheduleSaveSchema = schedulePreviewSchema
+  .extend({ token: z.string().uuid() })
+  .strict();
+export const scheduleToggleSchema = scheduleRefSchema
+  .extend({ enabled: z.boolean(), token: z.string().uuid().optional() })
+  .strict();
+export const scheduleHistorySchema = z
+  .object({
+    projectId: z.string().uuid(),
+    id: z.string().uuid(),
+    before: z.number().int().positive().optional(),
+  })
+  .strict();
+export type SchedulePreview = ReturnType<typeof previewSchedule> & {
+  token: string;
+  expiresAt: string;
+};
+export type ScheduleList = {
+  schedules: ScheduleRecord[];
+  latest: Record<string, ScheduleDelivery>;
+  paused: boolean;
+  error: string;
+};
+export type ScheduleHistory = {
+  items: ScheduleDelivery[];
+  nextBefore: number | null;
+};
+
 function parts(format: Intl.DateTimeFormat, date: number): number[] {
   const p = Object.fromEntries(
     format.formatToParts(date).map((part) => [part.type, part.value]),

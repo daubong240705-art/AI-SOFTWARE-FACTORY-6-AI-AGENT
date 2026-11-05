@@ -151,6 +151,7 @@ export class Schedules {
         z.boolean().parse(enabled);
         if (current.version !== version)
           throw Error("Lịch đã thay đổi. Tải lại trước khi sửa.");
+        if (enabled) this.assertCapacity(id);
         const nextAt = enabled
           ? nextScheduleOccurrence(current.timing, at)
           : null;
@@ -202,6 +203,98 @@ export class Schedules {
       }),
     );
   }
+  history(projectId: string, id: string, before?: number, limit = 50) {
+    this.get(projectId, id);
+    if (before !== undefined) z.number().int().positive().parse(before);
+    z.number().int().min(1).max(50).parse(limit);
+    const rows = this.db
+      .prepare(
+        "SELECT rowid AS cursor,occurrence_key AS occurrenceKey,schedule_id AS scheduleId,schedule_version AS scheduleVersion,due_at AS dueAt,observed_at AS observedAt,state,work_item_id AS workItemId,reason,config FROM schedule_deliveries WHERE schedule_id=? AND (? IS NULL OR rowid < ?) ORDER BY rowid DESC LIMIT ?",
+      )
+      .all(id, before ?? null, before ?? null, limit + 1) as (Omit<
+      ScheduleDelivery,
+      "config"
+    > & { config: string; cursor: number })[];
+    const items = rows.slice(0, limit).map(({ cursor: _cursor, ...row }) =>
+      scheduleDeliverySchema.parse({
+        ...row,
+        config: JSON.parse(row.config),
+      }),
+    );
+    return {
+      items,
+      nextBefore: rows.length > limit ? rows[limit - 1].cursor : null,
+    };
+  }
+  due(now: string): ScheduleRecord[] {
+    nowSchema.parse(now);
+    return (
+      this.db
+        .prepare(
+          "SELECT id,project_id AS projectId,value,enabled,version,next_at AS nextAt,created_at AS createdAt,updated_at AS updatedAt FROM schedules WHERE enabled=1 AND next_at<=? ORDER BY next_at,id LIMIT 10",
+        )
+        .all(now) as Row[]
+    ).map(decode);
+  }
+  private assertCapacity(id: string) {
+    const counts = this.db
+      .prepare(
+        "SELECT COUNT(*) AS total,COUNT(CASE WHEN schedule_id=? THEN 1 END) AS own FROM schedule_deliveries",
+      )
+      .get(id) as { total: number; own: number };
+    // Reserve one failure receipt per schedule (at most 100 schedules).
+    if (counts.own >= 999 || counts.total >= 9900)
+      throw Error("Lịch sử lịch đã đầy. Lịch được tắt để bảo toàn dữ liệu.");
+  }
+  prune(now: string): void {
+    const cutoff = new Date(
+      new Date(nowSchema.parse(now)).getTime() - 90 * 86400000,
+    ).toISOString();
+    this.db
+      .prepare(
+        "DELETE FROM schedule_deliveries WHERE observed_at<? AND EXISTS(SELECT 1 FROM schedules s WHERE s.id=schedule_id AND (s.next_at IS NULL OR s.next_at>due_at))",
+      )
+      .run(cutoff);
+  }
+  fail(current: ScheduleRecord, now: string, reason: string): void {
+    this.db
+      .transaction(() => {
+        const latest = this.get(current.projectId, current.id);
+        if (
+          !latest.enabled ||
+          !latest.nextAt ||
+          latest.version !== current.version ||
+          latest.nextAt !== current.nextAt
+        )
+          return;
+        const draft = scheduleDraftSchema.parse({
+          projectId: current.projectId,
+          name: current.name,
+          timing: current.timing,
+          action: current.action,
+          missedPolicy: current.missedPolicy,
+        });
+        this.db
+          .prepare(
+            "INSERT INTO schedule_deliveries(occurrence_key,schedule_id,schedule_version,due_at,observed_at,state,work_item_id,reason,config) VALUES(?,?,?,?,?,'failed',NULL,?,?)",
+          )
+          .run(
+            `${current.id}:${current.version}:${current.nextAt}`,
+            current.id,
+            current.version,
+            current.nextAt,
+            nowSchema.parse(now),
+            reason.slice(0, 1000),
+            JSON.stringify(draft),
+          );
+        this.db
+          .prepare(
+            "UPDATE schedules SET enabled=0,version=version+1,next_at=NULL,updated_at=? WHERE id=? AND version=?",
+          )
+          .run(now, current.id, current.version);
+      })
+      .immediate();
+  }
   deliverDue(id: string, now: string): DeliveryResult {
     const observedAt = nowSchema.parse(now);
     return this.db
@@ -216,6 +309,7 @@ export class Schedules {
           now: observedAt,
         });
         if (plan.state === "waiting") return null;
+        this.assertCapacity(id);
         if (
           this.db
             .prepare("SELECT 1 FROM schedule_deliveries WHERE occurrence_key=?")

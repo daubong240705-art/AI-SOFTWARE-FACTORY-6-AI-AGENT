@@ -6,6 +6,7 @@ import {
   ipcMain,
   safeStorage,
   shell,
+  powerMonitor,
 } from "electron";
 import { importImage } from "./images";
 import { serveImage } from "./storage/images";
@@ -67,6 +68,8 @@ import {
 import { gitSnapshotSchema, gitDiffSchema } from "../shared/git";
 import { resultQuerySchema } from "../shared/workspace";
 import { browseGit, browseGitDiff } from "./workspace/git-browser";
+import { ScheduleService } from "./controller/schedules";
+import { scheduleHistorySchema } from "../shared/schedules";
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -84,6 +87,8 @@ let controller: RunController;
 let quitting = false;
 let local: LocalCommands;
 let closePending = false;
+let schedules: ScheduleService;
+const resumeSchedules = () => void schedules?.tick();
 
 function bootstrap(): Bootstrap {
   return {
@@ -106,6 +111,20 @@ function key(): string | undefined {
   }
 }
 function registerIPC(): void {
+  handle(channels.scheduleList, (input) =>
+    schedules.list(idSchema.parse(input)),
+  );
+  handle(channels.schedulePreview, (input) => schedules.preview(input));
+  handle(channels.scheduleSave, (input) => schedules.save(input));
+  handle(channels.scheduleToggle, (input) => schedules.toggle(input));
+  handle(channels.schedulePause, (input) =>
+    schedules.pause(z.boolean().parse(input)),
+  );
+  handle(channels.scheduleHistory, (input) => {
+    const ref = scheduleHistorySchema.parse(input);
+    store.project(ref.projectId);
+    return store.schedules.history(ref.projectId, ref.id, ref.before);
+  });
   handle(channels.workspaceSummary, () => controller.workspaceSummary());
   handle(channels.resultIndex, (input) => {
     const query = resultQuerySchema.parse(input);
@@ -818,12 +837,15 @@ else {
         serveImage(store.images, request),
       );
       controller = new RunController(store, app.getPath("userData"), key);
+      schedules = new ScheduleService(store);
       local = new LocalCommands(app.getPath("userData"), () => {
         const value = key();
         return value ? [value] : [];
       });
       await local.restore();
       registerIPC();
+      schedules.start();
+      powerMonitor.on("resume", resumeSchedules);
       await createWindow();
       app.on("activate", () => {
         if (!window) void createWindow();
@@ -840,7 +862,11 @@ else {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
-app.on("will-quit", () => store?.close());
+app.on("will-quit", () => {
+  schedules?.stop();
+  powerMonitor.removeListener("resume", resumeSchedules);
+  store?.close();
+});
 app.on("before-quit", (event) => {
   if (quitting || (!controller?.isBusy() && !local?.busy())) return;
   event.preventDefault();

@@ -3,6 +3,14 @@ import { channels } from "../shared/channels";
 import type { WorkerAPI } from "../shared/contracts";
 
 const api: WorkerAPI = {
+  scheduleList: (input) => ipcRenderer.invoke(channels.scheduleList, input),
+  schedulePreview: (input) =>
+    ipcRenderer.invoke(channels.schedulePreview, input),
+  scheduleSave: (input) => ipcRenderer.invoke(channels.scheduleSave, input),
+  scheduleToggle: (input) => ipcRenderer.invoke(channels.scheduleToggle, input),
+  schedulePause: (input) => ipcRenderer.invoke(channels.schedulePause, input),
+  scheduleHistory: (input) =>
+    ipcRenderer.invoke(channels.scheduleHistory, input),
   workspaceSummary: () => ipcRenderer.invoke(channels.workspaceSummary),
   resultIndex: (input) => ipcRenderer.invoke(channels.resultIndex, input),
   importChatImage: (input) =>

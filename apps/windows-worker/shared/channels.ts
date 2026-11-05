@@ -1,4 +1,10 @@
 export const channels = {
+  scheduleList: "worker:schedule-list",
+  schedulePreview: "worker:schedule-preview",
+  scheduleSave: "worker:schedule-save",
+  scheduleToggle: "worker:schedule-toggle",
+  schedulePause: "worker:schedule-pause",
+  scheduleHistory: "worker:schedule-history",
   workspaceSummary: "worker:workspace-summary",
   resultIndex: "worker:result-index",
   importChatImage: "worker:image-import",

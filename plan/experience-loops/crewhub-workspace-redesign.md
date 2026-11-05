@@ -1,5 +1,7 @@
 # Phương án tổ chức lại trải nghiệm ASF theo bộ ảnh CrewHub
 
+> Cập nhật R6 ngày 05/11/2026: **R0–R6 đã triển khai**; lịch có timer/IPC/UI, preview, pause, quota/retention và lịch sử. [Bàn giao R6](../../docs/windows-worker/workspace-r6-completion.md). R7 nghiệm thu tổng thể còn lại. Các mục kế hoạch bên dưới giữ phạm vi theo thời điểm lập.
+
 Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0–R5 đã hoàn thành; R6–R7 là kế hoạch.** [Baseline R0](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao R1](../../docs/windows-worker/workspace-r1-completion.md), [bàn giao R2](../../docs/windows-worker/workspace-r2-completion.md), [bàn giao R3C](../../docs/windows-worker/workspace-r3c-completion.md), [bàn giao R4](../../docs/windows-worker/workspace-r4-completion.md), [bàn giao R5](../../docs/windows-worker/workspace-r5-completion.md). Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
 
 ## 1. Quyết định chính

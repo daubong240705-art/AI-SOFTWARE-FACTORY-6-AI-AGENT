@@ -35,7 +35,9 @@ Tạm dừng phát triển 3D theo yêu cầu người dùng. Giữ phần D-01�
 4. Nếu thiếu quyết định quan trọng, Lead gửi bộ câu hỏi có đề xuất; trả lời xong được đưa vào hàng đợi tiếp tục công việc. Không hứa tiếp tục native process tại đúng câu lệnh đã dừng.
 5. Khi xong, đọc tóm tắt thay đổi, kiểm tra thực tế và phần còn thiếu. Có thể yêu cầu sửa tiếp ngay tại kết quả mà không mất liên kết lần chạy trước.
 
-**Full access giữ policy hiện có.** Câu hỏi nghiệp vụ, quyền runtime và nghiệm thu là ba khái niệm khác nhau. Không thêm nút Accept sau mọi bước; không chuyển sang Done chỉ vì người dùng bấm đồng ý.
+**Policy hiện hành:** Bash tự động theo vai trò đã thay bộ chọn Ask/Full access. Câu hỏi nghiệp vụ, quyền runtime và nghiệm thu là ba khái niệm khác nhau. Không chuyển sang Done chỉ vì người dùng bấm đồng ý.
+
+**Cập nhật R6:** Lịch đã nối timer main/resume/IPC/UI, xem trước trước lưu/bật, pause toàn cục, lịch sử và mở backlog. R0–R6 đã triển khai, R7 còn lại. [Bàn giao R6](../../docs/windows-worker/workspace-r6-completion.md) thay các dòng trạng thái lịch chưa triển khai ở những mốc cũ bên trên.
 
 ## Bộ tài liệu
 

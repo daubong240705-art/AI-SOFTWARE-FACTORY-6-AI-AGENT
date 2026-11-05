@@ -1,6 +1,6 @@
 # ASF Windows Worker
 
-**Trạng thái hiện tại và phần còn lại:** [rà soát source](../../docs/windows-worker/source-cleanup-audit.md). R0–R5 và cải thiện Cần xử lý/mô tả task đã triển khai; lịch R6 chưa chạy tự động. Những mốc bên dưới là lịch sử bàn giao, không phải danh sách tất cả việc còn thiếu.
+**Trạng thái hiện tại và phần còn lại:** [rà soát source](../../docs/windows-worker/source-cleanup-audit.md). R0–R6 và cải thiện Cần xử lý/mô tả task đã triển khai. **Khác → Lịch** hỗ trợ lịch một lần/hằng ngày để tạo backlog, preview trước lưu/bật, pause toàn cục và lịch sử. Chỉ chạy khi app mở; trễ quá năm phút bỏ qua, không tự giao agent. [Bàn giao R6](../../docs/windows-worker/workspace-r6-completion.md). Những mốc bên dưới là lịch sử bàn giao.
 
 **Giao diện hiện hành:** sidebar chọn dự án, tab **Công việc / Trao đổi / Kết quả / Khác**; một hồ sơ gồm **Yêu cầu / Trao đổi / Tiến độ / Kết quả**. Chat mặc định trao đổi với Lead; role/model ở **Tùy chọn trao đổi**. Tư vấn/câu hỏi không tạo submission; kế hoạch thực thi hợp lệ mới liên kết công việc trước khi giao agent. **Bash tự động theo vai trò**, không cần Accept từng lệnh. [Bàn giao Bash tự động](../../docs/windows-worker/bash-autonomy-completion.md), [R3A](../../docs/windows-worker/workspace-r3a-completion.md), [hồ sơ R2](../../docs/windows-worker/workspace-r2-completion.md). Các mục UX bên dưới ghi lại những đợt triển khai trước; hướng dẫn quyền hiện hành thay thế Ask/Full access trong các bàn giao cũ.
 
@@ -34,7 +34,7 @@ Tab **Workspace** vẫn hỗ trợ tạo/mở/phục hồi/dọn Git worktree. R
 
 V1.1: chat theo project, Lead và sáu vai trò qua OpenCode 1.19.5 + 9Router, Full access, checkpoint và tiếp tục công việc sau gián đoạn, quản lý cây tiến trình Windows, lệnh npm/preview local, xuất báo cáo và dọn lịch sử. Xem [phạm vi V1.1](../../plan/v1.1/VERSION_SCOPE.md) và [báo cáo hoàn thiện](../../docs/windows-worker/v1.1-completion.md).
 
-**UX-08 (đang phát triển):** đã có contract/preview và store lịch trong SQLite 14 với backup schema 13, delivery tạo backlog nguyên tử và chống tạo trùng. Chưa có timer/IPC/UI nên lịch chưa tự chạy trong app. [Bàn giao U8-01–02](../../docs/windows-worker/ux08-storage-completion.md), [kế hoạch](../../plan/experience-loops/ux08-schedules.md).
+**UX-08 / R6 hoàn thành:** contract/preview/storage đã nối timer main, resume, IPC và UI; delivery nguyên tử/chống trùng, lỗi tắt lịch, quota/retention và phân trang. Schema15 giữ nguyên. [Bàn giao R6 và cách dùng](../../docs/windows-worker/workspace-r6-completion.md), [kế hoạch](../../plan/experience-loops/ux08-schedules.md).
 
 ## Điều hướng hiện hành — R4
 
