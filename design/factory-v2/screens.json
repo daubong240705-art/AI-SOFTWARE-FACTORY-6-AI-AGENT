@@ -1,0 +1,468 @@
+{
+  "schemaVersion": 2,
+  "referenceManifest": "research/factory-v2/reference-manifest.json",
+  "rubric": {
+    "layout": 25,
+    "palette": 20,
+    "typography": 15,
+    "components": 15,
+    "density": 10,
+    "interactionGeometry": 10,
+    "states": 5
+  },
+  "targets": {
+    "measured": false,
+    "qualityMatrixRequired": true,
+    "historicalVisualTargets": {
+      "overallMinimum": 92,
+      "eachScreenMinimum": 91,
+      "releaseGate": false
+    },
+    "source": "plan/factory-v2/uiux-upgrade.md"
+  },
+  "comparison": {
+    "viewportCss": [1600, 1000],
+    "dpr": 2,
+    "geometryToleranceCssPx": 4,
+    "flatColorChannelTolerance": 3,
+    "accentChannelTolerance": 6,
+    "fixedClock": "2026-11-06T09:00:00+07:00",
+    "locale": "vi-VN",
+    "maskAllowed": [
+      "own-brand",
+      "project-names",
+      "timestamps",
+      "ticket-text",
+      "avatars"
+    ],
+    "maskForbidden": [
+      "layout",
+      "controls",
+      "fonts",
+      "columns",
+      "broken-content"
+    ],
+    "paletteStatus": "Original dark raster is a geometry reference. Light theme and Inter are deliberate ASF adaptations, not pixel parity gates."
+  },
+  "sharedChecks": [
+    {
+      "id": "shell",
+      "group": "layout",
+      "expect": "Sidebar/topbar/projectbar/gutter theo tokens, đúng phạm vi global/project"
+    },
+    {
+      "id": "palette",
+      "group": "palette",
+      "expect": "Light/Dark semantic tokens, readable contrast; System preference and no fake Light reference score."
+    },
+    {
+      "id": "type",
+      "group": "typography",
+      "expect": "Chữ Việt rõ, size/weight/line-height/baseline theo tokens"
+    },
+    {
+      "id": "primitives",
+      "group": "components",
+      "expect": "Field/button/card/chip/icon/menu cùng hệ, không native dropdown popup"
+    },
+    {
+      "id": "density",
+      "group": "density",
+      "expect": "Tiêu đề/nội dung/metadata phân cấp, helper gọn và một primary action theo context"
+    },
+    {
+      "id": "geometry",
+      "group": "interactionGeometry",
+      "expect": "Không overlap/clipping, arrow/controls căn giữa, scroll và focus đúng"
+    },
+    {
+      "id": "states",
+      "group": "states",
+      "expect": "Loading/empty/error/stale/partial/offline không giả dữ liệu thành công"
+    },
+    {
+      "id": "locales",
+      "group": "typography",
+      "expect": "vi/en UI resources, no auto-translation of user or agent content; Vietnamese glyphs and long English labels."
+    }
+  ],
+  "screens": [
+    {
+      "id": "UI-01",
+      "referenceId": "UI-01",
+      "name": "Tạo dự án",
+      "priority": 2,
+      "components": [
+        "AppShell",
+        "ProjectTabs",
+        "Field",
+        "Select",
+        "Stepper",
+        "Button"
+      ],
+      "scenarios": ["ready", "loading", "error", "long-content"],
+      "checks": [
+        {
+          "id": "wizard-layout",
+          "group": "layout",
+          "expect": "Form card ba bước Project/Lead/Confirm, code và slug cùng hàng"
+        },
+        {
+          "id": "wizard-fields",
+          "group": "components",
+          "expect": "Tên/type/template/root folder, custom select và validation từng field"
+        },
+        {
+          "id": "wizard-footer",
+          "group": "interactionGeometry",
+          "expect": "Cancel trái/Continue phải, back giữ draft, footer không nhảy theo lỗi"
+        },
+        {
+          "id": "wizard-density",
+          "group": "density",
+          "expect": "Một helper ngắn, optional Git/remote không chặn project research"
+        }
+      ]
+    },
+    {
+      "id": "UI-02",
+      "referenceId": "UI-02",
+      "name": "Tự động hóa Graph",
+      "priority": 3,
+      "components": ["AppShell", "ProjectTabs", "RuleGraph", "Menu", "Button"],
+      "scenarios": ["ready", "empty", "error", "offline"],
+      "checks": [
+        {
+          "id": "graph-layout",
+          "group": "layout",
+          "expect": "Master switch/List-Graph trên, dotted canvas/toolbar/zoom/minimap đúng vị trí"
+        },
+        {
+          "id": "graph-nodes",
+          "group": "components",
+          "expect": "Moment/Who/Label nodes, ports và edge labels đọc được"
+        },
+        {
+          "id": "graph-state",
+          "group": "states",
+          "expect": "Draft/Proposed/On/Off có text/line style, project Off giữ rule states"
+        },
+        {
+          "id": "graph-semantics",
+          "group": "interactionGeometry",
+          "expect": "Kéo node chỉ đổi layout, List/Graph chung rule data và simulation không side effect"
+        }
+      ]
+    },
+    {
+      "id": "UI-03",
+      "referenceId": "UI-03",
+      "name": "Đội ngũ",
+      "priority": 1,
+      "components": [
+        "AppShell",
+        "Card",
+        "AgentRow",
+        "Badge",
+        "RuntimeReadiness"
+      ],
+      "scenarios": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "stale",
+        "partial",
+        "offline",
+        "long-content"
+      ],
+      "checks": [
+        {
+          "id": "team-grid",
+          "group": "layout",
+          "expect": "Hai cột session cards, headers/padding đồng đều, không kéo card theo cây dài nhất"
+        },
+        {
+          "id": "team-tree",
+          "group": "components",
+          "expect": "Lead/child có line/indent/avatar/context/state và counters"
+        },
+        {
+          "id": "team-content",
+          "group": "density",
+          "expect": "Ai/việc/bước/lý do chờ rõ, model/UUID không chiếm nội dung chính"
+        },
+        {
+          "id": "team-freshness",
+          "group": "states",
+          "expect": "Idle/working/waiting/blocked/readiness/unknown tách biệt; stale không fake online"
+        }
+      ]
+    },
+    {
+      "id": "UI-04",
+      "referenceId": "UI-04",
+      "name": "Bảng việc và Lead chat",
+      "priority": 1,
+      "components": [
+        "AppShell",
+        "ProjectTabs",
+        "WorkflowColumn",
+        "TicketCard",
+        "ChatDock",
+        "Composer",
+        "Select",
+        "Menu"
+      ],
+      "scenarios": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "stale",
+        "partial",
+        "offline",
+        "long-content"
+      ],
+      "checks": [
+        {
+          "id": "board-columns",
+          "group": "layout",
+          "expect": "Năm cột preset, width 240–280, fill phần viewport còn lại, scroll riêng"
+        },
+        {
+          "id": "board-cards",
+          "group": "components",
+          "expect": "Code/title/assignee/labels/subtask/dependency, task FE/BE/BA mở được riêng"
+        },
+        {
+          "id": "board-toolbar",
+          "group": "interactionGeometry",
+          "expect": "Filters cùng baseline, menu không lệch/tràn viewport, keyboard mở card"
+        },
+        {
+          "id": "chat-layout",
+          "group": "layout",
+          "expect": "Floating/minimized/maximized windows, drag/resize/clamp/tray/focus; mobile single active chat."
+        },
+        {
+          "id": "chat-density",
+          "group": "density",
+          "expect": "Nhắn Lead là trọng tâm, meaningful milestones, raw tool trace thu gọn"
+        },
+        {
+          "id": "chat-state",
+          "group": "states",
+          "expect": "Send/Stop/draft/IME/retry/unread/offline và expanded không che actions"
+        }
+      ]
+    },
+    {
+      "id": "UI-05",
+      "referenceId": "UI-05",
+      "name": "Báo cáo",
+      "priority": 2,
+      "components": [
+        "AppShell",
+        "ProjectTabs",
+        "Select",
+        "Card",
+        "EvidenceSummary",
+        "ReviewCard"
+      ],
+      "scenarios": ["ready", "empty", "error", "partial", "stale"],
+      "checks": [
+        {
+          "id": "reports-layout",
+          "group": "layout",
+          "expect": "Made by/Show/Export và New report, cards full-width"
+        },
+        {
+          "id": "reports-density",
+          "group": "density",
+          "expect": "Title/summary 1–2 dòng/author/time/comments, không run UUID/token dump"
+        },
+        {
+          "id": "reports-docs",
+          "group": "components",
+          "expect": "BA docs/data model/API contract và version/input refs mở được"
+        },
+        {
+          "id": "reports-evidence",
+          "group": "states",
+          "expect": "Pass/fail/not-run/missing/stale đúng; model self-report không gắn verified"
+        }
+      ]
+    },
+    {
+      "id": "UI-06",
+      "referenceId": "UI-06",
+      "name": "Lịch",
+      "priority": 3,
+      "components": [
+        "AppShell",
+        "ProjectTabs",
+        "ScheduleCard",
+        "Card",
+        "Button"
+      ],
+      "scenarios": ["ready", "empty", "error", "stale", "offline"],
+      "checks": [
+        {
+          "id": "schedule-layout",
+          "group": "layout",
+          "expect": "Master switch/New task/form, schedule cards và templates dưới"
+        },
+        {
+          "id": "schedule-density",
+          "group": "density",
+          "expect": "Tên/lịch/timezone/agent/next-last run, counters sâu trong history"
+        },
+        {
+          "id": "schedule-actions",
+          "group": "components",
+          "expect": "Chat hoặc form chung record, On/history/edit/menu đúng alignment"
+        },
+        {
+          "id": "schedule-state",
+          "group": "states",
+          "expect": "Off/missed/host offline rõ, không giả chạy hoặc catch-up hàng loạt"
+        }
+      ]
+    },
+    {
+      "id": "UI-07",
+      "referenceId": "UI-07",
+      "name": "Git",
+      "priority": 3,
+      "components": ["AppShell", "ProjectTabs", "Card", "Button", "Badge"],
+      "scenarios": ["ready", "loading", "empty", "error", "stale", "partial"],
+      "checks": [
+        {
+          "id": "git-layout",
+          "group": "layout",
+          "expect": "Overview/history/PR/issues, repo-branch-refresh và cards commits/PR"
+        },
+        {
+          "id": "git-density",
+          "group": "density",
+          "expect": "Freshness/branch/commit/task refs rõ, project không Git ẩn destination"
+        },
+        {
+          "id": "git-state",
+          "group": "states",
+          "expect": "Thiếu provider có hướng setup/unsupported, không list mock hoặc spinner vô hạn"
+        },
+        {
+          "id": "git-actions",
+          "group": "interactionGeometry",
+          "expect": "Mở trang không commit/push/merge, đọc và mutation tách quyền"
+        }
+      ]
+    },
+    {
+      "id": "UI-08",
+      "referenceId": "UI-08",
+      "name": "Tổng quan",
+      "priority": 1,
+      "components": [
+        "AppShell",
+        "Composer",
+        "Select",
+        "Card",
+        "ActivityRow",
+        "DecisionCard",
+        "ReviewCard"
+      ],
+      "scenarios": [
+        "ready",
+        "loading",
+        "empty",
+        "error",
+        "stale",
+        "partial",
+        "offline",
+        "long-content"
+      ],
+      "checks": [
+        {
+          "id": "home-layout",
+          "group": "layout",
+          "expect": "Main/side khoảng 2:1; quick ask trên feed, waiting/attention ở phải"
+        },
+        {
+          "id": "home-input",
+          "group": "components",
+          "expect": "Đích project/Lead rõ, Send coral, attach và target cùng hàng"
+        },
+        {
+          "id": "home-feed",
+          "group": "density",
+          "expect": "Meaningful activity và mark seen, không log shell/token/read/heartbeat"
+        },
+        {
+          "id": "home-attention",
+          "group": "states",
+          "expect": "Counter unresolved dedup; card nói việc gì/chờ gì/cần thao tác nào"
+        }
+      ]
+    },
+    {
+      "id": "UI-09",
+      "referenceId": "UI-09",
+      "name": "Thiết lập",
+      "priority": 2,
+      "components": [
+        "AppShell",
+        "Stepper",
+        "RuntimeReadiness",
+        "Badge",
+        "Button"
+      ],
+      "scenarios": ["ready", "loading", "error", "stale", "partial", "offline"],
+      "checks": [
+        {
+          "id": "setup-layout",
+          "group": "layout",
+          "expect": "Title/stepper card/machine-runtime table/version/freshness theo reference"
+        },
+        {
+          "id": "setup-readiness",
+          "group": "states",
+          "expect": "Installed/auth/compatible/ready/unknown riêng, recheck theo lỗi"
+        },
+        {
+          "id": "setup-density",
+          "group": "density",
+          "expect": "WSL/runtime/Lead/project/bắt đầu; network/Docker optional, helpers gọn"
+        },
+        {
+          "id": "setup-actions",
+          "group": "interactionGeometry",
+          "expect": "Skip/back giữ draft, không lộ credentials hoặc suy Linux readiness từ Windows"
+        }
+      ]
+    }
+  ],
+  "inferredScreens": [
+    "ticket-detail",
+    "attention-inbox",
+    "project-overview",
+    "list",
+    "archive",
+    "agent-editor",
+    "skills-tools",
+    "job-output-detail",
+    "appearance-language-settings",
+    "multi-agent-chat-windows"
+  ],
+  "criticalDefects": [
+    "overlap",
+    "clipped-action",
+    "unreadable-text",
+    "keyboard-trap",
+    "hidden-blocker",
+    "infinite-board-height",
+    "fake-runtime-state"
+  ]
+}

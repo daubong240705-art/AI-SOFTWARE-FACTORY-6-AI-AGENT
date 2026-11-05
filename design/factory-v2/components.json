@@ -1,0 +1,281 @@
+{
+  "schemaVersion": 2,
+  "viewStates": [
+    "ready",
+    "loading",
+    "empty",
+    "error",
+    "stale",
+    "partial",
+    "offline"
+  ],
+  "viewStateContract": {
+    "loading": "Skeleton có kích thước ổn định; chưa có data không hiển thị số 0 như kết quả thật.",
+    "empty": "Nêu đối tượng chưa có và một action có ích; filter rỗng phân biệt project rỗng.",
+    "error": "Lý do ngắn và thử lại đúng request; giữ data cũ khi còn hợp lệ.",
+    "stale": "Giữ snapshot với lastUpdated; không giả agent đang online nếu freshness hết.",
+    "partial": "Chỉ rõ phần thiếu; output chưa kiểm không được gắn Passed.",
+    "offline": "Giữ draft và snapshot; disable mutation chưa thể gửi, reconnect từ cursor."
+  },
+  "components": [
+    {
+      "id": "AppShell",
+      "group": "layout",
+      "states": ["expanded", "collapsed", "drawer"],
+      "rules": [
+        "Sidebar 248/topbar 52/projectbar 54 tại canvas chuẩn.",
+        "Content min-width:0/min-height:0; không 100vw sau sidebar."
+      ]
+    },
+    {
+      "id": "ProjectTabs",
+      "group": "layout",
+      "states": ["active", "overflow", "conditional-git"],
+      "rules": [
+        "Đúng thứ tự labels.vi.json; underline coral, không tab giả.",
+        "Overflow có tên và keyboard; không đẩy header thành hai tầng tùy ý."
+      ]
+    },
+    {
+      "id": "Button",
+      "group": "actions",
+      "states": [
+        "primary",
+        "secondary",
+        "accent",
+        "ghost",
+        "disabled",
+        "loading",
+        "focus"
+      ],
+      "rules": [
+        "Primary/Send dùng semantic tokens theo Light/Dark; height 34 và icon slot 18.",
+        "Loading giữ width và accessible name; một primary theo ngữ cảnh."
+      ]
+    },
+    {
+      "id": "Field",
+      "group": "forms",
+      "states": ["default", "focus", "error", "disabled", "long-value"],
+      "rules": [
+        "Label-control-error xếp dọc, label cùng baseline.",
+        "Input height 34; error gắn aria-describedby, không đè control kế tiếp."
+      ]
+    },
+    {
+      "id": "Select",
+      "group": "forms",
+      "states": [
+        "closed",
+        "open",
+        "selected",
+        "disabled",
+        "focus",
+        "near-edge",
+        "empty-options"
+      ],
+      "rules": [
+        "Popup custom, slot arrow 16 căn giữa; label không đè arrow.",
+        "Arrow/Home/End/Enter/Escape/Tab, scroll/collision viewport, trả focus đúng trigger."
+      ]
+    },
+    {
+      "id": "Menu",
+      "group": "actions",
+      "states": ["open", "selected", "disabled", "focus", "near-edge"],
+      "rules": [
+        "Portal/top layer theo menu layer, max-height/overflow.",
+        "Outside/Escape đóng, focus rõ, không đánh đồng menu với native select."
+      ]
+    },
+    {
+      "id": "Card",
+      "group": "data",
+      "states": ["default", "attention", "selected", "loading"],
+      "rules": [
+        "Header/body/footer slots và padding chung; title căn trái.",
+        "Text min-width:0; attention có icon/text, không chỉ viền màu."
+      ]
+    },
+    {
+      "id": "Badge",
+      "group": "data",
+      "states": ["neutral", "working", "waiting", "blocked", "done", "stale"],
+      "rules": [
+        "Text/icon mô tả state, coral/tangerine theo semantic.",
+        "Readiness và activity độc lập, done run không biến thành idle/ready."
+      ]
+    },
+    {
+      "id": "WorkflowColumn",
+      "group": "work",
+      "states": ["populated", "empty", "overflow", "drop-target"],
+      "rules": [
+        "Fill viewport còn lại, header cố định, body scroll riêng.",
+        "Width 240–280; cuộn ngang khi thiếu chỗ, không ép card thành chữ dọc."
+      ]
+    },
+    {
+      "id": "TicketCard",
+      "group": "work",
+      "states": [
+        "unassigned",
+        "working",
+        "waiting-dependency",
+        "waiting-decision",
+        "review",
+        "done",
+        "long-title"
+      ],
+      "rules": [
+        "Code/title 2–3 dòng/assignee/labels/indicators; mô tả dài ở detail.",
+        "Task FE/BE/BA có owner/input/output, không chỉ card tổng."
+      ]
+    },
+    {
+      "id": "AgentRow",
+      "group": "work",
+      "states": [
+        "idle",
+        "working",
+        "waiting",
+        "blocked",
+        "unknown",
+        "stale",
+        "child"
+      ],
+      "rules": [
+        "Avatar/context/state cùng grid, child có line/indent.",
+        "Ai/việc/bước/lý do chờ đọc được; model/UUID trong details."
+      ]
+    },
+    {
+      "id": "ChatDock",
+      "group": "chat",
+      "states": [
+        "closed",
+        "floating",
+        "minimized",
+        "maximized",
+        "narrow",
+        "unread"
+      ],
+      "rules": [
+        "Window layer nhiều agent; geometry riêng conversation state, cùng project scope.",
+        "Drag/resize/clamp/focus/tray; close/minimize không stop hoặc auto-send, giữ nháp."
+      ]
+    },
+    {
+      "id": "Composer",
+      "group": "chat",
+      "states": [
+        "idle",
+        "sending",
+        "running",
+        "stopping",
+        "failed",
+        "attachment",
+        "ime"
+      ],
+      "rules": [
+        "Send/Stop theo execution thật; Enter/Shift+Enter và IME an toàn.",
+        "Retry giữ request identity; không tự tạo task từ tư vấn."
+      ]
+    },
+    {
+      "id": "ActivityRow",
+      "group": "chat",
+      "states": ["unread", "seen", "grouped"],
+      "rules": [
+        "Ai thay đổi việc gì/time/project; group meaningful milestones.",
+        "Read/file/shell/token/heartbeat không thành dòng feed mặc định."
+      ]
+    },
+    {
+      "id": "DecisionCard",
+      "group": "work",
+      "states": ["pending", "answered", "superseded"],
+      "rules": [
+        "Câu hỏi/lý do/options/recommendation, một action chính.",
+        "Dùng cùng decision ID trong chat/detail/inbox, không nhân count."
+      ]
+    },
+    {
+      "id": "ReviewCard",
+      "group": "work",
+      "states": ["pending", "accepted", "changes-requested", "superseded"],
+      "rules": [
+        "Preview/output version/criteria/evidence; review khác execution grant.",
+        "Output mới khiến verdict cũ stale; không kéo Done bypass."
+      ]
+    },
+    {
+      "id": "EvidenceSummary",
+      "group": "outputs",
+      "states": ["passed", "failed", "not-run", "stale", "missing"],
+      "rules": [
+        "Pass/fail/not-run tách rõ, source/contract revision mở được.",
+        "Self-report model không thay validators/evidence."
+      ]
+    },
+    {
+      "id": "Stepper",
+      "group": "forms",
+      "states": ["current", "complete", "invalid", "optional"],
+      "rules": [
+        "Wizard project ba bước, back giữ draft, footer actions ổn định.",
+        "Optional setup network/Docker không chặn local."
+      ]
+    },
+    {
+      "id": "RuleGraph",
+      "group": "automation",
+      "states": ["draft", "proposed", "on", "off", "selected", "invalid"],
+      "rules": [
+        "Moment/Who/Label và edge labels; lifecycle có chữ/line style.",
+        "List/Graph chung semantics; di chuyển node không dispatch."
+      ]
+    },
+    {
+      "id": "ScheduleCard",
+      "group": "automation",
+      "states": ["on", "off", "missed", "failed", "stale"],
+      "rules": [
+        "Tên/lịch/timezone/target/next-last run và history.",
+        "Host tắt không giả đã chạy, không catch-up hàng loạt."
+      ]
+    },
+    {
+      "id": "RuntimeReadiness",
+      "group": "setup",
+      "states": [
+        "unconfigured",
+        "needs-auth",
+        "ready",
+        "offline",
+        "unknown",
+        "stale"
+      ],
+      "rules": [
+        "Installed/auth/compatible/ready là các facts riêng.",
+        "Không lộ credentials, không suy Linux ready từ version Windows."
+      ]
+    },
+    {
+      "id": "Preferences",
+      "group": "settings",
+      "states": ["light", "dark", "system", "vi", "en", "storage-unavailable"],
+      "rules": [
+        "Semantic tokens và resources vi/en riêng, đổi trực tiếp không mất nháp.",
+        "Local preferences có version; không chứa transcript/credentials."
+      ]
+    }
+  ],
+  "windowContract": {
+    "modes": ["floating", "minimized", "maximized"],
+    "identity": "projectId + agentId + conversationId",
+    "persistence": "layout + theme + locale only; no message/draft persistence in this fixture",
+    "productionOwner": "F0-03 / F2-03 / F3-05",
+    "prototype": "Pointer/keyboard geometry demonstrator, not the production react-rnd/conversation layer."
+  }
+}

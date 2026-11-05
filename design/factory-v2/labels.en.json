@@ -1,0 +1,244 @@
+{
+  "global": {
+    "dashboard": "Overview",
+    "attention": "Waiting on you",
+    "team": "Team",
+    "projects": "Projects",
+    "settings": "Settings",
+    "help": "Help"
+  },
+  "projectTabs": [
+    {
+      "id": "overview",
+      "label": "Overview"
+    },
+    {
+      "id": "board",
+      "label": "Board"
+    },
+    {
+      "id": "reports",
+      "label": "Reports"
+    },
+    {
+      "id": "list",
+      "label": "List"
+    },
+    {
+      "id": "archive",
+      "label": "Archive"
+    },
+    {
+      "id": "automations",
+      "label": "Automations"
+    },
+    {
+      "id": "scheduled",
+      "label": "Scheduled"
+    },
+    {
+      "id": "git",
+      "label": "Git",
+      "requires": "gitWorkspace"
+    }
+  ],
+  "workflowPreset": [
+    {
+      "id": "backlog",
+      "label": "Backlog",
+      "category": "backlog"
+    },
+    {
+      "id": "planned",
+      "label": "Planned",
+      "category": "planned"
+    },
+    {
+      "id": "in-progress",
+      "label": "In progress",
+      "category": "active"
+    },
+    {
+      "id": "review",
+      "label": "Review",
+      "category": "review"
+    },
+    {
+      "id": "done",
+      "label": "Done",
+      "category": "terminal"
+    }
+  ],
+  "activity": {
+    "idle": "Idle",
+    "working": "Working",
+    "waiting": "Waiting",
+    "blocked": "Blocked"
+  },
+  "readiness": {
+    "ready": "Ready",
+    "needs-auth": "Sign-in required",
+    "unconfigured": "Not configured",
+    "offline": "Offline",
+    "unknown": "Unknown",
+    "stale": "Out of date"
+  },
+  "actions": {
+    "send": "Send",
+    "stop": "Stop",
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "create": "Create",
+    "newTicket": "New ticket",
+    "reply": "Reply",
+    "review": "Review result",
+    "retry": "Retry",
+    "recheck": "Recheck",
+    "close": "Close",
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
+  "viewStates": {
+    "ready": "Ready",
+    "loading": "Loading",
+    "empty": "Empty",
+    "error": "Error",
+    "stale": "Stale snapshot",
+    "partial": "Partial data",
+    "offline": "Disconnected"
+  },
+  "review": {
+    "human-final": "Human final review",
+    "automatic": "Automatic by criteria",
+    "hybrid": "Hybrid"
+  },
+  "chat": {
+    "placeholder": "Discuss work with Lead…",
+    "contextProject": "Project discussion",
+    "contextTask": "Task discussion",
+    "simulation": "UI preview · simulated data"
+  },
+  "locale": "en",
+  "preview": {
+    "title": "Factory V2 · Design baseline",
+    "sample": "UI preview · simulated data",
+    "noRuntime": "No Host, model or database connected",
+    "local": "Local preview",
+    "mainNav": "Main navigation",
+    "sampleProjects": "Sample projects",
+    "inProject": "Project navigation",
+    "search": "Search by task ID or content",
+    "settings": "Appearance & language",
+    "guide": "Style guide",
+    "state": "State",
+    "longContent": "Long content",
+    "view": "View",
+    "assignee": "Assignee",
+    "unassigned": "Unassigned",
+    "labels": "Labels",
+    "priority": "Priority",
+    "high": "High",
+    "normal": "Normal",
+    "filter": "Filter tasks…",
+    "tasks": "{count} tasks",
+    "attention": "{count} waiting on you",
+    "unknown": "Unknown",
+    "loading": "Loading sample data…",
+    "emptyTitle": "No tasks yet",
+    "emptyBody": "Talk with Lead to get started.",
+    "errorTitle": "Could not load data",
+    "errorBody": "The sample snapshot is temporarily unavailable.",
+    "retryFixture": "Retry preview",
+    "talkLead": "Message Lead",
+    "noDecisions": "Nothing waiting for your reply.",
+    "recommendation": "Recommendation",
+    "greeting": "Good morning",
+    "quickAsk": "Talk with Lead from Overview",
+    "prompt": "Ask a question or describe work…",
+    "activity": "Recent activity",
+    "milestones": "Key milestones",
+    "needsAttention": "Needs attention",
+    "parallel": "FE and BE are working in parallel. QA is waiting for integration.",
+    "teamIntro": "What each agent is doing and waiting for.",
+    "sampleConnection": "Simulated local connection",
+    "noSessions": "No real computer or session in this preview.",
+    "plannedHost": "Local · WSL2 planned",
+    "disconnected": "Not connected",
+    "guideIntro": "Tokens, states and checklists. No CrewHub similarity score measured.",
+    "colorsType": "Color and typography",
+    "glyphSample": "Tiếng Việt: Đặng, Nguyễn, Ắ ằ ễ ộ ự · English: workflow, review",
+    "fontNote": "Inter Variable is bundled offline; browser glyph rendering has not been visually verified.",
+    "controls": "Controls and states",
+    "unavailable": "Unavailable",
+    "projectName": "Project name",
+    "validation": "Validation example: this project code already exists.",
+    "customMenu": "Custom dropdown",
+    "shortOption": "A short option",
+    "longOption": "A longer option to check menu text wrapping",
+    "menuNote": "Disclosure menu in the prototype. Full keyboard/collision behavior belongs to F2-01 primitives.",
+    "screenChecklist": "Screen checklists",
+    "items": "{count} checks",
+    "viewStates": "Required view states",
+    "originalContracts": "Design specifications remain in their original language; they are reference content, not UI translations.",
+    "theme": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System",
+    "language": "Language",
+    "resetLayout": "Reset chat layout",
+    "preferencesNote": "Only theme, language and sample window layout are stored in this browser. Sample drafts and messages stay in memory and are lost on reload.",
+    "storageError": "Preferences could not be saved; using memory only.",
+    "dataError": "Saved layout was invalid; the default layout is being used.",
+    "chatSample": "Simulated chat",
+    "user": "You",
+    "minimize": "Minimize",
+    "restore": "Restore",
+    "maximize": "Maximize",
+    "close": "Close",
+    "move": "Move window",
+    "resize": "Resize window",
+    "openChat": "Open chat with {name}",
+    "simulate": "Simulated interaction only",
+    "reply": "This is a simulated response. The preview does not call a model, edit files or create real tasks.",
+    "maxWindows": "The preview is limited to 10 windows; restore an existing conversation from the tray.",
+    "windowNote": "Drag the title bar or use arrow keys on Move; Shift moves 1 px. Minimizing or closing keeps drafts in this sample session.",
+    "taskOutput": "Output",
+    "criteria": "Acceptance criteria",
+    "inputs": "Inputs",
+    "dependencies": "Dependencies",
+    "none": "None",
+    "requestInput": "As specified in the task",
+    "taskNote": "Sample record; real mutations and review belong to F4.",
+    "additionalScreen": "Additional screen without a reference image",
+    "checklistNote": "Design checklist; not an implemented feature.",
+    "inferred": "Designed from primitives and behavior contracts; no reference image is available for similarity scoring.",
+    "demoAction": "Sample interaction",
+    "demoActionBody": "This control illustrates the design baseline; it is not connected to a real project API.",
+    "decisionIntro": "Business decisions are separate from tool execution permissions.",
+    "messages": "Conversation",
+    "windows": "Chat windows",
+    "scenarioReady": "Parallel work, QA waiting for dependencies and one business decision.",
+    "scenarioLoading": "Waiting for the first snapshot.",
+    "scenarioEmpty": "The project has no tasks.",
+    "scenarioError": "The snapshot could not be loaded.",
+    "scenarioStale": "Viewing an old snapshot; current agent states are unknown.",
+    "scenarioPartial": "A report exists but check evidence is missing.",
+    "scenarioOffline": "Host disconnected; keep drafts and do not send requests.",
+    "scenarioLong": "Long names, Vietnamese text and paths.",
+    "displayMode": "Window mode",
+    "floating": "Floating",
+    "minimized": "Minimized",
+    "maximized": "Maximized"
+  },
+  "screenNames": {
+    "UI-01": "New project",
+    "UI-02": "Automations Graph",
+    "UI-03": "Team",
+    "UI-04": "Board and chat",
+    "UI-05": "Reports",
+    "UI-06": "Scheduled",
+    "UI-07": "Git",
+    "UI-08": "Overview",
+    "UI-09": "Setup"
+  }
+}

@@ -1,0 +1,285 @@
+{
+  "schemaVersion": 1,
+  "userFacingDate": "2026-11-06",
+  "ticket": "F0-02",
+  "baseline": "946872e0ca43599c622640e0ac682f1131ec4cef",
+  "checkpoint": "checkpoint/factory-v2-ux0-20261106",
+  "scope": "Design baseline and offline fixture only",
+  "counts": {
+    "screens": 9,
+    "components": 22,
+    "viewStates": 7,
+    "scenarios": 8,
+    "agents": 6,
+    "tasks": 7,
+    "translationLeaves": 194,
+    "contrastPairs": 24,
+    "logicAndSmokeTests": 15,
+    "renderCombinations": 192,
+    "checkedLocalDocLinks": 64
+  },
+  "checks": {
+    "json": true,
+    "resourceAndPlaceholderParity": true,
+    "themeTokenParity": true,
+    "cssVariablesDefined": true,
+    "seedReferencesAndAcyclicDependencies": true,
+    "sameBaInputsForParallelFeBe": true,
+    "fontAssetHashes": true,
+    "fontCmap": true,
+    "syntax": true,
+    "offlineBundleNoRemoteAssets": true,
+    "noRuntimeNetworkClients": true,
+    "windowLogicAndRenderSmoke": true,
+    "trackedV1Unchanged": true
+  },
+  "font": {
+    "schemaVersion": 1,
+    "asset": "design/factory-v2/assets/InterVariable.woff2",
+    "sha256": "693b77d4f32ee9b8bfc995589b5fad5e99adf2832738661f5402f9978429a8e3",
+    "method": "fontTools cmap for vi/en resources, original fixture content, NFC/NFD, and U+1EA0..U+1EF9",
+    "requiredCodepoints": 195,
+    "missingCodepoints": [],
+    "variableAxes": [
+      {
+        "tag": "opsz",
+        "minimum": 14,
+        "maximum": 32
+      },
+      {
+        "tag": "wght",
+        "minimum": 100,
+        "maximum": 900
+      }
+    ],
+    "visualRenderingVerified": false,
+    "decoder": "Node built-in Brotli via stdin",
+    "italicAssetBundled": false
+  },
+  "contrasts": [
+    {
+      "theme": "light",
+      "foreground": "text",
+      "background": "surface",
+      "minimum": 4.5,
+      "ratio": 15.554
+    },
+    {
+      "theme": "light",
+      "foreground": "muted",
+      "background": "surface",
+      "minimum": 4.5,
+      "ratio": 6.141
+    },
+    {
+      "theme": "light",
+      "foreground": "subtle",
+      "background": "raised",
+      "minimum": 4.5,
+      "ratio": 5.476
+    },
+    {
+      "theme": "light",
+      "foreground": "onPrimary",
+      "background": "primaryFill",
+      "minimum": 4.5,
+      "ratio": 15.554
+    },
+    {
+      "theme": "light",
+      "foreground": "onAccent",
+      "background": "accent",
+      "minimum": 4.5,
+      "ratio": 6.259
+    },
+    {
+      "theme": "light",
+      "foreground": "controlBorder",
+      "background": "surface",
+      "minimum": 3,
+      "ratio": 3.784
+    },
+    {
+      "theme": "light",
+      "foreground": "focus",
+      "background": "raised",
+      "minimum": 3,
+      "ratio": 6.654
+    },
+    {
+      "theme": "light",
+      "foreground": "statusAccent",
+      "background": "surface",
+      "minimum": 4.5,
+      "ratio": 7.463
+    },
+    {
+      "theme": "light",
+      "foreground": "working",
+      "background": "surface",
+      "minimum": 4.5,
+      "ratio": 6.596
+    },
+    {
+      "theme": "light",
+      "foreground": "text",
+      "background": "raised",
+      "minimum": 4.5,
+      "ratio": 13.869
+    },
+    {
+      "theme": "light",
+      "foreground": "success",
+      "background": "successSurface",
+      "minimum": 4.5,
+      "ratio": 6.397
+    },
+    {
+      "theme": "light",
+      "foreground": "danger",
+      "background": "dangerSurface",
+      "minimum": 4.5,
+      "ratio": 6.455
+    },
+    {
+      "theme": "dark",
+      "foreground": "text",
+      "background": "surface",
+      "minimum": 4.5,
+      "ratio": 13.729
+    },
+    {
+      "theme": "dark",
+      "foreground": "muted",
+      "background": "surface",
+      "minimum": 4.5,
+      "ratio": 7.118
+    },
+    {
+      "theme": "dark",
+      "foreground": "subtle",
+      "background": "raised",
+      "minimum": 4.5,
+      "ratio": 5.009
+    },
+    {
+      "theme": "dark",
+      "foreground": "onPrimary",
+      "background": "primaryFill",
+      "minimum": 4.5,
+      "ratio": 15.451
+    },
+    {
+      "theme": "dark",
+      "foreground": "onAccent",
+      "background": "accent",
+      "minimum": 4.5,
+      "ratio": 5.526
+    },
+    {
+      "theme": "dark",
+      "foreground": "controlBorder",
+      "background": "surface",
+      "minimum": 3,
+      "ratio": 3.119
+    },
+    {
+      "theme": "dark",
+      "foreground": "focus",
+      "background": "raised",
+      "minimum": 3,
+      "ratio": 12.421
+    },
+    {
+      "theme": "dark",
+      "foreground": "statusAccent",
+      "background": "surface",
+      "minimum": 4.5,
+      "ratio": 4.91
+    },
+    {
+      "theme": "dark",
+      "foreground": "working",
+      "background": "surface",
+      "minimum": 4.5,
+      "ratio": 6.136
+    },
+    {
+      "theme": "dark",
+      "foreground": "text",
+      "background": "raised",
+      "minimum": 4.5,
+      "ratio": 12.421
+    },
+    {
+      "theme": "dark",
+      "foreground": "success",
+      "background": "successSurface",
+      "minimum": 4.5,
+      "ratio": 7.592
+    },
+    {
+      "theme": "dark",
+      "foreground": "danger",
+      "background": "dangerSurface",
+      "minimum": 4.5,
+      "ratio": 7.439
+    }
+  ],
+  "references": [
+    {
+      "id": "UI-01",
+      "status": "hash-and-dimensions-verified"
+    },
+    {
+      "id": "UI-02",
+      "status": "hash-and-dimensions-verified"
+    },
+    {
+      "id": "UI-03",
+      "status": "hash-and-dimensions-verified"
+    },
+    {
+      "id": "UI-04",
+      "status": "hash-and-dimensions-verified"
+    },
+    {
+      "id": "UI-05",
+      "status": "hash-and-dimensions-verified"
+    },
+    {
+      "id": "UI-06",
+      "status": "hash-and-dimensions-verified"
+    },
+    {
+      "id": "UI-07",
+      "status": "hash-and-dimensions-verified"
+    },
+    {
+      "id": "UI-08",
+      "status": "hash-and-dimensions-verified"
+    },
+    {
+      "id": "UI-09",
+      "status": "hash-and-dimensions-verified"
+    }
+  ],
+  "visual": {
+    "browserVerified": false,
+    "scoreMeasured": false,
+    "reason": "Computer Use verification previously stopped by URL-confidence guard. Code/geometry smoke tests are not browser layout, accessibility or pointer tests."
+  },
+  "notRun": [
+    "Host/runtime/model/DB integration",
+    "application build/typecheck",
+    "browser layout/focus/pointer QA and performance measurements",
+    "full production primitives/shadcn/react-rnd/i18next integration"
+  ],
+  "limitations": [
+    "Six fixed sample agents, one window per agent; not production conversation registry.",
+    "Drafts/messages are in-memory only; layout/theme/locale persist in browser storage.",
+    "Menus use disclosure prototype and browser title hints, not complete production accessible primitives.",
+    "Only Board/Dashboard/Team/attention/settings/guide are fixture views; remaining reference screens are checklists.",
+    "Inter normal variable font bundled; italic is not included."
+  ]
+}

@@ -1,0 +1,244 @@
+{
+  "global": {
+    "dashboard": "Tổng quan",
+    "attention": "Cần bạn xử lý",
+    "team": "Đội ngũ",
+    "projects": "Dự án",
+    "settings": "Cài đặt",
+    "help": "Trợ giúp"
+  },
+  "projectTabs": [
+    {
+      "id": "overview",
+      "label": "Tổng quan"
+    },
+    {
+      "id": "board",
+      "label": "Bảng việc"
+    },
+    {
+      "id": "reports",
+      "label": "Báo cáo"
+    },
+    {
+      "id": "list",
+      "label": "Danh sách"
+    },
+    {
+      "id": "archive",
+      "label": "Lưu trữ"
+    },
+    {
+      "id": "automations",
+      "label": "Tự động hóa"
+    },
+    {
+      "id": "scheduled",
+      "label": "Lịch"
+    },
+    {
+      "id": "git",
+      "label": "Git",
+      "requires": "gitWorkspace"
+    }
+  ],
+  "workflowPreset": [
+    {
+      "id": "backlog",
+      "label": "Chưa lên lịch",
+      "category": "backlog"
+    },
+    {
+      "id": "planned",
+      "label": "Sẵn sàng",
+      "category": "planned"
+    },
+    {
+      "id": "in-progress",
+      "label": "Đang làm",
+      "category": "active"
+    },
+    {
+      "id": "review",
+      "label": "Chờ duyệt",
+      "category": "review"
+    },
+    {
+      "id": "done",
+      "label": "Hoàn thành",
+      "category": "terminal"
+    }
+  ],
+  "activity": {
+    "idle": "Đang rảnh",
+    "working": "Đang làm",
+    "waiting": "Đang chờ",
+    "blocked": "Bị chặn"
+  },
+  "readiness": {
+    "ready": "Sẵn sàng",
+    "needs-auth": "Cần đăng nhập",
+    "unconfigured": "Chưa cấu hình",
+    "offline": "Ngoại tuyến",
+    "unknown": "Chưa xác định",
+    "stale": "Cần cập nhật"
+  },
+  "actions": {
+    "send": "Gửi",
+    "stop": "Dừng",
+    "continue": "Tiếp tục",
+    "cancel": "Hủy",
+    "create": "Tạo",
+    "newTicket": "Tạo công việc",
+    "reply": "Trả lời",
+    "review": "Xem kết quả",
+    "retry": "Thử lại",
+    "recheck": "Kiểm tra lại",
+    "close": "Đóng",
+    "expand": "Mở rộng",
+    "collapse": "Thu gọn"
+  },
+  "viewStates": {
+    "ready": "Có dữ liệu",
+    "loading": "Đang tải",
+    "empty": "Chưa có dữ liệu",
+    "error": "Không tải được",
+    "stale": "Dữ liệu chưa cập nhật",
+    "partial": "Dữ liệu chưa đầy đủ",
+    "offline": "Mất kết nối"
+  },
+  "review": {
+    "human-final": "Duyệt kết quả cuối",
+    "automatic": "Tự động theo tiêu chí",
+    "hybrid": "Kết hợp"
+  },
+  "chat": {
+    "placeholder": "Trao đổi công việc với Lead…",
+    "contextProject": "Trao đổi dự án",
+    "contextTask": "Trao đổi công việc",
+    "simulation": "Mẫu giao diện • dữ liệu giả lập"
+  },
+  "locale": "vi",
+  "preview": {
+    "title": "Factory V2 · Bộ chuẩn giao diện",
+    "sample": "Mẫu giao diện · dữ liệu giả lập",
+    "noRuntime": "Không nối Host, model hoặc DB",
+    "local": "Bản mẫu local",
+    "mainNav": "Điều hướng chính",
+    "sampleProjects": "Dự án mẫu",
+    "inProject": "Trong dự án",
+    "search": "Tìm theo mã hoặc nội dung công việc",
+    "settings": "Giao diện & ngôn ngữ",
+    "guide": "Bộ chuẩn",
+    "state": "Trạng thái",
+    "longContent": "Nội dung dài",
+    "view": "Xem",
+    "assignee": "Người nhận",
+    "unassigned": "Chưa giao",
+    "labels": "Nhãn",
+    "priority": "Ưu tiên",
+    "high": "Cao",
+    "normal": "Bình thường",
+    "filter": "Lọc công việc…",
+    "tasks": "{count} công việc",
+    "attention": "{count} việc cần bạn xử lý",
+    "unknown": "Chưa xác định",
+    "loading": "Đang tải dữ liệu mẫu…",
+    "emptyTitle": "Chưa có công việc",
+    "emptyBody": "Trao đổi với Lead để bắt đầu.",
+    "errorTitle": "Không tải được dữ liệu",
+    "errorBody": "Snapshot mẫu tạm thời không khả dụng.",
+    "retryFixture": "Thử lại bản mẫu",
+    "talkLead": "Nhắn Lead",
+    "noDecisions": "Không có việc cần trả lời.",
+    "recommendation": "Đề xuất",
+    "greeting": "Chào buổi sáng",
+    "quickAsk": "Trao đổi với Lead từ Tổng quan",
+    "prompt": "Hỏi hoặc mô tả công việc…",
+    "activity": "Hoạt động gần đây",
+    "milestones": "Các mốc chính",
+    "needsAttention": "Cần chú ý",
+    "parallel": "FE và BE đang làm song song. QA chờ bản tích hợp.",
+    "teamIntro": "Công việc và trạng thái của từng agent.",
+    "sampleConnection": "Mẫu kết nối local",
+    "noSessions": "Không có máy hoặc session thật trong bản mẫu.",
+    "plannedHost": "Local · WSL2 dự kiến",
+    "disconnected": "Chưa kết nối",
+    "guideIntro": "Tokens, trạng thái và checklist. Chưa chấm điểm tương đồng với CrewHub.",
+    "colorsType": "Màu và chữ",
+    "glyphSample": "Tiếng Việt: Đặng, Nguyễn, Ắ ằ ễ ộ ự · English: workflow, review",
+    "fontNote": "Inter Variable được đóng gói offline; chưa kiểm trực quan glyph trên trình duyệt.",
+    "controls": "Controls và trạng thái",
+    "unavailable": "Chưa khả dụng",
+    "projectName": "Tên dự án",
+    "validation": "Ví dụ validation: mã dự án đã tồn tại.",
+    "customMenu": "Dropdown riêng",
+    "shortOption": "Một lựa chọn ngắn",
+    "longOption": "Lựa chọn tiếng Việt dài để kiểm tra menu",
+    "menuNote": "Menu disclosure trong prototype. Keyboard/collision đầy đủ sẽ dùng primitives ở F2-01.",
+    "screenChecklist": "Checklist từng màn",
+    "items": "{count} mục",
+    "viewStates": "Trạng thái cần dựng",
+    "originalContracts": "Đặc tả thiết kế giữ nguyên ngôn ngữ gốc; không phải nội dung UI cần dịch.",
+    "theme": "Giao diện",
+    "light": "Sáng",
+    "dark": "Tối",
+    "system": "Theo hệ thống",
+    "language": "Ngôn ngữ",
+    "resetLayout": "Đặt lại bố cục chat",
+    "preferencesNote": "Chỉ lưu theme, ngôn ngữ và bố cục mẫu trên trình duyệt này. Nháp và hội thoại mẫu ở bộ nhớ, sẽ mất khi tải lại.",
+    "storageError": "Không lưu được tùy chọn; đang dùng bộ nhớ tạm.",
+    "dataError": "Bố cục đã lưu không hợp lệ; đã dùng bố cục mặc định.",
+    "chatSample": "Chat mô phỏng",
+    "user": "Bạn",
+    "minimize": "Thu nhỏ",
+    "restore": "Khôi phục",
+    "maximize": "Mở lớn",
+    "close": "Đóng",
+    "move": "Di chuyển cửa sổ",
+    "resize": "Đổi kích thước",
+    "openChat": "Mở chat với {name}",
+    "simulate": "Chỉ mô phỏng tương tác",
+    "reply": "Đây là phản hồi mô phỏng. Bản mẫu không gọi model, sửa file hoặc tạo công việc thật.",
+    "maxWindows": "Bản mẫu giới hạn 10 cửa sổ; khôi phục một hội thoại đã mở từ khay.",
+    "windowNote": "Kéo thanh tiêu đề hoặc dùng phím mũi tên khi focus nút Di chuyển; Shift di chuyển 1 px. Thu nhỏ/đóng không xóa nháp trong phiên mẫu.",
+    "taskOutput": "Đầu ra",
+    "criteria": "Tiêu chí",
+    "inputs": "Đầu vào",
+    "dependencies": "Phụ thuộc",
+    "none": "Không có",
+    "requestInput": "Theo yêu cầu công việc",
+    "taskNote": "Hồ sơ mẫu; mutation và review thật thuộc F4.",
+    "additionalScreen": "Màn bổ sung chưa có ảnh chuẩn",
+    "checklistNote": "Checklist thiết kế, chưa là chức năng đã triển khai.",
+    "inferred": "Thiết kế theo primitives và behavior contracts; chưa có ảnh chuẩn để chấm tương đồng.",
+    "demoAction": "Tương tác mẫu",
+    "demoActionBody": "Control minh họa bộ chuẩn; chưa kết nối API hoặc thay đổi dự án thật.",
+    "decisionIntro": "Quyết định nghiệp vụ; độc lập với quyền chạy công cụ.",
+    "messages": "Hội thoại",
+    "windows": "Cửa sổ chat",
+    "scenarioReady": "Đội làm song song, QA chờ dependency; một quyết định nghiệp vụ.",
+    "scenarioLoading": "Chưa nhận snapshot đầu tiên.",
+    "scenarioEmpty": "Dự án chưa có công việc.",
+    "scenarioError": "Không tải được snapshot.",
+    "scenarioStale": "Đang xem snapshot cũ; trạng thái agent hiện tại chưa xác định.",
+    "scenarioPartial": "Có báo cáo nhưng thiếu bằng chứng kiểm tra.",
+    "scenarioOffline": "Host mất kết nối; giữ nháp và không gửi yêu cầu.",
+    "scenarioLong": "Tên dài, tiếng Việt và đường dẫn.",
+    "displayMode": "Chế độ cửa sổ",
+    "floating": "Cửa sổ nổi",
+    "minimized": "Đã thu nhỏ",
+    "maximized": "Đã mở lớn"
+  },
+  "screenNames": {
+    "UI-01": "Tạo dự án",
+    "UI-02": "Tự động hóa Graph",
+    "UI-03": "Đội ngũ",
+    "UI-04": "Bảng việc và chat",
+    "UI-05": "Báo cáo",
+    "UI-06": "Lịch",
+    "UI-07": "Git",
+    "UI-08": "Tổng quan",
+    "UI-09": "Thiết lập"
+  }
+}

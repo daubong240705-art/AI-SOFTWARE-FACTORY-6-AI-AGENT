@@ -2,6 +2,8 @@
 
 Ngày **06/11/2026** · baseline source `70649e9` · nhánh `feature/factory-v2-foundation` · checkpoint `checkpoint/factory-v2-uiux-assessment-20261106`.
 
+**Tiến độ sau đánh giá:** UX-0/F0-02 đã bàn giao [bộ chuẩn và fixture](f0-02-design-baseline.md). Các mô tả “còn dở/untracked” dưới đây ghi hiện trạng tại lúc đánh giá `946872e`; bước kế tiếp hiện tại là F0-03 contracts. Chưa triển khai ứng dụng Host/UI V2 thật.
+
 **Kết luận:** nâng cấp trên hướng V2 đã thống nhất: React/TypeScript UI, một Host WSL2, API dùng chung. Giữ V1 để sử dụng và tham khảo; không chuyển cả hệ thống cửa sổ vào prototype DOM hoặc sửa runtime để phục vụ thay đổi hình thức. Bước hiện tại là đánh giá source và lập kế hoạch, chưa triển khai thay đổi lớn.
 
 Yêu cầu mới ưu tiên **Light Theme lấy cảm hứng CrewHub, hỗ trợ Dark Theme, Inter, song ngữ và nhiều cửa sổ chat**. Những điểm này thay yêu cầu cũ bắt palette/font giống ảnh trên 90% và một chat dock duy nhất. Vòng nghiệp vụ, dữ liệu và các tiêu chí tin cậy trong [kế hoạch chính](README.md), [workflows](workflows.md) vẫn giữ. Không xây lại kế hoạch hoặc orchestrator thứ hai.

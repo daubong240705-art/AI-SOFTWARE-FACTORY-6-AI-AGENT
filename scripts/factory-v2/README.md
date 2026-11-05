@@ -1,5 +1,21 @@
 # Factory V2 — Repository inventory
 
+## F0-02 — Design baseline
+
+```sh
+node scripts/factory-v2/build-style-guide.mjs
+python scripts/factory-v2/verify-font.py
+node scripts/factory-v2/verify-design.mjs
+```
+
+Mở `.cache/factory-v2/style-guide/index.html`; xem [design README](../../design/factory-v2/README.md). Builder chỉ Node built-ins, không cài packages, nối runtime hoặc mở DB. `verify-font.py` cần fontTools; Brotli có fallback built-in Node. Verifier tạo `research/factory-v2/f0-02-validation.json` và chạy geometry/render smoke tests; không phải browser visual hoặc app/runtime tests. Chạy riêng logic tests sau khi build:
+
+```sh
+node --test scripts/factory-v2/window-state.test.mjs scripts/factory-v2/preview.test.mjs
+```
+
+## F0-01 — Inventory
+
 `inventory.mjs` là công cụ F0-01 chạy bằng Node built-ins và Git. Không cần npm install, không import app code, không chạy scripts/test dự án, không mở SQLite hoặc đọc credentials.
 
 In inventory ra stdout:

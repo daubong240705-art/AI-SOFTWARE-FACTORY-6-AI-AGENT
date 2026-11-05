@@ -1,6 +1,6 @@
 # Chuẩn thiết kế — CrewHub Loops làm tham chiếu chính
 
-**Cập nhật UI/UX 06/11/2026:** [Đánh giá và kế hoạch nâng cấp](uiux-upgrade.md) là quyết định hiện hành: Light mặc định, Dark/System, Inter, vi/en và nhiều cửa sổ chat kéo/resize. Thay mục tiêu sao chép palette/font trên 90% và giới hạn một dock; giữ phạm vi nghiệp vụ và tiêu chí tin cậy. Prototype F0-02 còn dở, chưa có Host/UI V2 thật.
+**Cập nhật UI/UX 06/11/2026:** [Kế hoạch nâng cấp](uiux-upgrade.md) thay palette/font/dock nguyên mẫu. [Bộ chuẩn F0-02](../../design/factory-v2/README.md) đã có tokens Light/Dark, Inter, vi/en và fixture cửa sổ chat; [handoff và giới hạn](f0-02-design-baseline.md). Chưa có Host/UI V2 thật hoặc browser visual QA mới.
 
 Thuộc [kế hoạch hợp nhất Factory V2](README.md). Ngày 05/11/2026. Tài liệu này thay palette/font và cách giảm project tabs trong các phương án UX cũ. Chưa phải giao diện đã triển khai.
 

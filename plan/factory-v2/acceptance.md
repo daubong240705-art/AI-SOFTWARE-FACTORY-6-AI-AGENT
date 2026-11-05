@@ -1,6 +1,6 @@
 # Nghiệm thu giao diện và nghiệp vụ Factory V2
 
-**Cập nhật UI/UX 06/11/2026:** [Đánh giá và kế hoạch nâng cấp](uiux-upgrade.md) là quyết định hiện hành: Light mặc định, Dark/System, Inter, vi/en và nhiều cửa sổ chat kéo/resize. Thay mục tiêu sao chép palette/font trên 90% và giới hạn một dock; giữ phạm vi nghiệp vụ và tiêu chí tin cậy. Prototype F0-02 còn dở, chưa có Host/UI V2 thật.
+**Cập nhật UI/UX 06/11/2026:** [Kế hoạch nâng cấp](uiux-upgrade.md) thay gate sao chép palette/font bằng quality matrix Light/Dark × vi/en và chat windows. [F0-02 bộ chuẩn/fixture Done](f0-02-design-baseline.md); chưa có Host/UI V2 thật, browser visual score vẫn chưa đo. Business gates giữ nguyên.
 
 Thuộc [kế hoạch hợp nhất](README.md). **Mục tiêu, chưa phải kết quả đã đạt.** “Trên 90%” phải có cách đối chiếu và evidence, không chỉ là nhận xét cảm quan hoặc tỷ lệ code được viết lại.
 

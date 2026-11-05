@@ -1,0 +1,326 @@
+{
+  "schemaVersion": 1,
+  "fixtureOnly": true,
+  "clock": "2026-11-06T09:00:00+07:00",
+  "projectId": "demo-studio",
+  "projects": [
+    {
+      "id": "demo-studio",
+      "name": "Factory Studio",
+      "code": "FS",
+      "hasGit": true,
+      "leadId": "lead",
+      "type": "software",
+      "reviewPolicy": "hybrid"
+    },
+    {
+      "id": "demo-research",
+      "name": "Nghiên cứu thị trường",
+      "code": "NC",
+      "hasGit": false,
+      "leadId": "researcher",
+      "type": "research",
+      "reviewPolicy": "human-final"
+    }
+  ],
+  "agents": [
+    {
+      "id": "lead",
+      "name": "Lead",
+      "runtime": "Codex",
+      "readiness": "ready",
+      "activity": "working",
+      "taskId": "fs-12",
+      "step": "Tổng hợp kết quả và kiểm tra tiêu chí",
+      "reason": "",
+      "parentId": null
+    },
+    {
+      "id": "analyst",
+      "name": "Phân tích nghiệp vụ",
+      "runtime": "Claude Code",
+      "readiness": "ready",
+      "activity": "idle",
+      "taskId": null,
+      "step": "Có thể nhận việc",
+      "reason": "",
+      "parentId": "lead"
+    },
+    {
+      "id": "frontend",
+      "name": "Giao diện",
+      "runtime": "Codex",
+      "readiness": "ready",
+      "activity": "working",
+      "taskId": "fs-10",
+      "step": "Hoàn thiện form và trạng thái lỗi",
+      "reason": "",
+      "parentId": "lead"
+    },
+    {
+      "id": "backend",
+      "name": "Backend",
+      "runtime": "OpenCode",
+      "readiness": "ready",
+      "activity": "working",
+      "taskId": "fs-11",
+      "step": "Xử lý validation và phản hồi API",
+      "reason": "",
+      "parentId": "lead"
+    },
+    {
+      "id": "tester",
+      "name": "Kiểm thử",
+      "runtime": "OpenCode",
+      "readiness": "ready",
+      "activity": "waiting",
+      "taskId": "fs-13",
+      "step": "Chờ bản tích hợp",
+      "reason": "Chờ FS-10 và FS-11",
+      "parentId": "lead"
+    },
+    {
+      "id": "researcher",
+      "name": "Nghiên cứu",
+      "runtime": "Claude Code",
+      "readiness": "needs-auth",
+      "activity": "blocked",
+      "taskId": null,
+      "step": "Chưa nhận việc",
+      "reason": "Kết nối runtime cần đăng nhập",
+      "parentId": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "fs-14",
+      "code": "FS-14",
+      "title": "Tìm kiếm theo tên và mã công việc",
+      "status": "backlog",
+      "ownerId": null,
+      "labels": ["giao diện"],
+      "dependencies": [],
+      "criteria": ["Tìm tên hoặc mã đều mở đúng hồ sơ"],
+      "inputRefs": [],
+      "output": "Thanh tìm kiếm và kết quả có liên kết",
+      "reason": ""
+    },
+    {
+      "id": "fs-15",
+      "code": "FS-15",
+      "title": "Xuất báo cáo tổng hợp theo tuần",
+      "status": "planned",
+      "ownerId": "analyst",
+      "labels": ["báo cáo"],
+      "dependencies": [],
+      "criteria": ["Báo cáo chỉ dùng công việc trong khoảng thời gian đã chọn"],
+      "inputRefs": [],
+      "output": "Báo cáo có nguồn và thời gian rõ",
+      "reason": ""
+    },
+    {
+      "id": "fs-10",
+      "code": "FS-10",
+      "title": "Trang danh sách và form tạo công việc",
+      "status": "in-progress",
+      "ownerId": "frontend",
+      "labels": ["FE"],
+      "dependencies": ["fs-09"],
+      "criteria": [
+        "Form có loading/error/validation",
+        "Không tràn chữ khi tên công việc dài"
+      ],
+      "inputRefs": ["api-v1", "data-v1"],
+      "output": "Giao diện danh sách và form theo contract v1",
+      "reason": ""
+    },
+    {
+      "id": "fs-11",
+      "code": "FS-11",
+      "title": "API tạo và cập nhật công việc",
+      "status": "in-progress",
+      "ownerId": "backend",
+      "labels": ["BE"],
+      "dependencies": ["fs-09"],
+      "criteria": [
+        "Validate payload theo API contract",
+        "Request lặp không tạo hai công việc"
+      ],
+      "inputRefs": ["api-v1", "data-v1"],
+      "output": "API và kiểm tra liên quan",
+      "reason": ""
+    },
+    {
+      "id": "fs-12",
+      "code": "FS-12",
+      "title": "Chốt định dạng xuất báo cáo",
+      "status": "review",
+      "ownerId": "lead",
+      "labels": ["cần trả lời"],
+      "dependencies": [],
+      "criteria": ["Định dạng phù hợp người đọc báo cáo"],
+      "inputRefs": [],
+      "output": "Quyết định định dạng và bản báo cáo mẫu",
+      "reason": "Cần chọn định dạng đầu ra"
+    },
+    {
+      "id": "fs-13",
+      "code": "FS-13",
+      "title": "Kiểm tra luồng tạo và chỉnh sửa công việc",
+      "status": "planned",
+      "ownerId": "tester",
+      "labels": ["QA"],
+      "dependencies": ["fs-10", "fs-11"],
+      "criteria": ["Luồng chính và validation đạt trên bản tích hợp"],
+      "inputRefs": ["api-v1"],
+      "output": "Báo cáo pass/fail/not-run",
+      "reason": "Chờ bản tích hợp từ FE và BE"
+    },
+    {
+      "id": "fs-09",
+      "code": "FS-09",
+      "title": "Thiết kế dữ liệu và hợp đồng API",
+      "status": "done",
+      "ownerId": "analyst",
+      "labels": ["BA"],
+      "dependencies": [],
+      "criteria": [
+        "Có data dictionary và validation",
+        "FE/BE dùng cùng phiên bản contract"
+      ],
+      "inputRefs": [],
+      "output": "Data model v1 và API contract v1",
+      "reason": ""
+    }
+  ],
+  "documents": [
+    {
+      "id": "data-v1",
+      "title": "Thiết kế dữ liệu công việc",
+      "version": 1,
+      "authorId": "analyst",
+      "taskId": "fs-09",
+      "kind": "data-model",
+      "summary": "WorkItem, assignee, dependency, criteria và trạng thái nghiệp vụ."
+    },
+    {
+      "id": "api-v1",
+      "title": "Hợp đồng API công việc",
+      "version": 1,
+      "authorId": "analyst",
+      "taskId": "fs-09",
+      "kind": "api-contract",
+      "summary": "Create/update/query, validation và mã lỗi conflict."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "format-choice",
+      "taskId": "fs-12",
+      "status": "pending",
+      "question": "Báo cáo cần bản chỉnh sửa được hay bản để gửi đọc?",
+      "reason": "Định dạng đầu ra ảnh hưởng cách xuất báo cáo",
+      "recommendation": "Giữ bản Markdown và xuất PDF khi chia sẻ",
+      "options": ["Markdown và PDF", "Chỉ Markdown"]
+    }
+  ],
+  "messages": [
+    {
+      "id": "msg-1",
+      "role": "user",
+      "time": "08:42",
+      "text": "Hoàn thiện luồng tạo công việc, cho FE và BE làm song song sau khi có thiết kế dữ liệu."
+    },
+    {
+      "id": "msg-2",
+      "role": "assistant",
+      "time": "08:43",
+      "text": "BA đã lưu data model và API contract v1. FE đang làm form, BE đang làm API; QA sẽ kiểm trên bản tích hợp."
+    },
+    {
+      "id": "msg-3",
+      "role": "assistant",
+      "time": "08:55",
+      "text": "Phần xuất báo cáo cần chọn định dạng đầu ra. Bạn có thể trả lời ngay tại đây; FE và BE vẫn tiếp tục công việc độc lập."
+    }
+  ],
+  "activity": [
+    {
+      "id": "ev-1",
+      "actorId": "analyst",
+      "taskId": "fs-09",
+      "text": "đã lưu thiết kế dữ liệu và API contract v1",
+      "time": "17 phút trước",
+      "kind": "output"
+    },
+    {
+      "id": "ev-2",
+      "actorId": "frontend",
+      "taskId": "fs-10",
+      "text": "bắt đầu hoàn thiện danh sách và form",
+      "time": "12 phút trước",
+      "kind": "started"
+    },
+    {
+      "id": "ev-3",
+      "actorId": "backend",
+      "taskId": "fs-11",
+      "text": "bắt đầu API theo cùng contract v1",
+      "time": "12 phút trước",
+      "kind": "started"
+    },
+    {
+      "id": "ev-4",
+      "actorId": "lead",
+      "taskId": "fs-12",
+      "text": "cần bạn chọn định dạng báo cáo",
+      "time": "5 phút trước",
+      "kind": "decision"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "ready",
+      "viewState": "ready",
+      "description": "Đội làm song song, QA chờ dependency, một quyết định nghiệp vụ"
+    },
+    {
+      "id": "loading",
+      "viewState": "loading",
+      "description": "Chưa nhận snapshot đầu tiên"
+    },
+    {
+      "id": "empty",
+      "viewState": "empty",
+      "description": "Dự án chưa có công việc; tạo hoặc trao đổi với Lead"
+    },
+    {
+      "id": "error",
+      "viewState": "error",
+      "description": "Không tải được snapshot, có thể thử lại"
+    },
+    {
+      "id": "stale",
+      "viewState": "stale",
+      "description": "Giữ snapshot nhưng agent freshness hết hạn"
+    },
+    {
+      "id": "partial",
+      "viewState": "partial",
+      "description": "Có báo cáo nhưng thiếu bằng chứng kiểm tra"
+    },
+    {
+      "id": "offline",
+      "viewState": "offline",
+      "description": "Host mất kết nối, giữ draft và không gửi mutation"
+    },
+    {
+      "id": "long-content",
+      "viewState": "ready",
+      "description": "Tên tiếng Việt dài, nhiều nhãn, agent dài và đường dẫn",
+      "taskTitle": "Hoàn thiện trang quản lý công việc có mô tả tiếng Việt rất dài để kiểm tra xuống dòng và tránh chồng nội dung",
+      "agentName": "Chuyên viên phân tích nghiệp vụ và thiết kế dữ liệu",
+      "path": "~/factory/projects/factory-studio/documents/contracts/work-items-v1.md"
+    }
+  ]
+}
