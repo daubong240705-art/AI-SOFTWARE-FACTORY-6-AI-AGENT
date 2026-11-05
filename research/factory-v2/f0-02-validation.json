@@ -16,7 +16,7 @@
     "contrastPairs": 24,
     "logicAndSmokeTests": 15,
     "renderCombinations": 192,
-    "checkedLocalDocLinks": 64
+    "checkedLocalDocLinks": 68
   },
   "checks": {
     "json": true,

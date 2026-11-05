@@ -4,7 +4,7 @@
 
 Ngày: **05/11/2026**. Trạng thái: **kế hoạch để triển khai; chưa xây Host/UI V2**. Baseline `793f081`, nhánh `feature/worker-office-v1.3d`; checkpoint `checkpoint/factory-v2-consolidated-20261105`. Mã phiên bản V2 dùng cho hướng sản phẩm mới, không đổi version ứng dụng hiện tại trong đợt tài liệu này.
 
-**Tiến độ 06/11/2026:** [F0-01 baseline/reuse map](f0-01-baseline.md) và [F0-02 design baseline](f0-02-design-baseline.md) Done. Nhánh `feature/factory-v2-foundation`, checkpoint mới `checkpoint/factory-v2-ux0-20261106`. Source V2 tách trong cùng repo, TypeScript Host + React/TypeScript UI. Có fixture offline để xem thiết kế; chưa scaffold Host/UI app, đổi DB hoặc cài WSL. Tiếp theo **F0-03 contracts**.
+**Tiến độ 06/11/2026:** F0 hoàn tất: [baseline/reuse map](f0-01-baseline.md), [design baseline](f0-02-design-baseline.md) và [contracts/ADR](f0-03-contracts.md) Done. Nhánh `feature/factory-v2-foundation`, checkpoint mới `checkpoint/factory-v2-f0-03-20261106`. Có package TypeScript dùng chung và fixture offline; chưa scaffold Host/UI app, đổi DB hoặc cài WSL. Tiếp theo **F1-01 preflight WSL**, rồi Host/API/storage thật.
 
 **Đây là đầu mối kế hoạch hiện hành.** Gộp multi-runtime, Paperclip, đa lĩnh vực, Loops, quyền tự động và WSL2. CrewHub là tham chiếu trải nghiệm và vòng nghiệp vụ local; hình thức theo kế hoạch UI/UX 06/11, không bắt sao chép palette/font trên 90%. Giữ project tabs, Graph và hướng web/WSL đã chốt. Không yêu cầu xóa sản phẩm/dữ liệu cũ.
 

@@ -2,7 +2,7 @@
 
 **Cập nhật UI/UX 06/11/2026:** [Kế hoạch UI/UX](uiux-upgrade.md) hiện hành: Light/Dark/System, Inter, vi/en, chat windows. [F0-02 design baseline](f0-02-design-baseline.md) Done; browser QA và Host/UI app chưa triển khai.
 
-Đọc [phạm vi hiện hành](README.md), [UI reference](design-reference.md), [behavior contracts](workflows.md) và [acceptance](acceptance.md). **06/11/2026: F0-01/F0-02 Done, 38 ticket còn lại Planned.** Chưa triển khai Host/UI V2; fixture/tài liệu không chứng minh chức năng runtime.
+Đọc [phạm vi hiện hành](README.md), [UI reference](design-reference.md), [behavior contracts](workflows.md) và [acceptance](acceptance.md). **06/11/2026: F0-01/F0-02/F0-03 Done, 37 ticket còn lại Planned.** Có package contracts; chưa triển khai Host/UI V2, fixture/contracts không chứng minh chức năng runtime.
 
 ## 1. Cách thực hiện và bàn giao
 
@@ -18,7 +18,7 @@ Mức S/M/L chỉ độ lớn tương đối (S một boundary nhỏ, M nhiều 
 |---|---|---|---|
 | F0-01 BA/BE · S · **Done** | [Baseline 06/11 và reuse map](f0-01-baseline.md): 19 nhóm, 96 source/test refs; DB metadata-only | Bộ kế hoạch | Checkpoint `checkpoint/factory-v2-f0-01-20261106`, source V1 giữ nguyên, chưa mở DB/cài WSL |
 | F0-02 BA/FE · M · **Done** | [Design baseline và handoff](f0-02-design-baseline.md): 9 màn, 22 contracts, Light/Dark, Inter, vi/en, window fixture | F0-01 | 24 contrast pairs, 195 glyph codepoints, 15 tests/192 VM render combinations; 9 ảnh hashes đúng; browser QA chưa chạy |
-| F0-03 BE/FE · M | ADR source boundaries, command/event contracts, schema/index invariants, adapter interface và permissions model | F0-01; dùng F0-02 | Một nguồn task/dispatch; UI/Host thống nhất errors/revisions; plan schema V2 tách DB V1 |
+| F0-03 BE/FE · M · **Done** | [Contracts/ADR](f0-03-contracts.md): package TypeScript strict, 14 commands, event/cursor, adapters/grants, draft/window và SQL reference | F0-01; dùng F0-02 | 15 boundary tests + 11 SQLite memory tests, typecheck/build; một queue/actor Host/CAS, DB V2 riêng; chưa có Host runtime |
 
 **Bàn giao:** danh sách module tái dùng, ADR/contracts và ticket sẵn triển khai. Không cài WSL packages hoặc đổi DB ở bước inventory. Chỉ trở lại hỏi người dùng nếu gặp thiếu input/quyền không thể suy ra, không hỏi “cho phép bắt đầu” lần nữa.
 

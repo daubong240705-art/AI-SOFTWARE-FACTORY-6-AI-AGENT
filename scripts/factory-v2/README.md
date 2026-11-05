@@ -1,5 +1,16 @@
 # Factory V2 — Repository inventory
 
+## F0-03 — Contracts và SQLite reference
+
+```sh
+cd packages/factory-contracts
+npm ci --ignore-scripts --no-audit --no-fund
+cd ../..
+node scripts/factory-v2/verify-contracts.mjs
+```
+
+Verifier chạy typecheck/build package độc lập, 15 boundary tests và 11 SQLite tests trong memory, kiểm doc links/dependency boundary/source V1/checkpoint rồi ghi `research/factory-v2/f0-03-validation.json`. Cần Node ≥22.20.0 và Python SQLite hỗ trợ STRICT/JSON. Không khởi động V1 hoặc mở DB thật; không cài packages hệ thống. [ADR và giới hạn](../../plan/factory-v2/f0-03-contracts.md), [package README](../../packages/factory-contracts/README.md). Chạy riêng SQL: `python scripts/factory-v2/schema.test.py`.
+
 ## F0-02 — Design baseline
 
 ```sh

@@ -211,9 +211,20 @@ const testResult = execFileSync(
 );
 assert(testResult.includes("# fail 0"));
 const baseline = git("rev-parse", "946872e");
+const legacyChanges = git(
+  "diff",
+  "--name-only",
+  baseline,
+  "--",
+  "apps",
+  "packages",
+)
+  .split("\n")
+  .filter((path) => path && !path.startsWith("packages/factory-contracts/"));
 assert.equal(
-  git("diff", "--name-only", baseline, "--", "apps", "packages"),
+  legacyChanges.join("\n"),
   "",
+  "Legacy apps/packages must remain unchanged; only the new V2 contracts package is allowed",
 );
 assert.equal(git("rev-parse", "checkpoint/factory-v2-ux0-20261106"), baseline);
 const report = {

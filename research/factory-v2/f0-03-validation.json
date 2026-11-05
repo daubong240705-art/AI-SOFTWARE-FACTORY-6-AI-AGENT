@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "userFacingDate": "2026-11-06",
+  "ticket": "F0-03",
+  "baseline": "864b22b09635324c9cf0401804db7e44a2f540ff",
+  "checkpoint": "checkpoint/factory-v2-f0-03-20261106",
+  "scope": "Shared contracts, ADR, and temporary SQLite reference invariants; no live Host/runtime/data migration",
+  "tools": {
+    "node": "v22.20.0",
+    "typescript": "5.9.3",
+    "zod": "4.6.7",
+    "sqlite": "3.50.4"
+  },
+  "counts": {
+    "commands": 14,
+    "sourceModules": 8,
+    "contractTests": 15,
+    "sqliteMemoryTests": 11,
+    "checkedLocalDocLinks": 47
+  },
+  "checks": {
+    "typecheck": true,
+    "buildDeclarationsAndEsm": true,
+    "boundaryTests": true,
+    "sqliteMemoryTests": true,
+    "packageDependencyBoundary": true,
+    "lockfilePinned": true,
+    "docLinks": true,
+    "trackedLegacyUnchanged": true,
+    "noRootWorkspace": true,
+    "checkpointVerified": true
+  },
+  "files": [
+    {
+      "path": "packages/factory-contracts/src/adapter.ts",
+      "sha256": "5bc8f489ab6d4657cb0de174b7568bc3a907ed94e7cc6dc28894e00533d232dc"
+    },
+    {
+      "path": "packages/factory-contracts/src/base.ts",
+      "sha256": "c06f89a77f32c669458f0d4a679e9b73cd18b9a08577c72512ac85e5f4b8864c"
+    },
+    {
+      "path": "packages/factory-contracts/src/commands.ts",
+      "sha256": "68f77ed7a5e978cb3161ee6ef8e5aa6fe8f1d67431219a28f18fe8cbaf4ca805"
+    },
+    {
+      "path": "packages/factory-contracts/src/events.ts",
+      "sha256": "da4e2e2b927b912e186f6a4a3abf4cb2b675b33e4bbc6aa00f7f5f6eda7aa5ca"
+    },
+    {
+      "path": "packages/factory-contracts/src/index.ts",
+      "sha256": "1861d2bb3ddb293c387c3e4653c665f9768cafff1c864629df8730c8e05600dd"
+    },
+    {
+      "path": "packages/factory-contracts/src/models.ts",
+      "sha256": "a87672727da85d30e65d6b1d82d334b4b6117641dcd1aa6d08abcc8d263afe4f"
+    },
+    {
+      "path": "packages/factory-contracts/src/permissions.ts",
+      "sha256": "37ce3134c5939097c4fdd9eacae68b485feb95e007f07f105fd83f6e0d26c965"
+    },
+    {
+      "path": "packages/factory-contracts/src/preferences.ts",
+      "sha256": "479227e1d9607cc0bff08a00ad65f158f7a8ee28e4f20ebc9a75a41188d43eba"
+    },
+    {
+      "path": "packages/factory-contracts/test/contracts.test.mjs",
+      "sha256": "79b9473df2f1b589434da16ede1485ac8c1d75e9344107e9a054dbc21f2ada33"
+    },
+    {
+      "path": "packages/factory-contracts/package.json",
+      "sha256": "28c5cbf76b766f2609fb93fea5e5fb91e1a6b7ac83b30f94a6d6a9fade1358dd"
+    },
+    {
+      "path": "packages/factory-contracts/package-lock.json",
+      "sha256": "82e55a8461d3c4685e853dea1c2f1657d50ee5b805c8fc9128b34bd76bc7610c"
+    },
+    {
+      "path": "packages/factory-contracts/tsconfig.json",
+      "sha256": "49dd6c99f01ca973d07a681aac5129ec69adf19959af77c70d694bdf65db74a4"
+    },
+    {
+      "path": "schema/factory-v2/001-core.reference.sql",
+      "sha256": "20b61ee055749ddb910516fcb449b716e729f4565157d67a4033583092f0b00e"
+    },
+    {
+      "path": "scripts/factory-v2/schema.test.py",
+      "sha256": "5025e51f3698792f248b45d4cfc7559ea186d7a8dcb157976e2747102d6a1c6e"
+    },
+    {
+      "path": "scripts/factory-v2/verify-contracts.mjs",
+      "sha256": "15c34220c1178819d9543545b9ffcd0e607827a583bad580ee4a22129236f089"
+    }
+  ],
+  "hashEncoding": "UTF-8 source normalized to LF",
+  "notImplemented": [
+    "HTTP server, auth/session/CSRF/origin enforcement and command handlers",
+    "Production SQLite migrations, coordinator/recovery and cross-process concurrency",
+    "Real runtime adapters, effective permission enforcement and owned Linux process stop",
+    "Browser UI, durable draft/window store, multi-tab and real reconnect tests",
+    "Future domain document/output/review/automation/job tables and services"
+  ]
+}
