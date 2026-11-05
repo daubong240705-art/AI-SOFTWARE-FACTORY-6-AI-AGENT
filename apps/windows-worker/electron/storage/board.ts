@@ -778,9 +778,23 @@ export class BoardStore {
       exportedAt: new Date().toISOString(),
       artifacts: {
         included: false,
-        note: "Hồ sơ chứa yêu cầu, trao đổi và liên kết thực thi. Xuất báo cáo từng lượt để lấy evidence; file source không nằm trong gói này.",
+        note: "Hồ sơ chứa yêu cầu, trao đổi, tài liệu BA và liên kết thực thi. Xuất báo cáo từng lượt để lấy evidence; file source không nằm trong gói này.",
       },
       item,
+      documents: this.db
+        .prepare(
+          `
+          SELECT r.id AS runId,json_extract(t.value,'$.id') AS taskId,
+            json_extract(t.value,'$.title') AS title,json_extract(t.value,'$.state') AS state,
+            json_extract(t.value,'$.endedAt') AS endedAt,json_extract(t.value,'$.summary') AS report
+          FROM work_attempts a JOIN work_submissions s ON s.id=a.submission_id
+          JOIN runs r ON r.id=a.run_id JOIN json_each(r.value,'$.tasks') t
+          WHERE s.item_id=? AND json_extract(t.value,'$.role')='ba'
+            AND length(trim(COALESCE(json_extract(t.value,'$.summary'),'')))>0
+          ORDER BY r.created_at,r.rowid,t.key
+        `,
+        )
+        .all(item.id),
       revisions: (
         this.db
           .prepare(

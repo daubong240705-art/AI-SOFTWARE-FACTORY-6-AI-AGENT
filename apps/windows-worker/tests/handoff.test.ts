@@ -4,6 +4,7 @@ import {
   buildHandoff,
   handoffMaxChars,
   taskReport,
+  handoffTaskIds,
 } from "../electron/team/handoff";
 import type { Run, CommandResult } from "../shared/runs";
 import type { TeamTask } from "../shared/team";
@@ -56,6 +57,33 @@ const report = (patch: Record<string, unknown> = {}) =>
     unverified: [],
     ...patch,
   });
+
+test("BA data design survives direct and transitive handoff without the old 1800 character truncation", () => {
+  const design =
+    "## Mô hình dữ liệu\n" +
+    "Field | Type | Constraint\n".repeat(140) +
+    "\nAC14: dữ liệu tồn tại sau reload";
+  const ba = task("t1", { role: "ba", summary: report({ summary: design }) });
+  const be = task("t2", { dependsOn: ["t1"] });
+  const latest = new Map([
+    [ba.id, ba],
+    [be.id, be],
+  ]);
+  const ids = handoffTaskIds(latest, ["t2"]);
+  assert.deepEqual(ids, ["t2", "t1"]);
+  const packet = buildHandoff(runWith([ba, be]), latest, ids);
+  const saved = packet.tasks.find((t) => t.role === "ba")!;
+  assert.equal(saved.report.summary.text, design);
+  assert.equal(saved.report.summary.truncated, false);
+  assert.ok(JSON.stringify(packet).length <= handoffMaxChars);
+  const fixed = task("t2-fix-1", {
+    kind: "fix",
+    originalTaskId: "t2",
+    dependsOn: ["t2"],
+  });
+  latest.set("t2", fixed);
+  assert.deepEqual(handoffTaskIds(latest, ["t2"], [ba, be]), ["t2", "t1"]);
+});
 
 test("structured reports are unverified claims; malformed and legacy responses remain intact without repair", () => {
   const valid = taskReport(

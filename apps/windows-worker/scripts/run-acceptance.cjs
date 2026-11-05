@@ -3,6 +3,7 @@ const { join } = require("node:path");
 
 // Explicit allowlist: a typo must never fall through to a live model run.
 const scenarios = new Map([
+  ["agent-tasks-ui", "acceptance-agent-tasks-ui.cjs"],
   ["schedules-ui", "acceptance-schedules-ui.cjs"],
   ["settings-ui", "acceptance-settings-ui.cjs"],
   ["workspace-summary-ui", "acceptance-workspace-summary-ui.cjs"],

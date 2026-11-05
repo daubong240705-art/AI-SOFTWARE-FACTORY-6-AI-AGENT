@@ -115,6 +115,7 @@ export type BoardTask = {
   workType?: string;
 };
 export type BoardRun = {
+  executionMode?: "sequential" | "isolated-pair";
   reportState?: import("./reports").ReportState;
   projectId?: string;
   commandCount?: number;
@@ -144,6 +145,17 @@ export type BoardProgress = {
   passed: number;
 };
 export type BoardCard = {
+  tasks?: Pick<
+    BoardTask,
+    | "id"
+    | "originalTaskId"
+    | "role"
+    | "title"
+    | "state"
+    | "dependsOn"
+    | "acceptanceCount"
+  >[];
+  executionMode?: "sequential" | "isolated-pair";
   workState?: import("./work-state").WorkStateView;
   code?: string;
   key: string;

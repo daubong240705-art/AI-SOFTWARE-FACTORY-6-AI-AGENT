@@ -220,8 +220,8 @@ test("profile snapshots record content versions and hashes; selected direct role
     assert.equal(
       profile.version,
       profile.role === "lead"
-        ? "1.3.3"
-        : ["pm", "ba"].includes(profile.role)
+        ? "1.3.4"
+        : profile.role === "pm"
           ? "1.1.0"
           : profile.role === "test"
             ? "1.3.1"

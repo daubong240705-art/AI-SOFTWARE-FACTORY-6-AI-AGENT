@@ -18,7 +18,13 @@ import { WorkReport } from "./WorkReport";
 import { WorkProgress } from "./WorkProgress";
 import { QuestionCards } from "./QuestionCards";
 import type { QuestionSet } from "../../shared/questions";
-export type WorkTab = "requirements" | "discussion" | "progress" | "result";
+import { WorkAgentTasks } from "./WorkAgentTasks";
+export type WorkTab =
+  | "requirements"
+  | "discussion"
+  | "progress"
+  | "result"
+  | "documents";
 
 async function value<T>(promise: Promise<Reply<T>>) {
   const reply = await promise;
@@ -124,6 +130,7 @@ export function WorkItemPanel({
   const lock = useRef(false);
   const [revision, setRevision] = useState<WorkRevision | null>(null);
   const [reportRunId, setReportRunId] = useState<string | null>(null);
+  const [documentRunId, setDocumentRunId] = useState<string | null>(null);
   const ref = { projectId, itemId };
   async function load() {
     const next = await value(window.worker.workItemDetail(ref));
@@ -297,6 +304,7 @@ export function WorkItemPanel({
           ["discussion", "Trao đổi"],
           ["progress", "Tiến độ"],
           ["result", "Kết quả"],
+          ["documents", "Tài liệu BA"],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -677,6 +685,13 @@ export function WorkItemPanel({
                 </article>
               )}
             </details>
+            {currentRun && (
+              <WorkAgentTasks
+                projectId={projectId}
+                runId={currentRun}
+                onInspect={onInspect}
+              />
+            )}
           </>
         ) : tab === "discussion" ? (
           <>
@@ -761,6 +776,37 @@ export function WorkItemPanel({
                 </button>
               </form>
             </details>
+          </>
+        ) : tab === "documents" ? (
+          <>
+            {currentRun ? (
+              <>
+                <label className="work-report-selector">
+                  Lần thực hiện
+                  <Select
+                    aria-label="Tài liệu theo lần thực hiện"
+                    value={documentRunId ?? currentRun}
+                    onValueChange={setDocumentRunId}
+                  >
+                    {attempts.map((attempt) => (
+                      <option key={attempt.id} value={attempt.id}>
+                        {date(attempt.createdAt)} ·{" "}
+                        {runLabels[attempt.state as RunState] ?? attempt.state}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+                <WorkAgentTasks
+                  key={documentRunId ?? currentRun}
+                  projectId={projectId}
+                  runId={documentRunId ?? currentRun}
+                  documents
+                  onInspect={onInspect}
+                />
+              </>
+            ) : (
+              <p className="muted">Chưa có lần thực hiện để lưu tài liệu BA.</p>
+            )}
           </>
         ) : tab === "result" ? (
           <>

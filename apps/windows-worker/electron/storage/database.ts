@@ -573,7 +573,7 @@ export class Store {
       ROW_NUMBER() OVER (PARTITION BY COALESCE(json_extract(value,'$.attemptRoot'),id) ORDER BY created_at DESC,rowid DESC) AS rn
       FROM runs WHERE project_id=?
     ) SELECT id,root AS rootId,json_extract(value,'$.projectId') AS projectId,json_extract(value,'$.conversationId') AS conversationId,json_extract(value,'$.state') AS state,
-      json_extract(value,'$.mode') AS mode,json_extract(value,'$.prompt') AS prompt,
+      json_extract(value,'$.mode') AS mode,json_extract(value,'$.settings.teamExecution') AS executionMode,json_extract(value,'$.prompt') AS prompt,
       json_extract(value,'$.model') AS model,json_extract(value,'$.role') AS role,created_at AS createdAt,
       json_extract(value,'$.endedAt') AS endedAt,json_extract(value,'$.integration.state') AS integrationState,
       (json_extract(value,'$.state')='completed' AND json_extract(value,'$.review.version')=2

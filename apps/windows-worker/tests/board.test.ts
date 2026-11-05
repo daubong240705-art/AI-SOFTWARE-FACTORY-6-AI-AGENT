@@ -105,6 +105,105 @@ function task(id: string, patch: Partial<TeamTask> = {}): TeamTask {
   };
 }
 
+test("board projects each agent task, latest attempts and execution mode from persisted SQLite history", () => {
+  const x = setup();
+  try {
+    x.settings.teamExecution = "isolated-pair";
+    const run = fixture(x, {
+      tasks: [
+        task("t1", {
+          role: "ba",
+          summary: "## Data design\nNote.id: string",
+          acceptance: ["Data contract is defined"],
+        }),
+        task("t2", { role: "be", state: "failed", dependsOn: ["t1"] }),
+        task("t3", { role: "fe", state: "queued", dependsOn: ["t1"] }),
+        task("t2-fix-1", {
+          originalTaskId: "t2",
+          kind: "fix",
+          role: "be",
+          state: "running",
+          dependsOn: ["t1"],
+        }),
+      ],
+    });
+    x.store.createRun(run);
+    x.store.updateRun(run);
+    const page = projectBoard([], [], x.store.boardRuns(x.project.id), [], {});
+    assert.equal(page.cards[0].executionMode, "isolated-pair");
+    assert.deepEqual(
+      page.cards[0].tasks?.map((t) => [t.id, t.role, t.state]),
+      [
+        ["t1", "ba", "completed"],
+        ["t2-fix-1", "be", "running"],
+        ["t3", "fe", "queued"],
+      ],
+    );
+    assert.deepEqual(page.cards[0].tasks?.[2].dependsOn, ["t1"]);
+    assert.equal(page.cards[0].tasks?.[0].acceptanceCount, 1);
+    // Full document remains on the task; board snapshots stay lightweight.
+    assert.equal(
+      x.store.run(run.id).tasks[0].summary,
+      "## Data design\nNote.id: string",
+    );
+    assert.equal("summary" in page.cards[0].tasks![0], false);
+    assert.equal(
+      projectBoard([], [], x.store.boardRuns(x.project.id), [], { role: "fe" })
+        .total,
+      1,
+    );
+  } finally {
+    x.close();
+  }
+});
+
+test("failed-run BA designs remain in work dossier exports across reopened storage without mixing other roles", () => {
+  const x = setup();
+  try {
+    const design =
+      "## Data design\n| id | string | unique |\n" +
+      "Specification\n".repeat(350);
+    const run = fixture(x, {
+      state: "failed",
+      tasks: [
+        task("t1", { role: "ba", summary: design }),
+        task("t2", {
+          role: "be",
+          state: "failed",
+          summary: "not a BA document",
+        }),
+        task("t3", { role: "ba", state: "skipped" }),
+      ],
+    });
+    x.store.createRun(run);
+    x.store.updateRun(run);
+    const item = x.store.board.materialize({
+      projectId: x.project.id,
+      runId: run.id,
+    });
+    const reopened = new Store(x.directory);
+    try {
+      const exported = reopened.board.exportItem({
+        projectId: x.project.id,
+        itemId: item.id,
+      });
+      assert.equal(exported.documents.length, 1);
+      assert.deepEqual(exported.documents[0], {
+        runId: run.id,
+        taskId: "t1",
+        title: "t1",
+        state: "completed",
+        endedAt: null,
+        report: design,
+      });
+    } finally {
+      reopened.close();
+    }
+  } finally {
+    x.close();
+  }
+});
+
 test("backlog versions, move order, archive and reopen preserve data and reject runtime mutation", () => {
   const x = setup();
   try {

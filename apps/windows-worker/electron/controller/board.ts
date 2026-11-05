@@ -118,6 +118,16 @@ function runCard(run: BoardRun, secrets: string[]): BoardCard {
   }
   const criteria = tasks.reduce((sum, t) => sum + t.acceptanceCount, 0);
   return {
+    tasks: tasks.map((task) => ({
+      id: task.id,
+      originalTaskId: task.originalTaskId,
+      role: task.role,
+      state: task.state,
+      dependsOn: task.dependsOn,
+      acceptanceCount: task.acceptanceCount,
+      title: redact(task.title, secrets, 160),
+    })),
+    executionMode: run.executionMode ?? "sequential",
     workState,
     key: `run:${run.rootId}`,
     itemId: null,

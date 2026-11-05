@@ -10,6 +10,7 @@ import { runtimePermissions, type RuntimeContext } from "./permissions";
 import { VisibleText } from "./visible-text";
 import { classifyFailure, failure, WorkerError } from "./failure";
 import type { ExecutionFailure } from "../../shared/execution";
+import { modelTimeoutMs } from "../../shared/model-timeout";
 
 export type RuntimeHooks = {
   text?: (text: string) => void;
@@ -94,7 +95,7 @@ export class OpenCodeRuntime {
           options: {
             baseURL: this.proxy.url,
             apiKey: "{env:ASF_EXECUTION_TOKEN}",
-            timeout: 90000,
+            timeout: modelTimeoutMs(this.run.settings),
           },
           models: {
             [this.run.model]: {

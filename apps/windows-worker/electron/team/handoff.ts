@@ -56,11 +56,35 @@ export const workReportInstructions =
   "Cuối task báo cáo theo bốn mục văn bản sau, mỗi nhãn bắt đầu một dòng, đúng thứ tự; không bọc code fence:\nTrạng thái: done|done_with_concerns|blocked|needs_context (chọn một giá trị)\nKết quả: việc đã làm, file liên quan, lệnh/exit code thực tế; tối đa 6000 ký tự\nBlocker: mỗi mục một dòng, tối đa 8 mục và 800 ký tự/mục; ghi — nếu không có\nChưa xác minh: mỗi mục một dòng, tối đa 8 mục và 800 ký tự/mục; ghi — nếu không có\nĐây là báo cáo tự khai, không thay command/file evidence; không bịa ID hoặc test pass.";
 
 export const handoffMaxChars = 32000;
+// Keep BA contracts available through intermediate implementation dependencies.
+export function handoffTaskIds(
+  latest: ReadonlyMap<string, TeamTask>,
+  dependencies: readonly string[],
+  plannedTasks: readonly TeamTask[] = [],
+) {
+  const ids = new Set(dependencies);
+  const visited = new Set<string>();
+  function visit(id: string) {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const task = latest.get(id);
+    if (!task) return;
+    if (task.role === "ba") ids.add(id);
+    for (const dependency of task.dependsOn) visit(dependency);
+    // Fix attempts depend on their previous attempt, which replaces the same
+    // latest-map key. Retain the original plan's upstream contracts as well.
+    for (const dependency of plannedTasks.find((t) => t.id === id)?.dependsOn ??
+      [])
+      visit(dependency);
+  }
+  for (const id of dependencies) visit(id);
+  return [...ids];
+}
 const maxTasks = 10;
 // Progressively shorten optional context before blockers and failed evidence.
 const budgets = [
   {
-    summary: 1800,
+    summary: 6000,
     note: 600,
     notes: 8,
     output: 1200,
@@ -152,7 +176,10 @@ function entry(
   const unverified = report.unverified
     .slice(0, budget.notes)
     .map((s) => excerpt(s, budget.note));
-  const summary = excerpt(report.summary, budget.summary);
+  const summary = excerpt(
+    report.summary,
+    task.role === "ba" ? budget.summary : Math.min(1800, budget.summary),
+  );
   const error = excerpt(task.error, Math.max(budget.note, budget.output));
   const commandEntries = selected.map((c) => {
     const output = excerpt(

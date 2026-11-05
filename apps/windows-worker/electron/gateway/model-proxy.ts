@@ -7,6 +7,7 @@ import type { Settings } from "../../shared/contracts";
 import type { ExecutionFailure } from "../../shared/execution";
 import { failure } from "../runtime/failure";
 import { RequestBudget } from "./request-budget";
+import { modelTimeoutMs } from "../../shared/model-timeout";
 
 export class ModelProxy {
   readonly token = randomBytes(32).toString("hex");
@@ -23,6 +24,7 @@ export class ModelProxy {
     private onFailure?: (error: ExecutionFailure) => void,
     private budget: RequestBudget = new RequestBudget(settings.maxRequests),
     private onRequestFinished?: () => void,
+    private requestTimeoutMs = modelTimeoutMs(settings),
   ) {}
   private reject(error: ExecutionFailure): void {
     if (this.terminal || this.closed) return;
@@ -109,6 +111,9 @@ export class ModelProxy {
             Number(body.max_completion_tokens) || 8192,
           );
         const payload = Buffer.from(JSON.stringify(body));
+        const startedAt = Date.now();
+        const elapsed = () =>
+          `${Math.round((Date.now() - startedAt) / 1000)} giây`;
         const upstream = (
           endpoint.protocol === "https:" ? httpsRequest : httpRequest
         )(
@@ -170,7 +175,7 @@ export class ModelProxy {
               this.reject(
                 failure(
                   "transient",
-                  "Luồng phản hồi gateway bị gián đoạn; không tự phát lại task.",
+                  `Luồng phản hồi gateway bị gián đoạn sau ${elapsed()} · model ${this.model}; không tự phát lại task.`,
                 ),
               );
             });
@@ -178,9 +183,17 @@ export class ModelProxy {
           },
         );
         this.pending.add(upstream);
-        upstream.setTimeout(90000, () =>
-          upstream.destroy(new Error("Gateway timeout")),
-        );
+        upstream.setTimeout(this.requestTimeoutMs, () => {
+          // Preserve the timeout cause before destroy triggers stream errors.
+          this.reject(
+            failure(
+              "transient",
+              `Gateway không gửi dữ liệu trong ${Math.round(this.requestTimeoutMs / 1000)} giây · model ${this.model}. Kiểm tra gateway/model hoặc tăng thời gian lượt chạy; không tự phát lại task.`,
+            ),
+          );
+          fail(504, "Gateway response timeout");
+          upstream.destroy(new Error("Gateway timeout"));
+        });
         upstream.on("close", () => {
           this.pending.delete(upstream);
           this.onRequestFinished?.();
@@ -190,7 +203,7 @@ export class ModelProxy {
           this.reject(
             failure(
               "transient",
-              "Không kết nối được gateway hoặc lỗi TLS; kiểm tra kết nối/chứng chỉ rồi thử lại.",
+              `Không kết nối được gateway hoặc lỗi TLS sau ${elapsed()} · model ${this.model}; kiểm tra kết nối/chứng chỉ rồi thử lại.`,
             ),
           );
         });

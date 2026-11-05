@@ -10,6 +10,7 @@ import {
 import { roles, type Reply, type Role } from "../../shared/contracts";
 import { useMonitor } from "../lib/use-monitor";
 import { workTemplates, applyWorkTemplate } from "../../shared/templates";
+import { BoardAgentTasks } from "./BoardAgentTasks";
 
 async function unwrap<T>(reply: Promise<Reply<T>>) {
   const result = await reply;
@@ -37,7 +38,7 @@ export function KanbanBoard({
 }: {
   projectId: string;
   onOpenRun: (runId: string | null, conversationId: string | null) => void;
-  onInspect: (runId: string) => void;
+  onInspect: (runId: string, taskId?: string) => void;
   initialRunId?: string | null;
   visible?: boolean;
   createRequest?: number;
@@ -377,9 +378,18 @@ export function KanbanBoard({
                         >
                           {card.title}
                         </button>
+                        <BoardAgentTasks
+                          card={card}
+                          role={query.role}
+                          onInspect={onInspect}
+                        />
                       </td>
                       <td>{boardColumnLabels[card.column]}</td>
-                      <td>{card.role.toUpperCase()}</td>
+                      <td>
+                        {card.roles
+                          .map((role) => role.toUpperCase())
+                          .join(", ")}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -454,7 +464,11 @@ export function KanbanBoard({
                           {card.title}
                         </button>
                         <div className="board-card-meta">
-                          <span>{card.role.toUpperCase()}</span>
+                          <span>
+                            {card.roles
+                              .map((role) => role.toUpperCase())
+                              .join(" · ")}
+                          </span>
                           <span>
                             {card.kind === "planning"
                               ? ["Thường", "Cao", "Gấp"][card.priority]
@@ -483,6 +497,11 @@ export function KanbanBoard({
                             </Select>
                           </div>
                         )}
+                        <BoardAgentTasks
+                          card={card}
+                          role={query.role}
+                          onInspect={onInspect}
+                        />
                       </article>
                     ))}
                   {!page.cards.some((card) => card.column === column) && (

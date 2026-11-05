@@ -1154,8 +1154,9 @@ export function App() {
                   }
                   showCreateButton={false}
                   onOpenItem={(itemId) => void openWorkItem(itemId)}
-                  onInspect={(runId) => {
-                    if (boardSelection?.runId === runId)
+                  onInspect={(runId, taskId) => {
+                    if (taskId) inspect(runId, taskId);
+                    else if (boardSelection?.runId === runId)
                       showDetail(boardSelection);
                     else inspect(runId);
                   }}
