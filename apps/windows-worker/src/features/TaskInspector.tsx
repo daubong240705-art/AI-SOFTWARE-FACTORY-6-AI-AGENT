@@ -17,6 +17,17 @@ import { CommandEvidence } from "./CommandEvidence";
 import { TaskChanges } from "./TaskChanges";
 import { RecoveryActions } from "./RecoveryActions";
 import { runIssue } from "../../shared/attention";
+import { attentionTitle } from "../../shared/attention";
+import {
+  taskTitle,
+  taskCriteria,
+  taskScope,
+} from "../../shared/task-presentation";
+import {
+  TaskDescription,
+  TaskResult,
+  TaskTechnicalDetails,
+} from "./TaskReadableContent";
 
 export function TaskInspector({
   selection,
@@ -144,7 +155,11 @@ export function TaskInspector({
         </p>
       ) : (
         <>
-          <p className="inspector-title">{task?.title ?? run.prompt}</p>
+          <p className="inspector-title">
+            {task
+              ? taskTitle(task)
+              : attentionTitle(run.workContext?.title ?? run.prompt)}
+          </p>
           <div className="inspector-actions">
             <button
               disabled={busy}
@@ -154,25 +169,30 @@ export function TaskInspector({
             >
               Mở Chat
             </button>
-            <button
-              disabled={busy}
-              onClick={() =>
-                void action(() => onBoard(run.attemptRoot ?? run.id))
-              }
-            >
-              Mở trên Kanban
-            </button>
-            <button disabled={busy} onClick={() => void action(onAgents)}>
-              Xem đội ngũ
-            </button>
-            <button
-              disabled={busy}
-              onClick={() =>
-                void action(() => onOffice(task?.role ?? run.role))
-              }
-            >
-              Văn phòng
-            </button>
+            <details className="inspector-links">
+              <summary>Liên kết khác</summary>
+              <div>
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void action(() => onBoard(run.attemptRoot ?? run.id))
+                  }
+                >
+                  Mở trên Kanban
+                </button>
+                <button disabled={busy} onClick={() => void action(onAgents)}>
+                  Xem đội ngũ
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void action(() => onOffice(task?.role ?? run.role))
+                  }
+                >
+                  Văn phòng
+                </button>
+              </div>
+            </details>
             {capabilities?.stop && (
               <button
                 disabled={locked}
@@ -199,7 +219,7 @@ export function TaskInspector({
             )}
           </div>
           <label className="inspector-task-picker">
-            Task / attempt
+            Nhiệm vụ
             <Select
               aria-label="Chọn task / attempt"
               value={task?.id ?? ""}
@@ -208,7 +228,7 @@ export function TaskInspector({
               <option value="">Toàn lượt · {run.role.toUpperCase()}</option>
               {run.tasks.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.id} · {t.role.toUpperCase()} · {t.title}
+                  {t.role.toUpperCase()} · {taskTitle(t)} · {t.id}
                 </option>
               ))}
             </Select>
@@ -241,87 +261,117 @@ export function TaskInspector({
           </div>
           {tab === "overview" && (
             <div className="inspector-content">
-              {issue && (
-                <section className="work-issue" aria-label="Vấn đề cần xử lý">
-                  <h3>{issue.label}</h3>
-                  {issue.taskTitle && (
-                    <p>
-                      {issue.role?.toUpperCase()} · {issue.taskTitle}
-                    </p>
-                  )}
-                  <p>{issue.reason}</p>
-                  <p className="work-issue-next">{issue.nextAction}</p>
-                  {issue.taskId && task?.id !== issue.taskId && (
-                    <button
-                      disabled={locked}
-                      onClick={() => selectTask(issue.taskId!)}
-                    >
-                      Mở task gặp vấn đề
-                    </button>
-                  )}
-                </section>
+              {issue && task && issue.taskId && issue.taskId !== task.id && (
+                <p className="task-other-issue" role="status">
+                  Lượt thực hiện bị chặn tại {issue.role?.toUpperCase()} ·{" "}
+                  {issue.taskTitle}.{" "}
+                  <button
+                    disabled={locked}
+                    onClick={() => selectTask(issue.taskId!)}
+                  >
+                    Xem vấn đề
+                  </button>
+                </p>
               )}
-              {task && <p>{task.instructions}</p>}
-              <dl className="inspector-facts">
-                <dt>Trạng thái</dt>
-                <dd>{task ? taskLabels[task.state] : runLabels[run.state]}</dd>
-                <dt>Role · model thực tế</dt>
-                <dd>
-                  {(task?.role ?? run.role).toUpperCase()} ·{" "}
-                  {task?.model ?? run.model}
-                </dd>
-                <dt>Phạm vi</dt>
-                <dd>
-                  {task?.allowedPaths.join(", ") ?? "Theo cấu hình lượt chạy"}
-                </dd>
-                <dt>Phụ thuộc hiện tại</dt>
-                <dd>
-                  {selected?.dependencies
-                    .map(
-                      (dep) =>
-                        `${dep.id}${dep.attemptId !== dep.id && dep.attemptId ? ` (${dep.attemptId})` : ""} · ${dep.state ? taskLabels[dep.state] : "Không tìm thấy"}`,
-                    )
-                    .join("; ") || "—"}
-                </dd>
-                <dt>Workspace task / source</dt>
-                <dd>{task?.workspace ?? run.workspace}</dd>
-                {run.integration && (
-                  <>
-                    <dt>Workspace tích hợp</dt>
-                    <dd>
-                      {run.integration.workspace} · {run.integration.state}
-                    </dd>
-                  </>
+              {issue &&
+                (!task || !issue.taskId || issue.taskId === task.id) && (
+                  <section className="work-issue" aria-label="Vấn đề cần xử lý">
+                    <h3>{issue.label}</h3>
+                    {issue.taskTitle && (
+                      <p>
+                        {issue.role?.toUpperCase()} · {issue.taskTitle}
+                      </p>
+                    )}
+                    <p>{issue.reason}</p>
+                    <p className="work-issue-next">{issue.nextAction}</p>
+                    {issue.taskId && task?.id !== issue.taskId && (
+                      <button
+                        disabled={locked}
+                        onClick={() => selectTask(issue.taskId!)}
+                      >
+                        Mở task gặp vấn đề
+                      </button>
+                    )}
+                  </section>
                 )}
-                <dt>Attempt · execution</dt>
-                <dd>
-                  {task?.id ?? run.id} ·{" "}
-                  {(task?.observation ?? (!task ? run.observation : undefined))
-                    ?.executionId ?? "Chưa có metadata"}
-                </dd>
-                <dt>Source version</dt>
-                <dd>
-                  {task?.evidence?.sourceVersion ??
-                    run.integration?.sourceVersion ??
-                    "Chưa ghi nhận"}
-                </dd>
-                <dt>Kỹ năng snapshot</dt>
-                <dd>
-                  {(task?.skillSelection ?? run.skillSelection)?.skills
-                    .map((s) => `${s.id} ${s.version}`)
-                    .join(", ") || "Rule nền / profile đã lưu"}
-                </dd>
-                <dt>Bắt đầu · kết thúc</dt>
-                <dd>
-                  {task?.startedAt ?? run.startedAt ?? "—"} ·{" "}
-                  {task?.endedAt ?? run.endedAt ?? "—"}
-                </dd>
-              </dl>
-              {task?.acceptance.length ? (
+              {task && (
+                <>
+                  <TaskDescription key={task.id} task={task} />
+                  <dl className="task-summary-facts">
+                    <dt>Trạng thái</dt>
+                    <dd>{taskLabels[task.state]}</dd>
+                    <dt>Phụ trách</dt>
+                    <dd>{task.role.toUpperCase()}</dd>
+                    <dt>Phạm vi</dt>
+                    <dd>{taskScope(task)}</dd>
+                  </dl>
+                </>
+              )}
+              <TaskTechnicalDetails key={task?.id ?? run.id} task={task}>
+                <dl className="inspector-facts">
+                  <dt>Trạng thái</dt>
+                  <dd>
+                    {task ? taskLabels[task.state] : runLabels[run.state]}
+                  </dd>
+                  <dt>Role · model thực tế</dt>
+                  <dd>
+                    {(task?.role ?? run.role).toUpperCase()} ·{" "}
+                    {task?.model ?? run.model}
+                  </dd>
+                  <dt>Phạm vi</dt>
+                  <dd>
+                    {task?.allowedPaths.join(", ") ?? "Theo cấu hình lượt chạy"}
+                  </dd>
+                  <dt>Phụ thuộc hiện tại</dt>
+                  <dd>
+                    {selected?.dependencies
+                      .map(
+                        (dep) =>
+                          `${dep.id}${dep.attemptId !== dep.id && dep.attemptId ? ` (${dep.attemptId})` : ""} · ${dep.state ? taskLabels[dep.state] : "Không tìm thấy"}`,
+                      )
+                      .join("; ") || "—"}
+                  </dd>
+                  <dt>Workspace task / source</dt>
+                  <dd>{task?.workspace ?? run.workspace}</dd>
+                  {run.integration && (
+                    <>
+                      <dt>Workspace tích hợp</dt>
+                      <dd>
+                        {run.integration.workspace} · {run.integration.state}
+                      </dd>
+                    </>
+                  )}
+                  <dt>Attempt · execution</dt>
+                  <dd>
+                    {task?.id ?? run.id} ·{" "}
+                    {(
+                      task?.observation ?? (!task ? run.observation : undefined)
+                    )?.executionId ?? "Chưa có metadata"}
+                  </dd>
+                  <dt>Source version</dt>
+                  <dd>
+                    {task?.evidence?.sourceVersion ??
+                      run.integration?.sourceVersion ??
+                      "Chưa ghi nhận"}
+                  </dd>
+                  <dt>Kỹ năng snapshot</dt>
+                  <dd>
+                    {(task?.skillSelection ?? run.skillSelection)?.skills
+                      .map((s) => `${s.id} ${s.version}`)
+                      .join(", ") || "Rule nền / profile đã lưu"}
+                  </dd>
+                  <dt>Bắt đầu · kết thúc</dt>
+                  <dd>
+                    {task?.startedAt ?? run.startedAt ?? "—"} ·{" "}
+                    {task?.endedAt ?? run.endedAt ?? "—"}
+                  </dd>
+                </dl>
+              </TaskTechnicalDetails>
+              {task && taskCriteria(task).length ? (
                 <section aria-label="Tiêu chí task">
                   <h3>Tiêu chí task</h3>
                   <ul>
-                    {task.acceptance.map((text, i) => (
+                    {taskCriteria(task).map((text, i) => (
                       <li key={i}>{text}</li>
                     ))}
                   </ul>
@@ -410,7 +460,7 @@ export function TaskInspector({
           {tab === "result" &&
             (task ? (
               <section key={evidenceKey} aria-label="Kết quả của task">
-                <pre>{task.summary || "Chưa có kết quả."}</pre>
+                <TaskResult task={task} />
                 {run.commands
                   .filter((c) => c.taskId === task.id)
                   .map((c) => (
@@ -421,6 +471,7 @@ export function TaskInspector({
                     />
                   ))}
                 <TaskAcceptance detail={detail!} taskId={task.id} />
+                <TaskTechnicalDetails key={task.id} task={task} />
               </section>
             ) : (
               <RunPanel

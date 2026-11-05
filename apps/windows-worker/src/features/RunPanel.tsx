@@ -15,6 +15,7 @@ import { IntegrationResult } from "./IntegrationResult";
 import type { Project } from "../../shared/contracts";
 import { useState } from "react";
 import { WorkReport } from "./WorkReport";
+import { TaskResult, TaskTechnicalDetails } from "./TaskReadableContent";
 
 export function RunPanel({
   detail,
@@ -145,7 +146,12 @@ export function RunPanel({
                   <ExecutionFacts metrics={task.metrics} />
                 </div>
               )}
-              {task.summary && <pre>{task.summary}</pre>}
+              {task.summary && (
+                <>
+                  <TaskResult task={task} />
+                  <TaskTechnicalDetails task={task} />
+                </>
+              )}
             </details>
           ))}
         </div>

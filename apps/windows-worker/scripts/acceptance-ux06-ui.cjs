@@ -477,6 +477,27 @@ async function main() {
         failure: undefined,
       },
       task,
+      {
+        ...task,
+        id: "review-0-0",
+        kind: "review",
+        role: "lead",
+        state: "completed",
+        title: "Đánh giá",
+        error: "",
+        failure: undefined,
+        instructions:
+          'Review yêu cầu: Dữ liệu review: {"evidence":"INTERNAL_REVIEW_PACKET_' +
+          "x".repeat(32000) +
+          '"}',
+        summary: JSON.stringify({
+          version: 3,
+          status: "blocked",
+          summary: "Cần kiểm tra lại bố cục responsive.",
+          acceptance: [],
+          limitations: ["Chưa có bằng chứng ở màn hình hẹp."],
+        }),
+      },
     ],
     failure: {
       code: "tool-test-failure",
@@ -539,6 +560,12 @@ async function main() {
         "(()=>{const e=document.querySelector('.work-progress');return e.scrollWidth<=e.clientWidth+1 && getComputedStyle(document.querySelector('.work-progress-tasks button')).justifyItems==='start'})()",
       ),
     );
+    assert.ok(
+      await js(
+        "(()=>{const e=document.querySelector('.work-progress'),a=e.querySelector('.work-issue-actions button'),b=e.querySelector('.recovery-actions button');return !b || Math.abs(a.getBoundingClientRect().left-b.getBoundingClientRect().left)<=1})()",
+      ),
+      "Recovery actions must align with the primary actions",
+    );
     writeFileSync(
       join(directory, `issue-${width}-${zoom}.png`),
       (await win.webContents.capturePage()).toPNG(),
@@ -549,6 +576,74 @@ async function main() {
     js(
       "document.querySelector('.task-inspector')?.textContent.includes('Căn lại bảng kết quả')",
     ),
+  );
+  await require("./ui-select-test.cjs").selectValue(
+    win,
+    "Chọn task / attempt",
+    "review-0-0",
+  );
+  await until(() =>
+    js(
+      "document.querySelector('.task-readable')?.textContent.includes('Đối chiếu kết quả')",
+    ),
+  );
+  assert.equal(
+    await js(
+      "document.querySelector('.task-inspector').textContent.includes('INTERNAL_REVIEW_PACKET_')",
+    ),
+    false,
+  );
+  assert.equal(
+    await js("document.querySelector('.task-inspector .task-technical').open"),
+    false,
+  );
+  for (const [width, height, zoom] of [
+    [1366, 768, 1],
+    [850, 700, 1],
+    [1366, 768, 1.25],
+    [1366, 768, 1.5],
+    [620, 700, 1],
+  ]) {
+    win.setSize(width, height);
+    win.webContents.setZoomFactor(zoom);
+    await pause(150);
+    const metrics = await js(
+      "(()=>{const e=document.querySelector('.task-inspector'),a=e.querySelector('.work-issue-actions'),b=e.querySelector('.recovery-actions');return {overflow:e.scrollWidth>e.clientWidth+1,panels:[...e.querySelectorAll('.inspector-content>section,.inspector-content>details')].every(s=>s.getBoundingClientRect().right<=e.getBoundingClientRect().right+1)}})()",
+    );
+    assert.equal(metrics.overflow, false, JSON.stringify(metrics));
+    assert.equal(metrics.panels, true, JSON.stringify(metrics));
+    writeFileSync(
+      join(directory, `readable-review-${width}-${zoom}.png`),
+      (await win.webContents.capturePage()).toPNG(),
+    );
+  }
+  await js(
+    "document.querySelector('.task-inspector .task-technical').open=true",
+  );
+  await until(() =>
+    js(
+      "document.querySelector('.task-inspector .task-raw')?.textContent.includes('INTERNAL_REVIEW_PACKET_')",
+    ),
+  );
+  assert.equal(
+    await js(
+      "(()=>{const e=document.querySelector('.task-inspector');return e.scrollWidth>e.clientWidth+1})()",
+    ),
+    false,
+  );
+  await js(
+    "Array.from(document.querySelectorAll('.task-inspector [role=tab]')).find(b=>b.textContent.trim()==='Kết quả').click()",
+  );
+  await until(() =>
+    js(
+      "document.querySelector('.task-inspector [aria-label=\"Báo cáo của agent\"]')?.textContent.includes('Cần kiểm tra lại bố cục responsive')",
+    ),
+  );
+  assert.equal(
+    await js(
+      "document.querySelector('.task-inspector [aria-label=\"Báo cáo của agent\"]').textContent.includes('acceptance')",
+    ),
+    false,
   );
   assert.equal(counts[channels.answerQuestions] || 0, 0);
   assert.equal(counts[channels.reportDecision] || 0, 0);

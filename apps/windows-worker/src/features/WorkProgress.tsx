@@ -4,6 +4,7 @@ import type { QuestionSet } from "../../shared/questions";
 import { taskLabels } from "../../shared/inspector";
 import { runIssue, currentIssueTasks } from "../../shared/attention";
 import { RecoveryActions } from "./RecoveryActions";
+import { taskTitle, taskDescription } from "../../shared/task-presentation";
 
 export function WorkProgress({
   projectId,
@@ -144,7 +145,10 @@ export function WorkProgress({
                   disabled={unavailable}
                   onClick={() => onInspect(run.id, task.id)}
                 >
-                  <strong>{task.title}</strong>
+                  <strong>{taskTitle(task)}</strong>
+                  <span className="task-card-description">
+                    {taskDescription(task).slice(0, 240)}
+                  </span>
                   <span>
                     {task.role.toUpperCase()} ·{" "}
                     {task.state === "completed" && issue
@@ -180,7 +184,7 @@ export function WorkProgress({
                       disabled={unavailable}
                       onClick={() => onInspect(run.id, task.id)}
                     >
-                      {task.title} · {taskLabels[task.state]}
+                      {taskTitle(task)} · {taskLabels[task.state]}
                     </button>
                   </li>
                 ))}
