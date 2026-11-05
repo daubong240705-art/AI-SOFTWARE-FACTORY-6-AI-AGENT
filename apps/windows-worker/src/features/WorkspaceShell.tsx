@@ -7,6 +7,7 @@ import {
   House,
   Inbox,
   Layers,
+  FileCheck2,
   MessageSquare,
   MoreHorizontal,
   PanelLeftClose,
@@ -21,6 +22,8 @@ import { version } from "../../package.json";
 
 export type WorkspacePage =
   | "home"
+  | "team"
+  | "results"
   | "git"
   | "inbox"
   | "overview"
@@ -32,7 +35,15 @@ export type WorkspacePage =
   | "office";
 
 export const isProjectPage = (page: WorkspacePage) =>
-  ["git", "overview", "project", "monitor", "board", "office"].includes(page);
+  [
+    "git",
+    "overview",
+    "project",
+    "monitor",
+    "board",
+    "office",
+    "results",
+  ].includes(page);
 
 export function WorkspaceSidebar({
   page,
@@ -45,6 +56,7 @@ export function WorkspaceSidebar({
   onProject,
   onAddProject,
   onCompact,
+  attentionCount,
 }: {
   page: WorkspacePage;
   projects: Project[];
@@ -56,6 +68,7 @@ export function WorkspaceSidebar({
   onProject: (project: Project) => void;
   onAddProject: () => void;
   onCompact: () => void;
+  attentionCount?: number;
 }) {
   return (
     <aside className="sidebar workspace-sidebar">
@@ -87,6 +100,23 @@ export function WorkspaceSidebar({
         >
           <Inbox size={18} />
           <span>Cần xử lý</span>
+          {attentionCount !== undefined && attentionCount > 0 && (
+            <span
+              className="workspace-count"
+              aria-label={`${attentionCount} mục cần xử lý`}
+            >
+              {attentionCount > 99 ? "99+" : attentionCount}
+            </span>
+          )}
+        </button>
+        <button
+          className={page === "team" ? "active" : ""}
+          aria-current={page === "team" ? "page" : undefined}
+          title="Đội ngũ · Mọi dự án"
+          onClick={() => onNavigate("team")}
+        >
+          <Layers size={18} />
+          <span>Đội ngũ</span>
         </button>
       </nav>
       <section className="sidebar-projects" aria-label="Dự án">
@@ -228,6 +258,14 @@ export function WorkspaceHeader({
             <MessageSquare size={16} />
             Trao đổi
           </button>
+          <button
+            className={page === "results" ? "active" : ""}
+            aria-current={page === "results" ? "page" : undefined}
+            onClick={() => onNavigate("results")}
+          >
+            <FileCheck2 size={16} />
+            Kết quả
+          </button>
           <Popover
             className="project-more"
             label="Khác trong dự án"
@@ -267,7 +305,7 @@ export function WorkspaceHeader({
               <span>Văn phòng · Thử nghiệm</span>
             </button>
           </Popover>
-          {!["board", "project"].includes(page) && (
+          {!["board", "project", "results"].includes(page) && (
             <span className="project-current-page">
               {page === "overview"
                 ? "Tổng quan"

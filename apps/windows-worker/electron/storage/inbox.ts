@@ -93,6 +93,15 @@ export class Inbox {
       next: rows.length > 50 && last ? { at: last.at, key: last.key } : null,
     };
   }
+  count(): number {
+    return (
+      this.db
+        .prepare(
+          `${candidates} SELECT COUNT(*) AS total FROM candidates c JOIN projects p ON p.id=c.projectId`,
+        )
+        .get() as { total: number }
+    ).total;
+  }
   seen(input: import("zod").z.infer<typeof inboxSeenSchema>) {
     const data = inboxSeenSchema.parse(input);
     return this.db.transaction(() => {

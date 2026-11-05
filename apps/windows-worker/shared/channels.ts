@@ -1,4 +1,6 @@
 export const channels = {
+  workspaceSummary: "worker:workspace-summary",
+  resultIndex: "worker:result-index",
   importChatImage: "worker:image-import",
   removeChatImage: "worker:image-remove",
   gitSnapshot: "worker:git-snapshot",

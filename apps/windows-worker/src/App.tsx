@@ -7,6 +7,10 @@ import {
   type WorkspacePage,
 } from "./features/WorkspaceShell";
 import { WorkspaceHome } from "./features/WorkspaceHome";
+import { WorkspaceTeam } from "./features/WorkspaceTeam";
+import { ProjectResults } from "./features/ProjectResults";
+import { useWorkspace } from "./lib/use-workspace";
+import type { ResultEntry } from "../shared/workspace";
 import { Popover } from "./ui/Popover";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -96,6 +100,7 @@ function Empty({
 }
 
 export function App() {
+  const workspace = useWorkspace();
   const didLoad = useRef(false);
   const chatFlush = useRef<() => Promise<unknown>>(() => Promise.resolve());
   const [boot, setBoot] = useState<Bootstrap | null>(null);
@@ -113,6 +118,7 @@ export function App() {
       { id: string; context: WorkChatContext | null; runId: string | null }
     >(),
   );
+  const homeChats = useRef(new Map<string, string>());
   useEffect(() => {
     if (project)
       setBoardProjects((previous) =>
@@ -341,6 +347,75 @@ export function App() {
         ...(item.kind === "report" ? { initialTab: "result" as const } : {}),
       });
     }
+  }
+  async function openGlobalRun(
+    projectId: string,
+    runId: string,
+    result = false,
+    taskId?: string | null,
+    executionId?: string,
+  ) {
+    await act("detail", async () => {
+      await flushDraft();
+      const data = await value(window.worker.bootstrap());
+      const selected = data.projects.find((p) => p.id === projectId);
+      if (!selected)
+        throw Error("Dự án không còn trong danh sách. Cập nhật dữ liệu.");
+      const context = await value(
+        window.worker.workChatForRun({ projectId, runId }),
+      );
+      setBoot(data);
+      if (project?.id !== selected.id) await selectProject(selected, page);
+      else setProject(selected);
+      setChatDock(false);
+      if (context) {
+        showWork(context, result ? "result" : "progress", runId);
+        if (taskId || executionId)
+          setInspection({ projectId, runId, taskId, executionId });
+      } else {
+        setWorkDetail(null);
+        setInspection({
+          projectId,
+          runId,
+          taskId,
+          executionId,
+          ...(result ? { initialTab: "result" as const } : {}),
+        });
+      }
+    });
+  }
+  function openResult(entry: ResultEntry) {
+    void openGlobalRun(entry.projectId, entry.runId, true);
+  }
+  async function homeLead(projectId: string) {
+    await act("conversation", async () => {
+      await flushDraft();
+      const selected = boot?.projects.find((p) => p.id === projectId);
+      if (!selected) throw Error("Chọn dự án để trao đổi với Lead.");
+      if (project && conversationId && project.id !== projectId) {
+        projectChats.current.set(project.id, {
+          id: conversationId,
+          context: chatContext,
+          runId: selectedRun,
+        });
+      }
+      let chatId =
+        project?.id === projectId && !chatContext && conversationId
+          ? conversationId
+          : homeChats.current.get(projectId);
+      if (!chatId)
+        chatId = (await value(window.worker.createConversation(projectId))).id;
+      homeChats.current.set(projectId, chatId);
+      setConversationId(chatId);
+      setProject(selected);
+      setWorkDetail(null);
+      setInspection(null);
+      setChatContext(null);
+      setSelectedRun(null);
+      setChatDock(true);
+      setLeadFocusVersion((n) => n + 1);
+      setPage("home");
+    });
   }
   const monitor = useMonitor(
     project && ["overview", "project", "monitor", "office"].includes(page)
@@ -662,7 +737,10 @@ export function App() {
     setChatDock(false);
   }
   async function createWork() {
-    if (!project || ["home", "inbox", "history", "settings"].includes(page)) {
+    if (
+      !project ||
+      ["home", "inbox", "history", "settings", "team"].includes(page)
+    ) {
       await navigate("home");
       if (!boot?.projects.length) await chooseProject();
       return;
@@ -837,6 +915,11 @@ export function App() {
         compact={compact}
         busy={!!busy}
         dirty={!!dirty}
+        attentionCount={
+          workspace.error || workspace.stale
+            ? undefined
+            : workspace.data?.attentionCount
+        }
         onNavigate={(next) => void navigate(next)}
         onProject={(item) => void openProject(item)}
         onAddProject={() => void chooseProject()}
@@ -975,13 +1058,45 @@ export function App() {
               {page === "home" && (
                 <WorkspaceHome
                   projects={boot.projects}
-                  runtime={runtime}
-                  runtimeError={runtimeError}
                   busy={!!busy}
                   onProject={(item) => void openProject(item)}
                   onAddProject={() => void chooseProject()}
-                  onActive={() => void openActive()}
+                  onActive={() => {
+                    const active = workspace.data?.active;
+                    if (active) void openGlobalRun(active.projectId, active.id);
+                  }}
                   onInbox={() => void navigate("inbox")}
+                  summary={workspace}
+                  chatOpen={chatDock}
+                  onLead={(id) => void homeLead(id)}
+                  onAttention={(item) =>
+                    void act("detail", () => openInboxItem(item))
+                  }
+                  onResult={openResult}
+                />
+              )}
+              {page === "team" && (
+                <WorkspaceTeam
+                  state={workspace}
+                  onRefresh={() => void workspace.refresh()}
+                  onInspect={(projectId, runId, taskId, executionId) =>
+                    void openGlobalRun(
+                      projectId,
+                      runId,
+                      false,
+                      taskId,
+                      executionId,
+                    )
+                  }
+                  onSettings={() => void navigate("settings")}
+                />
+              )}
+              {page === "results" && project && (
+                <ProjectResults
+                  key={project.id}
+                  projectId={project.id}
+                  refreshVersion={chatRefresh}
+                  onOpen={openResult}
                 />
               )}
               {page === "inbox" && <GlobalInbox onOpen={openInboxItem} />}

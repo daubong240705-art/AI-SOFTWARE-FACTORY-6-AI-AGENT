@@ -21,6 +21,11 @@ import type { EvidenceStore } from "./evidence";
 import { patchFor } from "./evidence";
 import { redact } from "../runtime/security";
 import type { BoardStore } from "./board";
+import {
+  resultQuerySchema,
+  type ResultQuery,
+  type ResultPage,
+} from "../../shared/workspace";
 
 /** One snapshot per terminal run. Unlinked, undecided reports follow run retention. */
 export class Reports {
@@ -32,6 +37,13 @@ export class Reports {
     private board: BoardStore,
     private readRun: (id: string) => Run,
   ) {
+    db.function("result_search", { deterministic: true }, (value) =>
+      String(value ?? "")
+        .normalize("NFD")
+        .replace(/\p{M}/gu, "")
+        .replace(/[đĐ]/g, "d")
+        .toLowerCase(),
+    );
     if ((db.pragma("user_version", { simple: true }) as number) >= 11) return;
     const backup = join(directory, "worker.schema10.pre-reports.backup.sqlite");
     if (original === 10 && !existsSync(backup))
@@ -332,7 +344,12 @@ export class Reports {
   state(runId: string): ReportState | undefined {
     return this.states(undefined, runId).get(runId);
   }
-  states(projectId?: string, runId?: string): Map<string, ReportState> {
+  states(
+    projectId?: string,
+    runId?: string,
+    runIds?: string[],
+  ): Map<string, ReportState> {
+    if (runIds && !runIds.length) return new Map();
     const rows = this.db
       .prepare(
         `SELECT
@@ -346,9 +363,9 @@ export class Reports {
       FROM reports p LEFT JOIN board_items b ON b.id=p.item_id
       LEFT JOIN report_policies policy ON policy.item_id=p.item_id
       LEFT JOIN report_decisions d ON d.report_id=p.id
-      WHERE ${runId ? "p.run_id=?" : "p.project_id=?"}`,
+      WHERE ${runIds ? `p.run_id IN (${runIds.map(() => "?").join(",")})` : runId ? "p.run_id=?" : "p.project_id=?"}`,
       )
-      .all(runId ?? projectId) as {
+      .all(...(runIds ?? [runId ?? projectId])) as {
       runId: string;
       projectId: string;
       verification: ReportStatus;
@@ -379,6 +396,62 @@ export class Reports {
         },
       ]),
     );
+  }
+  index(input: ResultQuery, secrets: string[] = [], limit = 20): ResultPage {
+    const query = resultQuerySchema.parse(input);
+    const size = Math.max(1, Math.min(20, limit));
+    const rows = this.db
+      .prepare(
+        `WITH ranked AS (
+      SELECT p.id,p.run_id AS runId,p.project_id AS projectId,project.name AS projectName,p.item_id AS itemId,CASE WHEN b.number IS NOT NULL THEN 'W-'||printf('%04d',b.number) END AS code,
+        COALESCE(json_extract(p.value,'$.work.title'),json_extract(r.value,'$.prompt'),'Kết quả') AS title,
+        substr(COALESCE(json_extract(p.value,'$.summary'),''),1,320) AS summary,
+        json_extract(p.value,'$.endedAt') AS at,json_extract(p.value,'$.verification') AS verification,
+        ROW_NUMBER() OVER (PARTITION BY p.project_id,COALESCE(p.item_id,json_extract(r.value,'$.attemptRoot'),p.run_id) ORDER BY r.rowid DESC) AS rank
+      FROM reports p JOIN runs r ON r.id=p.run_id JOIN projects project ON project.id=p.project_id
+      LEFT JOIN board_items b ON b.id=p.item_id
+      WHERE (? IS NULL OR p.project_id=?) AND (
+        p.item_id IS NOT NULL OR COALESCE(json_array_length(p.value,'$.changes'),0)>0
+        OR COALESCE(json_array_length(p.value,'$.commands'),0)>0
+        OR EXISTS(SELECT 1 FROM json_each(r.value,'$.tasks') t WHERE json_extract(t.value,'$.kind') IN ('work','fix')))
+    ) SELECT id,runId,projectId,projectName,itemId,code,substr(title,1,160) AS title,summary,at,verification FROM ranked
+      WHERE rank=1 AND (? IS NULL OR verification=?)
+      AND (?='' OR instr(result_search(title||' '||COALESCE(code,'')||' '||summary),result_search(?))>0)
+      AND (? IS NULL OR at<? OR (at=? AND id<?))
+      ORDER BY at DESC,id DESC LIMIT ?`,
+      )
+      .all(
+        query.projectId ?? null,
+        query.projectId ?? null,
+        query.verification ?? null,
+        query.verification ?? null,
+        query.search,
+        query.search,
+        query.before?.at ?? null,
+        query.before?.at ?? null,
+        query.before?.at ?? null,
+        query.before?.id ?? null,
+        size + 1,
+      ) as Omit<import("../../shared/workspace").ResultEntry, "state">[];
+    const page = rows.slice(0, size);
+    const states = this.states(
+      undefined,
+      undefined,
+      page.map((r) => r.runId),
+    );
+    const items = page.map((row) => ({
+      ...row,
+      title: redact(row.title, secrets, 160),
+      summary: redact(row.summary, secrets, 320),
+      projectName: redact(row.projectName, secrets, 160),
+      state: states.get(row.runId)!,
+    }));
+    const last = items.at(-1);
+    return {
+      items,
+      hasMore: rows.length > size,
+      next: rows.length > size && last ? { at: last.at, id: last.id } : null,
+    };
   }
   view(input: ReportRef, currentVersion: string | null): ReportView {
     const report = this.capture(input),

@@ -119,6 +119,10 @@ export type Bootstrap = {
 };
 export type Reply<T> = { ok: true; value: T } | { ok: false; error: string };
 export interface WorkerAPI {
+  workspaceSummary(): Promise<Reply<import("./workspace").WorkspaceSummary>>;
+  resultIndex(
+    input: import("./workspace").ResultQuery,
+  ): Promise<Reply<import("./workspace").ResultPage>>;
   gitSnapshot(
     input: import("./git").GitSnapshotRequest,
   ): Promise<Reply<import("./git").GitSnapshot>>;

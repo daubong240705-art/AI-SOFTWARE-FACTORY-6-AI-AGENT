@@ -2,6 +2,7 @@ import { useState } from "react";
 import { activityLabels, availabilityLabels } from "../../shared/monitor";
 import { runLabels, type RunState } from "../../shared/runs";
 import type { MonitorState } from "../lib/monitor-store";
+import type { MonitorSnapshot } from "../../shared/monitor";
 
 function duration(start: string | null, now: string): string {
   if (!start) return "";
@@ -21,7 +22,9 @@ export function AgentMonitor({
   onRefresh,
   onInspect,
 }: {
-  state: MonitorState;
+  state: Pick<MonitorState, "error" | "stale"> & {
+    snapshot: Omit<MonitorSnapshot, "epoch" | "revision"> | null;
+  };
   projectName: string;
   onOpenRun: (id: string, conversationId: string | null) => void;
   onSettings: () => void;
@@ -126,6 +129,7 @@ export function AgentMonitor({
             )}
             {snapshot.runId && (
               <button
+                disabled={state.stale || !!state.error}
                 onClick={() =>
                   onOpenRun(snapshot.runId!, snapshot.conversationId)
                 }
@@ -135,7 +139,12 @@ export function AgentMonitor({
             )}
           </div>
           <div className={`agent-grid ${view === "list" ? "agent-list" : ""}`}>
-            {agents
+            {[...agents]
+              .sort(
+                (a, b) =>
+                  Number(b.availability === "occupied") -
+                  Number(a.availability === "occupied"),
+              )
               .filter((a) => filter === "all" || a.availability === filter)
               .map((agent) => (
                 <article
@@ -167,6 +176,7 @@ export function AgentMonitor({
                       </div>
                       <button
                         className="agent-task"
+                        disabled={state.stale || !!state.error}
                         onClick={() =>
                           onInspect(
                             execution.runId,
@@ -194,6 +204,7 @@ export function AgentMonitor({
                     <div className="agent-waiting" key={task.taskId}>
                       {snapshot.runId && (
                         <button
+                          disabled={state.stale || !!state.error}
                           onClick={() =>
                             onInspect(snapshot.runId!, task.taskId)
                           }
@@ -216,6 +227,7 @@ export function AgentMonitor({
                       <small>{agent.lastFinished.title}</small>
                       {snapshot.runId && (
                         <button
+                          disabled={state.stale || !!state.error}
                           onClick={() =>
                             onInspect(
                               snapshot.runId!,

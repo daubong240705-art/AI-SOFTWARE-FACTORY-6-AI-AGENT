@@ -1,27 +1,41 @@
 import { ArrowRight, Folder, Plus, Workflow } from "lucide-react";
 import type { Project } from "../../shared/contracts";
-import type { RuntimeView } from "../../shared/runs";
+import type { WorkspaceState } from "../lib/workspace-store";
+import type { ResultEntry } from "../../shared/workspace";
+import type { InboxItem } from "../../shared/inbox";
+import { inboxLabels } from "../../shared/inbox";
+import { reportStateLabel } from "../../shared/reports";
+import { Select } from "../ui/Select";
+import { useState } from "react";
 
 export function WorkspaceHome({
   projects,
-  runtime,
-  runtimeError,
   busy,
   onProject,
   onAddProject,
   onActive,
   onInbox,
+  summary,
+  onAttention,
+  onResult,
+  onLead,
+  chatOpen,
 }: {
   projects: Project[];
-  runtime: RuntimeView;
-  runtimeError: boolean;
   busy: boolean;
   onProject: (project: Project) => void;
   onAddProject: () => void;
   onActive: () => void;
   onInbox: () => void;
+  summary: WorkspaceState;
+  onAttention: (item: InboxItem) => void;
+  onResult: (item: ResultEntry) => void;
+  onLead: (projectId: string) => void;
+  chatOpen: boolean;
 }) {
-  const active = runtime.runs.find((run) => run.id === runtime.activeId);
+  const [target, setTarget] = useState("");
+  const unavailable = summary.stale || !!summary.error;
+  const active = summary.data?.active;
   return (
     <section className="workspace-home" aria-label="Trang chính">
       <div className="page-heading">
@@ -31,7 +45,47 @@ export function WorkspaceHome({
           <ArrowRight size={15} />
         </button>
       </div>
-      {runtimeError ? (
+      <section
+        className="home-section home-lead"
+        aria-label="Trao đổi với Lead"
+      >
+        <h2>Trao đổi công việc</h2>
+        <div className="home-lead-controls">
+          <Select
+            aria-label="Dự án trao đổi với Lead"
+            value={target}
+            onValueChange={setTarget}
+            disabled={busy}
+          >
+            <option value="">Chọn dự án</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </Select>
+          <button
+            className="primary"
+            disabled={busy || !target || !projects.some((p) => p.id === target)}
+            onClick={() => onLead(target)}
+          >
+            {chatOpen ? "Mở trao đổi" : "Nhắn Lead"}
+          </button>
+        </div>
+      </section>
+      {summary.error && (
+        <p className="notice" role="status">
+          {summary.error}
+        </p>
+      )}
+      {summary.stale && (
+        <p className="small muted">Chưa đồng bộ · Dữ liệu lần cuối</p>
+      )}
+      {!summary.data && !summary.error ? (
+        <p className="small muted" role="status">
+          Đang tải tổng quan…
+        </p>
+      ) : unavailable ? (
         <p className="notice" role="status">
           Chưa đồng bộ trạng thái thực hiện.
         </p>
@@ -41,8 +95,10 @@ export function WorkspaceHome({
           <button className="home-active" disabled={busy} onClick={onActive}>
             <Workflow size={19} />
             <span>
-              <strong>{active.prompt}</strong>
-              <small>{active.projectName} · Mở lượt thực hiện</small>
+              <strong>{active.title}</strong>
+              <small>
+                {active.projectName} · {active.workState.label}
+              </small>
             </span>
             <ArrowRight size={17} />
           </button>
@@ -50,6 +106,57 @@ export function WorkspaceHome({
       ) : (
         <p className="home-idle">Không có lượt đang thực hiện.</p>
       )}
+      <div className="home-summary-grid">
+        <section className="home-section">
+          <div className="home-section-heading">
+            <h2>
+              Cần xử lý{summary.data ? ` · ${summary.data.attentionCount}` : ""}
+            </h2>
+          </div>
+          <ul className="home-summary-list">
+            {summary.data?.attention.map((item) => (
+              <li key={item.key}>
+                <button
+                  disabled={busy || unavailable}
+                  onClick={() => onAttention(item)}
+                >
+                  <strong>{item.title}</strong>
+                  <small>
+                    {item.projectName} · {inboxLabels[item.kind]}
+                  </small>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {summary.data && !summary.data.attention.length && (
+            <p className="muted small">Không có việc cần xử lý.</p>
+          )}
+        </section>
+        <section className="home-section">
+          <h2>Kết quả mới</h2>
+          <ul className="home-summary-list">
+            {summary.data?.results.map((item) => (
+              <li key={item.id}>
+                <button
+                  disabled={busy || unavailable}
+                  onClick={() => onResult(item)}
+                >
+                  <strong>
+                    {item.code ? `${item.code} · ` : ""}
+                    {item.title}
+                  </strong>
+                  <small>
+                    {item.projectName} · {reportStateLabel(item.state)}
+                  </small>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {summary.data && !summary.data.results.length && (
+            <p className="muted small">Chưa có kết quả công việc.</p>
+          )}
+        </section>
+      </div>
       <section className="home-section">
         <div className="home-section-heading">
           <h2>Dự án</h2>

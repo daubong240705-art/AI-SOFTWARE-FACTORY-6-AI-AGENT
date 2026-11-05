@@ -1,10 +1,10 @@
 # Phương án tổ chức lại trải nghiệm ASF theo bộ ảnh CrewHub
 
-Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0–R3 đã hoàn thành; R4–R7 là kế hoạch.** [Baseline R0](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao R1](../../docs/windows-worker/workspace-r1-completion.md), [bàn giao R2](../../docs/windows-worker/workspace-r2-completion.md), [bàn giao R3C](../../docs/windows-worker/workspace-r3c-completion.md). Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
+Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0–R4 đã hoàn thành; R5–R7 là kế hoạch.** [Baseline R0](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao R1](../../docs/windows-worker/workspace-r1-completion.md), [bàn giao R2](../../docs/windows-worker/workspace-r2-completion.md), [bàn giao R3C](../../docs/windows-worker/workspace-r3c-completion.md), [bàn giao R4](../../docs/windows-worker/workspace-r4-completion.md). Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
 
 ## 1. Quyết định chính
 
-Cập nhật 05/11: **R3 đã hoàn thành** qua [R3B trạng thái chờ/tiến độ](../../docs/windows-worker/workspace-r3b-completion.md), [Bash tự động theo vai trò](../../docs/windows-worker/bash-autonomy-completion.md) và [R3C trạng thái kết quả/capability](../../docs/windows-worker/workspace-r3c-completion.md). Summary ghi rõ source chưa đối chiếu; report detail và Controller kiểm lại khi mở/ghi quyết định. R4–R7 còn là kế hoạch. Các mô tả Ask/Full access bên dưới là thiết kế gốc, đã được thay bằng policy tự động.
+Cập nhật 05/11: **R4 đã hoàn thành** sau [R3B trạng thái chờ/tiến độ](../../docs/windows-worker/workspace-r3b-completion.md), [Bash tự động theo vai trò](../../docs/windows-worker/bash-autonomy-completion.md) và [R3C trạng thái kết quả/capability](../../docs/windows-worker/workspace-r3c-completion.md). Home/Team toàn app và index Kết quả dùng feed/projection hiện có, không fan-out theo dự án. Summary ghi rõ source chưa đối chiếu; report detail và Controller kiểm lại khi mở/ghi quyết định. R5–R7 còn là kế hoạch. Các mô tả Ask/Full access bên dưới là thiết kế gốc, đã được thay bằng policy tự động.
 
 Chuyển từ cách tổ chức theo màn hình kỹ thuật sang **dự án → công việc → trao đổi/thực hiện/kết quả**. Lead là điểm vào thống nhất; một công việc có một nơi để đọc yêu cầu, trả lời câu hỏi, theo dõi agent và xem kết quả. Những view khác chỉ mở đúng hồ sơ này.
 
@@ -225,9 +225,9 @@ Không ép R2 gom cả migration mới và toàn bộ prompt upgrade một commi
 
 ## 13. Thứ tự khuyến nghị
 
-**R1 — Shell và điều hướng**, **R2 — Hồ sơ công việc** và **R3 — Lead/trạng thái/kết quả** đã triển khai. R3 liên kết plan trước dispatch, không tạo submission cho trao đổi, dùng projection chung và Bash tự động theo vai trò. Report summary không suy ra source current; chi tiết được đối chiếu khi mở và trước mutation. Tiếp theo kết nối Home/Team/Kết quả ở R4. Giữ lịch schema14 nhưng hoãn phần tự chạy đến R6.
+**R1 — Shell và điều hướng**, **R2 — Hồ sơ công việc**, **R3 — Lead/trạng thái/kết quả** và **R4 — Home/Team/Kết quả** đã triển khai. R3 liên kết plan trước dispatch, không tạo submission cho trao đổi, dùng projection chung và Bash tự động theo vai trò. Report summary không suy ra source current; chi tiết được đối chiếu khi mở và trước mutation. R4 dùng một feed toàn app, badge đếm actionable, index Kết quả theo dự án và ChatHost chung. Tiếp theo R5 thiết lập. Giữ lịch schema14 nhưng hoãn phần tự chạy đến R6.
 
-Ngoài phạm vi R0–R3 đã ghi trong bàn giao, các màn hình và cơ chế R4–R7 đề xuất còn lại chưa có trong bản build hiện hành.
+Ngoài phạm vi R0–R4 đã ghi trong bàn giao, các màn hình và cơ chế R5–R7 đề xuất còn lại chưa có trong bản build hiện hành. R4 tái dùng danh sách execution hiện có và Git/tools theo menu ngữ cảnh, chưa thêm cây agent hoặc benchmark lớn.
 
 ## 14. Chi tiết để bắt đầu triển khai
 
@@ -291,6 +291,6 @@ Các con số dưới đây là mục tiêu nghiệm thu, chưa phải số đo 
 
 ### Trạng thái bàn giao phương án
 
-Đã đối chiếu bộ ảnh trong `crewhub/` với source hiện tại và xác định thay đổi UI/lifecycle tối thiểu. R0 có checkpoint `c8c81f9`; R1 đã triển khai shell; R2 hoàn thành hồ sơ bốn tab/detail host chung và kiểm chứng production Electron, xem bàn giao liên kết đầu trang. Đội ngũ vẫn theo project và Home tối thiểu; summary toàn app và Kết quả index ở R4. Phác thảo trước đó dùng dữ liệu minh họa, không phải bằng chứng runtime.
+Đã đối chiếu bộ ảnh trong `crewhub/` với source hiện tại và xác định thay đổi UI/lifecycle tối thiểu. R0 có checkpoint `c8c81f9`; R1 triển khai shell; R2 hoàn thành hồ sơ bốn tab/detail host chung; R3 thống nhất trạng thái và Lead; R4 bổ sung summary/Đội ngũ toàn app và index Kết quả. Xem bàn giao liên kết đầu trang cho kiểm chứng và giới hạn. Phác thảo trước đó dùng dữ liệu minh họa, không phải bằng chứng runtime.
 
 Kiểm tra riêng bản phác bằng Chromium: các viewport 1024/736/320px ở light/dark không có horizontal overflow hoặc lỗi JavaScript. Đã thử mở hồ sơ, bốn tab, chọn/gửi câu trả lời, cập nhật actionable count, giữ nháp tiếng Việt khi đổi tab và không đưa nháp công việc sang hội thoại dự án. Receipt khi bấm Gửi nêu rõ đây là bản phác, chưa gửi tới agent. Bản phác và kết quả kiểm tra ở `.cache/asf-research/`, đã được Git ignore; không phải bằng chứng các luồng ứng dụng đã hoàn thành. Báo cáo tham chiếu local: `asf-workspace-preview-check.json`.

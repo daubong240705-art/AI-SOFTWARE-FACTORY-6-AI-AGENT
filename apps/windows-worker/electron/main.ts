@@ -61,6 +61,7 @@ import { ReadinessProbe } from "./workspace/readiness";
 import { readinessSchema } from "../shared/readiness";
 import { inboxQuerySchema, inboxSeenSchema } from "../shared/inbox";
 import { gitSnapshotSchema, gitDiffSchema } from "../shared/git";
+import { resultQuerySchema } from "../shared/workspace";
 import { browseGit, browseGitDiff } from "./workspace/git-browser";
 
 protocol.registerSchemesAsPrivileged([
@@ -101,6 +102,19 @@ function key(): string | undefined {
   }
 }
 function registerIPC(): void {
+  handle(channels.workspaceSummary, () => controller.workspaceSummary());
+  handle(channels.resultIndex, (input) => {
+    const query = resultQuerySchema.parse(input);
+    if (!query.projectId) throw new Error("Chọn dự án để xem kết quả.");
+    store.project(query.projectId);
+    let secret: string | undefined;
+    try {
+      secret = key();
+    } catch {
+      /* Results remain readable without credentials. */
+    }
+    return store.reports.index(query, secret ? [secret] : []);
+  });
   handle(channels.importChatImage, (input) => importImage(store.images, input));
   handle(channels.removeChatImage, (input) => {
     const ref = imageRefSchema.parse(input);

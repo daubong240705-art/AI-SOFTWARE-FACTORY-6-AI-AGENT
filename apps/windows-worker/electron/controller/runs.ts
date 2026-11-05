@@ -118,6 +118,45 @@ type Active = {
   commandObservations?: Map<string, { version: string; at: number }>;
 };
 export class RunController {
+  workspaceSummary(): import("../../shared/workspace").WorkspaceSummary {
+    const active = this.active?.run ?? null;
+    let key: string | undefined;
+    try {
+      key = this.readKey();
+    } catch {
+      /* Read-only overview remains usable without credentials. */
+    }
+    const secrets = [...(this.active?.secrets ?? []), ...(key ? [key] : [])];
+    const team = projectMonitor(
+      active?.projectId ?? "all-projects",
+      this.store.settings(),
+      active,
+      active,
+      secrets,
+    );
+    return {
+      scope: "all-projects",
+      observedAt: new Date().toISOString(),
+      attentionCount: this.store.inbox.count(),
+      attention: this.store.inbox
+        .list({ unreadOnly: false }, secrets)
+        .items.slice(0, 5),
+      results: this.store.reports.index({}, secrets, 5).items,
+      agents: team.agents,
+      progress: team.progress,
+      active: active
+        ? {
+            id: active.id,
+            state: active.state,
+            projectId: active.projectId,
+            projectName: redact(active.projectName, secrets, 160),
+            title: redact(active.prompt, secrets, 160),
+            workState: team.workState!,
+            conversationId: active.conversationId ?? null,
+          }
+        : null,
+    };
+  }
   private monitorProjection = new MonitorProjection();
   monitor(input: MonitorRequest) {
     const request = monitorRequestSchema.parse(input);
