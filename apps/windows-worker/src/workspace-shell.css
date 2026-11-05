@@ -1,0 +1,235 @@
+.workspace-sidebar.sidebar {
+  overflow: hidden;
+  padding-top: 22px;
+}
+.workspace-sidebar .brand {
+  margin: 0 8px 24px;
+}
+.workspace-sidebar .brand-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+}
+.workspace-sidebar .brand-text strong {
+  font-size: 17px;
+}
+.workspace-sidebar .sidebar-projects {
+  flex: 1;
+  min-height: 80px;
+  overflow: auto;
+  margin-top: 24px;
+  scrollbar-width: thin;
+}
+.sidebar-section-label {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin: 0 12px 8px;
+}
+.workspace-sidebar .sidebar-project > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-project-empty {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  padding: 0 12px;
+}
+.workspace-sidebar .sidebar-add-project {
+  width: 100%;
+  justify-content: flex-start;
+  padding-inline: 13px;
+  gap: 12px;
+  font-size: var(--text-control);
+}
+.workspace-sidebar .sidebar-bottom {
+  margin-top: 16px;
+  padding-top: 12px;
+}
+.workspace-global-scope {
+  font-weight: 500;
+  font-size: var(--text-control);
+}
+.project-navigation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  gap: 4px;
+  padding: 7px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.project-navigation > button,
+.project-more > button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: var(--text-control);
+  padding: 6px 12px;
+}
+.project-navigation > button.active {
+  background: var(--hover);
+  color: var(--text);
+}
+.project-more > button {
+  width: auto;
+  min-width: 0;
+  display: flex;
+  gap: 7px;
+}
+.project-current-page {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+  margin-left: 6px;
+  padding-left: 12px;
+}
+.workspace-actions .conversation-picker {
+  display: inline-flex;
+}
+.workspace-topbar .workspace-heading {
+  flex-wrap: nowrap;
+}
+.workspace-running {
+  max-width: 300px;
+}
+.workspace-topbar .workspace-project > button {
+  max-width: min(330px, 34vw);
+}
+.workspace-home {
+  display: grid;
+  gap: 24px;
+  max-width: 1040px;
+  margin-inline: auto;
+}
+.workspace-home .page-heading {
+  margin-bottom: 0;
+}
+.home-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.home-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.home-section-heading h2,
+.home-section > h2 {
+  margin: 0;
+  font-size: var(--text-body);
+}
+.home-idle {
+  color: var(--muted);
+  font-size: var(--text-control);
+  margin: 0;
+}
+.home-projects {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  overflow: hidden;
+}
+.home-project,
+.home-active {
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  gap: 14px;
+  text-align: start;
+  padding: 16px;
+  background: var(--surface);
+  white-space: normal;
+}
+.home-project {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+.home-project:last-child {
+  border-bottom: 0;
+}
+.home-project > span,
+.home-active > span {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.home-project strong,
+.home-active strong {
+  font-size: var(--text-body);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.home-project small {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.home-active small {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.home-empty {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+}
+.compact .sidebar-section-label,
+.compact .sidebar-project-empty,
+.compact .sidebar-add-project > span {
+  display: none;
+}
+.compact .workspace-sidebar .sidebar-add-project {
+  justify-content: center;
+  padding: 8px;
+}
+@media (max-width: 950px) {
+  .workspace-sidebar .sidebar-section-label,
+  .workspace-sidebar .sidebar-project-empty,
+  .workspace-sidebar .sidebar-add-project > span {
+    display: none;
+  }
+  .workspace-sidebar .sidebar-add-project {
+    justify-content: center;
+    padding: 8px;
+  }
+  .project-navigation {
+    padding-inline: 16px;
+  }
+}
+@media (max-width: 620px) {
+  .workspace-topbar .workspace-heading {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+  }
+  .workspace-topbar .workspace-project > button {
+    max-width: calc(100vw - 130px);
+  }
+  .workspace-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .project-navigation {
+    gap: 2px;
+    padding-inline: 10px;
+  }
+  .project-navigation > button,
+  .project-more > button {
+    padding-inline: 7px;
+  }
+  .project-current-page {
+    width: 100%;
+    border: 0;
+    padding-left: 8px;
+  }
+}

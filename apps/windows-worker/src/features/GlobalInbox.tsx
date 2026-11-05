@@ -47,7 +47,9 @@ export function GlobalInbox({
       setCheckedAt(new Date().toLocaleTimeString("vi-VN"));
     } catch (e) {
       if (current === generation.current)
-        setError(e instanceof Error ? e.message : "Không tải được hộp thư.");
+        setError(
+          e instanceof Error ? e.message : "Không tải được mục cần xử lý.",
+        );
     } finally {
       if (current === generation.current) setBusy(false);
     }
@@ -77,12 +79,12 @@ export function GlobalInbox({
     }
   }
   return (
-    <section className="global-inbox" aria-label="Hộp thư chung">
+    <section className="global-inbox" aria-label="Cần xử lý · Mọi dự án">
       <div className="page-heading">
-        <h1>Hộp thư</h1>
+        <h1>Cần xử lý</h1>
         <button
           className="icon-button subtle"
-          aria-label="Cập nhật hộp thư"
+          aria-label="Cập nhật mục cần xử lý"
           disabled={busy}
           onClick={() => void load()}
         >
@@ -90,7 +92,7 @@ export function GlobalInbox({
         </button>
       </div>
       <div className="inbox-toolbar">
-        <div className="work-view-switch" aria-label="Lọc hộp thư">
+        <div className="work-view-switch" aria-label="Lọc mục cần xử lý">
           <button
             disabled={busy}
             aria-pressed={!unreadOnly}

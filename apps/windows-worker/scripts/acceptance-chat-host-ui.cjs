@@ -127,23 +127,7 @@ async function main() {
       `(()=>{const el=document.querySelector(${JSON.stringify(selector)});Object.getOwnPropertyDescriptor(${tag}.prototype,'value').set.call(el,${JSON.stringify(text)});el.dispatchEvent(new Event('input',{bubbles:true}));})()`,
     );
   const ref = JSON.stringify({ projectId: project.id, itemId: item.id });
-  await until(() =>
-    js("!!document.querySelector('.project-overview .attention-list')"),
-  );
-  // Select the intended project if OS timestamps tie at fixture startup.
-  if (
-    (await js(
-      "document.querySelector('.workspace-project > button').textContent.trim()",
-    )) !== project.name
-  ) {
-    await js("document.querySelector('.workspace-project > button').click()");
-    await js(
-      `Array.from(document.querySelectorAll('.project-choice')).find(b=>b.textContent.includes(${JSON.stringify(project.name)})).click()`,
-    );
-    await until(() =>
-      js("!!document.querySelector('.project-overview .attention-list')"),
-    );
-  }
+  await until(() => js("!!document.querySelector('.workspace-home')"));
   const reads = counts[channels.runDetail] || 0;
   await pause(500);
   assert.equal(
@@ -151,12 +135,14 @@ async function main() {
     reads,
     "Hidden ChatHost must not load run details",
   );
-  await click(
-    "Công việc",
-    "document.querySelector('nav[aria-label=\"Điều hướng chính\"]')",
+  await js(
+    `document.querySelector('[data-project-id="${project.id}"]').click()`,
   );
   await until(() => js("!!document.querySelector('.board-card-title')"));
-  await setInput('[aria-label="Tìm công việc"]', "W-0001");
+  await setInput(
+    '.kanban-workspace:not([hidden]) [aria-label="Tìm công việc"]',
+    "W-0001",
+  );
   await until(() => js("document.querySelectorAll('.board-task').length===1"));
   await js("document.querySelector('.board-card-title').click()");
   await until(() =>
@@ -219,7 +205,9 @@ async function main() {
     true,
   );
   assert.equal(
-    await js("document.querySelector('[aria-label=\"Tìm công việc\"]').value"),
+    await js(
+      "document.querySelector('.kanban-workspace:not([hidden]) [aria-label=\"Tìm công việc\"]').value",
+    ),
     "W-0001",
   );
   assert.ok(await js("document.querySelector('.chat-scroll').scrollTop>0"));
@@ -333,21 +321,38 @@ async function main() {
   await pause(100);
   await js("document.querySelector('[aria-label=\"Đóng chat cạnh\"]').click()");
   await until(() => js("document.querySelector('.chat-host').hidden"));
-  await js("document.querySelector('.workspace-project > button').click()");
-  await js(
-    `Array.from(document.querySelectorAll('.project-choice')).find(b=>b.textContent.includes(${JSON.stringify(other.name)})).click()`,
+  await js(`document.querySelector('[data-project-id="${other.id}"]').click()`);
+  await until(() =>
+    js(
+      `document.querySelector('[data-project-id="${other.id}"]').getAttribute('aria-current')==='page'`,
+    ),
   );
-  await until(() => js("!!document.querySelector('.project-overview')"));
-  await click(
-    "Trò chuyện",
-    "document.querySelector('nav[aria-label=\"Điều hướng chính\"]')",
-  );
+  await click("Trao đổi", "document.querySelector('.project-navigation')");
   await until(() => js("!!document.querySelector('.chat-host.fullscreen')"));
   assert.equal(
     await js(
       "document.querySelector('.chat-context').textContent.includes('W-0001')",
     ),
     false,
+  );
+  await js(
+    `document.querySelector('[data-project-id="${project.id}"]').click()`,
+  );
+  await until(() =>
+    js(
+      `document.querySelector('[data-project-id="${project.id}"]').getAttribute('aria-current')==='page'`,
+    ),
+  );
+  await click("Trao đổi", "document.querySelector('.project-navigation')");
+  await until(() =>
+    js(
+      "document.querySelector('[aria-label=\"Nhắn tin cho agent\"]')?.value==='Nháp giữ sau khi đóng dock'",
+    ),
+  );
+  assert.ok(
+    await js(
+      "document.querySelector('.chat-context').textContent.includes('W-0001 · v2')",
+    ),
   );
   const reopened = new Store(data);
   assert.equal(

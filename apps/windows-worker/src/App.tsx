@@ -1,4 +1,10 @@
 import { Select } from "./ui/Select";
+import {
+  WorkspaceSidebar,
+  WorkspaceHeader,
+  type WorkspacePage,
+} from "./features/WorkspaceShell";
+import { WorkspaceHome } from "./features/WorkspaceHome";
 import { Popover } from "./ui/Popover";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -6,22 +12,16 @@ import {
   GitBranch,
   LayoutDashboard,
   MessageSquare,
-  Inbox,
-  MoreHorizontal,
   ChevronDown,
   Check,
   CheckCircle2,
   Clock3,
   Code2,
-  Folder,
   FolderOpen,
-  History,
   KeyRound,
   Layers,
   Box,
   LoaderCircle,
-  PanelLeftClose,
-  PanelLeftOpen,
   Plus,
   RefreshCw,
   Save,
@@ -42,7 +42,6 @@ import type {
   ToolStatus,
 } from "../shared/contracts";
 import { defaultSettings } from "../shared/defaults";
-import { version } from "../package.json";
 import { ChatHost } from "./features/ChatHost";
 import { AgentMonitor } from "./features/AgentMonitor";
 import { OfficeWorkspace } from "./features/OfficeWorkspace";
@@ -73,16 +72,7 @@ async function value<T>(promise: Promise<Reply<T>>): Promise<T> {
   if (!result.ok) throw new Error(result.error);
   return result.value;
 }
-type Page =
-  | "git"
-  | "inbox"
-  | "overview"
-  | "project"
-  | "history"
-  | "settings"
-  | "monitor"
-  | "board"
-  | "office";
+type Page = WorkspacePage;
 type Notice = { kind: "error" | "success"; text: string };
 
 function Empty({
@@ -108,8 +98,27 @@ export function App() {
   const chatFlush = useRef<() => Promise<unknown>>(() => Promise.resolve());
   const [boot, setBoot] = useState<Bootstrap | null>(null);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [page, setPage] = useState<Page>("overview");
+  const [page, setPage] = useState<Page>("home");
   const [project, setProject] = useState<Project | null>(null);
+  const [boardProjects, setBoardProjects] = useState<Project[]>([]);
+  const [createRequest, setCreateRequest] = useState<{
+    projectId: string;
+    version: number;
+  } | null>(null);
+  const projectChats = useRef(
+    new Map<
+      string,
+      { id: string; context: WorkChatContext | null; runId: string | null }
+    >(),
+  );
+  useEffect(() => {
+    if (project)
+      setBoardProjects((previous) =>
+        previous.some((item) => item.id === project.id)
+          ? previous.map((item) => (item.id === project.id ? project : item))
+          : [...previous, project],
+      );
+  }, [project]);
   const [status, setStatus] = useState<ProjectStatus | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -278,7 +287,7 @@ export function App() {
     didLoad.current = true;
     void act("load", async () => {
       const data = await load();
-      if (data.projects[0]) await selectProject(data.projects[0]);
+      if (data.projects[0]) await selectProject(data.projects[0], "home");
     });
   }, []);
   useEffect(() => {
@@ -356,19 +365,28 @@ export function App() {
   async function flushDraft() {
     await chatFlush.current();
   }
-  async function selectProject(selected: Project) {
-    setChatDock(false);
-    setChatContext(null);
+  async function selectProject(selected: Project, destination: Page = "board") {
+    if (project && conversationId)
+      projectChats.current.set(project.id, {
+        id: conversationId,
+        context: chatContext,
+        runId: selectedRun,
+      });
     const items = await value(
       window.worker.conversations({ projectId: selected.id }),
     );
+    const saved = projectChats.current.get(selected.id);
     const selectedChat =
-      items[0] ?? (await value(window.worker.createConversation(selected.id)));
+      items.find((item) => item.id === saved?.id) ??
+      items[0] ??
+      (await value(window.worker.createConversation(selected.id)));
+    setChatDock(false);
+    setChatContext(saved?.id === selectedChat.id ? saved.context : null);
     setProject(selected);
     setConversations(items);
     setConversationId(selectedChat.id);
-    setPage("overview");
-    setSelectedRun(null);
+    setPage(destination);
+    setSelectedRun(saved?.id === selectedChat.id ? saved.runId : null);
     setConversationSearch("");
   }
   async function newConversation() {
@@ -435,6 +453,11 @@ export function App() {
   async function openProject(selected: Project) {
     await act("project", async () => {
       await flushDraft();
+      if (selected.id === project?.id) {
+        setChatDock(false);
+        await navigate("board");
+        return;
+      }
       const opened = await value(window.worker.openProject(selected.id));
       const data = await value(window.worker.bootstrap());
       setBoot(data);
@@ -528,7 +551,20 @@ export function App() {
       tell("Key chưa lưu đã được xóa khỏi ô nhập.");
     }
     setPage(next);
-    if (next === "project") setChatDock(false);
+    setChatDock(false);
+  }
+  async function createWork() {
+    if (!project || ["home", "inbox", "history", "settings"].includes(page)) {
+      await navigate("home");
+      if (!boot?.projects.length) await chooseProject();
+      return;
+    }
+    await act("create", async () => {
+      await flushDraft();
+      setChatDock(false);
+      setPage("board");
+      setCreateRequest({ projectId: project.id, version: Date.now() });
+    });
   }
   async function openWorkChat(itemId: string) {
     if (!project) return;
@@ -727,222 +763,94 @@ export function App() {
   );
   return (
     <div className={`app ${compact ? "compact" : ""}`}>
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-icon">
-            <Workflow size={23} />
-          </div>
-          <div className="brand-text">
-            <strong>
-              ASF<span>Worker</span>
-            </strong>
-            <small>LOCAL WORKSPACE</small>
-          </div>
-        </div>
-        <nav aria-label="Điều hướng chính">
-          <button
-            className={page === "inbox" ? "active" : ""}
-            onClick={() => navigate("inbox")}
-            title="Hộp thư"
-          >
-            <Inbox size={18} />
-            <span>Hộp thư</span>
-          </button>
-          <button
-            className={page === "overview" ? "active" : ""}
-            onClick={() => navigate("overview")}
-            title="Tổng quan"
-          >
-            <LayoutDashboard size={18} />
-            <span>Tổng quan</span>
-          </button>
-          <button
-            className={page === "project" ? "active" : ""}
-            onClick={() => navigate("project")}
-            title="Trò chuyện"
-          >
-            <MessageSquare size={18} />
-            <span>Trò chuyện</span>
-          </button>
-          <button
-            className={page === "board" ? "active" : ""}
-            onClick={() => navigate("board")}
-            title="Công việc"
-          >
-            <Workflow size={18} />
-            <span>Công việc</span>
-          </button>
-          <button
-            className={page === "monitor" ? "active" : ""}
-            onClick={() => navigate("monitor")}
-            title="Đội ngũ"
-          >
-            <Layers size={18} />
-            <span>Đội ngũ</span>
-          </button>
-        </nav>
-        {page === "project" && conversationNavigation}
-        <div className="sidebar-bottom">
-          <nav aria-label="Tiện ích">
-            <Popover
-              label="Khác"
-              icon={
-                <>
-                  <MoreHorizontal size={18} />
-                  <span>Khác</span>
-                </>
-              }
-            >
-              <button
-                className={page === "git" ? "active" : ""}
-                onClick={() => navigate("git")}
-                title="Git local"
-              >
-                <GitBranch size={18} />
-                <span>Git</span>
-              </button>
-              <button
-                className={page === "office" ? "active" : ""}
-                onClick={() => navigate("office")}
-                title="Văn phòng"
-                aria-description="Tạm dừng phát triển 3D"
-              >
-                <Box size={18} />
-                <span>Văn phòng</span>
-              </button>
-              <button
-                className={page === "history" ? "active" : ""}
-                onClick={() => navigate("history")}
-                title="Lịch sử"
-              >
-                <History size={18} />
-                <span>Lịch sử</span>
-              </button>
-              <p className="popover-version">ASF Worker · v{version}</p>
-            </Popover>
-            <button
-              className={page === "settings" ? "active" : ""}
-              onClick={() => navigate("settings")}
-              title="Cài đặt"
-            >
-              <Settings2 size={18} />
-              <span>Cài đặt</span>
-              {dirty && <span className="nav-dot" />}
-            </button>
-          </nav>
-          <button
-            className="collapse-sidebar subtle"
-            onClick={() => setCompact(!compact)}
-            title={compact ? "Mở thanh bên" : "Thu gọn thanh bên"}
-            aria-label={compact ? "Mở thanh bên" : "Thu gọn thanh bên"}
-          >
-            {compact ? (
-              <PanelLeftOpen size={16} />
-            ) : (
-              <PanelLeftClose size={16} />
-            )}
-            <span>Thu gọn</span>
-          </button>
-        </div>
-      </aside>
+      <WorkspaceSidebar
+        page={page}
+        project={project}
+        projects={boot?.projects ?? []}
+        compact={compact}
+        busy={!!busy}
+        dirty={!!dirty}
+        onNavigate={(next) => void navigate(next)}
+        onProject={(item) => void openProject(item)}
+        onAddProject={() => void chooseProject()}
+        onCompact={() => setCompact(!compact)}
+      />
       <div className="main-column">
-        <header className="topbar workspace-topbar">
-          <div className="workspace-heading">
-            <Popover
-              className="workspace-project"
-              label="Dự án"
-              icon={
-                <>
-                  <span>{project?.name ?? "Chọn dự án"}</span>
-                  <ChevronDown size={14} />
-                </>
-              }
-            >
-              <p className="popover-heading">Dự án</p>
-              {boot?.projects.map((item) => (
-                <button
-                  key={item.id}
-                  className="project-choice"
-                  aria-current={project?.id === item.id ? "true" : undefined}
-                  disabled={!!busy}
-                  onClick={() => void openProject(item)}
-                >
-                  <Folder size={15} />
-                  <span>{item.name}</span>
-                  {project?.id === item.id && <Check size={14} />}
-                </button>
-              ))}
-              <button disabled={!!busy} onClick={() => void chooseProject()}>
-                <Plus size={15} />
-                Thêm dự án
-              </button>
-              {project && (
-                <div className="popover-project-details">
-                  <span title={project.path}>{project.path}</span>
-                  {status?.branch && (
-                    <span>
-                      <GitBranch size={14} />
-                      {status.branch}
-                    </span>
-                  )}
-                  {status?.error && (
-                    <span title={status.error}>Chưa đọc được Git</span>
-                  )}
-                  <button
-                    className="subtle"
-                    disabled={!!busy}
-                    onClick={() => setRemove(project)}
-                  >
-                    Bỏ khỏi danh sách
-                  </button>
-                </div>
-              )}
-            </Popover>
-            {runtimeError ? (
-              <span className="muted small">
-                Trạng thái lượt chạy chưa đồng bộ
-              </span>
-            ) : (
-              runtime.activeId && (
-                <button
-                  className="workspace-running"
-                  onClick={() => void openActive()}
-                >
-                  <span className="status-dot" />
-                  {runtime.runs.find((r) => r.id === runtime.activeId)
-                    ?.projectId === project?.id
-                    ? "Đang có lượt chạy"
-                    : `Đang chạy ở ${runtime.runs.find((r) => r.id === runtime.activeId)?.projectName ?? "dự án khác"}`}
-                </button>
-              )
-            )}
-          </div>
-          <div className="workspace-actions">
-            {page === "project" && (
+        <WorkspaceHeader
+          page={page}
+          project={project}
+          busy={!!busy}
+          onNavigate={(next) => void navigate(next)}
+          onCreate={() => void createWork()}
+          projectMenu={
+            <>
               <Popover
-                className="conversation-picker"
-                label="Danh sách hội thoại"
-                icon={<MessageSquare size={18} />}
+                className="workspace-project"
+                label="Dự án"
+                icon={
+                  <>
+                    <span>{project?.name ?? "Chọn dự án"}</span>
+                    <ChevronDown size={14} />
+                  </>
+                }
               >
-                {conversationNavigation}
-              </Popover>
-            )}
-            {project && (
-              <>
-                {["overview", "monitor", "office"].includes(page) && (
-                  <button
-                    className="primary"
-                    disabled={!!busy}
-                    onClick={() => void askLead()}
-                  >
-                    <MessageSquare size={15} />
-                    Hỏi Lead
-                  </button>
+                <p className="popover-heading">Thông tin dự án</p>
+                {project && (
+                  <div className="popover-project-details">
+                    <span title={project.path}>{project.path}</span>
+                    {status?.branch && (
+                      <span>
+                        <GitBranch size={14} />
+                        {status.branch}
+                      </span>
+                    )}
+                    {status?.error && (
+                      <span title={status.error}>Chưa đọc được Git</span>
+                    )}
+                    <button
+                      className="subtle"
+                      disabled={!!busy}
+                      onClick={() => setRemove(project)}
+                    >
+                      Bỏ khỏi danh sách
+                    </button>
+                  </div>
                 )}
-              </>
-            )}
-          </div>
-        </header>
+              </Popover>
+            </>
+          }
+          running={
+            <>
+              {runtimeError ? (
+                <span className="muted small">
+                  Trạng thái lượt chạy chưa đồng bộ
+                </span>
+              ) : (
+                runtime.activeId && (
+                  <button
+                    className="workspace-running"
+                    onClick={() => void openActive()}
+                  >
+                    <span className="status-dot" />
+                    {runtime.runs.find((r) => r.id === runtime.activeId)
+                      ?.projectId === project?.id
+                      ? "Đang có lượt chạy"
+                      : `Đang chạy ở ${runtime.runs.find((r) => r.id === runtime.activeId)?.projectName ?? "dự án khác"}`}
+                  </button>
+                )
+              )}
+            </>
+          }
+          conversationMenu={
+            <Popover
+              className="conversation-picker"
+              label="Danh sách hội thoại"
+              icon={<MessageSquare size={18} />}
+            >
+              {conversationNavigation}
+            </Popover>
+          }
+        />
         <main
           className={
             page === "overview"
@@ -997,6 +905,18 @@ export function App() {
             </Empty>
           ) : (
             <>
+              {page === "home" && (
+                <WorkspaceHome
+                  projects={boot.projects}
+                  runtime={runtime}
+                  runtimeError={runtimeError}
+                  busy={!!busy}
+                  onProject={(item) => void openProject(item)}
+                  onAddProject={() => void chooseProject()}
+                  onActive={() => void openActive()}
+                  onInbox={() => void navigate("inbox")}
+                />
+              )}
               {page === "inbox" && <GlobalInbox onOpen={openInboxItem} />}
               {page === "git" &&
                 (project ? (
@@ -1125,38 +1045,46 @@ export function App() {
                   }}
                 />
               }
-              {(!!project || page === "board") &&
-                (project ? (
-                  <KanbanBoard
-                    visible={page === "board"}
-                    key={`${project.id}:${boardRunId}`}
-                    initialRunId={boardRunId}
-                    onInspect={(runId) => {
-                      if (boardSelection?.runId === runId)
-                        setInspection(boardSelection);
-                      else inspect(runId);
-                    }}
-                    projectId={project.id}
-                    projectName={project.name}
-                    onAskLead={(itemId) => void openWorkChat(itemId)}
-                    onOpenRun={(id, conversation) => {
-                      if (id)
-                        void act("conversation", () =>
-                          openInspectedChat(id, conversation),
-                        );
-                      else void openConversation(conversation!);
-                    }}
-                  />
-                ) : (
-                  <Empty
-                    icon={<Workflow size={28} />}
-                    title="Chọn dự án để xem công việc"
-                  >
-                    <button onClick={() => void chooseProject()}>
-                      Chọn dự án
-                    </button>
-                  </Empty>
-                ))}
+              {boardProjects.map((boardProject) => (
+                <KanbanBoard
+                  visible={page === "board" && project?.id === boardProject.id}
+                  key={boardProject.id}
+                  initialRunId={
+                    project?.id === boardProject.id ? boardRunId : null
+                  }
+                  createRequest={
+                    createRequest?.projectId === boardProject.id
+                      ? createRequest.version
+                      : 0
+                  }
+                  showCreateButton={false}
+                  onInspect={(runId) => {
+                    if (boardSelection?.runId === runId)
+                      setInspection(boardSelection);
+                    else inspect(runId);
+                  }}
+                  projectId={boardProject.id}
+                  projectName={boardProject.name}
+                  onAskLead={(itemId) => void openWorkChat(itemId)}
+                  onOpenRun={(id, conversation) => {
+                    if (id)
+                      void act("conversation", () =>
+                        openInspectedChat(id, conversation),
+                      );
+                    else void openConversation(conversation!);
+                  }}
+                />
+              ))}
+              {page === "board" && !project && (
+                <Empty
+                  icon={<Workflow size={28} />}
+                  title="Chọn dự án để xem công việc"
+                >
+                  <button onClick={() => void chooseProject()}>
+                    Chọn dự án
+                  </button>
+                </Empty>
+              )}
               {page === "monitor" &&
                 (project ? (
                   <AgentMonitor
@@ -1808,6 +1736,10 @@ export function App() {
                   void act("remove", async () => {
                     await flushDraft();
                     await value(window.worker.removeProject(remove.id));
+                    setBoardProjects((items) =>
+                      items.filter((item) => item.id !== remove.id),
+                    );
+                    projectChats.current.delete(remove.id);
                     if (project?.id === remove.id) {
                       setProject(null);
                     }

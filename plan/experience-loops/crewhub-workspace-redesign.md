@@ -1,6 +1,6 @@
 # Phương án tổ chức lại trải nghiệm ASF theo bộ ảnh CrewHub
 
-Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **Đề xuất triển khai; chưa thay đổi code ứng dụng.** Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
+Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0–R1 đã hoàn thành; R2–R7 là kế hoạch.** [Baseline R0](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao R1](../../docs/windows-worker/workspace-r1-completion.md). Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
 
 ## 1. Quyết định chính
 
@@ -225,7 +225,7 @@ Không ép R2 gom cả migration mới và toàn bộ prompt upgrade một commi
 
 Bắt đầu **R1 — Shell và điều hướng**, tiếp theo **R2 — Hồ sơ công việc**. Đây là hai phần giảm khó hiểu rõ nhất; giữ toàn bộ tính năng đã làm. Sau đó sửa liên kết chat/agent và trạng thái ở R3, rồi kết nối Home/Team/Kết quả. Giữ lịch schema14 nhưng hoãn phần tự chạy đến R6.
 
-Tài liệu này là phương án để triển khai; không phải tuyên bố các màn hình hoặc cơ chế đề xuất đã có trong bản build hiện hành.
+Ngoài phạm vi R0–R1 đã ghi trong bàn giao, các màn hình và cơ chế đề xuất còn lại chưa có trong bản build hiện hành.
 
 ## 14. Chi tiết để bắt đầu triển khai
 
@@ -289,6 +289,6 @@ Các con số dưới đây là mục tiêu nghiệm thu, chưa phải số đo 
 
 ### Trạng thái bàn giao phương án
 
-Đã đối chiếu bộ ảnh trong `crewhub/` với source hiện tại, xác định thay đổi UI và lifecycle tối thiểu, tạo phác thảo tương tác với dữ liệu minh họa để xem Trang chính, Cần xử lý, Công việc, hồ sơ bốn tab, Đội ngũ và Kết quả. Phác thảo không gọi agent/model hoặc ghi DB. Chưa triển khai R1–R7 và chưa tuyên bố build/test ứng dụng đã chạy cho phương án này.
+Đã đối chiếu bộ ảnh trong `crewhub/` với source hiện tại và xác định thay đổi UI/lifecycle tối thiểu. R0 có checkpoint `c8c81f9`; R1 đã triển khai shell và kiểm chứng production Electron, xem bàn giao liên kết đầu trang. R1 giữ Đội ngũ theo project và Home tối thiểu; hồ sơ bốn tab/detail host ở R2, summary toàn app và Kết quả index ở R4. Phác thảo trước đó dùng dữ liệu minh họa, không phải bằng chứng runtime.
 
 Kiểm tra riêng bản phác bằng Chromium: các viewport 1024/736/320px ở light/dark không có horizontal overflow hoặc lỗi JavaScript. Đã thử mở hồ sơ, bốn tab, chọn/gửi câu trả lời, cập nhật actionable count, giữ nháp tiếng Việt khi đổi tab và không đưa nháp công việc sang hội thoại dự án. Receipt khi bấm Gửi nêu rõ đây là bản phác, chưa gửi tới agent. Bản phác và kết quả kiểm tra ở `.cache/asf-research/`, đã được Git ignore; không phải bằng chứng các luồng ứng dụng đã hoàn thành. Báo cáo tham chiếu local: `asf-workspace-preview-check.json`.

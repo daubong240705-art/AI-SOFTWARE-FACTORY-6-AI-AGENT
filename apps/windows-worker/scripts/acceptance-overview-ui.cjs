@@ -133,25 +133,31 @@ async function main() {
   };
   const click = (label) =>
     js(
-      `Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(label)}).click()`,
+      `Array.from(document.querySelectorAll('button')).find(b=>b.getClientRects().length && b.textContent.trim()===${JSON.stringify(label)}).click()`,
     );
-  const nav = (label) =>
-    js(
-      `Array.from(document.querySelectorAll('nav button')).find(b=>b.textContent.trim()===${JSON.stringify(label)}).click()`,
+  const nav = async (label) => {
+    if (label === "Tổng quan") {
+      await js(
+        "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+      );
+      return click("Tổng quan dự án");
+    }
+    if (label === "Lịch sử") {
+      await js(
+        "document.querySelector('[aria-label=\"Công cụ nâng cao\"]').click()",
+      );
+      return click("Lịch sử thực hiện · Mọi dự án");
+    }
+    return js(
+      `Array.from(document.querySelectorAll('.project-navigation button')).find(b=>b.textContent.trim()===${JSON.stringify(label === "Trò chuyện" ? "Trao đổi" : label)}).click()`,
     );
-  await until(
-    () => js("!!document.querySelector('.workspace-project > button')"),
-    "project picker",
-  );
-  await js("document.querySelector('.workspace-project > button').click()");
-  await until(() =>
-    js(
-      "document.querySelectorAll('.project-choice:not(:disabled)').length===2",
-    ),
-  );
+  };
+  await until(() => js("!!document.querySelector('.workspace-home')"), "Home");
   await js(
-    `Array.from(document.querySelectorAll('.project-choice')).find(b=>b.textContent.includes(${JSON.stringify(project.name)})).click()`,
+    `document.querySelector('[data-project-id="${project.id}"]').click()`,
   );
+  await until(() => js("!!document.querySelector('.project-navigation')"));
+  await nav("Tổng quan");
   await until(
     () => js("!!document.querySelector('.project-overview .attention-list')"),
     "overview",
@@ -172,9 +178,9 @@ async function main() {
   );
   assert.equal(
     await js(
-      "document.querySelectorAll('nav[aria-label=\"Điều hướng chính\"] > button').length",
+      "document.querySelectorAll('nav[aria-label=\"Toàn ứng dụng\"] > button').length",
     ),
-    5,
+    2,
   );
   assert.equal(
     await js("document.querySelector('.overview-activity').open"),
@@ -228,7 +234,7 @@ async function main() {
   await until(() =>
     js("!!document.querySelector('.project-overview .attention-list')"),
   );
-  await click("Hỏi Lead");
+  await nav("Trò chuyện");
   await until(
     () =>
       js(
@@ -240,12 +246,12 @@ async function main() {
     await js(
       "Array.from(document.querySelectorAll('.workspace-actions button')).some(b => b.getClientRects().length > 0)",
     ),
-    false,
+    true,
   );
   await nav("Công việc");
   assert.equal(
     await js("!!document.querySelector('.workspace-actions button')"),
-    false,
+    true,
   );
   await until(() => js("!!document.querySelector('.kanban-workspace')"));
   assert.equal(
@@ -258,19 +264,21 @@ async function main() {
     true,
   );
   await click("Bộ lọc");
-  await click("Thêm việc");
+  await click("Tạo công việc");
   await until(
     () => js("!!document.querySelector('.board-editor[open]')"),
     "create board item",
   );
   await js(
-    `(() => {const input=document.querySelector('[aria-label="Tiêu đề công việc"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Công việc từ header');input.dispatchEvent(new Event('input',{bubbles:true}));})()`,
+    `(() => {const input=document.querySelector('.board-editor[open] [aria-label="Tiêu đề công việc"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'Công việc từ header');input.dispatchEvent(new Event('input',{bubbles:true}));})()`,
   );
-  await js("document.querySelector('.board-editor form').requestSubmit()");
+  await js(
+    "document.querySelector('.board-editor[open] form').requestSubmit()",
+  );
   await until(
     () =>
       js(
-        "!document.querySelector('.board-editor[open]') && document.querySelector('.kanban-columns')?.textContent.includes('Công việc từ header')",
+        "!document.querySelector('.board-editor[open]') && document.querySelector('.kanban-workspace:not([hidden]) .kanban-columns')?.textContent.includes('Công việc từ header')",
       ),
     "board saved",
   );
@@ -365,29 +373,13 @@ async function main() {
     ),
     true,
   );
-  await js("document.querySelector('.workspace-project > button').click()");
-  await until(() => js("!!document.querySelector('.project-choice')"));
-  await until(
-    () =>
-      js(
-        "document.activeElement === document.querySelector('.project-choice')",
-      ),
-    "project menu focus",
-  );
-  const otherIndex = await js(
-    `Array.from(document.querySelectorAll('.project-choice')).findIndex(b => b.textContent.includes(${JSON.stringify(other.name)}))`,
-  );
-  for (let i = 0; i < otherIndex; i++) {
-    win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Tab" });
-    win.webContents.sendInputEvent({ type: "keyUp", keyCode: "Tab" });
-    await pause(30);
-  }
+  await js(`document.querySelector('[data-project-id="${other.id}"]').focus()`);
   assert.equal(
     await js(
       `document.activeElement?.textContent.includes(${JSON.stringify(other.name)})`,
     ),
     true,
-    "Tab selects target project button",
+    "Sidebar target project is keyboard accessible",
   );
   win.webContents.sendInputEvent({ type: "keyDown", keyCode: "Enter" });
   win.webContents.sendInputEvent({ type: "char", keyCode: "\r" });
@@ -395,10 +387,12 @@ async function main() {
   await until(
     () =>
       js(
-        "document.querySelector('.workspace-project > button')?.textContent==='Other project' && !!document.querySelector('.overview-empty')",
+        "document.querySelector('.workspace-project > button')?.textContent==='Other project' && !!document.querySelector('.kanban-workspace:not([hidden])')",
       ),
     "project switch",
   );
+  await nav("Tổng quan");
+  await until(() => js("!!document.querySelector('.overview-empty')"));
   assert.equal(
     await js(
       "document.querySelector('.project-overview').textContent.includes('Giữ phiên đăng nhập')",
@@ -428,10 +422,6 @@ async function main() {
   await until(() =>
     js("!document.querySelector('.conversation-picker .ui-popover-panel')"),
   );
-  await js("document.querySelector('[aria-label=\"Khác\"]').click()");
-  await until(() =>
-    js("!!document.querySelector('button[title=\"Lịch sử\"]')"),
-  );
   await nav("Lịch sử");
   await until(() => js("!!document.querySelector('.run-history')"));
   assert.deepEqual(errors, []);
@@ -444,7 +434,7 @@ async function main() {
       "milestone timeline survives 350 noisy tool events",
       "no runDetail reads for overview",
       "context chat and draft preserved",
-      "four primary pages, project management in one popover, contextual conversation list",
+      "global sidebar and project tabs, contextual conversation list",
       "three attention rows with inline expansion; chat replies excluded from work results",
       "Board creates real BoardItem without duplicate header action; advanced filters collapsed",
       "unverified result opens exact inspector",

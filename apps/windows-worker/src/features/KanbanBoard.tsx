@@ -1,6 +1,6 @@
 import { Select } from "../ui/Select";
 import { WorkItemPanel } from "./WorkItemPanel";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   boardColumns,
   boardColumnLabels,
@@ -34,6 +34,8 @@ export function KanbanBoard({
   initialRunId,
   onAskLead,
   visible = true,
+  createRequest = 0,
+  showCreateButton = true,
 }: {
   projectId: string;
   projectName: string;
@@ -42,6 +44,8 @@ export function KanbanBoard({
   initialRunId?: string | null;
   onAskLead?: (itemId: string) => void;
   visible?: boolean;
+  createRequest?: number;
+  showCreateButton?: boolean;
 }) {
   const [query, setQuery] = useState<BoardQuery>(
     initialRunId ? { runId: initialRunId, showStopped: true } : {},
@@ -59,6 +63,11 @@ export function KanbanBoard({
     [error, setError] = useState("");
   const lock = useRef(false),
     dialog = useRef<HTMLDialogElement>(null);
+  const workspace = useRef<HTMLElement>(null);
+  const scrollPositions = useRef(
+    new Map<Element, { left: number; top: number }>(),
+  );
+  const consumedCreate = useRef(0);
   const initialHandled = useRef(false);
   const savedScroll = useRef<{ selector: string; left: number; top: number }[]>(
     [],
@@ -67,13 +76,38 @@ export function KanbanBoard({
   if (monitor.snapshot?.board) lastPage.current = monitor.snapshot.board;
   const page = monitor.snapshot?.board ?? lastPage.current;
   useEffect(() => {
-    if (editing) dialog.current?.showModal();
+    if (editing && visible) dialog.current?.showModal();
     else dialog.current?.close();
-  }, [editing]);
+  }, [editing, visible]);
+  useEffect(() => {
+    if (visible && createRequest && consumedCreate.current !== createRequest) {
+      consumedCreate.current = createRequest;
+      setDraft(blank);
+      setTemplate("");
+      setEditing("new");
+    }
+  }, [createRequest, visible]);
+  useLayoutEffect(() => {
+    if (visible)
+      for (const [element, position] of scrollPositions.current) {
+        element.scrollLeft = position.left;
+        element.scrollTop = position.top;
+      }
+  }, [visible]);
+  useEffect(() => {
+    if (initialRunId) {
+      initialHandled.current = false;
+      setSelected(null);
+      setQuery({ runId: initialRunId, showStopped: true });
+    }
+  }, [initialRunId]);
   useEffect(() => {
     if (!initialHandled.current && initialRunId && page) {
-      initialHandled.current = true;
-      setSelected(page.cards[0] ?? null);
+      const card = page.cards.find((item) => item.runId === initialRunId);
+      if (card) {
+        initialHandled.current = true;
+        setSelected(card);
+      }
     } else if (selected && page)
       setSelected(
         page.cards.find((card) => card.key === selected.key) ?? selected,
@@ -106,14 +140,18 @@ export function KanbanBoard({
     setSelected(null);
     requestAnimationFrame(() => {
       for (const saved of savedScroll.current) {
-        const element = document.querySelector<HTMLElement>(saved.selector);
+        const element = workspace.current?.querySelector<HTMLElement>(
+          saved.selector,
+        );
         if (element) {
           element.scrollLeft = saved.left;
           element.scrollTop = saved.top;
         }
       }
       Array.from(
-        document.querySelectorAll<HTMLButtonElement>("[data-work-key]"),
+        workspace.current?.querySelectorAll<HTMLButtonElement>(
+          "[data-work-key]",
+        ) ?? [],
       )
         .find((button) => button.dataset.workKey === key)
         ?.focus({ preventScroll: true });
@@ -125,7 +163,7 @@ export function KanbanBoard({
       ".work-list",
       ...boardColumns.map((column) => `.kanban-column.${column}`),
     ].flatMap((selector) => {
-      const element = document.querySelector<HTMLElement>(selector);
+      const element = workspace.current?.querySelector<HTMLElement>(selector);
       return element
         ? [{ selector, left: element.scrollLeft, top: element.scrollTop }]
         : [];
@@ -168,6 +206,15 @@ export function KanbanBoard({
     Number(!!query.archived);
   return (
     <section
+      ref={workspace}
+      onScrollCapture={(event) => {
+        if (!visible) return;
+        const element = event.target as Element;
+        scrollPositions.current.set(element, {
+          left: element.scrollLeft,
+          top: element.scrollTop,
+        });
+      }}
       hidden={!visible}
       className={`kanban-workspace ${!visible ? "workspace-hidden" : ""}`}
       aria-label="Kanban công việc"
@@ -176,17 +223,19 @@ export function KanbanBoard({
         <div>
           <h1>Công việc</h1>
         </div>
-        <button
-          className="primary"
-          disabled={busy}
-          onClick={() => {
-            setDraft(blank);
-            setTemplate("");
-            setEditing("new");
-          }}
-        >
-          Thêm việc
-        </button>
+        {showCreateButton && (
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={() => {
+              setDraft(blank);
+              setTemplate("");
+              setEditing("new");
+            }}
+          >
+            Thêm việc
+          </button>
+        )}
       </div>
       {(error || monitor.error) && (
         <div className="notice error" role="alert">
@@ -481,7 +530,7 @@ export function KanbanBoard({
           )}
         </>
       )}
-      {selected?.itemId && (
+      {visible && selected?.itemId && (
         <WorkItemPanel
           key={selected.itemId}
           projectId={projectId}
