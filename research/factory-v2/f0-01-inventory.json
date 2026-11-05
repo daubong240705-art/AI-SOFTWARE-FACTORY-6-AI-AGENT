@@ -1,0 +1,562 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-11-05T18:11:05.037Z",
+  "reviewDate": "2026-11-06",
+  "scope": "F0-01 static source inventory; not application or database acceptance",
+  "baselineCommit": "968d44601555bed24af3db6bf0de7e78f8288405",
+  "branch": "feature/factory-v2-foundation",
+  "nodeVersion": "v22.20.0",
+  "workerVersion": "1.3.0-alpha.8",
+  "legacyTrackedFileCount": 273,
+  "legacyGitTreeSha256": "2bcb87c96c073955ed1482f320f5cadd5f52aad82fdd60167280f8f3fad4fc97",
+  "sourceSchemaMaximum": 15,
+  "schemaEvidence": "apps/windows-worker/electron/storage/database.ts; source only, database not opened",
+  "worktreeStatusAtCapture": [
+    "?? research/factory-v2/reuse-map.json",
+    "?? scripts/"
+  ],
+  "reuseMap": {
+    "path": "research/factory-v2/reuse-map.json",
+    "jsonSha256": "d75de8b8babba931ecb5834d45130cb7489384d5d56aefff5f437b5e77abc188",
+    "moduleCount": 19,
+    "decisionCounts": {
+      "adapt": 11,
+      "replace": 6,
+      "keep": 1,
+      "defer": 1
+    }
+  },
+  "referenceFiles": [
+    {
+      "path": "apps/windows-worker/electron/controller/runs.ts",
+      "bytes": 64936,
+      "sha256": "cc3f95036785442ea693a9b41181b4baf5c0148ae230d36c3496548c23ee42a0"
+    },
+    {
+      "path": "apps/windows-worker/electron/controller/schedules.ts",
+      "bytes": 6183,
+      "sha256": "900b911ff6ae3c2fdc02e757b3ec04109a43feeda9e2b99fe8f678ab56a24050"
+    },
+    {
+      "path": "apps/windows-worker/electron/images.ts",
+      "bytes": 1003,
+      "sha256": "c71446df562efcc7a433b17160b75e01d4d3ebcad742624c5d767cf1b97de6c1"
+    },
+    {
+      "path": "apps/windows-worker/electron/main.ts",
+      "bytes": 29213,
+      "sha256": "fbfe48ea0b304caad88dfdb243aab288d3b93c185317492abe60776926e0000e"
+    },
+    {
+      "path": "apps/windows-worker/electron/preload.ts",
+      "bytes": 6953,
+      "sha256": "c35be36e1a76f705ab47c8682ba77339943966f66b0db58390c55e2be95aad33"
+    },
+    {
+      "path": "apps/windows-worker/electron/runtime/executions.ts",
+      "bytes": 2249,
+      "sha256": "e7a36080aec25751bb0293179e38f3ec6e365ffef9ee91a8aaf0d4452d606ddd"
+    },
+    {
+      "path": "apps/windows-worker/electron/runtime/failure.ts",
+      "bytes": 2690,
+      "sha256": "dfd0c749616db2b2397b0a5896fe71d25bc394600dca42123a0d1cb4dd54a0ac"
+    },
+    {
+      "path": "apps/windows-worker/electron/runtime/opencode.ts",
+      "bytes": 15346,
+      "sha256": "1a3a1e88728a6631e87b746dddad526d5bcab57af5ecd04b300405b07ed95683"
+    },
+    {
+      "path": "apps/windows-worker/electron/runtime/owned-job.cs",
+      "bytes": 6913,
+      "sha256": "3081b971d6e14fe0117d038e91f061dc065acbd67c141ae1f481b6d01e18fa52"
+    },
+    {
+      "path": "apps/windows-worker/electron/runtime/owned-process.ts",
+      "bytes": 4053,
+      "sha256": "a33bc631b731181302fad8eec3cb39ba35b07782aee9e7a280410227e6b01448"
+    },
+    {
+      "path": "apps/windows-worker/electron/runtime/permissions.ts",
+      "bytes": 1909,
+      "sha256": "f9da9f8e89f4abf5d390f1e0f0f942bc1f30b5987b2f7883b7d61c1d3392724f"
+    },
+    {
+      "path": "apps/windows-worker/electron/runtime/scope.ts",
+      "bytes": 954,
+      "sha256": "857ac57c4e9ff032807fed29846877029d894491ced8c4f3472d702197a3d5e2"
+    },
+    {
+      "path": "apps/windows-worker/electron/runtime/security.ts",
+      "bytes": 2327,
+      "sha256": "a43b7e807998495d3422aa325b3f5697cfd631bb91683c27da6cdc02f4267069"
+    },
+    {
+      "path": "apps/windows-worker/electron/runtime/visible-text.ts",
+      "bytes": 1285,
+      "sha256": "18c1e8d9951b5701abbc012279ca09917c251e24ef948d917c65666fc3878ff0"
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/chat-requests.ts",
+      "bytes": 894,
+      "sha256": "6974d776eccc027ab5f8f73d38fd9c5ca22dadd8618eb5b1512173df433d339d"
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/database.ts",
+      "bytes": 37925,
+      "sha256": "58c48418d79c2a689e390576d60c91b96c3fffcde3e4e073f2c55678b7a41076"
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/evidence.ts",
+      "bytes": 13263,
+      "sha256": "0439ffcc6c282cab2ef33d1f1726e361fa417af39676442c8630d600fc39f0a9"
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/images.ts",
+      "bytes": 8687,
+      "sha256": "707a9fbeb8a8163d81271a42c54e765a819d95ae63930108cdda6112623e59ec"
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/inbox.ts",
+      "bytes": 13686,
+      "sha256": "ab6d9ea9efe58ad78fe107e1ed4320261e3341b55bc100fa58504346dbaa2424"
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/questions.ts",
+      "bytes": 9007,
+      "sha256": "e3075aa308de1441790ccb1c1c5bc74a1190b03a408faee7f1d9eb5ad9b694d6"
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/reports.ts",
+      "bytes": 29428,
+      "sha256": "5c30b75860c9614d76bad5fac1367f064e8540542ee4c93f3feed1cf311a20d7"
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/schedules-migration.ts",
+      "bytes": 2012,
+      "sha256": "e59a39f5424186b3cbdd48f01f16c09c38e0ef93bfe94ac9cba2a5f35432acb4"
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/schedules.ts",
+      "bytes": 13648,
+      "sha256": "bc8628aaef3ec6291db893c9a5e0f7451f3bf15243d75345d6c79717ee9b1ef6"
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/work-migration.ts",
+      "bytes": 5910,
+      "sha256": "706aa47e4b89a8cba32435e7b08e6380dea5eec7847b1b040a9d5cccaa49f6be"
+    },
+    {
+      "path": "apps/windows-worker/electron/team/coordinator.ts",
+      "bytes": 23336,
+      "sha256": "e17a9158a1049b1b197bfe95cd4f2a59c9a6adf799fced9ae8f87e1088be13aa"
+    },
+    {
+      "path": "apps/windows-worker/electron/team/dispatch.ts",
+      "bytes": 1433,
+      "sha256": "da28a0e5ce3c881b62827e07956cc65c7806a0694efd9b570c2b29fa17d6bcf0"
+    },
+    {
+      "path": "apps/windows-worker/electron/team/evidence.ts",
+      "bytes": 10900,
+      "sha256": "880b76df971b430f244523c4a67ba10d1c8406d8f0cfda80f8ac1bed40f8c06e"
+    },
+    {
+      "path": "apps/windows-worker/electron/team/handoff.ts",
+      "bytes": 9409,
+      "sha256": "3258aa6c234ff5a7e7fecf87eefdb8a305ad08c3e250c1efb0684f056073b501"
+    },
+    {
+      "path": "apps/windows-worker/electron/team/profiles.ts",
+      "bytes": 1032,
+      "sha256": "67da3dd2740938d6743bff7caa3560bef23c69e15b9dfc29290e33bc678f1ac1"
+    },
+    {
+      "path": "apps/windows-worker/electron/team/role-policy.ts",
+      "bytes": 225,
+      "sha256": "9d3c5c28fdb32f3f94b173928ba962bea35af993f4541bb838e7cff4a3df76e1"
+    },
+    {
+      "path": "apps/windows-worker/electron/team/skills.ts",
+      "bytes": 9745,
+      "sha256": "8d543dee889bf098c6d3308233aa4d3528e5ef53c5daa4a5c3b6d95cbd38d034"
+    },
+    {
+      "path": "apps/windows-worker/electron/workspace/checkpoint.ts",
+      "bytes": 1399,
+      "sha256": "43e6b6c2a6b7a299307f490aa548297a201751bae3aa15eec0ee84ec511270f0"
+    },
+    {
+      "path": "apps/windows-worker/electron/workspace/files.ts",
+      "bytes": 9082,
+      "sha256": "9d9760448e2ff045a7a3074a347c3ca278c86be5fb3beabd162596ff68e6c0be"
+    },
+    {
+      "path": "apps/windows-worker/electron/workspace/git-evidence.ts",
+      "bytes": 5504,
+      "sha256": "53aed95b3edd97ef626926ea6c0b0d796efed2b1abf5856ba0301e6bbf705cdf"
+    },
+    {
+      "path": "apps/windows-worker/electron/workspace/integration.ts",
+      "bytes": 14060,
+      "sha256": "177ec720b45d2748927f38882cad3068fe6d37f3e3ec13724e76386def152b98"
+    },
+    {
+      "path": "apps/windows-worker/electron/workspace/snapshot.ts",
+      "bytes": 6318,
+      "sha256": "7a6ed03d7cf48e5d1ae139857e9aa3222625eb7e9773fb65be8799ae785f6854"
+    },
+    {
+      "path": "apps/windows-worker/electron/workspace/worktrees.ts",
+      "bytes": 17507,
+      "sha256": "ae2a18bd13ce22f0ecfe9195cf7d9771d307099ffe6c0e95237f69f5d88a8283"
+    },
+    {
+      "path": "apps/windows-worker/scripts/acceptance-ui-foundation.cjs",
+      "bytes": 20791,
+      "sha256": "4625a08352d393ae951ae1723157c75f3aa0730900ee82c3a4ea0cdef7fe8dc5"
+    },
+    {
+      "path": "apps/windows-worker/shared/chat.ts",
+      "bytes": 2620,
+      "sha256": "0d6479e799250d0407ff2785dc055fb5c5de71c164f51647f500497d45f9c4c7"
+    },
+    {
+      "path": "apps/windows-worker/shared/contracts.ts",
+      "bytes": 12355,
+      "sha256": "9e41919c102f9ba7c6b5964b563a84871d28b3531dc8040c7170b7b7c41cbdde"
+    },
+    {
+      "path": "apps/windows-worker/shared/evidence.ts",
+      "bytes": 2326,
+      "sha256": "ff2be7b610b2b523446558b4c92caa06a6d58cf0aea55df7123463a596df65ff"
+    },
+    {
+      "path": "apps/windows-worker/shared/questions.ts",
+      "bytes": 5538,
+      "sha256": "7e14116ca6aefe8bd62b0178de0767734d1c41674e45adf0d6c51e5f1dd139f6"
+    },
+    {
+      "path": "apps/windows-worker/shared/reports.ts",
+      "bytes": 5320,
+      "sha256": "da992c64aef5295d70afcd1139c892650d0bda730eaef0bfb43d9b27ac3e27d4"
+    },
+    {
+      "path": "apps/windows-worker/shared/schedules.ts",
+      "bytes": 8219,
+      "sha256": "9e88299a5722d9319a1c61f8abf3677c4ac43ca0871fd70548cddc78708285ee"
+    },
+    {
+      "path": "apps/windows-worker/shared/skills.ts",
+      "bytes": 1055,
+      "sha256": "0ac39b4a114df0f73ba425dd4dbc39483d9339a116190cbc33347b172cdc90d8"
+    },
+    {
+      "path": "apps/windows-worker/shared/task-presentation.ts",
+      "bytes": 4668,
+      "sha256": "6731f523257b452ab0ed4b108b7906de420e1f9f20823721267756277ba66ec7"
+    },
+    {
+      "path": "apps/windows-worker/shared/team.ts",
+      "bytes": 6323,
+      "sha256": "da8a38ef4e15d3ee41cd9201e637d24be300ca6f951619df7feb6508587669e8"
+    },
+    {
+      "path": "apps/windows-worker/shared/worktrees.ts",
+      "bytes": 312,
+      "sha256": "683b9b159a0da62ddded89b14f89da4cc4323e16cede5ab0488ac124ab522db2"
+    },
+    {
+      "path": "apps/windows-worker/src/App.tsx",
+      "bytes": 48844,
+      "sha256": "a1ed24e67a82cedbc7371e78d2a19a47a3ba848bf5f407db101136af37d5b0ce"
+    },
+    {
+      "path": "apps/windows-worker/src/features/ChatHost.tsx",
+      "bytes": 49537,
+      "sha256": "b4774a493fc6690550add2b6c2d029a65b8f94cdb741f3d6ade4940be8424609"
+    },
+    {
+      "path": "apps/windows-worker/src/features/ChatImages.tsx",
+      "bytes": 2677,
+      "sha256": "e1973070575a8fa321016d261030f954391d6b0b9ed1e1cdd50bad2670d3c269"
+    },
+    {
+      "path": "apps/windows-worker/src/features/ChatMarkdown.tsx",
+      "bytes": 2913,
+      "sha256": "d95ba58071212219c35fcbdacb95e22b524d3cbba5fb109ccfc47917a57460de"
+    },
+    {
+      "path": "apps/windows-worker/src/features/QuestionCards.tsx",
+      "bytes": 10073,
+      "sha256": "c9c6d0ab65cfd3616d3369572e0a5e030b046d9181ae58b3801f19345d1eed0f"
+    },
+    {
+      "path": "apps/windows-worker/src/features/TaskWorkspaceResults.tsx",
+      "bytes": 1806,
+      "sha256": "8a723cb7668a7b8ef8a41aea31592828374724656a2d29303aabcc546ff7d712"
+    },
+    {
+      "path": "apps/windows-worker/src/features/WorkReport.tsx",
+      "bytes": 14320,
+      "sha256": "5113d814c2926c0651de9b2a3ac5d357165872d2460f24d55275e18bdf2e926c"
+    },
+    {
+      "path": "apps/windows-worker/src/features/office/OfficeScene.tsx",
+      "bytes": 7196,
+      "sha256": "8741fcaa17aa460e378c0850596ee79e9f9aab74d4829d904081821504e91593"
+    },
+    {
+      "path": "apps/windows-worker/src/features/office/layout.ts",
+      "bytes": 2387,
+      "sha256": "bdac9906d6195c945a04c1391d7bb1dd3d3a34d961d0bfd2bb9d2792a783477f"
+    },
+    {
+      "path": "apps/windows-worker/src/features/office/state.ts",
+      "bytes": 4170,
+      "sha256": "fa6e229a36f7139fb250b74868afc95135d9dafd546abffbf07e76a6043f0f2d"
+    },
+    {
+      "path": "apps/windows-worker/src/lib/formatDuration.ts",
+      "bytes": 386,
+      "sha256": "7af8962dae536f90e3f4f8397e1b9d4aad4bd189358659c4dfd8abb29cc8cd7f"
+    },
+    {
+      "path": "apps/windows-worker/src/lib/formatRequestUsage.ts",
+      "bytes": 280,
+      "sha256": "54567ba099540447056b9b6a3e3dfa11f3ae897b14b99f82873bf7dc89dfdea6"
+    },
+    {
+      "path": "apps/windows-worker/src/lib/workspace-store.ts",
+      "bytes": 2019,
+      "sha256": "918e747245e02f89b39f4e58d487c01f42ae17d6f1b130955eaf6a4e4aa91a1e"
+    },
+    {
+      "path": "apps/windows-worker/src/ui/Popover.tsx",
+      "bytes": 3254,
+      "sha256": "ab9ec5a34cb22e6d1625f27dd96b14c24092286262de03b4b8873bc4b773665b"
+    },
+    {
+      "path": "apps/windows-worker/src/ui/Select.tsx",
+      "bytes": 8551,
+      "sha256": "8e4a7216d53a9f1af3b4ed2b5ea9c21e14ea467b70eff691244da2e19cdd2c49"
+    },
+    {
+      "path": "apps/windows-worker/src/ui/primitives.tsx",
+      "bytes": 1190,
+      "sha256": "ff312a9cc9f78c15823b42c726e7d6f4ae5de289a4f999e6e7937fb3787b5c0f"
+    },
+    {
+      "path": "apps/windows-worker/src/ui/tokens.css",
+      "bytes": 925,
+      "sha256": "58340cbe0f67d9a9e1697e1e8ecd71f23618249edb0179c4811632d3a9959cd4"
+    },
+    {
+      "path": "apps/windows-worker/tests/chat.test.ts",
+      "bytes": 26266,
+      "sha256": "9e21db321dba2043b0fa8d70b41e25ab3d33c32e7fc48862f88ceb19c5c7b770"
+    },
+    {
+      "path": "apps/windows-worker/tests/completion-evidence.test.ts",
+      "bytes": 25412,
+      "sha256": "be0764fdb50d9d17c0c456482fd34b9acae23865474d7ca97cc840f2cc7bbef2"
+    },
+    {
+      "path": "apps/windows-worker/tests/dispatch.test.ts",
+      "bytes": 2312,
+      "sha256": "f81746ee67a78fbfc8acb9bf8572c837ecf7418a18df565d37aa50edb7f28be6"
+    },
+    {
+      "path": "apps/windows-worker/tests/duration.test.ts",
+      "bytes": 721,
+      "sha256": "fc6049ff422c99229125fd82fe8358a85609c618b9279b07b549c77e90633f90"
+    },
+    {
+      "path": "apps/windows-worker/tests/evidence.test.ts",
+      "bytes": 12599,
+      "sha256": "77182698dc678892056721566a9b8138cf4add61755d356718e42c5f83742330"
+    },
+    {
+      "path": "apps/windows-worker/tests/executions.test.ts",
+      "bytes": 2063,
+      "sha256": "2d670fd2a400fd2913a9519634d4cc55221f9a1af5c6dd61efc659dd25c6ab58"
+    },
+    {
+      "path": "apps/windows-worker/tests/handoff.test.ts",
+      "bytes": 9377,
+      "sha256": "e40782ace65f18b2151f5328b4451c5ef8b65be586d5601a748892931d450987"
+    },
+    {
+      "path": "apps/windows-worker/tests/images.test.ts",
+      "bytes": 12797,
+      "sha256": "c2ee1f550adf87ec9de74e7825ed869fd7eb3d2e6ea03cdc99a8a4465105dd85"
+    },
+    {
+      "path": "apps/windows-worker/tests/inbox.test.ts",
+      "bytes": 17709,
+      "sha256": "d1faee869ce3d31c7fe019680a0407fe73084366b27b923f99ff17680441172f"
+    },
+    {
+      "path": "apps/windows-worker/tests/inspector.test.ts",
+      "bytes": 10708,
+      "sha256": "41c18bc7e414f8eef852a59456bb0697e82e4ff15ed6d46dd4c1a7dc1e2871b4"
+    },
+    {
+      "path": "apps/windows-worker/tests/integration.test.ts",
+      "bytes": 16709,
+      "sha256": "a9e2526f40ddf58b5d6d9e9fe73460c9c3b298eb8bbff8e33b1739eefbf97c5c"
+    },
+    {
+      "path": "apps/windows-worker/tests/interaction.test.ts",
+      "bytes": 5480,
+      "sha256": "3cdecaa90a993f2673842e1d0cbcb86cfc32bf905f61eb38c2169da2f65730a5"
+    },
+    {
+      "path": "apps/windows-worker/tests/lifecycle.test.ts",
+      "bytes": 12968,
+      "sha256": "461972bac5c2b8eac1f502fac2d988e0204ed7303fed581d5cbba1dd89d7dcb8"
+    },
+    {
+      "path": "apps/windows-worker/tests/model-timeout.test.ts",
+      "bytes": 3921,
+      "sha256": "fde57079dd8671a2c72cbf8b3244f4e38621b528ee4af1985c77df80045a5e95"
+    },
+    {
+      "path": "apps/windows-worker/tests/native-storage.cjs",
+      "bytes": 3195,
+      "sha256": "ce3ba0f7ddcf6f550ce1fa1d2f4a181e6f9343712bfd101a86e1575b5e0a2b97"
+    },
+    {
+      "path": "apps/windows-worker/tests/office-layout.test.ts",
+      "bytes": 2072,
+      "sha256": "bf6ea5138e373b714fbf14f372b299f971448185fe15e3ddb5665a181ce46e43"
+    },
+    {
+      "path": "apps/windows-worker/tests/office-state.test.ts",
+      "bytes": 8137,
+      "sha256": "5fec0772ded592a8a9d5f88d973aa76c320f218be3822e98307a926de4e8636c"
+    },
+    {
+      "path": "apps/windows-worker/tests/owned-process.test.ts",
+      "bytes": 7737,
+      "sha256": "eae029bfc69c9dd55d421a07c327ed79077c054cc286ce257ef6af911b3eee9d"
+    },
+    {
+      "path": "apps/windows-worker/tests/parallel.test.ts",
+      "bytes": 11940,
+      "sha256": "9a48a3c07f003861744eae712e5c4e2f53f84fa9e44b954bf23e43df8da9cf02"
+    },
+    {
+      "path": "apps/windows-worker/tests/profiles.test.ts",
+      "bytes": 8765,
+      "sha256": "f44cdd2b18d0a573850c35c2721c5c0ce9ec1cdc2b6ea160a125ed45663c6a24"
+    },
+    {
+      "path": "apps/windows-worker/tests/questions.test.ts",
+      "bytes": 21791,
+      "sha256": "09c72e362f4b85d5a66426af3cabe3a0dbddc8df0f2554781643b7d4549a3d1d"
+    },
+    {
+      "path": "apps/windows-worker/tests/reports.test.ts",
+      "bytes": 28267,
+      "sha256": "bf3b3c15ab1d133b1e063a29d2dddd1f0e7c900b0996a2f128943b78343b7fa4"
+    },
+    {
+      "path": "apps/windows-worker/tests/requestUsage.test.ts",
+      "bytes": 915,
+      "sha256": "3cd9337cbeafcb3760b8e682962b0847056e255eeb2b032b7307ae054e765bc8"
+    },
+    {
+      "path": "apps/windows-worker/tests/runtime.test.ts",
+      "bytes": 5405,
+      "sha256": "8d1aea8eb925ebca95c2a5f07d44e0b2ce6d98e0cbf90b4ab37ed2e6fcc45522"
+    },
+    {
+      "path": "apps/windows-worker/tests/schedule-service.test.ts",
+      "bytes": 9201,
+      "sha256": "f1f6930186d3736c50cf2ebdf8d840063a257504d53aa501b00d57f911aa87be"
+    },
+    {
+      "path": "apps/windows-worker/tests/schedule-storage.test.ts",
+      "bytes": 10752,
+      "sha256": "e1baaec6fd3de32a85fdcfb7c01539a1293d48c08f530f402a5c98e9aaa2036d"
+    },
+    {
+      "path": "apps/windows-worker/tests/schedules.test.ts",
+      "bytes": 5666,
+      "sha256": "592c2da27cb5a1d9ca8ea78e8559ef770dab4f14c090bf65e4a50550bc24b818"
+    },
+    {
+      "path": "apps/windows-worker/tests/skills.test.ts",
+      "bytes": 12585,
+      "sha256": "c7d754be1817ec6de3046e1577197d3dd0fbf0763d5b90ccd6539fb1463cd80f"
+    },
+    {
+      "path": "apps/windows-worker/tests/task-presentation.test.ts",
+      "bytes": 3097,
+      "sha256": "09f7302e63ebe4a15edb6d5642358704f94cd39b59e9102fc23de76558fa5b17"
+    },
+    {
+      "path": "apps/windows-worker/tests/workspace.test.ts",
+      "bytes": 11218,
+      "sha256": "d3d0d06ec551def7f98f848e6a2398a8290d62a218571fea40e46643b35608a2"
+    },
+    {
+      "path": "apps/windows-worker/tests/worktrees.test.ts",
+      "bytes": 14653,
+      "sha256": "1f69be152bafbf202d8f4cfc4d5ddb9eae5ccce55cd1bc60e93cc704b9f291ad"
+    }
+  ],
+  "legacyData": {
+    "pathTemplate": "%APPDATA%/ASF Windows Worker",
+    "inspected": true,
+    "databaseOpened": false,
+    "schemaReadFromDatabase": false,
+    "metadataOnly": [
+      {
+        "name": "worker.sqlite",
+        "exists": true,
+        "kind": "file",
+        "bytes": 2076672,
+        "modifiedAtUtc": "2026-11-05T15:28:38.307Z"
+      },
+      {
+        "name": "worker.sqlite-wal",
+        "exists": false
+      },
+      {
+        "name": "worker.sqlite-shm",
+        "exists": false
+      },
+      {
+        "name": "owned-jobs",
+        "exists": true,
+        "kind": "directory",
+        "bytes": null,
+        "modifiedAtUtc": "2026-11-05T07:40:57.414Z"
+      },
+      {
+        "name": "runtime",
+        "exists": true,
+        "kind": "directory",
+        "bytes": null,
+        "modifiedAtUtc": "2026-11-05T07:32:50.881Z"
+      },
+      {
+        "name": "workspaces",
+        "exists": true,
+        "kind": "directory",
+        "bytes": null,
+        "modifiedAtUtc": "2026-11-04T14:29:52.386Z"
+      }
+    ]
+  },
+  "effects": {
+    "projectCodeExecuted": false,
+    "databaseOpened": false,
+    "credentialsRead": false,
+    "wslStarted": false,
+    "modelCalled": false
+  }
+}

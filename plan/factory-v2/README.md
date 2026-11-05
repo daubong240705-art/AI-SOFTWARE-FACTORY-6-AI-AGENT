@@ -2,6 +2,8 @@
 
 Ngày: **05/11/2026**. Trạng thái: **kế hoạch để triển khai; chưa xây Host/UI V2**. Baseline `793f081`, nhánh `feature/worker-office-v1.3d`; checkpoint `checkpoint/factory-v2-consolidated-20261105`. Mã phiên bản V2 dùng cho hướng sản phẩm mới, không đổi version ứng dụng hiện tại trong đợt tài liệu này.
 
+**Tiến độ 06/11/2026:** [F0-01 baseline/reuse map đã hoàn thành](f0-01-baseline.md), checkpoint `checkpoint/factory-v2-f0-01-20261106`, nhánh mới `feature/factory-v2-foundation`. Chốt tách source V2 trong cùng repo, TypeScript Host + React/TypeScript UI. Chưa scaffold Host/UI, đổi DB hoặc cài WSL; tiếp theo F0-02/F0-03.
+
 **Đây là đầu mối kế hoạch hiện hành.** Gộp hướng multi-runtime, Paperclip, đa lĩnh vực, Loops, quyền tự động và WSL2. Yêu cầu mới lấy **CrewHub làm chuẩn trên 90% về diện mạo và độ bao phủ nghiệp vụ local đã xác định**; thay các quyết định cũ giữ palette/Segoe UI, giản lược thanh tab, hoãn Graph vô thời hạn hoặc bắt Windows-native/Electron. Không yêu cầu xóa sản phẩm/dữ liệu cũ.
 
 ## 1. Đọc và triển khai theo bộ tài liệu nào?

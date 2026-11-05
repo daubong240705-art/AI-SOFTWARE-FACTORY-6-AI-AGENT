@@ -1,6 +1,6 @@
 # Backlog triển khai Factory V2
 
-Đọc [phạm vi hiện hành](README.md), [UI reference](design-reference.md), [behavior contracts](workflows.md) và [acceptance](acceptance.md). Mọi ticket dưới đây **Planned**, chưa triển khai. Không dùng trạng thái hoàn thành của tài liệu để đánh dấu chức năng đã có.
+Đọc [phạm vi hiện hành](README.md), [UI reference](design-reference.md), [behavior contracts](workflows.md) và [acceptance](acceptance.md). **Cập nhật 06/11/2026: F0-01 Done** — [baseline và reuse map](f0-01-baseline.md). 39 ticket còn lại Planned. Chưa triển khai Host/UI V2; không dùng trạng thái hoàn thành của inventory/tài liệu để đánh dấu chức năng đã có.
 
 ## 1. Cách thực hiện và bàn giao
 
@@ -14,7 +14,7 @@ Mức S/M/L chỉ độ lớn tương đối (S một boundary nhỏ, M nhiều 
 
 | Ticket / nhóm / cỡ | Việc phải làm và đầu ra | Phụ thuộc | Nghiệm thu |
 |---|---|---|---|
-| F0-01 BA/BE · S | Kiểm kê source hiện tại, dirty files, DB paths; lập keep/adapt/replace map cho chat/evidence/process/worktree/docs/schedules | Bộ kế hoạch | Checkpoint, không mất sửa người dùng; phân biệt chức năng V1 đã có và V2 chưa có |
+| F0-01 BA/BE · S · **Done** | [Baseline 06/11 và reuse map](f0-01-baseline.md): 19 nhóm, 96 source/test refs; DB metadata-only | Bộ kế hoạch | Checkpoint `checkpoint/factory-v2-f0-01-20261106`, source V1 giữ nguyên, chưa mở DB/cài WSL |
 | F0-02 BA/FE · M | Chuyển chín ảnh thành screen/component checklist; style guide states + seed data; ưu tiên UI-04/UI-08/UI-03 | F0-01 | Mapping đúng tên ảnh; tokens, layout, Vietnamese labels và rubric được lưu cùng source |
 | F0-03 BE/FE · M | ADR source boundaries, command/event contracts, schema/index invariants, adapter interface và permissions model | F0-01; dùng F0-02 | Một nguồn task/dispatch; UI/Host thống nhất errors/revisions; plan schema V2 tách DB V1 |
 

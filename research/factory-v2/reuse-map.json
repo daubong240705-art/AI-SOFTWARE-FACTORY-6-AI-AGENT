@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "ticket": "F0-01",
+  "reviewDate": "2026-11-06",
+  "decisions": {
+    "keep": "Giữ hành vi hoặc utility độc lập sau khi kiểm chứng; không import trực tiếp code V1 vào V2.",
+    "adapt": "Chuyển cơ chế hữu ích sang contracts/storage/runtime V2, bỏ coupling với role/Electron/Windows.",
+    "replace": "Viết boundary mới; V1 giữ nguyên trong lúc chuyển tiếp.",
+    "defer": "Giữ source lịch sử, không đưa vào bản V2 local."
+  },
+  "modules": [
+    {
+      "id": "chat-receipts",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/shared/chat.ts", "apps/windows-worker/electron/storage/chat-requests.ts", "apps/windows-worker/electron/storage/database.ts"],
+      "tests": ["apps/windows-worker/tests/chat.test.ts", "apps/windows-worker/tests/interaction.test.ts"],
+      "finding": "requestId + fingerprint và transaction chống gửi trùng đã có; ChatSend vẫn dùng enum role/mode V1.",
+      "target": "Host chat commands/receipts; expected revision, actor/project scope và durable dispatch.",
+      "requiredCheck": "Double send/reconnect cùng key chỉ tạo một việc; cùng key khác payload trả conflict."
+    },
+    {
+      "id": "chat-ui",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/src/features/ChatHost.tsx", "apps/windows-worker/src/features/ChatMarkdown.tsx", "apps/windows-worker/src/features/ChatImages.tsx"],
+      "tests": ["apps/windows-worker/tests/images.test.ts", "apps/windows-worker/tests/chat.test.ts"],
+      "finding": "Có draft, images, paging và send receipt; ChatHost gọi window.worker và dùng model Run V1.",
+      "target": "React chat dock với API client, ngữ cảnh Lead/task và meaningful milestones.",
+      "requiredCheck": "Giữ draft/context/IME, không tạo ticket khi chỉ tư vấn, không append message trùng."
+    },
+    {
+      "id": "evidence",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/electron/team/evidence.ts", "apps/windows-worker/electron/storage/evidence.ts", "apps/windows-worker/shared/evidence.ts"],
+      "tests": ["apps/windows-worker/tests/evidence.test.ts", "apps/windows-worker/tests/completion-evidence.test.ts"],
+      "finding": "Command identity gồm run/attempt/session/call, kiểm sourceVersion và artifact hash; criteria còn nhánh theo role test.",
+      "target": "Output/evidence/assessment V2 dùng completion contract revisions và typed validators.",
+      "requiredCheck": "Late/stale evidence không đánh pass bản mới; model report không thay bằng chứng."
+    },
+    {
+      "id": "snapshots",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/electron/workspace/snapshot.ts", "apps/windows-worker/electron/workspace/checkpoint.ts", "apps/windows-worker/electron/workspace/git-evidence.ts", "apps/windows-worker/electron/workspace/files.ts"],
+      "tests": ["apps/windows-worker/tests/lifecycle.test.ts", "apps/windows-worker/tests/evidence.test.ts"],
+      "finding": "Snapshot có completeness/limits/symlink handling; files.ts có so sánh root bằng toLowerCase, không được mang nguyên sang Linux case-sensitive.",
+      "target": "Host workspace path boundary, content hashes và checkpoint/recovery interfaces.",
+      "requiredCheck": "Phân biệt incomplete với đầy đủ; Linux case/symlink/path escape và stale restore được kiểm."
+    },
+    {
+      "id": "process-ownership",
+      "decision": "replace",
+      "files": ["apps/windows-worker/electron/runtime/owned-process.ts", "apps/windows-worker/electron/runtime/owned-job.cs", "apps/windows-worker/electron/runtime/executions.ts"],
+      "tests": ["apps/windows-worker/tests/owned-process.test.ts", "apps/windows-worker/tests/executions.test.ts"],
+      "finding": "Win32 dùng named Job Object và PowerShell/C#; nhánh non-win32 chỉ spawn, không chứng minh Linux process-tree recovery.",
+      "target": "Linux process ownership/interrupt/terminate/reconcile theo run attempt và process lifecycle.",
+      "requiredCheck": "Stop owned process tree, crash và PID reuse; không kill process theo tên/PID lịch sử thiếu identity."
+    },
+    {
+      "id": "worktrees",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/electron/workspace/worktrees.ts", "apps/windows-worker/electron/workspace/integration.ts", "apps/windows-worker/shared/worktrees.ts"],
+      "tests": ["apps/windows-worker/tests/worktrees.test.ts", "apps/windows-worker/tests/integration.test.ts", "apps/windows-worker/tests/parallel.test.ts"],
+      "finding": "Ownership manifests, Git no-hooks và integration source checks có giá trị; còn phụ thuộc Run/TeamTask và workspace riêng của V1.",
+      "target": "Optional Git workspace manager; isolated workspaces và integration owner, directory mode không cần Git.",
+      "requiredCheck": "Không sửa source gốc ngoài quyền, không tích hợp stale task, preserve dirty work và cleanup có reference checks."
+    },
+    {
+      "id": "task-handoff",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/electron/team/handoff.ts", "apps/windows-worker/shared/team.ts", "apps/windows-worker/shared/task-presentation.ts"],
+      "tests": ["apps/windows-worker/tests/handoff.test.ts", "apps/windows-worker/tests/task-presentation.test.ts"],
+      "finding": "Có bounded context và giữ BA contracts qua dependencies; report tự khai verified=false; recipient/role và task limits cố định.",
+      "target": "Task thread/handoff envelope với input/output revision refs và agent IDs.",
+      "requiredCheck": "FE/BE nhận đúng BA contract version, không biến self-report thành verified result."
+    },
+    {
+      "id": "scheduler",
+      "decision": "replace",
+      "files": ["apps/windows-worker/electron/controller/runs.ts", "apps/windows-worker/electron/team/coordinator.ts", "apps/windows-worker/electron/team/dispatch.ts"],
+      "tests": ["apps/windows-worker/tests/dispatch.test.ts", "apps/windows-worker/tests/parallel.test.ts"],
+      "finding": "Controller lớn và coordinator gắn role/Run; isolatedDispatch tối đa hai task, special-case test role; DB có one_active_run toàn app.",
+      "target": "Một coordinator durable queue/claims/leases/fencing, concurrency theo resources/scopes.",
+      "requiredCheck": "Hai runtime chạy song song, claim conflict và late callback không tạo execution kép."
+    },
+    {
+      "id": "runtime-adapter",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/electron/runtime/opencode.ts", "apps/windows-worker/electron/runtime/security.ts", "apps/windows-worker/electron/runtime/visible-text.ts", "apps/windows-worker/electron/runtime/failure.ts"],
+      "tests": ["apps/windows-worker/tests/runtime.test.ts", "apps/windows-worker/tests/model-timeout.test.ts"],
+      "finding": "OpenCode-only, pin 1.19.5, nine_router provider; mcp rỗng, external skills và task tool tắt; stream/reconcile/error handling đáng học.",
+      "target": "Runtime adapter interface/capabilities; OpenCode module bên cạnh Codex/Claude, model/auth theo connection.",
+      "requiredCheck": "Probe phiên bản Linux/auth và stop/resume thật; không giả supported từ Windows PATH."
+    },
+    {
+      "id": "permissions",
+      "decision": "replace",
+      "files": ["apps/windows-worker/electron/team/role-policy.ts", "apps/windows-worker/electron/runtime/permissions.ts", "apps/windows-worker/electron/runtime/scope.ts", "apps/windows-worker/shared/contracts.ts"],
+      "tests": ["apps/windows-worker/tests/profiles.test.ts", "apps/windows-worker/tests/runtime.test.ts"],
+      "finding": "Bash đã auto allow khi allowShell=true, không phải mọi lệnh V1 đều hỏi; quyền vẫn theo tên role và settings có legacy permissionMode.",
+      "target": "Execution grants theo project/environment/capability; business decision và result review riêng.",
+      "requiredCheck": "Read/edit/shell/build/test trong scope không routine prompts; permission mismatch gom một blocker."
+    },
+    {
+      "id": "documents-reports",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/electron/storage/reports.ts", "apps/windows-worker/shared/reports.ts", "apps/windows-worker/src/features/WorkReport.tsx", "apps/windows-worker/src/features/TaskWorkspaceResults.tsx"],
+      "tests": ["apps/windows-worker/tests/reports.test.ts", "apps/windows-worker/tests/inspector.test.ts"],
+      "finding": "Reports/evidence/readable BA outputs đã có, review gắn source version; chưa là document/output registry đa lĩnh vực độc lập.",
+      "target": "Versioned documents/assets/outputs, contract input refs và Reports UI-05.",
+      "requiredCheck": "Xem/tải BA data model/API docs, output mới làm verdict cũ stale, pass/fail/not-run phân biệt."
+    },
+    {
+      "id": "decisions-review",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/electron/storage/questions.ts", "apps/windows-worker/shared/questions.ts", "apps/windows-worker/electron/storage/inbox.ts", "apps/windows-worker/src/features/QuestionCards.tsx"],
+      "tests": ["apps/windows-worker/tests/questions.test.ts", "apps/windows-worker/tests/inbox.test.ts"],
+      "finding": "Câu hỏi/replies/inbox đã có; tách record cần trả lời khỏi tool events và mở rộng authority/version theo V2.",
+      "target": "Decision/review records dùng chung giữa Chat/detail/inbox, human-final/automatic/hybrid.",
+      "requiredCheck": "Trả lời một nơi cập nhật mọi view; không áp câu trả lời vào context đã đổi."
+    },
+    {
+      "id": "schedules",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/shared/schedules.ts", "apps/windows-worker/electron/controller/schedules.ts", "apps/windows-worker/electron/storage/schedules.ts", "apps/windows-worker/electron/storage/schedules-migration.ts"],
+      "tests": ["apps/windows-worker/tests/schedules.test.ts", "apps/windows-worker/tests/schedule-service.test.ts", "apps/windows-worker/tests/schedule-storage.test.ts"],
+      "finding": "Timer/preview/version/occurrence primary key/history đã có; deliver tạo work item planningState=backlog, chưa auto-dispatch model.",
+      "target": "Schedule emits typed event qua cùng rule engine/queue; skip/coalesce và UI-06.",
+      "requiredCheck": "Restart/Off/missed slots không duplicate; lịch tạo report chạy thật khi Host hoạt động."
+    },
+    {
+      "id": "ui-primitives",
+      "decision": "adapt",
+      "files": ["apps/windows-worker/src/ui/Select.tsx", "apps/windows-worker/src/ui/Popover.tsx", "apps/windows-worker/src/ui/primitives.tsx", "apps/windows-worker/src/ui/tokens.css"],
+      "tests": ["apps/windows-worker/scripts/acceptance-ui-foundation.cjs"],
+      "finding": "Custom select/popover đã có; có keyboard/focus/collision logic, palette cũ không phải CrewHub và acceptance script gắn Electron.",
+      "target": "Factory UI primitives với token CrewHub, browser accessibility/visual verification.",
+      "requiredCheck": "Arrow/menu căn đều, viewport/keyboard/IME/long Vietnamese text, không mang cả CSS global V1."
+    },
+    {
+      "id": "presentation-utils",
+      "decision": "keep",
+      "files": ["apps/windows-worker/src/lib/formatDuration.ts", "apps/windows-worker/src/lib/formatRequestUsage.ts"],
+      "tests": ["apps/windows-worker/tests/duration.test.ts", "apps/windows-worker/tests/requestUsage.test.ts"],
+      "finding": "Utility format thuần, ít coupling, không cần framework/runtime.",
+      "target": "Copy utility có chọn lọc khi UI cần; V2 không runtime-import source V1.",
+      "requiredCheck": "Giữ xử lý invalid/negative duration và semantics quota; không copy khi chưa có consumer."
+    },
+    {
+      "id": "transport-shell",
+      "decision": "replace",
+      "files": ["apps/windows-worker/electron/main.ts", "apps/windows-worker/electron/preload.ts", "apps/windows-worker/src/App.tsx", "apps/windows-worker/src/lib/workspace-store.ts"],
+      "tests": ["apps/windows-worker/tests/workspace.test.ts"],
+      "finding": "IPC/safeStorage/native dialogs và window.worker ràng buộc Electron; UI store dùng polling 900/2500 ms.",
+      "target": "Browser API client + authenticated Host API/event cursor; shell mới theo CrewHub.",
+      "requiredCheck": "Reconnect không lặp events, token/origin checks, không import Electron vào Host/UI V2."
+    },
+    {
+      "id": "storage-migrations",
+      "decision": "replace",
+      "files": ["apps/windows-worker/electron/storage/database.ts", "apps/windows-worker/electron/storage/work-migration.ts", "apps/windows-worker/electron/storage/images.ts", "apps/windows-worker/electron/images.ts"],
+      "tests": ["apps/windows-worker/tests/native-storage.cjs", "apps/windows-worker/tests/images.test.ts"],
+      "finding": "Store constructor tự mkdir/open/WAL/migrate schema <=15; credential encrypted BLOB qua safeStorage, image decode dùng nativeImage.",
+      "target": "V2 SQLite/state/assets riêng, explicit migration/backup, credential refs Linux và image pipeline không Electron.",
+      "requiredCheck": "Không mở DB thật qua Store để inventory; import bản sao, không copy encrypted credentials như plain auth."
+    },
+    {
+      "id": "skills-catalog",
+      "decision": "replace",
+      "files": ["apps/windows-worker/electron/team/skills.ts", "apps/windows-worker/shared/skills.ts", "apps/windows-worker/electron/team/profiles.ts"],
+      "tests": ["apps/windows-worker/tests/skills.test.ts", "apps/windows-worker/tests/profiles.test.ts"],
+      "finding": "Catalog và selection theo role/workType nội bộ, chưa có registry cài package tự do.",
+      "target": "Pinned skill/tool registry + bindings và per-run snapshots; MCP/CLI theo grants.",
+      "requiredCheck": "Import không thực thi script và không nâng quyền, đổi version không đổi run đang chạy."
+    },
+    {
+      "id": "office-3d",
+      "decision": "defer",
+      "files": ["apps/windows-worker/src/features/office/OfficeScene.tsx", "apps/windows-worker/src/features/office/layout.ts", "apps/windows-worker/src/features/office/state.ts"],
+      "tests": ["apps/windows-worker/tests/office-layout.test.ts", "apps/windows-worker/tests/office-state.test.ts"],
+      "finding": "3D và dependencies three/fiber hiện có nhưng đã được người dùng tạm dừng.",
+      "target": "Không đưa three/fiber vào dependency graph V2 local; giữ source V1.",
+      "requiredCheck": "F0 không xóa scene hoặc thay lockfile V1."
+    }
+  ]
+}

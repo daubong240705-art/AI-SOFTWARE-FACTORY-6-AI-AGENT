@@ -1,0 +1,29 @@
+{
+  "ticket": "F0-01",
+  "reviewDate": "2026-11-06",
+  "status": "passed",
+  "baselineCommit": "968d44601555bed24af3db6bf0de7e78f8288405",
+  "checkpointVerified": true,
+  "nodeSyntaxCheck": "passed",
+  "inventoryCliRun": "passed",
+  "metadataOnlySnapshotCaptured": true,
+  "databaseOpened": false,
+  "referenceSourceAndTestHashesVerified": 96,
+  "legacyTrackedFilesUnchanged": 273,
+  "reuseGroups": 19,
+  "decisionCounts": {
+    "adapt": 11,
+    "replace": 6,
+    "keep": 1,
+    "defer": 1
+  },
+  "repeatSourceInventoryConsistent": true,
+  "cliRejectionCasesPassed": 4,
+  "markdownDocumentsChecked": 4,
+  "relativeLinksChecked": 32,
+  "gitDiffCheck": "passed",
+  "applicationBuildOrTestsRun": false,
+  "linuxRuntimeAuthOrToolchainVerified": false,
+  "credentialsReadOrMigrated": false,
+  "scope": "Static baseline/reuse-map and inventory CLI verification; not V2 runtime acceptance."
+}
