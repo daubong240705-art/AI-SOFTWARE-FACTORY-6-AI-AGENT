@@ -1,10 +1,12 @@
 # Factory V2 — Kế hoạch hợp nhất theo CrewHub Loops
 
+**Cập nhật UI/UX 06/11/2026:** [Đánh giá và kế hoạch nâng cấp](uiux-upgrade.md) là quyết định hiện hành: Light mặc định, Dark/System, Inter, vi/en và nhiều cửa sổ chat kéo/resize. Thay mục tiêu sao chép palette/font trên 90% và giới hạn một dock; giữ phạm vi nghiệp vụ và tiêu chí tin cậy. Prototype F0-02 còn dở, chưa có Host/UI V2 thật.
+
 Ngày: **05/11/2026**. Trạng thái: **kế hoạch để triển khai; chưa xây Host/UI V2**. Baseline `793f081`, nhánh `feature/worker-office-v1.3d`; checkpoint `checkpoint/factory-v2-consolidated-20261105`. Mã phiên bản V2 dùng cho hướng sản phẩm mới, không đổi version ứng dụng hiện tại trong đợt tài liệu này.
 
 **Tiến độ 06/11/2026:** [F0-01 baseline/reuse map đã hoàn thành](f0-01-baseline.md), checkpoint `checkpoint/factory-v2-f0-01-20261106`, nhánh mới `feature/factory-v2-foundation`. Chốt tách source V2 trong cùng repo, TypeScript Host + React/TypeScript UI. Chưa scaffold Host/UI, đổi DB hoặc cài WSL; tiếp theo F0-02/F0-03.
 
-**Đây là đầu mối kế hoạch hiện hành.** Gộp hướng multi-runtime, Paperclip, đa lĩnh vực, Loops, quyền tự động và WSL2. Yêu cầu mới lấy **CrewHub làm chuẩn trên 90% về diện mạo và độ bao phủ nghiệp vụ local đã xác định**; thay các quyết định cũ giữ palette/Segoe UI, giản lược thanh tab, hoãn Graph vô thời hạn hoặc bắt Windows-native/Electron. Không yêu cầu xóa sản phẩm/dữ liệu cũ.
+**Đây là đầu mối kế hoạch hiện hành.** Gộp multi-runtime, Paperclip, đa lĩnh vực, Loops, quyền tự động và WSL2. CrewHub là tham chiếu trải nghiệm và vòng nghiệp vụ local; hình thức theo kế hoạch UI/UX 06/11, không bắt sao chép palette/font trên 90%. Giữ project tabs, Graph và hướng web/WSL đã chốt. Không yêu cầu xóa sản phẩm/dữ liệu cũ.
 
 ## 1. Đọc và triển khai theo bộ tài liệu nào?
 
@@ -14,7 +16,8 @@ Ngày: **05/11/2026**. Trạng thái: **kế hoạch để triển khai; chưa x
 | [Thiết kế và bộ ảnh](design-reference.md) | Chín ảnh chuẩn, màu/font/kích thước, bố cục từng trang, responsive |
 | [Quy trình và hợp đồng dữ liệu](workflows.md) | Lead/agent/task, quyền, bàn giao, automation, trạng thái và API |
 | [Backlog và thứ tự triển khai](delivery-plan.md) | Các đợt F0–F8, ticket cụ thể, phụ thuộc, đầu ra và nghiệm thu |
-| [Tiêu chí nghiệm thu](acceptance.md) | Cách đo trên 90%, luồng bắt buộc, bằng chứng và điều kiện phát hành |
+| [Tiêu chí nghiệm thu](acceptance.md) | Quality gates hiện hành, business parity, luồng bắt buộc và bằng chứng phát hành; visual rubric cũ chỉ tham khảo |
+| [Đánh giá UI/UX 06/11](uiux-upgrade.md) | Hiện trạng thật/demo, Light/Dark, Inter, vi/en, chat windows, thư viện và các bước UX-0–5 |
 | [Manifest tham chiếu](../../research/factory-v2/reference-manifest.json) | Hash ảnh, snapshot nguồn, quyết định, giới hạn khảo sát |
 | [Kết quả kiểm tra tài liệu](../../research/factory-v2/validation.json) | Links, JSON, hashes, số ticket/cases; không phải app build/test |
 
@@ -26,13 +29,13 @@ Một ứng dụng web local, mở bằng trình duyệt Windows, quản lý đ�
 
 Ví dụ phần mềm: trao đổi yêu cầu → BA lưu yêu cầu/data model/API contract có phiên bản → FE và BE chạy song song trên input đã chốt → tích hợp → kiểm tra → Lead báo kết quả → hoàn thành hoặc review theo policy. Ví dụ nội dung/video: brief → nghiên cứu/kịch bản → asset → render job → preview → sửa/xuất. Những chuỗi này là template sửa được; việc nhỏ không phải đi qua mọi role.
 
-Giao diện dùng nền `#232323`, panel `#2C2C2C`, accent coral `#FE676F`, nút chính trắng, sidebar và project tabs theo bộ ảnh CrewHub. Board giữ cột cao theo vùng màn hình, Team có cây session/agent, Lead chat dạng dock nổi. Không biến sản phẩm thành bảng log hoặc biểu mẫu xác nhận lệnh.
+Giao diện dùng Light mặc định, có Dark/System, Inter và vi/en theo kế hoạch UI/UX; giữ sidebar/project tabs và nhịp bố cục CrewHub. Board giữ cột cao theo viewport, Team có cây session/agent, chat có cửa sổ kéo/resize và tray. Không biến sản phẩm thành bảng log hoặc biểu mẫu xác nhận lệnh.
 
 ## 3. Quyết định đã hợp nhất
 
 | Mã | Quyết định hiện hành | Hệ quả khi triển khai |
 |---|---|---|
-| D01 | CrewHub Loops là chuẩn trải nghiệm/nghiệp vụ | Dựng đúng shell, nhịp bố cục, tab, màu và các vòng giao việc; không chỉ đổi màu app cũ |
+| D01 | CrewHub Loops là tham chiếu trải nghiệm/nghiệp vụ | Shell, nhịp bố cục, tab và vòng giao việc; Light/Dark, Inter, vi/en, chat windows theo UI/UX 06/11 |
 | D02 | Web UI + một Host WSL2; local-first | Trình duyệt không chạy CLI trực tiếp; Electron chỉ là tùy chọn đóng gói về sau |
 | D03 | Một nguồn quản lý ownership/dispatch | Lead và automation gửi command qua cùng coordinator/queue |
 | D04 | Không bắt LangGraph | Bắt đầu state machine + durable queue; chỉ xét lại khi có bằng chứng recovery/workflow cần engine chuyên dụng |

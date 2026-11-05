@@ -176,3 +176,7 @@ User activity chỉ phát mốc meaningful: assigned/started/decision/blocker/ou
 Cost/usage có known/pending/unknown, session cumulative tính delta tránh đếm hai lần. Admission theo concurrency/token/time/disk và budget cung cấp; không hứa dollar hard cap khi provider chưa báo giá/usage kịp. Log che secrets, lỗi kết nối có correlation IDs để chẩn đoán, người dùng đọc reason và next action thay vì stack trace.
 
 Migration V1: backup nhất quán, import vào state directory V2 riêng, mapping IDs/roles→agent definitions và history/output provenance, dry-run summary, hashes/counts và rollback. Imported tasks mặc định historical/paused, không tự dispatch lại. Không overwrite DB AppData, không chia sẻ WAL writable hoặc tự copy toàn bộ credentials home. V1 giữ dùng được cho đến khi nghiệm thu bản chuyển.
+
+## 11. UI preferences và chat windows
+
+Theo [UI/UX 06/11](uiux-upgrade.md): windowId chỉ là trạng thái trình bày, conversationId là hội thoại bền vững. Move/resize/minimize/close/restore không dispatch, không stop run, không xóa dữ liệu và không auto-send. Nhiều cửa sổ dùng chung conversation/event store, có project/agent scope, request ID và draft revisions; locale/theme không đổi nội dung output hoặc quyền runtime. F0-03 đặc tả error codes/preferences/draft conflict; Alpha F2 có một Lead, F3 mở rộng nhiều agent.

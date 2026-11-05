@@ -1,5 +1,7 @@
 # Backlog triển khai Factory V2
 
+**Cập nhật UI/UX 06/11/2026:** [Đánh giá và kế hoạch nâng cấp](uiux-upgrade.md) là quyết định hiện hành: Light mặc định, Dark/System, Inter, vi/en và nhiều cửa sổ chat kéo/resize. Thay mục tiêu sao chép palette/font trên 90% và giới hạn một dock; giữ phạm vi nghiệp vụ và tiêu chí tin cậy. Prototype F0-02 còn dở, chưa có Host/UI V2 thật.
+
 Đọc [phạm vi hiện hành](README.md), [UI reference](design-reference.md), [behavior contracts](workflows.md) và [acceptance](acceptance.md). **Cập nhật 06/11/2026: F0-01 Done** — [baseline và reuse map](f0-01-baseline.md). 39 ticket còn lại Planned. Chưa triển khai Host/UI V2; không dùng trạng thái hoàn thành của inventory/tài liệu để đánh dấu chức năng đã có.
 
 ## 1. Cách thực hiện và bàn giao
@@ -15,7 +17,7 @@ Mức S/M/L chỉ độ lớn tương đối (S một boundary nhỏ, M nhiều 
 | Ticket / nhóm / cỡ | Việc phải làm và đầu ra | Phụ thuộc | Nghiệm thu |
 |---|---|---|---|
 | F0-01 BA/BE · S · **Done** | [Baseline 06/11 và reuse map](f0-01-baseline.md): 19 nhóm, 96 source/test refs; DB metadata-only | Bộ kế hoạch | Checkpoint `checkpoint/factory-v2-f0-01-20261106`, source V1 giữ nguyên, chưa mở DB/cài WSL |
-| F0-02 BA/FE · M | Chuyển chín ảnh thành screen/component checklist; style guide states + seed data; ưu tiên UI-04/UI-08/UI-03 | F0-01 | Mapping đúng tên ảnh; tokens, layout, Vietnamese labels và rubric được lưu cùng source |
+| F0-02 BA/FE · M | Chín ảnh thành screen/component checklist; style guide states + seed; UX-0 theo UI/UX 06/11 | F0-01 | Mapping đúng ảnh; Light/Dark, Inter, vi/en, window states được xác thực; preview ghi rõ fixture |
 | F0-03 BE/FE · M | ADR source boundaries, command/event contracts, schema/index invariants, adapter interface và permissions model | F0-01; dùng F0-02 | Một nguồn task/dispatch; UI/Host thống nhất errors/revisions; plan schema V2 tách DB V1 |
 
 **Bàn giao:** danh sách module tái dùng, ADR/contracts và ticket sẵn triển khai. Không cài WSL packages hoặc đổi DB ở bước inventory. Chỉ trở lại hỏi người dùng nếu gặp thiếu input/quyền không thể suy ra, không hỏi “cho phép bắt đầu” lần nữa.
@@ -35,9 +37,9 @@ Mức S/M/L chỉ độ lớn tương đối (S một boundary nhỏ, M nhiều 
 
 | Ticket / nhóm / cỡ | Việc phải làm và đầu ra | Phụ thuộc | Nghiệm thu |
 |---|---|---|---|
-| F2-01 FE · L | Tokens/font/primitives, custom dropdown/menu/stepper, AppShell/sidebar/search/project tabs, style guide page | F0-02/03 | UI-01/04/08 shell đúng tỷ lệ/màu; keyboard, tiếng Việt, 1366×768, dropdown không lệch |
+| F2-01 FE · L | UX-2: Light/Dark/System, Inter, vi/en, primitives/shadcn chọn lọc, Lucide, Settings appearance, AppShell/sidebar/tabs | F0-02/03 | 2 theme × 2 locale, keyboard/glyph/contrast; 1366×768, dropdown không lệch; không hardcode nhãn UI |
 | F2-02 BE/FE · M | Setup readiness và project wizard 3 bước, chọn Lead/profile, directory/artifact modes | F1-02/04, F2-01 | Tạo project thật đúng một lần, validate path/slug/runtime, optional steps không chặn local |
-| F2-03 BE/FE · L | Lead conversation + dock, attachments/context, intent→ticket linking, meaningful progress stream | F1-03/04, F2-02 | Chat tư vấn trả lời; giao việc nhỏ đọc/sửa/check ra output; send/reconnect không tạo hai task |
+| F2-03 BE/FE · L | UX-3: Lead conversation + window store, drag/resize/tray/focus/persist; attachments/context; shared progress stream | F1-03/04, F2-02 | Chat thật; close/restore giữ nháp, không auto-stop/send; send/reconnect không tạo hai task; một Lead ở Alpha |
 | F2-04 BE/FE · M | Minimal Board/Team/task detail/output summary dùng projections thật; click mở cùng hồ sơ | F2-03 | Ai/việc gì/trạng thái rõ; board viewport height/internal scroll; không mock online/progress |
 | F2-05 QA/BE · M | Stop/interrupted/reconnect tests, decision qua chat, feed filtering và regression visual shell/dock | F2-03/04 | Stop thật, restart không replay; một decision đúng context; raw tool logs không làm đầy feed |
 
@@ -51,7 +53,7 @@ Mức S/M/L chỉ độ lớn tương đối (S một boundary nhỏ, M nhiều 
 | F3-02 BE · L | Hoàn thiện hai adapter còn lại trong Codex/Claude/OpenCode, capability/model/auth/version matrix | F1-03, F3-01 | Ba adapter có lifecycle thật, profile no-routine-approval; adapter thiếu auth ghi chưa đạt |
 | F3-03 BE · L | Durable assignments/thread/handoff, claim/fencing, resources/concurrency, isolated workspaces/integration | F3-01; F3-02 cho đội hỗn hợp | Hai task độc lập khác runtime chạy đồng thời; tranh scope chờ có lý do; late callback bị chặn |
 | F3-04 BE/FE · L | Skill import pinned version/hash/license, MCP/CLI registry/health/binding, per-run snapshots | F3-01, F1-04 | Một skill và tool thật dùng được; import không chạy installer tự động; secrets không export |
-| F3-05 FE/QA · M | Team theo UI-03, session tree/counters/freshness, controls theo adapter capabilities | F3-02/03 | Từng agent/task/context/state đúng dữ liệu, card đều, reconnect không giữ “working” sai mãi |
+| F3-05 FE/QA · M | Team theo UI-03, session tree/counters/freshness; UX-4 multi-agent windows theo capabilities | F3-02/03, F2-03 | Agent/task/state đúng; card đều; 5 visible/10 open, không nhân polling; reconnect không giữ trạng thái sai |
 
 **Bàn giao:** đội hỗn hợp nhiều runtime, agent không khóa role, tool/skills có thể mở rộng. Nếu native subagents chưa đủ theo dõi/dừng thì giữ capability off có lý do, không thêm badge giả. Không tự fallback model đắt hơn.
 
@@ -141,7 +143,7 @@ F6-01/02 có thể làm sau F4 khi F5 đang hoàn thiện nếu không tranh cor
 
 | Yêu cầu người dùng | Ticket chịu trách nhiệm |
 |---|---|
-| CrewHub >90% màu/bố cục | F0-02, F2-01, F3-05, F4-04, F5-03/04, F7-03 |
+| CrewHub tham chiếu, Light/Dark, Inter, vi/en, chat windows | F0-02/03, F2-01/03, F3-05, F7-03/04; UX-0–5 |
 | Chat tự nhiên với Lead | F2-03/05, F4-03 |
 | Hết Accept Bash linh tinh | F1-04, F3-02, F8-03 |
 | Agent/runtime/model tùy ý | F3-01/02 |

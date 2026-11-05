@@ -1,17 +1,21 @@
 # Nghiệm thu giao diện và nghiệp vụ Factory V2
 
+**Cập nhật UI/UX 06/11/2026:** [Đánh giá và kế hoạch nâng cấp](uiux-upgrade.md) là quyết định hiện hành: Light mặc định, Dark/System, Inter, vi/en và nhiều cửa sổ chat kéo/resize. Thay mục tiêu sao chép palette/font trên 90% và giới hạn một dock; giữ phạm vi nghiệp vụ và tiêu chí tin cậy. Prototype F0-02 còn dở, chưa có Host/UI V2 thật.
+
 Thuộc [kế hoạch hợp nhất](README.md). **Mục tiêu, chưa phải kết quả đã đạt.** “Trên 90%” phải có cách đối chiếu và evidence, không chỉ là nhận xét cảm quan hoặc tỷ lệ code được viết lại.
 
 ## 1. Định nghĩa trên 90% giống CrewHub
 
 Hai thang đo độc lập:
 
-1. **Visual fidelity:** độ khớp bố cục/màu/font/components/mật độ của chín màn đã có ảnh. Đích **≥92/100 toàn bộ, ≥91/100 từng màn**. Không tuyên bố giống 90% pixel vì ngôn ngữ, tên dự án, dữ liệu và thương hiệu khác.
+1. **Visual fidelity lịch sử:** đích cũ ≥92/100 toàn bộ, ≥91/100 mỗi màn hiện chỉ dùng tham khảo, không còn gate bắt buộc sao chép màu/font. Giao diện mới nghiệm thu theo quality matrix trong kế hoạch UI/UX; không có baseline CrewHub Light đã xác minh để công bố tỷ lệ giống.
 2. **Business parity local:** độ bao phủ các khả năng được định nghĩa từ ảnh/trang Loops và nhu cầu người dùng. Đích **≥92/100**, đồng thời tất cả luồng bắt buộc bản 2.0 phải pass. Không dùng tỷ lệ này để chấp nhận 8% task sai hoặc bỏ kiểm tin cậy.
 
 Nguồn Loops chưa đầy đủ backend/source: không thể chứng minh “mọi nghiệp vụ ẩn giống 90%”. Báo cáo chỉ ghi trên ma trận có phạm vi dưới đây. Remote/3D/native media chuyên sâu thuộc scope sau, không nhập mẫu số local rồi âm thầm bỏ.
 
-## 2. Visual rubric cho mỗi màn
+## 2. Visual rubric lịch sử — chỉ tham khảo hình học
+
+Các ngưỡng so khớp palette/font bên dưới thuộc mục tiêu cũ. Không áp làm gate cho Light Theme, Inter hoặc chat windows; chất lượng hiện hành dùng ma trận ở kế hoạch UI/UX. Các lỗi clipping/focus/scroll/contrast vẫn chặn nghiệm thu.
 
 | Nhóm | Trọng số | Quan sát/đo |
 |---|---|---|
@@ -98,7 +102,7 @@ Mỗi ticket ghi: commit, môi trường/versions, commands/tests đã chạy, k
 
 Ảnh reference và screenshot QA giữ local `.cache/factory-v2/visual/` hoặc thư mục ignored, manifest/report text có thể commit; không push PNG, DB hoặc secrets. Chỉ chạy lint/typecheck/build/tests phù hợp module đổi; docs-only hiện tại kiểm links/JSON/hash/diff, **không báo app build/test đã pass**.
 
-Điều kiện đóng F8: BP01–14 verified, business score ≥92, chín màn đạt visual gates, AT01–20 pass theo scope/capability đã công bố, không critical/high issues mở, backup/rollback dùng được và checklist three-runtime/effective permissions có evidence. Tính năng chưa có điều kiện nghiệm thu phải ghi partial/deferred, không giấu sau nút disabled mà gọi “đã hoàn thiện”.
+Điều kiện đóng F8: BP01–14 verified, business score ≥92, chín màn đạt quality gates và ma trận UI/UX Light/Dark × vi/en + window lifecycle, AT01–20 pass theo scope/capability đã công bố, không critical/high issues mở, backup/rollback dùng được và checklist three-runtime/effective permissions có evidence. Tính năng chưa nghiệm thu phải ghi partial/deferred.
 
 ## 7. Các khác biệt có chủ đích với reference
 

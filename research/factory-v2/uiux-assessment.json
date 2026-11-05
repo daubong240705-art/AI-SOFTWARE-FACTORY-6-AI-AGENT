@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 1,
+  "userFacingDate": "2026-11-06",
+  "baseline": "70649e92d355a7fc73fa0e3e4bcfa403887057f9",
+  "checkpoint": "checkpoint/factory-v2-uiux-assessment-20261106",
+  "scope": "Source assessment and UI/UX plan only. Untracked F0-02 design fixture remains pending and is excluded from this documentation commit.",
+  "checks": {
+    "localLinks": 51,
+    "documents": 6,
+    "uniqueFTickets": 40,
+    "utf8": true,
+    "sourceAssertions": true,
+    "trackedAppsAndPackagesUnchanged": true,
+    "checkpointMatchesBaseline": true
+  },
+  "notRun": [
+    "application build",
+    "application lint/typecheck/tests",
+    "browser visual/geometry tests",
+    "runtime/model integration",
+    "font glyph or palette contrast checks",
+    "dependency compatibility/build tests"
+  ],
+  "data": {
+    "sqliteOpened": false,
+    "credentialsReadOrChanged": false,
+    "applicationSettingsChanged": false,
+    "dependenciesInstalled": false,
+    "externalCodeExecuted": false
+  },
+  "knownLimits": [
+    "Source wiring is not proof of live functionality.",
+    "No ASF/Electron/Factory-named process found during the scoped process query; browser deployment identity remains unknown.",
+    "Previous visual verification was stopped by Computer Use URL-confidence guard; no bypass attempted.",
+    "No verified local CrewHub Light baseline; visual percentage unmeasured.",
+    "Inter/react-rnd/i18n assets and pinned versions are not integrated yet."
+  ],
+  "inspectedSources": [
+    {
+      "path": "apps/windows-worker/package.json",
+      "sha256": "756b45c369b25bd2a5495d4c77fddff107f347fb7024259b5d35cfb80ca8a673",
+      "tracked": true
+    },
+    {
+      "path": "apps/dashboard/package.json",
+      "sha256": "e72e0e595f211614c759c145b8c6e8b36f936674751a8ead8e3f06f12a17d1b3",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/App.tsx",
+      "sha256": "a1ed24e67a82cedbc7371e78d2a19a47a3ba848bf5f407db101136af37d5b0ce",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/chat.css",
+      "sha256": "26d06726217548994af47009dd292d2e4e34a8f192effce25f38e5811981b4f7",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/ui/tokens.css",
+      "sha256": "58340cbe0f67d9a9e1697e1e8ecd71f23618249edb0179c4811632d3a9959cd4",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/ui/Select.tsx",
+      "sha256": "8e4a7216d53a9f1af3b4ed2b5ea9c21e14ea467b70eff691244da2e19cdd2c49",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/ui/Popover.tsx",
+      "sha256": "ab9ec5a34cb22e6d1625f27dd96b14c24092286262de03b4b8873bc4b773665b",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/features/ChatHost.tsx",
+      "sha256": "b4774a493fc6690550add2b6c2d029a65b8f94cdb741f3d6ade4940be8424609",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/features/ChatMarkdown.tsx",
+      "sha256": "d95ba58071212219c35fcbdacb95e22b524d3cbba5fb109ccfc47917a57460de",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/features/SettingsWorkspace.tsx",
+      "sha256": "3693e8e25ce02fa3c429439270bd81dd2dd12809af5bcc4ea356f3950b282631",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/features/WorkspaceTeam.tsx",
+      "sha256": "37421b96a66defe4551476a2bb501efb12a1ab9a0ce05e45fd224c2f043e428b",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/lib/workspace-store.ts",
+      "sha256": "918e747245e02f89b39f4e58d487c01f42ae17d6f1b130955eaf6a4e4aa91a1e",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/src/lib/use-workspace.ts",
+      "sha256": "ed629f71928cf75d316e811be5a170f49ee7556b2e2b3eac7bd6aa9cbdccc39b",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/shared/contracts.ts",
+      "sha256": "9e41919c102f9ba7c6b5964b563a84871d28b3531dc8040c7170b7b7c41cbdde",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/electron/preload.ts",
+      "sha256": "c35be36e1a76f705ab47c8682ba77339943966f66b0db58390c55e2be95aad33",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/electron/main.ts",
+      "sha256": "fbfe48ea0b304caad88dfdb243aab288d3b93c185317492abe60776926e0000e",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/electron/storage/database.ts",
+      "sha256": "58c48418d79c2a689e390576d60c91b96c3fffcde3e4e073f2c55678b7a41076",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/electron/controller/runs.ts",
+      "sha256": "cc3f95036785442ea693a9b41181b4baf5c0148ae230d36c3496548c23ee42a0",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/electron/controller/board.ts",
+      "sha256": "a3d8d2a98800384a977012d234cd5ebce4bff36e94bef4b80285283f1466eb55",
+      "tracked": true
+    },
+    {
+      "path": "apps/windows-worker/electron/runtime/opencode.ts",
+      "sha256": "1a3a1e88728a6631e87b746dddad526d5bcab57af5ecd04b300405b07ed95683",
+      "tracked": true
+    },
+    {
+      "path": "design/factory-v2/tokens.json",
+      "sha256": "465ce02d3572821ce0fe5b09a2d2045b2570273f6256b175123338cc8504887c",
+      "tracked": false
+    },
+    {
+      "path": "design/factory-v2/seed.json",
+      "sha256": "86101348b13158d74a012f953f7d2bd6c1fa797edd002f5eebc3c0a921034738",
+      "tracked": false
+    },
+    {
+      "path": "design/factory-v2/preview.mjs",
+      "sha256": "ae8a051c915f10cd01df918ad8c892bb6273b09814384aff07b59e77f0e44363",
+      "tracked": false
+    },
+    {
+      "path": "scripts/factory-v2/build-style-guide.mjs",
+      "sha256": "fdb39b0ee7e8cf03ff78373e5fb2513a78376d6686fa9c667aaa37e2e37d3a44",
+      "tracked": false
+    }
+  ],
+  "primaryReferences": [
+    {
+      "title": "shadcn/ui",
+      "url": "https://ui.shadcn.com/docs",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "shadcn Vite",
+      "url": "https://ui.shadcn.com/docs/installation/vite",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "shadcn theme",
+      "url": "https://ui.shadcn.com/docs/theming",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "shadcn MIT",
+      "url": "https://raw.githubusercontent.com/shadcn-ui/ui/main/LICENSE.md",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "Magic UI",
+      "url": "https://magicui.design/docs",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "Magic UI OSS MIT",
+      "url": "https://raw.githubusercontent.com/magicuidesign/magicui/main/LICENSE.md",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "react-rnd API",
+      "url": "https://github.com/bokuweb/react-rnd",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "react-rnd source",
+      "url": "https://raw.githubusercontent.com/bokuweb/react-rnd/master/src/index.tsx",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "react-rnd package metadata",
+      "url": "https://raw.githubusercontent.com/bokuweb/react-rnd/master/package.json",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "dnd-kit",
+      "url": "https://dndkit.com/",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "react-i18next",
+      "url": "https://react.i18next.com/latest/usetranslation-hook",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "i18next plurals",
+      "url": "https://www.i18next.com/translation-function/plurals",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "Inter",
+      "url": "https://rsms.me/inter/",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "Inter OFL",
+      "url": "https://raw.githubusercontent.com/rsms/inter/master/LICENSE.txt",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "Geist",
+      "url": "https://vercel.com/font",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "Lucide React",
+      "url": "https://lucide.dev/guide/react",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "Lucide license",
+      "url": "https://lucide.dev/license",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "Motion accessibility",
+      "url": "https://motion.dev/docs/react-accessibility",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    },
+    {
+      "title": "CrewHub Loops",
+      "url": "https://crewhub.dev/loops",
+      "accessedOn": "2026-11-06",
+      "method": "official docs/source read via web connector",
+      "pinnedArtifactVerified": false
+    }
+  ]
+}

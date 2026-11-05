@@ -1,5 +1,7 @@
 # Chuẩn thiết kế — CrewHub Loops làm tham chiếu chính
 
+**Cập nhật UI/UX 06/11/2026:** [Đánh giá và kế hoạch nâng cấp](uiux-upgrade.md) là quyết định hiện hành: Light mặc định, Dark/System, Inter, vi/en và nhiều cửa sổ chat kéo/resize. Thay mục tiêu sao chép palette/font trên 90% và giới hạn một dock; giữ phạm vi nghiệp vụ và tiêu chí tin cậy. Prototype F0-02 còn dở, chưa có Host/UI V2 thật.
+
 Thuộc [kế hoạch hợp nhất Factory V2](README.md). Ngày 05/11/2026. Tài liệu này thay palette/font và cách giảm project tabs trong các phương án UX cũ. Chưa phải giao diện đã triển khai.
 
 ## 1. Bộ ảnh chuẩn và mức chắc chắn
@@ -49,7 +51,7 @@ Các tỷ lệ quan sát: sidebar khoảng 495/3200 chiều rộng; topbar kho�
 
 Màu đo từ ảnh là mẫu pixel, không phải chứng cứ CSS upstream có đúng từng mã hex. Lưu token tập trung và kiểm bằng screenshot crops. Không dùng gradient nền xanh/tím, glassmorphism, shadow nặng hoặc hàng KPI nhiều màu ngoài reference. Coral dùng cho active underline/rail, badge, send; primary CTA như New ticket/Continue màu trắng. Status có icon/text, không chỉ có màu.
 
-**Typography:** ưu tiên Archivo Variable self-host vì design system World đã tham khảo dùng Archivo; chưa chứng minh đúng font trong cả chín screenshot. F2 so sánh chữ thực và xác minh bộ font có glyph tiếng Việt/license; nếu thiếu, chọn bản font đầy đủ phù hợp và ghi sai khác. Fallback `system-ui, sans-serif`. Đích: body 14/20 px, metadata 12/18, title 20/28 semibold, greeting 28/34; weights 400/500/600/700. Mã task/hash dùng monospace 12–13 px. Không dùng monospace cho mô tả. Tránh uppercase đoạn dài, letter spacing lớn và chữ 10 px.
+**Typography hiện hành:** Inter Variable self-host là ứng viên chính, thay Archivo. UI 14/20 px, chat 15/24, metadata 12/18; glyph Việt/Anh và license asset được kiểm ở F2-01. Fallback system-ui; code monospace 13/20. Không dùng monospace cho mô tả hoặc chữ 10 px cho thông tin cần đọc. Font trong chín ảnh chưa được chứng minh chính xác. Bảng màu dark trên là tham chiếu lịch sử; palette Light/Dark hiện hành theo kế hoạch UI/UX.
 
 ## 3. App shell và điều hướng
 
@@ -90,7 +92,7 @@ Custom Select/Menu dùng headless accessible primitive đã xem license, không 
 
 Mọi flex/grid text container có `min-width: 0`, vùng scroll có `min-height: 0`; không dùng `width: 100vw` trong content sau sidebar. Card header và footer dùng slots chung; title không kế thừa căn giữa của button. Field error nằm dưới input, không đẩy nhãn cùng hàng lệch baseline. Test content tiếng Việt dài, đường dẫn, code blocks, nhiều badges và tên agent dài. Không cắt lý do blocked/decision quan trọng mà thiếu đường mở đầy đủ.
 
-Z-index thống nhất: shell → dock → panel → menu → modal; tooltip không che menu/focus. Chỉ một drawer nghiệp vụ bên phải hoạt động; ticket detail và chat chuyển bằng back/context giữ draft, không mở chồng Board+ticket+chat+inspector. Dev trace là disclosure trong chi tiết.
+Z-index theo layer thống nhất. Chỉ một drawer chi tiết nghiệp vụ bên phải hoạt động; chat thuộc layer nhiều cửa sổ riêng, có tray/auto-arrange/focus theo kế hoạch UI/UX. Menu/modal ở trên windows; close/minimize không stop run. Dev trace là disclosure trong chi tiết.
 
 ## 5. Đặc tả từng màn theo bộ ảnh
 
@@ -126,7 +128,7 @@ Giữ thứ tự mẫu Backlog → Planned → In progress → Review → Done, 
 
 Board dùng phần chiều cao còn lại của viewport, mỗi cột scroll riêng; header cột cố định, hàng cột không dài theo số card. Chiều rộng đích 240–280 px/cột, cuộn ngang khi cần, không ép năm cột ở màn hẹp. Card có code, title tối đa 2–3 dòng, nhãn ngắn, assignee, dependency/subtask/attention indicators. Description dài ở detail, không nhét vào card. Filter toolbar một hàng có overflow, tránh nhảy cao.
 
-Chat dock nổi bên phải giống ảnh: header agent + controls, task/project context strip, messages và composer cố định dưới. Bottom agent dock hiển thị agent thuộc project có session/recent conversation, status/unread; không tạo dock dài cho tất cả agent đã lưu. Mở rộng chat thành view lớn nếu muốn tập trung trao đổi; giữ context/draft khi đổi route. Tin theo thứ tự thời gian, auto-scroll chỉ khi đang ở cuối; tool chatter collapse, meaningful milestones trong thread. Send/Stop có trạng thái thực; attachment/upload/error/retry không làm gửi trùng yêu cầu.
+Dock phải trong ảnh là preset ban đầu; chat hiện hành cho kéo/resize, mở nhiều cửa sổ, thu nhỏ về tray và mở lớn trong content. Mỗi cửa sổ có header agent + controls, context strip, messages và composer cố định dưới. Tray hiển thị session/recent conversation, status/unread, không liệt kê mọi agent đã lưu. Giữ context/draft khi đổi route; tin theo thời gian, auto-scroll chỉ khi đang cuối; tool chatter collapse. Send/Stop có trạng thái thật; close không stop, retry không gửi trùng. Contract chi tiết ở kế hoạch UI/UX.
 
 Composer ghi “Nhắn Lead”, context rõ và một Send chính. Tư vấn không mặc định tạo ticket; “hãy làm…” tạo/link việc và link trở lại Board. Model/profile ở menu ngắn, không bắt chọn mỗi lượt. Enter gửi/Shift+Enter xuống dòng có xử lý IME; cho preference Ctrl+Enter, không thay shortcut âm thầm để giống ảnh.
 
@@ -188,4 +190,4 @@ Các màn này được nghiệm thu nhất quán visual system và hoàn chỉn
 - Không chữ/arrow/icon lệch, text đè badge, card nhảy baseline, board kéo dài vô hạn, menu tràn viewport hoặc action bị dock che.
 - Body/controls đạt contrast phù hợp WCAG AA; mọi control có tên, focus rõ, thao tác keyboard và screen reader labels. Tăng contrast cục bộ nếu cần và ghi sai khác có lý do.
 - Mặc định gọn: một primary action theo ngữ cảnh, metadata sâu có disclosure; việc cần người dùng quyết định phải đọc được ngay.
-- Tuân thủ [rubric trên 90%](acceptance.md); chụp cùng viewport/data/language, đối chiếu từng crop, không dùng nhận xét “trông khá giống” làm bằng chứng duy nhất.
+- Tuân thủ [quality gates](acceptance.md) và [ma trận UI/UX hiện hành](uiux-upgrade.md); chụp đúng viewport/theme/locale/data, kiểm từng crop, không dùng nhận xét “trông khá giống” làm bằng chứng duy nhất.
