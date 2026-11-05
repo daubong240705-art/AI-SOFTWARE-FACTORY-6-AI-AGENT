@@ -1,5 +1,7 @@
 # Worker V2 — Đội AI đa lĩnh vực
 
+> Hướng triển khai mới: [quy trình/Host WSL2](process-first-wsl.md), [P0–P5](process-first-roadmap.md). Các nhu cầu domain/task/job/outputs ở đây giữ giá trị; Electron, native Windows, reuse schema và thứ tự phase cũ không còn là ràng buộc.
+
 Ngày: 05/11/2026. Trạng thái: **thiết kế mở rộng, chưa triển khai**. Tài liệu này mở rộng [kiến trúc V2](architecture.md); khi ví dụ cũ mặc định cần Git/source/test code, áp dụng mô hình tổng quát ở đây. Các ràng buộc runtime, mailbox, quyền, recovery và migration của V2 vẫn giữ.
 
 Nguồn chính: [Paperclip và quyết định áp dụng](paperclip-multidomain-research.md). Học cơ chế quản lý công việc, không nhập toàn bộ server, database, UI hay hệ phân cấp công ty của Paperclip.

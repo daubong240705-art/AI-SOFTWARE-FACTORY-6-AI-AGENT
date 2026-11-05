@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-11-05T16:00:44.685129+00:00",
+  "user_facing_date": "2026-11-05",
+  "baseline": "3114e1c",
+  "checkpoint": "checkpoint/worker-v2-process-first-20261105",
+  "scope": "Conceptual design revision: distinguish execution permission from business decisions, evaluate WSL2, remove mandatory legacy architecture constraints.",
+  "web_sources": [
+    {
+      "title": "OpenAI Docs approvals and security",
+      "url": "https://learn.chatgpt.com/docs/agent-approvals-security",
+      "accessed_date": "2026-11-05",
+      "claim_scope": "Sandbox and approval policy are separate; WSL2 uses Linux sandbox; no-prompt does not imply action permission.",
+      "pinned": false
+    },
+    {
+      "title": "OpenAI Docs WSL",
+      "url": "https://learn.chatgpt.com/docs/windows/wsl",
+      "accessed_date": "2026-11-05",
+      "claim_scope": "Linux environment and repository placement; runtime setup inside WSL.",
+      "pinned": false
+    },
+    {
+      "title": "Claude Code setup",
+      "url": "https://code.claude.com/docs/en/setup",
+      "accessed_date": "2026-11-05",
+      "claim_scope": "Native Windows vs WSL2 are platform choices, separate from permission modes.",
+      "pinned": false
+    },
+    {
+      "title": "Claude Code permissions",
+      "url": "https://code.claude.com/docs/en/permissions",
+      "accessed_date": "2026-11-05",
+      "claim_scope": "Mode-specific behavior; auto, dontAsk and bypass have different semantics and exceptions.",
+      "pinned": false
+    },
+    {
+      "title": "OpenCode WSL",
+      "url": "https://opencode.ai/docs/windows-wsl/",
+      "accessed_date": "2026-11-05",
+      "claim_scope": "WSL runtime/server and tool compatibility guidance.",
+      "pinned": false
+    },
+    {
+      "title": "OpenCode permissions",
+      "url": "https://opencode.ai/docs/permissions/",
+      "accessed_date": "2026-11-05",
+      "claim_scope": "Allow/ask/deny are configuration independent of moving OS.",
+      "pinned": false
+    },
+    {
+      "title": "Microsoft WSL filesystems",
+      "url": "https://learn.microsoft.com/en-us/windows/wsl/filesystems",
+      "accessed_date": "2026-11-05",
+      "claim_scope": "Keep Linux-toolchain projects on Linux filesystem for suitable I/O behavior.",
+      "pinned": false
+    }
+  ],
+  "local_checks": {
+    "commands": [
+      "wsl --status",
+      "wsl --list --verbose"
+    ],
+    "observed": {
+      "default_distribution": "Ubuntu",
+      "default_wsl_version": 2,
+      "distributions": [
+        {
+          "name": "Ubuntu",
+          "version": 2,
+          "state": "Stopped"
+        },
+        {
+          "name": "docker-desktop",
+          "version": 2,
+          "state": "Stopped"
+        }
+      ]
+    },
+    "distro_started_by_agent": false,
+    "linux_toolchain_or_auth_verified": false
+  },
+  "software_installed": false,
+  "files_or_database_migrated": false,
+  "runtime_settings_or_credentials_modified": false,
+  "application_features_implemented": false
+}

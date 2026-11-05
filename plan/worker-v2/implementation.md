@@ -1,5 +1,7 @@
 # Worker V2 — Backlog và tiêu chí hoàn thành
 
+> **Backlog tham khảo trước đổi hướng WSL2.** Theo yêu cầu mới không giữ kiến trúc cũ làm ràng buộc, [lộ trình P0–P5](process-first-roadmap.md) thay thứ tự bắt buộc V2-01–07. Dùng các criteria dưới đây khi cần, không chép fixed-role/controller/migration bridge vào core mới vì kế hoạch trước đã ghi như vậy. [Quy trình mới](process-first-wsl.md).
+
 Ngày lập: 05/11/2026. **Chỉ V2-00 hoàn thành ở mức nghiên cứu/tài liệu; V2-01–07 chưa triển khai.** Không suy ra tính năng đã tồn tại từ checklist dưới đây.
 
 Phạm vi đã mở rộng sang [đa lĩnh vực](multidomain.md) theo [nghiên cứu Paperclip bổ sung](paperclip-multidomain-research.md). Kế hoạch đợt giữ nguyên ID; tickets bổ sung bên dưới thuộc 2.0, không mặc định đã có. Software là lát cắt đầu, Research không Git và Video Basic là hai lát cắt kiểm chứng tính tổng quát trước phát hành.

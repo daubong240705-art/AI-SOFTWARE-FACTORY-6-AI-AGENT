@@ -1,5 +1,7 @@
 # Worker V2 — Kiến trúc và giao thức công việc
 
+> Thiết kế lịch sử: các ràng buộc nền tảng Windows-native/Electron/controller được thay bằng [quy trình và kiến trúc WSL2 đề xuất](process-first-wsl.md). Adapter/task/mailbox/artifacts dưới đây là phương án tham khảo, không bắt buộc giữ schema hoặc module hiện tại. Backlog thực hiện mới: [P0–P5](process-first-roadmap.md).
+
 Trạng thái: thiết kế đề xuất, chưa phải API/schema đã triển khai. Đọc [phạm vi](README.md), [nghiên cứu](research.md) và [kế hoạch triển khai](implementation.md).
 
 Mở rộng đa lĩnh vực: [multidomain.md](multidomain.md) quy định goals, domain packs, workspace không Git, media assets, jobs, resource/budget admission và review. Các phần source/Git/FE/BE bên dưới chỉ áp dụng cho workflow phần mềm; không phải precondition cho mọi task.

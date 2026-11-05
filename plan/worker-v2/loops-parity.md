@@ -1,5 +1,7 @@
 # Worker V2 — Tương đương nghiệp vụ CrewHub Loops
 
+> Nhu cầu chức năng tiếp tục dùng; ràng buộc Windows-native và nhánh V2-01–07 được thay bởi [quy trình WSL2](process-first-wsl.md) và [P0–P5](process-first-roadmap.md). Hai loại chấp nhận — quyền công cụ và quyết định nghiệp vụ — độc lập; không mặc định hỏi lại mỗi kế hoạch hoặc mỗi lệnh.
+
 Ngày: 05/11/2026. Baseline thiết kế: `87320cf`; checkpoint `checkpoint/worker-v2-loops-parity-20261105`. **Đây là mục tiêu mở rộng, chưa triển khai tính năng.**
 
 Yêu cầu: linh hoạt agent, dự án, ticket và automations tương tự CrewHub Loops, đồng thời giữ Windows native, nhiều runtime, skills/tools và khả năng đa lĩnh vực đã thiết kế. Đọc cùng [kiến trúc](architecture.md), [đa lĩnh vực](multidomain.md), [automation engine](automations.md), [backlog](implementation.md).

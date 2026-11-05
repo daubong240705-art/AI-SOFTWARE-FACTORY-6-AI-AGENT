@@ -1,5 +1,7 @@
 # Worker V2 — Đội AI đa lĩnh vực, nhiều runtime
 
+> **Định hướng mới nhất 05/11/2026:** người dùng yêu cầu không ràng buộc kiến trúc cũ. Đọc [quy trình mới và WSL2](process-first-wsl.md), [lộ trình P0–P5](process-first-roadmap.md) trước. Đề xuất hiện tại là web UI + Host/runtime trong WSL2, tự động quyền thao tác thường ngày, hỏi quyết định nghiệp vụ khi cần. Những đoạn bên dưới bắt buộc giữ Electron/Windows-native hoặc coi V2-01–07 là thứ tự phải theo đã được thay; giữ làm lịch sử thiết kế và backlog tham khảo. Chưa cài/migrate hoặc thay runtime/DB.
+
 Ngày khảo sát: **05/11/2026**. Trạng thái: **đã chốt đề xuất kiến trúc và kế hoạch; chưa triển khai runtime V2**.
 
 Baseline: `bf9b4977b1f26cb45dc5a0a095575b4148fda375`, nhánh `feature/worker-office-v1.3d`. Checkpoint: `checkpoint/worker-v2-design-20261105`. Không thay đổi DB thật trong đợt nghiên cứu này.
