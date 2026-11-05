@@ -1,5 +1,7 @@
 # ASF Windows Worker
 
+**Tên điều hướng hiện hành:** **Tổng quan** (mọi dự án), **Tổng quan dự án** (riêng dự án), menu **Thêm** thay “Khác”. Nút mở hội thoại dùng **Mở trao đổi**. [Bảng tên gọi](../../docs/windows-worker/navigation-labels.md); tài liệu bàn giao cũ giữ nhãn theo thời điểm.
+
 **Trạng thái hiện tại và phần còn lại:** [rà soát source](../../docs/windows-worker/source-cleanup-audit.md). R0–R6 và cải thiện Cần xử lý/mô tả task đã triển khai. **Khác → Lịch** hỗ trợ lịch một lần/hằng ngày để tạo backlog, preview trước lưu/bật, pause toàn cục và lịch sử. Chỉ chạy khi app mở; trễ quá năm phút bỏ qua, không tự giao agent. [Bàn giao R6](../../docs/windows-worker/workspace-r6-completion.md). Những mốc bên dưới là lịch sử bàn giao.
 
 **Giao diện hiện hành:** sidebar chọn dự án, tab **Công việc / Trao đổi / Kết quả / Khác**; một hồ sơ gồm **Yêu cầu / Trao đổi / Tiến độ / Kết quả**. Chat mặc định trao đổi với Lead; role/model ở **Tùy chọn trao đổi**. Tư vấn/câu hỏi không tạo submission; kế hoạch thực thi hợp lệ mới liên kết công việc trước khi giao agent. **Bash tự động theo vai trò**, không cần Accept từng lệnh. [Bàn giao Bash tự động](../../docs/windows-worker/bash-autonomy-completion.md), [R3A](../../docs/windows-worker/workspace-r3a-completion.md), [hồ sơ R2](../../docs/windows-worker/workspace-r2-completion.md). Các mục UX bên dưới ghi lại những đợt triển khai trước; hướng dẫn quyền hiện hành thay thế Ask/Full access trong các bàn giao cũ.

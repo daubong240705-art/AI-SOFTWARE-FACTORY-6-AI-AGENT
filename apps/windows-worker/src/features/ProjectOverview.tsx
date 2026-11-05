@@ -70,7 +70,7 @@ export function ProjectOverview({
   return (
     <section className="project-overview" aria-label="Tổng quan dự án">
       <div className="page-heading">
-        <h1>Tổng quan</h1>
+        <h1>Tổng quan dự án</h1>
         <button
           className="icon-button subtle"
           aria-label="Cập nhật tổng quan"

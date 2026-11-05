@@ -135,7 +135,7 @@ async function main() {
       );
     } else if (["Đội ngũ", "Tổng quan"].includes(title)) {
       await js(
-        "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+        "document.querySelector('[aria-label=\"Thêm mục trong dự án\"]').click()",
       );
       await click(title === "Tổng quan" ? "Tổng quan dự án" : "Đội ngũ dự án");
     } else {

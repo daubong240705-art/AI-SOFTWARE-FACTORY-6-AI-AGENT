@@ -355,7 +355,7 @@ async function main() {
     js("!!document.querySelector('.task-inspector[open] .inspector-title')"),
   );
   await js(
-    "Array.from(document.querySelectorAll('.task-inspector button')).find(b=>b.textContent==='Mở trên Kanban').click()",
+    "Array.from(document.querySelectorAll('.task-inspector button')).find(b=>b.textContent==='Xem bảng công việc').click()",
   );
   await until(() => js("document.querySelectorAll('.board-task').length===1"));
   await js("document.querySelector('.board-card-title').click()");
@@ -371,7 +371,7 @@ async function main() {
     js("!!document.querySelector('.task-inspector[open] .inspector-title')"),
   );
   await js(
-    "Array.from(document.querySelectorAll('.task-inspector button')).find(b=>b.textContent==='Mở Chat').click()",
+    "Array.from(document.querySelectorAll('.task-inspector button')).find(b=>b.textContent==='Mở trao đổi').click()",
   );
   await until(() =>
     js(

@@ -107,7 +107,7 @@ async function main() {
     () => js("!!document.querySelector('.settings-grid')"),
     "Settings",
   );
-  await global("Trang chính");
+  await global("Tổng quan");
   await until(() => js("!!document.querySelector('.workspace-home')"));
   if (empty) {
     assert.equal(await js("!!document.querySelector('.home-empty')"), true);
@@ -232,7 +232,7 @@ async function main() {
     // A failed durable save must leave both current page and project untouched.
     rejectDraft = true;
     await input(composer, "Nháp chưa lưu", "HTMLTextAreaElement");
-    await global("Trang chính");
+    await global("Tổng quan");
     await until(
       () =>
         js(
@@ -287,7 +287,7 @@ async function main() {
     );
     // Custom project menu supports Escape/focus, and old project pages remain reachable.
     await js(
-      "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+      "document.querySelector('[aria-label=\"Thêm mục trong dự án\"]').click()",
     );
     await until(() =>
       js("!!document.querySelector('.project-more .ui-popover-panel')"),
@@ -300,7 +300,7 @@ async function main() {
     );
     assert.equal(
       await js("document.activeElement.getAttribute('aria-label')"),
-      "Khác trong dự án",
+      "Thêm mục trong dự án",
     );
     for (const [label, selector] of [
       ["Tổng quan dự án", ".project-overview"],
@@ -308,7 +308,7 @@ async function main() {
       ["Git local", ".git-workspace"],
     ]) {
       await js(
-        "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+        "document.querySelector('[aria-label=\"Thêm mục trong dự án\"]').click()",
       );
       await click(
         label,

@@ -167,7 +167,7 @@ export function TaskInspector({
                 void action(() => onChat(run.id, run.conversationId ?? null))
               }
             >
-              Mở Chat
+              Mở trao đổi
             </button>
             <details className="inspector-links">
               <summary>Liên kết khác</summary>
@@ -178,7 +178,7 @@ export function TaskInspector({
                     void action(() => onBoard(run.attemptRoot ?? run.id))
                   }
                 >
-                  Mở trên Kanban
+                  Xem bảng công việc
                 </button>
                 <button disabled={busy} onClick={() => void action(onAgents)}>
                   Xem đội ngũ
@@ -368,8 +368,8 @@ export function TaskInspector({
                 </dl>
               </TaskTechnicalDetails>
               {task && taskCriteria(task).length ? (
-                <section aria-label="Tiêu chí task">
-                  <h3>Tiêu chí task</h3>
+                <section aria-label="Tiêu chí hoàn thành">
+                  <h3>Tiêu chí hoàn thành</h3>
                   <ul>
                     {taskCriteria(task).map((text, i) => (
                       <li key={i}>{text}</li>

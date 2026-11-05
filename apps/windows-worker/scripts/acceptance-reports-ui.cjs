@@ -175,7 +175,7 @@ async function main() {
       );
       await until(() => js("!!document.querySelector('.project-navigation')"));
       await js(
-        "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+        "document.querySelector('[aria-label=\"Thêm mục trong dự án\"]').click()",
       );
       await js(
         "Array.from(document.querySelectorAll('.project-more button')).find(b=>b.textContent.trim()==='Tổng quan dự án').click()",

@@ -96,7 +96,9 @@ async function main() {
     () => js('!!document.querySelector(".project-navigation")'),
     "project",
   );
-  await js(`document.querySelector('[aria-label="Khác trong dự án"]').click()`);
+  await js(
+    `document.querySelector('[aria-label="Thêm mục trong dự án"]').click()`,
+  );
   await click("Lịch");
   await until(() => js('!!document.querySelector(".schedules-workspace")'));
   await click("Tạo lịch");

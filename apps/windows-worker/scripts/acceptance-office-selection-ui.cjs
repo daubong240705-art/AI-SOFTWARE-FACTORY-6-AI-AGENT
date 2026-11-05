@@ -324,7 +324,10 @@ app.whenReady().then(async () => {
       team.tasks[1].observation.executionId,
     );
     await openTask("a", "Task a");
-    await click("Mở trên Kanban", "document.querySelector('.task-inspector')");
+    await click(
+      "Xem bảng công việc",
+      "document.querySelector('.task-inspector')",
+    );
     await until(() =>
       js("document.querySelectorAll('.board-task.selected').length===1"),
     );
@@ -473,7 +476,7 @@ app.whenReady().then(async () => {
     win.webContents.debugger.detach();
     await capture("selected-be");
     await openTask("b", "Task b");
-    await click("Mở Chat", "document.querySelector('.task-inspector')");
+    await click("Mở trao đổi", "document.querySelector('.task-inspector')");
     await until(() =>
       js(
         "!!document.querySelector('.chat-workspace') || !!document.querySelector('.chat-composer')",

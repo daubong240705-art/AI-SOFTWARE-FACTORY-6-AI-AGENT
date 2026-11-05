@@ -138,7 +138,7 @@ async function main() {
   const nav = async (label) => {
     if (label === "Tổng quan") {
       await js(
-        "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+        "document.querySelector('[aria-label=\"Thêm mục trong dự án\"]').click()",
       );
       return click("Tổng quan dự án");
     }

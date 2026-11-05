@@ -89,11 +89,11 @@ export function WorkspaceSidebar({
         <button
           className={page === "home" ? "active" : ""}
           aria-current={page === "home" ? "page" : undefined}
-          title="Trang chính"
+          title="Tổng quan"
           onClick={() => onNavigate("home")}
         >
           <House size={18} />
-          <span>Trang chính</span>
+          <span>Tổng quan</span>
         </button>
         <button
           className={page === "inbox" ? "active" : ""}
@@ -271,11 +271,11 @@ export function WorkspaceHeader({
           </button>
           <Popover
             className="project-more"
-            label="Khác trong dự án"
+            label="Thêm mục trong dự án"
             icon={
               <>
                 <MoreHorizontal size={17} />
-                <span>Khác</span>
+                <span>Thêm</span>
               </>
             }
           >
@@ -318,7 +318,7 @@ export function WorkspaceHeader({
           {!["board", "project", "results"].includes(page) && (
             <span className="project-current-page">
               {page === "overview"
-                ? "Tổng quan"
+                ? "Tổng quan dự án"
                 : page === "monitor"
                   ? "Đội ngũ"
                   : page === "git"

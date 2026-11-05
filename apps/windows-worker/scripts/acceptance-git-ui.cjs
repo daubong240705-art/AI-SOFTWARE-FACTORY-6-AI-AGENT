@@ -101,7 +101,7 @@ async function main() {
     );
   async function openGit() {
     await js(
-      "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+      "document.querySelector('[aria-label=\"Thêm mục trong dự án\"]').click()",
     );
     await click("Git local");
     await until(() => js("!!document.querySelector('.git-file-list')"));
@@ -228,7 +228,7 @@ async function main() {
     ),
   );
   await js(
-    "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+    "document.querySelector('[aria-label=\"Thêm mục trong dự án\"]').click()",
   );
   await click("Git local");
   await until(() =>

@@ -36,9 +36,9 @@ export function WorkspaceHome({
   const unavailable = summary.stale || !!summary.error;
   const active = summary.data?.active;
   return (
-    <section className="workspace-home" aria-label="Trang chính">
+    <section className="workspace-home" aria-label="Tổng quan">
       <div className="page-heading">
-        <h1>Trang chính</h1>
+        <h1>Tổng quan</h1>
         <button onClick={onInbox}>
           Cần xử lý
           <ArrowRight size={15} />
@@ -137,7 +137,7 @@ export function WorkspaceHome({
           )}
         </section>
         <section className="home-section">
-          <h2>Bàn giao mới</h2>
+          <h2>Thay đổi mới</h2>
           <ul className="home-summary-list">
             {summary.data?.results.map((item) => (
               <li key={item.id}>
@@ -157,7 +157,7 @@ export function WorkspaceHome({
             ))}
           </ul>
           {summary.data && !summary.data.results.length && (
-            <p className="muted small">Chưa có thay đổi bàn giao.</p>
+            <p className="muted small">Chưa có thay đổi mới.</p>
           )}
         </section>
       </div>

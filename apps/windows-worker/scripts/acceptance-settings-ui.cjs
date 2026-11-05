@@ -194,7 +194,7 @@ async function main() {
   assert.equal(requests.length, 1);
   assert.equal(requests[0].hasKey, true);
   await click("Xóa key");
-  await js("document.querySelector('button[title=\"Trang chính\"]').click()");
+  await js("document.querySelector('button[title=\"Tổng quan\"]').click()");
   await until(() => js("!!document.querySelector('.workspace-home')"));
   await js("document.querySelector('button[title=\"Cài đặt\"]').click()");
   await until(() => js("!!document.querySelector('.settings-workspace')"));
@@ -376,7 +376,7 @@ async function main() {
   );
   await until(() => js("!!document.querySelector('.project-navigation')"));
   await js(
-    "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+    "document.querySelector('[aria-label=\"Thêm mục trong dự án\"]').click()",
   );
   await click(
     "Tổng quan dự án",
@@ -441,7 +441,7 @@ async function main() {
   );
   await until(() => js("!!document.querySelector('.project-navigation')"));
   await js(
-    "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+    "document.querySelector('[aria-label=\"Thêm mục trong dự án\"]').click()",
   );
   await click(
     "Tổng quan dự án",

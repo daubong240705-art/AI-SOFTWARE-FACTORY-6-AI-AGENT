@@ -229,7 +229,7 @@ async function main() {
     monitorCount,
     "Global team must not fan out project monitors",
   );
-  await global("Trang chính");
+  await global("Tổng quan");
   await until(() => js("!!document.querySelector('.workspace-home')"));
   await js(
     "Array.from(document.querySelectorAll('.home-summary-list')[1].querySelectorAll('button')).find(b=>b.textContent.includes('Hồ sơ Beta')).click()",
@@ -341,7 +341,7 @@ async function main() {
     "document.querySelector('.task-inspector button[aria-label=\"Đóng chi tiết công việc\"]').click()",
   );
   // Home uses the existing ChatHost. Drafts remain scoped and opening twice reuses the conversation.
-  await global("Trang chính");
+  await global("Tổng quan");
   await until(() => js("!!document.querySelector('.home-lead-controls')"));
   await option("Dự án trao đổi với Lead", "Alpha");
   await click("Nhắn Lead", "document.querySelector('.home-lead')");
@@ -398,7 +398,7 @@ async function main() {
   );
   const layouts = [];
   for (const page of ["home", "team", "results"]) {
-    if (page === "home") await global("Trang chính");
+    if (page === "home") await global("Tổng quan");
     if (page === "team") await global("Đội ngũ · Mọi dự án");
     if (page === "results") {
       await select(projects[0]);
