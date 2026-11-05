@@ -42,7 +42,6 @@ import {
 import { withWorkContext } from "../../shared/work-context";
 import type {
   Run,
-  RunState,
   RunDetail,
   Permission,
   RuntimeView,

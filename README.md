@@ -1,5 +1,7 @@
 # AI Software Factory
 
+**Sản phẩm đang phát triển:** Windows Worker `1.3.0-alpha.8`, SQLite15, kiến trúc Factory Lite + Windows Worker. Xem [hướng dẫn hiện hành](apps/windows-worker/README.md) và [rà soát source/phần còn lại](docs/windows-worker/source-cleanup-audit.md). Các mục Docker/API/dashboard và tích hợp bên dưới mô tả nền tảng self-hosted cũ, không phải điều kiện để chạy Worker.
+
 Ứng dụng Windows độc lập: [Windows Worker V1.1](apps/windows-worker/README.md). Chọn source local, cấu hình 9Router/model, chat với một role hoặc để Lead phân công qua OpenCode. Có checkpoint/khôi phục công việc, quản lý cây tiến trình, npm preview local, export/dọn lịch sử cùng streaming, hàng chờ và diff. [Báo cáo V1.1](docs/windows-worker/v1.1-completion.md), [kế hoạch Windows Worker](plan/windows-worker/README.md) và [nâng cấp agent](plan/agent-upgrade/README.md).
 
 Nền tảng self-hosted điều phối sáu role PM, BA, BE, FE, TEST, DEVOPS tại <https://asf.lazy.local>. Phase5 có GitLab/OpenProject, worker coding qua OpenCode, model và kỹ năng cố định theo run, test trong sandbox và phê duyệt spec/release theo đúng phiên bản. Dashboard gọn theo tham khảo 9Router, dùng được trên desktop/mobile.

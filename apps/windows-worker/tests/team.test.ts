@@ -14,7 +14,6 @@ import { loadProfiles } from "../electron/team/profiles";
 import { loadSkillCatalog } from "../electron/team/skills";
 import { commandArtifactId, sourceVersion } from "../electron/team/evidence";
 import { snapshot } from "../electron/workspace/snapshot";
-import type { EvidenceRef } from "../shared/evidence";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";

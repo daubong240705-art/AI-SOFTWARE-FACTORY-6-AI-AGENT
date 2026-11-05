@@ -1,109 +1,64 @@
 const { spawn } = require("node:child_process");
 const { join } = require("node:path");
-const env = { ...process.env };
-delete env.ELECTRON_RUN_AS_NODE;
-const child = spawn(
-  require("electron"),
-  [
-    join(
-      __dirname,
-      process.argv[2] === "settings-ui"
-        ? "acceptance-settings-ui.cjs"
-        : process.argv[2] === "workspace-summary-ui"
-          ? "acceptance-workspace-summary-ui.cjs"
-          : process.argv[2] === "lead-access-ui"
-            ? "acceptance-lead-access-ui.cjs"
-            : process.argv[2] === "work-detail-ui"
-              ? "acceptance-work-detail-ui.cjs"
-              : process.argv[2] === "workspace-shell-ui"
-                ? "acceptance-workspace-shell-ui.cjs"
-                : process.argv[2] === "mermaid-ui"
-                  ? "acceptance-mermaid-ui.cjs"
-                  : process.argv[2] === "images-ui"
-                    ? "acceptance-images-ui.cjs"
-                    : process.argv[2] === "git-ui"
-                      ? "acceptance-git-ui.cjs"
-                      : process.argv[2] === "ux06-ui"
-                        ? "acceptance-ux06-ui.cjs"
-                        : process.argv[2] === "work-items-ui" ||
-                            process.argv[2] === "board-ui"
-                          ? "acceptance-work-items-ui.cjs"
-                          : process.argv[2] === "reports-ui"
-                            ? "acceptance-reports-ui.cjs"
-                            : process.argv[2] === "questions-ui"
-                              ? "acceptance-questions-ui.cjs"
-                              : process.argv[2] === "chat-context-live"
-                                ? "acceptance-chat-context-live.cjs"
-                                : process.argv[2] === "chat-host-ui"
-                                  ? "acceptance-chat-host-ui.cjs"
-                                  : process.argv[2] === "overview-ui"
-                                    ? "acceptance-overview-ui.cjs"
-                                    : process.argv[2] === "ui-foundation"
-                                      ? "acceptance-ui-foundation.cjs"
-                                      : process.argv[2] ===
-                                          "office-selection-ui"
-                                        ? "acceptance-office-selection-ui.cjs"
-                                        : process.argv[2] === "office-state-ui"
-                                          ? "acceptance-office-state-ui.cjs"
-                                          : process.argv[2] === "office-ui"
-                                            ? "acceptance-office-ui.cjs"
-                                            : process.argv[2] === "inspector-ui"
-                                              ? "acceptance-inspector-ui.cjs"
-                                              : process.argv[2] ===
-                                                  "parallel-ui"
-                                                ? "acceptance-parallel-ui.cjs"
-                                                : process.argv[2] ===
-                                                    "parallel-live"
-                                                  ? "acceptance-parallel-live.cjs"
-                                                  : process.argv[2] ===
-                                                      "workspaces-ui"
-                                                    ? "acceptance-workspaces-ui.cjs"
-                                                    : process.argv[2] ===
-                                                        "lifecycle-live"
-                                                      ? "acceptance-lifecycle-live.cjs"
-                                                      : process.argv[2] ===
-                                                          "lifecycle-ui"
-                                                        ? "acceptance-lifecycle-ui.cjs"
-                                                        : process.argv[2] ===
-                                                            "interaction-ui"
-                                                          ? "acceptance-interaction-ui.cjs"
-                                                          : process.argv[2] ===
-                                                              "evidence-live"
-                                                            ? "acceptance-evidence-live.cjs"
-                                                            : process
-                                                                  .argv[2] ===
-                                                                "evidence-ui"
-                                                              ? "acceptance-evidence-ui.cjs"
-                                                              : process
-                                                                    .argv[2] ===
-                                                                  "follow-ups"
-                                                                ? "acceptance-follow-ups.cjs"
-                                                                : process
-                                                                      .argv[2] ===
-                                                                    "follow-ups-ui"
-                                                                  ? "acceptance-follow-ups-ui.cjs"
-                                                                  : process
-                                                                        .argv[2] ===
-                                                                      "chat-live"
-                                                                    ? "acceptance-chat-live.cjs"
-                                                                    : process
-                                                                          .argv[2] ===
-                                                                        "chat-ui"
-                                                                      ? "acceptance-chat-ui.cjs"
-                                                                      : process
-                                                                            .argv[2] ===
-                                                                          "team"
-                                                                        ? "acceptance-team.cjs"
-                                                                        : process
-                                                                              .argv[2] ===
-                                                                            "stop"
-                                                                          ? "acceptance-stop.cjs"
-                                                                          : "acceptance-live.cjs",
-    ),
-    ...process.argv.slice(3),
-  ],
-  { env, stdio: "inherit", windowsHide: true },
-);
-child.on("exit", (code) => {
-  process.exitCode = code ?? 1;
-});
+
+// Explicit allowlist: a typo must never fall through to a live model run.
+const scenarios = new Map([
+  ["settings-ui", "acceptance-settings-ui.cjs"],
+  ["workspace-summary-ui", "acceptance-workspace-summary-ui.cjs"],
+  ["lead-access-ui", "acceptance-lead-access-ui.cjs"],
+  ["work-detail-ui", "acceptance-work-detail-ui.cjs"],
+  ["workspace-shell-ui", "acceptance-workspace-shell-ui.cjs"],
+  ["mermaid-ui", "acceptance-mermaid-ui.cjs"],
+  ["images-ui", "acceptance-images-ui.cjs"],
+  ["git-ui", "acceptance-git-ui.cjs"],
+  ["ux06-ui", "acceptance-ux06-ui.cjs"],
+  ["board-ui", "acceptance-work-items-ui.cjs"],
+  ["reports-ui", "acceptance-reports-ui.cjs"],
+  ["questions-ui", "acceptance-questions-ui.cjs"],
+  ["chat-context-live", "acceptance-chat-context-live.cjs"],
+  ["chat-host-ui", "acceptance-chat-host-ui.cjs"],
+  ["overview-ui", "acceptance-overview-ui.cjs"],
+  ["ui-foundation", "acceptance-ui-foundation.cjs"],
+  ["office-selection-ui", "acceptance-office-selection-ui.cjs"],
+  ["office-state-ui", "acceptance-office-state-ui.cjs"],
+  ["office-ui", "acceptance-office-ui.cjs"],
+  ["inspector-ui", "acceptance-inspector-ui.cjs"],
+  ["parallel-ui", "acceptance-parallel-ui.cjs"],
+  ["parallel-live", "acceptance-parallel-live.cjs"],
+  ["workspaces-ui", "acceptance-workspaces-ui.cjs"],
+  ["lifecycle-live", "acceptance-lifecycle-live.cjs"],
+  ["lifecycle-ui", "acceptance-lifecycle-ui.cjs"],
+  ["interaction-ui", "acceptance-interaction-ui.cjs"],
+  ["evidence-live", "acceptance-evidence-live.cjs"],
+  ["evidence-ui", "acceptance-evidence-ui.cjs"],
+  ["follow-ups", "acceptance-follow-ups.cjs"],
+  ["follow-ups-ui", "acceptance-follow-ups-ui.cjs"],
+  ["chat-live", "acceptance-chat-live.cjs"],
+  ["chat-ui", "acceptance-chat-ui.cjs"],
+  ["team", "acceptance-team.cjs"],
+  ["stop", "acceptance-stop.cjs"],
+  ["work-items-ui", "acceptance-work-items-ui.cjs"],
+  ["live", "acceptance-live.cjs"],
+]);
+const scenario = process.argv[2];
+const script = scenarios.get(scenario);
+if (!script) {
+  console.error(`Usage: node scripts/run-acceptance.cjs <scenario>
+Scenarios: ${[...scenarios.keys()].join(", ")}`);
+  process.exitCode = 1;
+} else {
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const child = spawn(
+    require("electron"),
+    [join(__dirname, script), ...process.argv.slice(3)],
+    { env, stdio: "inherit", windowsHide: true },
+  );
+  child.on("error", (error) => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+  child.on("exit", (code) => {
+    process.exitCode = code ?? 1;
+  });
+}

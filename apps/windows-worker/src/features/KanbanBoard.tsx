@@ -27,7 +27,6 @@ const blank = {
 
 export function KanbanBoard({
   projectId,
-  projectName,
   onOpenRun,
   onInspect,
   initialRunId,
@@ -37,7 +36,6 @@ export function KanbanBoard({
   onOpenItem,
 }: {
   projectId: string;
-  projectName: string;
   onOpenRun: (runId: string | null, conversationId: string | null) => void;
   onInspect: (runId: string) => void;
   initialRunId?: string | null;

@@ -1,5 +1,7 @@
 # ASF Windows Worker
 
+**Trạng thái hiện tại và phần còn lại:** [rà soát source](../../docs/windows-worker/source-cleanup-audit.md). R0–R5 và cải thiện Cần xử lý/mô tả task đã triển khai; lịch R6 chưa chạy tự động. Những mốc bên dưới là lịch sử bàn giao, không phải danh sách tất cả việc còn thiếu.
+
 **Giao diện hiện hành:** sidebar chọn dự án, tab **Công việc / Trao đổi / Kết quả / Khác**; một hồ sơ gồm **Yêu cầu / Trao đổi / Tiến độ / Kết quả**. Chat mặc định trao đổi với Lead; role/model ở **Tùy chọn trao đổi**. Tư vấn/câu hỏi không tạo submission; kế hoạch thực thi hợp lệ mới liên kết công việc trước khi giao agent. **Bash tự động theo vai trò**, không cần Accept từng lệnh. [Bàn giao Bash tự động](../../docs/windows-worker/bash-autonomy-completion.md), [R3A](../../docs/windows-worker/workspace-r3a-completion.md), [hồ sơ R2](../../docs/windows-worker/workspace-r2-completion.md). Các mục UX bên dưới ghi lại những đợt triển khai trước; hướng dẫn quyền hiện hành thay thế Ask/Full access trong các bàn giao cũ.
 
 **R3 đã hoàn thành:** R3B đồng nhất trạng thái chờ/tiến độ; R3C nối trạng thái báo cáo, revision/attempt và policy vào Board/Tổng quan/Đội ngũ/chat/Tiến độ. Summary ghi rõ source chưa đối chiếu; mở báo cáo để kiểm tra source và bằng chứng trước khi nghiệm thu. Board Xong cần report có bằng chứng đạt và đủ điều kiện nghiệm thu; nghiệm thu nghiệp vụ không thay kết quả kiểm chứng kỹ thuật. [Bàn giao R3C và giới hạn](../../docs/windows-worker/workspace-r3c-completion.md), [R3B](../../docs/windows-worker/workspace-r3b-completion.md). Bash tự động đã triển khai riêng.
@@ -104,6 +106,8 @@ Bỏ project khỏi danh sách không xóa source hoặc hội thoại. Mở l�
 [Mermaid](../../docs/windows-worker/ux07-mermaid-completion.md): khối mã `mermaid` có `Xem sơ đồ`, mã nguồn, sao chép và phóng to. Hỗ trợ flow/sequence/class/state/ER, nạp thư viện local khi cần, không tài nguyên bên ngoài hoặc cấu hình tùy ý. Sau build chạy `node scripts/run-acceptance.cjs mermaid-ui`. [Giấy phép](THIRD_PARTY_MERMAID_NOTICE.md).
 
 ## Kiểm tra phát triển
+
+Runner acceptance yêu cầu tên bài kiểm tra rõ ràng: `node scripts/run-acceptance.cjs ux06-ui`. Thiếu/sai tên chỉ in hướng dẫn, không gọi model. Luồng live cũ phải chọn `live`; `board-ui` vẫn là alias của `work-items-ui`. Bỏ wrapper `ChatWorkspace.tsx` và file entry `acceptance-board-ui.cjs`; dùng `ChatHost.tsx` và runner chung. `typecheck` hiện chặn import, biến và tham số không sử dụng.
 
 `1.3.0-alpha.8` hoàn thành **D-04**: click bàn hoặc nhãn để chọn agent; chọn từng task trong **Hoạt động** để mở inspector đúng execution/model/workspace. Task chờ và direct run dùng cùng inspector. **Mở trên Kanban** giữ card cha và task đang xem; nút **Văn phòng** trong inspector quay lại agent/task được đánh dấu. Hover một dòng, các nhãn/task là nút dùng được bằng bàn phím. Đổi project xóa lựa chọn. [Bàn giao D-04](../../docs/windows-worker/office-3d/d04/README.md). Sau build: `node scripts/run-acceptance.cjs office-selection-ui`; ảnh chỉ lưu local. Còn D-05 và E.
 

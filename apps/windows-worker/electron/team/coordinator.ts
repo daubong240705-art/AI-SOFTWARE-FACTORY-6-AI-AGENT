@@ -14,7 +14,7 @@ import type { Snapshot } from "../workspace/snapshot";
 import { ExecutionStopped } from "../runtime/stopped";
 import { sourcePolicyError, rolePolicy } from "./policy";
 import { buildHandoff, workReportInstructions } from "./handoff";
-import { verifyEvidence, sourceVersion } from "./evidence";
+import { verifyEvidence } from "./evidence";
 import type { EvidenceStore } from "../storage/evidence";
 import { selectTaskSkills, skillCatalogSummary } from "./skills";
 import { WorkerError, failure, classifyFailure } from "../runtime/failure";

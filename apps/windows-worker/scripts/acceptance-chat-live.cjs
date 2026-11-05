@@ -33,7 +33,7 @@ app.whenReady().then(async () => {
     const marker = "WW4A-" + crypto.randomUUID().slice(0, 8);
     const outputs = [];
     for (const prompt of [
-      `Chỉ đọc src/features/ChatWorkspace.tsx và shared/chat.ts trong source Windows Worker. Nêu ba phần UI mới và cách bản nháp gắn với hội thoại. Ghi nhớ nhãn ${marker} cho cuộc trò chuyện này. Không shell, không sửa file, không commit. Trả lời ngắn bằng tiếng Việt.`,
+      `Chỉ đọc src/features/ChatHost.tsx và shared/chat.ts trong source Windows Worker. Nêu ba phần UI mới và cách bản nháp gắn với hội thoại. Ghi nhớ nhãn ${marker} cho cuộc trò chuyện này. Không shell, không sửa file, không commit. Trả lời ngắn bằng tiếng Việt.`,
       "Nhắc lại chính xác nhãn hội thoại tôi đã cung cấp ở lượt trước, kèm một điều về bản nháp. Không đọc file hoặc dùng công cụ, không sửa source. Chỉ trả lời hai câu.",
     ]) {
       const run = controller.start(

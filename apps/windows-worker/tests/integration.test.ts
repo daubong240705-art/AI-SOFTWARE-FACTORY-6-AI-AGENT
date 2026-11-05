@@ -20,7 +20,6 @@ import { newTask } from "../electron/team/coordinator";
 import { coordinate } from "../electron/team/coordinator";
 import { sourceVersion, commandArtifactId } from "../electron/team/evidence";
 import { createHash } from "node:crypto";
-import type { EvidenceRef } from "../shared/evidence";
 import { defaultSettings } from "../shared/defaults";
 import type { Run } from "../shared/runs";
 import { RunController } from "../electron/controller/runs";

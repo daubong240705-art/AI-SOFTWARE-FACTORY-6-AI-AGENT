@@ -16,7 +16,7 @@ import {
   OpenCodeRuntime,
   type RuntimeHooks,
 } from "../electron/runtime/opencode";
-import type { Run, Permission } from "../shared/runs";
+import type { Run } from "../shared/runs";
 import type { TeamTask } from "../shared/team";
 import type { Event } from "@opencode-ai/sdk/v2/client";
 

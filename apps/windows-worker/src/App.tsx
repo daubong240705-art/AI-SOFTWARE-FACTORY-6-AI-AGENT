@@ -2,7 +2,6 @@ import { SettingsWorkspace } from "./features/SettingsWorkspace";
 import { setupIdentity, type SetupSection } from "../shared/setup";
 import { DetailHost } from "./features/DetailHost";
 import { WorkItemPanel, type WorkTab } from "./features/WorkItemPanel";
-import { Select } from "./ui/Select";
 import {
   WorkspaceSidebar,
   WorkspaceHeader,
@@ -16,7 +15,6 @@ import type { ResultEntry } from "../shared/workspace";
 import { Popover } from "./ui/Popover";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  ArrowRight,
   GitBranch,
   LayoutDashboard,
   MessageSquare,
@@ -131,7 +129,6 @@ export function App() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatDock, setChatDock] = useState(false);
   const [chatContext, setChatContext] = useState<WorkChatContext | null>(null);
-  const [chatReturnPage, setChatReturnPage] = useState<Page>("board");
   const [conversationSearch, setConversationSearch] = useState("");
   const [chatRefresh, setChatRefresh] = useState(0);
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
@@ -1069,7 +1066,7 @@ export function App() {
                   }}
                   onDock={() => {
                     setChatDock(true);
-                    setPage(chatReturnPage);
+                    setPage("board");
                   }}
                   onCloseDock={() =>
                     void act("chat", async () => {
@@ -1155,7 +1152,6 @@ export function App() {
                     else inspect(runId);
                   }}
                   projectId={boardProject.id}
-                  projectName={boardProject.name}
                   onOpenRun={(id, conversation) => {
                     if (id)
                       void act("conversation", () =>
@@ -1311,7 +1307,7 @@ export function App() {
                   onSave={() =>
                     void act("save", async () => {
                       await save();
-                      tell("?? l?u c?u h?nh.");
+                      tell("Đã lưu cấu hình.");
                     })
                   }
                   onCatalog={fetchCatalog}

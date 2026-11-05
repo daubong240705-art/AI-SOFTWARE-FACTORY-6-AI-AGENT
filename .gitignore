@@ -12,7 +12,10 @@ node_modules/
 .mypy_cache/
 dist/
 *.egg-info/
-/.cache/asf-research/
+.cache/
+
+# Local upstream reference checkout; not part of the product.
+/crewhub/
 
 # Generated UI screenshots stay local. Keep source/design assets trackable.
 /docs/**/*.png
