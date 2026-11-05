@@ -8,18 +8,13 @@ export type RuntimeContext = {
   readOnly: boolean;
   allowShell: boolean;
   allowedPaths: string[];
-  permissionMode?: "ask" | "full-access";
 };
 
 export function autoApproves(
   permission: string,
-  context: Pick<RuntimeContext, "allowShell" | "permissionMode">,
+  context: Pick<RuntimeContext, "allowShell">,
 ): boolean {
-  return (
-    context.permissionMode === "full-access" &&
-    (permission === "doom_loop" ||
-      (permission === "bash" && context.allowShell))
-  );
+  return permission === "bash" && context.allowShell;
 }
 
 export function runtimePermissions(workspace: string, context: RuntimeContext) {
@@ -61,11 +56,7 @@ export function runtimePermissions(workspace: string, context: RuntimeContext) {
     glob: "allow",
     grep: "allow",
     list: "allow",
-    bash: context.allowShell
-      ? autoApproves("bash", context)
-        ? "allow"
-        : "ask"
-      : "deny",
+    bash: context.allowShell ? "allow" : "deny",
     external_directory: "deny",
     todowrite: "allow",
     question: "deny",
@@ -74,6 +65,7 @@ export function runtimePermissions(workspace: string, context: RuntimeContext) {
     websearch: "deny",
     skill: "deny",
     lsp: "deny",
-    doom_loop: autoApproves("doom_loop", context) ? "allow" : "ask",
+    // Deliver loop detection to Controller, which rejects and stops the run.
+    doom_loop: "ask",
   } satisfies NonNullable<Config["permission"]>;
 }

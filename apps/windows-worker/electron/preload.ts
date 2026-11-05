@@ -91,7 +91,6 @@ const api: WorkerAPI = {
   runDetail: (id) => ipcRenderer.invoke(channels.runDetail, id),
   replyPermission: (input) =>
     ipcRenderer.invoke(channels.replyPermission, input),
-  grantRunAccess: (runId) => ipcRenderer.invoke(channels.grantRunAccess, runId),
   bootstrap: () => ipcRenderer.invoke(channels.bootstrap),
   chooseProject: () => ipcRenderer.invoke(channels.chooseProject),
   openProject: (id) => ipcRenderer.invoke(channels.openProject, id),

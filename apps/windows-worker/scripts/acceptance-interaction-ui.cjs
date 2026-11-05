@@ -139,13 +139,13 @@ app.whenReady().then(async () => {
       js(`document.querySelectorAll('.chat-message.assistant').length === 2`),
     );
     assert.equal(
-      await js(`document.querySelector('[aria-label="Quyền thực thi"]').value`),
-      "full-access",
+      await js(
+        `document.querySelector('[aria-label="Quyền thực thi"]') === null`,
+      ),
+      true,
     );
     assert.equal(
-      await js(
-        `document.querySelector('[aria-label="Chế độ thực thi"] option:checked').textContent`,
-      ),
+      await js(`document.querySelector('.chat-recipient').textContent`),
       "Lead",
     );
     await js(`document.querySelector('[aria-label="Mở chi tiết"]').click()`);
@@ -196,7 +196,7 @@ app.whenReady().then(async () => {
     );
     await capture("composer-small.png");
     console.log(
-      "PASS: Lead conversation, compact activity, expandable technical logs and Full access selector; no horizontal overflow at 850px.",
+      "PASS: Lead conversation, compact activity and automatic Bash without an approval selector; no horizontal overflow at 850px.",
     );
     console.log("Screenshots: " + artifacts);
   } catch (error) {

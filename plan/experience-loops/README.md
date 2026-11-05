@@ -6,7 +6,7 @@ Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–06 và UX-07 Git loc
 
 Đợt [làm gọn giao diện UX-01](../../docs/windows-worker/ux01-ui-refinement.md) là mốc trước R1; xem bàn giao R1 để dùng điều hướng hiện hành. Tổng quan dự án và các chức năng cũ vẫn truy cập được qua menu đúng phạm vi.
 
-Cập nhật R3B: [đã triển khai trạng thái chờ/tiến độ](../../docs/windows-worker/workspace-r3b-completion.md) cho Board/Tổng quan/Đội ngũ, Inbox dùng chung nhãn. Phần report freshness/capability ở mọi view còn tiếp tục; chưa đánh dấu toàn bộ R3 hoàn thành. [Phương án bỏ duyệt Bash](../../docs/windows-worker/bash-autonomy-proposal.md) là đề xuất riêng, chưa thay policy người dùng.
+Cập nhật R3B: [đã triển khai trạng thái chờ/tiến độ](../../docs/windows-worker/workspace-r3b-completion.md) cho Board/Tổng quan/Đội ngũ, Inbox dùng chung nhãn. Phần report freshness/capability ở mọi view còn tiếp tục; chưa đánh dấu toàn bộ R3 hoàn thành. [Bash tự động theo vai trò đã triển khai](../../docs/windows-worker/bash-autonomy-completion.md), thay bộ chọn Ask/Full access và nút nâng quyền nêu trong bàn giao cũ.
 
 ## Quyết định định hướng
 

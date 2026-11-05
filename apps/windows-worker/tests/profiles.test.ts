@@ -54,7 +54,7 @@ test("direct role profiles and runtime permissions stay consistent with and with
       assert.equal(permission.edit === "deny", expectedReadOnly, role);
       assert.equal(
         permission.bash,
-        ["lead", "pm", "ba"].includes(role) ? "deny" : "ask",
+        ["lead", "pm", "ba"].includes(role) ? "deny" : "allow",
         role,
       );
       assert.equal(permission.task, "deny");
@@ -64,7 +64,7 @@ test("direct role profiles and runtime permissions stay consistent with and with
   }
 });
 
-test("Full access auto-allows commands for shell roles while preserving role, scope and secret policies", () => {
+test("legacy Full access cannot bypass role, scope, secret or tool-loop policies", () => {
   for (const role of roles) {
     const run = runFor(role, tmpdir());
     run.profiles = loadProfiles();
@@ -86,7 +86,7 @@ test("Full access auto-allows commands for shell roles while preserving role, sc
         permissions.bash,
         ["lead", "pm", "ba"].includes(role) ? "deny" : "allow",
       );
-      assert.equal(permissions.doom_loop, "allow");
+      assert.equal(permissions.doom_loop, "ask");
       assert.equal(permissions.external_directory, "deny");
       assert.equal(permissions.task, "deny");
       assert.equal(permissions.read["**/.env"], "deny");
@@ -223,7 +223,9 @@ test("profile snapshots record content versions and hashes; selected direct role
         ? "1.3.3"
         : ["pm", "ba"].includes(profile.role)
           ? "1.1.0"
-          : "1.2.0",
+          : profile.role === "test"
+            ? "1.3.1"
+            : "1.2.0",
     );
     assert.equal(
       profile.hash,

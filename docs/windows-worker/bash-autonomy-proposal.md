@@ -1,6 +1,6 @@
 # Đề xuất bỏ duyệt Bash thủ công
 
-Ngày 05/11/2026. Source đã đối chiếu: `electron/runtime/permissions.ts`, `opencode.ts`, `controller/runs.ts`, `team/role-policy.ts`, `shared/defaults.ts` trong Windows Worker. Đây là phương án, chưa thay chính sách hoặc cấu hình người dùng.
+Ngày 05/11/2026. Source đã đối chiếu: `electron/runtime/permissions.ts`, `opencode.ts`, `controller/runs.ts`, `team/role-policy.ts`, `shared/defaults.ts` trong Windows Worker. **Đã triển khai theo phương án Bash tự động theo role**: xem [bàn giao và kiểm chứng](bash-autonomy-completion.md). Nội dung dưới đây giữ lại đánh giá trước triển khai, gồm mô tả Ask/Full access cũ.
 
 ## Kết luận
 
@@ -40,4 +40,4 @@ Không đề xuất regex danh sách “lệnh an toàn”: shell có script, pi
 4. Kiểm role matrix, native ticket trùng, lỗi trả quyền, Stop/deadline, hàng chờ/restart và công cụ ngoài Bash. Kiểm UI không còn thao tác Accept Bash.
 5. Cập nhật hướng dẫn đúng quyền OS; kiểm một lượt OpenCode thật nếu cần xác nhận runtime, tách khỏi fixture UI.
 
-R3B hiện tại chỉ cải thiện projection trạng thái; chưa triển khai các thay đổi chính sách ở trên.
+R3B cải thiện projection trạng thái; thay đổi chính sách Bash được bàn giao riêng ở tài liệu hoàn thành liên kết đầu trang.

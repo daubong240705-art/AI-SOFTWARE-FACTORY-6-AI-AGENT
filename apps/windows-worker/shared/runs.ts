@@ -48,6 +48,7 @@ export type CommandResult = {
   exitCode: number | null;
 };
 export type Run = {
+  shellPolicy?: "role-auto-v1";
   leadAdmission?: boolean;
   permissionUpgrade?: { at: string; from: "ask"; to: "full-access" };
   imageIds?: string[];

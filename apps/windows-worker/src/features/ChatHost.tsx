@@ -71,7 +71,6 @@ type Props = {
   leadFocusVersion?: number;
   saveSettings: () => Promise<unknown>;
   setModel: (role: Role, model: string) => void;
-  setPermissionMode: (mode: Settings["permissionMode"]) => void;
   onNew: () => void;
   onChooseProject: () => void;
   onSettings: () => void;
@@ -103,7 +102,6 @@ export function ChatHost({
   leadFocusVersion,
   saveSettings,
   setModel,
-  setPermissionMode,
   onNew,
   onChooseProject,
   onSettings,
@@ -558,14 +556,6 @@ export function ChatHost({
         }),
       );
       setRefresh((n) => n + 1);
-    });
-  }
-  async function grantRunAccess() {
-    if (!current || currentFeed.stale || currentFeed.error) return;
-    await action(async () => {
-      await unwrap(window.worker.grantRunAccess(current.run.id));
-      await currentFeed.refresh?.();
-      onChanged();
     });
   }
   function showDetails(runId: string, tab: string) {
@@ -1086,42 +1076,36 @@ export function ChatHost({
                   "Chưa đồng bộ · Trạng thái lượt chạy lần cuối"}
               </p>
             )}
-            {current?.run.permissions.map((p) => (
-              <div className="chat-permission" key={p.id}>
-                <strong>
-                  {p.taskId ? `${p.taskId} · ` : ""}Cho phép {p.permission} một
-                  lần?
-                </strong>
-                <pre>{p.patterns.join("\n")}</pre>
-                <div className="inline">
-                  <button
-                    disabled={busy || currentFeed.stale || !!currentFeed.error}
-                    onClick={() => void permission(p.id, false)}
-                  >
-                    Từ chối
-                  </button>
-                  <button
-                    className="primary"
-                    disabled={busy || currentFeed.stale || !!currentFeed.error}
-                    onClick={() => void permission(p.id, true)}
-                  >
-                    Cho phép
-                  </button>
-                  {["bash", "doom_loop"].includes(p.permission) && (
+            {current?.run.permissions
+              .filter((p) => !["bash", "doom_loop"].includes(p.permission))
+              .map((p) => (
+                <div className="chat-permission" key={p.id}>
+                  <strong>
+                    {p.taskId ? `${p.taskId} · ` : ""}Cho phép {p.permission}{" "}
+                    một lần?
+                  </strong>
+                  <pre>{p.patterns.join("\n")}</pre>
+                  <div className="inline">
                     <button
                       disabled={
                         busy || currentFeed.stale || !!currentFeed.error
                       }
-                      onClick={() => void grantRunAccess()}
+                      onClick={() => void permission(p.id, false)}
                     >
-                      {current.run.settings.permissionMode === "full-access"
-                        ? "Duyệt quyền còn chờ"
-                        : "Full access cho lượt này"}
+                      Từ chối
                     </button>
-                  )}
+                    <button
+                      className="primary"
+                      disabled={
+                        busy || currentFeed.stale || !!currentFeed.error
+                      }
+                      onClick={() => void permission(p.id, true)}
+                    >
+                      Cho phép
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
             <div className="chat-composer">
               <ChatImages
                 images={images}
@@ -1253,22 +1237,6 @@ export function ChatHost({
                     </Select>
                     <button onClick={onSettings}>Cấu hình đội agent</button>
                   </Popover>
-                  <Select
-                    aria-label="Quyền thực thi"
-                    title="Full access tự duyệt lệnh bằng quyền Windows của bạn. Giữ phạm vi vai trò và giới hạn lượt chạy."
-                    value={
-                      currentActive
-                        ? (current.run.settings.permissionMode ?? "ask")
-                        : (settings.permissionMode ?? "ask")
-                    }
-                    onValueChange={(value) =>
-                      setPermissionMode(value as Settings["permissionMode"])
-                    }
-                    disabled={busy || !!activeId}
-                  >
-                    <option value="ask">Hỏi trước khi chạy</option>
-                    <option value="full-access">Full access</option>
-                  </Select>
                 </div>
                 {activeId ? (
                   <button

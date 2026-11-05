@@ -18,7 +18,7 @@ export function defaultSettings(): Settings {
     timeoutMinutes: 30,
     maxRequests: 40,
     maxFixRounds: 2,
-    permissionMode: "ask",
+    permissionMode: "ask", // Legacy field only; current runtime uses role-auto-v1.
     teamExecution: "sequential",
     agents: roles.map((role) => ({ role, enabled: true, model: "" })),
   };

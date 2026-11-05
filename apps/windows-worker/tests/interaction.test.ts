@@ -13,7 +13,7 @@ import { RunController } from "../electron/controller/runs";
 import { RunPanel } from "../src/features/RunPanel";
 import { TaskTimeline } from "../src/features/TaskTimeline";
 
-test("legacy settings and queued requests default to ask; Full access persists and is snapshotted for new runs", async () => {
+test("legacy Ask/Full access snapshots stay readable while queued and new executions use role-based Bash", async () => {
   const directory = mkdtempSync(join(tmpdir(), "asf-access-settings-"));
   let store = new Store(directory);
   try {
@@ -42,11 +42,13 @@ test("legacy settings and queued requests default to ask; Full access persists a
     store.queue.save({ ...queued, settings: oldSettings as typeof settings });
     const oldRun = controller.resume(queued.id);
     assert.equal(oldRun.settings.permissionMode, "ask");
+    assert.equal(oldRun.shellPolicy, "role-auto-v1");
     await controller.stop(oldRun.id);
     settings.permissionMode = "full-access";
     store.save(settings, undefined);
     const run = controller.start(project.id, "Docs", "be");
     assert.equal(run.settings.permissionMode, "full-access");
+    assert.equal(run.shellPolicy, "role-auto-v1");
     settings.permissionMode = "ask";
     store.save(settings, undefined);
     await controller.stop(run.id);

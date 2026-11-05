@@ -147,7 +147,7 @@ test("real Git task workspaces overlap two Controller steps, route evidence/perm
       });
       runtime.hooks.permission({
         id: "same-permission",
-        permission: "bash",
+        permission: "edit",
         patterns: ["test"],
       });
       await permission;

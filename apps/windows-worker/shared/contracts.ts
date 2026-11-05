@@ -44,6 +44,7 @@ export const settingsSchema = z
     timeoutMinutes: z.number().int().min(1).max(240),
     maxRequests: z.number().int().min(1).max(1000),
     maxFixRounds: z.number().int().min(0).max(2),
+    // Legacy snapshot field. Bash policy is now role-based, independent of it.
     permissionMode: z.enum(["ask", "full-access"]).default("ask"),
     teamExecution: z
       .enum(["sequential", "isolated-pair"])
@@ -315,7 +316,6 @@ export interface WorkerAPI {
     requestId: string;
     allow: boolean;
   }): Promise<Reply<void>>;
-  grantRunAccess(runId: string): Promise<Reply<void>>;
   bootstrap(): Promise<Reply<Bootstrap>>;
   chooseProject(): Promise<Reply<Project | null>>;
   openProject(id: string): Promise<Reply<Project>>;

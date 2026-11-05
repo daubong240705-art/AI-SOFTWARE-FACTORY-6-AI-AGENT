@@ -137,6 +137,7 @@ function fixture() {
     onPermission(
       active: unknown,
       permission: { id: string; permission: string; patterns: string[] },
+      lane?: unknown,
     ): void;
     step(
       active: unknown,
@@ -564,153 +565,126 @@ test("permission rejection and repeated Stop preserve the first cause and hold t
   }
 });
 
-test("Full access fallback approves only permitted requests using the immutable run snapshot; manual mode still waits", async () => {
+test("Bash auto-approves independently of legacy settings and deduplicates native tickets", async () => {
   const x = fixture();
   try {
     const work = task(x.run);
     x.run.tasks.push(work);
     x.run.currentTaskId = work.id;
     x.run.state = "running";
-    x.run.settings.permissionMode = "full-access";
-    let replies = 0;
+    const replies: string[] = [];
     x.active.runtime = {
       reply: async (id: string, allow: boolean) => {
-        assert.equal(id, "auto");
         assert.equal(allow, true);
-        replies++;
+        replies.push(id);
       },
     };
-    const changed = structuredClone(x.run.settings);
-    changed.permissionMode = "ask";
-    x.store.save(changed, undefined);
-    x.internal.onPermission(x.active, {
-      id: "auto",
-      permission: "bash",
-      patterns: ["npm test"],
-    });
+    for (const mode of ["ask", "full-access"] as const) {
+      x.run.settings.permissionMode = mode;
+      const input = { id: mode, permission: "bash", patterns: ["npm test"] };
+      x.internal.onPermission(x.active, input);
+      x.internal.onPermission(x.active, input);
+    }
     await Promise.resolve();
-    assert.equal(replies, 1);
+    assert.deepEqual(replies, ["ask", "full-access"]);
     assert.equal(x.run.state, "running");
     assert.deepEqual(x.run.permissions, []);
-    assert.ok(
+    assert.equal(
       x.store
         .events(x.run.id)
-        .some((event) => event.type === "PERMISSION_AUTO_APPROVED"),
+        .filter((event) => event.type === "PERMISSION_AUTO_APPROVED").length,
+      2,
     );
     x.internal.onPermission(x.active, {
-      id: "auto",
-      permission: "bash",
-      patterns: ["npm test"],
+      id: "other",
+      permission: "external_directory",
+      patterns: ["../"],
     });
-    assert.equal(replies, 1, "replayed permission event must not reply twice");
-    x.run.settings.permissionMode = "ask";
-    x.internal.onPermission(x.active, {
-      id: "manual",
-      permission: "bash",
-      patterns: ["npm test"],
-    });
-    assert.equal(x.run.state, "blocked");
     assert.equal(x.run.permissions.length, 1);
-    assert.equal(replies, 1);
-    x.run.permissions = [];
-    x.run.settings.permissionMode = "full-access";
-    x.run.currentTaskId = null;
-    x.run.role = "lead";
+    assert.equal(
+      (x.run.permissions[0] as import("../shared/runs").Permission).permission,
+      "external_directory",
+    );
+    assert.equal(replies.length, 2);
+    x.internal.active = undefined;
     x.internal.onPermission(x.active, {
-      id: "denied-role",
+      id: "stale",
       permission: "bash",
-      patterns: ["npm test"],
+      patterns: [],
     });
-    assert.equal(replies, 1);
-    assert.equal(x.run.permissions[0].id, "denied-role");
+    assert.equal(replies.length, 2);
   } finally {
     x.cleanup();
   }
 });
 
-test("explicit Full access upgrades only the chosen run, resolves waiting Bash once, retains other gates and supports retry", async () => {
+test("Bash from a read-only Lead and doom-loop signals are denied and stop instead of waiting for Accept", async () => {
+  for (const permission of ["bash", "doom_loop"]) {
+    const x = fixture();
+    try {
+      x.run.state = "running";
+      const replies: { id: string; allow: boolean }[] = [];
+      x.active.runtime = {
+        reply: async (id: string, allow: boolean) => {
+          replies.push({ id, allow });
+          if (permission === "doom_loop") await new Promise<void>(() => {});
+        },
+        close: async () => {},
+      };
+      const input = { id: "denied", permission, patterns: ["npm test"] };
+      x.internal.onPermission(x.active, input);
+      x.internal.onPermission(x.active, input);
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.deepEqual(replies, [{ id: "denied", allow: false }]);
+      assert.equal(
+        x.run.failure?.code,
+        permission === "doom_loop" ? "tool-loop" : "permission-denied",
+      );
+      assert.equal(x.run.state, "failed");
+      assert.equal(x.controller.view().activeId, null);
+      assert.deepEqual(x.run.permissions, []);
+      assert.equal(
+        x.store
+          .events(x.run.id)
+          .filter((event) => event.type === "PERMISSION_AUTO_DENIED").length,
+        1,
+      );
+    } finally {
+      x.cleanup();
+    }
+  }
+});
+
+test("Bash approval remains scoped to execution lanes and ignores closed or cancelling executions", async () => {
   const x = fixture();
   try {
-    const work = task(x.run);
-    x.run.tasks.push(work);
-    x.run.currentTaskId = work.id;
-    x.run.state = "running";
-    x.run.settings.permissionMode = "ask";
     const replies: string[] = [];
-    let fail = true;
-    x.active.runtime = {
-      reply: async (id: string) => {
-        if (id === "bash-wait" && fail) {
-          fail = false;
-          throw Error("lost permission reply");
-        }
-        replies.push(id);
-      },
-    };
-    x.internal.onPermission(x.active, {
-      id: "bash-wait",
-      permission: "bash",
-      patterns: ["npm test"],
+    const lanes = ["a", "b"].map((id) => {
+      const work = task(x.run, id);
+      x.run.tasks.push(work);
+      return {
+        taskId: id,
+        approvedPermissions: new Set<string>(),
+        closed: false,
+        runtime: {
+          reply: async (nativeId: string) => {
+            replies.push(`${id}:${nativeId}`);
+          },
+        },
+      };
     });
-    x.internal.onPermission(x.active, {
-      id: "external",
-      permission: "external_directory",
-      patterns: ["../"],
-    });
-    const settingsBefore = x.store.settings();
-    await assert.rejects(
-      x.controller.grantRunAccess(crypto.randomUUID()),
-      /không còn/,
-    );
-    await assert.rejects(
-      x.controller.grantRunAccess(x.run.id),
-      /lost permission/,
-    );
-    assert.equal(x.run.settings.permissionMode, "full-access");
-    await x.controller.grantRunAccess(x.run.id);
-    assert.deepEqual(replies, ["bash-wait"]);
-    x.internal.onPermission(x.active, {
-      id: "bash-wait",
-      permission: "bash",
-      patterns: ["npm test"],
-    });
-    assert.deepEqual(
-      replies,
-      ["bash-wait"],
-      "a replay after resolving the waiting ticket must not execute twice",
-    );
-    assert.equal(x.run.permissions.length, 1);
-    assert.equal(x.run.permissions[0].permission, "external_directory");
-    assert.deepEqual(x.store.settings(), settingsBefore);
-    assert.ok(x.store.run(x.run.id).permissionUpgrade?.at);
-    assert.equal(
-      x.store.events(x.run.id).filter((e) => e.type === "RUN_ACCESS_GRANTED")
-        .length,
-      1,
-    );
-    x.internal.onPermission(x.active, {
-      id: "next-bash",
-      permission: "bash",
-      patterns: ["npm run build"],
-    });
-    await Promise.resolve();
-    assert.deepEqual(replies, ["bash-wait", "next-bash"]);
-    await x.controller.grantRunAccess(x.run.id);
-    assert.deepEqual(replies, ["bash-wait", "next-bash"]);
-    x.run.currentTaskId = null;
-    x.internal.onPermission(x.active, {
-      id: "lead-bash",
-      permission: "bash",
-      patterns: ["npm test"],
-    });
-    await x.controller.grantRunAccess(x.run.id);
-    assert.equal(
-      replies.includes("lead-bash"),
-      false,
-      "Lead still cannot run Bash",
-    );
-    x.run.state = "cancelling";
-    await assert.rejects(x.controller.grantRunAccess(x.run.id), /không còn/);
+    const ticket = { id: "same-id", permission: "bash", patterns: [] };
+    for (const lane of lanes) {
+      x.internal.onPermission(x.active, ticket, lane);
+      x.internal.onPermission(x.active, ticket, lane);
+    }
+    assert.deepEqual(replies, ["a:same-id", "b:same-id"]);
+    lanes[0].closed = true;
+    x.internal.onPermission(x.active, { ...ticket, id: "closed" }, lanes[0]);
+    x.active.desired = "cancelled";
+    x.internal.onPermission(x.active, { ...ticket, id: "cancelled" }, lanes[1]);
+    assert.equal(replies.length, 2);
+    assert.equal(x.run.permissions.length, 0);
   } finally {
     x.cleanup();
   }
@@ -760,7 +734,7 @@ test("closed proxy cannot start or reopen its listener", async () => {
   await starting.close();
 });
 
-test("permission tickets route colliding native IDs to their originating task runtime", async () => {
+test("non-Bash permission tickets route colliding native IDs to their originating task runtime", async () => {
   const x = fixture();
   try {
     Object.assign(x.active, { executions: new Executions() });
@@ -777,7 +751,7 @@ test("permission tickets route colliding native IDs to their originating task ru
       };
       const permission = {
         id: "same-native-id",
-        permission: "bash",
+        permission: "edit",
         patterns: ["npm test"],
       };
       x.internal.onPermission(x.active, permission);

@@ -458,6 +458,7 @@ export class RunController {
       this.store.images.refs(projectId, conversationId, imageIds);
     }
     const run: Run = {
+      shellPolicy: "role-auto-v1",
       leadAdmission,
       imageIds,
       workContext,
@@ -1098,11 +1099,37 @@ export class RunController {
     permission: Permission,
     lane?: ExecutionContext,
   ): void {
-    if (active.desired || lane?.closed) return;
+    if (this.active !== active || active.desired || lane?.closed) return;
     const taskId = lane ? lane.taskId : active.run.currentTaskId;
     const owner = active.run.tasks.find((t) => t.id === taskId);
     const runtime = lane ? lane.runtime : active.runtime;
     if (!runtime) return;
+    if (
+      permission.permission === "doom_loop" ||
+      (permission.permission === "bash" &&
+        !rolePolicy(owner?.role ?? active.run.role).allowShell)
+    ) {
+      const reason =
+        permission.permission === "doom_loop"
+          ? failure(
+              "tool-loop",
+              "Agent lặp công cụ mà không có tiến triển. Lượt chạy đã dừng; xem hoạt động và điều chỉnh yêu cầu trước khi thử lại.",
+            )
+          : failure(
+              "permission-denied",
+              "Vai trò này không được chạy Bash. Lead cần giao tác vụ cho role thực thi.",
+            );
+      active.desired = "failed";
+      active.failure = reason;
+      active.stopError = reason.message;
+      this.record(active, "PERMISSION_AUTO_DENIED", reason.message, taskId);
+      // Do not wait for a native reply to stop the owned process tree.
+      void runtime.reply(permission.id, false).catch(() => {});
+      void this.stop(active.run.id, "failed", reason.message, reason).catch(
+        () => {},
+      );
+      return;
+    }
     if (
       [...(active.permissionRoutes?.values() ?? [])].some(
         (route) =>
@@ -1113,7 +1140,6 @@ export class RunController {
     if (
       autoApproves(permission.permission, {
         ...rolePolicy(owner?.role ?? active.run.role),
-        permissionMode: active.run.settings.permissionMode,
       })
     ) {
       const approved =
@@ -1124,7 +1150,7 @@ export class RunController {
       this.record(
         active,
         "PERMISSION_AUTO_APPROVED",
-        `${permission.permission} · Full access`,
+        `${permission.permission} · Tự động theo vai trò`,
         taskId,
       );
       void runtime?.reply(permission.id, true).catch((error) => {
@@ -1385,54 +1411,6 @@ export class RunController {
       taskId,
     );
   }
-  async grantRunAccess(runId: string): Promise<void> {
-    const active = this.active;
-    if (
-      !active ||
-      active.run.id !== runId ||
-      active.desired ||
-      this.shuttingDown ||
-      !["running", "blocked", "queued"].includes(active.run.state)
-    )
-      throw Error(
-        "Lượt chạy không còn hoạt động. Cập nhật trạng thái trước khi cấp quyền.",
-      );
-    if (active.run.settings.permissionMode !== "full-access") {
-      const previous = active.run.settings;
-      active.run.settings = { ...previous, permissionMode: "full-access" };
-      active.run.permissionUpgrade = {
-        at: new Date().toISOString(),
-        from: "ask",
-        to: "full-access",
-      };
-      try {
-        this.record(
-          active,
-          "RUN_ACCESS_GRANTED",
-          "Người dùng bật Full access cho lượt này; giữ quyền vai trò và phạm vi.",
-          null,
-        );
-      } catch (error) {
-        active.run.settings = previous;
-        delete active.run.permissionUpgrade;
-        throw error;
-      }
-    }
-    for (const permission of [...active.run.permissions]) {
-      if (this.active !== active || active.desired) break;
-      const role =
-        active.run.tasks.find((task) => task.id === permission.taskId)?.role ??
-        active.run.role;
-      if (
-        autoApproves(permission.permission, {
-          ...rolePolicy(role),
-          permissionMode: "full-access",
-        }) &&
-        !active.permissionRoutes?.get(permission.id)?.resolving
-      )
-        await this.reply(runId, permission.id, true);
-    }
-  }
   async reply(runId: string, requestId: string, allow: boolean): Promise<void> {
     const active = this.active;
     if (
@@ -1485,7 +1463,6 @@ export class RunController {
       permission &&
       autoApproves(permission.permission, {
         ...rolePolicy(owner?.role ?? active.run.role),
-        permissionMode: active.run.settings.permissionMode,
       })
     ) {
       (

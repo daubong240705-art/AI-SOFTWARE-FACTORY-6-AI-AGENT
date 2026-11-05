@@ -232,10 +232,16 @@ async function main() {
   );
   await js("document.querySelector('[aria-label=\"Gửi yêu cầu\"]').click()");
   await until(
-    () => js("!!document.querySelector('.chat-permission')"),
-    "Bash permission",
+    () => executions === 2 && lastRun.state === "completed",
+    "automatic Bash completion",
   );
-  assert.equal(lastRun.settings.permissionMode, "ask");
+  assert.equal(
+    lastRun.settings.permissionMode,
+    "ask",
+    "legacy snapshot does not require approval",
+  );
+  assert.equal(lastRun.shellPolicy, "role-auto-v1");
+  assert.deepEqual(replies, ["first-bash", "next-bash"]);
   const layouts = [];
   for (const [width, height, zoom] of [
     [1366, 768, 1],
@@ -247,22 +253,17 @@ async function main() {
     win.webContents.setZoomFactor(zoom);
     await pause(150);
     const layout = await js(
-      "(()=>{const a=document.querySelector('.chat-permission'),b=Array.from(a.querySelectorAll('button')).find(b=>b.textContent.includes('Full access')),r=b.getBoundingClientRect();return {width:innerWidth,height:innerHeight,right:r.right,bottom:r.bottom,overflow:a.scrollWidth>a.clientWidth+1}})()",
+      "({overflow:document.documentElement.scrollWidth>innerWidth+1,permissions:document.querySelectorAll('.chat-permission').length,selector:!!document.querySelector('[aria-label=\"Quyền thực thi\"]')})",
     );
     assert.equal(layout.overflow, false);
-    assert.ok(
-      layout.right <= layout.width + 1 && layout.bottom <= layout.height + 1,
-    );
+    assert.equal(layout.permissions, 0);
+    assert.equal(layout.selector, false);
     layouts.push({ width, height, zoom, ...layout });
     writeFileSync(
-      join(directory, `permission-${width}-${zoom}.png`),
+      join(directory, `automatic-bash-${width}-${zoom}.png`),
       (await win.webContents.capturePage()).toPNG(),
     );
   }
-  await click("Full access cho lượt này");
-  await until(() => js("!document.querySelector('.chat-permission')"));
-  await until(() => lastRun.state === "completed");
-  assert.deepEqual(replies, ["first-bash", "next-bash"]);
   db = new Store(data);
   const items = db.board.summaries(project.id);
   assert.equal(items.length, 1);
@@ -272,19 +273,15 @@ async function main() {
     1,
   );
   assert.equal(db.settings().permissionMode, "ask");
-  assert.equal(db.run(lastRun.id).settings.permissionMode, "full-access");
+  assert.equal(db.run(lastRun.id).settings.permissionMode, "ask");
   assert.equal(
-    db.events(lastRun.id).filter((event) => event.type === "RUN_ACCESS_GRANTED")
-      .length,
-    1,
+    db
+      .events(lastRun.id)
+      .filter((event) => event.type === "PERMISSION_AUTO_APPROVED").length,
+    2,
   );
   db.close();
-  assert.equal(
-    (await js(`window.worker.grantRunAccess(${JSON.stringify(lastRun.id)})`))
-      .ok,
-    false,
-    "terminal runs reject upgrade",
-  );
+  assert.equal(await js("typeof window.worker.grantRunAccess"), "undefined");
   assert.deepEqual(fixtureErrors, []);
   assert.deepEqual(errors, []);
   const result = {

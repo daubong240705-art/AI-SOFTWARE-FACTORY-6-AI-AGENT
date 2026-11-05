@@ -202,7 +202,7 @@ async function main() {
   );
   assert.equal(
     await js(
-      "document.querySelector('[aria-label=\"Quyền thực thi\"]').textContent.includes('Full access')",
+      "document.querySelector('[aria-label=\"Quyền thực thi\"]') === null",
     ),
     true,
   );

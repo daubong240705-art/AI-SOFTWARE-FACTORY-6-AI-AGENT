@@ -1131,9 +1131,6 @@ export function App() {
                   openRunVersion={openRunVersion}
                   saveSettings={save}
                   setModel={(role, model) => updateAgent(role, { model })}
-                  setPermissionMode={(permissionMode) =>
-                    setSettings({ ...settings, permissionMode })
-                  }
                   onNew={() => void newConversation()}
                   onChooseProject={() => void chooseProject()}
                   onSettings={() => navigate("settings")}
@@ -1513,28 +1510,10 @@ export function App() {
                             Runtime & công cụ
                           </h2>
                         </div>
-                        <label>
-                          Quyền thực thi
-                          <Select
-                            aria-label="Quyền thực thi mặc định"
-                            value={settings.permissionMode ?? "ask"}
-                            disabled={!!busy || !!runtime.activeId}
-                            onValueChange={(value) =>
-                              setSettings({
-                                ...settings,
-                                permissionMode:
-                                  value as Settings["permissionMode"],
-                              })
-                            }
-                          >
-                            <option value="ask">Hỏi trước khi chạy</option>
-                            <option value="full-access">Full access</option>
-                          </Select>
-                        </label>
                         <p className="muted small">
-                          Full access tự duyệt lệnh bằng quyền Windows của bạn.
-                          Giữ phạm vi vai trò và giới hạn lượt chạy. Áp dụng cho
-                          lượt mới.
+                          Bash tự chạy theo vai trò bằng quyền Windows hiện tại.
+                          Lead giao việc; BE/FE/TEST/DEVOPS thực thi. Giới hạn
+                          lượt chạy và nút Dừng vẫn áp dụng.
                         </p>
                         <label>
                           Thực thi nhóm

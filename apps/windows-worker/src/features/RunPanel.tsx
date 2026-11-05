@@ -75,9 +75,6 @@ export function RunPanel({
           {run.role.toUpperCase()}
           {tab !== "activity" ? ` · ${run.model}` : ""}
         </span>
-        {run.settings.permissionMode === "full-access" && (
-          <span className="pill">Full access</span>
-        )}
         {tab !== "activity" && (
           <span className="muted small">
             {formatRequestUsage(run.requests, run.settings.maxRequests)}
@@ -154,38 +151,43 @@ export function RunPanel({
         </div>
       )}
       {showPermissions &&
-        run.permissions.map((permission) => (
-          <section className="permission-box" key={permission.id}>
-            <strong>
-              <TriangleAlert size={16} />
-              Cho phép công cụ một lần?
-            </strong>
-            <div>
-              {permission.taskId ? `${permission.taskId} · ` : ""}
-              {permission.permission}
-            </div>
-            <pre>{permission.patterns.join("\n")}</pre>
-            <p className="muted small">
-              Shell chạy bằng quyền Windows của bạn, có thể tác động ngoài
-              workspace.
-            </p>
-            <div className="inline">
-              <button
-                disabled={busy}
-                onClick={() => onPermission(permission.id, false)}
-              >
-                Từ chối
-              </button>
-              <button
-                disabled={busy}
-                className="primary"
-                onClick={() => onPermission(permission.id, true)}
-              >
-                Cho phép một lần
-              </button>
-            </div>
-          </section>
-        ))}
+        run.permissions
+          .filter(
+            (permission) =>
+              !["bash", "doom_loop"].includes(permission.permission),
+          )
+          .map((permission) => (
+            <section className="permission-box" key={permission.id}>
+              <strong>
+                <TriangleAlert size={16} />
+                Cho phép công cụ một lần?
+              </strong>
+              <div>
+                {permission.taskId ? `${permission.taskId} · ` : ""}
+                {permission.permission}
+              </div>
+              <pre>{permission.patterns.join("\n")}</pre>
+              <p className="muted small">
+                Shell chạy bằng quyền Windows của bạn, có thể tác động ngoài
+                workspace.
+              </p>
+              <div className="inline">
+                <button
+                  disabled={busy}
+                  onClick={() => onPermission(permission.id, false)}
+                >
+                  Từ chối
+                </button>
+                <button
+                  disabled={busy}
+                  className="primary"
+                  onClick={() => onPermission(permission.id, true)}
+                >
+                  Cho phép một lần
+                </button>
+              </div>
+            </section>
+          ))}
       {["changes", "result"].includes(tab) && run.integration && (
         <IntegrationResult run={run} busy={busy} onOpen={onOpenWorkspace} />
       )}
