@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type {
   BoardItem,
   WorkItemDetail,
@@ -9,6 +15,10 @@ import { ChatMarkdown } from "./ChatMarkdown";
 import { Select } from "../ui/Select";
 import { runLabels, type RunState } from "../../shared/runs";
 import { WorkReport } from "./WorkReport";
+import { WorkProgress } from "./WorkProgress";
+import { QuestionCards } from "./QuestionCards";
+import type { QuestionSet } from "../../shared/questions";
+export type WorkTab = "requirements" | "discussion" | "progress" | "result";
 
 async function value<T>(promise: Promise<Reply<T>>) {
   const reply = await promise;
@@ -22,23 +32,79 @@ export function WorkItemPanel({
   itemId,
   onClose,
   onInspect,
-  onConversation,
   onChanged,
   activeRunId,
   onAskLead,
+  tab: controlledTab,
+  onTab,
+  selectedRunId,
+  draftFlush,
+  beforeSubmit = () => Promise.resolve(),
+  refreshVersion = 0,
+  visible = true,
 }: {
   projectId: string;
   itemId: string;
   onClose: () => void;
-  onInspect: (id: string) => void;
-  onConversation: (runId: string | null, conversationId: string | null) => void;
+  onInspect: (id: string, taskId?: string) => void;
   onChanged: () => void;
   activeRunId: string | null;
   onAskLead?: (itemId: string) => void;
+  tab?: WorkTab;
+  onTab?: (tab: WorkTab) => Promise<void>;
+  selectedRunId?: string | null;
+  draftFlush?: { current: () => Promise<unknown> };
+  beforeSubmit?: () => Promise<unknown>;
+  refreshVersion?: number;
+  visible?: boolean;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
   const [detail, setDetail] = useState<WorkItemDetail | null>(null);
-  const [tab, setTab] = useState("overview");
+  const [localTab, setLocalTab] = useState<WorkTab>("requirements");
+  const tab = controlledTab ?? localTab;
+  const questionFlushes = useRef(new Map<string, () => Promise<unknown>>());
+  const mutation = useRef<Promise<void>>(Promise.resolve());
+  const content = useRef<HTMLDivElement>(null);
+  const scroll = useRef(new Map<string, number>());
+  useLayoutEffect(() => {
+    if (visible && content.current)
+      content.current.scrollTop = scroll.current.get(tab) ?? 0;
+  }, [tab, visible]);
+  const registerFlush = useCallback(
+    (id: string, flush: (() => Promise<unknown>) | null) => {
+      if (flush) questionFlushes.current.set(id, flush);
+      else questionFlushes.current.delete(id);
+    },
+    [],
+  );
+  const flush = useCallback(
+    () =>
+      Promise.all([
+        mutation.current,
+        ...[...questionFlushes.current.values()].map((fn) => fn()),
+      ]),
+    [],
+  );
+  useEffect(() => {
+    if (!draftFlush) return;
+    draftFlush.current = flush;
+    return () => {
+      if (draftFlush.current === flush)
+        draftFlush.current = () => Promise.resolve();
+    };
+  }, [draftFlush, flush]);
+  const [questions, setQuestions] = useState<QuestionSet[]>([]);
+  const [questionError, setQuestionError] = useState("");
+  const [questionRefresh, setQuestionRefresh] = useState(0);
+  async function changeTab(next: WorkTab) {
+    try {
+      await flush();
+      setError("");
+      if (onTab) await onTab(next);
+      else setLocalTab(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Chưa lưu được câu trả lời.");
+    }
+  }
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState<{
     title: string;
@@ -65,8 +131,6 @@ export function WorkItemPanel({
     return next;
   }
   useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    dialog.current?.showModal();
     let live = true;
     void value(window.worker.workItemDetail({ projectId, itemId }))
       .then((next) => {
@@ -77,13 +141,48 @@ export function WorkItemPanel({
       });
     return () => {
       live = false;
-      dialog.current?.close();
-      if (previous?.isConnected) previous.focus();
     };
   }, [projectId, itemId]);
+  useEffect(() => {
+    let live = true;
+    const id = detail?.item.conversationId;
+    if (!id) return;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const chat = await value(window.worker.conversation(id!));
+        if (live) {
+          setQuestions(
+            (chat.questionSets ?? []).filter(
+              (set) => set.workItemId === itemId,
+            ),
+          );
+          setQuestionError("");
+        }
+      } catch (e) {
+        if (live)
+          setQuestionError(
+            e instanceof Error ? e.message : "Chưa tải được câu hỏi.",
+          );
+      }
+      if (live) timer = setTimeout(() => void poll(), 1500);
+    }
+    void poll();
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [detail?.item.conversationId, itemId, questionRefresh]);
+  useEffect(() => {
+    if (detail) void load().catch((e) => setError(e.message));
+  }, [activeRunId, refreshVersion]);
   async function act(fn: () => Promise<void>) {
     if (lock.current) return;
     lock.current = true;
+    let finish!: () => void;
+    mutation.current = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
     setBusy(true);
     setError("");
     try {
@@ -96,6 +195,7 @@ export function WorkItemPanel({
     } finally {
       lock.current = false;
       setBusy(false);
+      finish();
     }
   }
   function edit(item: BoardItem) {
@@ -118,15 +218,22 @@ export function WorkItemPanel({
           ["queued", "running", "blocked", "cancelling"].includes(a.state),
       ),
   );
+  const attempts = detail?.submissions.flatMap((s) => s.attempts) ?? [];
+  const currentRun =
+    selectedRunId ??
+    detail?.submissions.find((s) => s.currentRunId)?.currentRunId ??
+    null;
+  const latestReport =
+    reportRunId ??
+    (selectedRunId && attempts.find((a) => a.id === selectedRunId)?.endedAt
+      ? selectedRunId
+      : attempts
+          .filter((a) => a.endedAt)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.id);
   return (
-    <dialog
-      ref={dialog}
-      className={`work-item-panel ${expanded ? "expanded" : ""}`}
+    <section
+      className={`work-item-panel embedded ${tab === "discussion" ? "discussion-active" : ""} ${expanded ? "expanded" : ""}`}
       aria-label="Hồ sơ công việc"
-      onCancel={(e) => {
-        e.preventDefault();
-        if (!busy) onClose();
-      }}
     >
       <header className="work-panel-header">
         <div>
@@ -136,6 +243,27 @@ export function WorkItemPanel({
           </small>
           <h2>{item?.title ?? "Đang tải…"}</h2>
         </div>
+        {detail && (
+          <button
+            className="primary work-primary-action"
+            disabled={busy}
+            onClick={() =>
+              void changeTab(
+                questions.some((set) => set.state === "pending")
+                  ? "requirements"
+                  : attempts.some((a) => a.endedAt) && !pending
+                    ? "result"
+                    : "progress",
+              )
+            }
+          >
+            {questions.some((set) => set.state === "pending")
+              ? "Trả lời"
+              : attempts.some((a) => a.endedAt) && !pending
+                ? "Xem kết quả"
+                : "Xem tiến độ"}
+          </button>
+        )}
         <button
           aria-label={expanded ? "Thu gọn hồ sơ" : "Mở rộng hồ sơ"}
           onClick={() => setExpanded(!expanded)}
@@ -148,14 +276,16 @@ export function WorkItemPanel({
       </header>
       <nav className="work-panel-tabs" aria-label="Nội dung hồ sơ">
         {[
-          ["overview", "Tổng quan"],
+          ["requirements", "Yêu cầu"],
           ["discussion", "Trao đổi"],
-          ["executions", "Lần thực hiện"],
+          ["progress", "Tiến độ"],
+          ["result", "Kết quả"],
         ].map(([key, label]) => (
           <button
             key={key}
             aria-pressed={tab === key}
-            onClick={() => setTab(key)}
+            disabled={busy}
+            onClick={() => void changeTab(key as WorkTab)}
           >
             {label}
           </button>
@@ -187,10 +317,41 @@ export function WorkItemPanel({
           </button>
         </div>
       )}
-      <div className="work-panel-content" aria-busy={busy}>
+      <div
+        ref={content}
+        className="work-panel-content"
+        aria-busy={busy}
+        onScroll={(event) => {
+          if (visible) scroll.current.set(tab, event.currentTarget.scrollTop);
+        }}
+      >
+        <div hidden={tab !== "requirements"}>
+          {questionError && (
+            <p className="notice error">
+              {questionError}
+              <button onClick={() => setQuestionRefresh((n) => n + 1)}>
+                Tải lại câu hỏi
+              </button>
+            </p>
+          )}
+          {questions.map((set) => (
+            <QuestionCards
+              key={set.id}
+              set={set}
+              readOnly={!!questionError}
+              registerFlush={registerFlush}
+              beforeSubmit={beforeSubmit}
+              onChanged={() => {
+                setQuestionRefresh((n) => n + 1);
+                void load().catch((e) => setError(e.message));
+                onChanged();
+              }}
+            />
+          ))}
+        </div>
         {!detail ? (
           <p>Đang tải hồ sơ…</p>
-        ) : tab === "overview" ? (
+        ) : tab === "requirements" ? (
           <>
             {draft ? (
               <form
@@ -341,7 +502,6 @@ export function WorkItemPanel({
                     <button
                       disabled={busy}
                       onClick={() => {
-                        onClose();
                         onAskLead(itemId);
                       }}
                     >
@@ -503,252 +663,285 @@ export function WorkItemPanel({
           </>
         ) : tab === "discussion" ? (
           <>
-            <p className="muted">
-              Ghi chú được lưu trong hồ sơ. Gửi Lead từ Tổng quan để thực hiện
-              yêu cầu.
-            </p>
-            {detail.hasEarlierComments && (
-              <button
-                disabled={busy}
-                onClick={() =>
+            <details className="work-notes">
+              <summary>Ghi chú riêng · {detail.comments.length}</summary>
+              <p className="muted small">Ghi chú không gửi cho agent.</p>
+              {detail.hasEarlierComments && (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void act(async () => {
+                      const page = await value(
+                        window.worker.workItemComments({
+                          ...ref,
+                          before: detail.comments.at(-1)!.sequence,
+                        }),
+                      );
+                      setDetail({
+                        ...detail,
+                        comments: [...detail.comments, ...page.comments],
+                        hasEarlierComments: page.hasMore,
+                      });
+                    })
+                  }
+                >
+                  Ghi chú trước
+                </button>
+              )}
+              {!detail.comments.length && (
+                <p className="muted">Chưa có ghi chú.</p>
+              )}
+              {[...detail.comments].reverse().map((c) => (
+                <article className="work-comment" key={c.id}>
+                  <small>Bạn · {date(c.createdAt)}</small>
+                  <ChatMarkdown text={c.body} />
+                </article>
+              ))}
+              <form
+                className="work-item-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
                   void act(async () => {
-                    const page = await value(
-                      window.worker.workItemComments({
+                    const body = comment.trim();
+                    if (
+                      !commentRequest.current ||
+                      commentRequest.current.body !== body
+                    )
+                      commentRequest.current = {
+                        body,
+                        id: crypto.randomUUID(),
+                      };
+                    const saved = await value(
+                      window.worker.addWorkComment({
                         ...ref,
-                        before: detail.comments.at(-1)!.sequence,
+                        clientId: commentRequest.current.id,
+                        body,
                       }),
                     );
                     setDetail({
                       ...detail,
-                      comments: [...detail.comments, ...page.comments],
-                      hasEarlierComments: page.hasMore,
+                      comments: [
+                        saved,
+                        ...detail.comments.filter((c) => c.id !== saved.id),
+                      ],
                     });
-                  })
-                }
-              >
-                Trao đổi trước
-              </button>
-            )}
-            {!detail.comments.length && (
-              <p className="muted">Chưa có trao đổi.</p>
-            )}
-            {[...detail.comments].reverse().map((c) => (
-              <article className="work-comment" key={c.id}>
-                <small>Bạn · {date(c.createdAt)}</small>
-                <ChatMarkdown text={c.body} />
-              </article>
-            ))}
-            <form
-              className="work-item-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void act(async () => {
-                  const body = comment.trim();
-                  if (
-                    !commentRequest.current ||
-                    commentRequest.current.body !== body
-                  )
-                    commentRequest.current = { body, id: crypto.randomUUID() };
-                  const saved = await value(
-                    window.worker.addWorkComment({
-                      ...ref,
-                      clientId: commentRequest.current.id,
-                      body,
-                    }),
-                  );
-                  setDetail({
-                    ...detail,
-                    comments: [
-                      saved,
-                      ...detail.comments.filter((c) => c.id !== saved.id),
-                    ],
+                    setComment("");
+                    commentRequest.current = null;
                   });
-                  setComment("");
-                  commentRequest.current = null;
-                });
-              }}
-            >
-              <label>
-                Trao đổi
-                <textarea
-                  rows={3}
-                  maxLength={6000}
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                />
-              </label>
-              <button className="primary" disabled={busy || !comment.trim()}>
-                Lưu trao đổi
-              </button>
-            </form>
-            {detail.item.conversationId && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onConversation(null, detail.item.conversationId);
                 }}
               >
-                Mở hội thoại Lead
-              </button>
+                <label>
+                  Ghi chú
+                  <textarea
+                    rows={3}
+                    maxLength={6000}
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                  />
+                </label>
+                <button className="primary" disabled={busy || !comment.trim()}>
+                  Lưu ghi chú
+                </button>
+              </form>
+            </details>
+          </>
+        ) : tab === "result" ? (
+          <>
+            {latestReport ? (
+              <>
+                <label className="work-report-selector">
+                  Lần thực hiện
+                  <Select
+                    aria-label="Kết quả lần thực hiện"
+                    value={latestReport}
+                    onValueChange={(id) => setReportRunId(id)}
+                  >
+                    {attempts
+                      .filter((a) => a.endedAt)
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {date(a.createdAt)} ·{" "}
+                          {runLabels[a.state as RunState] ?? a.state}
+                        </option>
+                      ))}
+                  </Select>
+                </label>
+                <WorkReport
+                  key={latestReport}
+                  run={{ id: latestReport, projectId }}
+                  onInspect={onInspect}
+                  onChanged={() => {
+                    void load().catch((e) => setError(e.message));
+                    onChanged();
+                  }}
+                />
+              </>
+            ) : (
+              <p className="muted">
+                Chưa có kết quả. Mở Tiến độ để xem lượt đang thực hiện hoặc hàng
+                chờ.
+              </p>
             )}
           </>
         ) : (
           <>
-            {reportRunId && (
-              <div className="work-inline-report">
-                <button onClick={() => setReportRunId(null)}>Ẩn báo cáo</button>
-                <WorkReport
-                  key={reportRunId}
-                  run={{ id: reportRunId, projectId }}
-                  onInspect={(id) => {
-                    onClose();
-                    onInspect(id);
-                  }}
-                />
-              </div>
+            {currentRun && (
+              <WorkProgress
+                projectId={projectId}
+                runId={currentRun}
+                onInspect={onInspect}
+              />
             )}
-            {!detail.submissions.length && (
-              <p className="muted">Chưa gửi thực hiện.</p>
-            )}
-            {detail.submissions.map((s) => (
-              <article className="work-submission" key={s.id}>
-                <header>
-                  <strong>Yêu cầu v{s.revision}</strong>
-                  <small>{date(s.createdAt)}</small>
-                </header>
-                {s.revision !== detail.item.revision && (
-                  <p className="muted">
-                    Phiên bản cũ · hiện tại v{detail.item.revision}
-                  </p>
-                )}
-                <button
-                  onClick={() => {
-                    setTab("overview");
-                    const found = detail.revisions.find(
-                      (r) => r.revision === s.revision,
-                    );
-                    if (found) setRevision(found);
-                    else
-                      void act(async () => {
-                        const page = await value(
-                          window.worker.workItemDetail({
-                            ...ref,
-                            before: s.revision + 1,
-                          }),
-                        );
-                        setRevision(
-                          page.revisions.find(
-                            (r) => r.revision === s.revision,
-                          ) ?? null,
-                        );
-                      });
-                  }}
-                >
-                  Xem yêu cầu đã gửi
-                </button>
-                {s.followUpId && (
-                  <div className="work-actions">
-                    <span>Trong hàng chờ</span>
-                    <button
-                      disabled={busy || !!activeRunId}
-                      onClick={() =>
+            <details
+              className="work-execution-history"
+              open={!currentRun || undefined}
+            >
+              <summary>Lịch sử thực hiện</summary>
+              {!detail.submissions.length && (
+                <p className="muted">Chưa gửi thực hiện.</p>
+              )}
+              {detail.submissions.map((s) => (
+                <article className="work-submission" key={s.id}>
+                  <header>
+                    <strong>Yêu cầu v{s.revision}</strong>
+                    <small>{date(s.createdAt)}</small>
+                  </header>
+                  {s.revision !== detail.item.revision && (
+                    <p className="muted">
+                      Phiên bản cũ · hiện tại v{detail.item.revision}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => {
+                      void changeTab("requirements");
+                      const found = detail.revisions.find(
+                        (r) => r.revision === s.revision,
+                      );
+                      if (found) setRevision(found);
+                      else
                         void act(async () => {
-                          await value(
-                            window.worker.resumeFollowUp(s.followUpId!),
+                          const page = await value(
+                            window.worker.workItemDetail({
+                              ...ref,
+                              before: s.revision + 1,
+                            }),
                           );
-                          await load();
-                        })
-                      }
-                    >
-                      Chạy tiếp
-                    </button>
+                          setRevision(
+                            page.revisions.find(
+                              (r) => r.revision === s.revision,
+                            ) ?? null,
+                          );
+                        });
+                    }}
+                  >
+                    Xem yêu cầu đã gửi
+                  </button>
+                  {s.followUpId && (
+                    <div className="work-actions">
+                      <span>Trong hàng chờ</span>
+                      <button
+                        disabled={busy || !!activeRunId}
+                        onClick={() =>
+                          void act(async () => {
+                            await value(
+                              window.worker.resumeFollowUp(s.followUpId!),
+                            );
+                            await load();
+                          })
+                        }
+                      >
+                        Chạy tiếp
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() =>
+                          void act(async () => {
+                            await value(
+                              window.worker.removeFollowUp(s.followUpId!),
+                            );
+                            submissionRequest.current = null;
+                            await load();
+                          })
+                        }
+                      >
+                        Bỏ khỏi hàng chờ
+                      </button>
+                    </div>
+                  )}
+                  {s.state === "removed" && <p>Đã bỏ khỏi hàng chờ</p>}
+                  {s.attempts.map((a) => (
+                    <div className="work-attempt" key={a.id}>
+                      <div>
+                        <strong>
+                          {a.role.toUpperCase()} ·{" "}
+                          {runLabels[a.state as RunState] ?? a.state}
+                        </strong>
+                        <small>
+                          {a.model} · {date(a.createdAt)}
+                        </small>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (a.endedAt) {
+                            setReportRunId(a.id);
+                            void changeTab("result");
+                          } else onInspect(a.id);
+                        }}
+                      >
+                        {a.endedAt ? "Báo cáo" : "Xem task"}
+                      </button>
+                    </div>
+                  ))}
+                  {s.currentRunId === activeRunId && (
                     <button
                       disabled={busy}
                       onClick={() =>
                         void act(async () => {
-                          await value(
-                            window.worker.removeFollowUp(s.followUpId!),
-                          );
-                          submissionRequest.current = null;
+                          await value(window.worker.stopRun(s.currentRunId!));
                           await load();
                         })
                       }
                     >
-                      Bỏ khỏi hàng chờ
+                      Dừng lượt chạy
                     </button>
-                  </div>
-                )}
-                {s.state === "removed" && <p>Đã bỏ khỏi hàng chờ</p>}
-                {s.attempts.map((a) => (
-                  <div className="work-attempt" key={a.id}>
-                    <div>
-                      <strong>
-                        {a.role.toUpperCase()} ·{" "}
-                        {runLabels[a.state as RunState] ?? a.state}
-                      </strong>
-                      <small>
-                        {a.model} · {date(a.createdAt)}
-                      </small>
-                    </div>
-                    <button
-                      onClick={() => {
-                        if (a.endedAt) setReportRunId(a.id);
-                        else {
-                          onClose();
-                          onInspect(a.id);
-                        }
-                      }}
-                    >
-                      {a.endedAt ? "Báo cáo" : "Xem task"}
-                    </button>
-                  </div>
-                ))}
-                {s.currentRunId === activeRunId && (
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      void act(async () => {
-                        await value(window.worker.stopRun(s.currentRunId!));
-                        await load();
-                      })
-                    }
-                  >
-                    Dừng lượt chạy
-                  </button>
-                )}
-                {s.hasEarlierAttempts && (
-                  <p className="muted">
-                    Hiển thị 100 lượt gần nhất; xuất hồ sơ để xem toàn bộ liên
-                    kết.
-                  </p>
-                )}
-              </article>
-            ))}
-            {detail.hasMoreSubmissions && (
-              <button
-                disabled={busy}
-                onClick={() =>
-                  void act(async () => {
-                    const page = await value(
-                      window.worker.workItemDetail({
-                        ...ref,
-                        offset: detail.submissions.length,
-                      }),
-                    );
-                    setDetail({
-                      ...detail,
-                      submissions: [...detail.submissions, ...page.submissions],
-                      hasMoreSubmissions: page.hasMoreSubmissions,
-                    });
-                  })
-                }
-              >
-                Lần thực hiện trước
-              </button>
-            )}
+                  )}
+                  {s.hasEarlierAttempts && (
+                    <p className="muted">
+                      Hiển thị 100 lượt gần nhất; xuất hồ sơ để xem toàn bộ liên
+                      kết.
+                    </p>
+                  )}
+                </article>
+              ))}
+              {detail.hasMoreSubmissions && (
+                <button
+                  disabled={busy}
+                  onClick={() =>
+                    void act(async () => {
+                      const page = await value(
+                        window.worker.workItemDetail({
+                          ...ref,
+                          offset: detail.submissions.length,
+                        }),
+                      );
+                      setDetail({
+                        ...detail,
+                        submissions: [
+                          ...detail.submissions,
+                          ...page.submissions,
+                        ],
+                        hasMoreSubmissions: page.hasMoreSubmissions,
+                      });
+                    })
+                  }
+                >
+                  Lần thực hiện trước
+                </button>
+              )}
+            </details>
           </>
         )}
       </div>
-    </dialog>
+    </section>
   );
 }

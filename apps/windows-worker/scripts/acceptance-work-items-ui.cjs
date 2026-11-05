@@ -111,13 +111,13 @@ async function main() {
   win.webContents.setBackgroundThrottling(false);
   await until(() => !win.webContents.isLoading());
   const errors = [];
-  win.webContents.on("console-message", (_event, level, message) => {
-    if (level >= 3) errors.push(message);
+  win.webContents.on("console-message", (event) => {
+    if (event.level === "error") errors.push(event.message);
   });
   const js = (code) => win.webContents.executeJavaScript(code, true);
   const click = (label, scope = "document") =>
     js(
-      `Array.from(${scope}.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(label)}).click()`,
+      `Array.from(${scope}.querySelectorAll('button')).find(b=>b.getClientRects().length && b.textContent.trim()===${JSON.stringify(label)}).click()`,
     );
   const setInput = (selector, text, tag = "HTMLInputElement") =>
     js(
@@ -130,15 +130,9 @@ async function main() {
   );
   assert.equal(migrationBackup.pragma("user_version", { simple: true }), 7);
   migrationBackup.close();
-  await until(() =>
-    js("!!document.querySelector('.workspace-project > button')"),
-  );
-  await until(() =>
-    js("!!document.querySelector('.project-overview .attention-list')"),
-  );
-  await click(
-    "Công việc",
-    "document.querySelector('nav[aria-label=\"Điều hướng chính\"]')",
+  await until(() => js("!!document.querySelector('.workspace-home')"));
+  await js(
+    `document.querySelector('[data-project-id="${project.id}"]').click()`,
   );
   await until(() =>
     js("document.querySelectorAll('.kanban-column').length===6"),
@@ -162,7 +156,7 @@ async function main() {
     `window.worker.moveBoardItem({id:${JSON.stringify(item.id)},version:1,planningState:'done'})`,
   );
   assert.equal(invalid.ok, false);
-  await click("Thêm việc", "document.querySelector('.page-heading')");
+  await click("Tạo công việc", "document.querySelector('.workspace-topbar')");
   await until(() => js("document.querySelector('.board-editor')?.open"));
   await setInput('[aria-label="Tiêu đề công việc"]', "Việc tạo từ UI");
   await setInput(
@@ -230,10 +224,11 @@ async function main() {
   );
   await until(() =>
     js(
-      "document.querySelector('.work-item-panel')?.open && document.querySelector('.work-panel-header h2').textContent==='Hồ sơ UX-02'",
+      "!!document.querySelector('.detail-open .work-item-panel') && document.querySelector('.work-panel-header h2').textContent==='Hồ sơ UX-02'",
     ),
   );
   await click("Trao đổi", "document.querySelector('.work-panel-tabs')");
+  await js("document.querySelector('.work-notes').open=true");
   await setInput(
     ".work-item-panel textarea",
     "Ghi chú tiếng Việt",
@@ -249,7 +244,7 @@ async function main() {
     (await js(`window.worker.workItemDetail(${ref})`)).value.comments.length,
     1,
   );
-  await click("Tổng quan", "document.querySelector('.work-panel-tabs')");
+  await click("Yêu cầu", "document.querySelector('.work-panel-tabs')");
   await click("Sửa yêu cầu", "document.querySelector('.work-item-panel')");
   await setInput(
     ".work-item-form textarea",
@@ -290,13 +285,13 @@ async function main() {
     const r = await js(`window.worker.workItemDetail(${ref})`);
     return r.value.submissions.length === 1;
   });
-  await click("Lần thực hiện", "document.querySelector('.work-panel-tabs')");
+  await click("Tiến độ", "document.querySelector('.work-panel-tabs')");
   await until(() =>
     js(
       "document.querySelector('.work-submission')?.textContent.includes('Trong hàng chờ')",
     ),
   );
-  await click("Tổng quan", "document.querySelector('.work-panel-tabs')");
+  await click("Yêu cầu", "document.querySelector('.work-panel-tabs')");
   await click("Sửa yêu cầu", "document.querySelector('.work-item-panel')");
   await setInput(
     ".work-item-form textarea",
@@ -403,10 +398,9 @@ async function main() {
       "document.querySelector('.work-panel-header h2')?.textContent==='Legacy runtime'",
     ),
   );
-  await click("Lần thực hiện", "document.querySelector('.work-panel-tabs')");
-  await click("Báo cáo", "document.querySelector('.work-item-panel')");
+  await click("Kết quả", "document.querySelector('.work-panel-tabs')");
   await until(() =>
-    js("!!document.querySelector('.work-inline-report .report-heading')"),
+    js("!!document.querySelector('.work-report .report-heading')"),
   );
   assert.ok(
     await js(

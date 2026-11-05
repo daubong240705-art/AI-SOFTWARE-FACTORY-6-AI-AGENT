@@ -1,5 +1,4 @@
 import { Select } from "../ui/Select";
-import { WorkItemPanel } from "./WorkItemPanel";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   boardColumns,
@@ -32,20 +31,20 @@ export function KanbanBoard({
   onOpenRun,
   onInspect,
   initialRunId,
-  onAskLead,
   visible = true,
   createRequest = 0,
   showCreateButton = true,
+  onOpenItem,
 }: {
   projectId: string;
   projectName: string;
   onOpenRun: (runId: string | null, conversationId: string | null) => void;
   onInspect: (runId: string) => void;
   initialRunId?: string | null;
-  onAskLead?: (itemId: string) => void;
   visible?: boolean;
   createRequest?: number;
   showCreateButton?: boolean;
+  onOpenItem: (itemId: string) => void;
 }) {
   const [query, setQuery] = useState<BoardQuery>(
     initialRunId ? { runId: initialRunId, showStopped: true } : {},
@@ -69,9 +68,6 @@ export function KanbanBoard({
   );
   const consumedCreate = useRef(0);
   const initialHandled = useRef(false);
-  const savedScroll = useRef<{ selector: string; left: number; top: number }[]>(
-    [],
-  );
   const lastPage = useRef<BoardPage | undefined>(undefined);
   if (monitor.snapshot?.board) lastPage.current = monitor.snapshot.board;
   const page = monitor.snapshot?.board ?? lastPage.current;
@@ -106,7 +102,8 @@ export function KanbanBoard({
       const card = page.cards.find((item) => item.runId === initialRunId);
       if (card) {
         initialHandled.current = true;
-        setSelected(card);
+        if (card.itemId && onOpenItem) onOpenItem(card.itemId);
+        else setSelected(card);
       }
     } else if (selected && page)
       setSelected(
@@ -135,40 +132,9 @@ export function KanbanBoard({
     setSelected(null);
     setQuery({ ...query, ...patch, offset: 0 });
   }
-  function closeWorkItem() {
-    const key = selected?.key;
-    setSelected(null);
-    requestAnimationFrame(() => {
-      for (const saved of savedScroll.current) {
-        const element = workspace.current?.querySelector<HTMLElement>(
-          saved.selector,
-        );
-        if (element) {
-          element.scrollLeft = saved.left;
-          element.scrollTop = saved.top;
-        }
-      }
-      Array.from(
-        workspace.current?.querySelectorAll<HTMLButtonElement>(
-          "[data-work-key]",
-        ) ?? [],
-      )
-        .find((button) => button.dataset.workKey === key)
-        ?.focus({ preventScroll: true });
-    });
-  }
   function openWorkItem(card: BoardCard) {
-    savedScroll.current = [
-      ".kanban-columns",
-      ".work-list",
-      ...boardColumns.map((column) => `.kanban-column.${column}`),
-    ].flatMap((selector) => {
-      const element = workspace.current?.querySelector<HTMLElement>(selector);
-      return element
-        ? [{ selector, left: element.scrollLeft, top: element.scrollTop }]
-        : [];
-    });
-    setSelected(card);
+    if (card.itemId) onOpenItem(card.itemId);
+    else setSelected(card);
   }
   function move(
     card: BoardCard,
@@ -530,19 +496,6 @@ export function KanbanBoard({
           )}
         </>
       )}
-      {visible && selected?.itemId && (
-        <WorkItemPanel
-          key={selected.itemId}
-          projectId={projectId}
-          itemId={selected.itemId}
-          onClose={closeWorkItem}
-          onInspect={onInspect}
-          onConversation={onOpenRun}
-          onAskLead={onAskLead}
-          onChanged={() => void monitor.refresh?.()}
-          activeRunId={monitor.snapshot?.activeRun?.id ?? null}
-        />
-      )}
       {selected && !selected.itemId && (
         <aside className="board-details" aria-label="Chi tiết thẻ">
           <header>
@@ -575,13 +528,8 @@ export function KanbanBoard({
                         runId: selected.runId!,
                       }),
                     );
-                    setSelected({
-                      ...selected,
-                      itemId: item.id,
-                      version: item.version,
-                      code: item.code,
-                      key: `item:${item.id}`,
-                    });
+                    setSelected(null);
+                    onOpenItem(item.id);
                   })
                 }
               >

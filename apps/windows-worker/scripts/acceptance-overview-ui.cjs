@@ -288,7 +288,7 @@ async function main() {
   await until(
     () =>
       js(
-        "document.querySelector('.task-inspector[open]')?.textContent.includes('Sửa lỗi lưu cấu hình')",
+        "document.querySelector('.task-inspector')?.textContent.includes('Sửa lỗi lưu cấu hình')",
       ),
     "exact result inspector",
   );

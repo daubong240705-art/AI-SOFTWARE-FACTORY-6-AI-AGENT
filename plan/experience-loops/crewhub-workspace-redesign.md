@@ -1,6 +1,6 @@
 # Phương án tổ chức lại trải nghiệm ASF theo bộ ảnh CrewHub
 
-Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0–R1 đã hoàn thành; R2–R7 là kế hoạch.** [Baseline R0](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao R1](../../docs/windows-worker/workspace-r1-completion.md). Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
+Ngày: 05/11/2026. Baseline `5624560`, Worker `1.3.0-alpha.8`, SQLite 14. **R0–R2 đã hoàn thành; R3–R7 là kế hoạch.** [Baseline R0](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao R1](../../docs/windows-worker/workspace-r1-completion.md), [bàn giao R2](../../docs/windows-worker/workspace-r2-completion.md). Đọc trực tiếp 11 ảnh trong `crewhub/`, source Worker và kế hoạch UX-01–08. Không xác minh runtime CrewHub từ ảnh; ảnh chỉ chứng minh bố cục/nội dung được thể hiện. Các nhận định về ASF dưới đây dựa trên source, chưa phải kết quả usability test với người dùng.
 
 ## 1. Quyết định chính
 
@@ -201,7 +201,7 @@ R1 chỉ đổi presentation/navigation, không migration. R2–R4 tái dùng en
 | Đợt | Công việc cụ thể | Xong khi | Ước lượng công sức |
 |---|---|---|---|
 | R1 — Shell | Sidebar toàn app/project, tab project, nhãn/mapping navigation, ẩn tiện ích phụ đúng chỗ | Mọi chức năng cũ truy cập được; project/draft/filter/scroll/focus không mất; chưa đổi runtime/DB | 1–2 ngày |
-| R2 — Hồ sơ | Bốn tab, câu hỏi tại chỗ, ChatHost theo work item, kết quả dễ thấy, detail host chung | Giao việc → hỏi → trả lời → tiến độ → kết quả → yêu cầu sửa trong cùng hồ sơ; không mount hai composer/form câu hỏi | 2–3 ngày |
+| R2 — Hồ sơ (đã hoàn thành) | Bốn tab, câu hỏi tại chỗ, ChatHost theo work item, kết quả dễ thấy, detail host chung | Fixture production Electron đạt; chi tiết và giới hạn trong bàn giao R2 | 2–3 ngày (ước lượng ban đầu) |
 | R3 — Lead và trạng thái | WorkStateView/capabilities, auto-link hồ sơ khi plan, progress mốc và follow-up rõ đích | Không ticket cho tư vấn; không duplicate khi retry/restart; nhãn đúng evidence; không tăng quyền/budget | 2–3 ngày |
 | R4 — Home/Team/Kết quả | Summary toàn app, actionable badge, Team execution tree, report list, Git/tools đúng ngữ cảnh | Mở đúng việc cần xử lý ≤2 thao tác; tìm đúng kết quả không cần biết run ID; không fan-out polling | 2–3 ngày |
 | R5 — Tinh gọn composer/setup | Mặc định Lead, menu advanced, một chip quyền, setup chia nhóm/readiness theo lỗi | Repo sẵn sàng giao việc không cần chọn role/model lại; direct vẫn dùng được; Full access không bị Accept lặp | 1–2 ngày |
@@ -223,9 +223,9 @@ Không ép R2 gom cả migration mới và toàn bộ prompt upgrade một commi
 
 ## 13. Thứ tự khuyến nghị
 
-Bắt đầu **R1 — Shell và điều hướng**, tiếp theo **R2 — Hồ sơ công việc**. Đây là hai phần giảm khó hiểu rõ nhất; giữ toàn bộ tính năng đã làm. Sau đó sửa liên kết chat/agent và trạng thái ở R3, rồi kết nối Home/Team/Kết quả. Giữ lịch schema14 nhưng hoãn phần tự chạy đến R6.
+**R1 — Shell và điều hướng** và **R2 — Hồ sơ công việc** đã triển khai. Tiếp theo sửa liên kết chat/agent và trạng thái ở R3, rồi kết nối Home/Team/Kết quả. Giữ lịch schema14 nhưng hoãn phần tự chạy đến R6.
 
-Ngoài phạm vi R0–R1 đã ghi trong bàn giao, các màn hình và cơ chế đề xuất còn lại chưa có trong bản build hiện hành.
+Ngoài phạm vi R0–R2 đã ghi trong bàn giao, các màn hình và cơ chế đề xuất còn lại chưa có trong bản build hiện hành.
 
 ## 14. Chi tiết để bắt đầu triển khai
 
@@ -289,6 +289,6 @@ Các con số dưới đây là mục tiêu nghiệm thu, chưa phải số đo 
 
 ### Trạng thái bàn giao phương án
 
-Đã đối chiếu bộ ảnh trong `crewhub/` với source hiện tại và xác định thay đổi UI/lifecycle tối thiểu. R0 có checkpoint `c8c81f9`; R1 đã triển khai shell và kiểm chứng production Electron, xem bàn giao liên kết đầu trang. R1 giữ Đội ngũ theo project và Home tối thiểu; hồ sơ bốn tab/detail host ở R2, summary toàn app và Kết quả index ở R4. Phác thảo trước đó dùng dữ liệu minh họa, không phải bằng chứng runtime.
+Đã đối chiếu bộ ảnh trong `crewhub/` với source hiện tại và xác định thay đổi UI/lifecycle tối thiểu. R0 có checkpoint `c8c81f9`; R1 đã triển khai shell; R2 hoàn thành hồ sơ bốn tab/detail host chung và kiểm chứng production Electron, xem bàn giao liên kết đầu trang. Đội ngũ vẫn theo project và Home tối thiểu; summary toàn app và Kết quả index ở R4. Phác thảo trước đó dùng dữ liệu minh họa, không phải bằng chứng runtime.
 
 Kiểm tra riêng bản phác bằng Chromium: các viewport 1024/736/320px ở light/dark không có horizontal overflow hoặc lỗi JavaScript. Đã thử mở hồ sơ, bốn tab, chọn/gửi câu trả lời, cập nhật actionable count, giữ nháp tiếng Việt khi đổi tab và không đưa nháp công việc sang hội thoại dự án. Receipt khi bấm Gửi nêu rõ đây là bản phác, chưa gửi tới agent. Bản phác và kết quả kiểm tra ở `.cache/asf-research/`, đã được Git ignore; không phải bằng chứng các luồng ứng dụng đã hoàn thành. Báo cáo tham chiếu local: `asf-workspace-preview-check.json`.

@@ -11,11 +11,13 @@ export function QuestionCards({
   onChanged,
   beforeSubmit,
   registerFlush,
+  readOnly = false,
 }: {
   set: QuestionSet;
   onChanged: () => void;
   beforeSubmit: () => Promise<unknown>;
   registerFlush: (id: string, flush: (() => Promise<unknown>) | null) => void;
+  readOnly?: boolean;
 }) {
   const [answers, setAnswers] = useState<QuestionAnswer[]>(set.answers);
   const answersRef = useRef(answers),
@@ -25,10 +27,12 @@ export function QuestionCards({
     [busy, setBusy] = useState(false);
   const writes = useRef<Promise<unknown>>(Promise.resolve()),
     lock = useRef(false);
+  const submission = useRef<Promise<void>>(Promise.resolve());
+  const dirty = useRef(false);
   const [result, setResult] = useState<QuestionSet | null>(null);
   const current =
     result && result.recordVersion >= set.recordVersion ? result : set;
-  const disabled = current.state !== "pending" || busy;
+  const disabled = readOnly || current.state !== "pending" || busy;
   const currentState = useRef(current.state);
   currentState.current = current.state;
   const ref = {
@@ -38,14 +42,31 @@ export function QuestionCards({
   };
   useEffect(() => {
     registerFlush(set.id, () =>
-      currentState.current === "pending" ? writes.current : Promise.resolve(),
+      Promise.all([
+        submission.current,
+        currentState.current === "pending" ? writes.current : Promise.resolve(),
+      ]),
     );
     return () => registerFlush(set.id, null);
   }, [set.id, registerFlush]);
   useEffect(() => {
+    if (
+      !dirty.current &&
+      !saving &&
+      !busy &&
+      set.recordVersion > version.current
+    ) {
+      answersRef.current = set.answers;
+      setAnswers(set.answers);
+      version.current = set.recordVersion;
+    }
+  }, [set.recordVersion, saving, busy]);
+  useEffect(() => {
     if (set.state === "answered" && set.receipt) setError("");
   }, [set.state, set.receipt?.runId, set.receipt?.followUpId]);
   function change(questionId: string, patch: Partial<QuestionAnswer>) {
+    if (readOnly) return;
+    dirty.current = true;
     const existing = answersRef.current.find(
       (a) => a.questionId === questionId,
     ) ?? { questionId, optionId: null, text: "" };
@@ -75,12 +96,25 @@ export function QuestionCards({
         setError(e instanceof Error ? e.message : "Chưa lưu được câu trả lời."),
       )
       .finally(() => {
-        if (writes.current === pending) setSaving(false);
+        if (writes.current === pending) {
+          setSaving(false);
+          void pending.then(
+            () => {
+              dirty.current = false;
+            },
+            () => {},
+          );
+        }
       });
   }
   async function submit() {
+    if (readOnly) return;
     if (lock.current) return;
     lock.current = true;
+    let finish!: () => void;
+    submission.current = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
     setBusy(true);
     setError("");
     try {
@@ -101,6 +135,7 @@ export function QuestionCards({
     } finally {
       lock.current = false;
       setBusy(false);
+      finish();
     }
   }
   const closed = current.state !== "pending";

@@ -152,7 +152,9 @@ async function main() {
   );
   await click("Hỏi Lead", "document.querySelector('.work-item-panel')");
   await until(() =>
-    js("!!document.querySelector('.chat-host.dock .chat-message.assistant')"),
+    js(
+      "!!document.querySelector('.chat-host.work-chat .chat-message.assistant')",
+    ),
   );
   assert.equal(await js("document.querySelectorAll('.chat-host').length"), 1);
   assert.ok(
@@ -182,9 +184,7 @@ async function main() {
   );
   await pause(100);
   assert.equal(counts[channels.sendChat] || 0, beforeSend);
-  await js(
-    "document.querySelector('[aria-label=\"Mở chat toàn màn hình\"]').click()",
-  );
+  await js("document.querySelector('[aria-label=\"Mở rộng hồ sơ\"]').click()");
   await until(() => js("!!document.querySelector('.chat-host.fullscreen')"));
   assert.equal(
     await js(
@@ -194,10 +194,8 @@ async function main() {
   );
   assert.equal(await js("window.__composer.value"), draft);
   assert.equal(await js("window.__composer.isConnected"), true);
-  await js(
-    "document.querySelector('[aria-label=\"Thu chat về cạnh công việc\"]').click()",
-  );
-  await until(() => js("!!document.querySelector('.chat-host.dock')"));
+  await js("document.querySelector('[aria-label=\"Thu gọn hồ sơ\"]').click()");
+  await until(() => js("!!document.querySelector('.chat-host.work-chat')"));
   assert.equal(
     await js(
       "window.__composer===document.querySelector('[aria-label=\"Nhắn tin cho agent\"]')",
@@ -275,10 +273,10 @@ async function main() {
     "Nháp giữ sau khi đóng dock",
     "HTMLTextAreaElement",
   );
-  await js("document.querySelector('[aria-label=\"Đóng chat cạnh\"]').click()");
+  await js("document.querySelector('[aria-label=\"Đóng hồ sơ\"]').click()");
   await until(() => js("document.querySelector('.chat-host').hidden"));
   await js("document.querySelector('.board-card-title').click()");
-  await until(() => js("!!document.querySelector('.work-item-panel[open]')"));
+  await until(() => js("!!document.querySelector('.work-item-panel')"));
   await click("Hỏi Lead", "document.querySelector('.work-item-panel')");
   await until(() => js("!document.querySelector('.chat-host').hidden"));
   assert.equal(
@@ -296,7 +294,7 @@ async function main() {
     win.webContents.setZoomFactor(zoom);
     await pause(180);
     const layout = await js(
-      `(()=>{const d=document.querySelector('.chat-host.dock'),r=d.getBoundingClientRect(),t=document.querySelector('.chat-composer').getBoundingClientRect();return {viewport:innerWidth,height:innerHeight,left:r.left,right:r.right,top:r.top,bottom:r.bottom,composerBottom:t.bottom,overflow:d.scrollWidth>d.clientWidth+2};})()`,
+      `(()=>{const d=document.querySelector('.workspace-detail-host.detail-open'),r=d.getBoundingClientRect(),t=document.querySelector('.chat-composer').getBoundingClientRect();return {viewport:innerWidth,height:innerHeight,left:r.left,right:r.right,top:r.top,bottom:r.bottom,composerBottom:t.bottom,overflow:d.scrollWidth>d.clientWidth+2};})()`,
     );
     assert.ok(
       layout.left >= 0 &&
@@ -319,7 +317,7 @@ async function main() {
   win.setSize(1366, 768);
   win.webContents.setZoomFactor(1);
   await pause(100);
-  await js("document.querySelector('[aria-label=\"Đóng chat cạnh\"]').click()");
+  await js("document.querySelector('[aria-label=\"Đóng hồ sơ\"]').click()");
   await until(() => js("document.querySelector('.chat-host').hidden"));
   await js(`document.querySelector('[data-project-id="${other.id}"]').click()`);
   await until(() =>

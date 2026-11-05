@@ -8,9 +8,11 @@ import { CommandEvidence } from "./CommandEvidence";
 export function WorkReport({
   run,
   onInspect,
+  onChanged,
 }: {
   run: Pick<Run, "id" | "projectId">;
   onInspect?: (id: string) => void;
+  onChanged?: () => void;
 }) {
   const [view, setView] = useState<ReportView | null>(null);
   const [error, setError] = useState("");
@@ -79,6 +81,7 @@ export function WorkReport({
     if (!reply.ok) throw new Error(reply.error);
     setView(reply.value);
     setFixing(false);
+    onChanged?.();
   }
   if (!view)
     return (

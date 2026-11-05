@@ -3,7 +3,6 @@ import { GitBranch, RefreshCw } from "lucide-react";
 import type { GitSnapshot, GitFile, GitDiff } from "../../shared/git";
 import type { Reply } from "../../shared/contracts";
 import { PatchView } from "./ChangesPanel";
-import { WorkItemPanel } from "./WorkItemPanel";
 
 async function value<T>(reply: Promise<Reply<T>>) {
   const r = await reply;
@@ -40,16 +39,10 @@ function fileLabel(file: GitFile) {
 }
 export function GitWorkspace({
   projectId,
-  activeRunId,
-  onInspect,
-  onConversation,
-  onAskLead,
+  onOpenItem,
 }: {
   projectId: string;
-  activeRunId: string | null;
-  onInspect: (runId: string) => void;
-  onConversation: (runId: string | null, conversationId: string | null) => void;
-  onAskLead: (itemId: string) => void;
+  onOpenItem: (itemId: string) => void;
 }) {
   const [data, setData] = useState<GitSnapshot | null>(null);
   const [tab, setTab] = useState<"changes" | "history">("changes");
@@ -60,7 +53,6 @@ export function GitWorkspace({
   const [diff, setDiff] = useState<GitDiff | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const [workItem, setWorkItem] = useState<string | null>(null);
   const generation = useRef(0),
     lock = useRef(false);
   useEffect(() => {
@@ -317,7 +309,7 @@ export function GitWorkspace({
                           {commit.workItems.map((ref) => (
                             <button
                               key={ref.id}
-                              onClick={() => setWorkItem(ref.id)}
+                              onClick={() => onOpenItem(ref.id)}
                               aria-label={`Mở công việc ${ref.code}`}
                             >
                               {ref.code}
@@ -342,27 +334,6 @@ export function GitWorkspace({
         </>
       ) : (
         data && <p className="overview-empty">{data.reason}</p>
-      )}
-      {workItem && (
-        <WorkItemPanel
-          projectId={projectId}
-          itemId={workItem}
-          onClose={() => setWorkItem(null)}
-          activeRunId={activeRunId}
-          onInspect={(id) => {
-            setWorkItem(null);
-            onInspect(id);
-          }}
-          onConversation={(id, conversation) => {
-            setWorkItem(null);
-            onConversation(id, conversation);
-          }}
-          onChanged={() => {}}
-          onAskLead={(id) => {
-            setWorkItem(null);
-            onAskLead(id);
-          }}
-        />
       )}
     </section>
   );

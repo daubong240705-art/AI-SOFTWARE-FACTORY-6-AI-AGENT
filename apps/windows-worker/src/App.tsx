@@ -1,3 +1,5 @@
+import { DetailHost } from "./features/DetailHost";
+import { WorkItemPanel, type WorkTab } from "./features/WorkItemPanel";
 import { Select } from "./ui/Select";
 import {
   WorkspaceSidebar,
@@ -152,6 +154,12 @@ export function App() {
   const [chatRefresh, setChatRefresh] = useState(0);
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
   const [openRunVersion, setOpenRunVersion] = useState(0);
+  const workFlush = useRef<() => Promise<unknown>>(() => Promise.resolve());
+  const [workDetail, setWorkDetail] = useState<{
+    context: WorkChatContext;
+    tab: WorkTab;
+    runId?: string;
+  } | null>(null);
   const [inspection, setInspection] = useState<InspectorSelection | null>(null);
   const [boardRunId, setBoardRunId] = useState<string | null>(null);
   const [leadFocusVersion, setLeadFocusVersion] = useState(0);
@@ -161,6 +169,9 @@ export function App() {
   const [boardSelection, setBoardSelection] =
     useState<InspectorSelection | null>(null);
   useEffect(() => {
+    setWorkDetail((previous) =>
+      previous?.context.projectId === project?.id ? previous : null,
+    );
     setInspection((previous) =>
       previous?.projectId === project?.id ? previous : null,
     );
@@ -169,13 +180,73 @@ export function App() {
     setOfficeSelection(null);
     setBoardSelection(null);
   }, [project?.id]);
+  function showWork(context: WorkChatContext, tab: WorkTab, runId?: string) {
+    setWorkDetail({ context, tab, runId });
+    setChatContext(context);
+    setConversationId(context.conversationId);
+    setSelectedRun(null);
+    setInspection(null);
+    setChatDock(false);
+  }
+  async function openWorkItem(itemId: string, tab: WorkTab = "requirements") {
+    if (!project) return;
+    await act("detail", async () => {
+      await flushDraft();
+      const context = await value(
+        window.worker.workChat({ projectId: project.id, itemId }),
+      );
+      showWork(context, tab);
+    });
+  }
+  async function changeWorkTab(tab: WorkTab) {
+    await flushDraft();
+    setWorkDetail((current) => (current ? { ...current, tab } : null));
+  }
+  async function closeDetail() {
+    await act("detail", async () => {
+      await flushDraft();
+      if (inspection && workDetail) setInspection(null);
+      else {
+        setInspection(null);
+        setWorkDetail(null);
+      }
+    });
+  }
+  function showDetail(selection: InspectorSelection) {
+    void act("detail", async () => {
+      await flushDraft();
+      const context = await value(
+        window.worker.workChatForRun({
+          projectId: selection.projectId,
+          runId: selection.runId,
+        }),
+      );
+      if (context) {
+        showWork(
+          context,
+          selection.initialTab === "result" ? "result" : "progress",
+          selection.runId,
+        );
+        if (selection.taskId || selection.executionId) setInspection(selection);
+      } else {
+        setWorkDetail(null);
+        setChatDock(false);
+        setInspection(selection);
+      }
+    });
+  }
   function inspect(
     runId: string,
     taskId?: string | null,
     executionId?: string,
   ) {
-    if (project)
-      setInspection({ projectId: project.id, runId, taskId, executionId });
+    if (!project) return;
+    if (workDetail) {
+      void act("detail", async () => {
+        await flushDraft();
+        setInspection({ projectId: project.id, runId, taskId, executionId });
+      });
+    } else showDetail({ projectId: project.id, runId, taskId, executionId });
   }
   async function openInspectedChat(
     runId: string,
@@ -188,11 +259,16 @@ export function App() {
           window.worker.workChatForRun({ projectId: project.id, runId }),
         )
       : null;
+    if (context) {
+      showWork(context, questions ? "requirements" : "discussion", runId);
+      return;
+    }
+    setWorkDetail(null);
     setChatContext(context);
     setChatDock(false);
     setOpenRunVersion((n) => n + 1);
     setSelectedRun(questions ? null : runId);
-    setConversationId(context?.conversationId ?? conversation);
+    setConversationId(conversation);
     setInspection(null);
     await navigate("project");
   }
@@ -210,6 +286,28 @@ export function App() {
     if (!selected)
       throw new Error("Dự án không còn trong danh sách. Cập nhật hộp thư.");
     setBoot(data);
+    if (item.runId) {
+      const context = await value(
+        window.worker.workChatForRun({
+          projectId: selected.id,
+          runId: item.runId,
+        }),
+      );
+      if (context) {
+        setProject(selected);
+        showWork(
+          context,
+          item.kind === "question"
+            ? "requirements"
+            : item.kind === "report"
+              ? "result"
+              : "progress",
+          item.runId,
+        );
+        return;
+      }
+    }
+    setWorkDetail(null);
     if (item.kind === "question" && item.runId) {
       const context = await value(
         window.worker.workChatForRun({
@@ -363,7 +461,7 @@ export function App() {
     };
   }, [project?.id, conversationSearch, chatRefresh]);
   async function flushDraft() {
-    await chatFlush.current();
+    await Promise.all([chatFlush.current(), workFlush.current()]);
   }
   async function selectProject(selected: Project, destination: Page = "board") {
     if (project && conversationId)
@@ -380,6 +478,8 @@ export function App() {
       items.find((item) => item.id === saved?.id) ??
       items[0] ??
       (await value(window.worker.createConversation(selected.id)));
+    setWorkDetail(null);
+    setInspection(null);
     setChatDock(false);
     setChatContext(saved?.id === selectedChat.id ? saved.context : null);
     setProject(selected);
@@ -397,6 +497,8 @@ export function App() {
     await act("conversation", async () => {
       await flushDraft();
       const created = await value(window.worker.createConversation(project.id));
+      setWorkDetail(null);
+      setInspection(null);
       setChatContext(null);
       setChatDock(false);
       setConversationId(created.id);
@@ -413,6 +515,8 @@ export function App() {
       const selected =
         boot?.projects.find((p) => p.id === detail.conversation.projectId) ??
         null;
+      setWorkDetail(null);
+      setInspection(null);
       setProject(selected);
       setConversationId(id);
       setChatContext(null);
@@ -430,6 +534,8 @@ export function App() {
         const selected = boot?.projects.find((p) => p.id === active.projectId);
         if (!selected)
           throw new Error("Dự án của lượt chạy không còn trong danh sách.");
+        setWorkDetail(null);
+        setInspection(null);
         setProject(selected);
         setConversationId(null);
         setChatContext(null);
@@ -550,6 +656,8 @@ export function App() {
       setKeyAction("keep");
       tell("Key chưa lưu đã được xóa khỏi ô nhập.");
     }
+    setWorkDetail(null);
+    setInspection(null);
     setPage(next);
     setChatDock(false);
   }
@@ -564,47 +672,6 @@ export function App() {
       setChatDock(false);
       setPage("board");
       setCreateRequest({ projectId: project.id, version: Date.now() });
-    });
-  }
-  async function openWorkChat(itemId: string) {
-    if (!project) return;
-    await act("lead", async () => {
-      await flushDraft();
-      const context = await value(
-        window.worker.workChat({ projectId: project.id, itemId }),
-      );
-      setConversationId(context.conversationId);
-      setChatContext(context);
-      setSelectedRun(null);
-      setLeadFocusVersion((n) => n + 1);
-      if (page !== "project") {
-        setChatReturnPage(page);
-        setChatDock(true);
-      }
-    });
-  }
-  async function askLead() {
-    await act("lead", async () => {
-      await flushDraft();
-      if (page === "monitor" && project && monitor.snapshot?.runId) {
-        const context = await value(
-          window.worker.workChatForRun({
-            projectId: project.id,
-            runId: monitor.snapshot.runId,
-          }),
-        );
-        if (context) {
-          setChatContext(context);
-          setConversationId(context.conversationId);
-        } else {
-          setChatContext(null);
-          setConversationId(monitor.snapshot.conversationId);
-        }
-      }
-      setSelectedRun(null);
-      setLeadFocusVersion((n) => n + 1);
-      setChatDock(false);
-      setPage("project");
     });
   }
   const modelSelector = (
@@ -923,17 +990,7 @@ export function App() {
                   <GitWorkspace
                     key={project.id}
                     projectId={project.id}
-                    activeRunId={runtime.activeId}
-                    onInspect={inspect}
-                    onAskLead={(id) => void openWorkChat(id)}
-                    onConversation={(id, conversation) => {
-                      if (id)
-                        void act("conversation", () =>
-                          openInspectedChat(id, conversation),
-                        );
-                      else if (conversation)
-                        void openConversation(conversation);
-                    }}
+                    onOpenItem={(id) => void openWorkItem(id)}
                   />
                 ) : (
                   <Empty
@@ -952,7 +1009,7 @@ export function App() {
                     onSettings={() => void navigate("settings")}
                     onReport={(runId) => {
                       if (project)
-                        setInspection({
+                        showDetail({
                           projectId: project.id,
                           runId,
                           initialTab: "result",
@@ -979,11 +1036,56 @@ export function App() {
                     </button>
                   </Empty>
                 ))}
-              {
+              <DetailHost
+                active={!!workDetail || !!inspection}
+                error={notice?.kind === "error" ? notice.text : undefined}
+                label={workDetail?.context.title ?? "Chi tiết công việc"}
+                onClose={() => void closeDetail()}
+              >
+                {workDetail && (
+                  <div className="work-document" hidden={!!inspection}>
+                    <WorkItemPanel
+                      visible={!inspection}
+                      key={workDetail.context.itemId}
+                      projectId={workDetail.context.projectId}
+                      itemId={workDetail.context.itemId}
+                      tab={workDetail.tab}
+                      onTab={changeWorkTab}
+                      selectedRunId={workDetail.runId}
+                      draftFlush={workFlush}
+                      refreshVersion={chatRefresh}
+                      beforeSubmit={save}
+                      activeRunId={runtime.activeId}
+                      onClose={() => void closeDetail()}
+                      onAskLead={() =>
+                        void act("detail", () => changeWorkTab("discussion"))
+                      }
+                      onInspect={inspect}
+                      onChanged={() => {
+                        setChatRefresh((n) => n + 1);
+                        void monitor.refresh?.();
+                      }}
+                    />
+                  </div>
+                )}
                 <ChatHost
                   key={conversationId ?? "empty"}
-                  visible={page === "project" || chatDock}
-                  presentation={page === "project" ? "fullscreen" : "dock"}
+                  visible={
+                    !inspection &&
+                    (workDetail
+                      ? workDetail.tab === "discussion"
+                      : page === "project" || chatDock)
+                  }
+                  presentation={
+                    workDetail || page === "project" ? "fullscreen" : "dock"
+                  }
+                  inWorkDetail={!!workDetail}
+                  onWorkTab={(tab) =>
+                    void act("detail", () => changeWorkTab(tab))
+                  }
+                  onOpenWork={(runId) =>
+                    showDetail({ projectId: project!.id, runId })
+                  }
                   workContext={
                     chatContext?.projectId === project?.id &&
                     chatContext?.conversationId === conversationId
@@ -1044,7 +1146,39 @@ export function App() {
                     await selectProject(project);
                   }}
                 />
-              }
+                {inspection && project?.id === inspection.projectId && (
+                  <TaskInspector
+                    key={`${inspection.projectId}:${inspection.runId}`}
+                    selection={inspection}
+                    activeId={runtime.activeId}
+                    embedded
+                    backLabel={workDetail ? "Quay lại hồ sơ" : undefined}
+                    onClose={() => void closeDetail()}
+                    onSelect={setInspection}
+                    onChat={openInspectedChat}
+                    onBoard={async (runId) => {
+                      await flushDraft();
+                      setBoardRunId(runId);
+                      setBoardSelection(inspection);
+                      setInspection(null);
+                      await navigate("board");
+                    }}
+                    onAgents={async () => {
+                      await flushDraft();
+                      setInspection(null);
+                      await navigate("monitor");
+                    }}
+                    onOffice={async (role) => {
+                      await flushDraft();
+                      setOfficeRole(role);
+                      setOfficeSelection(inspection);
+                      setInspection(null);
+                      await navigate("office");
+                    }}
+                    onOpenWorkspace={openInspectorWorkspace}
+                  />
+                )}
+              </DetailHost>
               {boardProjects.map((boardProject) => (
                 <KanbanBoard
                   visible={page === "board" && project?.id === boardProject.id}
@@ -1058,14 +1192,14 @@ export function App() {
                       : 0
                   }
                   showCreateButton={false}
+                  onOpenItem={(itemId) => void openWorkItem(itemId)}
                   onInspect={(runId) => {
                     if (boardSelection?.runId === runId)
-                      setInspection(boardSelection);
+                      showDetail(boardSelection);
                     else inspect(runId);
                   }}
                   projectId={boardProject.id}
                   projectName={boardProject.name}
-                  onAskLead={(itemId) => void openWorkChat(itemId)}
                   onOpenRun={(id, conversation) => {
                     if (id)
                       void act("conversation", () =>
@@ -1119,7 +1253,7 @@ export function App() {
                     onSelectRole={setOfficeRole}
                     onInspect={(selection) => {
                       setOfficeSelection(selection);
-                      setInspection(selection);
+                      showDetail(selection);
                     }}
                     onBoard={() => {
                       setBoardRunId(null);
@@ -1678,36 +1812,6 @@ export function App() {
             </div>
           </section>
         </div>
-      )}
-      {inspection && project?.id === inspection.projectId && (
-        <TaskInspector
-          key={`${inspection.projectId}:${inspection.runId}`}
-          selection={inspection}
-          activeId={runtime.activeId}
-          onClose={() => setInspection(null)}
-          onSelect={setInspection}
-          onChat={openInspectedChat}
-          onBoard={async (runId) => {
-            await flushDraft();
-            setBoardRunId(runId);
-            setBoardSelection(inspection);
-            setInspection(null);
-            await navigate("board");
-          }}
-          onAgents={async () => {
-            await flushDraft();
-            setInspection(null);
-            await navigate("monitor");
-          }}
-          onOffice={async (role) => {
-            await flushDraft();
-            setOfficeRole(role);
-            setOfficeSelection(inspection);
-            setInspection(null);
-            await navigate("office");
-          }}
-          onOpenWorkspace={openInspectorWorkspace}
-        />
       )}
       {remove && (
         <div className="modal-backdrop">

@@ -27,6 +27,8 @@ export function TaskInspector({
   onAgents,
   onOffice,
   onOpenWorkspace,
+  embedded = false,
+  backLabel,
 }: {
   selection: InspectorSelection;
   activeId: string | null;
@@ -37,6 +39,8 @@ export function TaskInspector({
   onAgents: () => Promise<void>;
   onOffice: (role: Role) => Promise<void>;
   onOpenWorkspace: (project: Project) => Promise<void>;
+  embedded?: boolean;
+  backLabel?: string;
 }) {
   const feed = useRunDetail(selection.projectId, selection.runId);
   const [tab, setTab] = useState(selection.initialTab ?? "overview"),
@@ -49,12 +53,18 @@ export function TaskInspector({
   }, [selection.runId, selection.initialTab]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    dialog.current?.showModal();
+    let frame: number | undefined;
+    if (!embedded) dialog.current?.showModal();
+    else
+      frame = requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>(".task-inspector button")?.focus(),
+      );
     return () => {
+      if (frame !== undefined) cancelAnimationFrame(frame);
       dialog.current?.close();
-      previous?.focus();
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
-  }, []);
+  }, [embedded]);
   async function action(work: () => Promise<unknown>) {
     if (actionLock.current) return;
     actionLock.current = true;
@@ -96,10 +106,11 @@ export function TaskInspector({
   const selectTask = (id: string) =>
     onSelect({ ...selection, taskId: id || null, executionId: undefined });
   const evidenceKey = `${run?.id}:${task?.id}:${task?.evidence?.sourceVersion}:${run?.integration?.sourceVersion}`;
+  const Surface = embedded ? "section" : "dialog";
   return (
-    <dialog
-      ref={dialog}
-      className="task-inspector"
+    <Surface
+      ref={embedded ? undefined : dialog}
+      className={`task-inspector ${embedded ? "embedded" : ""}`}
       aria-label="Chi tiết công việc"
       onCancel={(e) => {
         e.preventDefault();
@@ -108,6 +119,7 @@ export function TaskInspector({
     >
       <header className="inspector-heading">
         <h2>Chi tiết công việc</h2>
+        {backLabel && <button onClick={onClose}>{backLabel}</button>}
         <button onClick={onClose} aria-label="Đóng chi tiết công việc">
           Đóng
         </button>
@@ -407,7 +419,7 @@ export function TaskInspector({
       <button onClick={() => void feed.refresh?.()} disabled={busy}>
         Cập nhật chi tiết
       </button>
-    </dialog>
+    </Surface>
   );
 }
 

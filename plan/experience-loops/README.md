@@ -2,7 +2,7 @@
 
 Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–06 và UX-07 Git local, ảnh/Mermaid đã triển khai; UX-08 có contract/storage tới schema 14, chưa timer/IPC/UI**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
 
-**Ưu tiên mới theo bộ ảnh `crewhub/`:** [Phương án tổ chức lại workspace](crewhub-workspace-redesign.md). **R0 và R1 đã hoàn thành**: [baseline/checkpoint](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao shell](../../docs/windows-worker/workspace-r1-completion.md). Sidebar toàn app, danh sách project và tab Công việc/Trao đổi thay điều hướng cũ. Tiếp theo R2 hồ sơ công việc → R3 liên kết Lead/trạng thái; lịch tiếp tục ở R6. R2–R7 chưa triển khai.
+**Ưu tiên mới theo bộ ảnh `crewhub/`:** [Phương án tổ chức lại workspace](crewhub-workspace-redesign.md). **R0–R2 đã hoàn thành**: [baseline/checkpoint](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao shell](../../docs/windows-worker/workspace-r1-completion.md), [hồ sơ công việc](../../docs/windows-worker/workspace-r2-completion.md). Sidebar toàn app, tab Công việc/Trao đổi và hồ sơ bốn tab dùng chung chat/inspector. Tiếp theo R3 liên kết Lead/trạng thái; lịch tiếp tục ở R6. R3–R7 chưa triển khai.
 
 Đợt [làm gọn giao diện UX-01](../../docs/windows-worker/ux01-ui-refinement.md) là mốc trước R1; xem bàn giao R1 để dùng điều hướng hiện hành. Tổng quan dự án và các chức năng cũ vẫn truy cập được qua menu đúng phạm vi.
 

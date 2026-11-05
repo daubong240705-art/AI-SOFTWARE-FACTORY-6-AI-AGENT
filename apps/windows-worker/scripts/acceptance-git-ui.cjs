@@ -84,8 +84,8 @@ async function main() {
   win = await until(() => BrowserWindow.getAllWindows()[0]);
   win.webContents.setBackgroundThrottling(false);
   const errors = [];
-  win.webContents.on("console-message", (_e, level, message) => {
-    if (level >= 3) errors.push(message);
+  win.webContents.on("console-message", (event) => {
+    if (event.level === "error") errors.push(event.message);
   });
   const js = async (code) => {
     try {
@@ -100,30 +100,18 @@ async function main() {
       `Array.from(document.querySelectorAll('button')).find(b=>b.textContent.trim()===${JSON.stringify(text)} && b.getClientRects().length).click()`,
     );
   async function openGit() {
-    await js("document.querySelector('[aria-label=\"Khác\"]').click()");
-    await until(() =>
-      js("!!document.querySelector('button[title=\"Git local\"]')"),
+    await js(
+      "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
     );
-    await js("document.querySelector('button[title=\"Git local\"]').click()");
+    await click("Git local");
     await until(() => js("!!document.querySelector('.git-file-list')"));
   }
-  await until(() => js("!!document.querySelector('.project-overview')"));
+  await until(() => js("!!document.querySelector('.workspace-home')"));
   // Select the fixture explicitly; list sorting does not assume millisecond ordering.
-  await js("document.querySelector('.workspace-project > button').click()");
-  await until(() =>
-    js(
-      `Array.from(document.querySelectorAll('.project-choice')).some(b=>b.textContent.trim()===${JSON.stringify(project.name)})`,
-    ),
-  );
   await js(
-    `Array.from(document.querySelectorAll('.project-choice')).find(b=>b.textContent.trim()===${JSON.stringify(project.name)}).click()`,
+    `document.querySelector('[data-project-id="${project.id}"]').click()`,
   );
-  await until(() => js("!!document.querySelector('.project-overview')"));
-  await until(() =>
-    js(
-      `document.querySelector('.workspace-project > button').textContent.trim()===${JSON.stringify(project.name)}`,
-    ),
-  );
+  await until(() => js("!!document.querySelector('.project-navigation')"));
   assert.equal(
     counts[channels.gitSnapshot] || 0,
     0,
@@ -201,7 +189,7 @@ async function main() {
   await js("document.querySelector('.git-work-refs button').click()");
   await until(() =>
     js(
-      "document.querySelector('.work-item-panel')?.open && document.querySelector('.work-panel-header h2')?.textContent==='Task linked from a commit'",
+      "!!document.querySelector('.detail-open .work-item-panel') && document.querySelector('.work-panel-header h2')?.textContent==='Task linked from a commit'",
     ),
   );
   await js("document.querySelector('[aria-label=\"Đóng hồ sơ\"]').click()");
@@ -233,17 +221,16 @@ async function main() {
     `window.worker.gitSnapshot({projectId:${JSON.stringify(project.id)},offset:10001})`,
   );
   assert.equal(badRequest.ok, false);
-  await js("document.querySelector('.workspace-project > button').click()");
-  await until(() => js("!!document.querySelector('.project-choice')"));
-  await js(
-    `Array.from(document.querySelectorAll('.project-choice')).find(b=>b.textContent.trim()===${JSON.stringify(other.name)}).click()`,
-  );
-  await until(() => js("!!document.querySelector('.project-overview')"));
-  await js("document.querySelector('[aria-label=\"Khác\"]').click()");
+  await js(`document.querySelector('[data-project-id="${other.id}"]').click()`);
   await until(() =>
-    js("!!document.querySelector('button[title=\"Git local\"]')"),
+    js(
+      `!!document.querySelector('[data-project-id="${other.id}"][aria-current="page"]')`,
+    ),
   );
-  await js("document.querySelector('button[title=\"Git local\"]').click()");
+  await js(
+    "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+  );
+  await click("Git local");
   await until(() =>
     js(
       "document.querySelector('.git-workspace')?.textContent.includes('không thuộc repository')",

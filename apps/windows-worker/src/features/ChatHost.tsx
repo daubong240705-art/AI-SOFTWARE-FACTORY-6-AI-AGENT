@@ -78,6 +78,9 @@ type Props = {
   onActive: () => void;
   onOpenWorkspace: (project: Project) => Promise<void>;
   onInspect: (runId: string, taskId?: string) => void;
+  inWorkDetail?: boolean;
+  onWorkTab?: (tab: "requirements" | "progress" | "result") => void;
+  onOpenWork?: (runId: string) => void;
 };
 export function ChatHost({
   visible = true,
@@ -107,6 +110,9 @@ export function ChatHost({
   onActive,
   onOpenWorkspace,
   onInspect,
+  inWorkDetail = false,
+  onWorkTab,
+  onOpenWork,
 }: Props) {
   const [chat, setChat] = useState<ConversationDetail | null>(null);
   const requestRef = useRef<ChatSend | null>(null);
@@ -550,6 +556,11 @@ export function ChatHost({
     });
   }
   function showDetails(runId: string, tab: string) {
+    if (inWorkDetail) {
+      if (tab === "result") onWorkTab?.("result");
+      else onInspect(runId);
+      return;
+    }
     setPanelRun(runId);
     setPanel(tab);
   }
@@ -580,12 +591,14 @@ export function ChatHost({
   return (
     <div
       hidden={!visible}
-      className={`chat-host ${presentation} ${!visible ? "chat-hidden" : ""}`}
+      className={`chat-host ${presentation} ${inWorkDetail ? "work-chat" : ""} ${!visible ? "chat-hidden" : ""}`}
       aria-label={
         presentation === "dock" ? "Trò chuyện cạnh công việc" : "Trò chuyện"
       }
     >
-      <div className={`chat-workspace ${panel ? "with-panel" : ""}`}>
+      <div
+        className={`chat-workspace ${panel && !inWorkDetail ? "with-panel" : ""}`}
+      >
         <section className="chat-column">
           <header className="chat-header">
             <div className="chat-heading">
@@ -658,6 +671,7 @@ export function ChatHost({
                   </button>
                 </>
               ) : (
+                !inWorkDetail &&
                 onDock && (
                   <button
                     onClick={onDock}
@@ -684,6 +698,10 @@ export function ChatHost({
               <button
                 className={panel === "changes" ? "selected" : ""}
                 onClick={() => {
+                  if (inWorkDetail) {
+                    if (current) onInspect(current.run.id);
+                    return;
+                  }
                   setPanelRun(null);
                   setPanel(panel === "changes" ? null : "changes");
                 }}
@@ -698,7 +716,10 @@ export function ChatHost({
                 className="icon-button"
                 aria-label={panel ? "Đóng chi tiết" : "Mở chi tiết"}
                 title="Chi tiết"
-                onClick={() => setPanel(panel ? null : "activity")}
+                onClick={() => {
+                  if (inWorkDetail) onWorkTab?.("progress");
+                  else setPanel(panel ? null : "activity");
+                }}
               >
                 {panel ? (
                   <PanelRightClose size={17} />
@@ -731,9 +752,11 @@ export function ChatHost({
                   >
                     Cập nhật yêu cầu
                   </button>
-                  <button disabled={busy} onClick={onClearContext}>
-                    Bỏ ngữ cảnh công việc
-                  </button>
+                  {!inWorkDetail && (
+                    <button disabled={busy} onClick={onClearContext}>
+                      Bỏ ngữ cảnh công việc
+                    </button>
+                  )}
                 </Popover>
               </>
             )}
@@ -870,8 +893,16 @@ export function ChatHost({
                       </button>
                       {message.role === "assistant" && (
                         <>
-                          <button onClick={() => onInspect(message.runId)}>
-                            Chi tiết
+                          <button
+                            onClick={() =>
+                              inWorkDetail
+                                ? onInspect(message.runId)
+                                : (onOpenWork ?? onInspect)(message.runId)
+                            }
+                          >
+                            {!inWorkDetail && workContext
+                              ? "Mở công việc"
+                              : "Chi tiết"}
                           </button>
                           <Popover
                             label="Thao tác tin nhắn"
@@ -939,7 +970,16 @@ export function ChatHost({
                 ))}
               </div>
             )}
-            {!!chat?.questionSets?.length && (
+            {inWorkDetail &&
+              chat?.questionSets?.some((set) => set.state === "pending") && (
+                <button
+                  className="work-question-link"
+                  onClick={() => onWorkTab?.("requirements")}
+                >
+                  Trả lời câu hỏi trong Yêu cầu
+                </button>
+              )}
+            {!inWorkDetail && !!chat?.questionSets?.length && (
               <div className="chat-transcript question-sets">
                 {chat.questionSets.map((set) => (
                   <QuestionCards
@@ -1239,7 +1279,7 @@ export function ChatHost({
             </div>
           </div>
         </section>
-        {panel && (
+        {panel && !inWorkDetail && (
           <aside className="chat-detail-panel">
             <div className="chat-detail-header">
               <div

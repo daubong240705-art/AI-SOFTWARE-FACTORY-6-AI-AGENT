@@ -1,6 +1,6 @@
 # ASF Windows Worker
 
-**Giao diện hiện hành:** bốn trang chính; dự án ở menu header, hội thoại chỉ trong Chat. Tổng quan hiện ba mục mỗi nhóm, hoạt động thu gọn và chỉ đưa lượt có task/lệnh/thay đổi vào Kết quả công việc. Tạo việc ở Board; thao tác phụ mở qua menu. [Bàn giao tinh gọn UI](../../docs/windows-worker/ux01-ui-refinement.md).
+**Giao diện hiện hành R2:** sidebar chọn dự án, tab **Công việc / Trao đổi / Khác**; một hồ sơ gồm **Yêu cầu / Trao đổi / Tiến độ / Kết quả**. Chat Lead nằm trong hồ sơ, ghi chú riêng thu gọn, câu hỏi ở Yêu cầu; chi tiết kỹ thuật có nút quay lại. [Bàn giao R2](../../docs/windows-worker/workspace-r2-completion.md). Các mục UX bên dưới ghi lại những đợt triển khai trước.
 
 **UX-02** bổ sung hồ sơ công việc với mã `W-0001` theo project, yêu cầu có phiên bản, tiêu chí hoàn thành, trao đổi và lịch sử các lần thực hiện. Bấm tiêu đề thẻ để mở panel **Tổng quan / Trao đổi / Lần thực hiện**, mở rộng khi cần; **Board / Danh sách** dùng chung bộ lọc và dữ liệu. Sửa yêu cầu giữ nguyên snapshot đã gửi và các run cũ. Run-only cũ chỉ tạo hồ sơ khi chọn **Lưu thành công việc**. [Bàn giao UX-02](../../docs/windows-worker/ux02-completion.md).
 
@@ -26,9 +26,11 @@ V1.1: chat theo project, Lead và sáu vai trò qua OpenCode 1.19.5 + 9Router, F
 
 **UX-08 (đang phát triển):** đã có contract/preview và store lịch trong SQLite 14 với backup schema 13, delivery tạo backlog nguyên tử và chống tạo trùng. Chưa có timer/IPC/UI nên lịch chưa tự chạy trong app. [Bàn giao U8-01–02](../../docs/windows-worker/ux08-storage-completion.md), [kế hoạch](../../plan/experience-loops/ux08-schedules.md).
 
-## Điều hướng hiện hành — R1
+## Điều hướng hiện hành — R2
 
-**Trang chính / Cần xử lý** thuộc toàn ứng dụng; chọn dự án trong sidebar để mở **Công việc**. Dự án có tab **Công việc / Trao đổi / Khác**; Khác chứa Tổng quan, Đội ngũ dự án, Git local và Văn phòng thử nghiệm. **Tạo công việc** ở header; danh sách hội thoại trong Trao đổi. Lịch sử nằm trong **Công cụ nâng cao**. Đổi tab/project giữ nháp và trạng thái Board trong phiên; lỗi lưu nháp chặn chuyển trang. [Bàn giao R0–R1](../../docs/windows-worker/workspace-r1-completion.md). Hồ sơ bốn tab và summary toàn app tiếp tục ở R2/R4.
+**Trang chính / Cần xử lý** thuộc toàn ứng dụng; chọn dự án trong sidebar để mở **Công việc**. Dự án có tab **Công việc / Trao đổi / Khác**; Khác chứa Tổng quan, Đội ngũ dự án, Git local và Văn phòng thử nghiệm. **Tạo công việc** ở header; danh sách hội thoại trong Trao đổi. Lịch sử nằm trong **Công cụ nâng cao**. Đổi tab/project giữ nháp và trạng thái Board trong phiên; lỗi lưu nháp chặn chuyển trang. [Bàn giao R0–R1](../../docs/windows-worker/workspace-r1-completion.md).
+
+Mở công việc từ Board/Git hoặc lượt có liên kết để xem chung hồ sơ bốn tab. Đổi tab và quay lại từ inspector giữ composer/câu trả lời; Kết quả giữ report theo revision và hỗ trợ nghiệm thu/yêu cầu sửa. Chạy `node scripts/run-acceptance.cjs work-detail-ui` sau build để kiểm luồng này bằng fixture. [Bàn giao R2](../../docs/windows-worker/workspace-r2-completion.md). Liên kết Lead/trạng thái chung tiếp tục ở R3, summary toàn app và Kết quả index ở R4.
 
 ## Chạy ứng dụng
 

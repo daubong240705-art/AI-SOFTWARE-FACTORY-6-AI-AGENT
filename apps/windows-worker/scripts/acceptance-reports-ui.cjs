@@ -1,5 +1,5 @@
 // UX-05: production renderer/preload/IPC, isolated SQLite, no provider calls.
-const { app, BrowserWindow, dialog, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, protocol } = require("electron");
 const { resolve, join } = require("node:path");
 const {
   mkdirSync,
@@ -8,6 +8,17 @@ const {
   readFileSync,
 } = require("node:fs");
 const assert = require("node:assert/strict");
+// Snapshot fixtures yield until after Electron is ready. Register the production
+// scheme now, then assert main requests that same registration when loaded later.
+const schemes = [
+  {
+    scheme: "asf-image",
+    privileges: { standard: true, secure: true, supportFetchAPI: true },
+  },
+];
+protocol.registerSchemesAsPrivileged(schemes);
+protocol.registerSchemesAsPrivileged = (requested) =>
+  assert.deepEqual(requested, schemes);
 require("tsx/cjs");
 const { Store } = require("../electron/storage/database.ts");
 const { defaultSettings } = require("../shared/defaults.ts");
@@ -150,9 +161,26 @@ async function main() {
   const js = (code) => win.webContents.executeJavaScript(code, true);
   const click = (label) =>
     js(
-      `(()=>{const b=Array.from(document.querySelectorAll('dialog[open] button')).find(b=>b.textContent.trim()===${JSON.stringify(label)});if(!b)throw Error('Missing button '+${JSON.stringify(label)});b.click();})()`,
+      `(()=>{const b=Array.from(document.querySelectorAll('.detail-open button')).find(b=>b.getClientRects().length && b.textContent.trim()===${JSON.stringify(label)});if(!b)throw Error('Missing button '+${JSON.stringify(label)});b.click();})()`,
     );
   const open = async (name) => {
+    await until(() =>
+      js(
+        "!!document.querySelector('.workspace-home') || !!document.querySelector('.project-navigation')",
+      ),
+    );
+    if (await js("!!document.querySelector('.workspace-home')")) {
+      await js(
+        `document.querySelector('[data-project-id="${project.id}"]').click()`,
+      );
+      await until(() => js("!!document.querySelector('.project-navigation')"));
+      await js(
+        "document.querySelector('[aria-label=\"Khác trong dự án\"]').click()",
+      );
+      await js(
+        "Array.from(document.querySelectorAll('.project-more button')).find(b=>b.textContent.trim()==='Tổng quan dự án').click()",
+      );
+    }
     await until(() =>
       js("!!document.querySelector('.overview-results button')"),
     );
@@ -167,7 +195,7 @@ async function main() {
   await open(fixtures[0].run.prompt);
   assert.equal(
     await js(
-      "document.querySelector('[aria-selected=true]')?.textContent==='Kết quả'",
+      "document.querySelector('.work-panel-tabs [aria-pressed=true]')?.textContent==='Kết quả'",
     ),
     true,
   );
@@ -208,9 +236,7 @@ async function main() {
   assert.equal(exported.manifest.revision, 1);
   assert.equal(exported.attachments[0].status, "missing");
   assert.equal(exported.report.verification, "unknown");
-  await js(
-    "document.querySelector('[aria-label=\"Đóng chi tiết công việc\"]').click()",
-  );
+  await js("document.querySelector('[aria-label=\"Đóng hồ sơ\"]').click()");
   await open(fixtures[1].run.prompt);
   const layouts = [];
   for (const [width, height, zoom] of [
@@ -223,7 +249,7 @@ async function main() {
     win.webContents.setZoomFactor(zoom);
     await pause(150);
     const layout = await js(
-      "(()=>{const d=document.querySelector('dialog[open]'),c=document.querySelector('.work-report'),r=c.getBoundingClientRect();return {width:innerWidth,right:r.right,left:r.left,overflow:d.scrollWidth>d.clientWidth+2,reportOverflow:c.scrollWidth>c.clientWidth+2};})()",
+      "(()=>{const d=document.querySelector('.detail-open'),c=document.querySelector('.work-report'),r=c.getBoundingClientRect();return {width:innerWidth,right:r.right,left:r.left,overflow:d.scrollWidth>d.clientWidth+2,reportOverflow:c.scrollWidth>c.clientWidth+2};})()",
     );
     assert.equal(layout.overflow, false, JSON.stringify(layout));
     assert.equal(layout.reportOverflow, false, JSON.stringify(layout));
