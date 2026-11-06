@@ -8,7 +8,7 @@ Image chứa Python 3.12, Node 22 và OpenCode 1.19.5, user UID/GID 10001. Docke
 docker build -t asf-worker:opencode-1.19.5-rg1 /opt/asf-worker/build-context
 ```
 
-Host Docker administrator/runner manager quản lý container. Không mount socket vào job. Chạy coding job với `--user 10001:10001`, root filesystem read-only, drop capabilities, no-new-privileges, CPU/RAM/pids limits, workspace riêng và home/tmp dạng tmpfs. Runtime coding hiện giữ API key thật ở parent; container chỉ nhận token proxy tạm cho một execution. Test container không có model credential và dùng network none. Bài spike bên dưới là evidence bootstrap lịch sử; dùng [probe hiện hành](../../docs/agent-runtime.md) để kiểm tra runtime proxy.
+Host Docker administrator/runner manager quản lý container. Không mount socket vào job. Chạy coding job với `--user 10001:10001`, root filesystem read-only, drop capabilities, no-new-privileges, CPU/RAM/pids limits, workspace riêng và home/tmp dạng tmpfs. Runtime coding hiện giữ API key thật ở parent; container chỉ nhận token proxy tạm cho một execution. Test container không có model credential và dùng network none. Bài spike bên dưới là evidence bootstrap lịch sử; dùng [probe hiện hành](../../docs/archive/legacy-platform/agent-runtime.md) để kiểm tra runtime proxy.
 
 Hai base image hiện dùng tag major/minor cho bootstrap; image manifest thực tế đã lưu trong evidence. Trước pipeline release cần pin base image digest và quản lý cập nhật có kiểm soát. Không dùng tag mutable làm bằng chứng cùng build giữa hai thời điểm khác nhau.
 

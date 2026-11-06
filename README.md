@@ -4,11 +4,11 @@
 
 **Sản phẩm đang phát triển:** Windows Worker `1.3.0-alpha.8`, SQLite15, kiến trúc Factory Lite + Windows Worker. Xem [hướng dẫn hiện hành](apps/windows-worker/README.md) và [rà soát source/phần còn lại](docs/windows-worker/source-cleanup-audit.md). Các mục Docker/API/dashboard và tích hợp bên dưới mô tả nền tảng self-hosted cũ, không phải điều kiện để chạy Worker.
 
-Ứng dụng Windows độc lập: [Windows Worker V1.1](apps/windows-worker/README.md). Chọn source local, cấu hình 9Router/model, chat với một role hoặc để Lead phân công qua OpenCode. Có checkpoint/khôi phục công việc, quản lý cây tiến trình, npm preview local, export/dọn lịch sử cùng streaming, hàng chờ và diff. [Báo cáo V1.1](docs/windows-worker/v1.1-completion.md), [kế hoạch Windows Worker](docs/archive/plan/windows-worker/README.md) và [nâng cấp agent](docs/archive/plan/agent-upgrade/README.md).
+Ứng dụng Windows độc lập: [Windows Worker V1.1](apps/windows-worker/README.md). Chọn source local, cấu hình 9Router/model, chat với một role hoặc để Lead phân công qua OpenCode. Có checkpoint/khôi phục công việc, quản lý cây tiến trình, npm preview local, export/dọn lịch sử cùng streaming, hàng chờ và diff. [Báo cáo V1.1](docs/archive/windows-worker/v1.1-completion.md), [kế hoạch Windows Worker](docs/archive/plan/windows-worker/README.md) và [nâng cấp agent](docs/archive/plan/agent-upgrade/README.md).
 
 Nền tảng self-hosted điều phối sáu role PM, BA, BE, FE, TEST, DEVOPS tại <https://asf.lazy.local>. Phase5 có GitLab/OpenProject, worker coding qua OpenCode, model và kỹ năng cố định theo run, test trong sandbox và phê duyệt spec/release theo đúng phiên bản. Dashboard gọn theo tham khảo 9Router, dùng được trên desktop/mobile.
 
-Repo CI/deploy nội bộ: <https://gitlab.lazy.local/ai-factory/ai-software-factory>. Xem [kết quả Phase5](docs/phase-5-completion.md), [vận hành](docs/operations-v0.2.md) và [agent runtime](docs/agent-runtime.md). Máy truy cập cần DNS nội bộ và tin CA Caddy. Tài khoản do admin cấp, không có mật khẩu mặc định. Pipeline thường chỉ chạy hai bước kiểm tra; build image khi phát hành với `BUILD_RELEASE=1`.
+Repo CI/deploy nội bộ: <https://gitlab.lazy.local/ai-factory/ai-software-factory>. Xem [kết quả Phase5](docs/phase-5-completion.md), [vận hành](docs/operations-v0.2.md) và [agent runtime](docs/archive/legacy-platform/agent-runtime.md). Máy truy cập cần DNS nội bộ và tin CA Caddy. Tài khoản do admin cấp, không có mật khẩu mặc định. Pipeline thường chỉ chạy hai bước kiểm tra; build image khi phát hành với `BUILD_RELEASE=1`.
 
 ## Chạy dev bằng Docker
 
@@ -131,10 +131,10 @@ Migration: `uv run alembic current`, `uv run alembic upgrade head`, rồi `uv ru
 ## Lộ trình và hạ tầng
 
 - [Lộ trình code hiện hành](docs/archive/plan/lo-trinh-code-v0.md)
-- [Kết quả Phase 1](docs/phase-1-completion.md)
-- [Kết quả Phase 2](docs/phase-2-completion.md)
-- [Kết quả Phase 3](docs/phase-3-completion.md)
-- [Kết quả Phase 4](docs/phase-4-completion.md), [Phase 5](docs/phase-5-completion.md)
+- [Kết quả Phase 1](docs/archive/legacy-platform/phase-1-completion.md)
+- [Kết quả Phase 2](docs/archive/legacy-platform/phase-2-completion.md)
+- [Kết quả Phase 3](docs/archive/legacy-platform/phase-3-completion.md)
+- [Kết quả Phase 4](docs/archive/legacy-platform/phase-4-completion.md), [Phase 5](docs/phase-5-completion.md)
 - [Kiểm kê hạ tầng](docs/infra-inventory.md), [worker .60](docs/worker-bootstrap-2026-11-04.md)
 - `.14` chạy control plane và staging tổng hợp; `.60` chạy runner/coding worker. DB kiểm thử tách khỏi production.
 - Không có API key/mật khẩu hạ tầng trong code, image hoặc frontend. Gateway key chỉ ở workflow/coding parent; GitLab/OpenProject dùng bot giới hạn quyền theo profile.
