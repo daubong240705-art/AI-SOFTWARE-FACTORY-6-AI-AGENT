@@ -1,6 +1,6 @@
 # Phase 3 — Dashboard sử dụng được
 
-Phạm vi V0-P3-01…07 của [lộ trình hiện hành](../plan/lo-trinh-code-v0.md), ngày 04/11/2026 (Asia/Saigon).
+Phạm vi V0-P3-01…07 của [lộ trình hiện hành](archive/plan/lo-trinh-code-v0.md), ngày 04/11/2026 (Asia/Saigon).
 
 ## Hành vi đã triển khai
 

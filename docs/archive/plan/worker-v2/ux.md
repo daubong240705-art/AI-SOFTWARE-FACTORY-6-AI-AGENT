@@ -1,6 +1,6 @@
 # Worker V2 — Trải nghiệm sử dụng
 
-> **Thiết kế lịch sử:** yêu cầu mới được hợp nhất tại [Factory V2 — design reference](../factory-v2/design-reference.md). Giữ palette/Segoe UI hoặc giản lược tab bên dưới không còn là quyết định hiện hành; dùng chín ảnh thực tế, màu CrewHub và rubric trên 90%.
+> **Thiết kế lịch sử:** yêu cầu mới được hợp nhất tại [Factory V2 — design reference](../../../../plan/factory-v2/design-reference.md). Giữ palette/Segoe UI hoặc giản lược tab bên dưới không còn là quyết định hiện hành; dùng chín ảnh thực tế, màu CrewHub và rubric trên 90%.
 
 Thiết kế đề xuất. Mục tiêu: người dùng hiểu việc đang diễn ra, biết ai đang xử lý và chỉ thấy hành động cần thiết. Tham khảo luồng CrewHub Loops; dùng component/token riêng của ASF, không đưa 3D vào đợt này.
 

@@ -17,6 +17,7 @@ const packageJson = JSON.parse(read("packages/factory-contracts/package.json"));
 const lock = JSON.parse(read("packages/factory-contracts/package-lock.json"));
 assert.equal(git("rev-parse", checkpoint), git("rev-parse", baseline));
 // Every file already tracked at the checkpoint is protected unless it is a V2 doc/check.
+// Markdown documentation may move or change (docs archive 07/11/2026); source and config stay protected.
 const tracked = new Set(
   git("ls-tree", "-r", "--name-only", baseline).split("\n"),
 );
@@ -31,7 +32,10 @@ const allowed = [
 assert.deepEqual(
   changed.filter(
     (path) =>
-      tracked.has(path) && !allowed.some((prefix) => path.startsWith(prefix)),
+      tracked.has(path) &&
+      !path.endsWith(".md") &&
+      !path.startsWith("plan/experience-loops/") &&
+      !allowed.some((prefix) => path.startsWith(prefix)),
   ),
   [],
   "Legacy tracked source/config must remain unchanged",

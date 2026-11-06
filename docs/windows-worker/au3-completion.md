@@ -39,7 +39,7 @@ Schema SQLite vẫn v6: JSON run/task đã lưu được các trường mới; k
 
 ## Source tham khảo
 
-Tiếp tục áp dụng nghiên cứu AU-0: OpenCode skill discovery/frontmatter để xác định ranh giới giữa tài nguyên nội bộ và discovery ngoài; ECC tách rule nền khỏi hướng dẫn theo workflow; Paperclip chỉ nạp reference chuyên biệt khi khớp tác vụ. Revision, source cụ thể và giấy phép MIT ở gốc nằm trong [research findings](../../plan/agent-upgrade/research-findings.md) và [manifest](../../research/agent-upgrade/sources.json). Không sao chép source/prompt, chạy script hoặc cài hooks của repository tham khảo. Bốn file skill nội bộ giữ nguyên nội dung và version; đợt này triển khai cách chọn/nạp/chụp chúng.
+Tiếp tục áp dụng nghiên cứu AU-0: OpenCode skill discovery/frontmatter để xác định ranh giới giữa tài nguyên nội bộ và discovery ngoài; ECC tách rule nền khỏi hướng dẫn theo workflow; Paperclip chỉ nạp reference chuyên biệt khi khớp tác vụ. Revision, source cụ thể và giấy phép MIT ở gốc nằm trong [research findings](../archive/plan/agent-upgrade/research-findings.md) và [manifest](../../research/agent-upgrade/sources.json). Không sao chép source/prompt, chạy script hoặc cài hooks của repository tham khảo. Bốn file skill nội bộ giữ nguyên nội dung và version; đợt này triển khai cách chọn/nạp/chụp chúng.
 
 ## File thay đổi
 

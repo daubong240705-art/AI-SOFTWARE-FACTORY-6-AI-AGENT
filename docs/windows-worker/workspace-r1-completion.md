@@ -1,6 +1,6 @@
 # R1 — Shell và điều hướng workspace
 
-Ngày: 05/11/2026. Worker `1.3.0-alpha.8`, SQLite 14. [Kế hoạch R0–R7](../../plan/experience-loops/crewhub-workspace-redesign.md), [baseline R0](workspace-r0-baseline.md). Checkpoint trước source: `c8c81f9`.
+Ngày: 05/11/2026. Worker `1.3.0-alpha.8`, SQLite 14. [Kế hoạch R0–R7](../archive/plan/experience-loops/crewhub-workspace-redesign.md), [baseline R0](workspace-r0-baseline.md). Checkpoint trước source: `c8c81f9`.
 
 ## Đã triển khai
 

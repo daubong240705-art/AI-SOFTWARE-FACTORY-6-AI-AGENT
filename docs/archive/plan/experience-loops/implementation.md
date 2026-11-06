@@ -1,6 +1,6 @@
 # Kế hoạch triển khai cải thiện trải nghiệm
 
-Trạng thái: **UX-01–06 và UX-07 Git local + ảnh đính kèm + Mermaid đã triển khai; UX-08 có nền tảng U8-01 và storage U8-02, chưa có timer/IPC/UI**. Worker `1.3.0-alpha.8` / SQLite **14** sau UX-08 storage; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
+Trạng thái: **UX-01–06 và UX-07 Git local + ảnh đính kèm + Mermaid đã triển khai; UX-08 có nền tảng U8-01 và storage U8-02, chưa có timer/IPC/UI**. Worker `1.3.0-alpha.8` / SQLite **14** sau UX-08 storage; baseline UX-01 `34213d7` dùng SQLite 7. Giữ một active run toàn ứng dụng, tối đa hai lane tương thích trong isolated-pair. [Thiết kế](design.md), [khảo sát](research.md), [bàn giao UX-01](../../../windows-worker/ux01-completion.md), [UX-02](../../../windows-worker/ux02-completion.md), [UX-03](../../../windows-worker/ux03-completion.md), [UX-04](../../../windows-worker/ux04-completion.md), [UX-05](../../../windows-worker/ux05-completion.md), [UX-06](../../../windows-worker/ux06-completion.md).
 
 ## 1. Nguyên tắc triển khai
 
@@ -32,7 +32,7 @@ Trạng thái: **UX-01–06 và UX-07 Git local + ảnh đính kèm + Mermaid đ
 
 ### UX-02 — Hồ sơ công việc bền vững (P0)
 
-**Đã triển khai U2-01–05.** BoardItem hiện có được mở rộng, thêm lịch sử requirement/submission/attempt và trao đổi; không tạo hệ thống ticket riêng. Giới hạn, migration và kiểm chứng ghi trong [bàn giao](../../docs/windows-worker/ux02-completion.md).
+**Đã triển khai U2-01–05.** BoardItem hiện có được mở rộng, thêm lịch sử requirement/submission/attempt và trao đổi; không tạo hệ thống ticket riêng. Giới hạn, migration và kiểm chứng ghi trong [bàn giao](../../../windows-worker/ux02-completion.md).
 
 **Phụ thuộc:** UX-01. Đây là thay đổi dữ liệu chính đầu tiên.
 
@@ -48,9 +48,9 @@ Trạng thái: **UX-01–06 và UX-07 Git local + ảnh đính kèm + Mermaid đ
 
 ### UX-03 — ChatHost và trò chuyện theo ngữ cảnh (P0)
 
-**U3-01–05 đã triển khai, kiểm chứng bằng fixture/UI/native SQLite.** Lead profile 1.3.1; nghiệm thu model thật chưa đạt điều kiện chạy do tiến trình riêng không giải mã được khóa đã lưu. Có script dùng `NINE_ROUTER_API_KEY` để chạy lại, không thay credentials. Chi tiết trong [bàn giao](../../docs/windows-worker/ux03-completion.md).
+**U3-01–05 đã triển khai, kiểm chứng bằng fixture/UI/native SQLite.** Lead profile 1.3.1; nghiệm thu model thật chưa đạt điều kiện chạy do tiến trình riêng không giải mã được khóa đã lưu. Có script dùng `NINE_ROUTER_API_KEY` để chạy lại, không thay credentials. Chi tiết trong [bàn giao](../../../windows-worker/ux03-completion.md).
 
-UX-04 đã bổ sung bằng chứng model thật về ngữ cảnh và phản hồi tiếp nối với Lead 1.3.2; xem [bàn giao UX-04](../../docs/windows-worker/ux04-completion.md). Streaming trong dock chưa được nghiệm thu model thật.
+UX-04 đã bổ sung bằng chứng model thật về ngữ cảnh và phản hồi tiếp nối với Lead 1.3.2; xem [bàn giao UX-04](../../../windows-worker/ux04-completion.md). Streaming trong dock chưa được nghiệm thu model thật.
 
 **Phụ thuộc:** UX-02; có thể tách refactor presentation ChatHost trước nhưng không gắn ticket giả.
 
@@ -66,7 +66,7 @@ UX-04 đã bổ sung bằng chứng model thật về ngữ cảnh và phản h�
 
 ### UX-04 — Câu hỏi nghiệp vụ có cấu trúc (P0)
 
-**U4-01–05 đã triển khai và kiểm chứng.** SQLite 10, Lead 1.3.2, 182/182 test, Electron UI/native SQLite, hai lượt DeepSeek Flash qua 9Router (questions → answers → reply; không dispatch worker). [Bàn giao](../../docs/windows-worker/ux04-completion.md) ghi giới hạn/migration.
+**U4-01–05 đã triển khai và kiểm chứng.** SQLite 10, Lead 1.3.2, 182/182 test, Electron UI/native SQLite, hai lượt DeepSeek Flash qua 9Router (questions → answers → reply; không dispatch worker). [Bàn giao](../../../windows-worker/ux04-completion.md) ghi giới hạn/migration.
 
 **Phụ thuộc:** UX-02/03. Không dùng regex từ prose để biến thành câu hỏi có tính ràng buộc.
 
@@ -82,7 +82,7 @@ UX-04 đã bổ sung bằng chứng model thật về ngữ cảnh và phản h�
 
 ### UX-05 — Kết quả, báo cáo và nghiệm thu tùy chọn (P0/P1)
 
-**Đã triển khai U5-01–05.** Report bất biến, artifact provenance, trạng thái kiểm chứng, policy nghiệm thu versioned, yêu cầu sửa atomic và export manifest đã được nối vào Factory Lite. Chi tiết và bằng chứng ở [bàn giao UX-05](../../docs/windows-worker/ux05-completion.md).
+**Đã triển khai U5-01–05.** Report bất biến, artifact provenance, trạng thái kiểm chứng, policy nghiệm thu versioned, yêu cầu sửa atomic và export manifest đã được nối vào Factory Lite. Chi tiết và bằng chứng ở [bàn giao UX-05](../../../windows-worker/ux05-completion.md).
 
 **Phụ thuộc:** UX-02–04; phần đọc evidence có thể làm ngay sau UX-02.
 
@@ -98,7 +98,7 @@ UX-04 đã bổ sung bằng chứng model thật về ngữ cảnh và phản h�
 
 ### UX-06 — Mẫu phát triển, readiness và Team (P1)
 
-**Đã triển khai.** Bốn mẫu điền nháp, readiness local theo yêu cầu, Team mặc định danh sách và inbox nhiều project có seen riêng. Không thêm preset override/model call/poller theo project. Giới hạn/migration/kiểm chứng trong [bàn giao UX-06](../../docs/windows-worker/ux06-completion.md).
+**Đã triển khai.** Bốn mẫu điền nháp, readiness local theo yêu cầu, Team mặc định danh sách và inbox nhiều project có seen riêng. Không thêm preset override/model call/poller theo project. Giới hạn/migration/kiểm chứng trong [bàn giao UX-06](../../../windows-worker/ux06-completion.md).
 
 **Phụ thuộc:** UX-01–05. Không chặn người dùng chat ngay nếu môi trường đã sẵn sàng.
 
@@ -112,7 +112,7 @@ UX-04 đã bổ sung bằng chứng model thật về ngữ cảnh và phản h�
 
 ### UX-07 — Git và nội dung phong phú (P2, tùy chọn)
 
-**Đã triển khai Git local, ảnh đính kèm và Mermaid.** Branch/dirty/history/diff hiện tại và liên kết mã `W-xxxx` được đọc bounded, không tự commit/push. Ảnh PNG/JPEG có kho dữ liệu theo project/hội thoại, queue/retry/export/retention và giao thức nội bộ; SQLite 13. Mermaid Tiny ghim version được nạp cục bộ khi bấm xem; flow/sequence/class/state/ER qua renderer strict và SVG sanitizer, không HTML/script/tài nguyên ngoài. Chi tiết trong [Git](../../docs/windows-worker/ux07-completion.md), [ảnh đính kèm](../../docs/windows-worker/ux07-images-completion.md) và [Mermaid](../../docs/windows-worker/ux07-mermaid-completion.md).
+**Đã triển khai Git local, ảnh đính kèm và Mermaid.** Branch/dirty/history/diff hiện tại và liên kết mã `W-xxxx` được đọc bounded, không tự commit/push. Ảnh PNG/JPEG có kho dữ liệu theo project/hội thoại, queue/retry/export/retention và giao thức nội bộ; SQLite 13. Mermaid Tiny ghim version được nạp cục bộ khi bấm xem; flow/sequence/class/state/ER qua renderer strict và SVG sanitizer, không HTML/script/tài nguyên ngoài. Chi tiết trong [Git](../../../windows-worker/ux07-completion.md), [ảnh đính kèm](../../../windows-worker/ux07-images-completion.md) và [Mermaid](../../../windows-worker/ux07-mermaid-completion.md).
 
 Git local đọc branch/dirty/history và link work item trước; diff hiện tại tái sử dụng `PatchView`, evidence theo run tiếp tục ở inspector. GitHub PR/issues chỉ khi có `gh` và tài khoản người dùng, không thêm GitLab Server. Query giới hạn/thời gian timeout, không ngầm push/commit.
 

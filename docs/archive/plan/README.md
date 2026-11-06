@@ -1,16 +1,16 @@
 # Kế hoạch triển khai — AI Software Factory (6 AI Agent)
 
-> **Kế hoạch sản phẩm hiện hành — 05/11/2026:** [Factory V2: hợp nhất CrewHub Loops, WSL2 và đội đa lĩnh vực](factory-v2/README.md). Gồm bộ chín ảnh UI tham chiếu, tiêu chí giống trên 90%, behavior contracts và 40 ticket F0–F8. Các phase/Worker V1 bên dưới giữ làm lịch sử; không áp dụng ràng buộc sáu/bảy role, Windows-native hoặc LangGraph bắt buộc cho V2. Chưa triển khai Host/UI V2.
+> **Kế hoạch sản phẩm hiện hành — 05/11/2026:** [Factory V2: hợp nhất CrewHub Loops, WSL2 và đội đa lĩnh vực](../../../plan/factory-v2/README.md). Gồm bộ chín ảnh UI tham chiếu, tiêu chí giống trên 90%, behavior contracts và 40 ticket F0–F8. Các phase/Worker V1 bên dưới giữ làm lịch sử; không áp dụng ràng buộc sáu/bảy role, Windows-native hoặc LangGraph bắt buộc cho V2. Chưa triển khai Host/UI V2.
 
 > **Hướng sản phẩm Windows mới:** [Windows AI Worker — kế hoạch chi tiết](windows-worker/README.md), gồm kiến trúc và WW-1 đến WW-5. Theo yêu cầu người dùng, bắt đầu trực tiếp từ desktop, bỏ phase chứng minh runtime riêng; Standalone độc lập, không thay đổi lộ trình hoặc trạng thái deployment ASF bên dưới.
 
-> **Lộ trình hiện hành từ 04/11/2026:** [Bắt đầu code và deploy v0.1](lo-trinh-code-v0.md), theo [ADR-004](../docs/adr/ADR-004-release-first.md). Thứ tự mới: **khung ứng dụng → workflow → dashboard → deploy ASF lần đầu → tích hợp/Agent thật → template và nghiệm thu toàn luồng**. Không chờ toàn bộ Phase 0 cũ để bắt đầu code. Các bảng Phase 0–5 bên dưới là baseline tham khảo, không phải thứ tự hiện hành.
+> **Lộ trình hiện hành từ 04/11/2026:** [Bắt đầu code và deploy v0.1](lo-trinh-code-v0.md), theo [ADR-004](../../adr/ADR-004-release-first.md). Thứ tự mới: **khung ứng dụng → workflow → dashboard → deploy ASF lần đầu → tích hợp/Agent thật → template và nghiệm thu toàn luồng**. Không chờ toàn bộ Phase 0 cũ để bắt đầu code. Các bảng Phase 0–5 bên dưới là baseline tham khảo, không phải thứ tự hiện hành.
 
-Thư mục này chia kế hoạch triển khai thành từng phase, dựa trên tài liệu [AI_Software_Factory_6_Agents_Architecture.md](../AI_Software_Factory_6_Agents_Architecture.md) (sau đây gọi là **tài liệu kiến trúc**).
+Thư mục này chia kế hoạch triển khai thành từng phase, dựa trên tài liệu [AI_Software_Factory_6_Agents_Architecture.md](../legacy-architecture/AI_Software_Factory_6_Agents_Architecture.md) (sau đây gọi là **tài liệu kiến trúc**).
 
-**Cập nhật 03/11/2026:** xem [kế hoạch triển khai đã chốt](../docs/deployment-plan.md), [kiểm kê hạ tầng](../docs/infra-inventory.md) và các ADR trong `docs/adr/`. Nền tảng/staging trên `.14`; coding/build trên môi trường Linux cô lập **ở máy cá nhân hoặc VM server** theo [phương án worker](../docs/worker-options.md); adapter OpenCode cho MVP; bộ work package theo **ITCare-2026 / `itcare-2026` / ID 6**. Phase 0 **chưa nghiệm thu M0**; vẫn còn Registry, bot, sandbox/CI và các spike ghi dữ liệu/deploy/webhook.
+**Cập nhật 03/11/2026:** xem [kế hoạch triển khai đã chốt](../../deployment-plan.md), [kiểm kê hạ tầng](../../infra-inventory.md) và các ADR trong `docs/adr/`. Nền tảng/staging trên `.14`; coding/build trên môi trường Linux cô lập **ở máy cá nhân hoặc VM server** theo [phương án worker](../../worker-options.md); adapter OpenCode cho MVP; bộ work package theo **ITCare-2026 / `itcare-2026` / ID 6**. Phase 0 **chưa nghiệm thu M0**; vẫn còn Registry, bot, sandbox/CI và các spike ghi dữ liệu/deploy/webhook.
 
-**Cập nhật 04/11/2026:** [worker `.60` đã bootstrap](../docs/worker-bootstrap-2026-11-04.md), mở đủ disk, pass sửa code và ba test trong Linux container; có thể bắt đầu code nền tảng Phase 1 với mock/role stub. Runner chưa register; CI/deploy tự động vẫn chờ các gate Phase 0 còn lại.
+**Cập nhật 04/11/2026:** [worker `.60` đã bootstrap](../../worker-bootstrap-2026-11-04.md), mở đủ disk, pass sửa code và ba test trong Linux container; có thể bắt đầu code nền tảng Phase 1 với mock/role stub. Runner chưa register; CI/deploy tự động vẫn chờ các gate Phase 0 còn lại.
 
 Mỗi file phase gồm: mục tiêu, phạm vi, điều kiện bắt đầu, công việc chi tiết, sản phẩm bàn giao, tiêu chí nghiệm thu (checklist), cách kiểm chứng và rủi ro.
 

@@ -1,12 +1,12 @@
 # ASF — Cải thiện trải nghiệm từ CrewHub Loops
 
-> **Hướng mới đã hợp nhất:** [Factory V2](../factory-v2/README.md) và [bộ chín ảnh hiện tại](../factory-v2/design-reference.md) là chuẩn kế hoạch triển khai tiếp theo. Phần UX/R dưới đây ghi lịch sử V1; không dùng mapping ảnh cũ, palette/font hoặc ràng buộc Windows-native làm yêu cầu mới.
+> **Hướng mới đã hợp nhất:** [Factory V2](../../../../plan/factory-v2/README.md) và [bộ chín ảnh hiện tại](../../../../plan/factory-v2/design-reference.md) là chuẩn kế hoạch triển khai tiếp theo. Phần UX/R dưới đây ghi lịch sử V1; không dùng mapping ảnh cũ, palette/font hoặc ràng buộc Windows-native làm yêu cầu mới.
 
-Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–06 và UX-07 Git local, ảnh/Mermaid đã triển khai; UX-08 có contract/storage tới schema 14, chưa timer/IPC/UI**. [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md), [UX-02](../../docs/windows-worker/ux02-completion.md), [UX-03](../../docs/windows-worker/ux03-completion.md), [UX-04](../../docs/windows-worker/ux04-completion.md), [UX-05](../../docs/windows-worker/ux05-completion.md), [UX-06](../../docs/windows-worker/ux06-completion.md).
+Ngày khảo sát: **05/11/2026**. Trạng thái: **UX-01–06 và UX-07 Git local, ảnh/Mermaid đã triển khai; UX-08 có contract/storage tới schema 14, chưa timer/IPC/UI**. [Bàn giao UX-01](../../../windows-worker/ux01-completion.md), [UX-02](../../../windows-worker/ux02-completion.md), [UX-03](../../../windows-worker/ux03-completion.md), [UX-04](../../../windows-worker/ux04-completion.md), [UX-05](../../../windows-worker/ux05-completion.md), [UX-06](../../../windows-worker/ux06-completion.md).
 
-**Ưu tiên mới theo bộ ảnh `crewhub/`:** [Phương án tổ chức lại workspace](crewhub-workspace-redesign.md). **R0–R5 đã hoàn thành**: [baseline/checkpoint](../../docs/windows-worker/workspace-r0-baseline.md), [bàn giao shell](../../docs/windows-worker/workspace-r1-completion.md), [hồ sơ công việc](../../docs/windows-worker/workspace-r2-completion.md), [R3C trạng thái kết quả](../../docs/windows-worker/workspace-r3c-completion.md), [R4 Home/Team/Kết quả](../../docs/windows-worker/workspace-r4-completion.md), [R5 thiết lập](../../docs/windows-worker/workspace-r5-completion.md). Lead là điểm vào chat, plan liên kết trước dispatch, Bash tự động theo vai trò và projection trạng thái dùng chung. R6–R7 chưa triển khai, lịch tiếp tục ở R6.
+**Ưu tiên mới theo bộ ảnh `crewhub/`:** [Phương án tổ chức lại workspace](crewhub-workspace-redesign.md). **R0–R5 đã hoàn thành**: [baseline/checkpoint](../../../windows-worker/workspace-r0-baseline.md), [bàn giao shell](../../../windows-worker/workspace-r1-completion.md), [hồ sơ công việc](../../../windows-worker/workspace-r2-completion.md), [R3C trạng thái kết quả](../../../windows-worker/workspace-r3c-completion.md), [R4 Home/Team/Kết quả](../../../windows-worker/workspace-r4-completion.md), [R5 thiết lập](../../../windows-worker/workspace-r5-completion.md). Lead là điểm vào chat, plan liên kết trước dispatch, Bash tự động theo vai trò và projection trạng thái dùng chung. R6–R7 chưa triển khai, lịch tiếp tục ở R6.
 
-Đợt [làm gọn giao diện UX-01](../../docs/windows-worker/ux01-ui-refinement.md) là mốc trước R1; xem bàn giao R1 để dùng điều hướng hiện hành. Tổng quan dự án và các chức năng cũ vẫn truy cập được qua menu đúng phạm vi.
+Đợt [làm gọn giao diện UX-01](../../../windows-worker/ux01-ui-refinement.md) là mốc trước R1; xem bàn giao R1 để dùng điều hướng hiện hành. Tổng quan dự án và các chức năng cũ vẫn truy cập được qua menu đúng phạm vi.
 
 Cập nhật R5: ba nhóm Cài đặt, một nút Lưu, model chung/từng vai trò/preset/ID tự nhập, trạng thái catalog và kiểm phiên bản rõ ràng. Readiness gọn và dẫn đúng nhóm lỗi; credential nháp không tự áp dụng sau khi rời trang. 246/246 test và 28 cấu hình UI đạt; chưa gọi model thật hoặc benchmark lớn. R6 lịch là bước tiếp theo; 3D ngoài đợt này.
 
@@ -39,7 +39,7 @@ Tạm dừng phát triển 3D theo yêu cầu người dùng. Giữ phần D-01�
 
 **Policy hiện hành:** Bash tự động theo vai trò đã thay bộ chọn Ask/Full access. Câu hỏi nghiệp vụ, quyền runtime và nghiệm thu là ba khái niệm khác nhau. Không chuyển sang Done chỉ vì người dùng bấm đồng ý.
 
-**Cập nhật R6:** Lịch đã nối timer main/resume/IPC/UI, xem trước trước lưu/bật, pause toàn cục, lịch sử và mở backlog. R0–R6 đã triển khai, R7 còn lại. [Bàn giao R6](../../docs/windows-worker/workspace-r6-completion.md) thay các dòng trạng thái lịch chưa triển khai ở những mốc cũ bên trên.
+**Cập nhật R6:** Lịch đã nối timer main/resume/IPC/UI, xem trước trước lưu/bật, pause toàn cục, lịch sử và mở backlog. R0–R6 đã triển khai, R7 còn lại. [Bàn giao R6](../../../windows-worker/workspace-r6-completion.md) thay các dòng trạng thái lịch chưa triển khai ở những mốc cũ bên trên.
 
 ## Bộ tài liệu
 
@@ -54,7 +54,7 @@ Tạm dừng phát triển 3D theo yêu cầu người dùng. Giữ phần D-01�
 
 **UX-01 Tổng quan/điều hướng → UX-02 Hồ sơ công việc → UX-03 Chat theo ngữ cảnh → UX-04 Câu hỏi → UX-05 Kết quả → UX-06 Mẫu công việc/Team.** UX-07 Git và UX-08 lịch/quy tắc là mở rộng sau, không chặn vòng làm việc chính.
 
-UX-01 thêm Tổng quan/điều hướng gọn; UX-02 thêm hồ sơ công việc; UX-03 thêm chat theo ngữ cảnh; UX-04 thêm câu hỏi nghiệp vụ và continuation idempotent; UX-05 thêm báo cáo bất biến, bằng chứng và nghiệm thu tùy chọn. Worker vẫn `1.3.0-alpha.8`, SQLite 14; chưa phát hành stable. UX-06 thêm mẫu điền nháp, readiness local, Team danh sách và hộp thư chung. UX-07 thêm Git local chỉ đọc, diff staged/unstaged, lịch sử giới hạn và link mã công việc. [Bàn giao UX-06](../../docs/windows-worker/ux06-completion.md), [UX-07](../../docs/windows-worker/ux07-completion.md).
+UX-01 thêm Tổng quan/điều hướng gọn; UX-02 thêm hồ sơ công việc; UX-03 thêm chat theo ngữ cảnh; UX-04 thêm câu hỏi nghiệp vụ và continuation idempotent; UX-05 thêm báo cáo bất biến, bằng chứng và nghiệm thu tùy chọn. Worker vẫn `1.3.0-alpha.8`, SQLite 14; chưa phát hành stable. UX-06 thêm mẫu điền nháp, readiness local, Team danh sách và hộp thư chung. UX-07 thêm Git local chỉ đọc, diff staged/unstaged, lịch sử giới hạn và link mã công việc. [Bàn giao UX-06](../../../windows-worker/ux06-completion.md), [UX-07](../../../windows-worker/ux07-completion.md).
 
 ## Phạm vi khảo sát và giới hạn
 

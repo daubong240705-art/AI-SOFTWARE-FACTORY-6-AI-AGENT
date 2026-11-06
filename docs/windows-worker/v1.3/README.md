@@ -12,8 +12,8 @@ Thư mục gồm ảnh tham khảo kế hoạch và **bằng chứng V1.3A–C**
 - Giao diện desktop đã triển khai (`agent-monitor-desktop.png`, ảnh local), cửa sổ nhỏ (`agent-monitor-small.png`, ảnh local).
 - Các ảnh `agent-monitor-*.png` dùng dữ liệu fixture và không phải chứng minh model thật. Ảnh `office-3d-reference.webp` vẫn chỉ là tham khảo bên ngoài, không phải 3D ASF đã triển khai.
 
-- [Kế hoạch V1.3 mở rộng](../../../plan/v1.3/README.md)
-- [Đặc tả giao diện và nguồn ảnh](../../../plan/v1.3/design.md)
+- [Kế hoạch V1.3 mở rộng](../../archive/plan/v1.3/README.md)
+- [Đặc tả giao diện và nguồn ảnh](../../archive/plan/v1.3/design.md)
 - [Ảnh tham khảo văn phòng 3D](office-3d-reference.webp)
 
 Ảnh được tìm từ [CrewHub World — Ekinsol](https://crewhub.dev/world/), [file gốc](https://crewhub.dev/images/world/building.webp), tải ngày 04/11/2026, 1920 × 1200. Giữ nguyên nhãn nguồn; đây không phải thiết kế độc quyền, screenshot ASF hoặc bằng chứng agent thật đang chạy. Ảnh demo có ghi replies are scripted. Chỉ lưu để trao đổi thiết kế, không dùng như model/texture hoặc đưa vào bản phân phối ứng dụng. Chưa xác minh giấy phép phân phối riêng của ảnh.

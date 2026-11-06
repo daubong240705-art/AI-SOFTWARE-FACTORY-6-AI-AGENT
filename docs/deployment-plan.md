@@ -1,6 +1,6 @@
 # Kế hoạch triển khai đã chốt — AI Software Factory
 
-> **Ưu tiên mới 04/11/2026:** người dùng yêu cầu code và deploy bản đầu trước phần thực nghiệm/template. Xem [lộ trình hiện hành](../plan/lo-trinh-code-v0.md) và [ADR-004](adr/ADR-004-release-first.md). Phân bố host/resource/DNS bên dưới vẫn áp dụng; thứ tự thi công và gate phải đọc theo lộ trình mới. Không cần hoàn tất toàn bộ M0 để viết scaffold.
+> **Ưu tiên mới 04/11/2026:** người dùng yêu cầu code và deploy bản đầu trước phần thực nghiệm/template. Xem [lộ trình hiện hành](archive/plan/lo-trinh-code-v0.md) và [ADR-004](adr/ADR-004-release-first.md). Phân bố host/resource/DNS bên dưới vẫn áp dụng; thứ tự thi công và gate phải đọc theo lộ trình mới. Không cần hoàn tất toàn bộ M0 để viết scaffold.
 
 Ngày chốt: **03/11/2026**, Asia/Saigon. Căn cứ [kiểm kê thực tế](infra-inventory.md) và [snapshot MCP](evidence/openproject-itcare-2026-2026-11-03.json). Đây là kế hoạch thi công, chưa phải thông báo đã triển khai.
 

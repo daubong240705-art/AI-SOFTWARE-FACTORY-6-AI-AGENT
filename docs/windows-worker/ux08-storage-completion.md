@@ -1,6 +1,6 @@
 # UX-08 — Nền tảng và storage lịch
 
-Ngày: 2026-11-05. Tiếp nối Mermaid `06dfe2d`, contract U8-01 `1963546`; checkpoint `checkpoint/ux08-start-20261105`. Worker giữ `1.3.0-alpha.8`; SQLite **14**. [Thiết kế/phần còn lại](../../plan/experience-loops/ux08-schedules.md).
+Ngày: 2026-11-05. Tiếp nối Mermaid `06dfe2d`, contract U8-01 `1963546`; checkpoint `checkpoint/ux08-start-20261105`. Worker giữ `1.3.0-alpha.8`; SQLite **14**. [Thiết kế/phần còn lại](../archive/plan/experience-loops/ux08-schedules.md).
 
 ## Đã triển khai
 

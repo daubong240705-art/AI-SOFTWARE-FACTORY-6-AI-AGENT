@@ -2,7 +2,7 @@
 
 Mục tiêu: có ứng dụng desktop thật, cấu hình bền vững và các màn hình nền để gắn runtime trực tiếp ở phase sau. Không tạo mock workflow báo thành công.
 
-Trạng thái 04/11/2026: **đã triển khai WW-1** trong [apps/windows-worker](../../apps/windows-worker/README.md). Typecheck, ba kiểm tra core, kiểm tra Electron native storage và production build đạt; ứng dụng Electron thật đã mở trên Windows, hiển thị workspace/settings/team và đọc dữ liệu qua IPC. Native storage xác nhận SQLite chạy trong Electron, safeStorage mã hóa/giải mã được và key tổng hợp không nằm plaintext trong DB/WAL. Chưa cấu hình gateway thật hoặc gọi model. SQLite 13 dùng Node-API binary, thay yêu cầu rebuild native bằng kiểm tra binary tại postinstall. Chưa đóng gói installer (WW-5).
+Trạng thái 04/11/2026: **đã triển khai WW-1** trong [apps/windows-worker](../../../../apps/windows-worker/README.md). Typecheck, ba kiểm tra core, kiểm tra Electron native storage và production build đạt; ứng dụng Electron thật đã mở trên Windows, hiển thị workspace/settings/team và đọc dữ liệu qua IPC. Native storage xác nhận SQLite chạy trong Electron, safeStorage mã hóa/giải mã được và key tổng hợp không nằm plaintext trong DB/WAL. Chưa cấu hình gateway thật hoặc gọi model. SQLite 13 dùng Node-API binary, thay yêu cầu rebuild native bằng kiểm tra binary tại postinstall. Chưa đóng gói installer (WW-5).
 
 ## Đầu việc
 

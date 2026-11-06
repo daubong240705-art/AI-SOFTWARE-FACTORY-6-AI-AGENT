@@ -1,6 +1,6 @@
 # Phase 2 — Run, workflow và phê duyệt
 
-Phạm vi V0-P2-01…07 trong [lộ trình code v0](../plan/lo-trinh-code-v0.md). Kiểm chứng ngày **04/11/2026**, Asia/Saigon.
+Phạm vi V0-P2-01…07 trong [lộ trình code v0](archive/plan/lo-trinh-code-v0.md). Kiểm chứng ngày **04/11/2026**, Asia/Saigon.
 
 ## Hành vi đã triển khai
 

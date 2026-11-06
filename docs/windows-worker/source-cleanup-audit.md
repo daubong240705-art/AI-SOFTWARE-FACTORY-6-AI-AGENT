@@ -17,7 +17,7 @@ Ngày 05/11/2026. Baseline `446bf2a`; checkpoint Git `checkpoint/source-cleanup-
 | Ưu tiên | Hạng mục | Trạng thái và điều kiện hoàn thành |
 |---|---|---|
 | Đã hoàn thành | R6 / UX-08 lịch | Đã nối timer/resume, IPC, editor/preview/history, lỗi tắt lịch và quota/retention. [Bàn giao R6](workspace-r6-completion.md). |
-| 2 | Nghiệm thu bản stable | Cần đo lặp trên repo có dependency/build thật: thời gian, request, review đạt ngay, conflict, phục hồi và chất lượng giao việc. Các fixture hiện có không thay nghiệm thu model thật. Theo [giới hạn review](review-quality-completion.md) và R7 của [kế hoạch trải nghiệm](../../plan/experience-loops/crewhub-workspace-redesign.md). |
+| 2 | Nghiệm thu bản stable | Cần đo lặp trên repo có dependency/build thật: thời gian, request, review đạt ngay, conflict, phục hồi và chất lượng giao việc. Các fixture hiện có không thay nghiệm thu model thật. Theo [giới hạn review](review-quality-completion.md) và R7 của [kế hoạch trải nghiệm](../archive/plan/experience-loops/crewhub-workspace-redesign.md). |
 | Hoãn | WW-5 bộ cài | Chưa đóng gói `.exe`/installer; người dùng đã chọn bỏ qua, không chặn phát triển tính năng. |
 | Hoãn | 3D D-05 và E liên quan | Giữ D-01–04 đang có; không phát triển tiếp khi chưa có yêu cầu mới. Không xóa dependency vì màn Văn phòng vẫn import/lazy-load chúng. |
 | Đã xử lý riêng | Reset database | Sau đợt dọn source, người dùng đã reset DB và cấu hình gateway/model/runtime đã được thiết lập lại. R6 không reset hay sửa settings/credential người dùng. |

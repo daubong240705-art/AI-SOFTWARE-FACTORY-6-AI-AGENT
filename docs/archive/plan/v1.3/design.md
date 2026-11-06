@@ -4,11 +4,11 @@ Trạng thái: thiết kế đề xuất, chưa phải screenshot ASF đã tri�
 
 ## 1. Ảnh 3D đã tìm và xem trực tiếp
 
-![Ảnh tham khảo CrewHub World: văn phòng isometric có khu Lead, bàn agent và các kệ workflow](../../docs/windows-worker/v1.3/office-3d-reference.webp)
+![Ảnh tham khảo CrewHub World: văn phòng isometric có khu Lead, bàn agent và các kệ workflow](../../../windows-worker/v1.3/office-3d-reference.webp)
 
 - Tác giả/nguồn: **CrewHub World — Ekinsol**, [trang giới thiệu chính thức](https://crewhub.dev/world/).
 - Ảnh gốc: [Inside a project building](https://crewhub.dev/images/world/building.webp).
-- Bản lưu để xem cùng kế hoạch: [office-3d-reference.webp](../../docs/windows-worker/v1.3/office-3d-reference.webp), 1920 × 1200, tải 04/11/2026, giữ nguyên ảnh/nhãn gốc.
+- Bản lưu để xem cùng kế hoạch: [office-3d-reference.webp](../../../windows-worker/v1.3/office-3d-reference.webp), 1920 × 1200, tải 04/11/2026, giữ nguyên ảnh/nhãn gốc.
 - SHA-256: `3b17d6ddd72f0e8f96051c35df63a2674c8884e1841c89a71228de33b527b984`.
 - Đây là **ảnh tham khảo bên ngoài**, không phải ảnh tạo riêng, UI đã code hoặc bằng chứng runtime thật của ASF. Bản demo trong ảnh có ghi replies are scripted.
 - Ảnh chỉ phục vụ trao đổi thiết kế; không nhúng vào sản phẩm, không coi screenshot được cấp phép như asset CC0. Chưa xác minh giấy phép phân phối riêng của screenshot; giữ nguồn và không đưa vào gói app/release. Không sao chép code/model/texture của CrewHub.

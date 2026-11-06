@@ -1,6 +1,6 @@
 ﻿# Phase 4 — Triển khai ASF v0.1
 
-Phạm vi V0-P4-01…07 trong [lộ trình code](../plan/lo-trinh-code-v0.md), ngày 04/11/2026 (Asia/Saigon).
+Phạm vi V0-P4-01…07 trong [lộ trình code](archive/plan/lo-trinh-code-v0.md), ngày 04/11/2026 (Asia/Saigon).
 
 ## Phát hành và cách triển khai
 

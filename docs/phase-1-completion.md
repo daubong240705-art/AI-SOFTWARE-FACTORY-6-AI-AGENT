@@ -1,6 +1,6 @@
 # Phase 1 — Khung ứng dụng đã hoàn thành
 
-Ngày kiểm chứng: **04/11/2026**, Asia/Saigon. Phạm vi theo [lộ trình code v0](../plan/lo-trinh-code-v0.md), V0-P1-01 đến V0-P1-06.
+Ngày kiểm chứng: **04/11/2026**, Asia/Saigon. Phạm vi theo [lộ trình code v0](archive/plan/lo-trinh-code-v0.md), V0-P1-01 đến V0-P1-06.
 
 ## Chức năng đã có
 

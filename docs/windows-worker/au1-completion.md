@@ -1,6 +1,6 @@
 # AU-1 — Profile và policy thống nhất
 
-Hoàn thành ngày 04/11/2026 trên nhánh `feature/agent-upgrade-au1`. Baseline `1b659c6`, checkpoint trước code `checkpoint/au1-20261104`. [Kế hoạch AU-1](../../plan/agent-upgrade/implementation-plan.md).
+Hoàn thành ngày 04/11/2026 trên nhánh `feature/agent-upgrade-au1`. Baseline `1b659c6`, checkpoint trước code `checkpoint/au1-20261104`. [Kế hoạch AU-1](../archive/plan/agent-upgrade/implementation-plan.md).
 
 ## Vấn đề và hành vi mới
 
@@ -25,7 +25,7 @@ Role direct chỉ đọc bị chặn trước runtime khi baseline snapshot khô
 - Cập nhật bảy role profile lên `1.1.0`: scope, trả lời/handoff ngắn, bằng chứng thực tế, self-review và blocker; không tự tạo agent/reviewer.
 - `fix-bug` và `testing` lên `1.1.0`, tôn trọng quyền role và kiểm tra có ý nghĩa. Role chỉ đọc không được hiểu skill fix-bug là quyền sửa source.
 - Snapshot đọc version được khai báo trong profile/skill và giữ content hash; không gán mọi nội dung là `1.0.0`. Đây là phần metadata nền cho AU-3, chưa có catalog hoặc chọn skill theo task.
-- Áp dụng ý tưởng role permissions của OpenCode, bàn giao/review của Superpowers và evidence/skills của ECC từ [khảo sát](../../plan/agent-upgrade/research-findings.md). Không chép mã/prompt nguyên gốc, chạy script ngoài hoặc thêm dependency.
+- Áp dụng ý tưởng role permissions của OpenCode, bàn giao/review của Superpowers và evidence/skills của ECC từ [khảo sát](../archive/plan/agent-upgrade/research-findings.md). Không chép mã/prompt nguyên gốc, chạy script ngoài hoặc thêm dependency.
 
 ## File thay đổi
 

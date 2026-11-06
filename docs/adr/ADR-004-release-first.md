@@ -2,7 +2,7 @@
 
 Ngày: 04/11/2026. Trạng thái: được người dùng yêu cầu điều chỉnh phạm vi và thứ tự.
 
-Người dùng muốn bắt đầu code ngay, để phần kiểm thử với template sau khi triển khai được bản đầu tiên. Chọn lộ trình [code v0](../../plan/lo-trinh-code-v0.md) thay thứ tự phase cũ.
+Người dùng muốn bắt đầu code ngay, để phần kiểm thử với template sau khi triển khai được bản đầu tiên. Chọn lộ trình [code v0](../archive/plan/lo-trinh-code-v0.md) thay thứ tự phase cũ.
 
 v0.1 gồm scaffold API/dashboard, project/run/data, orchestration/approval và deployment chính ASF lên `.14`. PM/BA dùng gateway khi được cấu hình; BE/FE/TEST/DEVOPS chưa thực thi thật phải hiện rõ, không giả lập evidence thành kết quả thật.
 

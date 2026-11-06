@@ -2,7 +2,7 @@
 
 > **Điều chỉnh ngày 05/11/2026:** người dùng yêu cầu tạm dừng phần 3D. Giữ D-01–04; hoãn D-05 và các phần E phụ thuộc 3D. Ưu tiên kế tiếp chuyển sang [cải thiện trải nghiệm 2D tham khảo CrewHub Loops](../experience-loops/README.md). Kế hoạch dưới đây lưu phạm vi ban đầu; không tiếp tục D-05 theo thứ tự cũ khi chưa có yêu cầu mới.
 
-Ngày lập: 04/11/2026; cập nhật 05/11/2026. **A–C, UI foundation và D-01–04 đã triển khai; hiện tại `1.3.0-alpha.8`. D-05 và E còn lại.** Người dùng đã chọn tên V1.3 mở rộng thay cho V1.13. [Bàn giao A](../../docs/windows-worker/v1.3a-completion.md), [B](../../docs/windows-worker/v1.3b-completion.md), [C](../../docs/windows-worker/v1.3c-completion.md), [D-01/D-02](../../docs/windows-worker/office-3d/README.md), [D-03](../../docs/windows-worker/office-3d/d03/README.md), [D-04](../../docs/windows-worker/office-3d/d04/README.md).
+Ngày lập: 04/11/2026; cập nhật 05/11/2026. **A–C, UI foundation và D-01–04 đã triển khai; hiện tại `1.3.0-alpha.8`. D-05 và E còn lại.** Người dùng đã chọn tên V1.3 mở rộng thay cho V1.13. [Bàn giao A](../../../windows-worker/v1.3a-completion.md), [B](../../../windows-worker/v1.3b-completion.md), [C](../../../windows-worker/v1.3c-completion.md), [D-01/D-02](../../../windows-worker/office-3d/README.md), [D-03](../../../windows-worker/office-3d/d03/README.md), [D-04](../../../windows-worker/office-3d/d04/README.md).
 
 ## 1. Kết quả cần đạt
 
@@ -29,7 +29,7 @@ Source hiện tại: `feature/windows-worker-review-quality`, commit `2b5326f`, 
 - `RunEvent` hiện có sequence/type/text/at; task ID đang được ghép vào text của Controller. Chưa đủ làm nguồn trạng thái có cấu trúc cho hai lane chạy đồng thời.
 - Chat hiện poll chi tiết mỗi 400 ms, có thể gọi `runDetail` hai lần cho cùng run trong một vòng. Không nhân mô hình này thành ba màn hình poll độc lập.
 - `TeamTask.state === completed` chưa đồng nghĩa mọi acceptance đã được Lead xác minh. Kanban phải thể hiện đúng khác biệt này.
-- Bằng chứng kiểm tra baseline nằm trong [bàn giao alpha.4](../../docs/windows-worker/review-quality-completion.md). Công việc hiện tại chỉ lập kế hoạch và tìm ảnh tham khảo; không chạy lại build/test sản phẩm.
+- Bằng chứng kiểm tra baseline nằm trong [bàn giao alpha.4](../../../windows-worker/review-quality-completion.md). Công việc hiện tại chỉ lập kế hoạch và tìm ảnh tham khảo; không chạy lại build/test sản phẩm.
 
 ## 3. Phạm vi chốt cho kế hoạch
 
@@ -75,6 +75,6 @@ Factory Lite + Windows Worker và một Controller tiếp tục là kiến trúc
 
 ## 7. Điểm bắt đầu khi code
 
-Đã hoàn thiện **V1.3A–C**, UI foundation, **D-01–04** và **UX-01 — Tổng quan, điều hướng và hoạt động gọn**. **D-05 và phần E phụ thuộc 3D tạm hoãn theo yêu cầu mới.** Bước tiếp theo là **UX-02 — Hồ sơ công việc bền vững** trong [kế hoạch trải nghiệm 2D](../experience-loops/implementation.md). [Bàn giao UX-01](../../docs/windows-worker/ux01-completion.md). Không cần chuẩn bị VM.
+Đã hoàn thiện **V1.3A–C**, UI foundation, **D-01–04** và **UX-01 — Tổng quan, điều hướng và hoạt động gọn**. **D-05 và phần E phụ thuộc 3D tạm hoãn theo yêu cầu mới.** Bước tiếp theo là **UX-02 — Hồ sơ công việc bền vững** trong [kế hoạch trải nghiệm 2D](../experience-loops/implementation.md). [Bàn giao UX-01](../../../windows-worker/ux01-completion.md). Không cần chuẩn bị VM.
 
 V1.3A thêm snapshot/trạng thái và migration schema 7; B–C/D dùng schema này. D-01 thêm Three/R3F pin phiên bản, không đổi credentials/cấu hình hệ thống. File roadmap người dùng cung cấp được giữ nguyên. Kế hoạch Loops hiện chỉ là tài liệu, chưa thay đổi runtime hoặc nâng schema.

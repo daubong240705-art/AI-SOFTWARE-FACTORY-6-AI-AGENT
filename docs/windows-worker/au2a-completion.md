@@ -1,6 +1,6 @@
 # AU-2A — Bàn giao task có cấu trúc
 
-Hoàn thành ngày 04/11/2026 trên nhánh `feature/agent-upgrade-au2a`. Baseline `91cecf4`, checkpoint `checkpoint/au2a-20261104`. [Kế hoạch](../../plan/agent-upgrade/implementation-plan.md).
+Hoàn thành ngày 04/11/2026 trên nhánh `feature/agent-upgrade-au2a`. Baseline `91cecf4`, checkpoint `checkpoint/au2a-20261104`. [Kế hoạch](../archive/plan/agent-upgrade/implementation-plan.md).
 
 ## Vấn đề và kết quả
 

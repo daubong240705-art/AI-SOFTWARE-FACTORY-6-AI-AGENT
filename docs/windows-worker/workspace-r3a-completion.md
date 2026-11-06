@@ -1,6 +1,6 @@
 # R3A — Trao đổi với Lead và quyền Bash theo lượt
 
-Ngày: 05/11/2026. Worker `1.3.0-alpha.8`, SQLite 14. Baseline R2 `dc0227b`; checkpoint/kế hoạch `ee41393`. [Kế hoạch](workspace-r3-plan.md), [phương án tổng thể](../../plan/experience-loops/crewhub-workspace-redesign.md).
+Ngày: 05/11/2026. Worker `1.3.0-alpha.8`, SQLite 14. Baseline R2 `dc0227b`; checkpoint/kế hoạch `ee41393`. [Kế hoạch](workspace-r3-plan.md), [phương án tổng thể](../archive/plan/experience-loops/crewhub-workspace-redesign.md).
 
 ## Đã triển khai
 

@@ -2,7 +2,7 @@
 
 Ngày: 05/11/2026. Repo [paperclipai/paperclip](https://github.com/paperclipai/paperclip), snapshot `ea42a2e41715c70a6822a25683136e48e35ae811`, root license MIT. Cùng revision với nghiên cứu V2 trước để kết luận nhất quán. **Chỉ đọc source/tài liệu; chưa chạy Paperclip hay import code vào ASF.**
 
-Manifest bổ sung: [sources.json](../../research/worker-v2/multidomain-sources.json). Đọc [thiết kế áp dụng](multidomain.md).
+Manifest bổ sung: [sources.json](../../../../research/worker-v2/multidomain-sources.json). Đọc [thiết kế áp dụng](multidomain.md).
 
 ## 1. Những cơ chế đã kiểm tra
 

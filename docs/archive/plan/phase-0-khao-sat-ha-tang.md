@@ -1,8 +1,8 @@
 # Phase 0 — Khảo sát & chuẩn bị hạ tầng
 
-> **Kết quả khảo sát 03/11/2026:** [inventory](../docs/infra-inventory.md), [kế hoạch thi công](../docs/deployment-plan.md), [ADR-001](../docs/adr/ADR-001-module-mau.md), [ADR-002](../docs/adr/ADR-002-phan-bo-ha-tang.md), [ADR-003](../docs/adr/ADR-003-coding-cli.md). S1 đã pass trên `coding-main`; MCP đọc đủ 214 WP mẫu; OpenCode sửa file thật pass trên Windows. S2–S7 còn các bước nghiệm thu môi trường thật; không tick hoàn thành Phase 0 từ kết quả read-only.
+> **Kết quả khảo sát 03/11/2026:** [inventory](../../infra-inventory.md), [kế hoạch thi công](../../deployment-plan.md), [ADR-001](../../adr/ADR-001-module-mau.md), [ADR-002](../../adr/ADR-002-phan-bo-ha-tang.md), [ADR-003](../../adr/ADR-003-coding-cli.md). S1 đã pass trên `coding-main`; MCP đọc đủ 214 WP mẫu; OpenCode sửa file thật pass trên Windows. S2–S7 còn các bước nghiệm thu môi trường thật; không tick hoàn thành Phase 0 từ kết quả read-only.
 
-> **Cập nhật 04/11/2026:** `.60` đã mở LV từ 29 lên 58 GiB, cài Docker/CLI image và pass probe sửa code + ba test trong Linux container. GitLab Runner đã cài nhưng chưa register; S4, egress/recovery và toàn bộ luồng CI/deploy chưa nghiệm thu. Xem [worker readiness](../docs/worker-bootstrap-2026-11-04.md).
+> **Cập nhật 04/11/2026:** `.60` đã mở LV từ 29 lên 58 GiB, cài Docker/CLI image và pass probe sửa code + ba test trong Linux container. GitLab Runner đã cài nhưng chưa register; S4, egress/recovery và toàn bộ luồng CI/deploy chưa nghiệm thu. Xem [worker readiness](../../worker-bootstrap-2026-11-04.md).
 
 > **Thời lượng gợi ý:** 1 tuần  
 > **Phụ thuộc:** không  

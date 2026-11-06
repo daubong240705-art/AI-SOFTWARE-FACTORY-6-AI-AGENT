@@ -66,12 +66,12 @@ Tránh lặp tên run/role/model ở nhiều nơi; không đưa log kỹ thuật
 
 ## Bàn giao
 
-WW-4A hoàn thành ngày 04/11/2026: schema4, chuyển toàn bộ run cũ, draft theo phiên, sidebar/search/rename, Markdown/code, chat/composer và panel chi tiết. Có context cơ bản giữa lượt gửi, chưa streaming hoặc tự động xếp hàng. [Báo cáo, ảnh và evidence](../../docs/windows-worker/ww4a-completion.md). Các đầu việc diff/restore/preview/recovery phía dưới vẫn chưa hoàn thành.
+WW-4A hoàn thành ngày 04/11/2026: schema4, chuyển toàn bộ run cũ, draft theo phiên, sidebar/search/rename, Markdown/code, chat/composer và panel chi tiết. Có context cơ bản giữa lượt gửi, chưa streaming hoặc tự động xếp hàng. [Báo cáo, ảnh và evidence](../../../windows-worker/ww4a-completion.md). Các đầu việc diff/restore/preview/recovery phía dưới vẫn chưa hoàn thành.
 
 - [x] WW-4A: hội thoại nhiều lượt, bản nháp, lịch sử cũ và shell chat/composer/panel dùng được.
-- [x] WW-4B: streaming, hàng chờ, retry/attempt và context có file/command refs. [Bàn giao và evidence](../../docs/windows-worker/ww4b-completion.md).
-- [x] WW-4C: baseline, diff snapshot và restore từng file. [Bàn giao và giới hạn](../../docs/windows-worker/ww4c-completion.md).
-- [x] WW-4D: local preview, lifecycle/recovery và retention/export bàn giao trong [V1.1](../../docs/windows-worker/v1.1-completion.md). Preview mở bằng trình duyệt ngoài; panel resize nâng cao vẫn là việc riêng.
+- [x] WW-4B: streaming, hàng chờ, retry/attempt và context có file/command refs. [Bàn giao và evidence](../../../windows-worker/ww4b-completion.md).
+- [x] WW-4C: baseline, diff snapshot và restore từng file. [Bàn giao và giới hạn](../../../windows-worker/ww4c-completion.md).
+- [x] WW-4D: local preview, lifecycle/recovery và retention/export bàn giao trong [V1.1](../../../windows-worker/v1.1-completion.md). Preview mở bằng trình duyệt ngoài; panel resize nâng cao vẫn là việc riêng.
 
 - [x] Diff/history/report dùng được trên project đang có thay đổi.
 - [ ] Kết quả lệnh và local preview có quản lý vòng đời.

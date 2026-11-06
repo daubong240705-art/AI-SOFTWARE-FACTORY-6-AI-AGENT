@@ -137,10 +137,10 @@ VM Linux có thể chạy cùng Host về sau. Chưa có benchmark để khẳng
 | [CrewHub classic](https://github.com/EKINSOL-DEV/crewhub) | Connection/session abstraction; Codex adapter vẫn stub ở snapshot | Học UX và lifecycle; không lấy stub làm integration thật |
 | [CrewHub World](https://github.com/EKINSOL-DEV/crewhub2) | Design system và prototype mô phỏng | Semantic tokens/components; không coi simulation là runtime evidence |
 | [Paperclip](https://github.com/paperclipai/paperclip) | Adapter/session/claim, routine revisions, work products/docs/budgets | Học ownership/handoff/output/recovery; không nhập company hierarchy/control plane |
-| [Nghiên cứu runtime/WSL](../worker-v2/process-first-wsl.md) | Tài liệu runtime và phân biệt permission/approval | Adapter pin version/capability, quyền có hiệu lực từ Host đến OS |
+| [Nghiên cứu runtime/WSL](../../docs/archive/plan/worker-v2/process-first-wsl.md) | Tài liệu runtime và phân biệt permission/approval | Adapter pin version/capability, quyền có hiệu lực từ Host đến OS |
 | LangGraph | Có persistence/interrupt/replay; không quản lý CLI thay Host | Không bắt buộc; chỉ đánh giá lại bằng ADR khi có nhu cầu cụ thể |
 
-Các revision/hash ở [manifest](../../research/factory-v2/reference-manifest.json) và [nghiên cứu gốc](../worker-v2/research.md). CrewHub classic/World root license AGPL-3.0, Paperclip MIT tại snapshot; triển khai độc lập, giữ thương hiệu ASF. Nếu lấy code/font/icon/package thật phải kiểm license và giữ notices thích hợp. Ảnh là reference local, không đóng gói thành asset sản phẩm.
+Các revision/hash ở [manifest](../../research/factory-v2/reference-manifest.json) và [nghiên cứu gốc](../../docs/archive/plan/worker-v2/research.md). CrewHub classic/World root license AGPL-3.0, Paperclip MIT tại snapshot; triển khai độc lập, giữ thương hiệu ASF. Nếu lấy code/font/icon/package thật phải kiểm license và giữ notices thích hợp. Ảnh là reference local, không đóng gói thành asset sản phẩm.
 
 ## 8. Thứ tự và điểm có thể dùng sớm
 
@@ -163,11 +163,11 @@ UI theo ảnh được làm từ F2 và kiểm tại từng đợt, không đợ
 | Kế hoạch trước | Điều giữ lại | Được thay/thực hiện ở đâu |
 |---|---|---|
 | WW-1–4, V1.1–1.3, UX/R0–R6 | Baseline code, bằng chứng và kinh nghiệm UX | Không mở lại toàn bộ như task chưa làm; F0 xác định phần reuse |
-| [Worker V2](../worker-v2/README.md), V2-01–07 | Adapter, đội tự do, skills, task/evidence | D01–D12 và F1–F8 thay thứ tự/kiến trúc bắt buộc |
-| [Paperclip/đa lĩnh vực](../worker-v2/multidomain.md) | Goals, outputs/jobs/resources, domain packs | F3/F4/F6; không mang ràng buộc Windows-native |
-| [Loops parity](../worker-v2/loops-parity.md), [rules](../worker-v2/automations.md) | Tính năng và safety semantics của rule engine | F4/F5/F7; canonical contracts ở workflows |
-| [Process-first WSL](../worker-v2/process-first-wsl.md), P0–P5 | Quy trình tự nhiên, quyền tự động, Host Linux | Giữ và phân nhỏ thành F0–F8 |
-| [CrewHub workspace R](../experience-loops/crewhub-workspace-redesign.md) | Một hồ sơ, gọn feed, card/menu căn đều | Palette, font, mapping ảnh, tab cuối cùng theo thiết kế mới |
+| [Worker V2](../../docs/archive/plan/worker-v2/README.md), V2-01–07 | Adapter, đội tự do, skills, task/evidence | D01–D12 và F1–F8 thay thứ tự/kiến trúc bắt buộc |
+| [Paperclip/đa lĩnh vực](../../docs/archive/plan/worker-v2/multidomain.md) | Goals, outputs/jobs/resources, domain packs | F3/F4/F6; không mang ràng buộc Windows-native |
+| [Loops parity](../../docs/archive/plan/worker-v2/loops-parity.md), [rules](../../docs/archive/plan/worker-v2/automations.md) | Tính năng và safety semantics của rule engine | F4/F5/F7; canonical contracts ở workflows |
+| [Process-first WSL](../../docs/archive/plan/worker-v2/process-first-wsl.md), P0–P5 | Quy trình tự nhiên, quyền tự động, Host Linux | Giữ và phân nhỏ thành F0–F8 |
+| [CrewHub workspace R](../../docs/archive/plan/experience-loops/crewhub-workspace-redesign.md) | Một hồ sơ, gọn feed, card/menu căn đều | Palette, font, mapping ảnh, tab cuối cùng theo thiết kế mới |
 
 ## 10. Những gì phải kiểm chứng trong triển khai
 
