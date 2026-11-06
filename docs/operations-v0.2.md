@@ -1,6 +1,6 @@
 # Vận hành Phase 5
 
-URL: <https://asf.lazy.local>. Hướng dẫn nền về Caddy, DNS, tài khoản và backup tại [vận hành v0.1](operations-v0.1.md). Trạng thái phát hành và kết quả kiểm chứng hiện hành tại [nghiệm thu Phase 5](phase-5-completion.md).
+URL: <https://asf.lazy.local>. Hướng dẫn nền về Caddy, DNS, tài khoản và backup tại [vận hành v0.1](archive/legacy-platform/operations-v0.1.md). Trạng thái phát hành và kết quả kiểm chứng hiện hành tại [nghiệm thu Phase 5](phase-5-completion.md).
 
 ## Sử dụng
 

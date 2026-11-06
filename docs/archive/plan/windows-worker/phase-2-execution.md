@@ -4,7 +4,7 @@ Mục tiêu: người dùng nhập task trong app và làm việc trên source �
 
 Phụ thuộc: WW-1 có cấu hình project, gateway, model và IPC/storage.
 
-Trạng thái 04/11/2026: đã triển khai. [Evidence và giới hạn](../../../windows-worker/ww2-completion.md): OpenCode/SDK 1.19.5, DeepSeek Flash `ds/deepseek-v4-flash` tạo source thật và chạy test qua chính Controller trong Electron. UI đã nối IPC, chưa visual acceptance lại do native Computer Use pipe không khả dụng. SDK headless là lựa chọn WW2-02; bảy role vẫn được chọn trực tiếp, native subagent sẽ triển khai WW-3 qua cùng adapter.
+Trạng thái 04/11/2026: đã triển khai. [Evidence và giới hạn](../../windows-worker/ww2-completion.md): OpenCode/SDK 1.19.5, DeepSeek Flash `ds/deepseek-v4-flash` tạo source thật và chạy test qua chính Controller trong Electron. UI đã nối IPC, chưa visual acceptance lại do native Computer Use pipe không khả dụng. SDK headless là lựa chọn WW2-02; bảy role vẫn được chọn trực tiếp, native subagent sẽ triển khai WW-3 qua cùng adapter.
 
 ## Đầu việc
 

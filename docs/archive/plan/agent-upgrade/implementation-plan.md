@@ -1,6 +1,6 @@
 # Kế hoạch triển khai theo đợt
 
-Trạng thái ngày 04/11/2026: **AU-0, AU-1, AU-2A, AU-2B, AU-3, AU-4A và AU-4B hoàn thành**; [kết quả AU-1](../../../windows-worker/au1-completion.md), [AU-2A](../../../windows-worker/au2a-completion.md), [AU-2B](../../../windows-worker/au2b-completion.md), [AU-3](../../../windows-worker/au3-completion.md), [AU-4A](../../../windows-worker/au4a-completion.md). AU-4B bàn giao trong [V1.1](../../../windows-worker/v1.1-completion.md); AU-5 benchmark còn lại. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
+Trạng thái ngày 04/11/2026: **AU-0, AU-1, AU-2A, AU-2B, AU-3, AU-4A và AU-4B hoàn thành**; [kết quả AU-1](../../windows-worker/au1-completion.md), [AU-2A](../../windows-worker/au2a-completion.md), [AU-2B](../../windows-worker/au2b-completion.md), [AU-3](../../windows-worker/au3-completion.md), [AU-4A](../../windows-worker/au4a-completion.md). AU-4B bàn giao trong [V1.1](../../windows-worker/v1.1-completion.md); AU-5 benchmark còn lại. Vai trò ghi trong bảng là trách nhiệm lúc triển khai, không có nghĩa đã khởi chạy agent song song.
 
 ## Ranh giới và thứ tự
 
@@ -92,7 +92,7 @@ Nghiệm thu: không thể completed bằng ID giả, evidence attempt cũ, fail
 
 ## AU-3 — Skills nhỏ và chọn theo tác vụ
 
-**Đã hoàn thành.** Catalog nội bộ bốn skill, metadata role/task-kind/capability/path/provenance, chọn tối đa ba skill và snapshot nội dung/version/hash vào run/task. Lead đề xuất ID trong allowlist; Controller kiểm tra trước chạy work và lúc tạo runtime context. Profile nền tách khỏi skill, docs/analysis không tải skill tác vụ, fix dùng bộ bugfix. Legacy dùng nguyên profile cũ; snapshot mới thiếu/sai thì dừng. 62/62 test, typecheck/build/format/native đạt. So sánh ký tự instruction cùng fixture và giới hạn trong [báo cáo AU-3](../../../windows-worker/au3-completion.md). Không đổi schema6, dependency hoặc quyền runtime.
+**Đã hoàn thành.** Catalog nội bộ bốn skill, metadata role/task-kind/capability/path/provenance, chọn tối đa ba skill và snapshot nội dung/version/hash vào run/task. Lead đề xuất ID trong allowlist; Controller kiểm tra trước chạy work và lúc tạo runtime context. Profile nền tách khỏi skill, docs/analysis không tải skill tác vụ, fix dùng bộ bugfix. Legacy dùng nguyên profile cũ; snapshot mới thiếu/sai thì dừng. 62/62 test, typecheck/build/format/native đạt. So sánh ký tự instruction cùng fixture và giới hạn trong [báo cáo AU-3](../../windows-worker/au3-completion.md). Không đổi schema6, dependency hoặc quyền runtime.
 
 Phụ thuộc AU-2B. Owner BE + Lead cho catalog/prompt, TEST cho lựa chọn và quyền.
 
@@ -112,11 +112,11 @@ Nghiệm thu: task docs không tải toàn bộ implement/fix/local-dev; bugfix 
 
 Đã triển khai các mục 1–4 dưới đây và regression cho Stop/reopen hiện có. Lỗi có mã và nguyên nhân đầu tiên được giữ lại; từ chối quyền dừng lượt chạy. Proxy ngừng gửi upstream sau lỗi auth/rate-limit/transient/budget/model mismatch, Controller dừng runtime; không thêm retry request/task. Đã đọc source retry của OpenCode 1.19.5: runtime có tối đa 5 retry transient nội bộ; latch tại proxy chặn các request tiếp theo gửi upstream trong execution lỗi.
 
-Model phải khớp role bật trong settings snapshot. Metrics lưu theo run/task/attempt: request đã thử gửi, thời gian, lệnh đạt/lỗi/chưa hoàn tất, usage runtime quan sát được. Không coi usage này là tổng billing; thiếu token/cost ghi chưa có số liệu. Lịch sử cũ không bị gán metrics giả, schema vẫn v6. 71/71 test, typecheck/build/format/native đạt; sau sửa nhỏ cuối ở error adapter, 20/20 test execution/runtime/team cùng typecheck/build/format đạt. [Báo cáo và giới hạn AU-4A](../../../windows-worker/au4a-completion.md).
+Model phải khớp role bật trong settings snapshot. Metrics lưu theo run/task/attempt: request đã thử gửi, thời gian, lệnh đạt/lỗi/chưa hoàn tất, usage runtime quan sát được. Không coi usage này là tổng billing; thiếu token/cost ghi chưa có số liệu. Lịch sử cũ không bị gán metrics giả, schema vẫn v6. 71/71 test, typecheck/build/format/native đạt; sau sửa nhỏ cuối ở error adapter, 20/20 test execution/runtime/team cùng typecheck/build/format đạt. [Báo cáo và giới hạn AU-4A](../../windows-worker/au4a-completion.md).
 
 ### AU-4B — Hoàn thành trong V1.1
 
-Mục 5 đã triển khai cùng lifecycle WW-4D: Windows Job Object, random owned-job identity, startup cancellation, parent/host crash, recovery có kiểm tra source/Git trước attempt mới. Kiểm tra process Windows và Electron UI thật, cùng acceptance 9Router đạt; [bàn giao và giới hạn V1.1](../../../windows-worker/v1.1-completion.md). AU-5 benchmark so sánh vẫn chưa thực hiện.
+Mục 5 đã triển khai cùng lifecycle WW-4D: Windows Job Object, random owned-job identity, startup cancellation, parent/host crash, recovery có kiểm tra source/Git trước attempt mới. Kiểm tra process Windows và Electron UI thật, cùng acceptance 9Router đạt; [bàn giao và giới hạn V1.1](../../windows-worker/v1.1-completion.md). AU-5 benchmark so sánh vẫn chưa thực hiện.
 
 Phụ thuộc AU-3. Phần ownership/recovery phải phối hợp sau nghiệm thu lifecycle WW-4D, tránh hai cơ chế quản lý process. BE phụ trách controller/proxy; FE phần hiển thị; TEST kiểm tra stop/failure; DEVOPS chỉ toolchain local.
 
@@ -159,4 +159,4 @@ Ngưỡng: tất cả ca correctness/policy bắt buộc đạt; không tăng s�
 
 Mốc tiếp theo: **lifecycle WW-4D liên quan → AU-4B ownership/recovery → AU-5 nghiệm thu**. AU-4A đã hoàn thành; không thêm process manager hoặc cơ chế retry task chồng lên runtime.
 
-Ưu tiên bổ sung theo yêu cầu người dùng sau AU-4A: [Lead trò chuyện, Hoạt động gọn và Full access](../../../windows-worker/lead-chat-access-completion.md) đã hoàn thành trên branch riêng. Chỉ mở nhánh reply trong bước Lead hiện có, thêm chế độ auto-approve shell theo snapshot và thu log UI; không thêm classifier request, scheduler hoặc thay vòng review/evidence. Lịch sử/cấu hình cũ mặc định ask; schema6 không đổi. Các milestone lifecycle/recovery phía trên vẫn giữ trạng thái chưa hoàn thành.
+Ưu tiên bổ sung theo yêu cầu người dùng sau AU-4A: [Lead trò chuyện, Hoạt động gọn và Full access](../../windows-worker/lead-chat-access-completion.md) đã hoàn thành trên branch riêng. Chỉ mở nhánh reply trong bước Lead hiện có, thêm chế độ auto-approve shell theo snapshot và thu log UI; không thêm classifier request, scheduler hoặc thay vòng review/evidence. Lịch sử/cấu hình cũ mặc định ask; schema6 không đổi. Các milestone lifecycle/recovery phía trên vẫn giữ trạng thái chưa hoàn thành.

@@ -1,6 +1,6 @@
 # V1.1 — Worker dùng ổn định hằng ngày
 
-Hoàn thành ngày 04/11/2026, ứng dụng `1.1.0`. [Bàn giao, bằng chứng và giới hạn](../../../windows-worker/v1.1-completion.md). 92/92 test và acceptance Windows/Electron/model thật đạt.
+Hoàn thành ngày 04/11/2026, ứng dụng `1.1.0`. [Bàn giao, bằng chứng và giới hạn](../../windows-worker/v1.1-completion.md). 92/92 test và acceptance Windows/Electron/model thật đạt.
 
 Baseline `2d632d8`; checkpoint `checkpoint/v11-20261104`. Roadmap người dùng `AI_Software_Factory_Post_MVP_Roadmap.md` là tài liệu đầu vào, không tự sửa/commit thay người dùng.
 

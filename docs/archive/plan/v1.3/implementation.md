@@ -2,7 +2,7 @@
 
 > **Cập nhật ưu tiên 05/11/2026:** tạm dừng phát triển 3D theo yêu cầu người dùng. D-01–04 giữ nguyên; D-05 và phần E liên quan 3D chưa triển khai, không còn là bước tiếp theo. Đã hoàn thành UX-01 trong [kế hoạch trải nghiệm 2D từ CrewHub Loops](../experience-loops/implementation.md); tiếp theo UX-02. Các kiểm tra chất lượng 2D được thực hiện trong từng UX; không coi backlog 3D còn lại là đã hoàn thành.
 
-**V1.3A–C, UI foundation và D-01–04 đã triển khai; hiện tại `1.3.0-alpha.8`. D-05/E chưa hoàn thành.** [Bàn giao A](../../../windows-worker/v1.3a-completion.md), [B](../../../windows-worker/v1.3b-completion.md), [C](../../../windows-worker/v1.3c-completion.md), [D-01/D-02](../../../windows-worker/office-3d/README.md), [D-03](../../../windows-worker/office-3d/d03/README.md), [D-04 và giới hạn](../../../windows-worker/office-3d/d04/README.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
+**V1.3A–C, UI foundation và D-01–04 đã triển khai; hiện tại `1.3.0-alpha.8`. D-05/E chưa hoàn thành.** [Bàn giao A](../../windows-worker/v1.3a-completion.md), [B](../../windows-worker/v1.3b-completion.md), [C](../../windows-worker/v1.3c-completion.md), [D-01/D-02](../../windows-worker/office-3d/README.md), [D-03](../../windows-worker/office-3d/d03/README.md), [D-04 và giới hạn](../../windows-worker/office-3d/d04/README.md). Phụ thuộc, phạm vi và baseline: [README](README.md).
 
 ## 0. Chuẩn bị trước thay đổi lớn
 
@@ -28,7 +28,7 @@
 
 ## V1.3B — Kanban và backlog local
 
-**Đã triển khai B-01–07** ở `1.3.0-alpha.2`. Card là yêu cầu cha; task con mở qua kết quả hiện có, inspector mới ở C. Editor dùng dialog native thay drawer, hỗ trợ Escape và focus. [Bằng chứng và giới hạn](../../../windows-worker/v1.3b-completion.md).
+**Đã triển khai B-01–07** ở `1.3.0-alpha.2`. Card là yêu cầu cha; task con mở qua kết quả hiện có, inspector mới ở C. Editor dùng dialog native thay drawer, hỗ trợ Escape và focus. [Bằng chứng và giới hạn](../../windows-worker/v1.3b-completion.md).
 
 | Mã | Công việc | Phụ thuộc | Kết quả nghiệm thu |
 |---|---|---|---|
@@ -46,7 +46,7 @@
 
 ## V1.3C — Inspector, timeline và Chat gọn
 
-**Đã triển khai C-01–05** ở `1.3.0-alpha.3`: dialog native dùng chung, bốn tab gọn, feed chi tiết chia sẻ giữa các view và task diff immutable. Nghiệm thu model thật và đo hiệu năng tổng thể giữ ở E. [Bằng chứng và giới hạn](../../../windows-worker/v1.3c-completion.md).
+**Đã triển khai C-01–05** ở `1.3.0-alpha.3`: dialog native dùng chung, bốn tab gọn, feed chi tiết chia sẻ giữa các view và task diff immutable. Nghiệm thu model thật và đo hiệu năng tổng thể giữ ở E. [Bằng chứng và giới hạn](../../windows-worker/v1.3c-completion.md).
 
 | Mã | Công việc | Phụ thuộc | Kết quả nghiệm thu |
 |---|---|---|---|
@@ -62,11 +62,11 @@
 
 ## V1.3D — Văn phòng 3D
 
-**D-01/D-02 hoàn thành** ở alpha.6: Three/R3F pin, phòng/bảy bàn/avatar hình học, camera orthographic pan/zoom/reset, nhãn HTML và tải riêng. Chưa đánh dấu toàn bộ D; D-03–05 còn lại. [Kiểm chứng và license](../../../windows-worker/office-3d/README.md).
+**D-01/D-02 hoàn thành** ở alpha.6: Three/R3F pin, phòng/bảy bàn/avatar hình học, camera orthographic pan/zoom/reset, nhãn HTML và tải riêng. Chưa đánh dấu toàn bộ D; D-03–05 còn lại. [Kiểm chứng và license](../../windows-worker/office-3d/README.md).
 
-**D-03 hoàn thành** ở alpha.7: selector từ monitor chung, nhãn/màu màn hình theo hoạt động thật, chờ quyền/phụ thuộc, nhiều execution cùng role, chi tiết thu gọn và tiến độ xác minh. Trạng thái lỗi/stale/khác project không hiển thị hoạt động cũ. Nhãn tránh chồng chữ ở scene thấp. [Kiểm chứng D-03](../../../windows-worker/office-3d/d03/README.md). D-04/D-05 và E còn lại; chưa nghiệm thu model thật trong đợt này.
+**D-03 hoàn thành** ở alpha.7: selector từ monitor chung, nhãn/màu màn hình theo hoạt động thật, chờ quyền/phụ thuộc, nhiều execution cùng role, chi tiết thu gọn và tiến độ xác minh. Trạng thái lỗi/stale/khác project không hiển thị hoạt động cũ. Nhãn tránh chồng chữ ở scene thấp. [Kiểm chứng D-03](../../windows-worker/office-3d/d03/README.md). D-04/D-05 và E còn lại; chưa nghiệm thu model thật trong đợt này.
 
-**D-04 hoàn thành** ở alpha.8: chọn bàn/nhãn, hover gọn, lựa chọn từng execution hoặc task chờ mở inspector chung đúng model/workspace. Inspector đi Kanban giữ card cha và lựa chọn task; quay về Văn phòng highlight đúng agent/task. HTML buttons hỗ trợ bàn phím; lỗi/stale không mở link cũ; đổi project xóa lựa chọn. [Kiểm chứng D-04](../../../windows-worker/office-3d/d04/README.md). Còn D-05/E.
+**D-04 hoàn thành** ở alpha.8: chọn bàn/nhãn, hover gọn, lựa chọn từng execution hoặc task chờ mở inspector chung đúng model/workspace. Inspector đi Kanban giữ card cha và lựa chọn task; quay về Văn phòng highlight đúng agent/task. HTML buttons hỗ trợ bàn phím; lỗi/stale không mở link cũ; đổi project xóa lựa chọn. [Kiểm chứng D-04](../../windows-worker/office-3d/d04/README.md). Còn D-05/E.
 
 | Mã | Công việc | Phụ thuộc | Kết quả nghiệm thu |
 |---|---|---|---|

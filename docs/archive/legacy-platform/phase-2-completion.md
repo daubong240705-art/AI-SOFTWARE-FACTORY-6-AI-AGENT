@@ -1,6 +1,6 @@
 # Phase 2 — Run, workflow và phê duyệt
 
-Phạm vi V0-P2-01…07 trong [lộ trình code v0](archive/plan/lo-trinh-code-v0.md). Kiểm chứng ngày **04/11/2026**, Asia/Saigon.
+Phạm vi V0-P2-01…07 trong [lộ trình code v0](../plan/lo-trinh-code-v0.md). Kiểm chứng ngày **04/11/2026**, Asia/Saigon.
 
 ## Hành vi đã triển khai
 
@@ -30,11 +30,11 @@ Các tình huống được kiểm tra có chủ đích:
 - Gateway 503 retry hữu hạn; output không đúng schema bị chặn; usage kể cả call lỗi vẫn được ghi; hết call budget không phát HTTP mới.
 - Workflow mutation bị chặn ở staging/production vì chưa có auth Phase 3.
 
-[Evidence RQ](evidence/phase2-rq-check.json) ghi kết quả container worker thật, persistence và tiếp tục sau restart. [Evidence gateway](evidence/phase2-live-check.json) ghi PM/BA live: 2 call, 700 input + 819 output = **1.519 token**, hai artifact thật và trạng thái chờ duyệt. Lượt live chạy driver trên Windows, kết nối DB/Redis thật qua SSH tunnel; sau kiểm chứng đã cancel, không tự duyệt spec thật. RQ/container test dùng mock được đánh dấu rõ, có quyết định của test fixture.
+[Evidence RQ](../../evidence/phase2-rq-check.json) ghi kết quả container worker thật, persistence và tiếp tục sau restart. [Evidence gateway](../../evidence/phase2-live-check.json) ghi PM/BA live: 2 call, 700 input + 819 output = **1.519 token**, hai artifact thật và trạng thái chờ duyệt. Lượt live chạy driver trên Windows, kết nối DB/Redis thật qua SSH tunnel; sau kiểm chứng đã cancel, không tự duyệt spec thật. RQ/container test dùng mock được đánh dấu rõ, có quyết định của test fixture.
 
 ## Vận hành dev
 
-Xem [README](../README.md) để dựng từ repo, API và biến cấu hình. Trên `.60`, stack riêng:
+Xem [README](../../../README.md) để dựng từ repo, API và biến cấu hình. Trên `.60`, stack riêng:
 
 ```sh
 cd /home/lazy/asf-phase2-dev

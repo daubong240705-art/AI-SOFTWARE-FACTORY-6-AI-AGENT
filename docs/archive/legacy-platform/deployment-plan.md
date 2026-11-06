@@ -1,10 +1,10 @@
 # Kế hoạch triển khai đã chốt — AI Software Factory
 
-> **Ưu tiên mới 04/11/2026:** người dùng yêu cầu code và deploy bản đầu trước phần thực nghiệm/template. Xem [lộ trình hiện hành](archive/plan/lo-trinh-code-v0.md) và [ADR-004](adr/ADR-004-release-first.md). Phân bố host/resource/DNS bên dưới vẫn áp dụng; thứ tự thi công và gate phải đọc theo lộ trình mới. Không cần hoàn tất toàn bộ M0 để viết scaffold.
+> **Ưu tiên mới 04/11/2026:** người dùng yêu cầu code và deploy bản đầu trước phần thực nghiệm/template. Xem [lộ trình hiện hành](../plan/lo-trinh-code-v0.md) và [ADR-004](../../adr/ADR-004-release-first.md). Phân bố host/resource/DNS bên dưới vẫn áp dụng; thứ tự thi công và gate phải đọc theo lộ trình mới. Không cần hoàn tất toàn bộ M0 để viết scaffold.
 
-Ngày chốt: **03/11/2026**, Asia/Saigon. Căn cứ [kiểm kê thực tế](infra-inventory.md) và [snapshot MCP](evidence/openproject-itcare-2026-2026-11-03.json). Đây là kế hoạch thi công, chưa phải thông báo đã triển khai.
+Ngày chốt: **03/11/2026**, Asia/Saigon. Căn cứ [kiểm kê thực tế](../../infra-inventory.md) và [snapshot MCP](../../evidence/openproject-itcare-2026-2026-11-03.json). Đây là kế hoạch thi công, chưa phải thông báo đã triển khai.
 
-> **Cập nhật 04/11/2026:** worker `.60` đã mở đủ root LV 58 GiB, cài Docker/CLI image và pass sửa code + 3 test trong container Linux. Có thể bắt đầu code nền tảng Phase 1; GitLab Runner chưa register và pipeline tự động chưa nghiệm thu. Xem [mức sẵn sàng](worker-bootstrap-2026-11-04.md).
+> **Cập nhật 04/11/2026:** worker `.60` đã mở đủ root LV 58 GiB, cài Docker/CLI image và pass sửa code + 3 test trong container Linux. Có thể bắt đầu code nền tảng Phase 1; GitLab Runner chưa register và pipeline tự động chưa nghiệm thu. Xem [mức sẵn sàng](../../worker-bootstrap-2026-11-04.md).
 
 ## 1. Quyết định chính
 
@@ -16,7 +16,7 @@ Ngày chốt: **03/11/2026**, Asia/Saigon. Căn cứ [kiểm kê thực tế](in
 6. Module thực nghiệm: **Mini Helpdesk độc lập**, FastAPI + Next.js; tham khảo cách quản lý work package của ITCare-2026, giữ dữ liệu/tiến độ của dự án đó nguyên vẹn.
 7. Hai repo GitLab mới: `ai-software-factory` và `mini-helpdesk`. Giữ GitHub origin hiện tại; thêm remote `gitlab` khi bootstrap. Group đề xuất `ai-factory`, kiểm tra tên/quyền trước tạo.
 
-Các ADR: [module/stack](adr/ADR-001-module-mau.md), [phân bố](adr/ADR-002-phan-bo-ha-tang.md), [CLI](adr/ADR-003-coding-cli.md).
+Các ADR: [module/stack](../../adr/ADR-001-module-mau.md), [phân bố](../../adr/ADR-002-phan-bo-ha-tang.md), [CLI](../../adr/ADR-003-coding-cli.md).
 
 ## 2. Sơ đồ triển khai
 

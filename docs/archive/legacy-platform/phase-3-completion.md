@@ -1,6 +1,6 @@
 # Phase 3 — Dashboard sử dụng được
 
-Phạm vi V0-P3-01…07 của [lộ trình hiện hành](archive/plan/lo-trinh-code-v0.md), ngày 04/11/2026 (Asia/Saigon).
+Phạm vi V0-P3-01…07 của [lộ trình hiện hành](../plan/lo-trinh-code-v0.md), ngày 04/11/2026 (Asia/Saigon).
 
 ## Hành vi đã triển khai
 
@@ -18,7 +18,7 @@ Ruff, mypy strict, frontend lint/typecheck/build; migration `0003_auth`, `alembi
 
 Stack disposable `asf-phase3-check` trong `/home/lazy/asf-phase3-dev` trên `.60`. PostgreSQL/Redis/API/dashboard chỉ publish loopback `54333/56383/18003/13003`. Không triển khai `.14`. Các stack Phase 1/2 không được recreate hoặc xóa volume. Credential bootstrap và browser storage state lưu tạm ngoài repo trên máy người vận hành.
 
-Kiểm chứng browser dùng Chromium headless riêng, không dùng profile cá nhân: đăng nhập, tạo project/run, chờ PM/BA mock, đọc plan/spec, refresh, reject v1 → retry v2 → approve có xác nhận → waiting_integration; admin tạo viewer, viewer không có nút ghi và API trả 403. Ảnh desktop/mobile được kiểm tra trực tiếp; không tràn ngang ở 1440px và 390px. Kịch bản tái chạy: [tests/dashboard-smoke.cjs](../tests/dashboard-smoke.cjs).
+Kiểm chứng browser dùng Chromium headless riêng, không dùng profile cá nhân: đăng nhập, tạo project/run, chờ PM/BA mock, đọc plan/spec, refresh, reject v1 → retry v2 → approve có xác nhận → waiting_integration; admin tạo viewer, viewer không có nút ghi và API trả 403. Ảnh desktop/mobile được kiểm tra trực tiếp; không tràn ngang ở 1440px và 390px. Kịch bản tái chạy: [tests/dashboard-smoke.cjs](../../../tests/dashboard-smoke.cjs).
 
 Chi tiết kết quả runtime/reconnect/restart được ghi tại [phase-3-evidence.json](phase-3-evidence.json). Không commit password, cookie hay private browser state.
 

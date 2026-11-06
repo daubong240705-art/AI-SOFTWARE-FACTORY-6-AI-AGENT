@@ -62,4 +62,4 @@ node scripts/run-acceptance.cjs overview-ui
 
 ## Phần tiếp theo
 
-**UX-02 — Hồ sơ công việc bền vững**: mở rộng BoardItem, mã công việc, revision yêu cầu, discussion và lịch sử submissions/attempts; cần migration được kiểm tra riêng. Chat dock, QuestionSet, report immutable và inbox toàn dự án chưa triển khai trong UX-01. Chi tiết ở [kế hoạch](../archive/plan/experience-loops/implementation.md).
+**UX-02 — Hồ sơ công việc bền vững**: mở rộng BoardItem, mã công việc, revision yêu cầu, discussion và lịch sử submissions/attempts; cần migration được kiểm tra riêng. Chat dock, QuestionSet, report immutable và inbox toàn dự án chưa triển khai trong UX-01. Chi tiết ở [kế hoạch](../plan/experience-loops/implementation.md).

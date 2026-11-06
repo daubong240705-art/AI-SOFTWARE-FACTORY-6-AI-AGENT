@@ -76,6 +76,6 @@ Rollback khi có nhu cầu: xóa đúng drop-in mới rồi reload networkd và 
 
 ## 3. Worker — quyết định cập nhật
 
-Cho phép worker Linux cô lập trên máy cá nhân, bật khi cần; không bắt buộc VM server cố định. Chi tiết cấu hình, network, queue khi offline và gate nghiệm thu nằm ở [worker-options.md](worker-options.md), đồng bộ [ADR-002](adr/ADR-002-phan-bo-ha-tang.md).
+Cho phép worker Linux cô lập trên máy cá nhân, bật khi cần; không bắt buộc VM server cố định. Chi tiết cấu hình, network, queue khi offline và gate nghiệm thu nằm ở [worker-options.md](worker-options.md), đồng bộ [ADR-002](../../adr/ADR-002-phan-bo-ha-tang.md).
 
 Chưa cài VM/WSL/Docker/runner vào máy cá nhân trong đợt bảo trì. Việc chọn một slot hay hai slot cần dựa trên RAM/CPU/disk thực tế của PC và bài test trên Linux.

@@ -21,7 +21,7 @@ API và worker source `851a05312eaeeedb280e6fe60277faae48f7877d`, [release pipel
 3. TEST container chạy thật 5/5 đạt trên candidate `d14e01c3247dceeeb24d353876d5291031b54046`. [Pipeline154](https://gitlab.lazy.local/ai-factory/asf-agent-validation/-/pipelines/154): test398, package399, deploy400 đều đạt.
 4. Operator đọc source/job, thử SHA sai nhận409, rồi duyệt tuple đúng bằng giao diện. Host xác minh approval đã lưu trước deploy. DEVOPS đọc artifact và [HTTPS health](https://asf.lazy.local/validation/healthz), đối chiếu project/SHA/pipeline/digest rồi mới complete.
 
-Run dùng4 lượt cấp model, charge74.788/200.000 theo usage gateway. Không báo giá tiền hoặc upstream model khi gateway không cung cấp. Đây là smoke tổng hợp hạ tầng, không phải nghiệm thu sản phẩm người dùng. Vòng TEST fail → Bug → sửa → pass đã có [bằng chứng staging trước đó](phase-5-staging.md); không nói rằng lần cuối này có lỗi được chèn.
+Run dùng4 lượt cấp model, charge74.788/200.000 theo usage gateway. Không báo giá tiền hoặc upstream model khi gateway không cung cấp. Đây là smoke tổng hợp hạ tầng, không phải nghiệm thu sản phẩm người dùng. Vòng TEST fail → Bug → sửa → pass đã có [bằng chứng staging trước đó](archive/legacy-platform/phase-5-staging.md); không nói rằng lần cuối này có lỗi được chèn.
 
 ## Kiểm tra vận hành
 

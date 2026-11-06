@@ -8,7 +8,7 @@
 
 Thư mục này chia kế hoạch triển khai thành từng phase, dựa trên tài liệu [AI_Software_Factory_6_Agents_Architecture.md](../legacy-architecture/AI_Software_Factory_6_Agents_Architecture.md) (sau đây gọi là **tài liệu kiến trúc**).
 
-**Cập nhật 03/11/2026:** xem [kế hoạch triển khai đã chốt](../../deployment-plan.md), [kiểm kê hạ tầng](../../infra-inventory.md) và các ADR trong `docs/adr/`. Nền tảng/staging trên `.14`; coding/build trên môi trường Linux cô lập **ở máy cá nhân hoặc VM server** theo [phương án worker](../../worker-options.md); adapter OpenCode cho MVP; bộ work package theo **ITCare-2026 / `itcare-2026` / ID 6**. Phase 0 **chưa nghiệm thu M0**; vẫn còn Registry, bot, sandbox/CI và các spike ghi dữ liệu/deploy/webhook.
+**Cập nhật 03/11/2026:** xem [kế hoạch triển khai đã chốt](../legacy-platform/deployment-plan.md), [kiểm kê hạ tầng](../../infra-inventory.md) và các ADR trong `docs/adr/`. Nền tảng/staging trên `.14`; coding/build trên môi trường Linux cô lập **ở máy cá nhân hoặc VM server** theo [phương án worker](../legacy-platform/worker-options.md); adapter OpenCode cho MVP; bộ work package theo **ITCare-2026 / `itcare-2026` / ID 6**. Phase 0 **chưa nghiệm thu M0**; vẫn còn Registry, bot, sandbox/CI và các spike ghi dữ liệu/deploy/webhook.
 
 **Cập nhật 04/11/2026:** [worker `.60` đã bootstrap](../../worker-bootstrap-2026-11-04.md), mở đủ disk, pass sửa code và ba test trong Linux container; có thể bắt đầu code nền tảng Phase 1 với mock/role stub. Runner chưa register; CI/deploy tự động vẫn chờ các gate Phase 0 còn lại.
 

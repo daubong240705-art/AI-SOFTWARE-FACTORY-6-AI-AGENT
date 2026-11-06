@@ -2,7 +2,7 @@
 
 Hoàn tất kiểm tra ngày **04/11/2026**, Asia/Saigon. Người dùng cấp VM và quyền SSH để xử lý dung lượng, chuẩn bị worker; chưa yêu cầu bắt đầu viết ứng dụng trong lượt này.
 
-> Cập nhật sau bootstrap: Phase 1–4 đã được triển khai theo [lộ trình mới](archive/plan/lo-trinh-code-v0.md). Runner `.60` đã đăng ký project ASF và chạy pipeline thật, builder không privileged/socket; [kết quả Phase 4](phase-4-completion.md) ghi trạng thái mới. Các mục “còn thiếu” phía dưới giữ bối cảnh trước khi code, không phải checklist hiện tại.
+> Cập nhật sau bootstrap: Phase 1–4 đã được triển khai theo [lộ trình mới](archive/plan/lo-trinh-code-v0.md). Runner `.60` đã đăng ký project ASF và chạy pipeline thật, builder không privileged/socket; [kết quả Phase 4](archive/legacy-platform/phase-4-completion.md) ghi trạng thái mới. Các mục “còn thiếu” phía dưới giữ bối cảnh trước khi code, không phải checklist hiện tại.
 
 ## 1. Dung lượng đã sửa
 

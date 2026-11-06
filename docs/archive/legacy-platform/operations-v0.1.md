@@ -1,6 +1,6 @@
 ﻿# Vận hành ASF v0.1
 
-> Quy trình nền từ Phase4. Các thay đổi live agent, schema0004 và rollback bridge hiện hành xem [vận hành Phase5](operations-v0.2.md).
+> Quy trình nền từ Phase4. Các thay đổi live agent, schema0004 và rollback bridge hiện hành xem [vận hành Phase5](../../operations-v0.2.md).
 
 ## Truy cập và thành phần
 

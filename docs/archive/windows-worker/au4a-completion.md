@@ -15,7 +15,7 @@ Ngày: 04/11/2026. Baseline `e758167` (AU-3); checkpoint `checkpoint/au4a-202611
 
 ## Source đã đọc và quyết định retry
 
-Đã đọc `packages/opencode/src/session/retry.ts` và `session/processor.ts` tại OpenCode **1.19.5**, commit `810c0eba1a7348036f8bdf61e6632d0c36c6876c` từ checkout cache. Retry policy có tối đa 5 lần retry, delay đầu 2 giây cùng exponential backoff/jitter cho các lỗi transient; processor dùng policy này. Nguồn/revision và license MIT được lưu trong [manifest](../../research/agent-upgrade/sources.json).
+Đã đọc `packages/opencode/src/session/retry.ts` và `session/processor.ts` tại OpenCode **1.19.5**, commit `810c0eba1a7348036f8bdf61e6632d0c36c6876c` từ checkout cache. Retry policy có tối đa 5 lần retry, delay đầu 2 giây cùng exponential backoff/jitter cho các lỗi transient; processor dùng policy này. Nguồn/revision và license MIT được lưu trong [manifest](../research/agent-upgrade/sources.json).
 
 Không chứng minh được một task lỗi bất kỳ chưa gây tool side effect, nên không thêm retry tự động. Proxy latch chặn request upstream tiếp theo của execution đã lỗi; Controller đóng runtime sở hữu. Trường `retry: manual` chỉ là metadata cho lỗi phù hợp thử lại có chủ đích, không kích hoạt replay. Gateway/provider có thể có retry riêng ngoài phạm vi quan sát của Worker. Không chép source hoặc chạy script từ repo ngoài trong đợt này.
 

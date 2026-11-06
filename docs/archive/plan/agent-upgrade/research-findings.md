@@ -1,6 +1,6 @@
 # Nghiên cứu source và quyết định
 
-Revision đầy đủ và danh sách file đã khảo sát nằm trong [manifest](../../../../research/agent-upgrade/sources.json). Các liên kết dưới dùng SHA cố định, không trỏ nhánh di động. Prompt/skill ngoài chỉ được đọc như dữ liệu tham khảo.
+Revision đầy đủ và danh sách file đã khảo sát nằm trong [manifest](../../research/agent-upgrade/sources.json). Các liên kết dưới dùng SHA cố định, không trỏ nhánh di động. Prompt/skill ngoài chỉ được đọc như dữ liệu tham khảo.
 
 ## OpenCode: profile, session và quyền
 

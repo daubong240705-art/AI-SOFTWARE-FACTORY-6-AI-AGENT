@@ -1,6 +1,6 @@
 # R2 — Hồ sơ công việc và trao đổi theo ngữ cảnh
 
-Ngày: 05/11/2026. Worker `1.3.0-alpha.8`, SQLite 14. Baseline R1 `03e266e`; checkpoint/kế hoạch trước thay đổi `2058af8`. [Kế hoạch R2](workspace-r2-plan.md), [phương án R0–R7](../archive/plan/experience-loops/crewhub-workspace-redesign.md).
+Ngày: 05/11/2026. Worker `1.3.0-alpha.8`, SQLite 14. Baseline R1 `03e266e`; checkpoint/kế hoạch trước thay đổi `2058af8`. [Kế hoạch R2](workspace-r2-plan.md), [phương án R0–R7](../plan/experience-loops/crewhub-workspace-redesign.md).
 
 ## Đã triển khai
 

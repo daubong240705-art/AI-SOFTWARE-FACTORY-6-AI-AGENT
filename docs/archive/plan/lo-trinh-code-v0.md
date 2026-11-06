@@ -18,7 +18,7 @@ Không chờ toàn bộ M0 cũ để viết code. Những kiểm tra cần để
 
 **Mục tiêu:** repo có một bộ khung API/dashboard/DB chạy được; chưa xây Agent thật.
 
-**Trạng thái 04/11/2026: đã hoàn thành V0-P1-01…06.** Build/lint, migration, 6 test với DB/Redis thật và persistence qua tạo lại container đã pass trên stack dev riêng tại `.60`. Xem [kết quả và giới hạn kiểm chứng](../../phase-1-completion.md); chưa nghiệm thu visual trong trình duyệt, chưa deploy `.14`.
+**Trạng thái 04/11/2026: đã hoàn thành V0-P1-01…06.** Build/lint, migration, 6 test với DB/Redis thật và persistence qua tạo lại container đã pass trên stack dev riêng tại `.60`. Xem [kết quả và giới hạn kiểm chứng](../legacy-platform/phase-1-completion.md); chưa nghiệm thu visual trong trình duyệt, chưa deploy `.14`.
 
 | Mã | Công việc |
 |---|---|
@@ -37,7 +37,7 @@ Không chờ toàn bộ M0 cũ để viết code. Những kiểm tra cần để
 
 **Mục tiêu:** yêu cầu của người dùng đi qua workflow có trạng thái, lịch sử và checkpoint.
 
-**Trạng thái 04/11/2026: đã hoàn thành V0-P2-01…07.** API run, PM/BA, RQ/outbox, checkpoint, approval/version/hash và retry/cancel đã có implementation; 27 test, gateway live và RQ worker/restart container đã được kiểm chứng. Xem [kết quả Phase 2 và giới hạn dev](../../phase-2-completion.md). Dashboard thao tác run và xác thực tiếp tục ở Phase 3.
+**Trạng thái 04/11/2026: đã hoàn thành V0-P2-01…07.** API run, PM/BA, RQ/outbox, checkpoint, approval/version/hash và retry/cancel đã có implementation; 27 test, gateway live và RQ worker/restart container đã được kiểm chứng. Xem [kết quả Phase 2 và giới hạn dev](../legacy-platform/phase-2-completion.md). Dashboard thao tác run và xác thực tiếp tục ở Phase 3.
 
 | Mã | Công việc |
 |---|---|
@@ -57,7 +57,7 @@ Workflow kiểm chứng có thể dùng dữ liệu nhập tay hoặc model mock
 
 **Mục tiêu:** thao tác trên trình duyệt, không phụ thuộc gọi API thủ công.
 
-**Trạng thái 04/11/2026: đã hoàn thành V0-P3-01…07.** Đăng nhập/phân quyền, project/run, sáu card Agent, artifact/version/hash, approval, metrics và timeline SSE đã chạy qua dashboard. 31 test backend, lint/typecheck/build, browser acceptance desktop/mobile, reconnect và persistence qua Compose down/up đạt trên stack riêng `.60`. Xem [kết quả Phase 3](../../phase-3-completion.md). Chưa deploy `.14`.
+**Trạng thái 04/11/2026: đã hoàn thành V0-P3-01…07.** Đăng nhập/phân quyền, project/run, sáu card Agent, artifact/version/hash, approval, metrics và timeline SSE đã chạy qua dashboard. 31 test backend, lint/typecheck/build, browser acceptance desktop/mobile, reconnect và persistence qua Compose down/up đạt trên stack riêng `.60`. Xem [kết quả Phase 3](../legacy-platform/phase-3-completion.md). Chưa deploy `.14`.
 
 | Mã | Công việc |
 |---|---|
@@ -77,7 +77,7 @@ Workflow kiểm chứng có thể dùng dữ liệu nhập tay hoặc model mock
 
 **Mục tiêu:** phát hành **v0.1**, có URL nội bộ truy cập được từ LAN/NetBird.
 
-**Trạng thái 04/11/2026: đã hoàn thành V0-P4-01…07.** ASF v0.1 được deploy trên `.14` tại <https://asf.lazy.local>; pipeline GitLab, HTTPS, phân quyền, PM/BA live, restart/persistence, backup off-host và restore/rollback đã kiểm chứng. Truy cập từ LAN đạt; client NetBird ngoài LAN chưa được thử trực tiếp. Xem [kết quả Phase 4](../../phase-4-completion.md) và [runbook vận hành](../../operations-v0.1.md).
+**Trạng thái 04/11/2026: đã hoàn thành V0-P4-01…07.** ASF v0.1 được deploy trên `.14` tại <https://asf.lazy.local>; pipeline GitLab, HTTPS, phân quyền, PM/BA live, restart/persistence, backup off-host và restore/rollback đã kiểm chứng. Truy cập từ LAN đạt; client NetBird ngoài LAN chưa được thử trực tiếp. Xem [kết quả Phase 4](../legacy-platform/phase-4-completion.md) và [runbook vận hành](../legacy-platform/operations-v0.1.md).
 
 | Mã | Công việc |
 |---|---|
@@ -99,7 +99,7 @@ Lần deploy này triển khai **chính ASF**, không phải sản phẩm do Age
 
 **Mục tiêu:** phát triển tăng dần bản **v0.2**, nối các role với dịch vụ thật.
 
-**Trạng thái 04/11/2026: đang thực hiện, có mốc tích hợp đầu tiên.** Adapter và bot hạn quyền, PM/BA → work package, worker HTTPS/lease, BE/FE → commit/MR, TEST thật và DEVOPS dừng tại release gate đã có code và smoke riêng. Model theo role được snapshot cho từng run. 54 backend tests và frontend checks đạt. Mốc staging bổ sung Bug/fix live, recovery, webhook và backup/restore DB thử nghiệm; xem [bằng chứng staging](../../phase-5-staging.md). Proxy quota, kỹ năng version và UI quản lý worker đã được bổ sung; rollback production schema v0.2 vẫn chưa nghiệm thu; production vẫn v0.1. Xem [tiến độ, evidence và phần còn lại](../../phase-5-progress.md).
+**Trạng thái 04/11/2026: đang thực hiện, có mốc tích hợp đầu tiên.** Adapter và bot hạn quyền, PM/BA → work package, worker HTTPS/lease, BE/FE → commit/MR, TEST thật và DEVOPS dừng tại release gate đã có code và smoke riêng. Model theo role được snapshot cho từng run. 54 backend tests và frontend checks đạt. Mốc staging bổ sung Bug/fix live, recovery, webhook và backup/restore DB thử nghiệm; xem [bằng chứng staging](../legacy-platform/phase-5-staging.md). Proxy quota, kỹ năng version và UI quản lý worker đã được bổ sung; rollback production schema v0.2 vẫn chưa nghiệm thu; production vẫn v0.1. Xem [tiến độ, evidence và phần còn lại](../legacy-platform/phase-5-progress.md).
 
 Thứ tự triển khai:
 

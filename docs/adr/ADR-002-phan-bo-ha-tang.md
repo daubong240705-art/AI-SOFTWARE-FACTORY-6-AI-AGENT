@@ -19,4 +19,4 @@ Khi worker tắt/sleep/mất NetBird, ngừng cấp job mới; lease hết hạn
 
 Nếu chưa có **worker đã nghiệm thu**, chỉ thực hiện control-plane/mock workflow và phát triển local; **giữ gate coding/build đóng**. Không chạy code không tin cậy trên `.12/.13/.14/.51`.
 
-Sau bảo trì ngày 03/11/2026, `.14` còn **42.50 GiB** trống, đạt ngưỡng tối thiểu 35 GiB để bootstrap. Đã xóa stack `btl-httt` theo yêu cầu và dọn cache build không dùng; không thay container các stack khác. Xem [nhật ký bảo trì](../maintenance-2026-11-03.md). Theo dõi ngưỡng còn 20 GiB; giữ image release rollback khi bảo trì tiếp.
+Sau bảo trì ngày 03/11/2026, `.14` còn **42.50 GiB** trống, đạt ngưỡng tối thiểu 35 GiB để bootstrap. Đã xóa stack `btl-httt` theo yêu cầu và dọn cache build không dùng; không thay container các stack khác. Xem [nhật ký bảo trì](../archive/legacy-platform/maintenance-2026-11-03.md). Theo dõi ngưỡng còn 20 GiB; giữ image release rollback khi bảo trì tiếp.

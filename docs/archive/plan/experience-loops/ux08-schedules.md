@@ -1,6 +1,6 @@
 # UX-08 — Lịch và quy tắc đơn giản
 
-> Cập nhật 05/11/2026: **U8-01–05 hoàn thành qua R6**, Worker alpha.8/SQLite15. [Bàn giao, cách dùng và kiểm chứng](../../../windows-worker/workspace-r6-completion.md). Các mục “phải bổ sung” bên dưới lưu thiết kế thời điểm U8-02; đã thực hiện ở R6.
+> Cập nhật 05/11/2026: **U8-01–05 hoàn thành qua R6**, Worker alpha.8/SQLite15. [Bàn giao, cách dùng và kiểm chứng](../../windows-worker/workspace-r6-completion.md). Các mục “phải bổ sung” bên dưới lưu thiết kế thời điểm U8-02; đã thực hiện ở R6.
 
 Ngày: 2026-11-05. Baseline `06dfe2d`; checkpoint `checkpoint/ux08-start-20261105`. Worker `1.3.0-alpha.8`, SQLite **14** sau U8-02. Giữ Factory Lite + Windows Worker, một Controller và một active run toàn app. 3D, remote PR/issues và WW-5 tiếp tục ngoài phạm vi.
 
@@ -30,7 +30,7 @@ App đóng hoặc máy ngủ thì lịch không chạy. Lần kiểm tra sau ch�
 | U8-04 | Danh sách/editor/preview/toggle/history/mở thẻ | **Hoàn thành R6** | Empty/error/conflict; keyboard/narrow/zoom; preview không tạo thẻ, mặc định tắt |
 | U8-05 | Kiểm chứng tích hợp và bàn giao | **Hoàn thành R6** | Electron + native SQLite, regression Board/Chat; không dùng dữ liệu thật |
 
-U8-01–02 chưa có màn hình, IPC hoặc timer. Schedule đã lưu được qua store nội bộ; delivery chỉ chạy khi có caller gọi store, chưa tự chạy trong app. Không đánh dấu UX-08 hoàn thành trước U8-05. Xem [bàn giao storage](../../../windows-worker/ux08-storage-completion.md).
+U8-01–02 chưa có màn hình, IPC hoặc timer. Schedule đã lưu được qua store nội bộ; delivery chỉ chạy khi có caller gọi store, chưa tự chạy trong app. Không đánh dấu UX-08 hoàn thành trước U8-05. Xem [bàn giao storage](../../windows-worker/ux08-storage-completion.md).
 
 ## 4. Dữ liệu và transaction cho U8-02
 

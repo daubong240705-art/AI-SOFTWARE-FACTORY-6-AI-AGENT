@@ -1,6 +1,6 @@
 # Phase 1 — Khung ứng dụng đã hoàn thành
 
-Ngày kiểm chứng: **04/11/2026**, Asia/Saigon. Phạm vi theo [lộ trình code v0](archive/plan/lo-trinh-code-v0.md), V0-P1-01 đến V0-P1-06.
+Ngày kiểm chứng: **04/11/2026**, Asia/Saigon. Phạm vi theo [lộ trình code v0](../plan/lo-trinh-code-v0.md), V0-P1-01 đến V0-P1-06.
 
 ## Chức năng đã có
 
@@ -28,7 +28,7 @@ Ngày kiểm chứng: **04/11/2026**, Asia/Saigon. Phạm vi theo [lộ trình c
 | Dependency audit dashboard | Runtime: 0; toàn bộ dev dependency: 16 moderate, 0 high/critical |
 | Secret scan | Không có mật khẩu hạ tầng, token hiện dùng hoặc private key trong file đưa vào commit |
 
-[Evidence JSON](evidence/phase1-project-check.json) ghi ID bản ghi kiểm chứng và kết quả. Pytest hiện có một cảnh báo deprecation của Starlette TestClient/httpx; không ảnh hưởng kết quả. Các cảnh báo audit moderate thuộc chuỗi công cụ ESLint; chưa dùng `npm audit fix --force` vì đề xuất thay phiên bản không tương thích. Cần rà lại khi nâng dependency.
+[Evidence JSON](../../evidence/phase1-project-check.json) ghi ID bản ghi kiểm chứng và kết quả. Pytest hiện có một cảnh báo deprecation của Starlette TestClient/httpx; không ảnh hưởng kết quả. Các cảnh báo audit moderate thuộc chuỗi công cụ ESLint; chưa dùng `npm audit fix --force` vì đề xuất thay phiên bản không tương thích. Cần rà lại khi nâng dependency.
 
 **Chưa xác nhận giao diện bằng mắt hoặc thao tác form trong trình duyệt:** công cụ Computer Use bị dừng vì không xác minh được URL Chrome hiện tại. Đã kiểm tra production build, HTML 200 và các route proxy bằng HTTP thật; không coi đây là nghiệm thu visual, mobile hay e2e.
 
@@ -51,7 +51,7 @@ sudo docker compose -p asf-phase1-check --env-file .env -f infrastructure/docker
 sudo docker compose -p asf-phase1-check --env-file .env -f infrastructure/docker/compose.dev.yml up -d --wait
 ```
 
-Không thêm `-v` nếu cần giữ dữ liệu. Hướng dẫn dựng lại từ repo và chạy các check có trong [README](../README.md).
+Không thêm `-v` nếu cần giữ dữ liệu. Hướng dẫn dựng lại từ repo và chạy các check có trong [README](../../../README.md).
 
 ## Ranh giới tiếp theo
 

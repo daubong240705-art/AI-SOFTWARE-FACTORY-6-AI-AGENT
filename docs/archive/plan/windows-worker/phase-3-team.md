@@ -45,6 +45,6 @@ Output sai schema được xử lý có giới hạn; không tạo agent/task v�
 - [x] UI phân biệt role đang làm, task chờ, task bị chặn và task bỏ qua.
 - [x] Bàn giao WW-3 trên nhánh `feature/windows-worker-ww3`; thực thi thật qua OpenCode/9Router, không dùng mock để tuyên bố hoàn thành.
 
-Adapter tuần tự là cơ chế duy nhất: Controller tạo session cho từng task, không native subagent. Bảy profile và bốn skill cố định có version/hash, lưu nội dung vào run. Schema SQLite v3 giữ lịch sử cũ và trạng thái từng task. [Bàn giao và evidence](../../../windows-worker/ww3-completion.md).
+Adapter tuần tự là cơ chế duy nhất: Controller tạo session cho từng task, không native subagent. Bảy profile và bốn skill cố định có version/hash, lưu nội dung vào run. Schema SQLite v3 giữ lịch sử cũ và trạng thái từng task. [Bàn giao và evidence](../../windows-worker/ww3-completion.md).
 
 WW3-10 hỗ trợ cấu hình/build/package local và hướng dẫn chạy; quản lý preview lâu dài ở WW-4. Dừng task kết thúc cây runtime, không giữ detached server. Giao diện native chưa được kiểm tra trực quan trong phiên này vì helper điều khiển Windows không khả dụng; build/typecheck không được xem là thay thế kiểm tra đó.

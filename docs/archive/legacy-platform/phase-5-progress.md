@@ -1,7 +1,7 @@
 # Phase 5 — Tích hợp và worker: mốc phát triển đầu tiên
 
-> Tài liệu mốc phát triển trước phát hành, giữ lại để đối chiếu lịch sử. Trạng thái production hiện hành xem [nghiệm thu Phase5](phase-5-completion.md) và [vận hành](operations-v0.2.md).
-Ngày 04/11/2026, Asia/Saigon. **Phase 5 đang thực hiện, chưa nghiệm thu toàn phase, chưa phát hành v0.2.** Đây là phần triển khai ban đầu theo [lộ trình](archive/plan/lo-trinh-code-v0.md). Production vẫn chạy v0.1 SHA `12928ef64d6fc92ef1893c3a948d3573a3483c0c`.
+> Tài liệu mốc phát triển trước phát hành, giữ lại để đối chiếu lịch sử. Trạng thái production hiện hành xem [nghiệm thu Phase5](../../phase-5-completion.md) và [vận hành](../../operations-v0.2.md).
+Ngày 04/11/2026, Asia/Saigon. **Phase 5 đang thực hiện, chưa nghiệm thu toàn phase, chưa phát hành v0.2.** Đây là phần triển khai ban đầu theo [lộ trình](../plan/lo-trinh-code-v0.md). Production vẫn chạy v0.1 SHA `12928ef64d6fc92ef1893c3a948d3573a3483c0c`.
 
 ## Cập nhật mốc staging
 
@@ -43,8 +43,8 @@ Các kiểm tra: **42 backend tests** trên PostgreSQL 17/Redis thật; Ruff/myp
 
 ## Cấu hình dành cho vận hành
 
-`ASF_MODEL_CATALOG` là JSON array; mặc định `coding-main` phải nằm trong catalog. `ASF_INTEGRATION_PROFILES_FILE` trỏ file JSON root-owned, mount read-only vào API và workflow worker. Ví dụ [profile](../infrastructure/worker/integration-profiles.example.json) mặc định disabled. `ASF_GITLAB_API_TOKEN`/`ASF_OPENPROJECT_API_TOKEN` là bot hạn quyền, server-side, không dùng PAT bootstrap admin. Model key vẫn chỉ ở workflow/coding worker; API không nhận model key. API cần egress và CA để gọi GitLab/OpenProject; Compose production Phase4 chưa nối cấu hình này.
+`ASF_MODEL_CATALOG` là JSON array; mặc định `coding-main` phải nằm trong catalog. `ASF_INTEGRATION_PROFILES_FILE` trỏ file JSON root-owned, mount read-only vào API và workflow worker. Ví dụ [profile](../../../infrastructure/worker/integration-profiles.example.json) mặc định disabled. `ASF_GITLAB_API_TOKEN`/`ASF_OPENPROJECT_API_TOKEN` là bot hạn quyền, server-side, không dùng PAT bootstrap admin. Model key vẫn chỉ ở workflow/coding worker; API không nhận model key. API cần egress và CA để gọi GitLab/OpenProject; Compose production Phase4 chưa nối cấu hình này.
 
-Trang `/admin/agents` hoặc `POST /api/coding-workers` bằng session admin + CSRF trả token **một lần**, gửi qua kênh riêng; `DELETE /api/coding-workers/{id}` revoke. Worker đặt token trong file root600 ngoài repo theo [env example](../infrastructure/worker/agent.env.example). [systemd unit](../infrastructure/worker/asf-coding-worker.service) là mẫu chưa enable. Parent cần Linux, Docker và Python environment có httpx; coding image phải build từ worker Dockerfile và hiện diện trước (`--pull=never`). Không mount Docker socket vào coding/test container; không cấp GitLab/admin/deploy token cho CLI.
+Trang `/admin/agents` hoặc `POST /api/coding-workers` bằng session admin + CSRF trả token **một lần**, gửi qua kênh riêng; `DELETE /api/coding-workers/{id}` revoke. Worker đặt token trong file root600 ngoài repo theo [env example](../../../infrastructure/worker/agent.env.example). [systemd unit](../../../infrastructure/worker/asf-coding-worker.service) là mẫu chưa enable. Parent cần Linux, Docker và Python environment có httpx; coding image phải build từ worker Dockerfile và hiện diện trước (`--pull=never`). Không mount Docker socket vào coding/test container; không cấp GitLab/admin/deploy token cho CLI.
 
 Source/evidence dev trên `.60:/srv/asf-phase5`, secret tại `private/` root700/file600. API thử nghiệm của mốc đầu chỉ bind loopback `18450`. Mốc staging mới dùng Caddy `/phase5-api/` và API `.60:18050` với firewall chỉ cho nguồn `.51`; xem tài liệu staging. Không thay route dashboard/API production. DB/Redis thử nghiệm dùng loopback 54339/56389; DB live smoke `asf`, DB test riêng `asf_tests`. Không chạy test vào DB smoke đang có run active: unique active-run sẽ từ chối, đúng thiết kế. Tất cả tách production/legacy; hai container ITCare được giữ dừng theo yêu cầu.

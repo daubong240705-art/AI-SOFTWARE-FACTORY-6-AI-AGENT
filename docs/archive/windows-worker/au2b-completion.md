@@ -20,7 +20,7 @@ Trước đây review nhận evidence dạng chuỗi và đối chiếu AC bằn
 
 ## Lưu trữ và tương thích
 
-Kỹ thuật áp dụng tiếp từ nghiên cứu AU-0: OpenCode 1.19.5 cho identity session/tool và final-message reconciliation; Superpowers cho nguyên tắc không báo hoàn thành khi thiếu bằng chứng mới; Open SWE cho kết quả kiểm tra gắn lần thực thi. Source và revision/license đã ghi trong [research findings](../archive/plan/agent-upgrade/research-findings.md) và [manifest](../../research/agent-upgrade/sources.json). Các repository có giấy phép MIT ở gốc được khảo sát; đợt này viết code tích hợp trên ứng dụng hiện có, không sao chép mã/prompt hay chạy script bên ngoài. ECC/Paperclip không cần thêm thành phần trong AU-2B.
+Kỹ thuật áp dụng tiếp từ nghiên cứu AU-0: OpenCode 1.19.5 cho identity session/tool và final-message reconciliation; Superpowers cho nguyên tắc không báo hoàn thành khi thiếu bằng chứng mới; Open SWE cho kết quả kiểm tra gắn lần thực thi. Source và revision/license đã ghi trong [research findings](../plan/agent-upgrade/research-findings.md) và [manifest](../research/agent-upgrade/sources.json). Các repository có giấy phép MIT ở gốc được khảo sát; đợt này viết code tích hợp trên ứng dụng hiện có, không sao chép mã/prompt hay chạy script bên ngoài. ECC/Paperclip không cần thêm thành phần trong AU-2B.
 
 Không cần migration: schema6 đã có JSON run/task, `workspace_blobs` và `command_artifacts`. Key mới nằm trong cột call_id dạng chuỗi của bảng hiện có, với prefix riêng; metadata lưu cả artifactId lẫn call ID gốc. Các hàng legacy giữ nguyên, không tự đoán ownership hoặc gán verified. Review có version2 cho lượt mới, union legacy chỉ để đọc lịch sử. Không đổi credentials/cấu hình global hoặc mở dữ liệu app đang dùng trong các kiểm tra.
 

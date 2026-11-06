@@ -1,6 +1,6 @@
 # Agent runtime và quản lý worker
 
-Runtime Phase 5 đã phát hành lên production ngày 04/11/2026. Kết quả hiện hành ở [nghiệm thu Phase 5](phase-5-completion.md); các số liệu probe dưới đây là mốc phát triển riêng, không phải nghiệm thu dự án mẫu Phase 6.
+Runtime Phase 5 đã phát hành lên production ngày 04/11/2026. Kết quả hiện hành ở [nghiệm thu Phase 5](../../phase-5-completion.md); các số liệu probe dưới đây là mốc phát triển riêng, không phải nghiệm thu dự án mẫu Phase 6.
 
 ## Sử dụng trong dashboard
 
@@ -44,4 +44,4 @@ Probe hiện hành đạt với **5 request**, read/edit/glob đều có event c
 
 ## Phạm vi tiếp theo
 
-Chưa triển khai loader skill từ repo/task, shell tùy ý hoặc quyền SSH cho agent. Profile lệnh lint/build được pin, browser/API acceptance theo sản phẩm và quản trị integration profile bằng UI là phần mở rộng tiếp theo. Kết quả migration/rollback schema 0004 và chuỗi trên image production được ghi riêng trong [nghiệm thu Phase 5](phase-5-completion.md).
+Chưa triển khai loader skill từ repo/task, shell tùy ý hoặc quyền SSH cho agent. Profile lệnh lint/build được pin, browser/API acceptance theo sản phẩm và quản trị integration profile bằng UI là phần mở rộng tiếp theo. Kết quả migration/rollback schema 0004 và chuỗi trên image production được ghi riêng trong [nghiệm thu Phase 5](../../phase-5-completion.md).

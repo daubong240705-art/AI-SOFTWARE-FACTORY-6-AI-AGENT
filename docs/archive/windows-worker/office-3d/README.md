@@ -22,7 +22,7 @@ Bàn giao ngày 05/11/2026, Windows Worker `1.3.0-alpha.6`, nhánh `feature/work
 | @react-three/fiber | 9.8.2 | MIT | Peer React/ReactDOM `>=19 <19.4`, phù hợp 19.3.1 đang dùng |
 | @types/three | 0.187.0 | MIT | Development only; có dependency type cho ví dụ khác, không thêm physics vào renderer |
 
-Pin và integrity ở package-lock; `npm ls` không báo peer invalid. Gói cài bằng `--ignore-scripts`, không chạy mã cài đặt từ dependency. Không thêm Drei, game engine, backend hoặc orchestrator. [License notices](../../../apps/windows-worker/THIRD_PARTY_3D_NOTICES.md) gồm MIT của Three, upstream R3F và types. R3F archive không có file LICENSE riêng; npm khai MIT, notice lấy từ upstream master; gitHead npm không resolve được nên chưa tuyên bố kiểm tra source đúng commit upstream.
+Pin và integrity ở package-lock; `npm ls` không báo peer invalid. Gói cài bằng `--ignore-scripts`, không chạy mã cài đặt từ dependency. Không thêm Drei, game engine, backend hoặc orchestrator. [License notices](../../../../apps/windows-worker/THIRD_PARTY_3D_NOTICES.md) gồm MIT của Three, upstream R3F và types. R3F archive không có file LICENSE riêng; npm khai MIT, notice lấy từ upstream master; gitHead npm không resolve được nên chưa tuyên bố kiểm tra source đúng commit upstream.
 
 Production Electron 42.11.18 chạy được WebGL2 với React hiện tại. Build tách chunk OfficeScene khoảng **2.08 MB chưa nén**, entry renderer khoảng **1.48 MB chưa nén** trên build này. Đây là số dung lượng bundle, không phải số đo RAM/FPS. `npm audit` còn một advisory low của esbuild 0.27.7 trong toolchain tsx đã có ở baseline; không do gói 3D mới thêm. Chưa đổi toolchain ngoài phạm vi.
 

@@ -2,15 +2,15 @@
 
 Khảo sát ngày **03/11/2026**, múi giờ Asia/Saigon. Phạm vi: workspace hiện tại; SSH `.12`, `.13`, `.14`, `.51`; MCP OpenProject; các endpoint GitLab/9Router. Không thay đổi cấu hình hay deploy ứng dụng trên máy chủ. Các lời gọi model và CLI smoke test chạy thật, có tiêu thụ token.
 
-> **Cập nhật sau khảo sát cùng ngày:** đã xóa `btl-httt` và dọn cache trên `.14`, dung lượng trống tăng lên **42.50 GiB**; đã cài CA hệ thống/Omnibus và sửa DNS `.local` trên `.13`, HTTPS verified. Các bảng dưới đây giữ baseline khảo sát ban đầu; hiện trạng sau sửa xem [nhật ký bảo trì](maintenance-2026-11-03.md). Worker được phép đặt trên máy cá nhân hoặc VM theo [phương án cập nhật](worker-options.md).
+> **Cập nhật sau khảo sát cùng ngày:** đã xóa `btl-httt` và dọn cache trên `.14`, dung lượng trống tăng lên **42.50 GiB**; đã cài CA hệ thống/Omnibus và sửa DNS `.local` trên `.13`, HTTPS verified. Các bảng dưới đây giữ baseline khảo sát ban đầu; hiện trạng sau sửa xem [nhật ký bảo trì](archive/legacy-platform/maintenance-2026-11-03.md). Worker được phép đặt trên máy cá nhân hoặc VM theo [phương án cập nhật](archive/legacy-platform/worker-options.md).
 
-> **Cập nhật Phase 4, 04/11/2026:** đã có repo GitLab ASF, runner project Docker `.60`, pipeline và deployment qua Caddy lên `.14`. Registry vẫn tắt, dùng archive/checksum theo SHA. Hiện trạng và giới hạn mới xem [kết quả Phase 4](phase-4-completion.md); các bảng bên dưới là baseline khảo sát, không phải trạng thái triển khai mới nhất.
+> **Cập nhật Phase 4, 04/11/2026:** đã có repo GitLab ASF, runner project Docker `.60`, pipeline và deployment qua Caddy lên `.14`. Registry vẫn tắt, dùng archive/checksum theo SHA. Hiện trạng và giới hạn mới xem [kết quả Phase 4](archive/legacy-platform/phase-4-completion.md); các bảng bên dưới là baseline khảo sát, không phải trạng thái triển khai mới nhất.
 
 ## 1. Kết luận
 
 Hạ tầng đủ cho control plane và staging MVP trên `.14`. **Chưa đạt mốc M0**: còn thiếu worker/runner build cô lập, Registry, tài khoản dịch vụ giới hạn quyền và các spike ghi dữ liệu/CI/deploy/webhook. Không dùng runner shell hiện tại để chạy code Agent sinh ra.
 
-Quyết định triển khai nằm trong [kế hoạch chốt](deployment-plan.md). Thông tin chưa xác minh được ghi rõ dưới đây.
+Quyết định triển khai nằm trong [kế hoạch chốt](archive/legacy-platform/deployment-plan.md). Thông tin chưa xác minh được ghi rõ dưới đây.
 
 [Kết quả probe dạng JSON](evidence/probe-results-2026-11-03.json) lưu các lần chạy kiểm chứng cuối, không chứa credential hoặc transcript model thô.
 

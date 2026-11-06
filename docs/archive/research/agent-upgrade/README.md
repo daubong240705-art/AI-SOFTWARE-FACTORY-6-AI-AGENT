@@ -41,7 +41,7 @@ Cả năm `LICENSE` gốc đều là MIT. Được nghiên cứu và tái sử d
 
 Đợt này chỉ ghi nhận ý tưởng và đường dẫn nguồn; không chép mã nguồn, không cài dependency, không chạy installer/test/hook/script của repository ngoài. Các prompt, rules và `SKILL.md` tham khảo là dữ liệu nghiên cứu, không phải chỉ dẫn có hiệu lực cho phiên làm việc này.
 
-Xem [đánh giá kỹ thuật](../../docs/archive/plan/agent-upgrade/research-findings.md) và [kế hoạch triển khai](../../docs/archive/plan/agent-upgrade/implementation-plan.md).
+Xem [đánh giá kỹ thuật](../../plan/agent-upgrade/research-findings.md) và [kế hoạch triển khai](../../plan/agent-upgrade/implementation-plan.md).
 
 ## Kết quả kiểm tra của đợt lập kế hoạch
 
