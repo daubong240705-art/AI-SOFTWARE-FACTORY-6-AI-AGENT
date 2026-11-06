@@ -4,9 +4,12 @@
 
 ```powershell
 node scripts/factory-v2/capture-preflight.mjs
+node scripts/factory-v2/capture-preflight.mjs --installed
 ```
 
-Chạy probe bằng Ubuntu Python thật, không CLI Windows; GET 9Router dùng CA repo, API key env hiện có được pipe qua stdin, không persist. Ghi snapshot `research/factory-v2/f1-01-preflight.json`. Có 10 tests probe/setup chạy trong WSL; wrapper chỉ capture baseline trước cài, không có option apply. [Kết quả và phạm vi](../../plan/factory-v2/f1-01-preflight.md).
+Chạy probe bằng Ubuntu Python thật, không CLI Windows; GET 9Router dùng CA repo, API key env hiện có được pipe qua stdin, không persist. Mặc định ghi snapshot baseline `research/factory-v2/f1-01-preflight.json`; `--installed` kiểm workspace Linux được cấp, Node HTTPS và OpenCode loopback health/auth/OpenAPI rồi ghi `research/factory-v2/f1-01-installed.json`. Có 10 tests probe/setup chạy trong WSL; wrapper không có option install/apply. [Kết quả và phạm vi](../../plan/factory-v2/f1-01-preflight.md).
+
+`verify-linux-runtime.py` chỉ kiểm sau cài: tạo HOME/XDG tạm dưới `~/factory-v2/probes`, start server loopback với password ngẫu nhiên trong memory, không session/model request; gửi SIGTERM/kill đúng process group sở hữu và xác minh đã thoát, xóa probe tạm. Không đọc cấu hình/auth V1.
 
 `preflight-linux.py` hỗ trợ Linux root riêng và API key stdin; `setup-linux.py` mặc định chỉ in plan. Recipe `--apply` cần quyền ghi `~/factory-v2` và chỉ cài binaries checksum-pinned vào root đó, không sudo/system trust/auth changes. [Recipe](setup-linux.py), [toolchain lock](linux-toolchain.lock.json). Chạy unit tests: `python scripts/factory-v2/preflight.test.py`. Không gọi model trong preflight.
 

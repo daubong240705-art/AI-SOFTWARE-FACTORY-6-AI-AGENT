@@ -1,0 +1,305 @@
+{
+  "schemaVersion": 1,
+  "ticket": "F1-01",
+  "observedAt": "2026-11-06T00:03:09.151528+00:00",
+  "scope": "Installed native Linux toolchain; GET provider probes and temporary authenticated runtime server; no model turn or V1 data access",
+  "linux": {
+    "distribution": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.6.87.2-microsoft-standard-WSL2",
+    "architecture": "x86_64",
+    "wsl2": true,
+    "user": "lazy",
+    "uid": 1000,
+    "cpuLogical": 20,
+    "memoryBytes": {
+      "MemTotal": 16625340416,
+      "MemAvailable": 15971815424,
+      "SwapTotal": 4294967296
+    }
+  },
+  "filesystems": {
+    "linuxStateCandidate": {
+      "type": "ext4",
+      "linuxNative": true,
+      "freeBytes": 1023264731136,
+      "totalBytes": 1081101176832,
+      "measuredAtExistingAncestor": false
+    },
+    "sourceCheckout": {
+      "type": "9p",
+      "linuxNative": false,
+      "freeBytes": 45065871360,
+      "totalBytes": 161512157184,
+      "measuredAtExistingAncestor": false
+    }
+  },
+  "sqlite": {
+    "pythonLibraryVersion": "3.45.1",
+    "cliRequired": false
+  },
+  "toolchain": {
+    "bash": {
+      "installed": true,
+      "executable": "/usr/bin/bash",
+      "version": "GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)",
+      "versionProbeSucceeded": true,
+      "windowsPathContamination": false
+    },
+    "git": {
+      "installed": true,
+      "executable": "/usr/bin/git",
+      "version": "git version 2.43.0",
+      "versionProbeSucceeded": true,
+      "windowsPathContamination": false
+    },
+    "node": {
+      "installed": true,
+      "executable": "/home/lazy/factory-v2/node/bin/node",
+      "version": "v22.23.4",
+      "versionProbeSucceeded": true,
+      "windowsPathContamination": false
+    },
+    "npm": {
+      "installed": true,
+      "executable": "/home/lazy/factory-v2/node/bin/npm",
+      "version": "10.9.9",
+      "versionProbeSucceeded": true,
+      "windowsPathContamination": true
+    },
+    "python3": {
+      "installed": true,
+      "executable": "/usr/bin/python3",
+      "version": "Python 3.12.3",
+      "versionProbeSucceeded": true,
+      "windowsPathContamination": false
+    },
+    "curl": {
+      "installed": true,
+      "executable": "/usr/bin/curl",
+      "version": "curl 8.5.0 (x86_64-pc-linux-gnu) libcurl/8.5.0 OpenSSL/3.0.13 zlib/1.3 brotli/1.1.0 zstd/1.5.5 libidn2/2.3.7 libpsl/0.21.2 (+libidn2/2.3.7) libssh/0.10.6/openss",
+      "versionProbeSucceeded": true,
+      "windowsPathContamination": false
+    },
+    "openssl": {
+      "installed": true,
+      "executable": "/usr/bin/openssl",
+      "version": "OpenSSL 3.0.13 30 Jan 2024 (Library: OpenSSL 3.0.13 30 Jan 2024)",
+      "versionProbeSucceeded": true,
+      "windowsPathContamination": false
+    },
+    "codex": {
+      "installed": false,
+      "executable": null,
+      "version": null,
+      "versionProbeSucceeded": false,
+      "windowsPathContamination": true
+    },
+    "claude": {
+      "installed": false,
+      "executable": null,
+      "version": null,
+      "versionProbeSucceeded": false,
+      "windowsPathContamination": false
+    },
+    "opencode": {
+      "installed": true,
+      "executable": "/home/lazy/factory-v2/opencode/bin/opencode",
+      "version": "1.19.5",
+      "versionProbeSucceeded": true,
+      "windowsPathContamination": true
+    }
+  },
+  "nodeMinimumSatisfied": true,
+  "router": {
+    "origin": "https://ai.lazy.local",
+    "resolvedAddresses": [
+      "192.168.1.51"
+    ],
+    "systemTrust": {
+      "status": null,
+      "tlsVerified": false,
+      "error": "tls-untrusted",
+      "durationMs": 18
+    },
+    "explicitCaddyCa": {
+      "status": 200,
+      "tlsVerified": true,
+      "error": null,
+      "durationMs": 18
+    },
+    "healthOk": true,
+    "anonymousModels": {
+      "status": 401,
+      "tlsVerified": true,
+      "error": "http-error",
+      "durationMs": 12
+    },
+    "authenticatedModels": {
+      "status": 200,
+      "tlsVerified": true,
+      "error": null,
+      "durationMs": 28
+    },
+    "credentialSuppliedViaStdin": true,
+    "authentication": "authenticated",
+    "modelCount": 62,
+    "selectedModel": "ds/deepseek-v4-flash",
+    "selectedModelPresent": true,
+    "inferenceTested": false
+  },
+  "runtimes": {
+    "codex": {
+      "installed": false,
+      "executable": null,
+      "version": null,
+      "versionProbeSucceeded": false,
+      "windowsPathContamination": true,
+      "authentication": "unknown",
+      "providerAuthentication": "unknown",
+      "compatibility": "unknown",
+      "ready": false,
+      "reason": "not-installed-linux"
+    },
+    "claude": {
+      "installed": false,
+      "executable": null,
+      "version": null,
+      "versionProbeSucceeded": false,
+      "windowsPathContamination": false,
+      "authentication": "unknown",
+      "providerAuthentication": "unknown",
+      "compatibility": "unknown",
+      "ready": false,
+      "reason": "not-installed-linux"
+    },
+    "opencode": {
+      "installed": true,
+      "executable": "/home/lazy/factory-v2/opencode/bin/opencode",
+      "version": "1.19.5",
+      "versionProbeSucceeded": true,
+      "windowsPathContamination": true,
+      "authentication": "unknown",
+      "providerAuthentication": "authenticated",
+      "compatibility": "unknown",
+      "ready": false,
+      "reason": "adapter-protocol-not-verified"
+    }
+  },
+  "readiness": {
+    "environmentPrerequisitesSatisfied": true,
+    "blockers": [],
+    "runtimeAdapterVerified": false,
+    "hostImplemented": false
+  },
+  "userFacingDate": "2026-11-06",
+  "baseline": "cad247b0e28b2fde476719e62c321d434e86a2bd",
+  "checkpoint": "checkpoint/factory-v2-f1-01-20261106",
+  "ticketState": "done",
+  "setup": {
+    "mode": "installed-and-verified",
+    "root": "/home/lazy/factory-v2",
+    "versions": {
+      "node": "22.23.4",
+      "opencode": "1.19.5"
+    },
+    "writes": [
+      "node/",
+      "opencode/",
+      "downloads/",
+      "ca/",
+      "home/",
+      "config/",
+      "data/",
+      "state/",
+      "cache/",
+      "workspaces/",
+      "env.sh",
+      "setup/artifact markers"
+    ],
+    "changesSystemConfiguration": false,
+    "copiesCredentials": false,
+    "executesRemoteInstaller": false,
+    "startsModelOrServer": false,
+    "applied": true,
+    "authorization": "User explicitly authorized /home/lazy/factory-v2; preserve V1 and existing credentials"
+  },
+  "runtimeVerification": {
+    "nativeElfExecutablesVerified": true,
+    "nodeHttps": {
+      "platform": "linux",
+      "version": "v22.23.4",
+      "status": 200,
+      "healthOk": true,
+      "caVerified": true
+    },
+    "opencodeProtocol": {
+      "bind": "127.0.0.1",
+      "anonymousHealthStatus": 401,
+      "authenticatedHealthStatus": 200,
+      "healthy": true,
+      "version": "1.19.5",
+      "openApiStatus": 200,
+      "requiredPathsPresent": {
+        "/global/health": true,
+        "/event": true,
+        "/session": true,
+        "/session/{sessionID}/abort": true,
+        "/session/{sessionID}/prompt_async": true
+      },
+      "sessionsCreated": 0,
+      "modelRequests": 0
+    },
+    "ownedProcessExited": true,
+    "temporaryProbeRemovedOnExit": true,
+    "adapterExecutionVerified": false,
+    "streamStopResumeModelTurnTested": false
+  },
+  "applyBaseline": "15ffd0a0277984b65ca2e00510a1a8d7729e11c1",
+  "applyCheckpoint": "checkpoint/factory-v2-f1-01-apply-20261106",
+  "windowsBackingVolumes": [
+    {
+      "DriveLetter": "C",
+      "SizeRemaining": 30643085312,
+      "Size": 331316457472
+    },
+    {
+      "DriveLetter": "E",
+      "SizeRemaining": 45065871360,
+      "Size": 161512157184
+    }
+  ],
+  "diskLimitNote": "WSL ext4 reports virtual VHD capacity, not physically available Windows backing disk space; VHD backing volume not conclusively mapped",
+  "validation": {
+    "wslBoundaryTests": 10,
+    "failed": 0,
+    "legacySourceUnchanged": true,
+    "checkpointVerified": true
+  },
+  "sourceFiles": [
+    {
+      "path": "scripts/factory-v2/preflight-linux.py",
+      "sha256": "59a75fe11524e57b858366cce51160c6ac8dc86879e82d7dd01c2298a2afba2d"
+    },
+    {
+      "path": "scripts/factory-v2/setup-linux.py",
+      "sha256": "3f06ab5dec0cb3c9ace3c72fefd1c2b575d9bce4453b7753a5fbdfc588fc6d77"
+    },
+    {
+      "path": "scripts/factory-v2/linux-toolchain.lock.json",
+      "sha256": "5250d69bf48a20294dfdff8145badbc2276f5ca1304fd66dec6cb2eaee28bfca"
+    },
+    {
+      "path": "scripts/factory-v2/preflight.test.py",
+      "sha256": "7003c02cc797ba0331847c4c47a3dac46e191eed432147fa6053631443165e63"
+    },
+    {
+      "path": "scripts/factory-v2/capture-preflight.mjs",
+      "sha256": "8ee3b0996f5456f099bcfeefc594e4333c6a493766537a61d44dbf182f3d06b3"
+    },
+    {
+      "path": "scripts/factory-v2/verify-linux-runtime.py",
+      "sha256": "c4b4440352e077c8fb717de813c96fdda4a50c9b1e77f3b5e5d114a76ef5698e"
+    }
+  ],
+  "hashEncoding": "UTF-8 source normalized to LF"
+}

@@ -7,9 +7,10 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const args = process.argv.slice(2);
+const installed = args.length === 1 && args[0] === "--installed";
 assert(
-  args.length === 0,
-  "No options: captures Ubuntu pre-install baseline only",
+  args.length === 0 || installed,
+  "Use no options for baseline or --installed for the authorized V2 installation",
 );
 const git = (...argv) =>
   execFileSync("git", argv, { cwd: root, encoding: "utf8" }).trim();
@@ -18,6 +19,11 @@ assert.equal(
   git("rev-parse", "checkpoint/factory-v2-f1-01-20261106"),
   baseline,
 );
+if (installed)
+  assert.equal(
+    git("rev-parse", "checkpoint/factory-v2-f1-01-apply-20261106"),
+    git("rev-parse", "15ffd0a"),
+  );
 const legacyRoots = git("ls-tree", "--name-only", baseline)
   .split("\n")
   .filter((path) => !["plan", "research", "scripts"].includes(path));
@@ -59,6 +65,7 @@ const probe = JSON.parse(
       "/usr/bin/python3",
       `${mounted}/scripts/factory-v2/preflight-linux.py`,
       "--key-stdin",
+      ...(installed ? ["--runtime-root", "/home/lazy/factory-v2"] : []),
     ],
     key + "\n",
   ),
@@ -71,6 +78,23 @@ const setupPlan = JSON.parse(
 );
 assert.equal(setupPlan.mode, "plan-only");
 assert.equal(setupPlan.changesSystemConfiguration, false);
+const runtimeVerification = installed
+  ? JSON.parse(
+      run(
+        [
+          "/usr/bin/python3",
+          `${mounted}/scripts/factory-v2/verify-linux-runtime.py`,
+        ],
+        "",
+      ),
+    )
+  : null;
+if (installed) {
+  assert.equal(probe.readiness.environmentPrerequisitesSatisfied, true);
+  assert.equal(runtimeVerification.nodeHttps.caVerified, true);
+  assert.equal(runtimeVerification.opencodeProtocol.healthy, true);
+  assert.equal(runtimeVerification.ownedProcessExited, true);
+}
 const tests = run(
   [
     "/usr/bin/python3",
@@ -97,19 +121,35 @@ const sourceFiles = [
   "scripts/factory-v2/linux-toolchain.lock.json",
   "scripts/factory-v2/preflight.test.py",
   "scripts/factory-v2/capture-preflight.mjs",
+  ...(installed ? ["scripts/factory-v2/verify-linux-runtime.py"] : []),
 ];
 const report = {
   ...probe,
+  ...(installed
+    ? {
+        scope:
+          "Installed native Linux toolchain; GET provider probes and temporary authenticated runtime server; no model turn or V1 data access",
+      }
+    : {}),
   userFacingDate: "2026-11-06",
   baseline,
   checkpoint: "checkpoint/factory-v2-f1-01-20261106",
-  ticketState: "in-progress",
+  ticketState: installed ? "done" : "in-progress",
   setup: {
     ...setupPlan,
-    applied: false,
-    authorization:
-      "Pending authorization for the new Linux workspace; no writes outside checkout",
+    mode: installed ? "installed-and-verified" : setupPlan.mode,
+    applied: installed,
+    authorization: installed
+      ? "User explicitly authorized /home/lazy/factory-v2; preserve V1 and existing credentials"
+      : "Pending authorization for the new Linux workspace; no writes outside checkout",
   },
+  ...(installed
+    ? {
+        runtimeVerification,
+        applyBaseline: git("rev-parse", "15ffd0a"),
+        applyCheckpoint: "checkpoint/factory-v2-f1-01-apply-20261106",
+      }
+    : {}),
   windowsBackingVolumes: disk,
   diskLimitNote:
     "WSL ext4 reports virtual VHD capacity, not physically available Windows backing disk space; VHD backing volume not conclusively mapped",
@@ -138,13 +178,17 @@ for (const path of [
     const output = resolve(root, dirname(path), target);
     assert(
       output === resolve(root, "research/factory-v2/f1-01-preflight.json") ||
+        output === resolve(root, "research/factory-v2/f1-01-installed.json") ||
         existsSync(output),
       "Broken link",
     );
   }
 }
 writeFileSync(
-  resolve(root, "research/factory-v2/f1-01-preflight.json"),
+  resolve(
+    root,
+    `research/factory-v2/f1-01-${installed ? "installed" : "preflight"}.json`,
+  ),
   JSON.stringify(report, null, 2) + "\n",
 );
 console.log(
@@ -155,6 +199,7 @@ console.log(
       readiness: report.readiness,
       setup: report.setup,
       validation: report.validation,
+      ...(installed ? { runtimeVerification } : {}),
     },
     null,
     2,

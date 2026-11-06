@@ -1,6 +1,6 @@
 # F1-01 · WSL preflight và recipe cài đặt
 
-Ngày **06/11/2026**. Trạng thái **In progress**: khảo sát và recipe đã có; chưa cài Node/runtime Linux. Checkpoint `checkpoint/factory-v2-f1-01-20261106` tại `cad247b`. Source, DB, credentials và deployment V1 giữ nguyên.
+Ngày **06/11/2026**. Trạng thái **Done** ở mức môi trường F1-01: đã cài và kiểm Node/OpenCode Linux trong workspace người dùng cho phép. Checkpoint khảo sát `checkpoint/factory-v2-f1-01-20261106` tại `cad247b`; checkpoint apply `checkpoint/factory-v2-f1-01-apply-20261106` tại `15ffd0a`. Source, DB, credentials và deployment V1 giữ nguyên. Host/adapter/model turn V2 chưa triển khai.
 
 ## Kết quả thực tế
 
@@ -12,8 +12,8 @@ Ngày **06/11/2026**. Trạng thái **In progress**: khảo sát và recipe đã
 | Dung lượng | ext4 báo VHD ảo khoảng 1 TiB; **không phải ổ vật lý còn 1 TiB**. Windows C: khoảng 32,8 GiB, E: khoảng 42 GiB còn trống tại lúc đo; chưa xác định chắc VHD backing volume |
 | Tool sẵn có | Bash 5.2.21, Git 2.43.0, Python 3.12.3, curl 8.5.0, OpenSSL 3.0.13 |
 | SQLite | Python SQLite 3.45.1 có sẵn; SQLite CLI không phải prerequisite Host |
-| Node/npm Linux | Chưa cài. `npm` trong PATH mặc định đang đến từ Windows |
-| Agent CLI Linux | Codex/Claude/OpenCode chưa cài; `codex`/`opencode` trong PATH mặc định là Windows npm shims |
+| Node/npm Linux | Đã cài Node 22.23.4, npm 10.9.9; binary Linux trong `/home/lazy/factory-v2/node/bin` |
+| Agent CLI Linux | OpenCode 1.19.5 ELF chạy được, server health/OpenAPI đạt. Codex/Claude Linux chưa cài |
 | DNS LAN | `ai.lazy.local` phân giải `192.168.1.51` |
 | TLS | System trust chưa tin Caddy CA; CA repo đúng SHA-256 `364fc6615c952a558360a13f8cf09fa991d87792b5bec91e69952de5c3643aa4`, HTTPS verified khi chỉ định CA |
 | 9Router | `/api/health` 200; `/v1/models` không key 401, key có sẵn 200; snapshot có 62 models |
@@ -21,9 +21,13 @@ Ngày **06/11/2026**. Trạng thái **In progress**: khảo sát và recipe đã
 
 [Evidence JSON](../../research/factory-v2/f1-01-preflight.json) chứa timestamp/probe riêng từng hạng mục. API key chỉ qua stdin giữa Windows và WSL, không ghi file, args, URL, log hoặc report. Chỉ GET health/models, không đổi credential, không đọc DB V1 hay sao chép auth home. Provider auth thành công không đồng nghĩa runtime CLI đã đăng nhập hoặc adapter tương thích; report tách các trạng thái này.
 
+[Evidence sau cài](../../research/factory-v2/f1-01-installed.json) là hiện trạng mới; baseline trước cài giữ lại để đối chiếu. Node `fetch` tới health HTTPS đạt bằng `NODE_EXTRA_CA_CERTS`, không tắt TLS verification. OpenCode server chỉ bind `127.0.0.1` port động: anonymous health 401, authenticated health 200, OpenAPI có event/session/prompt_async/abort. Chỉ kiểm API surface, chưa thực hiện các phương thức session/abort/stream/model đó. Probe không tạo model session, không gửi request inference. Process group probe đã thoát và HOME/XDG tạm đã xóa; đây không phải evidence production adapter stop/recovery.
+
+PATH mặc định Ubuntu vẫn có Windows shims (`windowsPathContamination` trong report); env V2 chọn native executables bằng PATH riêng. Không đổi cấu hình WSL/global PATH. Bật shell V2 bằng env.sh khi phát triển Host.
+
 ## Phương án chuẩn bị đã rà soát
 
-Workspace đề xuất duy nhất: **`/home/lazy/factory-v2`**. Cần được cấp phạm vi ghi theo quy tắc người dùng “Không sửa file ngoài workspace được cấp phép”. Tới snapshot hiện tại, câu hỏi mở rộng workspace còn đang chờ trả lời; không suy ra quyền từ việc chờ lâu.
+Workspace đã được người dùng cấp: **`/home/lazy/factory-v2`**, với yêu cầu “giữ nguyên V1 và credentials hiện có”. Việc cài đã thực hiện trong phạm vi này, không cần hỏi lại quyền cho các bước phát triển V2 ở đây.
 
 ```text
 /home/lazy/factory-v2/
@@ -37,6 +41,7 @@ Workspace đề xuất duy nhất: **`/home/lazy/factory-v2`**. Cần được c
   state/        XDG_STATE_HOME riêng, DB V2 sẽ ở state/factory-v2/
   cache/        XDG_CACHE_HOME riêng
   workspaces/   workspace công việc V2 về sau
+  probes/       parent cho HOME/XDG probe tạm; từng probe được xóa sau khi dừng process
   env.sh        PATH/XDG/CA, không credential
 ```
 
@@ -54,6 +59,7 @@ Trong PowerShell, capture baseline an toàn (dùng key env hiện có nếu có)
 
 ```powershell
 node scripts/factory-v2/capture-preflight.mjs
+node scripts/factory-v2/capture-preflight.mjs --installed
 ```
 
 Trong WSL, chỉ xem recipe:
@@ -62,7 +68,7 @@ Trong WSL, chỉ xem recipe:
 python3 /mnt/e/GIT/AI-SOFTWARE-FACTORY-6-AI-AGENT/scripts/factory-v2/setup-linux.py
 ```
 
-**Chỉ sau khi được cấp workspace Linux**, áp dụng recipe và kiểm CLI:
+Workspace Linux đã được cấp và recipe đã chạy; có thể chạy lại cùng phiên bản để kiểm không overwrite:
 
 ```sh
 python3 /mnt/e/GIT/AI-SOFTWARE-FACTORY-6-AI-AGENT/scripts/factory-v2/setup-linux.py --apply
@@ -77,8 +83,8 @@ Lệnh cuối không tự cấp key; dùng stdin/env secret bridge khi cần aut
 
 ## Kiểm tra và phần chưa đạt
 
-Đã chạy 10 bài kiểm probe/setup trên Windows và Ubuntu, Ruff lint/format, syntax Node capture và plan-only recipe. Cases: lỗi auth/network không lộ secret/body, origin không nhận credentials, checksum, archive traversal/links/size, config không overwrite, install root không escape, default không apply. Chưa chạy `--apply`, chưa chạy native Node/OpenCode, chưa kiểm server protocol hoặc model execution. **Không đóng F1-01** khi các phần này chưa có.
+Đã chạy 10 bài kiểm probe/setup trên Windows và Ubuntu; chạy lại 10 tests Ubuntu sau cài, Ruff lint/format, syntax capture, `--apply` thật và lặp lại cùng recipe thành công. Cases: lỗi auth/network không lộ secret/body, origin không nhận credentials, checksum, archive traversal/links/size, config không overwrite, install root không escape, default không apply. Native Node/npm/OpenCode versions, Node CA, OpenCode server health/auth/schema và owned probe exit đều đạt. Không cài bằng sudo, không copy credentials Windows vào Linux, không mở DB V1.
 
-Để đóng: cấp workspace → áp dụng recipe → probe native versions, CA Node và OpenCode server/protocol căn bản với trạng thái auth rõ. Streaming/stop/model turn/grants thật thuộc F1-03/04, không thêm phase proof tách rời. F1-02 tiếp tục bootstrap Host sau khi môi trường đủ; không báo đây là sản phẩm V2 chạy được.
+Tiếp theo **F1-02**: checkout Linux riêng + Host/API/SQLite/outbox/auth/origin và recipe chạy/dừng. Model turn, streaming, session mapping và stop/reconcile của adapter thật thuộc F1-03; permissions hiệu lực thuộc F1-04. Runtime provider auth GET đã xác minh, nhưng không đánh đồng với một turn model thành công. Environment sẵn để xây Host; chưa phải sản phẩm V2 chạy được.
 
 Nguồn chính thức đã đọc: [OpenAI Docs về WSL](https://learn.chatgpt.com/docs/windows/wsl), [OpenAI Docs về auth](https://learn.chatgpt.com/docs/auth), [OpenCode WSL](https://opencode.ai/docs/windows-wsl/), [CLI](https://opencode.ai/docs/cli/), [custom CA](https://opencode.ai/docs/network/), [Node 22.23.4 archive](https://nodejs.org/en/download/archive/v22.23.4). Chỉ dùng các phần phù hợp ranh giới Host local; không áp dụng hướng mở server `0.0.0.0` trong recipe này.
