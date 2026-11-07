@@ -25,7 +25,9 @@ Host in ra một **token khởi tạo dùng một lần**. Mở `http://127.0.0.
 |---|---|---|
 | `FACTORY_STATE_DIR` | `~/factory-v2/state` | DB và sao lưu trước migration. Từ chối đường dẫn `/mnt/...` |
 | `FACTORY_PORT` | `8787` | Chỉ bind 127.0.0.1 |
-| `FACTORY_BACKUP_DIR` | `<state>/backups` | Nơi sao lưu trước migration |
+| `FACTORY_BACKUP_DIR` | `/mnt/d/factory-backup` (nếu có ổ D), không thì `<state>/backups/periodic` | **Sao lưu định kỳ** (mỗi giờ và khi tắt). Không bao giờ trùng thư mục state |
+| `FACTORY_BACKUP_INTERVAL_MINUTES` | `60` | 1–1440 |
+| `FACTORY_MIGRATION_BACKUP_DIR` | `<state>/backups` | Sao lưu ngay trước mỗi migration |
 | `NINE_ROUTER_API_KEY` | (không) | Key 9Router; chỉ đọc từ môi trường |
 | `FACTORY_GATEWAY_URL` | `https://ai.lazy.local/v1` | Gateway OpenAI-compatible |
 | `FACTORY_LEAD_MODEL`, `FACTORY_LEAD_EFFORT` | `gpt-6.1-sol`, `medium` | Model và effort của Lead |
@@ -45,3 +47,15 @@ Host in ra một **token khởi tạo dùng một lần**. Mở `http://127.0.0.
 - Sao lưu định kỳ sang `D:\factory-backup` (AP-R5) và tự chuyển model sang DeepSeek/Antigravity khi tốn kém (PD-5) chưa làm.
 - Retry của hộp thoại tạo Project phát lại đúng lệnh đã bị từ chối; muốn sửa phải đóng và mở lại.
 - Chưa thử với `E:\GIT\BTL-LTM` (cần JDK 21 trong WSL; thuộc M2).
+
+## Sao lưu và khôi phục (M2 S1)
+
+Host sao lưu mỗi giờ và khi tắt (`VACUUM INTO`, kiểm `integrity_check`, khóa ngoại, sổ migration và số Project trước khi công bố; lỗi thì không để lại file dở và không đụng bản cũ). Giữ mọi bản trong 48 giờ, rồi mỗi ngày một bản trong 14 ngày, luôn giữ 3 bản mới nhất. Trạng thái: `GET /system/backups` (cần phiên).
+
+```bash
+node ~/factory-v2/app/apps/factory-host/dist/backup/cli.js list /mnt/d/factory-backup
+# TẮT Host trước. Khôi phục không bao giờ xóa DB cũ: nó được chuyển vào <state>/pre-restore-<thời gian>/
+node ~/factory-v2/app/apps/factory-host/dist/backup/cli.js restore /mnt/d/factory-backup/<file>.db ~/factory-v2/state   --migrations ~/factory-v2/app/apps/factory-host/migrations
+```
+
+Đã diễn tập thật trong WSL: sao lưu lên `/mnt/d`, phá DB, khôi phục, Host chạy lại đủ dữ liệu; khôi phục bị từ chối khi Host đang chạy.

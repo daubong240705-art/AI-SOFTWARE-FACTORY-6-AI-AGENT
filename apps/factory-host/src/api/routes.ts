@@ -11,6 +11,7 @@ import type { Storage } from "../storage/database.js";
 import { listTasks } from "../work/service.js";
 import { failure } from "./http.js";
 import type { ApiGuards } from "./server.js";
+import type { BackupStatus } from "../backup/service.js";
 import { registerEventStream } from "./sse.js";
 
 export function createRoutes(deps: {
@@ -18,10 +19,14 @@ export function createRoutes(deps: {
   keepAliveMs?: number; maxStreams?: number; batchSize?: number;
   budgetConfig?: BudgetConfig; clock?: Clock;
   afterCommand?: (type: string, result: PipelineResult) => void;
+  backupStatus?: () => BackupStatus | null;
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
     registerEventStream(app, guards, deps);
+    app.get("/system/backups", { preHandler: guards.session }, async () => ({
+      apiVersion: API_VERSION, ok: true, backup: deps.backupStatus?.() ?? null,
+    }));
     app.post("/commands", { preHandler: guards.write }, async (request, reply) => {
       const r = deps.pipeline.execute(request.body);
       try {

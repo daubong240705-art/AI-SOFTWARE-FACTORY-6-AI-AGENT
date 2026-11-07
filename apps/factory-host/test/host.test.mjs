@@ -387,12 +387,16 @@ test("injected clock is used by migrations and the command pipeline", async (t) 
 });
 
 test("parseEnv defaults are an absolute home state directory and port 8787", () => {
-  assert.deepEqual(parseEnv({}), { stateDir: join(homedir(), "factory-v2", "state"), port: 8787 });
+  const stateDir = join(homedir(), "factory-v2", "state");
+  assert.deepEqual(parseEnv({}), { stateDir, port: 8787, periodicBackup: {
+    dir: existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(stateDir, "backups", "periodic"), intervalMs: 3_600_000,
+  } });
 });
 
 test("parseEnv accepts state, backup, and integer port overrides", () => {
-  assert.deepEqual(parseEnv({ FACTORY_STATE_DIR: "/state", FACTORY_PORT: "12345", FACTORY_BACKUP_DIR: "/backup" }),
-    { stateDir: "/state", port: 12345, backupDir: "/backup" });
+  assert.deepEqual(parseEnv({ FACTORY_STATE_DIR: "/state", FACTORY_PORT: "12345", FACTORY_BACKUP_DIR: "/backup",
+    FACTORY_MIGRATION_BACKUP_DIR: "/migration", FACTORY_BACKUP_INTERVAL_MINUTES: "30" }),
+    { stateDir: "/state", port: 12345, backupDir: "/migration", periodicBackup: { dir: "/backup", intervalMs: 1_800_000 } });
   assert.equal(parseEnv({ FACTORY_PORT: "1" }).port, 1);
   assert.equal(parseEnv({ FACTORY_PORT: "65535" }).port, 65535);
 });

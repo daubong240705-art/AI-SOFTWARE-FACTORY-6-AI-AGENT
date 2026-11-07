@@ -22,7 +22,32 @@ npm test                                       # builds, then runs node:test
 - `src/api/`: `createApiServer` (Fastify, no plugins). Every request must carry a `Host` that matches a configured origin (blocks DNS rebinding). Write routes need a valid session cookie (`HttpOnly; SameSite=Strict`), an exact `Origin`, and the per-session `x-csrf-token`. `listenLoopback` refuses every address except `127.0.0.1` and `::1`. Later modules add routes through `register(app, guards)`. `GET /auth/session` (session required) returns the CSRF token so the UI can recover it after a page reload; other sites cannot read it (no CORS, SameSite=Strict, Host check).
 - `src/commands/pipeline.ts`: `POST /commands` is idempotent by `commandId`. One `BEGIN IMMEDIATE` transaction holds the handler's writes, the receipt and the events. Same `commandId` + same command: replay of the stored response, nothing written. Same `commandId` + different command: 409, original untouched. A `CommandError` stores a rejected receipt; any other error stores nothing so the client may retry. `projects.create` is the only handler so far; other command types answer `501 unsupported` (stored).
 - `src/api/sse.ts`: `GET /projects/:id/events`. Frames carry `id: <epoch>:<sequence>`; reconnect with `Last-Event-ID` (or `?after=`, which wins) loses and repeats nothing. `snapshot-required` (`epoch-changed` / `gap` / `expired`) ends the stream. Streams are cleaned up on client abort and on `app.close()`.
-- `src/host.ts` / `src/main.ts`: `startHost`, `node dist/main.js` with `FACTORY_STATE_DIR` (default `~/factory-v2/state`), `FACTORY_PORT` (default 8787), `FACTORY_BACKUP_DIR`. It refuses a `/mnt/...` or relative state directory, backs up before migrating, and prints the one-time bootstrap token on stdout only.
+- `src/host.ts` / `src/main.ts`: `startHost`, `node dist/main.js` with `FACTORY_STATE_DIR` (default `~/factory-v2/state`) and `FACTORY_PORT` (default 8787). It refuses a `/mnt/...` or relative state directory, backs up before migrating, and prints the one-time bootstrap token on stdout only.
+
+## Periodic backups and offline restore
+
+The CLI Host enables periodic backups by default: the first runs after 5 seconds, then hourly, with one final backup after the Lead runner and HTTP app stop and before SQLite closes. Embedded `startHost` callers opt in with `periodicBackup: { dir, intervalMs?, firstRunDelayMs?, keep? }`; omitted or null disables it. `host.backup.service` provides synchronous `run("manual")`, `list()`, and `status()`; `host.backup.status()` and session-protected `GET /system/backups` report the latest success/error and backup count (null when disabled). Backup errors are generic and do not crash the Host or prevent shutdown.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `FACTORY_BACKUP_DIR` | `/mnt/d/factory-backup` if `/mnt/d` exists; otherwise `<stateDir>/backups/periodic` | Periodic and shutdown backups; must be absolute and separate from the live database directory |
+| `FACTORY_BACKUP_INTERVAL_MINUTES` | `60` | Integer from 1 to 1440; invalid values stop startup |
+| `FACTORY_MIGRATION_BACKUP_DIR` | `<stateDir>/backups` | Existing pre-migration backups, managed separately |
+
+`FACTORY_BACKUP_DIR` now controls periodic backups. Move any previous pre-migration directory override to `FACTORY_MIGRATION_BACKUP_DIR`. Configure another physical drive for AP-R5 protection when the fallback is on the same drive as the state directory.
+
+Each backup uses parameterized `VACUUM INTO` into a random temporary file. Before fsync and publication as `factory-<UTC yyyymmddThhmmssZ>-<reason>[-n].db`, verification requires integrity `ok`, no foreign-key violations, a migration ledger with the live highest version, and the live project count. A pinned read transaction supplies the expected counts; a mismatch retries the snapshot once. Older backups survive failed attempts. The synchronous API performs VACUUM, verification, and file operations on the calling thread; large databases can pause request handling during these operations.
+
+Retention uses filename timestamps, not file modification times: every backup newer than 48 hours, then the newest per UTC calendar day within the last 14 calendar days (including today), with the newest three always protected. Embedded callers can override `keep: { hourlyHours, dailyDays, minNewest }`. Unrelated files, malformed names, directories, and symlinks are ignored. Retention deletion errors appear in status while the completed backup remains successful.
+
+Stop the Host before restoring. The restore tool refuses relative or `/mnt/` target state directories, verifies the source read-only, and attempts a short `BEGIN EXCLUSIVE` lock on an existing database. A `.host-running` owner file coordinates Host lifetime and restore, also refusing an idle running Host in WAL mode; an owner whose process has exited is reclaimed. A verified copy is staged as `host.db.restoring` and verified again; the old `host.db` and SQLite sidecars are preserved in `pre-restore-<UTC stamp>/` before the new database is installed. Failures roll back moved files, and the source backup is never moved or written. Existing staging files are preserved and require operator recovery before another restore.
+
+```bash
+node dist/backup/cli.js list /mnt/d/factory-backup
+node dist/backup/cli.js restore /mnt/d/factory-backup/factory-20261107T101112Z-hourly.db /home/operator/factory-v2/state --migrations ./migrations
+```
+
+Both commands print JSON on success and exit 0; failures print one line and exit 1. `--migrations <dir>` checks the applied ledger checksums against this build's migration files. Without it, only the checksum comparison is skipped. Restart the Host after restore; a matching build applies no migrations. `test/backup.test.mjs` includes fresh-directory and same-directory restore drills covering projects, teams, tasks, messages, events, cursors, and serving restored data through a restarted Host, plus corruption, retention, scheduler, lock, rollback, and compiled CLI checks.
 
 ## Running it in WSL
 
