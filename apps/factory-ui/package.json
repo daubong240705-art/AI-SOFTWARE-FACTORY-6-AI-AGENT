@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Factory V2 web UI (M1: shell, projects, Lead chat, tasks). Talks only to the Host API.",
-  "engines": { "node": ">=22.20.0" },
+  "engines": {
+    "node": ">=22.20.0"
+  },
   "scripts": {
     "tokens": "node scripts/build-tokens.mjs",
     "predev": "npm run tokens",
@@ -21,6 +23,7 @@
     "react-dom": "19.1.10"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "16.3.3",
     "@types/node": "22.20.5",
