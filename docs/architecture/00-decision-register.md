@@ -187,6 +187,21 @@ Nguồn: [07](07-architecture-review.md). Người dùng duyệt toàn bộ khuy
 
 ---
 
+## 3F. Quyết định khi kết thúc M0-lite (07/11/2026)
+
+Nguồn: contracts 0.2.0 (commit `b9f541b`, nhánh `feature/m0-contracts-v2`).
+
+| ID | Quyết định | Trạng thái | Mốc |
+|---|---|---|---|
+| AP-3 | **Mô hình dữ liệu M0-lite được duyệt** (`taskSchema`/`attemptSchema` thay `workItemSchema`/`runSchema`; SQL tham chiếu 002). Được phép bắt đầu M1 | Đã duyệt | M1 |
+| PD-1 | **Dự án thật đầu tiên** để thử tương đương: `E:\GIT\BTL-LTM` (Java 21, Gradle 8.14.3; test: `gradlew test`). Remote `origin` là repo của người khác (`ZEADYONE`): **Effect Executor không được cấu hình push tới remote này**, chỉ branch cục bộ hoặc remote do người dùng chỉ định | Đã duyệt, có điều kiện | M1–M2 |
+| PD-2 | Ngân sách token là ngân sách **cho model chạy trong ứng dụng** (agent của nền tảng), không phải chi phí phát triển. Đề xuất: `gpt-6.1-sol` medium; 200.000 token/Task; 1.000.000 token/ngày; cảnh báo 80% | Đề xuất, chờ xác nhận | M2 |
+| PD-3 | Giao diện **mặc định tiếng Anh**; tiếng Việt bổ sung sau. Mọi chuỗi giao diện đi qua một lớp thông điệp (i18n) ngay từ đầu | Đã duyệt | M2 |
+| PD-4 | **Không chạy song song** V1 và bản mới. So sánh tương đương bằng lịch sử V1 và bộ test của dự án thử | Đã duyệt | M2 |
+| ENV-1 | Môi trường người dùng đã chuẩn bị, đã kiểm tra: user `factory-agent` (nhóm `factory`), `/srv/factory/workspaces` (setgid, nhóm `factory`), bubblewrap 0.9.0, `D:\factory-backup`. **Chưa có**: JDK 21 trong WSL (cần để `factory-agent` chạy `gradlew test` của BTL-LTM); `.wslconfig` (tùy chọn) | Đã kiểm | M1 |
+
+---
+
 ## 4. Quy tắc chọn sau spike Paperclip (cho D-02 và OSS-01)
 
 > **Hiện không áp dụng:** người dùng đã chọn tự xây Factory V2 và không chạy thử (07/11/2026). Giữ quy tắc này để dùng nếu chạy thử Paperclip tại mốc xét lại của D-02 (sau F2, hoặc khi F3 chậm đáng kể).
@@ -217,3 +232,4 @@ Dùng checklist ở [oss-options §2.5](oss-options.md).
 | 07/11/2026 | Đồng bộ: thêm W-01..W-18 (§3B), ADR-T01..T14 (§3C), OSS-11, OSS-12; sửa E-01, E-02, E-14 theo VMware trên laptop (05 §21) |
 | 07/11/2026 | Giai đoạn 7 (tài liệu 06): thêm RM-01..RM-05, OSS-13 ở trạng thái Đề xuất chọn |
 | 07/11/2026 | Người dùng duyệt toàn bộ khuyến nghị của Architecture Review (07): RM-01..RM-05, OSS-13 **Đã duyệt**; thêm §3E (AP-R1..R16, AP-11); RM-02 và RM-05 đổi sang MVP-lite và R0 + M0-lite |
+| 07/11/2026 | Kết thúc M0-lite: thêm §3F (AP-3 Đã duyệt, PD-1..PD-4, ENV-1); PD-2 còn chờ xác nhận |
