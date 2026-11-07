@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createServer } from "node:net";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,7 @@ import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
 import { EventHub } from "./events/hub.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { systemClock, type Clock } from "./ids.js";
+import { createLeadRunner, type LeadConfig, type LeadRunner } from "./lead/runner.js";
 import type { ModelGateway } from "./models/index.js";
 import { loadPack } from "./org/index.js";
 import { budgetsSetHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
@@ -46,10 +48,11 @@ async function freeLoopbackPort(): Promise<number> {
 export async function startHost(options: {
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
-  budgetConfig?: BudgetConfig;
+  budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>;
 }): Promise<{
   app: FastifyInstance; port: number; origins: string[]; storage: Storage; hub: EventHub; close(): Promise<void>;
   models: { gateway: ModelGateway | null; budgetConfig: BudgetConfig };
+  lead: LeadRunner;
 }> {
   // Check POSIX spelling too, including when validating a WSL path on Windows.
   const normalized = posix.normalize(options.stateDir.replaceAll("\\", "/"));
@@ -63,10 +66,13 @@ export async function startHost(options: {
   const budgetConfig = options.budgetConfig ?? { ...DEFAULT_BUDGET_CONFIG };
   let storage: Storage | undefined;
   let app: FastifyInstance | undefined;
+  let runner: LeadRunner | undefined;
   let closePromise: Promise<void> | undefined;
   const close = (): Promise<void> => {
     closePromise ??= (async () => {
-      try { await app?.close(); } finally { storage?.close(); }
+      try { await runner?.stop(); } finally {
+        try { await app?.close(); } finally { storage?.close(); }
+      }
     })();
     return closePromise;
   };
@@ -78,6 +84,14 @@ export async function startHost(options: {
       backupDir: options.backupDir ?? join(stateDir, "backups"), now: clock,
     });
     const hub = new EventHub(storage.raw, { clock });
+    const leadSeat = pack.manifest.seats.find((seat) => seat.isLead);
+    if (!leadSeat) throw new Error("Pack has no Lead seat");
+    runner = createLeadRunner({ storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
+      profileText: readFileSync(join(pack.dir, leadSeat.profile), "utf8"),
+      ...(options.lead === undefined ? {} : { config: options.lead }),
+    });
+    runner.recover();
+    const lead = runner;
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       "projects.create": createProjectsCreateHandler({ pack }),
       "tasks.create": tasksCreateHandler, "tasks.transition": tasksTransitionHandler,
@@ -89,13 +103,15 @@ export async function startHost(options: {
     const port = options.port === 0 ? await freeLoopbackPort() : options.port;
     const origins = originsFor(port);
     app = createApiServer({ origins, gate, sessions, clock, register: createRoutes({ storage, hub, pipeline, clock, budgetConfig,
+      afterCommand: (type) => { if (type === "chat.send") lead.kick(); },
       ...(options.keepAliveMs === undefined ? {} : { keepAliveMs: options.keepAliveMs }),
     }) });
     await listenLoopback(app, port);
+    lead.kick();
     const token = gate.token;
     if (token === undefined) throw new Error("Bootstrap token unavailable");
     options.onBootstrapToken(token);
-    return { app, port, origins, storage, hub, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
+    return { app, port, origins, storage, hub, lead, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
   } catch (error) {
     try { await close(); } catch { /* Preserve the original startup failure. */ }
     throw error;

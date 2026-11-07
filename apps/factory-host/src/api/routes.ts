@@ -1,6 +1,6 @@
 import { API_VERSION, conversationSchema, idSchema, messageSchema, projectSchema } from "@factory/contracts";
 import type { FastifyInstance } from "fastify";
-import type { createCommandPipeline } from "../commands/pipeline.js";
+import type { createCommandPipeline, PipelineResult } from "../commands/pipeline.js";
 import { getConversation, listConversations, listMessages } from "../chat/index.js";
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
@@ -17,12 +17,18 @@ export function createRoutes(deps: {
   storage: Storage; hub: EventHub; pipeline: ReturnType<typeof createCommandPipeline>;
   keepAliveMs?: number; maxStreams?: number; batchSize?: number;
   budgetConfig?: BudgetConfig; clock?: Clock;
+  afterCommand?: (type: string, result: PipelineResult) => void;
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
     registerEventStream(app, guards, deps);
     app.post("/commands", { preHandler: guards.write }, async (request, reply) => {
       const r = deps.pipeline.execute(request.body);
+      try {
+        const body = request.body;
+        if (typeof body === "object" && body !== null && "type" in body && typeof body.type === "string")
+          deps.afterCommand?.(body.type, r);
+      } catch { /* Scheduling cannot change a committed command response. */ }
       return reply.code(r.status).send(r.body);
     });
     app.get("/projects", { preHandler: guards.session }, async () => ({

@@ -1,6 +1,8 @@
 import { parseEnv, startHost } from "./host.js";
 import { createChatCompletionsGateway } from "./models/index.js";
 import { DEFAULT_BUDGET_CONFIG } from "./policy/index.js";
+import { reasoningEffortSchema } from "@factory/contracts";
+import type { LeadConfig } from "./lead/runner.js";
 
 function budgetTokens(name: string, input: string | undefined, fallback: number): number {
   if (input === undefined) return fallback;
@@ -10,6 +12,16 @@ function budgetTokens(name: string, input: string | undefined, fallback: number)
 }
 
 try {
+  const lead: Partial<LeadConfig> = {};
+  if (process.env.FACTORY_LEAD_MODEL !== undefined) {
+    if (!process.env.FACTORY_LEAD_MODEL.trim()) throw new Error("FACTORY_LEAD_MODEL must be a non-empty string");
+    lead.model = process.env.FACTORY_LEAD_MODEL;
+  }
+  if (process.env.FACTORY_LEAD_EFFORT !== undefined) {
+    const parsed = reasoningEffortSchema.safeParse(process.env.FACTORY_LEAD_EFFORT);
+    if (!parsed.success) throw new Error("FACTORY_LEAD_EFFORT must be one of low, medium, high, xhigh");
+    lead.effort = parsed.data;
+  }
   const budgetConfig = { ...DEFAULT_BUDGET_CONFIG,
     defaultTaskTokens: budgetTokens("FACTORY_BUDGET_TASK_TOKENS", process.env.FACTORY_BUDGET_TASK_TOKENS, DEFAULT_BUDGET_CONFIG.defaultTaskTokens),
     defaultDayTokens: budgetTokens("FACTORY_BUDGET_DAY_TOKENS", process.env.FACTORY_BUDGET_DAY_TOKENS, DEFAULT_BUDGET_CONFIG.defaultDayTokens),
@@ -18,7 +30,7 @@ try {
   const modelGateway = apiKey === undefined ? null : createChatCompletionsGateway({
     baseUrl: process.env.FACTORY_GATEWAY_URL ?? "https://ai.lazy.local/v1", apiKey,
   });
-  const host = await startHost({ ...parseEnv(process.env), modelGateway, budgetConfig, onBootstrapToken(token) {
+  const host = await startHost({ ...parseEnv(process.env), modelGateway, budgetConfig, lead, onBootstrapToken(token) {
     process.stdout.write(`One-time bootstrap token: ${token}\n`);
   } });
   process.stdout.write(`Factory Host listening on http://127.0.0.1:${host.port}\n`);

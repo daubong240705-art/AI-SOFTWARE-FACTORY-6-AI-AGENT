@@ -14,6 +14,7 @@ import {
 } from "../dist/chat/index.js";
 import { EventHub } from "../dist/events/hub.js";
 import { startHost } from "../dist/host.js";
+import { createFakeGateway } from "../dist/models/fake.js";
 import { createBootstrapGate, createSessionStore } from "../dist/identity/index.js";
 import { ensureEngagement, ensureTeamFromPack, findLeadSeat, loadPack } from "../dist/org/index.js";
 import { createProjectsCreateHandler } from "../dist/projects/service.js";
@@ -555,7 +556,7 @@ test("pipeline rejection rolls back handler writes and emits only the rejected r
   assert.deepEqual(events(f.raw, c.commandId)[0].payload.receipt.effects, []);
 });
 
-test("host startup wires conversations.create and chat.send without calling the model", async (t) => {
+test("host startup wires conversations.create and chat.send to the Lead runner", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "factory-chat-host-"));
   let runtime;
   t.after(async () => {
@@ -564,9 +565,10 @@ test("host startup wires conversations.create and chat.send without calling the 
     rmSync(dir, { recursive: true, force: true });
   });
   let bootstrapToken;
+  const gateway = createFakeGateway([{ text: "Host Lead reply" }]);
   runtime = await startHost({ stateDir: dir, port: 0, clock,
     onBootstrapToken(token) { bootstrapToken = token; },
-    modelGateway: new Proxy({}, { get() { assert.fail("M1 chat must not access the model gateway"); } }),
+    modelGateway: gateway,
   });
   const runtimeHost = `127.0.0.1:${runtime.port}`;
   const runtimeOrigin = `http://${runtimeHost}`;
@@ -583,6 +585,8 @@ test("host startup wires conversations.create and chat.send without calling the 
   success(await post(conversation));
   const send = sendCommand(projectId, conversation.payload.conversationId);
   success(await post(send));
-  assert.equal(getTurn(runtime.storage.raw, projectId, send.payload.messageId).state, "queued");
-  assert.equal(listMessages(runtime.storage.raw, projectId, conversation.payload.conversationId).messages.length, 1);
+  await runtime.lead.idle();
+  assert.equal(getTurn(runtime.storage.raw, projectId, send.payload.messageId).state, "done");
+  assert.equal(listMessages(runtime.storage.raw, projectId, conversation.payload.conversationId).messages.length, 2);
+  assert.equal(gateway.calls.length, 1);
 });
