@@ -94,8 +94,9 @@ button, input, select { min-width: 0; }
   .task-summary h3 { min-width: 0; flex-basis: 100%; }
   .task-actions > button, .confirmation-row > button { flex: 1; }
   .topbar { padding: var(--space-sm) var(--size-gutter-compact); gap: var(--space-md); }
-  .preferences { width: 100%; }
-  .preferences select { flex: 1; }
+  .preferences { width: 100%; display: grid; grid-template-columns: max-content minmax(0, 1fr); }
+  .preferences select { width: 100%; min-width: calc(var(--size-control) * 3); min-height: var(--size-control); }
+  .preferences > button { grid-column: 1 / -1; justify-self: start; }
   .card { padding: var(--space-lg); }
   .engagement { flex-direction: column; gap: var(--space-md); }
   .dialog-backdrop { padding: var(--space-md); }

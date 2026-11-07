@@ -1,7 +1,7 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
 import { TASK_TRANSITIONS, deriveDisplayStatus, type Command, type Task, type TaskState } from '@factory/contracts';
 import { nextTaskCode, tasksCreate, tasksTransition } from '../api/commands';
-import { i18n, useT } from '../i18n';
+import { i18n, plural, useT } from '../i18n';
 import type { Store } from '../state/store';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
@@ -22,7 +22,7 @@ export function ProjectTasks({ store, projectId }: { store: Store; projectId: st
     ? deriveDisplayStatus({ ...task, liveAttempt: null }).status === 'closed' : task.state === filter));
   const count = state.tasks.filter((task) => task.state === 'proposed').length;
   return <div className="project-tasks stack">
-    <div className="tasks-heading"><h2>{t('tabs.tasks')}</h2><p>{new Intl.NumberFormat(i18n.locale).format(count)} {t('taskUi.awaiting')}</p></div>
+    <div className="tasks-heading"><h2>{t('tabs.tasks')}</h2><p>{new Intl.NumberFormat(i18n.locale).format(count)} {plural(t, i18n.locale, count, 'taskUi.awaiting')}</p></div>
     {state.errors.tasks && <ErrorNotice error={state.errors.tasks} />}
     <NewTask store={store} projectId={projectId} />
     <div className="field task-filter"><label htmlFor={id}>{t('taskUi.filter')}</label><select id={id} value={filter} onChange={(event) => setFilter(event.target.value as Filter)}>
@@ -62,8 +62,7 @@ function TaskRow({ store, projectId, task }: { store: Store; projectId: string; 
     setCommand(created); void execute(created);
   }
   return <Card className={`task-row${task.state === 'proposed' ? ' task-proposed' : ''}`}>
-    <div className="task-summary"><span className="task-code">{task.code}</span><h3>{task.title}</h3><Badge className={`status-${display.status}`}>{t(`taskUi.display.${display.status}`)}</Badge><span className="muted">{task.state}</span>
-      {task.state === 'proposed' && <Badge className="lead">{t('taskUi.proposed')}</Badge>}
+    <div className="task-summary"><span className="task-code">{task.code}</span><h3>{task.title}</h3><Badge className={`status-${display.status}`}>{t(`taskUi.display.${display.status}`)}</Badge><span className="muted">{t(`taskUi.lifecycle.${task.state}`)}</span>
     </div>
     <div className="task-meta"><div className="capability-chips">{task.requiredCapabilities.map((capability) => <Badge key={capability}>{capability}</Badge>)}</div><span>{t('taskUi.owner')}: {owner?.name ?? t('taskUi.dash')}</span></div>
     <Button aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}>{t('taskUi.details')} {task.code}</Button>

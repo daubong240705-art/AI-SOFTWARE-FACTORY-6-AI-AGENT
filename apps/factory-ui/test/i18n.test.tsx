@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { applyTheme, createI18n, getPreferences, PREFERENCES_KEY } from '../src/i18n';
+import { applyTheme, plural, createI18n, getPreferences, PREFERENCES_KEY } from '../src/i18n';
 import en from '../../../design/factory-v2/labels.en.json';
 import viLabels from '../../../design/factory-v2/labels.vi.json';
 import { extra as extraEn } from '../src/i18n/extra.en';
@@ -56,3 +56,16 @@ it('useT reacts when locale switches', () => {
   expect(hook.result.current).toBe('Projects'); act(() => i18n.setLocale('vi')); expect(hook.result.current).toBe(viLabels.global.projects);
 });
 it('user content is never passed through the translation function', () => { const content = 'My task: hello / Xin chào'; expect(createI18n('vi').t(content)).toBe(content); });
+
+it.each([
+  ['en', 0, 'other'], ['en', 1, 'one'], ['en', 2, 'other'],
+  ['vi', 0, 'other'], ['vi', 1, 'other'], ['vi', 2, 'other'],
+  ['unknown', 0, 'other'], ['unknown', 1, 'one'], ['unknown', 2, 'other'],
+] as const)('selects %s plural category for %s', (locale, count, category) => {
+  const t = vi.fn((key: string) => key);
+  expect(plural(t, locale, count, 'taskUi.awaiting')).toBe('taskUi.awaiting.' + category);
+  expect(t).toHaveBeenCalledExactlyOnceWith('taskUi.awaiting.' + category);
+});
+it.each([0, 1, 2])('uses Vietnamese plural labels for %s', (count) => {
+  expect(plural(createI18n('vi').t, 'vi', count, 'taskUi.awaiting')).toBe(extraVi.taskUi.awaiting.other);
+});

@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { Project } from '@factory/contracts';
-import { i18n, useT } from '../i18n';
+import { i18n, plural, useT } from '../i18n';
 import type { Store } from '../state/store';
 import { ProjectChat } from './ProjectChat';
 import { ProjectTasks } from './ProjectTasks';
@@ -26,7 +26,7 @@ export function ProjectView({ store, project }: { store: Store; project: Project
   return <div className="project-view stack">
     <header role="generic" className="projectbar stack"><h1>{project.name}</h1>
       <div role="tablist" aria-label={t('shell.projectTabs')} className="project-tabs">
-        {tabs.map((tab, index) => <button key={tab} ref={(node) => { buttons.current[index] = node; }} type="button" role="tab" id={`${id}-${tab}`} aria-controls={`${id}-panel`} aria-selected={active === index} tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={(event) => navigate(event, index)}>{t(`tabs.${tab}`)}{tab === 'tasks' && proposed > 0 && <> <Badge>{new Intl.NumberFormat(i18n.locale).format(proposed)} {t('taskUi.proposedCount')}</Badge></>}</button>)}
+        {tabs.map((tab, index) => <button key={tab} ref={(node) => { buttons.current[index] = node; }} type="button" role="tab" id={`${id}-${tab}`} aria-controls={`${id}-panel`} aria-selected={active === index} tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={(event) => navigate(event, index)}>{t(`tabs.${tab}`)}{tab === 'tasks' && proposed > 0 && <> <Badge>{new Intl.NumberFormat(i18n.locale).format(proposed)} {plural(t, i18n.locale, proposed, 'taskUi.proposedCount')}</Badge></>}</button>)}
       </div>
     </header>
     <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tabs[active]}`} tabIndex={0}>

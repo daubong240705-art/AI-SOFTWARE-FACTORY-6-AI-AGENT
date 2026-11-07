@@ -39,5 +39,6 @@ export async function shot(page: Page, name: string): Promise<void> {
   if (!/^[a-z0-9-]+$/.test(name)) throw new Error('Screenshot name must be a simple slug.');
   const directory = new URL('./screenshots/', import.meta.url);
   await mkdir(directory, { recursive: true });
-  await page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, directory)), fullPage: true });
+  await page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, directory)), fullPage: true,
+    animations: 'disabled', style: '*, *::before, *::after { transition: none !important; animation: none !important; }' });
 }

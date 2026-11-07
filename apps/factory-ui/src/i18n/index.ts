@@ -5,6 +5,11 @@ import { extra as extraEn } from './extra.en';
 import { extra as extraVi } from './extra.vi';
 
 export type Locale = 'en' | 'vi';
+export function plural(t: (key: string) => string, locale: string, count: number, keyBase: string): string {
+  const activeLocale = locale === 'vi' ? 'vi' : 'en';
+  const category = new Intl.PluralRules(activeLocale).select(count);
+  return t(`${keyBase}.${category === 'one' ? 'one' : 'other'}`);
+}
 export type Theme = 'light' | 'dark' | 'system';
 export const PREFERENCES_KEY = 'factory-ui.preferences.v1';
 type Preferences = { locale: Locale; theme: Theme };

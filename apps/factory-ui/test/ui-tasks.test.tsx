@@ -33,16 +33,16 @@ it('sorts task rows by code', async () => {
 it.each([
   ['draft', 'waiting'], ['active', 'waiting'], ['failed', 'blocked'], ['awaiting-go', 'needs approval'], ['in-review', 'needs approval'], ['done', 'completed'], ['cancelled', 'closed'], ['declined', 'closed'], ['superseded', 'closed'],
 ] as const)('projects lifecycle %s to %s with no live attempt', async (state, label) => {
-  await tasks([makeTask({ state })]); const row = screen.getByRole('listitem'); expect(within(row).getByText(label)).toBeTruthy(); expect(within(row).getByText(state)).toBeTruthy();
+  await tasks([makeTask({ state })]); const row = screen.getByRole('listitem'); expect(within(row).getByText(label.charAt(0).toUpperCase() + label.slice(1))).toBeTruthy(); expect(within(row).getByText(en.taskUi.lifecycle[state])).toBeTruthy();
 });
 it('projects actionable holds as blocked', async () => {
-  await tasks([makeTask({ holds: [{ kind: 'budget', reason: 'Limit', ref: null, since: '2026-11-07T00:00:00.000Z', needsAction: true }] })]); expect(screen.getByText('blocked')).toBeTruthy();
+  await tasks([makeTask({ holds: [{ kind: 'budget', reason: 'Limit', ref: null, since: '2026-11-07T00:00:00.000Z', needsAction: true }] })]); expect(screen.getByText('Blocked')).toBeTruthy();
 });
 it('shows required capability chips', async () => { await tasks([makeTask({ requiredCapabilities: ['runtime.node', 'runtime.browser'] })]); expect(screen.getByText('runtime.node').className).toContain('badge'); expect(screen.getByText('runtime.browser')).toBeTruthy(); });
 it('shows owner seat name', async () => { await tasks([makeTask({ ownerSeatId: id })]); expect(screen.getByText('Owner: Lead')).toBeTruthy(); });
 it('shows a dash when unassigned', async () => { await tasks(); expect(screen.getByText('Owner: —')).toBeTruthy(); });
 it('labels proposed tasks without inventing an author', async () => {
-  await tasks(); expect(within(screen.getByRole('listitem')).getByText('Proposed')).toBeTruthy(); expect(screen.queryByText('Proposed by Lead')).toBeNull(); expect(document.querySelector('.task-proposed')).toBeTruthy();
+  await tasks(); const row = screen.getByRole('listitem'); expect(within(row).getAllByText('Proposed')).toHaveLength(1); expect(within(row).getAllByText('Waiting')).toHaveLength(1); expect(within(row).queryByText('proposed')).toBeNull(); expect(row.querySelectorAll('.task-summary > .badge, .task-summary > .muted')).toHaveLength(2); expect(screen.queryByText('Proposed by Lead')).toBeNull(); expect(document.querySelector('.task-proposed')).toBeTruthy();
 });
 it('reveals goal, acceptance, dependencies and policies through a disclosure', async () => {
   await tasks([makeTask({ acceptance: ['Works', 'Verified'], dependsOn: [otherId] }), makeTask({ id: otherId, code: 'TSK-002', title: 'Dependency' })]); const button = screen.getByRole('button', { name: 'Details UI-001' }); expect(button.getAttribute('aria-expanded')).toBe('false'); expect(screen.queryByText('Build core')).toBeNull(); fireEvent.click(button);
@@ -83,7 +83,14 @@ it('All filter restores every task', async () => { await tasks([makeTask(), make
 it('distinguishes an empty project from an empty filter result', async () => {
   const { api, store } = await tasks([]); expect(screen.getByText('No tasks yet.')).toBeTruthy(); api.listTasks.mockResolvedValue({ ...envelope, items: [makeTask()] }); await act(async () => { await store.loadTasks(); }); fireEvent.change(screen.getByLabelText('Status filter'), { target: { value: 'done' } }); expect(screen.getByText('No tasks match this filter.')).toBeTruthy();
 });
-it('shows a proposed review count at the top', async () => { await tasks([makeTask(), makeTask({ id: otherId, code: 'TSK-002' })]); expect(screen.getByText('2 proposed tasks awaiting your review')).toBeTruthy(); });
+it.each([0, 1, 2])('shows correct header and tab wording for %s proposed tasks', async (count) => {
+  const items = Array.from({ length: count }, (_, index) => makeTask({ id: index ? otherId : id, code: `TSK-00${index + 1}` }));
+  const { store, unmount } = await tasks(items);
+  expect(screen.getByText(`${count} proposed ${count === 1 ? 'task' : 'tasks'} awaiting your review`)).toBeTruthy();
+  unmount(); render(<ProjectView store={store} project={projectSchema.parse(project)} />);
+  const tab = screen.getByRole('tab', { name: count ? `Tasks ${count} proposed` : 'Tasks' });
+  expect(tab.querySelector('.badge')?.textContent ?? null).toBe(count ? `${count} proposed` : null);
+});
 it('shows the proposed count in the Tasks tab with accessible text', async () => {
   const { store, unmount } = await tasks([makeTask(), makeTask({ id: otherId, code: 'TSK-002' }), makeTask({ id: crypto.randomUUID(), code: 'TSK-003' })]); unmount(); render(<ProjectView store={store} project={projectSchema.parse(project)} />); expect(screen.getByRole('tab', { name: 'Tasks 3 proposed' })).toBeTruthy();
 });
@@ -118,7 +125,7 @@ it('reloads after a code conflict and retries with a fresh code and commandId', 
   await waitFor(() => expect(screen.getByText('Code: TSK-002')).toBeTruthy()); expect(load).toHaveBeenCalledOnce(); const original = api.sendCommand.mock.calls[0]?.[0]; expect(original.payload.code).toBe('TSK-001'); fireEvent.click(screen.getByRole('button', { name: 'Retry as new' })); await waitFor(() => expect(api.sendCommand).toHaveBeenCalledTimes(2)); const next = api.sendCommand.mock.calls[1]?.[0]; expect(next.payload.code).toBe('TSK-002'); expect(next.commandId).not.toBe(original.commandId); expect(next.payload.taskId).not.toBe(original.payload.taskId); expect(retry).not.toHaveBeenCalled(); await act(async () => {});
 });
 it('renders tasks and expanded details in Vietnamese without missing strings', async () => {
-  await tasks(); const warn = vi.spyOn(console, 'warn'); act(() => i18n.setLocale('vi')); fireEvent.click(screen.getByRole('button', { name: 'Chi tiết UI-001' })); fireEvent.click(screen.getByRole('button', { name: 'Công việc mới' })); expect(screen.getByLabelText('Tiêu đề')).toBeTruthy(); expect(screen.getByText('đang chờ')).toBeTruthy(); expect(warn).not.toHaveBeenCalled();
+  await tasks(); const warn = vi.spyOn(console, 'warn'); act(() => i18n.setLocale('vi')); fireEvent.click(screen.getByRole('button', { name: 'Chi tiết UI-001' })); fireEvent.click(screen.getByRole('button', { name: 'Công việc mới' })); expect(screen.getByLabelText('Tiêu đề')).toBeTruthy(); expect(screen.getByText(vietnamese.taskUi.display.waiting)).toBeTruthy(); expect(warn).not.toHaveBeenCalled();
 });
 function flatten(value: unknown, prefix = ''): Record<string, string> {
   if (typeof value === 'string') return { [prefix]: value };

@@ -166,7 +166,7 @@ test.describe.serial('real Host and built Factory UI', () => {
     await shot(page, 'tasks-proposed-dark');
     await page.getByLabel('Theme', { exact: true }).selectOption({ label: 'Light' });
     await task.getByRole('button', { name: 'Accept', exact: true }).click();
-    await expect(task.getByText('accepted', { exact: true })).toBeVisible();
+    await expect(task.getByText('Accepted', { exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Tasks', exact: true })).toBeVisible();
     await page.getByLabel('Status filter', { exact: true }).selectOption({ label: 'Accepted' });
     await expect(task).toHaveCount(1);
@@ -179,13 +179,13 @@ test.describe.serial('real Host and built Factory UI', () => {
       await task.getByRole('button', { name: action, exact: true }).click();
       const confirmation = task.getByRole('group', { name: 'Confirm task action', exact: true });
       await expect(confirmation).toBeVisible();
-      await expect(task.getByText('proposed', { exact: true })).toBeVisible();
+      await expect(task.getByText('Proposed', { exact: true })).toBeVisible();
       await confirmation.getByRole('button', { name: 'Keep task', exact: true }).click();
       await expect(confirmation).toHaveCount(0);
       await expect(task.getByRole('button', { name: 'Accept', exact: true })).toBeEnabled();
       await task.getByRole('button', { name: action, exact: true }).click();
       await confirmation.getByRole('button', { name: `Confirm ${action.toLowerCase()}`, exact: true }).click();
-      await expect(task.getByText(action === 'Decline' ? 'declined' : 'cancelled', { exact: true })).toBeVisible();
+      await expect(task.getByText(action === 'Decline' ? 'Declined' : 'Cancelled', { exact: true })).toBeVisible();
     }
   });
 
@@ -230,7 +230,17 @@ test.describe.serial('real Host and built Factory UI', () => {
       await expect(toggle).toHaveAttribute('aria-expanded', 'false');
       await expect(page.getByRole('navigation')).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-      await shot(page, 'mobile-light');
+      for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 640 }]) {
+        await page.setViewportSize(viewport);
+        for (const label of ['Theme', 'Language']) {
+          const select = page.getByRole('combobox', { name: label, exact: true });
+          await expect(select).toBeVisible();
+          expect(await select.evaluate((element) => element.scrollWidth <= element.clientWidth && element.clientWidth >= 90)).toBe(true);
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+        await shot(page, viewport.width === 390 ? 'mobile-light' : 'mobile-narrow-light');
+      }
+      await page.setViewportSize({ width: 390, height: 844 });
       await toggle.click();
       await expect(toggle).toHaveAttribute('aria-expanded', 'true');
       await expect(page.getByRole('navigation')).toBeVisible();
