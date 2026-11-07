@@ -200,6 +200,8 @@ Nguồn: contracts 0.2.0 (commit `b9f541b`, nhánh `feature/m0-contracts-v2`).
 | PD-3 | Giao diện **mặc định tiếng Anh**; tiếng Việt bổ sung sau. Mọi chuỗi giao diện đi qua một lớp thông điệp (i18n) ngay từ đầu | Đã duyệt | M2 |
 | PD-4 | **Không chạy song song** V1 và bản mới. So sánh tương đương bằng lịch sử V1 và bộ test của dự án thử | Đã duyệt | M2 |
 | ENV-1 | Môi trường người dùng đã chuẩn bị, đã kiểm tra: user `factory-agent` (nhóm `factory`), `/srv/factory/workspaces` (setgid, nhóm `factory`), bubblewrap 0.9.0, `D:\factory-backup`. **Chưa có**: JDK 21 trong WSL (cần để `factory-agent` chạy `gradlew test` của BTL-LTM); `.wslconfig` (tùy chọn) | Đã kiểm | M1 |
+| PD-6 | **Fastify 5.12.7 được duyệt** làm web framework của Host (MIT). Chỉ một dependency web: không dùng plugin cookie/CSRF/CORS; cookie, phiên, CSRF viết tay bằng `node:crypto` và có test. `zod` 4.6.7 khai báo trực tiếp ở Host (cùng phiên bản contracts đã ghim) | Đã duyệt | M1 |
+| PD-7 | **Phát triển bằng Codex qua Skill `codex-routing`**: lead (Claude) viết đặc tả, giao việc, review diff, tự chạy test và đột biến rồi mới commit. Người dùng cho phép chạy tự động theo kế hoạch, dừng khi cần xác nhận. Việc gắn cờ Critical vẫn phải có phê duyệt rõ ràng của người dùng cho từng lần gọi | Đã duyệt | Liên tục |
 
 ---
 
@@ -235,3 +237,4 @@ Dùng checklist ở [oss-options §2.5](oss-options.md).
 | 07/11/2026 | Người dùng duyệt toàn bộ khuyến nghị của Architecture Review (07): RM-01..RM-05, OSS-13 **Đã duyệt**; thêm §3E (AP-R1..R16, AP-11); RM-02 và RM-05 đổi sang MVP-lite và R0 + M0-lite |
 | 07/11/2026 | Kết thúc M0-lite: thêm §3F (AP-3 Đã duyệt, PD-1..PD-4, ENV-1); PD-2 còn chờ xác nhận |
 | 07/11/2026 | Người dùng duyệt PD-2 (mức chỉnh được) và thêm PD-5 (chuyển sang model DeepSeek/Antigravity khi chi phí lớn, hệ thống tự quyết định trong tập đã duyệt); bắt đầu M1 |
+| 07/11/2026 | Duyệt Fastify (PD-6) và phát triển tự động bằng Codex (PD-7); hoàn tất mô-đun events và lớp bảo mật API của M1 |
