@@ -185,6 +185,9 @@ export function createStore(options: StoreOptions = {}) {
       anonymous();
     },
     loadProjects: () => loadProjects(),
+    loadConversations: () => loadArea('conversations'),
+    loadTasks: () => loadArea('tasks'),
+    loadBudget: () => loadArea('budget'),
     async selectProject(id: string) {
       stop(); const scope = generation;
       update({ selectedProjectId: id, ...projectState(), errors: {}, loading: {}, pending: {} });

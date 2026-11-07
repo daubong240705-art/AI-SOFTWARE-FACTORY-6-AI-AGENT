@@ -1,6 +1,31 @@
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  chatUi: {
+    start: 'Bắt đầu trò chuyện với trưởng nhóm', noLead: 'Đội ngũ này chưa được phân công vị trí trưởng nhóm.',
+    budget: 'NGÂN SÁCH TOKEN', tokens: 'token', budgetLoading: 'Chưa có thông tin ngân sách token.',
+    verdict: { ok: 'Trong giới hạn', warn: 'Sắp đạt giới hạn', exceeded: 'Đã đạt giới hạn' },
+    messages: 'Tin nhắn hội thoại', speakers: { user: 'Bạn', agent: 'Trưởng nhóm', system: 'Hệ thống' },
+    jump: 'Đến tin nhắn mới nhất', working: 'Trưởng nhóm đang xử lý…', resend: 'Bạn có thể gửi lại tin nhắn.', blocked: 'Đã đạt giới hạn ngân sách hôm nay.',
+    message: 'Tin nhắn', characters: 'ký tự', tooLong: 'Tin nhắn không được vượt quá 32.000 ký tự.',
+    intent: 'Mục đích', discuss: 'Thảo luận', delegate: 'Giao việc: để trưởng nhóm đề xuất công việc',
+    intentHelp: 'Thảo luận ý tưởng hoặc giao việc để trưởng nhóm đề xuất công việc cho bạn xét duyệt.', send: 'Gửi',
+  },
+  taskUi: {
+    awaiting: 'công việc đề xuất đang chờ bạn xét duyệt', proposed: 'Đề xuất', proposedCount: 'đề xuất',
+    filter: 'Lọc trạng thái', filters: { all: 'Tất cả', proposed: 'Đề xuất', accepted: 'Đã chấp nhận', done: 'Hoàn thành', closed: 'Đã đóng' },
+    noMatches: 'Không có công việc phù hợp với bộ lọc.', new: 'Công việc mới', create: 'Tạo công việc', code: 'Mã', title: 'Tiêu đề',
+    goal: 'Mục tiêu', acceptance: 'Tiêu chí nghiệm thu', acceptanceHelp: 'Mỗi dòng một tiêu chí; từ 1–30 tiêu chí, mỗi tiêu chí tối đa 500 ký tự.',
+    owner: 'Người phụ trách', dash: '—', details: 'Chi tiết', dependencies: 'Công việc phụ thuộc', placement: 'Phạm vi thực thi', sideEffect: 'Tác động', reviewPolicy: 'Chính sách xét duyệt',
+    display: { waiting: 'đang chờ', running: 'đang chạy', blocked: 'bị chặn', 'approval-required': 'cần phê duyệt', completed: 'đã hoàn thành', closed: 'đã đóng' },
+    actions: { proposed: 'Đề xuất', accepted: 'Chấp nhận', declined: 'Từ chối', cancelled: 'Hủy' },
+    confirmation: 'Xác nhận thao tác công việc', confirm: { declined: 'Từ chối công việc này?', cancelled: 'Hủy công việc này?' },
+    confirmActions: { declined: 'Xác nhận từ chối', cancelled: 'Xác nhận hủy' }, keep: 'Giữ công việc', retryNew: 'Thử lại bằng lệnh mới',
+    validation: { title: 'Nhập tiêu đề từ 1 đến 160 ký tự.', goal: 'Nhập mục tiêu từ 1 đến 500 ký tự.', acceptance: 'Nhập từ 1–30 tiêu chí nghiệm thu, mỗi tiêu chí từ 1 đến 500 ký tự.' },
+    placements: { portable: 'Linh hoạt', 'repo-bound': 'Gắn với kho mã', 'node-bound': 'Gắn với nút', 'session-bound': 'Gắn với phiên' },
+    sideEffects: { none: 'Không có', artifact: 'Tạo sản phẩm', 'external-idempotent': 'Tác động bên ngoài, có thể lặp lại', 'external-irreversible': 'Tác động bên ngoài, không thể hoàn tác' },
+    reviewPolicies: { 'human-final': 'Con người xét duyệt cuối cùng', automatic: 'Tự động', hybrid: 'Kết hợp' },
+  },
   auth: { signIn: 'Đăng nhập', signOut: 'Đăng xuất', token: 'Mã khởi tạo', required: 'Đăng nhập để tiếp tục.', explanation: 'Mã khởi tạo dùng một lần được Host in ra khi khởi động.' },
   projects: { create: 'Tạo dự án', name: 'Tên dự án', root: 'Đường dẫn làm việc', empty: 'Chưa có dự án.', rootPlaceholder: '/srv/factory/workspaces/my-project' },
   tasks: { plan: 'Kế hoạch', proposed: 'Công việc đề xuất', accept: 'Chấp nhận công việc', decline: 'Từ chối công việc', empty: 'Chưa có công việc.' },

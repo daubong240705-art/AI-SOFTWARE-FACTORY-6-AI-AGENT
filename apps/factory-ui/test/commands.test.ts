@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { commandSchema, idSchema } from '@factory/contracts';
-import { budgetsSet, chatSend, conversationsCreate, projectsCreate, tasksTransition } from '../src/api/commands';
+import { budgetsSet, chatSend, conversationsCreate, projectsCreate, tasksTransition, tasksCreate, nextTaskCode } from '../src/api/commands';
 import { id } from './fixtures';
 const builders = [
   () => projectsCreate({ name: 'Demo', root: '/work' }),
@@ -26,4 +26,30 @@ it('conversation maps seat to the Host agent identity', () => {
 });
 it('invalid builder input is rejected before returning', () => {
   expect(() => projectsCreate({ name: '', root: 'C:\\work' })).toThrow();
+});
+it.each([
+  [[], 'TSK-001'],
+  [['TSK-001', 'TSK-003'], 'TSK-004'],
+  [['UI-999', 'TSK-002'], 'TSK-003'],
+  [['TSK-999'], 'TSK-1000'],
+  [['TSK-1000', 'TSK-999'], 'TSK-1001'],
+  [['UI-001', 'TSK-invalid'], 'TSK-001'],
+] as const)('generates next code from %j', (codes, expected) => {
+  expect(nextTaskCode(codes.map((code) => ({ code })))).toBe(expected);
+});
+it('supports a custom task code prefix', () => {
+  expect(nextTaskCode([{ code: 'UI-011' }, { code: 'TSK-100' }], 'UI')).toBe('UI-012');
+});
+it('creates a valid task with conservative contract defaults', () => {
+  const command = tasksCreate({ projectId: id, code: 'TSK-001', title: 'Task', goal: 'Goal', acceptance: ['Pass'] });
+  expect(commandSchema.safeParse(command).success).toBe(true);
+  expect(command.payload).toMatchObject({ brief: 'Goal', parentTaskId: null, engagementId: null, ownerSeatId: null,
+    inputs: [], dependsOn: [], requiredCapabilities: [], placement: 'node-bound', sideEffect: 'external-irreversible', reviewPolicy: 'human-final', requiresGo: true });
+  expect(idSchema.safeParse(command.payload.taskId).success).toBe(true);
+});
+it('preserves optional brief and required capabilities', () => {
+  expect(tasksCreate({ projectId: id, code: 'TSK-001', title: 'Task', goal: 'Goal', brief: 'Details', acceptance: ['Pass'], requiredCapabilities: ['runtime.node'] }).payload).toMatchObject({ brief: 'Details', requiredCapabilities: ['runtime.node'] });
+});
+it.each([{ title: '' }, { goal: 'x'.repeat(501) }, { code: 'invalid' }, { acceptance: ['x'.repeat(501)] }])('rejects invalid task input %j', (patch) => {
+  expect(() => tasksCreate({ projectId: id, code: 'TSK-001', title: 'Task', goal: 'Goal', acceptance: ['Pass'], ...patch })).toThrow();
 });

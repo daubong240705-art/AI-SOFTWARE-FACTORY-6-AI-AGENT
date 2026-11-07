@@ -19,6 +19,25 @@ export function chatSend({ projectId, conversationId, conversationRevision, text
 export function tasksTransition({ projectId, ...payload }: Of<'tasks.transition'>['payload'] & { projectId: string }) {
   return build('tasks.transition', projectId, payload);
 }
+export function tasksCreate({ projectId, code, title, goal, brief = goal, acceptance, requiredCapabilities = [] }: {
+  projectId: string; code: string; title: string; goal: string; brief?: string;
+  acceptance: string[]; requiredCapabilities?: string[];
+}) {
+  return build('tasks.create', projectId, { taskId: crypto.randomUUID(), code, title, goal, brief,
+    parentTaskId: null, engagementId: null, ownerSeatId: null, inputs: [], dependsOn: [],
+    acceptance, requiredCapabilities, placement: 'node-bound', sideEffect: 'external-irreversible',
+    reviewPolicy: 'human-final', requiresGo: true });
+}
+
+export function nextTaskCode(tasks: readonly { code: string }[], prefix = 'TSK'): string {
+  let largest = 0;
+  for (const { code } of tasks) {
+    if (!code.startsWith(`${prefix}-`)) continue;
+    const suffix = code.slice(prefix.length + 1);
+    if (/^\d+$/.test(suffix)) largest = Math.max(largest, Number(suffix));
+  }
+  return `${prefix}-${String(largest + 1).padStart(3, '0')}`;
+}
 export function budgetsSet({ projectId, ...payload }: Of<'budgets.set'>['payload'] & { projectId: string }) {
   return build('budgets.set', projectId, payload);
 }

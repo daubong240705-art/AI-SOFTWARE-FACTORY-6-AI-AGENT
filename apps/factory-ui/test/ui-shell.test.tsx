@@ -8,7 +8,8 @@ import { AppShell } from '../src/screens/AppShell';
 import { CreateProject } from '../src/screens/CreateProject';
 import { ProjectView } from '../src/screens/ProjectView';
 import { TeamPanel } from '../src/screens/TeamPanel';
-import { ProjectChatPlaceholder, ProjectTasksPlaceholder } from '../src/screens/placeholders';
+import { ProjectChat } from '../src/screens/ProjectChat';
+import { ProjectTasks } from '../src/screens/ProjectTasks';
 import { ApiClientError } from '../src/api/client';
 import { applyTheme, getPreferences, i18n, PREFERENCES_KEY } from '../src/i18n';
 import { extra as en } from '../src/i18n/extra.en';
@@ -241,10 +242,10 @@ it('successful create closes, reloads projects and selects new project', async (
   fillProject(); clickCreate(); await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(api.listProjects).toHaveBeenCalledTimes(2); expect(select).toHaveBeenCalledWith(api.sendCommand.mock.calls[0]?.[0].projectId); expect(screen.getByRole('heading', { name: 'New project' })).toBeTruthy();
 });
-it('tabs expose correct roles, selection and placeholder cards', async () => {
+it('tabs expose correct roles, selection and screen cards', async () => {
   await shell(); expect(screen.getByRole('tablist', { name: 'Project views' })).toBeTruthy(); const chat = screen.getByRole('tab', { name: 'Chat' });
   expect(chat.getAttribute('aria-selected')).toBe('true'); expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(chat.id);
-  expect(within(screen.getByRole('tabpanel')).getByText('Coming in the next step')).toBeTruthy(); fireEvent.click(screen.getByRole('tab', { name: 'Tasks' }));
+  expect(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Start chat with Lead' })).toBeTruthy(); fireEvent.click(screen.getByRole('tab', { name: 'Tasks' }));
   expect(screen.getByRole('tab', { name: 'Tasks' }).getAttribute('aria-selected')).toBe('true'); expect(within(screen.getByRole('tabpanel')).getByRole('heading', { name: 'Tasks' })).toBeTruthy();
 });
 it('arrow keys move tab focus and selection with wrapping', async () => {
@@ -288,10 +289,10 @@ it('all extra English and Vietnamese keys match and all values are non-empty', (
   const english = leaves(en); const vietnamese = leaves(viLabels); expect(Object.keys(english).sort()).toEqual(Object.keys(vietnamese).sort());
   for (const value of [...Object.values(english), ...Object.values(vietnamese)]) expect(value.trim().length).toBeGreaterThan(0);
 });
-it.each(['App', 'SignIn', 'AppShell', 'CreateProject', 'ProjectView', 'TeamPanel', 'ChatPlaceholder', 'TasksPlaceholder'])('renders %s in Vietnamese without missing labels or exceptions', async (name) => {
+it.each(['App', 'SignIn', 'AppShell', 'CreateProject', 'ProjectView', 'TeamPanel', 'ProjectChat', 'ProjectTasks'])('renders %s in Vietnamese without missing labels or exceptions', async (name) => {
   const { store } = await authenticated(); await store.loadProjects(); await store.selectProject(id); act(() => i18n.setLocale('vi'));
   const warn = vi.spyOn(console, 'warn');
-  const screens = { App: <App store={store} />, SignIn: <SignIn store={store} />, AppShell: <AppShell store={store} />, CreateProject: <CreateProject store={store} onClose={() => {}} />, ProjectView: <ProjectView store={store} project={projectSchema.parse(project)} />, TeamPanel: <TeamPanel store={store} />, ChatPlaceholder: <ProjectChatPlaceholder />, TasksPlaceholder: <ProjectTasksPlaceholder /> };
+  const screens = { App: <App store={store} />, SignIn: <SignIn store={store} />, AppShell: <AppShell store={store} />, CreateProject: <CreateProject store={store} onClose={() => {}} />, ProjectView: <ProjectView store={store} project={projectSchema.parse(project)} />, TeamPanel: <TeamPanel store={store} />, ProjectChat: <ProjectChat store={store} projectId={id} />, ProjectTasks: <ProjectTasks store={store} projectId={id} /> };
   render(screens[name as keyof typeof screens]); await act(async () => { await Promise.resolve(); }); expect(warn).not.toHaveBeenCalled(); expect(document.body.textContent?.trim()).toBeTruthy();
 });
 function checkNamesAndIds() {

@@ -44,6 +44,42 @@ button, input, select { min-width: 0; }
 .dialog { width: 100%; max-width: var(--size-chat-expanded); max-height: calc(100dvh - var(--space-xl) * 2); overflow-y: auto; box-shadow: 0 var(--space-sm) var(--space-xl) var(--color-shadow); }
 .dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.project-chat, .project-tasks, .task-row { min-width: 0; }
+.chat-heading, .tasks-heading, .task-summary, .task-meta, .message-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+.budget { display: grid; gap: var(--space-xs); font-size: var(--type-meta-size); }
+.budget meter { width: 100%; accent-color: var(--color-success); }
+.budget-ok strong { color: var(--color-success); }
+.budget-warn strong { color: var(--color-working); }
+.budget-warn meter { accent-color: var(--color-working); }
+.budget-exceeded strong { color: var(--color-danger); }
+.budget-exceeded meter { accent-color: var(--color-danger); }
+.chat-log { min-height: var(--size-control-large); max-height: var(--size-chat); overflow-y: auto; overscroll-behavior: contain; padding: var(--space-sm); border: 1px solid var(--color-border); border-radius: var(--radius-control); }
+.chat-bubble { flex-shrink: 0; max-width: 90%; padding: var(--space-md); background: var(--color-raised); border: 1px solid var(--color-border); border-radius: var(--radius-panel); overflow-wrap: anywhere; font: var(--type-chat-weight) var(--type-chat-size) / var(--type-chat-line-height) var(--font-body); }
+.speaker-user { align-self: flex-end; background: var(--color-accent); color: var(--color-on-accent); }
+.speaker-agent { align-self: flex-start; }
+.speaker-system { align-self: stretch; max-width: 100%; border-style: dashed; }
+.message-meta { justify-content: flex-start; gap: var(--space-lg); font: var(--type-meta-weight) var(--type-meta-size) / var(--type-meta-line-height) var(--font-body); margin-bottom: var(--space-sm); }
+.plain-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.field textarea { width: 100%; min-width: 0; min-height: var(--size-control); resize: vertical; padding: var(--space-sm); background: var(--color-canvas); color: var(--color-text); border: 1px solid var(--color-control-border); border-radius: var(--radius-control); font: inherit; }
+.intent-control { margin: 0; padding: var(--space-md); border: 1px solid var(--color-border); border-radius: var(--radius-control); display: flex; flex-direction: column; gap: var(--space-sm); }
+.intent-control label { display: flex; align-items: center; gap: var(--space-sm); min-height: var(--size-control); }
+.intent-control input { accent-color: var(--color-status-accent); }
+.composer-actions, .task-actions, .confirmation-row, .capability-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+.composer-actions { justify-content: flex-end; }
+.task-list { margin: 0; padding: 0; list-style: none; }
+.task-summary { justify-content: flex-start; }
+.task-summary h3 { flex: 1; min-width: var(--size-board-column-min); }
+.task-code { font: var(--type-code-weight) var(--type-code-size) / var(--type-code-line-height) var(--font-mono); }
+.task-proposed { border-color: var(--color-status-accent); }
+.task-details h4 { margin: 0; font-size: var(--type-body-size); }
+.task-details ul { margin: 0; padding-left: var(--space-xl); }
+.status-blocked { color: var(--color-danger); background: var(--color-danger-surface); }
+.status-approval-required, .status-running { color: var(--color-working); background: var(--color-warning-surface); }
+.status-completed { color: var(--color-success); background: var(--color-success-surface); }
+.confirmation-row { padding: var(--space-md); background: var(--color-warning-surface); border-radius: var(--radius-control); }
+.task-filter { max-width: var(--size-chat); }
+.task-filter select { min-height: var(--size-control); }
+.project-tabs .badge { margin-left: var(--space-xs); }
 [hidden] { display: none !important; }
 /* Breakpoints from design tokens; custom properties are unavailable in media conditions. */
 @media (min-width: 1440px) { .seat-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -53,6 +89,10 @@ button, input, select { min-width: 0; }
   .content { padding: var(--size-gutter-compact); }
 }
 @media (max-width: 767px) {
+  .chat-bubble { max-width: 100%; }
+  .chat-heading, .tasks-heading { align-items: stretch; flex-direction: column; }
+  .task-summary h3 { min-width: 0; flex-basis: 100%; }
+  .task-actions > button, .confirmation-row > button { flex: 1; }
   .topbar { padding: var(--space-sm) var(--size-gutter-compact); gap: var(--space-md); }
   .preferences { width: 100%; }
   .preferences select { flex: 1; }

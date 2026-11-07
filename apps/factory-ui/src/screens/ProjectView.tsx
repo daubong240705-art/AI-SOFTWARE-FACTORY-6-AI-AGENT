@@ -1,14 +1,16 @@
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { Project } from '@factory/contracts';
-import { useT } from '../i18n';
+import { i18n, useT } from '../i18n';
 import type { Store } from '../state/store';
-import { ProjectChatPlaceholder } from './placeholders';
-import { ProjectTasksPlaceholder } from './placeholders';
+import { ProjectChat } from './ProjectChat';
+import { ProjectTasks } from './ProjectTasks';
+import { Badge } from '../components/Badge';
 import { TeamPanel } from './TeamPanel';
 
 const tabs = ['chat', 'tasks', 'team'] as const;
 export function ProjectView({ store, project }: { store: Store; project: Project }) {
   const t = useT();
+  const proposed = store.useStoreSelector((state) => state.tasks.filter((task) => task.state === 'proposed').length);
   const [active, setActive] = useState(0);
   const id = useId();
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
@@ -24,11 +26,11 @@ export function ProjectView({ store, project }: { store: Store; project: Project
   return <div className="project-view stack">
     <header role="generic" className="projectbar stack"><h1>{project.name}</h1>
       <div role="tablist" aria-label={t('shell.projectTabs')} className="project-tabs">
-        {tabs.map((tab, index) => <button key={tab} ref={(node) => { buttons.current[index] = node; }} type="button" role="tab" id={`${id}-${tab}`} aria-controls={`${id}-panel`} aria-selected={active === index} tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={(event) => navigate(event, index)}>{t(`tabs.${tab}`)}</button>)}
+        {tabs.map((tab, index) => <button key={tab} ref={(node) => { buttons.current[index] = node; }} type="button" role="tab" id={`${id}-${tab}`} aria-controls={`${id}-panel`} aria-selected={active === index} tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={(event) => navigate(event, index)}>{t(`tabs.${tab}`)}{tab === 'tasks' && proposed > 0 && <> <Badge>{new Intl.NumberFormat(i18n.locale).format(proposed)} {t('taskUi.proposedCount')}</Badge></>}</button>)}
       </div>
     </header>
     <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tabs[active]}`} tabIndex={0}>
-      {active === 0 ? <ProjectChatPlaceholder /> : active === 1 ? <ProjectTasksPlaceholder /> : <TeamPanel store={store} />}
+      {active === 0 ? <ProjectChat store={store} projectId={project.id} /> : active === 1 ? <ProjectTasks store={store} projectId={project.id} /> : <TeamPanel store={store} />}
     </div>
   </div>;
 }
