@@ -421,7 +421,8 @@ test("dispatcher registers results before requesting review within the outcome t
 
 for (const kind of ["question", "start-gate"]) test(`decide supports ${kind} without review application`, (t) => {
   const f = fixture(t); const p = prepared(f); f.raw.prepare("UPDATE approvals SET kind=? WHERE id=?").run(kind, p.approvalId);
-  ok(f.decide(p.approvalId)); const a = approvalSchema.parse(f.view(p.approvalId)); assert.equal(a.state, "approved"); assert.equal(a.appliedByCommandId, null);
+  ok(f.decide(p.approvalId)); const a = approvalSchema.parse(f.view(p.approvalId)); assert.equal(a.state, kind === "question" ? "applied" : "approved");
+  assert.equal(a.appliedByCommandId !== null, kind === "question");
   assert.equal(getTask(f.raw, f.projectId, p.taskId).state, "in-review");
 });
 

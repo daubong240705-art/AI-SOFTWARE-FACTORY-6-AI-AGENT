@@ -5,14 +5,15 @@ import type { TokenGrant } from "../proxy/tokens.js";
 import { assertInside, canonicalPath } from "../workspace/paths.js";
 
 export class McpToolError extends Error {
-  constructor(readonly reason: "attempt is not active" | "tool limit reached" | "output could not be registered") {
+  constructor(readonly reason: "attempt is not active" | "tool limit reached" | "output could not be registered" | "a decision is already pending" | "invalid tool input") {
     super(reason);
   }
 }
 
-export function assertActiveGrant(raw: Database, grant: TokenGrant): void {
+export function assertActiveGrant(raw: Database, grant: Pick<TokenGrant, "projectId" | "taskId" | "attemptId" | "epoch">, now?: Date): void {
   if (!raw.prepare(`SELECT 1 FROM attempts WHERE project_id = ? AND task_id = ? AND id = ? AND epoch = ?
-    AND state IN ('running', 'waiting-input')`).get(grant.projectId, grant.taskId, grant.attemptId, grant.epoch))
+    AND state = 'running' AND lease_id IS NOT NULL AND (? IS NULL OR lease_expires_at > ?)`)
+    .get(grant.projectId, grant.taskId, grant.attemptId, grant.epoch, now?.toISOString() ?? null, now?.toISOString() ?? null))
     throw new McpToolError("attempt is not active");
 }
 

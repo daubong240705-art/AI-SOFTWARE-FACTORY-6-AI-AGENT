@@ -39,6 +39,7 @@ export interface Dispatcher {
   kick(): void;
   enqueue(input: { projectId: string; taskId: string; seatId: string }): AttemptRecord;
   stopAttempt(projectId: string, attemptId: string): Promise<AttemptRecord>;
+  parkAttempt(ref: { projectId: string; attemptId: string; epoch: number }): Promise<boolean>;
   reconcileAttempt(projectId: string, attemptId: string): AttemptRecord;
   recover(): RecoverSummary;
   idle(): Promise<void>;
@@ -224,14 +225,14 @@ export function createDispatcher(deps: {
         return !stopped && latest.leaseId === a.leaseId && latest.leaseExpiresAt !== null &&
           Date.parse(latest.leaseExpiresAt) > clock().getTime() &&
           ((!entry.controller.signal.aborted && ["preparing", "running"].includes(latest.state)) ||
-            (latest.state === "stopping" && entry.executionEnded === true));
+            (["stopping", "waiting-input"].includes(latest.state) && entry.executionEnded === true));
       };
       try {
         if (!valid()) return;
         let evidence: Awaited<ReturnType<WorkspaceProvider["finish"]>> | undefined;
         const finishing = deps.workspace!.finish({ ...entry.workspace!, attemptId: a.id }).then((value) => { evidence = value; });
         // A stop keeps confirmed partial work; expiry and shutdown detach an unfinished collector.
-        const abandoned = entry.fenced.then(() => current(a.projectId, a.id).state === "stopping" ? shutdown : undefined);
+        const abandoned = entry.fenced.then(() => ["stopping", "waiting-input"].includes(current(a.projectId, a.id).state) ? shutdown : undefined);
         await bounded(Promise.race([finishing, abandoned, shutdown]), config.evidenceTimeoutMs);
         if (valid() && evidence) appendAttemptEvent(raw, {
           projectId: a.projectId, attemptId: a.id, kind: "evidence", body: evidence, at: now(),
@@ -312,6 +313,10 @@ export function createDispatcher(deps: {
         const a = current(preparing.projectId, preparing.id);
         if (isStaleCallback(a, context.ref, clock().getTime())) return;
         if (!item || item.done) {
+          if (raw.prepare("SELECT 1 FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'decision'").get(a.projectId, a.taskId)) {
+            void parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: a.epoch });
+            return;
+          }
           deps.modelAccess?.revoke(a.id);
           entry.executionEnded = true;
           if (entry.workspace) await finishWorkspace(a, entry);
@@ -322,6 +327,12 @@ export function createDispatcher(deps: {
         const event: RuntimeEvent = model && JSON.stringify(item.value).includes(model.token)
           ? { type: "failed", kind: "runtime", message: "runtime failed" } : item.value;
         if (event.type === "completed" || event.type === "failed") {
+          // An agent may finish immediately after receiving the tool response, before the Host's
+          // deferred park fires. The decision owns this completion and keeps the task active.
+          if (raw.prepare("SELECT 1 FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'decision'").get(a.projectId, a.taskId)) {
+            void parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: a.epoch });
+            return;
+          }
           deps.modelAccess?.revoke(a.id);
           entry.executionEnded = true;
           if (entry.workspace) await finishWorkspace(a, entry);
@@ -495,6 +506,48 @@ export function createDispatcher(deps: {
     void promise.finally(() => { stops.delete(key); }).catch(() => undefined);
     return promise;
   };
+  const parkAttempt = (ref: { projectId: string; attemptId: string; epoch: number }): Promise<boolean> => {
+    const original = getAttempt(raw, ref.projectId, ref.attemptId);
+    const key = `${ref.projectId}:${ref.attemptId}`;
+    if (stopped || stops.has(key) || !original || original.state !== "running" || !original.leaseId
+      || isStaleCallback(original, { ...ref, leaseId: original.leaseId }, clock().getTime())) return Promise.resolve(false);
+    // Register the owner before fencing the iterator. A concurrent operator stop joins this same
+    // verified stop, and run's finalizer retains the live entry until evidence is safely recorded.
+    const promise = Promise.resolve().then(async () => {
+      let a = current(ref.projectId, ref.attemptId);
+      a = hub.transaction(() => {
+        const waiting = move(a, "waiting-input");
+        stateEvent(waiting, { to: "waiting-input", reason: "decision" });
+        return waiting;
+      });
+      deps.modelAccess?.revoke(a.id);
+      const entry = live.get(a.id);
+      entry?.controller.abort();
+      entry?.fence();
+      let ended = false;
+      if (entry) ended = await Promise.race([
+        bounded(stopSession(entry)).then(() => true, () => { report(new Error("runtime stop failed or timed out")); return false; }),
+        shutdown.then(() => false),
+      ]);
+      if (stopped) return current(a.projectId, a.id);
+      if (ended && entry) { entry.executionEnded = true; await finishWorkspace(a, entry); }
+      if (stopped) return current(a.projectId, a.id);
+      return hub.transaction(() => {
+        let latest = current(a.projectId, a.id);
+        if (latest.state !== "waiting-input") return latest;
+        if (!ended) latest = move(latest, "stopping");
+        stateEvent(latest, { to: ended ? "parked" : "unknown", reason: "decision" });
+        const final = move(latest, ended ? "parked" : "unknown");
+        if (ended) registerResults(final, "failed", null);
+        markNodeSlots(raw, LOCAL_NODE_ID);
+        kick();
+        return final;
+      });
+    });
+    stops.set(key, promise);
+    void promise.finally(() => { stops.delete(key); }).catch(() => undefined);
+    return promise.then((attempt) => attempt.state === "parked");
+  };
   return {
     start() {
       if (stopped) throw new AttemptError("dispatcher-stopped");
@@ -506,12 +559,12 @@ export function createDispatcher(deps: {
       renewTimer = timers.setInterval(renew, config.leaseRenewMs);
       return result;
     },
-    kick, recover, stopAttempt,
+    kick, recover, stopAttempt, parkAttempt,
     recordAgentProgress(ref, message, percent) {
       if (stopped) return false;
       return hub.transaction(() => {
         const a = getAttempt(raw, ref.projectId, ref.attemptId);
-        if (!a || !a.leaseId || !["running", "waiting-input"].includes(a.state)
+        if (!a || !a.leaseId || a.state !== "running"
           || isStaleCallback(a, { ...ref, leaseId: a.leaseId }, clock().getTime())) return false;
         appendAttemptEvent(raw, { projectId: a.projectId, attemptId: a.id, kind: "progress",
           body: { type: "progress", message: sanitizeAgentText(message), ...(percent === undefined ? {} : { percent }) }, at: now() });

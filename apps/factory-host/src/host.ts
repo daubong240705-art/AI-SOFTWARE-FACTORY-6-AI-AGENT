@@ -30,7 +30,7 @@ import { createWorkspaceProvider, type WorkspaceProvider } from "./dispatch/work
 import { canonicalPath, refuseMount } from "./workspace/paths.js";
 import { SANDBOX_RELAY_PORT } from "./sandbox/index.js";
 import { createContentStore, type ContentStore } from "./artifacts/content-store.js";
-import { approvalsDecideHandler, createApprovalsDecideHandler, expirePendingApprovals, requestTaskReview } from "./approvals/service.js";
+import { approvalsDecideHandler, createApprovalsDecideHandler, expirePendingApprovals, requestAgentDecision, requestTaskReview } from "./approvals/service.js";
 import type { Timers } from "./dispatch/dispatcher.js";
 import { registerAgentOutput, registerAttemptResults } from "./artifacts/service.js";
 import { createMcpHandler } from "./mcp/rpc.js";
@@ -289,6 +289,12 @@ export async function startHost(options: {
       startModelProxy = async () => {
       const dispatcher = dispatch;
       const mcp = dispatcher === null ? undefined : createMcpHandler({
+        requestDecision(grant, request) {
+          const result = requestAgentDecision({ raw, hub, now: clock, newId: resultId }, { grant, request });
+          // The synchronous tool result is serialized before this deferred stop fences its session.
+          setTimeout(() => { void dispatcher.parkAttempt(grant).catch(() => { console.error("Decision parking failed"); }); }, 50).unref();
+          return result;
+        },
         progress(grant, input) {
           assertActiveGrant(raw, grant);
           if (!dispatcher.recordAgentProgress(grant, input.summary, input.percent)) throw new McpToolError("attempt is not active");

@@ -81,6 +81,23 @@ export function createFakeRuntime(options: { stepMs?: number; timers?: FakeTimer
             const readme = assertInside(root, join(root, "README.md"));
             if (fs.existsSync(readme)) fs.appendFileSync(assertInside(root, readme), `\nedited by the fake runtime, epoch ${context.ref.epoch}\n`);
           }
+          if (context.model && goal.includes("[fake:ask]")) {
+            const url = new URL(context.model.baseUrl);
+            url.pathname = "/mcp";
+            const response = await fetch(url, { method: "POST", signal: modelController.signal,
+              headers: { "content-type": "application/json", authorization: `Bearer ${context.model.token}` },
+              body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "decision.request", arguments: {
+                subject: "Choose the scope", summary: "Which scope should this work deliver?",
+                options: [{ id: "small", label: "Small scope", consequence: "Deliver the essential work." },
+                  { id: "full", label: "Full scope", consequence: "Deliver all requested work." }],
+                recommendation: "small", impactIfWaiting: "The work waits for your decision.",
+              } } }),
+            });
+            if (!response.ok) throw new Error("Decision request failed");
+            const data = await response.json() as { result?: { isError?: boolean }; error?: unknown };
+            if (!data.result || data.result.isError || data.error) throw new Error("Decision request failed");
+            await wait(); return;
+          }
           if (goal.includes("[fake:silent]")) { await wait(); return; }
           emit({ type: "progress", message: "Starting" });
           if (goal.includes("[fake:hang]")) { await wait(); return; }

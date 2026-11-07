@@ -8,6 +8,9 @@ import type { Dispatcher } from "../dispatch/dispatcher.js";
 import { moveTaskAndAdvance } from "../dispatch/transitions.js";
 import type { EventHub } from "../events/hub.js";
 import { getTask } from "../work/service.js";
+import { assertActiveGrant, McpToolError, sanitizeAgentText } from "../mcp/security.js";
+import { cleanDecisionRequest, type DecisionRequestInput } from "../mcp/tools.js";
+import { listAttempts, liveAttemptOfTask } from "../dispatch/attempts.js";
 
 interface ApprovalRow {
   project_id: string; id: string; revision: number; kind: Approval["kind"]; task_id: string | null;
@@ -22,19 +25,20 @@ const rowOf = (raw: Database, projectId: string, id: string): ApprovalRow | unde
   raw.prepare(`${columns} WHERE a.project_id = ? AND a.id = ?`).get(projectId, id) as ApprovalRow | undefined;
 const effect = (id: string, revision: number): EntityRef => ({ kind: "approval", id, revision });
 // Review text is untrusted. Public views never expose local absolute paths or control characters.
-export const publicApprovalText = (text: string): string => text.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, " ")
+export const publicApprovalText = (text: string): string => text.replace(/fpx_[A-Za-z0-9_-]+|\bsk-[A-Za-z0-9_-]+/g, "[redacted]")
+  .replace(/[\u0000-\u0008\u000b-\u001f\u007f\p{Cf}]/gu, " ")
   // Only a token that STARTS like a path is masked: "CI/CD", "accept/reject" and URLs stay readable.
   .replace(/(?<![\w./:\\-])(?:[A-Za-z]:[\\/]|\\\\|\/)[^\s<>"')\]},;]*/g, "[path]");
 const view = (row: ApprovalRow): Approval => ({
   id: row.id, projectId: row.project_id, revision: row.revision, kind: row.kind, taskId: row.task_id,
   subject: publicApprovalText(row.subject), summary: publicApprovalText(row.summary),
   options: (JSON.parse(row.options_json) as Approval["options"]).map((option) => ({
-    ...option, label: publicApprovalText(option.label), consequence: publicApprovalText(option.consequence),
-  })), recommendation: row.recommendation, impactIfWaiting: publicApprovalText(row.impact_if_waiting),
+    ...option, id: publicApprovalText(option.id), label: publicApprovalText(option.label), consequence: publicApprovalText(option.consequence),
+  })), recommendation: row.recommendation === null ? null : publicApprovalText(row.recommendation), impactIfWaiting: publicApprovalText(row.impact_if_waiting),
   context: { refs: [], digest: row.context_digest }, approver: row.approver === "team-lead" ? "project-lead" : "operator",
   requestedAt: row.requested_at, expiresAt: row.expires_at, state: row.state,
   outcome: row.outcome_option_id === null ? null : {
-    optionId: row.outcome_option_id, actorId: row.outcome_actor_id!, decidedAt: row.decided_at!, comment: publicApprovalText(row.comment ?? ""),
+    optionId: publicApprovalText(row.outcome_option_id), actorId: row.outcome_actor_id!, decidedAt: row.decided_at!, comment: publicApprovalText(row.comment ?? ""),
   }, appliedByCommandId: row.applied_by_command_id,
 });
 
@@ -71,14 +75,50 @@ const publish = (hub: EventHub | undefined, projectId: string, entity: EntityRef
   if (hub) hub.append({ projectId, causationId: entity.id, payload: { type: "entity.changed", entity } });
 };
 function finishPending(raw: Database, projectId: string, taskId: string, state: "superseded" | "withdrawn"): EntityRef[] {
-  const rows = raw.prepare("SELECT id, revision FROM approvals WHERE project_id = ? AND task_id = ? AND kind = 'review' AND state = 'pending'")
-    .all(projectId, taskId) as { id: string; revision: number }[];
+  const rows = raw.prepare(`SELECT id, revision FROM approvals WHERE project_id = ? AND task_id = ?
+    AND (kind = 'review' OR (? = 'withdrawn' AND kind = 'question')) AND state = 'pending'`)
+    .all(projectId, taskId, state) as { id: string; revision: number }[];
   for (const row of rows) raw.prepare("UPDATE approvals SET state = ?, revision = revision + 1 WHERE project_id = ? AND id = ?")
     .run(state, projectId, row.id);
   return rows.map((row) => effect(row.id, row.revision + 1));
 }
 export function withdrawPendingReviews(raw: Database, projectId: string, taskId: string, _now: Date): EntityRef[] {
-  return finishPending(raw, projectId, taskId, "withdrawn");
+  const effects = finishPending(raw, projectId, taskId, "withdrawn");
+  const deleted = raw.prepare("DELETE FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'decision'").run(projectId, taskId);
+  if (deleted.changes) {
+    raw.prepare("UPDATE tasks SET revision = revision + 1 WHERE project_id = ? AND id = ?").run(projectId, taskId);
+    effects.push({ kind: "task", id: taskId, revision: getTask(raw, projectId, taskId)!.revision });
+  }
+  return effects;
+}
+
+export function requestAgentDecision(deps: { raw: Database; hub?: EventHub; now: () => Date; newId: () => string },
+  input: { grant: { projectId: string; taskId: string; attemptId: string; epoch: number }; request: DecisionRequestInput }): { approvalId: string } {
+  const { raw } = deps;
+  const run = (): { approvalId: string } => {
+    const { projectId, taskId, attemptId } = input.grant;
+    const now = deps.now();
+    assertActiveGrant(raw, input.grant, now);
+    if (raw.prepare("SELECT 1 FROM approvals WHERE project_id = ? AND task_id = ? AND kind = 'question' AND state = 'pending'").get(projectId, taskId)
+      || raw.prepare("SELECT 1 FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'decision'").get(projectId, taskId))
+      throw new McpToolError("a decision is already pending");
+    const request = cleanDecisionRequest(input.request);
+    const id = deps.newId();
+    const digest = createHash("sha256").update(canonicalJson({ taskId, attemptId,
+      subject: request.subject, summary: request.summary, options: request.options })).digest("hex");
+    raw.prepare(`INSERT INTO approvals (project_id,id,revision,kind,task_id,subject,summary,options_json,recommendation,
+      impact_if_waiting,context_digest,approver,requested_at,expires_at,state)
+      VALUES (?,?,1,'question',?,?,?,?,?,?,?,'operator',?,?,'pending')`).run(projectId, id, taskId,
+      request.subject, request.summary, JSON.stringify(request.options), request.recommendation ?? null, request.impactIfWaiting, digest,
+      now.toISOString(), new Date(now.getTime() + 7 * 86400000).toISOString());
+    raw.prepare(`INSERT INTO task_holds (project_id,task_id,kind,reason,ref_kind,ref_id,since,needs_action)
+      VALUES (?,?,'decision',?,'approval',?,?,1)`).run(projectId, taskId, `Waiting for your decision: ${request.subject.trim()}`, id, now.toISOString());
+    raw.prepare("UPDATE tasks SET revision = revision + 1 WHERE project_id = ? AND id = ?").run(projectId, taskId);
+    publish(deps.hub, projectId, effect(id, 1));
+    publish(deps.hub, projectId, { kind: "task", id: taskId, revision: getTask(raw, projectId, taskId)!.revision });
+    return { approvalId: id };
+  };
+  return deps.hub ? deps.hub.transaction(run) : raw.transaction(run).immediate();
 }
 
 export function requestTaskReview(deps: { raw: Database; now: () => Date; newId: () => string; hub?: EventHub },
@@ -134,17 +174,44 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
   const options = JSON.parse(approval.options_json) as Approval["options"];
   if (!options.some((option) => option.id === payload.optionId)) throw new CommandError("validation", "unknown option", "correct-input");
   const task = approval.kind === "review" && approval.task_id ? getTask(raw, projectId, approval.task_id) : null;
+  // A terminal task may still carry a stale hold. Read its identity/state without projecting an
+  // invalid done-with-holds Task, then clear that hold as part of applying the answer.
+  const questionTask = approval.kind === "question" && approval.task_id
+    ? raw.prepare("SELECT id, state FROM tasks WHERE project_id = ? AND id = ?").get(projectId, approval.task_id) as { id: string; state: string } | undefined : undefined;
+  const previous = questionTask ? listAttempts(raw, projectId, questionTask.id).at(-1) : undefined;
+  if (questionTask?.state === "active" && liveAttemptOfTask(raw, projectId, questionTask.id))
+    throw new CommandError("conflict", "attempt is still parking", "refresh");
+  if (questionTask?.state === "active" && !liveAttemptOfTask(raw, projectId, questionTask.id)
+    && (!deps || !previous?.seatId)) throw new CommandError("unsupported", "decision dispatch is unavailable", "contact-host");
   if (approval.kind === "review") {
     if (task?.state !== "in-review") throw new CommandError("conflict", "task is not in review", "refresh");
     if (!deps) throw new CommandError("unsupported", "review dispatch is unavailable", "contact-host");
     if (!["accept", "request-changes"].includes(payload.optionId)) throw new CommandError("validation", "unknown review option", "correct-input");
   }
-  const state = payload.optionId === "request-changes" ? "changes-requested" : payload.optionId === "reject" ? "rejected" : "approved";
+  const state = approval.kind === "question" ? "approved"
+    : payload.optionId === "request-changes" ? "changes-requested" : payload.optionId === "reject" ? "rejected" : "approved";
   raw.prepare(`UPDATE approvals SET state = ?, outcome_option_id = ?, outcome_actor_id = ?, decided_at = ?, revision = revision + 1
     WHERE project_id = ? AND id = ?`).run(state, payload.optionId, ctx.actorId, ctx.clock().toISOString(), projectId, approval.id);
-  raw.prepare("INSERT INTO approval_comments (project_id,approval_id,comment) VALUES (?,?,?)").run(projectId, approval.id, payload.comment);
+  raw.prepare("INSERT INTO approval_comments (project_id,approval_id,comment) VALUES (?,?,?)")
+    .run(projectId, approval.id, approval.kind === "question" ? sanitizeAgentText(payload.comment).slice(0, 32000) : payload.comment);
   const effects: EntityRef[] = [effect(approval.id, approval.revision + 1)];
-  if (task && deps) {
+  if (approval.kind === "question") {
+    const task = questionTask;
+    if (task) {
+      const deleted = raw.prepare("DELETE FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'decision'").run(projectId, task.id);
+      if (deleted.changes) {
+        raw.prepare("UPDATE tasks SET revision = revision + 1 WHERE project_id = ? AND id = ?").run(projectId, task.id);
+        effects.push({ kind: "task", id: task.id, revision: getTask(raw, projectId, task.id)!.revision });
+      }
+      if (task.state === "active" && !liveAttemptOfTask(raw, projectId, task.id) && deps && previous?.seatId) {
+        const attempt = deps.dispatcher.enqueue({ projectId, taskId: task.id, seatId: previous.seatId });
+        effects.push({ kind: "attempt", id: attempt.id, revision: attempt.revision });
+      }
+    }
+    raw.prepare("UPDATE approvals SET state = 'applied', applied_by_command_id = ?, revision = revision + 1 WHERE project_id = ? AND id = ?")
+      .run(command.commandId, projectId, approval.id);
+    effects.push(effect(approval.id, approval.revision + 2));
+  } else if (task && deps) {
     effects.push(...moveTaskAndAdvance(raw, task, payload.optionId === "accept" ? "done" : "active", deps));
     for (const ref of setTaskArtifactStatus(raw, { projectId, taskId: task.id, to: payload.optionId === "accept" ? "approved" : "rejected" }))
       effects.push({ kind: "artifact-version", id: ref.artifactId, revision: ref.version });
@@ -166,6 +233,8 @@ export function expirePendingApprovals(deps: { raw: Database; hub?: EventHub; no
     const rows = deps.raw.prepare("SELECT project_id, id, revision FROM approvals WHERE state = 'pending' AND expires_at <= ? ORDER BY expires_at, id")
       .all(deps.now().toISOString()) as { project_id: string; id: string; revision: number }[];
     for (const row of rows) {
+      // Expiring a question leaves it unanswered and retains its needs-action hold. The operator
+      // must cancel or explicitly retry the task; expiry must never start another execution.
       deps.raw.prepare("UPDATE approvals SET state = 'expired', revision = revision + 1 WHERE project_id = ? AND id = ?").run(row.project_id, row.id);
       publish(deps.hub, row.project_id, effect(row.id, row.revision + 1));
     }

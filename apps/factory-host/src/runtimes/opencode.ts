@@ -46,7 +46,8 @@ function promptFor(context: AttemptContext, maxBytes: number, token: string): st
     "Do not touch files outside the task scope.",
     "Run the project's own tests when they exist.",
     "Finish with a short summary of what changed and what was verified.",
-    "You have two Factory tools: factory_task_progress (call it at meaningful milestones, short summary) and factory_output_register (after you write a deliverable file in the workspace, register it with its workspace-relative path, a title, a kind and a one-sentence abstract). Never include secrets in them.",
+    "Factory tools: factory_task_progress (call it at meaningful milestones, short summary) and factory_output_register (after you write a deliverable file in the workspace, register it with its workspace-relative path, a title, a kind and a one-sentence abstract). Never include secrets in them.",
+    "If a business decision blocks you and you cannot make it yourself, call factory_decision_request with the question and 2-6 options, then stop immediately without further tool calls. The operator will answer and a new session will continue your work.",
   ].join("\n"));
   if (prompt.includes("\0") || Buffer.byteLength(prompt) > maxBytes) return invalid();
   return utf8Prefix(prompt + (context.handoff ? `\nHandoff:\n${redact(context.handoff.replaceAll("\0", ""))}` : ""), maxBytes);

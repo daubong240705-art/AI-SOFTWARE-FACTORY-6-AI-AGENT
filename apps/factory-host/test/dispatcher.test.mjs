@@ -112,6 +112,85 @@ function controlled({ delayedStart = false, delayedStop = false, rejectStop = fa
   };
 }
 
+test("parking records the waiting and terminal states without a task outcome", async (t) => {
+  const runtime = controlled(); const f = fixture(t, { runtime }); const a = f.enqueue(); await pumped();
+  const taskBefore = getTask(f.raw, f.projectId, a.taskId);
+  assert.equal(await f.dispatcher.parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: a.epoch }), true);
+  await f.dispatcher.idle(); const final = f.read(a); assert.equal(final.state, "parked"); assert.ok(final.endedAt);
+  assert.equal(final.leaseId, null); assert.equal(final.leaseExpiresAt, null); assert.equal(final.outcome, "known");
+  assert.deepEqual(getTask(f.raw, f.projectId, a.taskId), taskBefore); assert.equal(f.dispatcher.status().nodeUsed, 0);
+  assert.deepEqual(f.events(a).filter((e) => e.kind === "state").slice(-2).map((e) => e.body),
+    [{ to: "waiting-input", reason: "decision" }, { to: "parked", reason: "decision" }]);
+  assert.deepEqual(runtime.ended, [a.id]); assert.deepEqual(f.errors, []);
+});
+test("parking revokes model access before waiting for verified stop", async (t) => {
+  const runtime = controlled({ delayedStop: true }); const tokens = createTokenRegistry({ clock: () => new Date("2026-11-07T10:00:00Z") });
+  let token; const f = fixture(t, { runtime, modelAccess: { issue(input) { token = tokens.issue({ ...input, allowedModels: ["approved"] }).token;
+    return { token, baseUrl: "http://fixture/v1", models: ["approved"] }; }, revoke(id) { tokens.revoke(id); } } });
+  t.after(() => tokens.revokeAll()); const a = f.enqueue(); await pumped(); assert.ok(tokens.resolve(token));
+  const parking = f.dispatcher.parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: 1 }); await flush();
+  assert.equal(f.read(a).state, "waiting-input"); assert.equal(tokens.resolve(token), null); assert.equal(f.dispatcher.status().nodeUsed, 1);
+  assert.equal(f.dispatcher.recordAgentProgress({ projectId: a.projectId, attemptId: a.id, epoch: 1 }, "Late"), false);
+  runtime.sessions[0].emit({ type: "completed", summary: "Late completion" }); await flush(); assert.equal(f.read(a).state, "waiting-input");
+  runtime.stopGate.resolve(); assert.equal(await parking, true); await f.dispatcher.idle(); assert.equal(f.read(a).state, "parked");
+});
+test("parking frees the slot and starts the next queued task", async (t) => {
+  const f = fixture(t, { config: { nodeSlots: 1 } }); const a = f.enqueue(f.task("[fake:hang]")); const next = f.enqueue(); await pumped();
+  assert.equal(f.read(a).state, "running"); assert.equal(f.read(next).state, "queued");
+  assert.equal(await f.dispatcher.parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: 1 }), true);
+  await f.dispatcher.idle(); assert.equal(f.read(next).state, "succeeded"); assert.equal(f.runtime.started.length, 2);
+  f.dispatcher.kick(); await pumped(); assert.equal(listAttempts(f.raw, f.projectId, a.taskId).length, 1);
+});
+for (const rejectStop of [false, true]) test(`parking with an unverified ${rejectStop ? "rejected" : "timed out"} stop becomes unknown`, async (t) => {
+  const runtime = controlled({ rejectStop, delayedStop: !rejectStop }); const f = fixture(t, { runtime }); const a = f.enqueue(); await pumped();
+  const parking = f.dispatcher.parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: 1 }); await flush();
+  if (!rejectStop) await f.timeout(); assert.equal(await parking, false); await f.dispatcher.idle();
+  assert.equal(f.read(a).state, "unknown"); assert.equal(f.read(a).outcome, "unknown");
+  assert.equal(getTask(f.raw, f.projectId, a.taskId).state, "active"); assert.equal(f.dispatcher.status().nodeUsed, 1);
+  runtime.stopGate.resolve(); await flush(); assert.equal(f.read(a).state, "unknown");
+});
+test("concurrent operator stop joins parking and leaves a consistent parked result", async (t) => {
+  const runtime = controlled({ delayedStop: true }); const f = fixture(t, { runtime }); const a = f.enqueue(); await pumped();
+  const parking = f.dispatcher.parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: 1 }); await flush();
+  const stopping = f.dispatcher.stopAttempt(a.projectId, a.id); runtime.stopGate.resolve();
+  assert.equal(await parking, true); assert.equal((await stopping).state, "parked"); await f.dispatcher.idle();
+  assert.deepEqual(runtime.ended, [a.id]); assert.equal(getTask(f.raw, f.projectId, a.taskId).state, "active");
+});
+test("operator stop winning the race makes a subsequent park inert", async (t) => {
+  const f = fixture(t, { runtime: controlled() }); const a = f.enqueue(); await pumped();
+  const stopping = f.dispatcher.stopAttempt(a.projectId, a.id); const before = f.raw.serialize();
+  assert.equal(await f.dispatcher.parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: 1 }), false);
+  await stopping; assert.equal(f.read(a).state, "stopped"); assert.ok(before);
+});
+for (const label of ["wrong epoch", "unknown attempt", "foreign project", "expired lease"]) test(`parking refuses ${label} without writes`, async (t) => {
+  const f = fixture(t, { runtime: controlled() }); const a = f.enqueue(); await pumped();
+  const ref = { projectId: a.projectId, attemptId: a.id, epoch: 1 };
+  if (label === "wrong epoch") ref.epoch = 2; else if (label === "unknown attempt") ref.attemptId = randomUUID();
+  else if (label === "foreign project") ref.projectId = randomUUID(); else f.advance(100);
+  const before = f.raw.serialize(); assert.equal(await f.dispatcher.parkAttempt(ref), false); assert.deepEqual(f.raw.serialize(), before);
+});
+test("parking a queued or already parked attempt has no effect", async (t) => {
+  const f = fixture(t); const a = f.enqueue(f.task("[fake:hang]")); const ref = { projectId: a.projectId, attemptId: a.id, epoch: 1 };
+  const before = f.raw.serialize(); assert.equal(await f.dispatcher.parkAttempt(ref), false); assert.deepEqual(f.raw.serialize(), before);
+  await pumped(); assert.equal(await f.dispatcher.parkAttempt(ref), true); await f.dispatcher.idle();
+  const after = f.raw.serialize(); assert.equal(await f.dispatcher.parkAttempt(ref), false); assert.deepEqual(f.raw.serialize(), after);
+});
+test("parking collects evidence only after verified runtime termination", async (t) => {
+  const runtime = controlled({ delayedStop: true }); const calls = [];
+  const f = fixture(t, { runtime, workspace: { async prepare() { return { path: "/synthetic/work", branch: "factory/partial", baseSha: "base" }; },
+    async finish(input) { assert.ok(runtime.ended.includes(input.attemptId)); calls.push(input); return { files: [], totals: { files: 0, additions: 0, deletions: 0 } }; } } });
+  const a = f.enqueue(); await pumped(); const parking = f.dispatcher.parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: 1 }); await flush();
+  assert.equal(calls.length, 0); runtime.stopGate.resolve(); assert.equal(await parking, true); await f.dispatcher.idle();
+  assert.equal(calls.length, 1); assert.equal(f.events(a).filter((e) => e.kind === "evidence").length, 1);
+});
+test("recovery treats waiting-input like running and never replays uncertain work", async (t) => {
+  const runtime = controlled({ delayedStop: true }); const f = fixture(t, { runtime }); const a = f.enqueue(); await pumped();
+  const parking = f.dispatcher.parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: 1 }); await flush();
+  assert.equal(f.read(a).state, "waiting-input"); assert.deepEqual(f.dispatcher.recover(), { leaseExpired: 1, unknown: 1, requeued: 0, untouched: 0 });
+  runtime.stopGate.resolve(); assert.equal(await parking, false); await f.dispatcher.idle(); assert.equal(f.read(a).state, "unknown");
+  assert.equal(listAttempts(f.raw, f.projectId, a.taskId).length, 1);
+});
+
 test("agent progress matches runtime progress and fences wrong references", async (t) => {
   const runtime = controlled(); const f = fixture(t, { runtime }); const a = f.enqueue(); await pumped();
   const ref = { projectId: a.projectId, attemptId: a.id, epoch: a.epoch };

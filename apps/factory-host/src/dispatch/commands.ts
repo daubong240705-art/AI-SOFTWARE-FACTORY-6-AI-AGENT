@@ -48,7 +48,7 @@ export function createDispatchHandlers(deps: { dispatcher: Dispatcher }): Partia
       if (payload.to === "cancelled" && task.state === "active" && liveAttemptOfTask(raw, projectId, task.id))
         throw new CommandError("conflict", "stop the attempt before cancelling the task", "refresh");
       const effects = moveTaskAndAdvance(raw, task, payload.to, deps);
-      if (task.state === "in-review") effects.push(...withdrawPendingReviews(raw, projectId, task.id, ctx.clock()));
+      if (task.state === "in-review" || payload.to === "cancelled") effects.push(...withdrawPendingReviews(raw, projectId, task.id, ctx.clock()));
       return { effects };
     },
     "runs.cancel": (ctx, { projectId, payload }) => {

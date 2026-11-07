@@ -98,12 +98,16 @@ test("MCP uses the model credential and the prompt names both Factory tools", as
   assert.equal(spec.env.OPENCODE_CONFIG_CONTENT.split(f.context.model.token).length - 1, 2);
   for (const name of ["factory_task_progress", "factory_output_register", "Never include secrets"]) assert.ok(spec.args.at(-1).includes(name));
 });
-for (const name of ["factory_task_progress", "factory_output_register"]) for (const status of ["running", "completed", "error"])
+for (const name of ["factory_task_progress", "factory_output_register", "factory_decision_request"]) for (const status of ["running", "completed", "error"])
   test(`Factory tool ${name} reports ${status} without inputs`, async (t) => {
     const f = fixture(t); const events = await f.run([tool(status, { command: "private-input", filePath: f.workspace, summary: f.context.model.token }, name)]);
     assert.deepEqual(events[0], { type: "progress", message: `tool: ${name}` }); safe(events, f);
     assert.equal(JSON.stringify(events).includes("private-input"), false);
   });
+test("prompt instructs the agent to stop immediately after asking a business question", async (t) => {
+  const f = fixture(t); await f.run();
+  assert.ok(f.launched[0].spec.args.at(-1).includes("If a business decision blocks you and you cannot make it yourself, call factory_decision_request with the question and 2-6 options, then stop immediately without further tool calls. The operator will answer and a new session will continue your work."));
+});
 test("agent credential occurs only in the configuration env value", async (t) => {
   const f = fixture(t); await f.run(); const spec = structuredClone(f.launched[0].spec);
   assert.deepEqual(Object.keys(spec.env).sort(), ["OPENCODE_CONFIG_CONTENT", "OPENCODE_DISABLE_AUTOUPDATE", "OPENCODE_DISABLE_MODELS_FETCH"]);

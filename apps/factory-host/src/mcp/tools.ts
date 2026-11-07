@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { artifactKindSchema, artifactRefSchema, labelSchema, taskProgressInputSchema } from "@factory/contracts";
+import { artifactKindSchema, artifactRefSchema, decisionRequestInputSchema, labelSchema, taskProgressInputSchema } from "@factory/contracts";
 import type { TokenGrant } from "../proxy/tokens.js";
 import { McpToolError, sanitizeAgentText } from "./security.js";
 
@@ -10,9 +10,29 @@ export const agentOutputInputSchema = z.strictObject({
   inputs: z.array(artifactRefSchema).max(100).default([]),
 });
 export type AgentOutputInput = z.infer<typeof agentOutputInputSchema>;
+export type DecisionRequestInput = z.infer<typeof decisionRequestInputSchema>;
+
+/** Validate both the original contract input and the text that will actually be stored. */
+export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
+  const parsed = decisionRequestInputSchema.safeParse(input);
+  if (!parsed.success) throw new McpToolError("invalid tool input");
+  const value = parsed.data;
+  const clean = decisionRequestInputSchema.safeParse({
+    subject: sanitizeAgentText(value.subject).trim().slice(0, 160),
+    summary: sanitizeAgentText(value.summary).slice(0, 4000),
+    options: value.options.map((option) => ({ id: sanitizeAgentText(option.id).trim().slice(0, 160),
+      label: sanitizeAgentText(option.label).trim().slice(0, 160), consequence: sanitizeAgentText(option.consequence).slice(0, 1000) })),
+    ...(value.recommendation === undefined ? {} : { recommendation: sanitizeAgentText(value.recommendation).trim().slice(0, 160) }),
+    impactIfWaiting: sanitizeAgentText(value.impactIfWaiting).slice(0, 1000),
+  });
+  if (!clean.success || new Set(clean.data.options.map((option) => option.id)).size !== value.options.length)
+    throw new McpToolError("invalid tool input");
+  return clean.data;
+}
 export interface McpDeps {
   progress(grant: TokenGrant, input: { summary: string; percent?: number }): void;
   registerOutput(grant: TokenGrant, input: AgentOutputInput): { artifactId: string; version: number };
+  requestDecision(grant: TokenGrant, input: DecisionRequestInput): { approvalId: string };
 }
 export interface ToolResult { content: { type: "text"; text: string }[]; isError: boolean }
 const result = (text: string, isError = false): ToolResult => ({ content: [{ type: "text", text }], isError });
@@ -22,6 +42,8 @@ export const toolDefinitions = [
     inputSchema: z.toJSONSchema(taskProgressInputSchema) },
   { name: "output.register", description: "Register a deliverable file using its workspace-relative path. Never include secrets.",
     inputSchema: z.toJSONSchema(agentOutputInputSchema) },
+  { name: "decision.request", description: "Use ONLY for business decisions you cannot make yourself. Then stop: finish without further tool calls.",
+    inputSchema: z.toJSONSchema(decisionRequestInputSchema) },
 ];
 
 export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?: number } = {}): { call(grant: TokenGrant, name: string, args: unknown): ToolResult } {
@@ -29,6 +51,10 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
   const progressCalls = new Map<string, number>();
   return { call(grant, name, args) {
     try {
+      if (name === "decision.request") {
+        deps.requestDecision(grant, cleanDecisionRequest(args));
+        return result("Decision requested. Stop working now and finish without further tool calls.");
+      }
       if (name === "task.progress") {
         const parsed = taskProgressInputSchema.safeParse(args);
         if (!parsed.success) return result("invalid tool input", true);

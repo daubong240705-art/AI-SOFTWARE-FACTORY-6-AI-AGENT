@@ -32,6 +32,7 @@ const fakeGrant = Object.freeze({ projectId: randomUUID(), taskId: randomUUID(),
 function fake(extra = {}) {
   const calls = [];
   const handler = createMcpHandler({ progress: (...args) => calls.push(args),
+    requestDecision: (...args) => { calls.push(args); return { approvalId: fakeGrant.taskId }; },
     registerOutput: (...args) => { calls.push(args); return { artifactId: fakeGrant.taskId, version: 1 }; }, ...extra }, "test-version");
   return { calls, handle: (body) => handler.handle(fakeGrant, body), call: (name, args) => handler.handle(fakeGrant, rpc("tools/call", { name, arguments: args })) };
 }
@@ -137,9 +138,9 @@ for (const method of ["ping", "tools/list", "initialize", "tools/call"]) for (co
 for (const [label, params] of [["empty", {}], ["missing name", { arguments: {} }], ["bad name", { name: 2 }],
   ["array args", { name: "task.progress", arguments: [] }], ["foreign identity", { name: "task.progress", attemptId: randomUUID() }]])
   test(`tools call rejects ${label} params`, () => assert.equal(fake().handle(rpc("tools/call", params)).body.error.code, -32602));
-test("tools list exposes exactly the two strict tool schemas", () => {
+test("tools list exposes exactly the three strict tool schemas", () => {
   const list = fake().handle(rpc("tools/list")).body.result.tools;
-  assert.deepEqual(list.map((t) => t.name), ["task.progress", "output.register"]);
+  assert.deepEqual(list.map((t) => t.name), ["task.progress", "output.register", "decision.request"]);
   for (const tool of list) assert.equal(tool.inputSchema.additionalProperties, false);
   assert.equal(list[1].inputSchema.properties.inputs.items.additionalProperties, false);
   assert.equal(list[0].inputSchema.properties.percent.type, "integer");
@@ -158,7 +159,7 @@ for (const [label, input] of [["empty summary", { summary: "" }], ["long summary
 });
 for (const percent of [0, 100]) test(`progress accepts boundary percent ${percent}`, () => assert.equal(fake().call("task.progress", { summary: "x", percent }).body.result.isError, false));
 test("maximum summary is accepted", () => assert.equal(fake().call("task.progress", { summary: "x".repeat(1000) }).body.result.isError, false));
-test("unknown tool fails without executing a dependency", () => { const f = fake(); toolError(f.call("decision.request", {}).body.result, "tool is not available"); assert.equal(f.calls.length, 0); });
+test("unknown tool fails without executing a dependency", () => { const f = fake(); toolError(f.call("unknown.tool", {}).body.result, "tool is not available"); assert.equal(f.calls.length, 0); });
 test("dependency exceptions use a fixed tool failure", () => {
   const f = fake({ progress() { throw new Error("private exception details"); } });
   toolError(f.call("task.progress", { summary: "x" }).body.result, "tool could not be completed");
@@ -250,9 +251,9 @@ for (const mismatch of ["projectId", "taskId", "attemptId", "epoch"]) test(`gran
 test("tool arguments cannot select another attempt", async (t) => {
   const f = await fixture(t); toolError(await f.call("task.progress", { summary: "Foreign", attemptId: randomUUID() }), "invalid tool input"); assert.equal(f.events().length, 0);
 });
-test("waiting input attempts accept both tools", async (t) => {
+test("waiting input attempts reject further tools after a decision", async (t) => {
   const f = await fixture(t); f.raw.prepare("UPDATE attempts SET state = 'waiting-input' WHERE id = ?").run(f.grant.attemptId);
-  assert.equal((await f.call("task.progress", { summary: "Waiting" })).isError, false); assert.equal((await f.call("output.register", output())).isError, false);
+  assert.equal((await f.call("task.progress", { summary: "Waiting" })).isError, true); assert.equal((await f.call("output.register", output())).isError, true);
 });
 test("markdown registration stores exact bytes and publishes draft version", async (t) => {
   const f = await fixture(t); const cursor = f.hub.currentCursor(f.grant.projectId);
