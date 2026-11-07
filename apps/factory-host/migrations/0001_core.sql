@@ -440,3 +440,23 @@ CREATE TABLE budgets (
   UNIQUE (project_id, scope, scope_ref),
   CHECK (scope <> 'day' OR (length(scope_ref) = 10 AND scope_ref GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'))
 ) STRICT;
+
+-- ---- Host-only tables (not part of the 002 reference) ------------------------------------------------
+-- One Lead turn per user message. A turn never replays by itself: a crash while `running` leaves it
+-- `unknown` (tokens may have been spent) and the operator decides whether to ask again.
+CREATE TABLE lead_turns (
+  project_id TEXT NOT NULL,
+  id TEXT NOT NULL, -- equals the id of the user message that started the turn
+  conversation_id TEXT NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('queued','running','done','failed','unknown','budget-blocked')),
+  reply_message_id TEXT,
+  error_kind TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (project_id, id),
+  CHECK ((state = 'done') = (reply_message_id IS NOT NULL)),
+  CHECK ((state IN ('failed','budget-blocked')) = (error_kind IS NOT NULL)),
+  FOREIGN KEY (project_id, conversation_id) REFERENCES conversations(project_id, id),
+  FOREIGN KEY (project_id, id) REFERENCES messages(project_id, id)
+) STRICT;
+CREATE INDEX lead_turns_pending ON lead_turns(state, created_at) WHERE state IN ('queued','running');
