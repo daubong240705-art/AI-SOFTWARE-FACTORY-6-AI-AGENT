@@ -44,7 +44,7 @@ Host in ra một **token khởi tạo dùng một lần**. Mở `http://127.0.0.
 
 - Task chỉ tới `proposed/accepted/declined/cancelled`; chưa chạy được (M2: dispatch, runtime, worktree, Inbox).
 - Phiên đăng nhập nằm trong bộ nhớ (mất khi khởi động lại). Chi phí tiền luôn là "unknown" vì chưa có bảng giá.
-- Sao lưu định kỳ sang `D:\factory-backup` (AP-R5) và tự chuyển model sang DeepSeek/Antigravity khi tốn kém (PD-5) chưa làm.
+- Tự chuyển model sang DeepSeek/Antigravity khi tốn kém (PD-5) chưa làm.
 - Retry của hộp thoại tạo Project phát lại đúng lệnh đã bị từ chối; muốn sửa phải đóng và mở lại.
 - Chưa thử với `E:\GIT\BTL-LTM` (cần JDK 21 trong WSL; thuộc M2).
 
@@ -55,7 +55,8 @@ Host sao lưu mỗi giờ và khi tắt (`VACUUM INTO`, kiểm `integrity_check`
 ```bash
 node ~/factory-v2/app/apps/factory-host/dist/backup/cli.js list /mnt/d/factory-backup
 # TẮT Host trước. Khôi phục không bao giờ xóa DB cũ: nó được chuyển vào <state>/pre-restore-<thời gian>/
-node ~/factory-v2/app/apps/factory-host/dist/backup/cli.js restore /mnt/d/factory-backup/<file>.db ~/factory-v2/state \n  --migrations ~/factory-v2/app/apps/factory-host/migrations
+node ~/factory-v2/app/apps/factory-host/dist/backup/cli.js restore /mnt/d/factory-backup/<file>.db ~/factory-v2/state \
+  --migrations ~/factory-v2/app/apps/factory-host/migrations
 ```
 
 Đã diễn tập thật trong WSL: sao lưu lên `/mnt/d`, phá DB, khôi phục, Host chạy lại đủ dữ liệu; khôi phục bị từ chối khi Host đang chạy.
