@@ -3,7 +3,7 @@ import type { Database } from "better-sqlite3";
 import type { z } from "zod";
 import {
   API_VERSION, commandSchema, commandResponseSchema, failureResponseSchema, idSchema,
-  receiptSchema, successResponseSchema, type ApiError, type Command, type CommandReceipt, type EntityRef,
+  receiptSchema, successResponseSchema, type ApiError, type Command, type CommandReceipt, type EntityRef, type FactoryEvent,
 } from "@factory/contracts";
 import { STATUS_BY_CODE } from "../api/http.js";
 import type { EventHub } from "../events/hub.js";
@@ -13,8 +13,9 @@ import type { Storage } from "../storage/database.js";
 import { CommandError } from "./errors.js";
 
 export interface HandlerContext { raw: Database; hub: EventHub; clock: Clock; newId: () => string }
+export type HandlerResult = { effects: EntityRef[]; events?: FactoryEvent["payload"][] };
 export type HandlerMap = {
-  [T in Command["type"]]: (ctx: HandlerContext, command: Extract<Command, { type: T }>) => { effects: EntityRef[] };
+  [T in Command["type"]]: (ctx: HandlerContext, command: Extract<Command, { type: T }>) => HandlerResult;
 };
 export type PipelineResult = { status: number; body: z.infer<typeof commandResponseSchema>; replayed: boolean };
 
@@ -81,14 +82,17 @@ export function createCommandPipeline(options: {
         }
 
         let effects: EntityRef[] = [];
+        let events: FactoryEvent["payload"][] = [];
         let error: ApiError | undefined;
         // The indexed handler and command share the same discriminant.
-        const handler = handlers[command.type] as ((ctx: HandlerContext, command: Command) => { effects: EntityRef[] }) | undefined;
+        const handler = handlers[command.type] as ((ctx: HandlerContext, command: Command) => HandlerResult) | undefined;
         if (!handler) {
           error = { code: "unsupported", message: "Command is not supported.", nextAction: "contact-host", correlationId: newId() };
         } else {
           try {
-            effects = raw.transaction(() => handler(context, command))().effects;
+            const handled = raw.transaction(() => handler(context, command))();
+            effects = handled.effects;
+            events = handled.events ?? [];
           } catch (caught) {
             if (!(caught instanceof CommandError)) throw caught;
             error = { ...caught.extra, code: caught.code, message: caught.message,
@@ -107,6 +111,7 @@ export function createCommandPipeline(options: {
         if (hub.currentCursor(command.projectId) !== null) {
           const causation = { projectId: command.projectId, causationId: command.commandId, rootCausationId: command.commandId };
           for (const entity of receipt.effects) hub.append({ ...causation, payload: { type: "entity.changed", entity } });
+          if (!error) for (const payload of events) hub.append({ ...causation, payload });
           hub.append({ ...causation, payload: { type: "command.receipted", receipt } });
         }
         return result(error ? STATUS_BY_CODE[error.code] : 200, body);

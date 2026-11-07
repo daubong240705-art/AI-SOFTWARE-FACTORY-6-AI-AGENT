@@ -5,6 +5,7 @@ import { isAbsolute, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApiServer, createRoutes, listenLoopback, originsFor } from "./api/index.js";
 import { createCommandPipeline } from "./commands/pipeline.js";
+import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
 import { EventHub } from "./events/hub.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { systemClock, type Clock } from "./ids.js";
@@ -81,6 +82,7 @@ export async function startHost(options: {
       "projects.create": createProjectsCreateHandler({ pack }),
       "tasks.create": tasksCreateHandler, "tasks.transition": tasksTransitionHandler,
       "budgets.set": budgetsSetHandler,
+      "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
     } });
     const gate = createBootstrapGate({ clock });
     const sessions = createSessionStore({ clock });
