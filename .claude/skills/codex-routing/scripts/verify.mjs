@@ -90,7 +90,10 @@ export function runNpmCheck(spec, repoRoot) {
   const cwd = path.join(repoRoot, spec.cwd);
   const cli = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
   if (!existsSync(cli)) throw new Error(`npm-cli.js not found next to node (${cli})`);
-  const env = { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, TEMP: process.env.TEMP, TMP: process.env.TMP, APPDATA: process.env.APPDATA, USERPROFILE: process.env.USERPROFILE };
+  // npm runs package scripts through cmd.exe on Windows: ComSpec/windir/PATHEXT are required or scripts fail silently.
+  const env = {};
+  for (const k of ["PATH", "PATHEXT", "SystemRoot", "windir", "ComSpec", "TEMP", "TMP", "APPDATA", "LOCALAPPDATA", "USERPROFILE", "HOME"])
+    if (process.env[k] !== undefined) env[k] = process.env[k];
   const r = spawnSync(process.execPath, [cli, ...spec.npm], { cwd, env, encoding: "utf8", timeout: 300_000 });
   const tap = parseTap(`${r.stdout ?? ""}`);
   const enough = spec.minTests ? tap.tests >= spec.minTests : true;

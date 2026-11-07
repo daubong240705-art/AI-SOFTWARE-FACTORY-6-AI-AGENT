@@ -179,7 +179,7 @@ test("verification helpers", () => {
 });
 
 // ---- additions for the skill: daily budget, npm allowlist, protected paths ------------------------------
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { createBudget } from "./budget.mjs";
 import { runNpmCheck } from "./verify.mjs";
@@ -228,4 +228,19 @@ test("the model can only change by following the policy: no ad-hoc model, no max
   const d = decide(card({ model: "gpt-9-ultra", effort: "max" }), fresh, policy);
   assert.ok(["gpt-6-luna", "gpt-6.1-sol"].includes(d.model));
   assert.ok(!["max", "ultra"].includes(d.effort));
+});
+
+test("an allowed npm check really runs package scripts (needs ComSpec on Windows)", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "codex-routing-npm-"));
+  try {
+    writeFileSync(path.join(dir, "pass.mjs"), ["# tests 2", "# pass 2", "# fail 0"].map((l) => `console.log(${JSON.stringify(l)});`).join(String.fromCharCode(10)));
+    writeFileSync(path.join(dir, "fail.mjs"), "process.exit(1);");
+    writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "x", version: "1.0.0", scripts: { test: "node pass.mjs", check: "node fail.mjs" } }));
+    const ok = runNpmCheck({ id: "t", cwd: path.basename(dir), npm: ["test"], minTests: 2 }, path.dirname(dir));
+    assert.equal(ok.pass, true, ok.detail);
+    const bad = runNpmCheck({ id: "c", cwd: path.basename(dir), npm: ["run", "check"] }, path.dirname(dir));
+    assert.equal(bad.pass, false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
