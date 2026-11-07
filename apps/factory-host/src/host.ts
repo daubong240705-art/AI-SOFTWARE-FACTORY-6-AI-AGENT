@@ -10,6 +10,7 @@ import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { systemClock, type Clock } from "./ids.js";
 import type { ModelGateway } from "./models/index.js";
 import { loadPack } from "./org/index.js";
+import { budgetsSetHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
 import { createProjectsCreateHandler } from "./projects/service.js";
 import { openStorage, type Storage } from "./storage/database.js";
 import { tasksCreateHandler, tasksTransitionHandler } from "./work/service.js";
@@ -44,9 +45,10 @@ async function freeLoopbackPort(): Promise<number> {
 export async function startHost(options: {
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
+  budgetConfig?: BudgetConfig;
 }): Promise<{
   app: FastifyInstance; port: number; origins: string[]; storage: Storage; hub: EventHub; close(): Promise<void>;
-  models: { gateway: ModelGateway | null };
+  models: { gateway: ModelGateway | null; budgetConfig: BudgetConfig };
 }> {
   // Check POSIX spelling too, including when validating a WSL path on Windows.
   const normalized = posix.normalize(options.stateDir.replaceAll("\\", "/"));
@@ -57,6 +59,7 @@ export async function startHost(options: {
   if (!Number.isSafeInteger(options.port) || options.port < 0 || options.port > 65_535)
     throw new Error("Host port must be an integer from 0 to 65535");
   const clock = options.clock ?? systemClock;
+  const budgetConfig = options.budgetConfig ?? { ...DEFAULT_BUDGET_CONFIG };
   let storage: Storage | undefined;
   let app: FastifyInstance | undefined;
   let closePromise: Promise<void> | undefined;
@@ -77,19 +80,20 @@ export async function startHost(options: {
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       "projects.create": createProjectsCreateHandler({ pack }),
       "tasks.create": tasksCreateHandler, "tasks.transition": tasksTransitionHandler,
+      "budgets.set": budgetsSetHandler,
     } });
     const gate = createBootstrapGate({ clock });
     const sessions = createSessionStore({ clock });
     const port = options.port === 0 ? await freeLoopbackPort() : options.port;
     const origins = originsFor(port);
-    app = createApiServer({ origins, gate, sessions, clock, register: createRoutes({ storage, hub, pipeline,
+    app = createApiServer({ origins, gate, sessions, clock, register: createRoutes({ storage, hub, pipeline, clock, budgetConfig,
       ...(options.keepAliveMs === undefined ? {} : { keepAliveMs: options.keepAliveMs }),
     }) });
     await listenLoopback(app, port);
     const token = gate.token;
     if (token === undefined) throw new Error("Bootstrap token unavailable");
     options.onBootstrapToken(token);
-    return { app, port, origins, storage, hub, models: { gateway: options.modelGateway ?? null }, close };
+    return { app, port, origins, storage, hub, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
   } catch (error) {
     try { await close(); } catch { /* Preserve the original startup failure. */ }
     throw error;

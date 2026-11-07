@@ -1,12 +1,24 @@
 import { parseEnv, startHost } from "./host.js";
 import { createChatCompletionsGateway } from "./models/index.js";
+import { DEFAULT_BUDGET_CONFIG } from "./policy/index.js";
+
+function budgetTokens(name: string, input: string | undefined, fallback: number): number {
+  if (input === undefined) return fallback;
+  if (!/^[0-9]+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) < 1)
+    throw new Error(`${name} must be a positive safe integer`);
+  return Number(input);
+}
 
 try {
+  const budgetConfig = { ...DEFAULT_BUDGET_CONFIG,
+    defaultTaskTokens: budgetTokens("FACTORY_BUDGET_TASK_TOKENS", process.env.FACTORY_BUDGET_TASK_TOKENS, DEFAULT_BUDGET_CONFIG.defaultTaskTokens),
+    defaultDayTokens: budgetTokens("FACTORY_BUDGET_DAY_TOKENS", process.env.FACTORY_BUDGET_DAY_TOKENS, DEFAULT_BUDGET_CONFIG.defaultDayTokens),
+  };
   const apiKey = process.env.NINE_ROUTER_API_KEY;
   const modelGateway = apiKey === undefined ? null : createChatCompletionsGateway({
     baseUrl: process.env.FACTORY_GATEWAY_URL ?? "https://ai.lazy.local/v1", apiKey,
   });
-  const host = await startHost({ ...parseEnv(process.env), modelGateway, onBootstrapToken(token) {
+  const host = await startHost({ ...parseEnv(process.env), modelGateway, budgetConfig, onBootstrapToken(token) {
     process.stdout.write(`One-time bootstrap token: ${token}\n`);
   } });
   process.stdout.write(`Factory Host listening on http://127.0.0.1:${host.port}\n`);

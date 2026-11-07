@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { homedir, tmpdir } from "node:os";
@@ -11,6 +12,7 @@ import { API_VERSION } from "@factory/contracts";
 import { parseEnv, startHost } from "../dist/host.js";
 import { createFakeGateway } from "../dist/models/index.js";
 import { loadPack } from "../dist/org/index.js";
+import { DEFAULT_BUDGET_CONFIG } from "../dist/policy/index.js";
 
 const test = (name, fn) => nodeTest(name, { timeout: 15_000 }, fn);
 const migrationsDir = fileURLToPath(new URL("../migrations/", import.meta.url));
@@ -78,12 +80,36 @@ test("port zero resolves loopback origins and emits one usable, single-use boots
 
 test("host exposes a null model gateway by default and preserves an injected gateway", async (t) => {
   const defaultHost = await launch(t);
-  assert.deepEqual(defaultHost.models, { gateway: null });
+  assert.deepEqual(defaultHost.models, { gateway: null, budgetConfig: DEFAULT_BUDGET_CONFIG });
   const gateway = createFakeGateway([{ text: "hello" }]);
   const injectedHost = await launch(t, undefined, { modelGateway: gateway });
   assert.equal(injectedHost.models.gateway, gateway);
   const disabledHost = await launch(t, undefined, { modelGateway: null });
   assert.equal(disabledHost.models.gateway, null);
+});
+
+test("host exposes custom budget configuration and wires budgets.set and GET budget with its clock", async (t) => {
+  const budgetConfig = { defaultTaskTokens: 123, defaultDayTokens: 456, warnAtPercent: 75, utcOffsetMinutes: -120 };
+  const host = await launch(t, undefined, { budgetConfig, clock: () => new Date("2026-11-07T01:00:00.000Z") });
+  assert.deepEqual(host.models, { gateway: null, budgetConfig });
+  const session = await bootstrap(host);
+  const project = command();
+  assert.equal((await postCommand(host, session, project)).status, 200);
+  const getBudget = () => host.app.inject({ method: "GET", url: `/projects/${project.projectId}/budget`,
+    headers: { host: `127.0.0.1:${host.port}`, cookie: session.cookie } });
+  assert.deepEqual((await getBudget()).json(), { apiVersion: API_VERSION, ok: true, budget: {
+    day: { date: "2026-11-06", used: 0, limit: 456, verdict: "ok", source: "default" }, tasks: [],
+  } });
+  const budgetId = randomUUID();
+  const set = { apiVersion: API_VERSION, commandId: randomUUID(), projectId: project.projectId, type: "budgets.set", payload: {
+    budgetId, expectedRevision: null, scope: "day", scopeRef: "2026-11-06", limitTokens: 999, warnAtPercent: 90,
+  } };
+  const result = await postCommand(host, session, set);
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.receipt.effects, [{ kind: "budget", id: budgetId, revision: 1 }]);
+  assert.deepEqual((await getBudget()).json().budget.day, {
+    date: "2026-11-06", used: 0, limit: 999, verdict: "ok", source: "explicit",
+  });
 });
 
 test("bootstrap callback runs only after the server is listening", async (t) => {
@@ -319,3 +345,17 @@ test("parseEnv rejects noninteger, empty, and out-of-range ports", () => {
   for (const port of ["", "0", "-1", "65536", "8787.5", "1e3", "abc", " 8787", "8787 ", "Infinity", "9007199254740993"])
     assert.throws(() => parseEnv({ FACTORY_PORT: port }), /FACTORY_PORT must be an integer from 1 to 65535/);
 });
+
+for (const name of ["FACTORY_BUDGET_TASK_TOKENS", "FACTORY_BUDGET_DAY_TOKENS"])
+  test(`main rejects invalid ${name} before starting the host`, () => {
+    for (const input of ["", "0", "-1", "1.5", "1e3", "abc", " 10", "10 ", "Infinity", "9007199254740992"]) {
+      // A synthetic environment keeps this check independent of the operator's configuration.
+      const result = spawnSync(process.execPath, [fileURLToPath(new URL("../dist/main.js", import.meta.url))], {
+        env: { [name]: input }, encoding: "utf8", timeout: 5000,
+      });
+      assert.ifError(result.error);
+      assert.equal(result.status, 1);
+      assert.equal(result.stdout, "");
+      assert.equal(result.stderr.trim(), `${name} must be a positive safe integer`);
+    }
+  });
