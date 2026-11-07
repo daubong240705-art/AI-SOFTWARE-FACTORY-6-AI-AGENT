@@ -238,3 +238,4 @@ Dùng checklist ở [oss-options §2.5](oss-options.md).
 | 07/11/2026 | Kết thúc M0-lite: thêm §3F (AP-3 Đã duyệt, PD-1..PD-4, ENV-1); PD-2 còn chờ xác nhận |
 | 07/11/2026 | Người dùng duyệt PD-2 (mức chỉnh được) và thêm PD-5 (chuyển sang model DeepSeek/Antigravity khi chi phí lớn, hệ thống tự quyết định trong tập đã duyệt); bắt đầu M1 |
 | 07/11/2026 | Duyệt Fastify (PD-6) và phát triển tự động bằng Codex (PD-7); hoàn tất mô-đun events và lớp bảo mật API của M1 |
+| 07/11/2026 | M1 hoàn tất về kỹ thuật (Host, Lead chat, UI, e2e); chờ người dùng dùng thử 2–3 ngày theo roadmap. Runbook: [docs/runbooks/factory-v2-m1.md](../runbooks/factory-v2-m1.md) |
