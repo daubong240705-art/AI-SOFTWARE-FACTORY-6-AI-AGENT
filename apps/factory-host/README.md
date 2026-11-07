@@ -133,6 +133,14 @@ Correction: an earlier note here said the Lead created no Task. That was a bug i
 - OpenCode retries a failing upstream (HTTP 5xx) forever and silently, so the adapter enforces its own total deadline (15 min) and stall deadline (5 min, restarted on every parsed event). `stop()` resolves only after the sandbox process group is verified gone; if it survives, `stop()` rejects and the dispatcher records `unknown`.
 - Known limits: no per-seat model or reasoning-effort selection yet (first approved model); no MCP tools for `output.register` / `decision.request` yet (S6); no CPU/process quotas (see Sandbox).
 
+## Results: content store and Artifact Versions (M2)
+
+`src/artifacts/` keeps what an attempt produced. The content store (`<state>/content`, mode 0700/0600) is content-addressed by SHA-256: `get` re-hashes and returns nothing when the bytes no longer match, writes are lock + temp file + atomic rename and never overwrite, a lock left by a crashed Host is recovered after 30 s, and errors never carry paths.
+
+- When an attempt ends, in the SAME transaction as the task/attempt outcome, the Host registers Artifact Versions: the patch (`code-ref`, `text/x-diff`) when the workspace evidence is safe, untruncated and its SHA-256 matches, and for a completed attempt the agent's summary (`other`, `text/markdown`). Completed attempts are `in-review`, failed or stopped ones `draft` (partial work stays inspectable). A later attempt of the same task registers version N+1 and supersedes the previous one. Registration can never change the outcome; failures are reported generically.
+- Read routes: `GET /projects/:projectId/tasks/:taskId/artifacts` and `GET /projects/:projectId/artifacts/:artifactId/versions/:version/content` (text types only, hash-verified, no paths in responses).
+- The review/approval flow that moves these versions to `approved`/`rejected` is the next slice.
+
 ## Process runner (M2)
 
 `src/exec/process-group.ts` runs a child on Linux only (it refuses every other platform): own session and process group, the EXACT environment it is given (nothing inherited from the Host), commands resolved only through the child's own `PATH`, bounded output (UTF-8 safe), timeout, and a stop that resolves only after the whole group is verified gone (SIGTERM, grace, SIGKILL; a group that survives the deadline is reported, never hidden). `buildSafeEnv` refuses secret-looking variable names unless allowed by name; `scrubForLog` redacts secrets. A child that deliberately escapes with `setsid` is NOT contained by process groups: the sandbox (a later slice) must contain it. The Linux integration tests run through `scripts/factory-v2/test-host-wsl.sh`.

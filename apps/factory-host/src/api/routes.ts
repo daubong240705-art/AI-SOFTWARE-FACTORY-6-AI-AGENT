@@ -19,6 +19,8 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { assertInside } from "../workspace/index.js";
 import { ATTEMPT_UUID } from "../dispatch/workspace-provider.js";
+import { getArtifactVersion, listTaskArtifacts } from "../artifacts/service.js";
+import type { ContentStore } from "../artifacts/content-store.js";
 
 export function createRoutes(deps: {
   storage: Storage; hub: EventHub; pipeline: ReturnType<typeof createCommandPipeline>;
@@ -28,10 +30,38 @@ export function createRoutes(deps: {
   backupStatus?: () => BackupStatus | null;
   dispatch?: Dispatcher;
   evidenceDir?: string;
+  artifacts?: { store: ContentStore };
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
     registerEventStream(app, guards, deps);
+    app.get<{ Params: { projectId: string; taskId: string } }>(
+      "/projects/:projectId/tasks/:taskId/artifacts", { preHandler: guards.session }, async (request, reply) => {
+        const { projectId, taskId } = request.params;
+        if (!getTask(deps.storage.raw, projectId, taskId))
+          return failure(reply, 404, "not-found", "Task not found.", "correct-input", newId);
+        return { apiVersion: API_VERSION, ok: true, items: listTaskArtifacts(deps.storage.raw, projectId, taskId) };
+      },
+    );
+    app.get<{ Params: { projectId: string; artifactId: string; version: string } }>(
+      "/projects/:projectId/artifacts/:artifactId/versions/:version/content", { preHandler: guards.session }, async (request, reply) => {
+        const missing = () => failure(reply, 404, "not-found", "Artifact content not found.", "correct-input", newId);
+        const { projectId, artifactId, version } = request.params;
+        if (!/^[1-9][0-9]*$/.test(version) || !Number.isSafeInteger(Number(version))) return missing();
+        const artifact = getArtifactVersion(deps.storage.raw, projectId, artifactId, Number(version));
+        if (!artifact || !deps.artifacts) return missing();
+        let bytes: Buffer | null;
+        try { bytes = deps.artifacts.store.get(artifact.contentHash); } catch { return missing(); }
+        if (bytes === null || bytes.length !== artifact.sizeBytes) return missing();
+        if (!["text/x-diff", "text/markdown"].includes(artifact.mediaType))
+          return failure(reply, 415, "unsupported", "Artifact media type is not supported.", "correct-input", newId);
+        let text: string;
+        try { text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); }
+        catch { return failure(reply, 422, "validation", "Artifact text is not valid UTF-8.", "correct-input", newId); }
+        return { apiVersion: API_VERSION, ok: true, mediaType: artifact.mediaType,
+          sizeBytes: artifact.sizeBytes, contentHash: artifact.contentHash, text };
+      },
+    );
     app.get<{ Params: { projectId: string; attemptId: string } }>(
       "/projects/:projectId/attempts/:attemptId/patch", { preHandler: guards.session }, async (request, reply) => {
         const missing = () => failure(reply, 404, "not-found", "Patch not found.", "correct-input", newId);

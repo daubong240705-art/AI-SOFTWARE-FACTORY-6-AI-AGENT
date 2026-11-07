@@ -19,6 +19,7 @@ import { tasksCreateHandler, getTask } from "../dist/work/service.js";
 import { createAttempt, createFakeRuntime, getAttempt, ensureLocalNode, LOCAL_NODE_ID, transitionAttempt, moveTask } from "../dist/dispatch/index.js";
 import { DEFAULT_BUDGET_CONFIG } from "../dist/policy/index.js";
 import { SANDBOX_RELAY_PORT } from "../dist/sandbox/index.js";
+import { runGit, cloneProject, checkpoint } from "../dist/workspace/index.js";
 
 const test = (name, fn) => nodeTest(name, { timeout: 15_000 }, fn);
 const migrationsDir = fileURLToPath(new URL("../migrations/", import.meta.url));
@@ -67,6 +68,86 @@ async function bind(port = 0) {
   return server;
 }
 const closeServer = (server) => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+
+test("host exposes a content store under its state directory by default", async (t) => {
+  const host = await launch(t); const { hash } = host.artifacts.store.put("host result");
+  assert.equal(existsSync(join(host.stateDir, "content", hash.slice(0, 2), hash)), true);
+  assert.equal(host.artifacts.store.get(hash).toString(), "host result");
+});
+
+test("host content directory override supplies the exposed store", async (t) => {
+  const root = tempDir(t); const contentDir = join(root, "custom-content");
+  const host = await launch(t, join(root, "state"), { contentDir }); const { hash } = host.artifacts.store.put("override");
+  assert.equal(existsSync(join(contentDir, hash.slice(0, 2), hash)), true);
+  assert.equal(existsSync(join(host.stateDir, "content")), false);
+});
+
+test("host without workspace produces no results from runtime-only evidence", async (t) => {
+  const host = await launch(t, undefined, { dispatch: {} }); const session = await bootstrap(host); const c = command();
+  assert.equal((await postCommand(host, session, c)).status, 200);
+  const taskId = randomUUID();
+  const task = { apiVersion: 1, commandId: randomUUID(), projectId: c.projectId, type: "tasks.create", payload: {
+    taskId, code: "RES-001", title: "Results", goal: "Deliver", brief: "Brief", parentTaskId: null,
+    engagementId: null, ownerSeatId: null, requiredCapabilities: [], acceptance: [], inputs: [], dependsOn: [],
+  } };
+  assert.equal((await postCommand(host, session, task)).status, 200);
+  const accept = { apiVersion: 1, commandId: randomUUID(), projectId: c.projectId, type: "tasks.transition",
+    payload: { taskId, expectedRevision: 1, to: "accepted" } };
+  assert.equal((await postCommand(host, session, accept)).status, 200);
+  assert.equal((await postCommand(host, session, { apiVersion: 1, commandId: randomUUID(), projectId: c.projectId,
+    type: "tasks.release", payload: { taskId, expectedRevision: getTask(host.storage.raw, c.projectId, taskId).revision } })).status, 200);
+  await host.dispatch.idle();
+  assert.equal(getTask(host.storage.raw, c.projectId, taskId).state, "in-review");
+  assert.equal(host.storage.raw.prepare("SELECT count(*) AS n FROM artifact_versions").get().n, 0);
+});
+
+nodeTest("host wires real workspace results and publishes version events with outcomes", {
+  skip: process.platform !== "linux" && "Requires Linux and real git", timeout: 60_000,
+}, async (t) => {
+  const root = tempDir(t); const source = join(root, "source"); mkdirSync(source);
+  await runGit(source, ["init", "--initial-branch=main", "--template="]);
+  await runGit(source, ["config", "user.name", "Fixture"]); await runGit(source, ["config", "user.email", "fixture@localhost"]);
+  writeFileSync(join(source, "README.md"), "base\n"); await checkpoint(source, "base");
+  const workspace = { projectsRoot: join(root, "projects"), worktreesRoot: join(root, "worktrees") };
+  const project = await cloneProject(workspace, { source, name: "Results" });
+  const host = await launch(t, join(root, "state"), { dispatch: { stepMs: 0 }, workspace });
+  const session = await bootstrap(host); const c = command(); c.payload.workspace.root = project.root;
+  assert.equal((await postCommand(host, session, c)).status, 200);
+  const taskId = randomUUID();
+  const task = { apiVersion: 1, commandId: randomUUID(), projectId: c.projectId, type: "tasks.create", payload: {
+    taskId, code: "RES-001", title: "Results", goal: "[fake:edit]", brief: "Brief", parentTaskId: null,
+    engagementId: null, ownerSeatId: null, requiredCapabilities: [], acceptance: [], inputs: [], dependsOn: [],
+  } };
+  assert.equal((await postCommand(host, session, task)).status, 200);
+  const observations = [];
+  const unsubscribe = host.hub.subscribe(c.projectId, () => {
+    const current = getTask(host.storage.raw, c.projectId, taskId);
+    if (current.state === "in-review") observations.push(host.storage.raw.prepare("SELECT count(*) AS n FROM artifact_versions").get().n);
+  });
+  t.after(unsubscribe);
+  const transition = async (to) => postCommand(host, session, { apiVersion: 1, commandId: randomUUID(), projectId: c.projectId,
+    type: "tasks.transition", payload: { taskId, expectedRevision: getTask(host.storage.raw, c.projectId, taskId).revision, to } });
+  assert.equal((await transition("accepted")).status, 200);
+  assert.equal((await postCommand(host, session, { apiVersion: 1, commandId: randomUUID(), projectId: c.projectId,
+    type: "tasks.release", payload: { taskId, expectedRevision: getTask(host.storage.raw, c.projectId, taskId).revision } })).status, 200);
+  await host.dispatch.idle();
+  const read = (url) => host.app.inject({ method: "GET", url, headers: { host: `127.0.0.1:${host.port}`, cookie: session.cookie } });
+  const url = `/projects/${c.projectId}/tasks/${taskId}/artifacts`;
+  const listing = await read(url); assert.equal(listing.statusCode, 200); const before = listing.json().items;
+  assert.equal(before.length, 2); assert.ok(observations.includes(2));
+  for (const artifact of before) {
+    const version = artifact.versions[0]; const response = await read(`/projects/${c.projectId}/artifacts/${artifact.artifactId}/versions/1/content`);
+    assert.equal(response.statusCode, 200); assert.equal(response.json().text, host.artifacts.store.get(version.contentHash).toString("utf8"));
+    assert.equal(response.body.includes(root), false);
+  }
+  assert.equal((await transition("active")).status, 200); await host.dispatch.idle();
+  const after = (await read(url)).json().items;
+  assert.deepEqual(after.map((a) => a.artifactId), before.map((a) => a.artifactId));
+  for (const artifact of after) assert.deepEqual(artifact.versions.map((v) => v.status), ["in-review", "superseded"]);
+  const events = host.storage.raw.prepare("SELECT body_json FROM event_log WHERE project_id=?").all(c.projectId).map((r) => JSON.parse(r.body_json));
+  assert.equal(events.filter((e) => e.payload.type === "entity.changed" && e.payload.entity.kind === "artifact-version").length, 4);
+  assert.equal(JSON.stringify(events).includes(root), false);
+});
 
 test("port zero resolves loopback origins and emits one usable, single-use bootstrap token", async (t) => {
   const host = await launch(t);

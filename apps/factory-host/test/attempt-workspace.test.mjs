@@ -20,6 +20,8 @@ import { createWorkspaceProvider } from "../dist/dispatch/workspace-provider.js"
 import { assertInside, cloneProject, runGit, checkpoint, WorkspaceError } from "../dist/workspace/index.js";
 import { createRoutes } from "../dist/api/routes.js";
 import { parseEnv, startHost } from "../dist/host.js";
+import { createContentStore } from "../dist/artifacts/content-store.js";
+import { registerAttemptResults, listTaskArtifacts } from "../dist/artifacts/service.js";
 
 const integration = (name, fn) => test(name, { skip: process.platform !== "linux" && "Requires Linux and real git", timeout: 60_000 }, fn);
 const pack = loadPack(fileURLToPath(new URL("../../../packs/software-team/", import.meta.url)));
@@ -81,6 +83,7 @@ function fixture(t, options = {}) {
   const dispatchers = [];
   const create = () => {
     const dispatcher = createDispatcher({ storage, hub, registry: new RuntimeRegistry([runtime]),
+      ...(options.results ? { results: options.results({ raw, hub, errors }) } : {}),
       config: { stopTimeoutMs: 100, ...options.config }, onError: (error) => errors.push(error),
       ...(options.timers ? { timers: options.timers } : {}),
       ...(options.clock ? { clock: options.clock } : {}),
@@ -109,8 +112,15 @@ async function gitFixture(t, options = {}) {
   const project = await cloneProject(roots, { source, name: "Attempt project" });
   const evidenceDir = join(root, "evidence");
   const provider = createWorkspaceProvider({ roots, evidenceDir });
-  const f = fixture(t, { projectRoot: project.root, workspace: provider, config: { stopTimeoutMs: 10_000 }, ...options });
-  return { ...f, root, source, roots, clone: project, provider, evidenceDir };
+  const store = options.resultsStore ?? createContentStore({ dir: join(root, "content") });
+  const f = fixture(t, { projectRoot: project.root, workspace: provider, config: { stopTimeoutMs: 10_000 },
+    results: ({ raw, hub, errors }) => ({ register(input) {
+      const refs = registerAttemptResults({ raw, store, now: () => new Date(), newId: randomUUID,
+        onError: (error) => errors.push(error) }, { ...input, evidenceDir });
+      for (const ref of refs) hub.append({ projectId: input.projectId, causationId: input.attemptId,
+        payload: { type: "entity.changed", entity: { kind: "artifact-version", id: ref.artifactId, revision: ref.version } } });
+    } }), ...options });
+  return { ...f, root, source, roots, clone: project, provider, evidenceDir, store };
 }
 const digest = (value) => createHash("sha256").update(value).digest("hex");
 function treeHash(root, includeGit = true) {
@@ -173,7 +183,7 @@ for (const goal of ["normal", "[fake:fail]"])
     assert.equal(f.errors[0].message, "workspace evidence failed");
   });
 test("finish timeout preserves success and reports evidence-failed", async (t) => {
-  const gate = deferred(); const f = fixture(t, { workspace: mockProvider({ finish: () => gate.promise }), config: { stopTimeoutMs: 10 } });
+  const gate = deferred(); const f = fixture(t, { workspace: mockProvider({ finish: () => gate.promise }), config: { stopTimeoutMs: 10, evidenceTimeoutMs: 10 } });
   const keepAlive = setInterval(() => {}, 10); t.after(() => clearInterval(keepAlive));
   const a = f.enqueue(); await f.dispatcher.idle(); assert.equal(f.read(a).state, "succeeded");
   assert.ok(f.events(a).some((e) => e.body.to === "evidence-failed"));
@@ -286,6 +296,73 @@ integration("real attempt has its own factory branch and path-free workspace eve
   assertInside(f.roots.worktreesRoot, workspace.path); assert.equal(f.read(a).state, "succeeded");
   assert.equal(getTask(f.raw, a.projectId, a.taskId).state, "in-review");
   assert.equal(JSON.stringify(f.events(a)).includes(f.root), false);
+});
+
+integration("real completed attempt registers verified patch and summary and artifact events", async (t) => {
+  const f = await gitFixture(t); const taskId = f.task("[fake:edit]");
+  const observed = [];
+  const unsubscribe = f.hub.subscribe(f.projectId, () => {
+    const a = listAttempts(f.raw, f.projectId, taskId).at(-1);
+    if (a?.state === "succeeded") observed.push(listTaskArtifacts(f.raw, f.projectId, taskId).length);
+  });
+  cleanup(t, unsubscribe);
+  const a = f.enqueue(taskId); await f.dispatcher.idle();
+  const artifacts = listTaskArtifacts(f.raw, f.projectId, taskId); assert.equal(artifacts.length, 2);
+  assert.ok(observed.includes(2));
+  for (const artifact of artifacts) {
+    const v = artifact.versions[0]; assert.equal(v.status, "in-review"); assert.equal(v.producedByAttemptId, a.id);
+    assert.equal(digest(f.store.get(v.contentHash)), v.contentHash);
+  }
+  const patch = artifacts.find((artifact) => artifact.kind === "code-ref");
+  assert.equal(patch.versions[0].contentHash, f.evidence(a).patchSha256);
+  const events = f.raw.prepare("SELECT body_json FROM event_log WHERE project_id=?").all(f.projectId).map((r) => JSON.parse(r.body_json));
+  const changed = events.filter((e) => e.payload.type === "entity.changed" && e.payload.entity.kind === "artifact-version");
+  assert.equal(changed.length, 2); assert.equal(JSON.stringify(events).includes(f.root), false);
+});
+
+integration("real changes requested attempt increments versions and supersedes previous results", async (t) => {
+  const f = await gitFixture(t); const taskId = f.task("[fake:edit]"); f.enqueue(taskId); await f.dispatcher.idle();
+  const before = listTaskArtifacts(f.raw, f.projectId, taskId);
+  moveTask(f.raw, f.projectId, taskId, "active"); f.enqueue(taskId); await f.dispatcher.idle();
+  const after = listTaskArtifacts(f.raw, f.projectId, taskId);
+  assert.deepEqual(after.map((a) => a.artifactId), before.map((a) => a.artifactId));
+  for (const artifact of after) {
+    assert.deepEqual(artifact.versions.map((v) => v.version), [2, 1]);
+    assert.deepEqual(artifact.versions.map((v) => v.status), ["in-review", "superseded"]);
+    assert.equal(artifact.versions[0].supersedesVersion, 1);
+  }
+});
+
+for (const marker of ["[fake:fail]", "[fake:hang]"]) integration(`real results preserve partial draft for ${marker}`, async (t) => {
+  const f = await gitFixture(t); const a = f.enqueue(f.task(`[fake:edit]${marker}`));
+  if (marker === "[fake:hang]") {
+    await until(() => f.runtime.started[0]?.workspace && fs.existsSync(join(f.runtime.started[0].workspace.path, "FAKE-AWS-001.md")));
+    await f.dispatcher.stopAttempt(a.projectId, a.id);
+  }
+  await f.dispatcher.idle();
+  const artifacts = listTaskArtifacts(f.raw, a.projectId, a.taskId); assert.equal(artifacts.length, 1);
+  assert.equal(artifacts[0].kind, "code-ref"); assert.equal(artifacts[0].versions[0].status, "draft");
+  assert.match(f.store.get(artifacts[0].versions[0].contentHash).toString("utf8"), /FAKE-AWS-001/);
+});
+
+integration("throwing results store preserves real attempt and task outcomes", async (t) => {
+  const f = await gitFixture(t, { resultsStore: { put() { throw new Error("unavailable"); } } });
+  const a = f.enqueue(f.task("[fake:edit]")); await f.dispatcher.idle();
+  assert.equal(f.read(a).state, "succeeded"); assert.equal(getTask(f.raw, a.projectId, a.taskId).state, "in-review");
+  assert.deepEqual(listTaskArtifacts(f.raw, a.projectId, a.taskId), []);
+  assert.equal(f.errors.at(-1).message, "Artifact registration failed");
+});
+
+test("results callback sees workspace evidence and cannot change operator stop outcome", async (t) => {
+  let called = 0;
+  const f = fixture(t, { workspace: mockProvider(), results: ({ raw }) => ({ register(input) {
+    called++; assert.equal(input.outcome, "failed"); assert.equal(input.summary, null); assert.equal(raw.inTransaction, true);
+    assert.ok(listAttemptEvents(raw, input.projectId, input.attemptId).some((e) => e.kind === "evidence" && Array.isArray(e.body.files)));
+    throw new Error("unavailable");
+  } }) });
+  const a = f.enqueue(f.task("[fake:hang]")); await until(() => f.read(a).state === "running");
+  await f.dispatcher.stopAttempt(a.projectId, a.id); await f.dispatcher.idle();
+  assert.equal(called, 1); assert.equal(f.read(a).state, "stopped"); assert.equal(f.errors.at(-1).message, "Artifact registration failed");
 });
 integration("real attempt evidence lists files, totals and committed head", async (t) => {
   const f = await gitFixture(t); const a = f.enqueue(f.task("[fake:edit]")); await f.dispatcher.idle(); const e = f.evidence(a);

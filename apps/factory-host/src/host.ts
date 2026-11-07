@@ -29,6 +29,8 @@ import { assertInside, canonicalRoots } from "./workspace/index.js";
 import { createWorkspaceProvider, type WorkspaceProvider } from "./dispatch/workspace-provider.js";
 import { canonicalPath, refuseMount } from "./workspace/paths.js";
 import { SANDBOX_RELAY_PORT } from "./sandbox/index.js";
+import { createContentStore, type ContentStore } from "./artifacts/content-store.js";
+import { registerAttemptResults } from "./artifacts/service.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -152,6 +154,7 @@ async function freeLoopbackPort(): Promise<number> {
 }
 
 export async function startHost(options: {
+  contentDir?: string;
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
   budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>; uiDir?: string;
@@ -165,6 +168,7 @@ export async function startHost(options: {
   app: FastifyInstance; port: number; origins: string[]; storage: Storage; hub: EventHub; close(): Promise<void>;
   models: { gateway: ModelGateway | null; budgetConfig: BudgetConfig };
   lead: LeadRunner;
+  artifacts: { store: ContentStore };
   dispatch: Dispatcher | null;
   workspace: WorkspaceProvider | null;
   proxy: { port: number; socketPath?: string; tokens: TokenRegistry } | null;
@@ -243,6 +247,8 @@ export async function startHost(options: {
       });
     }
     const hub = new EventHub(storage.raw, { clock });
+    const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content") }) };
+    const resultId = createIdGenerator(clock);
     const leadSeat = pack.manifest.seats.find((seat) => seat.isLead);
     if (!leadSeat) throw new Error("Pack has no Lead seat");
     runner = createLeadRunner({ storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
@@ -294,9 +300,16 @@ export async function startHost(options: {
         evidenceDir = options.workspace?.evidenceDir ?? join(stateDir, "evidence");
         workspace = createWorkspaceProvider({ roots, evidenceDir });
       }
+      const resultsEvidenceDir = evidenceDir;
       dispatch = createDispatcher({ storage, hub, registry, clock, config,
         ...(modelAccess === undefined ? {} : { modelAccess }),
-        ...(workspace && roots ? { workspace, projectRootFor(projectId: string) {
+        ...(workspace && roots && resultsEvidenceDir ? { workspace, results: { register(input) {
+          const refs = registerAttemptResults({ raw, store: artifacts.store, now: clock, newId: resultId,
+            onError: () => { console.error("Artifact registration failed"); } }, { ...input, evidenceDir: resultsEvidenceDir });
+          for (const ref of refs) hub.append({ projectId: input.projectId, causationId: input.attemptId,
+            rootCausationId: input.attemptId, payload: { type: "entity.changed",
+              entity: { kind: "artifact-version", id: ref.artifactId, revision: ref.version } } });
+        } }, projectRootFor(projectId: string) {
           const row = raw.prepare("SELECT workspace_root FROM projects WHERE id = ?").get(projectId) as { workspace_root: string | null } | undefined;
           try { return row?.workspace_root ? assertInside(roots.projectsRoot, row.workspace_root) : null; }
           catch { return null; }
@@ -325,7 +338,7 @@ export async function startHost(options: {
     const sessions = createSessionStore({ clock });
     const port = options.port === 0 ? await freeLoopbackPort() : options.port;
     const origins = originsFor(port);
-    const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, backupStatus: () => backup?.status() ?? null,
+    const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, artifacts, backupStatus: () => backup?.status() ?? null,
       afterCommand: (type) => { if (type === "chat.send") lead.kick(); },
       ...(dispatch === null ? {} : { dispatch }),
       ...(evidenceDir === undefined ? {} : { evidenceDir }),
@@ -341,7 +354,7 @@ export async function startHost(options: {
     const token = gate.token;
     if (token === undefined) throw new Error("Bootstrap token unavailable");
     options.onBootstrapToken(token);
-    return { app, port, origins, storage, hub, lead, dispatch, workspace, proxy, backup, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
+    return { app, port, origins, storage, hub, lead, dispatch, workspace, proxy, backup, artifacts, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
   } catch (error) {
     try { await close(); } catch { /* Preserve the original startup failure. */ }
     throw error;

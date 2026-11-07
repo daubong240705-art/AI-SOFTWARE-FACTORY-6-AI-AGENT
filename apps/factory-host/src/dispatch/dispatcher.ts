@@ -64,6 +64,8 @@ export function createDispatcher(deps: {
   config?: Partial<DispatcherConfig>; timers?: Timers; onError?: (error: unknown) => void;
   workspace?: WorkspaceProvider; projectRootFor?: (projectId: string) => string | null;
   modelAccess?: ModelAccess;
+  results?: { register(input: { projectId: string; taskId: string; attemptId: string; epoch: number;
+    outcome: "completed" | "failed"; summary: string | null }): void };
 }): Dispatcher {
   const { raw } = deps.storage;
   const { hub, registry } = deps;
@@ -110,6 +112,15 @@ export function createDispatcher(deps: {
   const taskOutcome = (a: AttemptRecord, outcome: "succeeded" | "failed" | "stopped"): void => {
     const task = applyAttemptOutcome(raw, a.projectId, a.taskId, outcome, now());
     if (task) hub.append({ projectId: a.projectId, causationId: a.id, rootCausationId: a.id, payload: eventsForTask(task) });
+  };
+  const registerResults = (a: AttemptRecord, outcome: "completed" | "failed", summary: string | null): void => {
+    const results = deps.results;
+    if (!results) return;
+    try {
+      raw.transaction(() => results.register({ projectId: a.projectId, taskId: a.taskId,
+        attemptId: a.id, epoch: a.epoch, outcome, summary }))();
+    }
+    catch { report(new Error("Artifact registration failed")); }
   };
   const settle = (): void => {
     if (pumping || scheduled !== undefined || live.size > 0) return;
@@ -181,6 +192,7 @@ export function createDispatcher(deps: {
           ? event.message : "runtime failed" });
         taskOutcome(move(a, "failed"), "failed");
       }
+      registerResults(a, event.type, event.type === "completed" ? event.summary : null);
     });
   };
   const failBookkeeping = (original: AttemptRecord, error: unknown): void => {
@@ -192,6 +204,7 @@ export function createDispatcher(deps: {
         if (!["preparing", "running", "submitting"].includes(a.state)) return;
         stateEvent(a, { to: "failed", kind: "runtime", message: "runtime failed" });
         taskOutcome(move(a, "failed"), "failed");
+        registerResults(a, "failed", null);
       });
     } catch (fallbackError) { report(fallbackError); }
   };
@@ -463,7 +476,7 @@ export function createDispatcher(deps: {
         const latest = current(projectId, id);
         if (latest.state !== "stopping") return latest;
         const final = move(latest, ended ? "stopped" : "unknown");
-        if (ended) taskOutcome(final, "stopped");
+        if (ended) { taskOutcome(final, "stopped"); registerResults(final, "failed", null); }
         markNodeSlots(raw, LOCAL_NODE_ID);
         kick();
         return final;
