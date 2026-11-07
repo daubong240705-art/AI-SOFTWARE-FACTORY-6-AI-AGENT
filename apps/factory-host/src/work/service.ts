@@ -1,8 +1,8 @@
 import type { Database } from "better-sqlite3";
-import { canTransitionTask, taskSchema, type Task, type TaskState } from "@factory/contracts";
+import { canTransitionTask, taskSchema, type Task, type TaskState, type TaskProposeInput } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerMap } from "../commands/pipeline.js";
-import { getActiveEngagement } from "../org/service.js";
+import { deterministicUuid, getActiveEngagement } from "../org/service.js";
 
 interface TaskRow {
   id: string; project_id: string; revision: number; code: string; title: string; goal: string; brief: string;
@@ -42,6 +42,34 @@ export function getTask(raw: Database, projectId: string, taskId: string): Task 
 export function listTasks(raw: Database, projectId: string): Task[] {
   return (raw.prepare("SELECT * FROM tasks WHERE project_id = ? ORDER BY code, id").all(projectId) as TaskRow[])
     .map((row) => taskFromRow(raw, row));
+}
+
+/** The caller owns the transaction, including rollback of the whole proposal. */
+export function createProposedTasks(raw: Database, input: {
+  projectId: string; turnId: string; plan: TaskProposeInput; engagementId: string | null;
+}): Task[] {
+  const { projectId, turnId, plan, engagementId } = input;
+  const codes = raw.prepare("SELECT code FROM tasks WHERE project_id = ?").all(projectId) as { code: string }[];
+  let next = codes.reduce((max, row) => /^TSK-\d+$/.test(row.code) ? Math.max(max, Number(row.code.slice(4))) : max, 0) + 1;
+  const ids = plan.tasks.map((_, index) => deterministicUuid(`lead-turn:${turnId}:${index}`));
+  return plan.tasks.map((entry, index) => {
+    const id = ids[index] as string;
+    const existing = getTask(raw, projectId, id);
+    if (existing) return existing;
+    const code = `TSK-${String(next++).padStart(3, "0")}`;
+    raw.prepare(`INSERT INTO tasks (project_id, id, revision, code, title, goal, brief, parent_task_id, engagement_id,
+      owner_seat_id, origin_kind, state, disposition, placement, side_effect, review_policy, requires_go,
+      required_capabilities_json, acceptance_json, inputs_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(projectId, id, 1, code, entry.title, entry.goal, entry.goal, null, engagementId, null,
+        "operator", "proposed", "active", entry.placement, entry.sideEffect, entry.reviewPolicy, 1,
+        JSON.stringify(entry.requiredCapabilities), JSON.stringify(entry.acceptance), JSON.stringify([]));
+    for (const dependency of entry.dependsOn)
+      raw.prepare("INSERT INTO task_dependencies (project_id, task_id, depends_on_task_id) VALUES (?, ?, ?)")
+        .run(projectId, id, ids[dependency] as string);
+    const task = getTask(raw, projectId, id);
+    if (!task) throw new Error("Proposed task was not inserted");
+    return task;
+  });
 }
 
 export const tasksCreateHandler: HandlerMap["tasks.create"] = ({ raw }, { projectId, payload }) => {

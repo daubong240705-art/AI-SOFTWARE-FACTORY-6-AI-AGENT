@@ -19,8 +19,8 @@ const seatFromRow = (row: SeatRow): Seat => seatSchema.parse({
   nodePolicy: row.node_policy, dedicatedNodeId: row.dedicated_node_id, isLead: row.is_lead === 1,
 });
 
-function profileId(key: string, path: string): string {
-  const bytes = createHash("sha256").update(`${key}:${path}`).digest().subarray(0, 16);
+export function deterministicUuid(value: string): string {
+  const bytes = createHash("sha256").update(value).digest().subarray(0, 16);
   bytes[6] = ((bytes[6] as number) & 0x0f) | 0x80;
   bytes[8] = ((bytes[8] as number) & 0x3f) | 0x80;
   const hex = bytes.toString("hex");
@@ -43,7 +43,7 @@ export function ensureTeamFromPack(raw: Database, pack: LoadedPack, deps: Deps):
     for (const seat of manifest.seats) raw.prepare(`INSERT INTO seats
       (id, team_id, revision, name, role, profile_id, profile_revision, runtime, slots, node_policy, dedicated_node_id, is_lead)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(deps.newId(), teamId, 1, seat.name, seat.role, profileId(manifest.key, seat.profile), 1,
+      .run(deps.newId(), teamId, 1, seat.name, seat.role, deterministicUuid(`${manifest.key}:${seat.profile}`), 1,
         seat.runtime, seat.slots, "elastic", null, Number(seat.isLead));
     return { teamId, created: true, seatIds: listSeats(raw, teamId).map((seat) => seat.id) };
   }).immediate();
