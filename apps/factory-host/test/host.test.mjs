@@ -712,3 +712,86 @@ test("parseEnv carries the optional proxy socket without changing TCP defaults",
   assert.deepEqual(options.agentProxy, { port: 8788, approvedModels: ["approved"], socketPath });
   assert.deepEqual(parseEnv({ FACTORY_AGENT_MODELS: "approved" }).agentProxy, { port: 8788, approvedModels: ["approved"] });
 });
+
+function opencodeEnv(t) {
+  const root = tempDir(t); const dir = join(root, "opencode"); mkdirSync(join(dir, "bin"), { recursive: true });
+  writeFileSync(join(dir, "bin", "opencode"), "synthetic executable fixture");
+  return { FACTORY_RUNTIME: "opencode", FACTORY_OPENCODE_DIR: dir, FACTORY_PROXY_SOCKET: join(root, "proxy", "model.sock"),
+    FACTORY_AGENT_MODELS: "approved,provider/other", NINE_ROUTER_API_KEY: "synthetic-startup-private-value",
+    FACTORY_GATEWAY_URL: "http://127.0.0.1:9000/v1", FACTORY_PROJECTS_ROOT: join(root, "projects"), FACTORY_WORKTREES_ROOT: join(root, "worktrees") };
+}
+for (const name of ["FACTORY_OPENCODE_DIR", "FACTORY_PROXY_SOCKET", "FACTORY_AGENT_MODELS", "NINE_ROUTER_API_KEY", "FACTORY_GATEWAY_URL"])
+  for (const [label, value] of [["missing", undefined], ["empty", ""], ["blank", " "]])
+    test(`opencode startup names ${label} ${name} without printing values`, (t) => {
+      const env = opencodeEnv(t); env[name] = value;
+      assert.throws(() => parseEnv(env), { message: `${name} is required for FACTORY_RUNTIME=opencode` });
+    });
+test("parseEnv selects opencode with socket proxy and never returns the upstream credential", (t) => {
+  const env = opencodeEnv(t); const parsed = parseEnv(env);
+  assert.deepEqual(parsed.opencode, { dir: env.FACTORY_OPENCODE_DIR });
+  assert.deepEqual(parsed.agentProxy, { port: 8788, approvedModels: ["approved", "provider/other"], socketPath: env.FACTORY_PROXY_SOCKET });
+  assert.equal(JSON.stringify(parsed).includes(env.NINE_ROUTER_API_KEY), false);
+});
+for (const label of ["relative", "nonexistent", "missing executable", "executable directory"])
+  test(`opencode startup rejects ${label} installation`, (t) => {
+    const env = opencodeEnv(t);
+    if (label === "relative") env.FACTORY_OPENCODE_DIR = "relative";
+    else if (label === "nonexistent") env.FACTORY_OPENCODE_DIR = join(env.FACTORY_OPENCODE_DIR, "missing");
+    else {
+      const dir = join(tempDir(t), "installation"); mkdirSync(join(dir, "bin"), { recursive: true }); env.FACTORY_OPENCODE_DIR = dir;
+      if (label === "executable directory") mkdirSync(join(dir, "bin", "opencode"));
+    }
+    assert.throws(() => parseEnv(env), { message: "FACTORY_OPENCODE_DIR must be an absolute directory containing bin/opencode" });
+  });
+for (const [label, value] of [["invalid", "private-invalid-value"], ["credentials", "http://private:private@localhost/v1"], ["non HTTP", "file:///private"]])
+  test(`opencode startup rejects ${label} gateway without printing its value`, (t) => {
+    const env = opencodeEnv(t); env.FACTORY_GATEWAY_URL = value;
+    assert.throws(() => parseEnv(env), { message: "FACTORY_GATEWAY_URL must be an HTTP or HTTPS URL without credentials" });
+  });
+test("opencode startup names an invalid proxy socket setting", (t) => {
+  const env = opencodeEnv(t); env.FACTORY_PROXY_SOCKET = "relative-private-value";
+  assert.throws(() => parseEnv(env), { message: "FACTORY_PROXY_SOCKET must be a canonical absolute socket path outside /mnt" });
+});
+test("opencode startup names invalid workspace settings", (t) => {
+  const env = opencodeEnv(t); env.FACTORY_PROJECTS_ROOT = "relative-private-value";
+  assert.throws(() => parseEnv(env), { message: "FACTORY_PROJECTS_ROOT and FACTORY_WORKTREES_ROOT must be absolute, separate directories outside /mnt" });
+});
+for (const name of ["FACTORY_PROJECTS_ROOT", "FACTORY_WORKTREES_ROOT"])
+  test(`opencode startup rejects a file for ${name}`, (t) => {
+    const env = opencodeEnv(t); writeFileSync(env[name], "synthetic fixture");
+    assert.throws(() => parseEnv(env), { message: `${name} must be a directory separate from FACTORY_STATE_DIR` });
+  });
+for (const name of ["FACTORY_PROJECTS_ROOT", "FACTORY_WORKTREES_ROOT"])
+  test(`opencode startup rejects ${name} overlapping host state`, (t) => {
+    const env = opencodeEnv(t); env.FACTORY_STATE_DIR = join(env[name], "state");
+    assert.throws(() => parseEnv(env), { message: `${name} must be a directory separate from FACTORY_STATE_DIR` });
+  });
+test("fake runtime remains the default without opencode prerequisites", () => {
+  assert.deepEqual(parseEnv({ FACTORY_RUNTIME: "fake" }), parseEnv({})); assert.equal(parseEnv({}).opencode, undefined);
+});
+test("host runtimes option registers an adapter next to the default fake runtime", async (t) => {
+  const delegate = createFakeRuntime({ stepMs: 0 }); const runtime = { kind: "native-opencode", start: delegate.start };
+  const host = await launch(t, undefined, { dispatch: { stepMs: 0 }, runtimes: [runtime] });
+  const input = hostDispatchTask(host, "Deliver");
+  host.storage.raw.prepare("UPDATE seats SET runtime = ? WHERE id = ?").run(runtime.kind, input.seatId);
+  const attempt = host.dispatch.enqueue(input); await host.dispatch.idle();
+  assert.equal(attempt.runtime, "native-opencode"); assert.equal(delegate.started.length, 1);
+  assert.equal(getAttempt(host.storage.raw, attempt.projectId, attempt.id).state, "succeeded");
+  const other = hostDispatchTask(host, "Deliver"); host.storage.raw.prepare("UPDATE seats SET runtime = 'fake' WHERE id = ?").run(other.seatId);
+  const fallback = host.dispatch.enqueue(other); await host.dispatch.idle();
+  assert.equal(fallback.runtime, "fake"); assert.equal(getAttempt(host.storage.raw, fallback.projectId, fallback.id).state, "succeeded");
+  assert.equal(delegate.started.length, 1);
+});
+test("host keeps fake fallback for unregistered runtime seats", async (t) => {
+  const host = await launch(t, undefined, { dispatch: { stepMs: 0 }, runtimes: [] }); const input = hostDispatchTask(host, "Deliver");
+  host.storage.raw.prepare("UPDATE seats SET runtime = 'native-opencode' WHERE id = ?").run(input.seatId);
+  const attempt = host.dispatch.enqueue(input); await host.dispatch.idle(); assert.equal(attempt.runtime, "fake");
+  assert.equal(getAttempt(host.storage.raw, attempt.projectId, attempt.id).state, "succeeded");
+});
+nodeTest("opencode entrypoint refuses an unavailable sandbox before opening host state", { skip: process.platform === "linux" ? "Non-Linux preflight" : false }, (t) => {
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL("../dist/main.js", import.meta.url))], {
+    env: opencodeEnv(t), encoding: "utf8", timeout: 5000,
+  });
+  assert.ifError(result.error); assert.equal(result.status, 1); assert.equal(result.stdout, "");
+  assert.equal(result.stderr.trim(), "FACTORY_RUNTIME=opencode requires working bubblewrap on Linux");
+});

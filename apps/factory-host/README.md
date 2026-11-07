@@ -124,6 +124,15 @@ Correction: an earlier note here said the Lead created no Task. That was a bug i
 - Network: the sandbox cannot reach the host loopback or the internet. Models are reached through `relay-main.js` inside the sandbox (`127.0.0.1:18787` -> a unix socket bound from the Host), and the Host proxy listens on that socket (`FACTORY_PROXY_SOCKET`, absolute path in a 0700 directory, socket mode 0600) instead of TCP.
 - Known limits: no CPU, process-count or disk quotas yet (only the tmpfs caps); a runaway agent can still use CPU and fill its worktree; seccomp is not applied.
 
+## OpenCode runtime (M2)
+
+`src/runtimes/opencode.ts` implements `RuntimeAdapter` for the seat runtime `native-opencode`: it runs the real OpenCode 1.19.5 (`run --pure --format json`) inside the bubblewrap sandbox. The model is reached only as `http://127.0.0.1:18787/v1` (the in-sandbox relay to the Host proxy socket); the per-attempt token lives only in `OPENCODE_CONFIG_CONTENT`.
+
+- Enable with `FACTORY_RUNTIME=opencode`. The Host refuses to start (one message, no values printed) unless `FACTORY_OPENCODE_DIR` (contains `bin/opencode`), `FACTORY_PROXY_SOCKET`, `FACTORY_AGENT_MODELS`, `NINE_ROUTER_API_KEY`, `FACTORY_GATEWAY_URL`, the projects/worktrees roots and a working bubblewrap are all present. Seats whose runtime is not registered still fall back to the fake runtime.
+- Events are mapped from OpenCode's JSON lines (`step_start`, `text`, `tool_use`, `error`, exit code) to `progress` / `completed` / `failed`. Every string leaving the adapter is scrubbed: the token, `fpx_…`/`sk-…` patterns, the workspace path (`<workspace>`) and any other absolute path. OpenCode's raw error text and stderr are never forwarded.
+- OpenCode retries a failing upstream (HTTP 5xx) forever and silently, so the adapter enforces its own total deadline (15 min) and stall deadline (5 min, restarted on every parsed event). `stop()` resolves only after the sandbox process group is verified gone; if it survives, `stop()` rejects and the dispatcher records `unknown`.
+- Known limits: no per-seat model or reasoning-effort selection yet (first approved model); no MCP tools for `output.register` / `decision.request` yet (S6); no CPU/process quotas (see Sandbox).
+
 ## Process runner (M2)
 
 `src/exec/process-group.ts` runs a child on Linux only (it refuses every other platform): own session and process group, the EXACT environment it is given (nothing inherited from the Host), commands resolved only through the child's own `PATH`, bounded output (UTF-8 safe), timeout, and a stop that resolves only after the whole group is verified gone (SIGTERM, grace, SIGKILL; a group that survives the deadline is reported, never hidden). `buildSafeEnv` refuses secret-looking variable names unless allowed by name; `scrubForLog` redacts secrets. A child that deliberately escapes with `setsid` is NOT contained by process groups: the sandbox (a later slice) must contain it. The Linux integration tests run through `scripts/factory-v2/test-host-wsl.sh`.

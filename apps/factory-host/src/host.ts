@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { createServer } from "node:net";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { chmod, lstat, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, posix, resolve } from "node:path";
@@ -60,6 +60,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   dispatch: { nodeSlots: number };
   workspace: { projectsRoot: string; worktreesRoot: string };
   agentProxy?: { port: number; approvedModels: string[]; socketPath?: string };
+  opencode?: { dir: string };
 } {
   const input = env.FACTORY_PORT ?? "8787";
   if (!/^[0-9]+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) < 1 || Number(input) > 65_535)
@@ -71,7 +72,23 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   const slots = env.FACTORY_NODE_SLOTS ?? "2";
   if (!/^[0-9]+$/.test(slots) || !Number.isSafeInteger(Number(slots)) || Number(slots) < 1 || Number(slots) > 16)
     throw new Error("FACTORY_NODE_SLOTS must be an integer from 1 to 16");
-  if ((env.FACTORY_RUNTIME ?? "fake") !== "fake") throw new Error("unsupported runtime");
+  const runtime = env.FACTORY_RUNTIME ?? "fake";
+  if (runtime !== "fake" && runtime !== "opencode") throw new Error("unsupported runtime");
+  let opencode: { dir: string } | undefined;
+  if (runtime === "opencode") {
+    for (const name of ["FACTORY_OPENCODE_DIR", "FACTORY_PROXY_SOCKET", "FACTORY_AGENT_MODELS", "NINE_ROUTER_API_KEY", "FACTORY_GATEWAY_URL"] as const)
+      if (!env[name]?.trim()) throw new Error(`${name} is required for FACTORY_RUNTIME=opencode`);
+    const dir = env.FACTORY_OPENCODE_DIR;
+    try {
+      if (!dir || !isAbsolute(dir) || /[\0\r\n]/.test(dir) || !statSync(dir).isDirectory()
+        || !statSync(join(dir, "bin", "opencode")).isFile()) throw new Error();
+      opencode = { dir };
+    } catch { throw new Error("FACTORY_OPENCODE_DIR must be an absolute directory containing bin/opencode"); }
+    try {
+      const url = new URL(env.FACTORY_GATEWAY_URL ?? "");
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error();
+    } catch { throw new Error("FACTORY_GATEWAY_URL must be an HTTP or HTTPS URL without credentials"); }
+  }
   let approvedModels: string[] | undefined;
   if (env.FACTORY_AGENT_MODELS !== undefined) {
     approvedModels = env.FACTORY_AGENT_MODELS.split(",");
@@ -79,7 +96,9 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
       throw new Error("FACTORY_AGENT_MODELS must contain unique non-empty model names without whitespace");
   }
   const proxyPort = env.FACTORY_PROXY_PORT ?? String(Number(input) + 1);
-  const socketPath = env.FACTORY_PROXY_SOCKET === undefined ? undefined : proxySocketPath(env.FACTORY_PROXY_SOCKET);
+  let socketPath: string | undefined;
+  try { socketPath = env.FACTORY_PROXY_SOCKET === undefined ? undefined : proxySocketPath(env.FACTORY_PROXY_SOCKET); }
+  catch { throw new Error(runtime === "opencode" ? "FACTORY_PROXY_SOCKET must be a canonical absolute socket path outside /mnt" : "Invalid proxy socket configuration"); }
   if ((approvedModels || env.FACTORY_PROXY_PORT !== undefined) && (!/^[0-9]+$/.test(proxyPort)
     || !Number.isSafeInteger(Number(proxyPort)) || Number(proxyPort) < 1 || Number(proxyPort) > 65_535))
     throw new Error("FACTORY_PROXY_PORT must be an integer from 1 to 65535");
@@ -90,9 +109,23 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
         ? resolve("/srv/factory/workspaces") : join(homedir(), "factory-v2", "workspaces")),
       worktreesRoot: env.FACTORY_WORKTREES_ROOT ?? join(homedir(), "factory-v2", "worktrees"),
     });
-  } catch { throw new Error("Workspace roots must be absolute, separate directories outside /mnt"); }
+  } catch { throw new Error(runtime === "opencode"
+    ? "FACTORY_PROJECTS_ROOT and FACTORY_WORKTREES_ROOT must be absolute, separate directories outside /mnt"
+    : "Workspace roots must be absolute, separate directories outside /mnt"); }
+  if (runtime === "opencode") {
+    for (const [name, path] of [["FACTORY_PROJECTS_ROOT", workspace.projectsRoot], ["FACTORY_WORKTREES_ROOT", workspace.worktreesRoot]] as const) {
+      try {
+        // Missing roots are created by the workspace provider; existing files cannot be workspace roots.
+        if (existsSync(path) && !statSync(path).isDirectory()) throw new Error();
+        const state = canonicalPath(stateDir);
+        if (state === path || state.startsWith(`${path}/`) || path.startsWith(`${state}/`)
+          || state.startsWith(`${path}\\`) || path.startsWith(`${state}\\`)) throw new Error();
+      } catch { throw new Error(`${name} must be a directory separate from FACTORY_STATE_DIR`); }
+    }
+  }
   return {
     stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) }, workspace,
+    ...(opencode === undefined ? {} : { opencode }),
     ...(approvedModels === undefined ? {} : { agentProxy: { port: Number(proxyPort), approvedModels,
       ...(socketPath === undefined ? {} : { socketPath }) } }),
     ...(env.FACTORY_MIGRATION_BACKUP_DIR === undefined ? {} : { backupDir: env.FACTORY_MIGRATION_BACKUP_DIR }),
@@ -122,6 +155,7 @@ export async function startHost(options: {
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
   budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>; uiDir?: string;
+  runtimes?: RuntimeAdapter[];
   periodicBackup?: { dir: string; intervalMs?: number; firstRunDelayMs?: number; keep?: BackupKeep } | null;
   dispatch?: Partial<DispatcherConfig> & { stepMs?: number; adapters?: RuntimeAdapter[] } | null;
   workspace?: { projectsRoot: string; worktreesRoot: string; evidenceDir?: string } | null;
@@ -249,7 +283,9 @@ export async function startHost(options: {
     }
     if (options.dispatch) {
       const { stepMs, adapters, ...config } = options.dispatch;
-      const registry = new RuntimeRegistry(adapters ?? [createFakeRuntime(stepMs === undefined ? {} : { stepMs })]);
+      const registry = new RuntimeRegistry([
+        createFakeRuntime(stepMs === undefined ? {} : { stepMs }), ...(adapters ?? []), ...(options.runtimes ?? []),
+      ]);
       const raw = storage.raw;
       let roots: ReturnType<typeof canonicalRoots> | null = null;
       try { if (options.workspace) roots = canonicalRoots(options.workspace); }
