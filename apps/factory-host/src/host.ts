@@ -20,7 +20,7 @@ import { tasksCreateHandler, tasksTransitionHandler } from "./work/service.js";
 import { createBackupService, type BackupKeep, type BackupService, type BackupStatus } from "./backup/service.js";
 import { startBackupScheduler } from "./backup/scheduler.js";
 import { lockStateDirectory } from "./backup/lock.js";
-import { createDispatcher, createFakeRuntime, RuntimeRegistry, type Dispatcher, type DispatcherConfig, type RuntimeAdapter } from "./dispatch/index.js";
+import { advanceTasks, createDispatchHandlers, createDispatcher, createFakeRuntime, eventsForTask, RuntimeRegistry, type Dispatcher, type DispatcherConfig, type RuntimeAdapter } from "./dispatch/index.js";
 
 export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   stateDir: string; port: number; backupDir?: string;
@@ -143,6 +143,16 @@ export async function startHost(options: {
       const registry = new RuntimeRegistry(adapters ?? [createFakeRuntime(stepMs === undefined ? {} : { stepMs })]);
       dispatch = createDispatcher({ storage, hub, registry, clock, config });
       dispatch.start();
+      const dispatcher = dispatch;
+      const raw = storage.raw;
+      for (const project of raw.prepare("SELECT id FROM projects ORDER BY id").all() as { id: string }[]) {
+        try {
+          hub.transaction(() => {
+            for (const task of advanceTasks(raw, project.id, { dispatcher }))
+              hub.append({ projectId: project.id, causationId: task.id, rootCausationId: task.id, payload: eventsForTask(task) });
+          });
+        } catch { console.error("Dispatch startup catch-up failed for project", project.id); }
+      }
     }
     const lead = runner;
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
@@ -150,6 +160,7 @@ export async function startHost(options: {
       "tasks.create": tasksCreateHandler, "tasks.transition": tasksTransitionHandler,
       "budgets.set": budgetsSetHandler,
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
+      ...(dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch })),
     } });
     const gate = createBootstrapGate({ clock });
     const sessions = createSessionStore({ clock });
@@ -157,6 +168,7 @@ export async function startHost(options: {
     const origins = originsFor(port);
     const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, backupStatus: () => backup?.status() ?? null,
       afterCommand: (type) => { if (type === "chat.send") lead.kick(); },
+      ...(dispatch === null ? {} : { dispatch }),
       ...(options.keepAliveMs === undefined ? {} : { keepAliveMs: options.keepAliveMs }),
     });
     app = createApiServer({ origins, gate, sessions, clock, register(app, guards) {

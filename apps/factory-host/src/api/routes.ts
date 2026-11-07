@@ -8,7 +8,8 @@ import { getActiveEngagement, getTeam, listSeats } from "../org/service.js";
 import { budgetStatus, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "../policy/index.js";
 import { getProject, listProjects } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
-import { listTasks } from "../work/service.js";
+import { getTask, listTasks } from "../work/service.js";
+import { getAttempt, listAttempts, listAttemptEvents, type Dispatcher } from "../dispatch/index.js";
 import { failure } from "./http.js";
 import type { ApiGuards } from "./server.js";
 import type { BackupStatus } from "../backup/service.js";
@@ -20,6 +21,7 @@ export function createRoutes(deps: {
   budgetConfig?: BudgetConfig; clock?: Clock;
   afterCommand?: (type: string, result: PipelineResult) => void;
   backupStatus?: () => BackupStatus | null;
+  dispatch?: Dispatcher;
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
@@ -103,5 +105,50 @@ export function createRoutes(deps: {
       if (!engagement || !team) return failure(reply, 404, "not-found", "Project team not found.", "correct-input", newId);
       return { apiVersion: API_VERSION, ok: true, team, seats: listSeats(deps.storage.raw, team.id), engagement };
     });
+    app.get<{ Params: { projectId: string; taskId: string } }>(
+      "/projects/:projectId/tasks/:taskId/attempts", { preHandler: guards.session }, async (request, reply) => {
+        if (!deps.dispatch) return failure(reply, 404, "not-found", "Dispatch not found.", "correct-input", newId);
+        const project = idSchema.safeParse(request.params.projectId);
+        const task = idSchema.safeParse(request.params.taskId);
+        if (!project.success || !task.success)
+          return failure(reply, 400, "validation", "Invalid project or task id.", "correct-input", newId);
+        const raw = deps.storage.raw;
+        if (!getProject(raw, project.data) || !getTask(raw, project.data, task.data))
+          return failure(reply, 404, "not-found", "Project or task not found.", "correct-input", newId);
+        const attempts = listAttempts(raw, project.data, task.data).map((attempt) => {
+          const seat = attempt.seatId === null ? undefined
+            : raw.prepare("SELECT name FROM seats WHERE id = ?").get(attempt.seatId) as { name: string } | undefined;
+          return { id: attempt.id, taskId: attempt.taskId, epoch: attempt.epoch, revision: attempt.revision,
+            state: attempt.state, outcome: attempt.outcome, runtime: attempt.runtime, seatId: attempt.seatId,
+            seatName: seat?.name ?? null, startedAt: attempt.startedAt, endedAt: attempt.endedAt };
+        });
+        return { apiVersion: API_VERSION, ok: true, attempts };
+      },
+    );
+    app.get<{ Params: { projectId: string; attemptId: string }; Querystring: { afterSeq?: unknown; limit?: unknown } }>(
+      "/projects/:projectId/attempts/:attemptId/events", { preHandler: guards.session }, async (request, reply) => {
+        if (!deps.dispatch) return failure(reply, 404, "not-found", "Dispatch not found.", "correct-input", newId);
+        const project = idSchema.safeParse(request.params.projectId);
+        const attempt = idSchema.safeParse(request.params.attemptId);
+        if (!project.success || !attempt.success)
+          return failure(reply, 400, "validation", "Invalid project or attempt id.", "correct-input", newId);
+        const raw = deps.storage.raw;
+        if (!getProject(raw, project.data) || !getAttempt(raw, project.data, attempt.data))
+          return failure(reply, 404, "not-found", "Project or attempt not found.", "correct-input", newId);
+        const integer = (value: unknown, fallback: number, min: number, max: number): number | undefined => {
+          if (value === undefined) return fallback;
+          if (typeof value !== "string" || !/^[0-9]+$/.test(value)) return undefined;
+          const parsed = Number(value);
+          return Number.isSafeInteger(parsed) && parsed >= min && parsed <= max ? parsed : undefined;
+        };
+        const afterSeq = integer(request.query.afterSeq, 0, 0, Number.MAX_SAFE_INTEGER);
+        const limit = integer(request.query.limit, 100, 1, 500);
+        if (afterSeq === undefined || limit === undefined)
+          return failure(reply, 400, "validation", "Invalid attempt event pagination.", "correct-input", newId);
+        const events = listAttemptEvents(raw, project.data, attempt.data, { afterSeq, limit })
+          .map(({ seq, at, kind, body }) => ({ seq, at, kind, body }));
+        return { apiVersion: API_VERSION, ok: true, events };
+      },
+    );
   };
 }

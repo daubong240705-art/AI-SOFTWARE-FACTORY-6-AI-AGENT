@@ -6,3 +6,6 @@ export * from "./node.js";
 export * from "./tasks.js";
 export * from "./handoff.js";
 export * from "./dispatcher.js";
+export * from "./seats.js";
+export * from "./advance.js";
+export * from "./commands.js";
