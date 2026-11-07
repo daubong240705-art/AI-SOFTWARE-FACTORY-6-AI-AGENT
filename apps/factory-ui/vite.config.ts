@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
+import { fileURLToPath } from "node:url";
 
 // Dev: the UI is served by Vite, the Host API by the Host; the proxy makes them look like one origin
 // (the Host only accepts its own Host and Origin headers).
@@ -10,6 +11,7 @@ const hostOrigin = `http://127.0.0.1:${hostPort}`;
 export default defineConfig({
   plugins: [react()],
   server: {
+    fs: { allow: [searchForWorkspaceRoot(process.cwd()), fileURLToPath(new URL("../../design/factory-v2", import.meta.url))] },
     host: "127.0.0.1",
     port: 5173,
     strictPort: true,

@@ -6,6 +6,10 @@
   "description": "Factory V2 web UI (M1: shell, projects, Lead chat, tasks). Talks only to the Host API.",
   "engines": { "node": ">=22.20.0" },
   "scripts": {
+    "tokens": "node scripts/build-tokens.mjs",
+    "predev": "npm run tokens",
+    "prebuild": "npm run tokens",
+    "pretest": "npm run tokens",
     "check": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "dev": "vite",
