@@ -75,10 +75,18 @@ export function createAttempt(raw: Database, input: {
   }).immediate();
 }
 
-export function transitionAttempt(raw: Database, ref: { projectId: string; id: string }, to: AttemptState, patch: {
+type TransitionPatch = {
   nodeId?: string | null; leaseId?: string | null; leaseExpiresAt?: string | null; startedAt?: string | null;
   endedAt?: string | null; outcome?: "known" | "unknown"; expectedState?: AttemptState; expectedLeaseId?: string | null; now: string;
-}): AttemptRecord {
+};
+
+export function transitionAttempt(raw: Database, ref: { projectId: string; id: string }, to: AttemptState, patch: TransitionPatch): AttemptRecord {
+  return transition(raw, ref, to, patch);
+}
+
+function transition(raw: Database, ref: { projectId: string; id: string }, to: AttemptState,
+  patch: TransitionPatch,
+): AttemptRecord {
   return raw.transaction(() => {
     const attempt = getAttempt(raw, ref.projectId, ref.id);
     if (!attempt) throw new AttemptError("not-found");

@@ -94,3 +94,12 @@ FACTORY_STATE_DIR=$HOME/factory-v2/state FACTORY_PORT=8787 node $HOME/factory-v2
 Five real calls through the Host in WSL (about 1.7k to 2.0k tokens each, `gpt-6.1-sol` via `/chat/completions`, `FACTORY_BUDGET_DAY_TOKENS` capped at 20,000 for the runs). Verified end to end: the discussion reply, the budget/usage ledger, and a delegate request in which the Lead emitted a valid `factory-plan` block and the Host created `TSK-001 [proposed]`.
 
 Correction: an earlier note here said the Lead created no Task. That was a bug in the throwaway smoke script (it read `tasks` while the route returns `items`), not in the Host or the model. The captured raw output showed a valid plan block from the first delegate call on. The reminder appended to delegate messages is kept because it is cheap and tested, but it was not what made the plan appear.
+
+## Dispatch (M2)
+
+- `src/dispatch/`: attempt repository (`ATTEMPT_TRANSITIONS` from the contracts is the only lifecycle graph), local node with capacity, runtime interface + fake runtime, and the `Dispatcher`.
+- Capacity: node slots and seat slots; attempts that may still be running (`lease-expired`, `unknown`, `reconciling`) keep their slot. One live attempt per task. Order: engagement priority, then FIFO.
+- No replay, ever: an expired lease or a Host crash turns a default task's attempt into `unknown` (operator reconciles); only tasks that are repo-bound with no outside effect get a new attempt (epoch + 1, with a handoff). A stop in progress at crash time is `unknown`, never restarted.
+- Stop writes `stopped` only after the runtime says the execution has really ended; a timeout leaves `unknown`.
+- Late events of a fenced (expired, stopped or replaced) execution are dropped.
+- `startHost({ dispatch: {...} })` enables it; `main.ts` enables it by default (`FACTORY_NODE_SLOTS` 1..16 default 2, `FACTORY_RUNTIME=fake` for now). Nothing enqueues attempts yet: the commands that do (start gate, stop, reconcile) come next.

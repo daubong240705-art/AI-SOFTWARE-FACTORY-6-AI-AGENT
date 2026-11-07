@@ -11,7 +11,11 @@ import Database from "better-sqlite3";
 import { API_VERSION } from "@factory/contracts";
 import { parseEnv, startHost } from "../dist/host.js";
 import { createFakeGateway } from "../dist/models/index.js";
-import { loadPack } from "../dist/org/index.js";
+import { loadPack, findLeadSeat, getActiveEngagement } from "../dist/org/index.js";
+import { createCommandPipeline } from "../dist/commands/pipeline.js";
+import { createProjectsCreateHandler } from "../dist/projects/service.js";
+import { tasksCreateHandler, getTask } from "../dist/work/service.js";
+import { createAttempt, createFakeRuntime, getAttempt, ensureLocalNode, LOCAL_NODE_ID, transitionAttempt, moveTask } from "../dist/dispatch/index.js";
 import { DEFAULT_BUDGET_CONFIG } from "../dist/policy/index.js";
 
 const test = (name, fn) => nodeTest(name, { timeout: 15_000 }, fn);
@@ -388,7 +392,7 @@ test("injected clock is used by migrations and the command pipeline", async (t) 
 
 test("parseEnv defaults are an absolute home state directory and port 8787", () => {
   const stateDir = join(homedir(), "factory-v2", "state");
-  assert.deepEqual(parseEnv({}), { stateDir, port: 8787, periodicBackup: {
+  assert.deepEqual(parseEnv({}), { stateDir, port: 8787, dispatch: { nodeSlots: 2 }, periodicBackup: {
     dir: existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(stateDir, "backups", "periodic"), intervalMs: 3_600_000,
   } });
 });
@@ -396,7 +400,7 @@ test("parseEnv defaults are an absolute home state directory and port 8787", () 
 test("parseEnv accepts state, backup, and integer port overrides", () => {
   assert.deepEqual(parseEnv({ FACTORY_STATE_DIR: "/state", FACTORY_PORT: "12345", FACTORY_BACKUP_DIR: "/backup",
     FACTORY_MIGRATION_BACKUP_DIR: "/migration", FACTORY_BACKUP_INTERVAL_MINUTES: "30" }),
-    { stateDir: "/state", port: 12345, backupDir: "/migration", periodicBackup: { dir: "/backup", intervalMs: 1_800_000 } });
+    { stateDir: "/state", port: 12345, dispatch: { nodeSlots: 2 }, backupDir: "/migration", periodicBackup: { dir: "/backup", intervalMs: 1_800_000 } });
   assert.equal(parseEnv({ FACTORY_PORT: "1" }).port, 1);
   assert.equal(parseEnv({ FACTORY_PORT: "65535" }).port, 65535);
 });
@@ -419,3 +423,112 @@ for (const name of ["FACTORY_BUDGET_TASK_TOKENS", "FACTORY_BUDGET_DAY_TOKENS"])
       assert.equal(result.stderr.trim(), `${name} must be a positive safe integer`);
     }
   });
+
+test("parseEnv enables fake dispatch by default and accepts node slot boundaries", () => {
+  assert.deepEqual(parseEnv({}).dispatch, { nodeSlots: 2 });
+  for (const input of ["1", "2", "16"])
+    assert.equal(parseEnv({ FACTORY_NODE_SLOTS: input, FACTORY_RUNTIME: "fake" }).dispatch.nodeSlots, Number(input));
+});
+
+for (const input of ["", "0", "-1", "17", "2.5", "1e1", " 2", "2 ", "Infinity", "abc", "9007199254740993"])
+  test(`parseEnv rejects invalid node slots ${JSON.stringify(input)}`, () => {
+    assert.throws(() => parseEnv({ FACTORY_NODE_SLOTS: input }), /FACTORY_NODE_SLOTS must be an integer from 1 to 16/);
+  });
+
+for (const input of ["", "native-opencode", "api-agent", "acp", "FAKE", "fake "])
+  test(`parseEnv rejects unsupported runtime ${JSON.stringify(input)}`, () => {
+    assert.throws(() => parseEnv({ FACTORY_RUNTIME: input }), /unsupported runtime/);
+  });
+
+test("main rejects unsupported dispatch configuration before host startup", () => {
+  for (const [name, value, message] of [
+    ["FACTORY_NODE_SLOTS", "17", "FACTORY_NODE_SLOTS must be an integer from 1 to 16"],
+    ["FACTORY_RUNTIME", "acp", "unsupported runtime"],
+  ]) {
+    const result = spawnSync(process.execPath, [fileURLToPath(new URL("../dist/main.js", import.meta.url))], {
+      env: { [name]: value }, encoding: "utf8", timeout: 5000,
+    });
+    assert.ifError(result.error); assert.equal(result.status, 1); assert.equal(result.stdout, "");
+    assert.equal(result.stderr.trim(), message);
+  }
+});
+
+function hostDispatchTask(host, goal = "[fake:hang]") {
+  const pipeline = createCommandPipeline({ storage: host.storage, hub: host.hub, handlers: {
+    "projects.create": createProjectsCreateHandler({ pack: loadPack(fileURLToPath(new URL("../../../packs/software-team/", import.meta.url))) }),
+    "tasks.create": tasksCreateHandler,
+  } });
+  const projectId = randomUUID(); const taskId = randomUUID();
+  const execute = (type, payload) => {
+    const result = pipeline.execute({ apiVersion: API_VERSION, commandId: randomUUID(), projectId, type, payload });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+  };
+  execute("projects.create", { name: "Host dispatch project", workspace: { kind: "directory", root: `/workspace/${projectId}` } });
+  execute("tasks.create", { taskId, code: "HOST-001", title: "Host dispatch", goal, brief: "Brief", parentTaskId: null,
+    engagementId: null, ownerSeatId: null, requiredCapabilities: [], acceptance: [], inputs: [], dependsOn: [] });
+  for (const state of ["accepted", "ready", "active"]) moveTask(host.storage.raw, projectId, taskId, state);
+  const seatId = findLeadSeat(host.storage.raw, getActiveEngagement(host.storage.raw, projectId).teamId).id;
+  return { projectId, taskId, seatId };
+}
+
+test("host dispatch is disabled by default and when explicitly null", async (t) => {
+  assert.equal((await launch(t)).dispatch, null);
+  assert.equal((await launch(t, undefined, { dispatch: null })).dispatch, null);
+});
+
+test("host exposes enabled dispatcher and stops it between Lead and app while storage is open", async (t) => {
+  const runtime = createFakeRuntime({ stepMs: 0 });
+  const host = await launch(t, undefined, { dispatch: { adapters: [runtime], nodeSlots: 3 } });
+  assert.ok(host.dispatch); assert.equal(host.dispatch.status().nodeTotal, 3);
+  const input = hostDispatchTask(host);
+  const a = host.dispatch.enqueue(input);
+  await new Promise(setImmediate); for (let i = 0; i < 20; i++) await Promise.resolve();
+  assert.equal(getAttempt(host.storage.raw, a.projectId, a.id).state, "running");
+  const order = [];
+  const leadStop = host.lead.stop.bind(host.lead);
+  host.lead.stop = async () => { order.push("lead"); await leadStop(); };
+  const dispatchStop = host.dispatch.stop.bind(host.dispatch);
+  host.dispatch.stop = async () => {
+    order.push("dispatch"); assert.equal(host.storage.raw.open, true); await dispatchStop();
+    assert.equal(getAttempt(host.storage.raw, a.projectId, a.id).state, "running");
+  };
+  const appClose = host.app.close.bind(host.app);
+  host.app.close = async () => { order.push("app"); assert.equal(host.storage.raw.open, true); await appClose(); };
+  await host.close();
+  assert.deepEqual(order, ["lead", "dispatch", "app"]);
+  assert.equal(runtime.stopped[0].attemptId, a.id);
+  assert.equal(runtime.ended[0].attemptId, a.id);
+  assert.equal(host.storage.raw.open, false);
+});
+
+test("host recovers a persisted running attempt before listening and does not replay it", async (t) => {
+  const dir = tempDir(t); const initial = await launch(t, dir);
+  const input = hostDispatchTask(initial);
+  const raw = initial.storage.raw;
+  const now = new Date().toISOString();
+  ensureLocalNode(raw, { slots: 2, now });
+  let a = createAttempt(raw, { ...input, id: randomUUID(), runtime: "fake", provider: "fake", model: "fake", effort: "medium", now });
+  for (const state of ["leased", "preparing", "running"]) a = transitionAttempt(raw, a, state, {
+    nodeId: LOCAL_NODE_ID, leaseId: a.leaseId ?? randomUUID(), leaseExpiresAt: "2099-01-01T00:00:00.000Z", now,
+  });
+  await initial.close();
+  const runtime = createFakeRuntime({ stepMs: 0 });
+  const next = await launch(t, dir, { dispatch: { adapters: [runtime] } });
+  assert.equal(getAttempt(next.storage.raw, a.projectId, a.id).state, "unknown");
+  assert.equal(getTask(next.storage.raw, a.projectId, a.taskId).state, "active");
+  assert.equal(runtime.started.length, 0);
+  assert.ok(next.hub.readAfter(a.projectId, { epoch: next.hub.currentCursor(a.projectId).epoch, sequence: "0" }).events
+    .some((e) => e.payload.entity?.kind === "attempt"));
+  await next.close();
+});
+
+test("a dispatcher shutdown failure still closes the application and storage", async (t) => {
+  const host = await startHost({ stateDir: tempDir(t), port: 0, onBootstrapToken() {}, dispatch: { stepMs: 0 } });
+  t.after(async () => { try { await host.close(); } catch { /* Intentional shutdown rejection. */ } });
+  const stop = host.dispatch.stop.bind(host.dispatch);
+  host.dispatch.stop = async () => { await stop(); throw new Error("injected dispatcher stop failure"); };
+  let closed = false; const appClose = host.app.close.bind(host.app);
+  host.app.close = async () => { closed = true; await appClose(); };
+  await assert.rejects(host.close(), /injected dispatcher stop failure/);
+  assert.equal(closed, true); assert.equal(host.storage.raw.open, false);
+});

@@ -9,6 +9,7 @@ export interface FakeRuntime extends RuntimeAdapter {
   readonly kind: "fake";
   readonly started: AttemptContext[];
   readonly stopped: AttemptRef[];
+  readonly ended: AttemptRef[];
 }
 
 export function createFakeRuntime(options: { stepMs?: number; timers?: FakeTimers } = {}): FakeRuntime {
@@ -20,12 +21,13 @@ export function createFakeRuntime(options: { stepMs?: number; timers?: FakeTimer
   };
   const started: AttemptContext[] = [];
   const stopped: AttemptRef[] = [];
+  const executionsEnded: AttemptRef[] = [];
   return {
-    kind: "fake", started, stopped,
+    kind: "fake", started, stopped, ended: executionsEnded,
     async start(context): Promise<RuntimeSession> {
       started.push(context);
       const goal = context.task.goal;
-      if (goal.includes("[fake:crash]")) throw new Error("Fake crash");
+      if (goal.includes("[fake:crash]")) { executionsEnded.push({ ...context.ref }); throw new Error("Fake crash"); }
       const queue: RuntimeEvent[] = [];
       const readers: Array<(result: IteratorResult<RuntimeEvent>) => void> = [];
       let cancelled = false;
@@ -67,6 +69,7 @@ export function createFakeRuntime(options: { stepMs?: number; timers?: FakeTimer
             emit(event);
           }
         } finally {
+          executionsEnded.push({ ...context.ref });
           ended = true;
           context.signal.removeEventListener("abort", onAbort);
           for (const reader of readers.splice(0)) reader({ done: true, value: undefined });

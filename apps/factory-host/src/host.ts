@@ -20,10 +20,12 @@ import { tasksCreateHandler, tasksTransitionHandler } from "./work/service.js";
 import { createBackupService, type BackupKeep, type BackupService, type BackupStatus } from "./backup/service.js";
 import { startBackupScheduler } from "./backup/scheduler.js";
 import { lockStateDirectory } from "./backup/lock.js";
+import { createDispatcher, createFakeRuntime, RuntimeRegistry, type Dispatcher, type DispatcherConfig, type RuntimeAdapter } from "./dispatch/index.js";
 
 export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   stateDir: string; port: number; backupDir?: string;
   periodicBackup: { dir: string; intervalMs: number };
+  dispatch: { nodeSlots: number };
 } {
   const input = env.FACTORY_PORT ?? "8787";
   if (!/^[0-9]+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) < 1 || Number(input) > 65_535)
@@ -32,8 +34,12 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   if (!/^[0-9]+$/.test(minutes) || !Number.isSafeInteger(Number(minutes)) || Number(minutes) < 1 || Number(minutes) > 1440)
     throw new Error("FACTORY_BACKUP_INTERVAL_MINUTES must be an integer from 1 to 1440");
   const stateDir = env.FACTORY_STATE_DIR ?? join(homedir(), "factory-v2", "state");
+  const slots = env.FACTORY_NODE_SLOTS ?? "2";
+  if (!/^[0-9]+$/.test(slots) || !Number.isSafeInteger(Number(slots)) || Number(slots) < 1 || Number(slots) > 16)
+    throw new Error("FACTORY_NODE_SLOTS must be an integer from 1 to 16");
+  if ((env.FACTORY_RUNTIME ?? "fake") !== "fake") throw new Error("unsupported runtime");
   return {
-    stateDir, port: Number(input),
+    stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) },
     ...(env.FACTORY_MIGRATION_BACKUP_DIR === undefined ? {} : { backupDir: env.FACTORY_MIGRATION_BACKUP_DIR }),
     periodicBackup: {
       dir: env.FACTORY_BACKUP_DIR ?? (existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(stateDir, "backups", "periodic")),
@@ -62,10 +68,12 @@ export async function startHost(options: {
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
   budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>; uiDir?: string;
   periodicBackup?: { dir: string; intervalMs?: number; firstRunDelayMs?: number; keep?: BackupKeep } | null;
+  dispatch?: Partial<DispatcherConfig> & { stepMs?: number; adapters?: RuntimeAdapter[] } | null;
 }): Promise<{
   app: FastifyInstance; port: number; origins: string[]; storage: Storage; hub: EventHub; close(): Promise<void>;
   models: { gateway: ModelGateway | null; budgetConfig: BudgetConfig };
   lead: LeadRunner;
+  dispatch: Dispatcher | null;
   backup: { service: BackupService; status(): BackupStatus } | null;
 }> {
   // Check POSIX spelling too, including when validating a WSL path on Windows.
@@ -82,6 +90,7 @@ export async function startHost(options: {
   let storage: Storage | undefined;
   let app: FastifyInstance | undefined;
   let runner: LeadRunner | undefined;
+  let dispatch: Dispatcher | null = null;
   let backup: { service: BackupService; status(): BackupStatus } | null = null;
   let scheduler: ReturnType<typeof startBackupScheduler> | undefined;
   let unlockState: (() => void) | undefined;
@@ -89,12 +98,14 @@ export async function startHost(options: {
   const close = (): Promise<void> => {
     closePromise ??= (async () => {
       try { await runner?.stop(); } finally {
-        try { await app?.close(); } finally {
-          try {
-            await scheduler?.stop();
-            try { backup?.service.run("shutdown"); } catch { /* Backup failure cannot prevent closing storage. */ }
-          } finally {
-            try { storage?.close(); } finally { unlockState?.(); }
+        try { await dispatch?.stop(); } finally {
+          try { await app?.close(); } finally {
+            try {
+              await scheduler?.stop();
+              try { backup?.service.run("shutdown"); } catch { /* Backup failure cannot prevent closing storage. */ }
+            } finally {
+              try { storage?.close(); } finally { unlockState?.(); }
+            }
           }
         }
       }
@@ -127,6 +138,12 @@ export async function startHost(options: {
       ...(options.lead === undefined ? {} : { config: options.lead }),
     });
     runner.recover();
+    if (options.dispatch) {
+      const { stepMs, adapters, ...config } = options.dispatch;
+      const registry = new RuntimeRegistry(adapters ?? [createFakeRuntime(stepMs === undefined ? {} : { stepMs })]);
+      dispatch = createDispatcher({ storage, hub, registry, clock, config });
+      dispatch.start();
+    }
     const lead = runner;
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       "projects.create": createProjectsCreateHandler({ pack }),
@@ -148,10 +165,11 @@ export async function startHost(options: {
     } });
     await listenLoopback(app, port);
     lead.kick();
+    dispatch?.kick();
     const token = gate.token;
     if (token === undefined) throw new Error("Bootstrap token unavailable");
     options.onBootstrapToken(token);
-    return { app, port, origins, storage, hub, lead, backup, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
+    return { app, port, origins, storage, hub, lead, dispatch, backup, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
   } catch (error) {
     try { await close(); } catch { /* Preserve the original startup failure. */ }
     throw error;
