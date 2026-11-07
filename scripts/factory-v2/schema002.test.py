@@ -271,7 +271,7 @@ class Schema002Tests(unittest.TestCase):
     def test_usage_never_stores_unknown_cost_as_zero(self):
         self.task()
         self.attempt("a1", state="running")
-        base = "INSERT INTO usage_records VALUES ('p1',?,'t1','a1',NULL,'9router','m','low',?,?,?,?,?,?,?,?,?)"
+        base = "INSERT INTO usage_records VALUES ('p1',?,'t1','a1',NULL,'9router','m','low',?,?,?,?,?,?,?,?,?,NULL)"
         self.db.execute(base, ("u1", 55176, 39040, 537, 0, "unknown", None, None, "no price list", T))
         self.db.execute(base, ("u2", None, None, None, None, "unknown", None, None, "not reported", "2026-11-07T00:00:01.000Z"))
         self.db.execute(base, ("u3", 1, 0, 1, 0, "known", 0.12, "USD", None, "2026-11-07T00:00:02.000Z"))

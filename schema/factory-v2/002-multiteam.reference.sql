@@ -332,6 +332,8 @@ CREATE TABLE usage_records (
   cost_currency TEXT,
   cost_unknown_reason TEXT,
   recorded_at TEXT NOT NULL,
+  -- Tokens reserved before the call. Budgets count them when the runtime reported no usage (never zero).
+  estimated_tokens INTEGER CHECK (estimated_tokens IS NULL OR estimated_tokens >= 0),
   PRIMARY KEY (project_id, id),
   -- usage belongs to an attempt (task work) or to a conversation turn (Lead chat), never to nothing
   CHECK (attempt_id IS NOT NULL OR conversation_id IS NOT NULL),
