@@ -22,6 +22,8 @@ import { ATTEMPT_UUID } from "../dispatch/workspace-provider.js";
 import { getArtifactVersion, listTaskArtifacts } from "../artifacts/service.js";
 import { getApprovalView, listApprovals, publicApprovalText } from "../approvals/service.js";
 import type { ContentStore } from "../artifacts/content-store.js";
+import { z } from "zod";
+import { PushError, type EffectExecutor } from "../effects/executor.js";
 
 export function createRoutes(deps: {
   storage: Storage; hub: EventHub; pipeline: ReturnType<typeof createCommandPipeline>;
@@ -32,10 +34,50 @@ export function createRoutes(deps: {
   dispatch?: Dispatcher;
   evidenceDir?: string;
   artifacts?: { store: ContentStore };
+  effects?: EffectExecutor;
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
     registerEventStream(app, guards, deps);
+    const effectFailure = (reply: import("fastify").FastifyReply, error: unknown) => {
+      const code = error instanceof PushError ? error.code : "invalid-record";
+      const status = ["not-found", "not-available"].includes(code) ? 404
+        : ["unknown-remote", "invalid-branch"].includes(code) ? 400 : 409;
+      return failure(reply, status, status === 404 ? "not-found" : status === 400 ? "validation" : "conflict",
+        code, "correct-input", newId);
+    };
+    app.get("/effects/remotes", { preHandler: guards.session }, async () => ({
+      apiVersion: API_VERSION, ok: true, remotes: deps.effects?.remoteNames() ?? [],
+    }));
+    app.post<{ Params: { projectId: string; attemptId: string } }>("/projects/:projectId/attempts/:attemptId/push",
+      { preHandler: guards.write }, async (request, reply) => {
+        if (!deps.effects) return effectFailure(reply, new PushError("not-available"));
+        const body = z.strictObject({ remote: z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/) }).safeParse(request.body);
+        if (!body.success) return failure(reply, 400, "validation", "Invalid push request.", "correct-input", newId);
+        try { return { apiVersion: API_VERSION, ok: true, effect: await deps.effects.requestPush({ ...request.params, remote: body.data.remote }) }; }
+        catch (error) { return effectFailure(reply, error); }
+      });
+    app.post<{ Params: { projectId: string; effectId: string } }>("/projects/:projectId/effects/:effectId/reconcile",
+      { preHandler: guards.write }, async (request, reply) => {
+        if (!deps.effects) return effectFailure(reply, new PushError("not-available"));
+        if (request.body !== undefined && !z.strictObject({}).safeParse(request.body).success)
+          return failure(reply, 400, "validation", "Invalid reconcile request.", "correct-input", newId);
+        try { return { apiVersion: API_VERSION, ok: true, effect: await deps.effects.reconcile(request.params) }; }
+        catch (error) { return effectFailure(reply, error); }
+      });
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/effects", { preHandler: guards.session }, async (request, reply) => {
+      if (!deps.storage.raw.prepare("SELECT id FROM projects WHERE id = ?").get(request.params.projectId))
+        return effectFailure(reply, new PushError("not-found"));
+      try { return { apiVersion: API_VERSION, ok: true, effects: deps.effects?.listEffects(request.params.projectId) ?? [] }; }
+      catch (error) { return effectFailure(reply, error); }
+    });
+    app.get<{ Params: { projectId: string; attemptId: string } }>("/projects/:projectId/attempts/:attemptId/effects",
+      { preHandler: guards.session }, async (request, reply) => {
+        const { projectId, attemptId } = request.params;
+        if (!getAttempt(deps.storage.raw, projectId, attemptId)) return effectFailure(reply, new PushError("not-found"));
+        try { return { apiVersion: API_VERSION, ok: true, effects: deps.effects?.listEffects(projectId, { attemptId }) ?? [] }; }
+        catch (error) { return effectFailure(reply, error); }
+      });
     const inbox = (projectId?: string) => {
       const projects = (deps.storage.raw.prepare("SELECT id, name FROM projects ORDER BY id").all() as { id: string; name: string }[])
         .filter((project) => projectId === undefined || project.id === projectId);

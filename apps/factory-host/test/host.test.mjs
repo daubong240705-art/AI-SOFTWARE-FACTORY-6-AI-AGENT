@@ -475,7 +475,7 @@ test("injected clock is used by migrations and the command pipeline", async (t) 
 
 test("parseEnv defaults are an absolute home state directory and port 8787", () => {
   const stateDir = join(homedir(), "factory-v2", "state");
-  assert.deepEqual(parseEnv({}), { stateDir, port: 8787, dispatch: { nodeSlots: 2 }, workspace: {
+  assert.deepEqual(parseEnv({}), { stateDir, port: 8787, pushRemotes: null, dispatch: { nodeSlots: 2 }, workspace: {
     projectsRoot: existsSync('/srv/factory/workspaces') ? resolve('/srv/factory/workspaces') : join(homedir(), 'factory-v2', 'workspaces'),
     worktreesRoot: join(homedir(), 'factory-v2', 'worktrees'),
   }, periodicBackup: {
@@ -486,7 +486,7 @@ test("parseEnv defaults are an absolute home state directory and port 8787", () 
 test("parseEnv accepts state, backup, and integer port overrides", () => {
   assert.deepEqual(parseEnv({ FACTORY_STATE_DIR: "/state", FACTORY_PORT: "12345", FACTORY_BACKUP_DIR: "/backup",
     FACTORY_MIGRATION_BACKUP_DIR: "/migration", FACTORY_BACKUP_INTERVAL_MINUTES: "30" }),
-    { stateDir: "/state", port: 12345, dispatch: { nodeSlots: 2 }, workspace: parseEnv({}).workspace,
+    { stateDir: "/state", port: 12345, pushRemotes: null, dispatch: { nodeSlots: 2 }, workspace: parseEnv({}).workspace,
       backupDir: "/migration", periodicBackup: { dir: "/backup", intervalMs: 1_800_000 } });
   assert.equal(parseEnv({ FACTORY_PORT: "1" }).port, 1);
   assert.equal(parseEnv({ FACTORY_PORT: "65535" }).port, 65535);
@@ -869,6 +869,61 @@ test("host keeps fake fallback for unregistered runtime seats", async (t) => {
   const attempt = host.dispatch.enqueue(input); await host.dispatch.idle(); assert.equal(attempt.runtime, "fake");
   assert.equal(getAttempt(host.storage.raw, attempt.projectId, attempt.id).state, "succeeded");
 });
+
+test("host pushes are disabled unless remotes are explicitly configured", async (t) => {
+  const host = await launch(t); const session = await bootstrap(host);
+  assert.equal(host.effects, null);
+  const headers = { host: `127.0.0.1:${host.port}`, cookie: session.cookie, origin: host.origin,
+    "x-csrf-token": session.csrf, "content-type": "application/json" };
+  const names = await host.app.inject({ url: "/effects/remotes", headers });
+  assert.deepEqual(names.json().remotes, []);
+  const push = await host.app.inject({ method: "POST", url: `/projects/${randomUUID()}/attempts/${randomUUID()}/push`,
+    payload: { remote: "operator" }, headers });
+  assert.equal(push.statusCode, 404); assert.equal(push.json().error.message, "not-available");
+});
+
+test("host wires named remotes without requiring a dispatcher", async (t) => {
+  const url = "https://example.invalid/operator/repo.git"; const command = "ssh -i /synthetic/private-key";
+  const host = await launch(t, undefined, { pushRemotes: [{ name: "operator", url }], pushSshCommand: command });
+  assert.equal(host.dispatch, null); assert.ok(host.effects); const session = await bootstrap(host);
+  const response = await host.app.inject({ url: "/effects/remotes", headers: { host: `127.0.0.1:${host.port}`, cookie: session.cookie } });
+  assert.deepEqual(response.json(), { apiVersion: 1, ok: true, remotes: ["operator"] });
+  assert.equal(response.body.includes(url), false); assert.equal(response.body.includes(command), false);
+  assert.equal(host.storage.raw.serialize().includes(Buffer.from(url)), false);
+});
+
+test("host waits for effects before closing storage", async (t) => {
+  const host = await launch(t, undefined, { pushRemotes: [{ name: "operator", url: "file:///srv/synthetic-mirror" }] });
+  const closeEffects = host.effects.close.bind(host.effects); let release; let entered;
+  const started = new Promise((resolve) => { entered = resolve; });
+  const gate = new Promise((resolve) => { release = resolve; });
+  host.effects.close = async () => {
+    await closeEffects(); assert.equal(host.storage.raw.open, true); entered(); await gate;
+  };
+  const closing = host.close(); await started; assert.equal(host.storage.raw.open, true);
+  release(); await closing; assert.equal(host.storage.raw.open, false);
+});
+
+test("host startup recovers pending effects without running git", async (t) => {
+  const stateDir = tempDir(t); const config = { pushRemotes: [{ name: "operator", url: "file:///srv/synthetic-mirror" }] };
+  const first = await launch(t, stateDir, config); const input = hostDispatchTask(first);
+  const attempt = createAttempt(first.storage.raw, { ...input, id: randomUUID(), runtime: "fake", provider: "fake",
+    model: "fake", effort: "low", now: new Date().toISOString() });
+  const id = randomUUID(); const now = new Date().toISOString();
+  first.storage.raw.prepare("INSERT INTO effects VALUES (?, ?, ?, 'git.push-branch', ?, ?, 'pending', NULL, ?, NULL)")
+    .run(input.projectId, id, attempt.id, "a".repeat(64), JSON.stringify({ remote: "operator", branch: "factory/recovery-e1" }), now);
+  await first.close(); const second = await launch(t, stateDir, config);
+  const recovered = second.effects.getEffect(input.projectId, id);
+  assert.equal(recovered.state, "unknown"); assert.equal(recovered.completedAt, null);
+  assert.equal(second.hub.readAfter(input.projectId, { epoch: second.hub.currentCursor(input.projectId).epoch, sequence: "0" }).events
+    .filter((event) => event.payload.type === "entity.changed" && event.payload.entity.kind === "effect").length, 1);
+});
+
+for (const [label, command] of [["line break", "ssh\nsynthetic"], ["zero byte", "ssh\0synthetic"]])
+  test(`host refuses ssh command ${label} with a fixed startup error`, async (t) => {
+    await assert.rejects(startHost({ stateDir: tempDir(t), port: 0, onBootstrapToken() {}, pushSshCommand: command }),
+      { message: "FACTORY_PUSH_SSH_COMMAND must not contain line breaks or NUL" });
+  });
 nodeTest("opencode entrypoint refuses an unavailable sandbox before opening host state", { skip: process.platform === "linux" ? "Non-Linux preflight" : false }, (t) => {
   const result = spawnSync(process.execPath, [fileURLToPath(new URL("../dist/main.js", import.meta.url))], {
     env: opencodeEnv(t), encoding: "utf8", timeout: 5000,

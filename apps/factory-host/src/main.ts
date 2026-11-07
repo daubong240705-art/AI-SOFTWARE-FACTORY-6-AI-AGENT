@@ -18,7 +18,7 @@ function budgetTokens(name: string, input: string | undefined, fallback: number)
 }
 
 try {
-  const { dispatch, workspace, agentProxy, opencode, ...hostOptions } = parseEnv(process.env);
+  const { dispatch, workspace, agentProxy, opencode, pushRemotes, pushSshCommand, ...hostOptions } = parseEnv(process.env);
   if (opencode && !await isSandboxAvailable())
     throw new Error("FACTORY_RUNTIME=opencode requires working bubblewrap on Linux");
   if (opencode) {
@@ -61,7 +61,8 @@ try {
     const defaultUiDir = fileURLToPath(new URL("../../factory-ui/dist/", import.meta.url));
     try { if ((await stat(defaultUiDir)).isDirectory()) uiDir = defaultUiDir; } catch { /* UI build is optional. */ }
   }
-  const host = await startHost({ ...hostOptions, dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead, runtimes,
+  const host = await startHost({ ...hostOptions, dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead, runtimes, pushRemotes,
+    ...(pushSshCommand === undefined ? {} : { pushSshCommand }),
     ...(uiDir === undefined ? {} : { uiDir }), onBootstrapToken(token) {
     process.stdout.write(`One-time bootstrap token: ${token}\n`);
   } });

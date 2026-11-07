@@ -35,6 +35,8 @@ import type { Timers } from "./dispatch/dispatcher.js";
 import { registerAgentOutput, registerAttemptResults } from "./artifacts/service.js";
 import { createMcpHandler } from "./mcp/rpc.js";
 import { assertActiveGrant, McpToolError } from "./mcp/security.js";
+import { parsePushRemotes, validatePushSshCommand, type PushRemote } from "./effects/config.js";
+import { createEffectExecutor, type EffectExecutor } from "./effects/executor.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -67,7 +69,11 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   workspace: { projectsRoot: string; worktreesRoot: string };
   agentProxy?: { port: number; approvedModels: string[]; socketPath?: string };
   opencode?: { dir: string };
+  pushRemotes: PushRemote[] | null;
+  pushSshCommand?: string;
 } {
+  const pushRemotes = env.FACTORY_PUSH_REMOTES === undefined ? null : parsePushRemotes(env.FACTORY_PUSH_REMOTES);
+  validatePushSshCommand(env.FACTORY_PUSH_SSH_COMMAND);
   const input = env.FACTORY_PORT ?? "8787";
   if (!/^[0-9]+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) < 1 || Number(input) > 65_535)
     throw new Error("FACTORY_PORT must be an integer from 1 to 65535");
@@ -130,7 +136,8 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
     }
   }
   return {
-    stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) }, workspace,
+    stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) }, workspace, pushRemotes,
+    ...(env.FACTORY_PUSH_SSH_COMMAND === undefined ? {} : { pushSshCommand: env.FACTORY_PUSH_SSH_COMMAND }),
     ...(opencode === undefined ? {} : { opencode }),
     ...(approvedModels === undefined ? {} : { agentProxy: { port: Number(proxyPort), approvedModels,
       ...(socketPath === undefined ? {} : { socketPath }) } }),
@@ -159,6 +166,8 @@ async function freeLoopbackPort(): Promise<number> {
 
 export async function startHost(options: {
   contentDir?: string;
+  pushRemotes?: PushRemote[] | null;
+  pushSshCommand?: string;
   timers?: Timers;
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
@@ -176,6 +185,7 @@ export async function startHost(options: {
   artifacts: { store: ContentStore };
   dispatch: Dispatcher | null;
   workspace: WorkspaceProvider | null;
+  effects: EffectExecutor | null;
   proxy: { port: number; socketPath?: string; tokens: TokenRegistry } | null;
   backup: { service: BackupService; status(): BackupStatus } | null;
 }> {
@@ -189,6 +199,9 @@ export async function startHost(options: {
     throw new Error("Host port must be an integer from 0 to 65535");
   if (options.uiDir && !isAbsolute(options.uiDir)) throw new Error("UI directory must be an absolute path");
   const socketPath = options.modelProxy?.socketPath === undefined ? undefined : proxySocketPath(options.modelProxy.socketPath);
+  validatePushSshCommand(options.pushSshCommand);
+  const pushRemotes = options.pushRemotes?.length
+    ? parsePushRemotes(options.pushRemotes.map((remote) => `${remote.name}=${remote.url}`).join(",")) : null;
   const clock = options.clock ?? systemClock;
   const budgetConfig = options.budgetConfig ?? { ...DEFAULT_BUDGET_CONFIG };
   let storage: Storage | undefined;
@@ -196,6 +209,7 @@ export async function startHost(options: {
   let runner: LeadRunner | undefined;
   let dispatch: Dispatcher | null = null;
   let workspace: WorkspaceProvider | null = null;
+  let effects: EffectExecutor | null = null;
   let modelProxy: ReturnType<typeof createModelProxy> | undefined;
   let proxy: { port: number; socketPath?: string; tokens: TokenRegistry } | null = null;
   let ownsSocket = false;
@@ -212,6 +226,7 @@ export async function startHost(options: {
   const close = (): Promise<void> => {
     closePromise ??= (async () => {
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
+      await effects?.close();
       try { await runner?.stop(); } finally {
         try {
           proxy?.tokens.revokeAll();
@@ -257,6 +272,22 @@ export async function startHost(options: {
       });
     }
     const hub = new EventHub(storage.raw, { clock });
+    if (pushRemotes) {
+      const raw = storage.raw;
+      let roots: ReturnType<typeof canonicalRoots> | null = null;
+      try { if (options.workspace) roots = canonicalRoots(options.workspace); }
+      catch { throw new Error("Invalid push workspace configuration"); }
+      effects = createEffectExecutor({ raw, hub, clock, newId: createIdGenerator(clock), remotes: pushRemotes,
+        ...(options.pushSshCommand === undefined ? {} : { sshCommand: options.pushSshCommand }),
+        projectRootFor(projectId) {
+          const row = raw.prepare("SELECT workspace_root, workspace_kind FROM projects WHERE id = ?").get(projectId) as
+            { workspace_root: string; workspace_kind: string } | undefined;
+          try { return roots && row?.workspace_kind === "git" ? assertInside(roots.projectsRoot, row.workspace_root) : null; }
+          catch { return null; }
+        },
+      });
+      effects.recoverAtStart();
+    }
     const approvalRaw = storage.raw;
     const sweepApprovals = (): void => { expirePendingApprovals({ raw: approvalRaw, hub, now: clock }); };
     sweepApprovals();
@@ -386,6 +417,7 @@ export async function startHost(options: {
     const port = options.port === 0 ? await freeLoopbackPort() : options.port;
     const origins = originsFor(port);
     const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, artifacts, backupStatus: () => backup?.status() ?? null,
+      ...(effects === null ? {} : { effects }),
       afterCommand: (type) => { if (type === "chat.send") lead.kick(); },
       ...(dispatch === null ? {} : { dispatch }),
       ...(evidenceDir === undefined ? {} : { evidenceDir }),
@@ -407,7 +439,7 @@ export async function startHost(options: {
     const token = gate.token;
     if (token === undefined) throw new Error("Bootstrap token unavailable");
     options.onBootstrapToken(token);
-    return { app, port, origins, storage, hub, lead, dispatch, workspace, proxy, backup, artifacts, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
+    return { app, port, origins, storage, hub, lead, dispatch, workspace, effects, proxy, backup, artifacts, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
   } catch (error) {
     try { await close(); } catch { /* Preserve the original startup failure. */ }
     throw error;
