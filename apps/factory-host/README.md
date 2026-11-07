@@ -62,4 +62,6 @@ FACTORY_STATE_DIR=$HOME/factory-v2/state FACTORY_PORT=8787 node $HOME/factory-v2
 
 ### Live check against 9Router (2026-11-07)
 
-Three real calls through the Host process in WSL (agreed limit 3): the gateway, budget ledger, replies and events work end to end (about 1.7k to 2.0k tokens per call, `gpt-6.1-sol` via `/chat/completions`). **Open issue:** for a `delegate` request the Lead answered in prose and did not emit the `factory-plan` block, with or without the protocol reminder appended to the user message, at effort `low` and `medium`. The raw model output was not captured, so the cause is not yet known. See the next-steps note in the session report; no Task was created by the Lead in the live runs.
+Five real calls through the Host in WSL (about 1.7k to 2.0k tokens each, `gpt-6.1-sol` via `/chat/completions`, `FACTORY_BUDGET_DAY_TOKENS` capped at 20,000 for the runs). Verified end to end: the discussion reply, the budget/usage ledger, and a delegate request in which the Lead emitted a valid `factory-plan` block and the Host created `TSK-001 [proposed]`.
+
+Correction: an earlier note here said the Lead created no Task. That was a bug in the throwaway smoke script (it read `tasks` while the route returns `items`), not in the Host or the model. The captured raw output showed a valid plan block from the first delegate call on. The reminder appended to delegate messages is kept because it is cheap and tested, but it was not what made the plan appear.
