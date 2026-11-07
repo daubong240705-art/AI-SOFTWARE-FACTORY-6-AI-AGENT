@@ -12,11 +12,11 @@
     "sqlite": "3.50.4"
   },
   "counts": {
-    "commands": 14,
-    "sourceModules": 8,
+    "commands": 20,
+    "sourceModules": 17,
     "contractTests": 15,
     "sqliteMemoryTests": 11,
-    "checkedLocalDocLinks": 47
+    "checkedLocalDocLinks": 53
   },
   "checks": {
     "typecheck": true,
@@ -36,12 +36,24 @@
       "sha256": "5bc8f489ab6d4657cb0de174b7568bc3a907ed94e7cc6dc28894e00533d232dc"
     },
     {
+      "path": "packages/factory-contracts/src/approvals.ts",
+      "sha256": "870fba06fff8d4b7eff63c30b4d5be35b49459b2fae309842e7ef64d8cc4c2c9"
+    },
+    {
+      "path": "packages/factory-contracts/src/attempt.ts",
+      "sha256": "02ccd520065b812ecc8645749e9966490487bb2a3e0883937df257da02a03a3b"
+    },
+    {
       "path": "packages/factory-contracts/src/base.ts",
-      "sha256": "c06f89a77f32c669458f0d4a679e9b73cd18b9a08577c72512ac85e5f4b8864c"
+      "sha256": "77eca66032adcb316b854dd1223b674e23733ea832920e29c97eae8ebd6c02c4"
     },
     {
       "path": "packages/factory-contracts/src/commands.ts",
-      "sha256": "68f77ed7a5e978cb3161ee6ef8e5aa6fe8f1d67431219a28f18fe8cbaf4ca805"
+      "sha256": "beca559c7c61999cbeb29798d07e75d6a8b4ae738eddc6e6ff2218a78f052450"
+    },
+    {
+      "path": "packages/factory-contracts/src/effects.ts",
+      "sha256": "552fb7fe05a7d7002b0e209629ebf26a34a3c24054ca0902d6f8f83d5dbe85f8"
     },
     {
       "path": "packages/factory-contracts/src/events.ts",
@@ -49,19 +61,43 @@
     },
     {
       "path": "packages/factory-contracts/src/index.ts",
-      "sha256": "1861d2bb3ddb293c387c3e4653c665f9768cafff1c864629df8730c8e05600dd"
+      "sha256": "88730ab3665bf7a65ee6863a295e91e548e410392840971b16959f8ebd449daa"
+    },
+    {
+      "path": "packages/factory-contracts/src/knowledge.ts",
+      "sha256": "175acd9163936e32573d8b1a8cfe916435296003cab8803a7a34f96b7e61a937"
+    },
+    {
+      "path": "packages/factory-contracts/src/mcp-tools.ts",
+      "sha256": "1db634754982ed913499f35e365ee08e4cb6b171e60633c1b7105004c2fdaec9"
     },
     {
       "path": "packages/factory-contracts/src/models.ts",
       "sha256": "a87672727da85d30e65d6b1d82d334b4b6117641dcd1aa6d08abcc8d263afe4f"
     },
     {
+      "path": "packages/factory-contracts/src/nodes.ts",
+      "sha256": "1dd4b906e64a4e9ee2943c1436cd08b35d53a4ce9365d28ceae79902a3a1e78f"
+    },
+    {
+      "path": "packages/factory-contracts/src/org.ts",
+      "sha256": "2a6e1ba79c5a85d0c4859fef5855f64c1988c2b226f55a6ba9b82e0001fa5b8e"
+    },
+    {
       "path": "packages/factory-contracts/src/permissions.ts",
       "sha256": "37ce3134c5939097c4fdd9eacae68b485feb95e007f07f105fd83f6e0d26c965"
     },
     {
+      "path": "packages/factory-contracts/src/policy.ts",
+      "sha256": "f33741d7329a28eb6732eea75100659dbdfd9a925b91d2bd79f269143dd305ed"
+    },
+    {
       "path": "packages/factory-contracts/src/preferences.ts",
       "sha256": "479227e1d9607cc0bff08a00ad65f158f7a8ee28e4f20ebc9a75a41188d43eba"
+    },
+    {
+      "path": "packages/factory-contracts/src/work.ts",
+      "sha256": "6288e708f8fd11867eba9db005ba298ede9702861f61bf7610d665d64e9cc891"
     },
     {
       "path": "packages/factory-contracts/test/contracts.test.mjs",
@@ -69,11 +105,11 @@
     },
     {
       "path": "packages/factory-contracts/package.json",
-      "sha256": "28c5cbf76b766f2609fb93fea5e5fb91e1a6b7ac83b30f94a6d6a9fade1358dd"
+      "sha256": "e625108577baea1f303826bcc884c398174aa76e9c44f73a4f553d593663cd91"
     },
     {
       "path": "packages/factory-contracts/package-lock.json",
-      "sha256": "82e55a8461d3c4685e853dea1c2f1657d50ee5b805c8fc9128b34bd76bc7610c"
+      "sha256": "91bb2ce7bac76d7bc3d50e9f6fa360bb274fea11c967328a0aa59cdae8694b64"
     },
     {
       "path": "packages/factory-contracts/tsconfig.json",
@@ -89,7 +125,7 @@
     },
     {
       "path": "scripts/factory-v2/verify-contracts.mjs",
-      "sha256": "15c34220c1178819d9543545b9ffcd0e607827a583bad580ee4a22129236f089"
+      "sha256": "f69ce6da2582148a324adbc715805e7bf5a9b8075fa4995ae3546c33b5d2dcd8"
     }
   ],
   "hashEncoding": "UTF-8 source normalized to LF",

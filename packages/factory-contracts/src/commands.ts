@@ -7,7 +7,18 @@ import {
   textSchema,
   versionedRefSchema,
   linuxPathSchema,
+  sha256Schema,
 } from "./base.js";
+import { artifactRefSchema } from "./knowledge.js";
+import { capabilityIdSchema } from "./nodes.js";
+import {
+  DEFAULT_PLACEMENT,
+  DEFAULT_SIDE_EFFECT,
+  placementSchema,
+  reviewPolicySchema,
+  sideEffectSchema,
+  taskStateSchema,
+} from "./work.js";
 
 const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
   z.strictObject({
@@ -133,6 +144,66 @@ export const commandSchema = z.discriminatedUnion("type", [
       title: labelSchema,
       assetId: idSchema,
       evidenceIds: z.array(idSchema).max(100),
+    }),
+  ),
+  // ---- Added in contracts 0.2.0 (M0-lite). Additive: the commands above are unchanged. -----------
+  command(
+    "engagements.create",
+    z.strictObject({
+      engagementId: idSchema,
+      teamId: idSchema,
+      priority: z.number().int().min(0).max(100),
+      maxConcurrent: z.number().int().min(1).max(32),
+    }),
+  ),
+  command(
+    "tasks.create",
+    z.strictObject({
+      taskId: idSchema,
+      code: z.string().regex(/^[A-Z]{2,6}-\d{3,6}$/),
+      title: labelSchema,
+      goal: z.string().min(1).max(500),
+      brief: textSchema,
+      parentTaskId: idSchema.nullable(),
+      engagementId: idSchema.nullable(),
+      ownerSeatId: idSchema.nullable(),
+      requiredCapabilities: z.array(capabilityIdSchema).max(30),
+      // E-06: when omitted the most restrictive classification applies.
+      placement: placementSchema.default(DEFAULT_PLACEMENT),
+      sideEffect: sideEffectSchema.default(DEFAULT_SIDE_EFFECT),
+      reviewPolicy: reviewPolicySchema.default("human-final"),
+      requiresGo: z.boolean().default(true), // C-04: the Execution Gate is on unless turned off
+      acceptance: z.array(z.string().min(1).max(500)).max(30),
+      inputs: z.array(artifactRefSchema).max(100),
+      dependsOn: z.array(idSchema).max(50),
+    }),
+  ),
+  command(
+    "tasks.transition",
+    z.strictObject({ ...change, taskId: idSchema, to: taskStateSchema }),
+  ),
+  // Releases a task waiting at the Execution Gate. The browser never states who it is.
+  command("tasks.release", z.strictObject({ ...change, taskId: idSchema })),
+  command(
+    "approvals.decide",
+    z.strictObject({
+      ...change,
+      approvalId: idSchema,
+      // Digest the person saw. If the context changed meanwhile the Host rejects with a conflict.
+      contextDigest: sha256Schema,
+      optionId: labelSchema,
+      comment: z.string().max(32_000),
+    }),
+  ),
+  command(
+    "budgets.set",
+    z.strictObject({
+      budgetId: idSchema,
+      expectedRevision: revisionSchema.nullable(),
+      scope: z.enum(["task", "day"]),
+      scopeRef: z.string().min(1).max(64),
+      limitTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+      warnAtPercent: z.number().int().min(1).max(99),
     }),
   ),
 ]);
