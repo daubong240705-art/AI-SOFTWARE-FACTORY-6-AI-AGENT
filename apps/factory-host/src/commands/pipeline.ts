@@ -12,7 +12,7 @@ import { projectsCreateHandler } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
 import { CommandError } from "./errors.js";
 
-export interface HandlerContext { raw: Database; hub: EventHub; clock: Clock; newId: () => string }
+export interface HandlerContext { raw: Database; hub: EventHub; clock: Clock; newId: () => string; actorId: string }
 export type HandlerResult = { effects: EntityRef[]; events?: FactoryEvent["payload"][] };
 export type HandlerMap = {
   [T in Command["type"]]: (ctx: HandlerContext, command: Extract<Command, { type: T }>) => HandlerResult;
@@ -39,7 +39,6 @@ export function createCommandPipeline(options: {
   const clock = options.clock ?? systemClock;
   const newId = options.newId ?? createIdGenerator(clock);
   const handlers: Partial<HandlerMap> = { "projects.create": projectsCreateHandler, ...options.handlers };
-  const context: HandlerContext = { raw, hub, clock, newId };
   const result = (status: number, body: unknown, replayed = false): PipelineResult => ({
     status, body: commandResponseSchema.parse(body), replayed,
   });
@@ -49,6 +48,7 @@ export function createCommandPipeline(options: {
 
   return {
     execute(rawBody, actorId = "operator") {
+      const context: HandlerContext = { raw, hub, clock, newId, actorId };
       return hub.transaction(() => {
         const parsed = commandSchema.safeParse(rawBody);
         if (!parsed.success) {

@@ -30,6 +30,8 @@ import { createWorkspaceProvider, type WorkspaceProvider } from "./dispatch/work
 import { canonicalPath, refuseMount } from "./workspace/paths.js";
 import { SANDBOX_RELAY_PORT } from "./sandbox/index.js";
 import { createContentStore, type ContentStore } from "./artifacts/content-store.js";
+import { approvalsDecideHandler, createApprovalsDecideHandler, expirePendingApprovals, requestTaskReview } from "./approvals/service.js";
+import type { Timers } from "./dispatch/dispatcher.js";
 import { registerAttemptResults } from "./artifacts/service.js";
 
 function proxySocketPath(path: string): string {
@@ -155,6 +157,7 @@ async function freeLoopbackPort(): Promise<number> {
 
 export async function startHost(options: {
   contentDir?: string;
+  timers?: Timers;
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
   budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>; uiDir?: string;
@@ -199,9 +202,13 @@ export async function startHost(options: {
   let backup: { service: BackupService; status(): BackupStatus } | null = null;
   let scheduler: ReturnType<typeof startBackupScheduler> | undefined;
   let unlockState: (() => void) | undefined;
+  let expiryTimer: unknown;
+  const interval = options.timers?.setInterval ?? ((callback: () => void, ms: number) => setInterval(callback, ms).unref());
+  const clearExpiry = options.timers?.clearInterval ?? ((handle: unknown) => clearInterval(handle as ReturnType<typeof setInterval>));
   let closePromise: Promise<void> | undefined;
   const close = (): Promise<void> => {
     closePromise ??= (async () => {
+      if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
       try { await runner?.stop(); } finally {
         try {
           proxy?.tokens.revokeAll();
@@ -247,6 +254,10 @@ export async function startHost(options: {
       });
     }
     const hub = new EventHub(storage.raw, { clock });
+    const approvalRaw = storage.raw;
+    const sweepApprovals = (): void => { expirePendingApprovals({ raw: approvalRaw, hub, now: clock }); };
+    sweepApprovals();
+    expiryTimer = interval(() => { try { sweepApprovals(); } catch { console.error("Approval expiry failed"); } }, 60_000);
     const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content") }) };
     const resultId = createIdGenerator(clock);
     const leadSeat = pack.manifest.seats.find((seat) => seat.isLead);
@@ -302,6 +313,8 @@ export async function startHost(options: {
       }
       const resultsEvidenceDir = evidenceDir;
       dispatch = createDispatcher({ storage, hub, registry, clock, config,
+        ...(options.timers === undefined ? {} : { timers: options.timers }),
+        onInReview(input) { requestTaskReview({ raw, hub, now: clock, newId: resultId }, input); },
         ...(modelAccess === undefined ? {} : { modelAccess }),
         ...(workspace && roots && resultsEvidenceDir ? { workspace, results: { register(input) {
           const refs = registerAttemptResults({ raw, store: artifacts.store, now: clock, newId: resultId,
@@ -331,6 +344,7 @@ export async function startHost(options: {
       "projects.create": createProjectsCreateHandler({ pack }),
       "tasks.create": tasksCreateHandler, "tasks.transition": tasksTransitionHandler,
       "budgets.set": budgetsSetHandler,
+      "approvals.decide": dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch }),
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
       ...(dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch })),
     } });
@@ -346,6 +360,12 @@ export async function startHost(options: {
     });
     app = createApiServer({ origins, gate, sessions, clock, register(app, guards) {
       routes(app, guards);
+      app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
+        apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set",
+          "conversations.create", "chat.send", "approvals.decide",
+          ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],
+        capabilities: ["inbox", "approvals.review"],
+      }));
       if (options.uiDir) registerStaticUi(app, { dir: options.uiDir });
     } });
     await listenLoopback(app, port);

@@ -141,6 +141,14 @@ Correction: an earlier note here said the Lead created no Task. That was a bug i
 - Read routes: `GET /projects/:projectId/tasks/:taskId/artifacts` and `GET /projects/:projectId/artifacts/:artifactId/versions/:version/content` (text types only, hash-verified, no paths in responses).
 - The review/approval flow that moves these versions to `approved`/`rejected` is the next slice.
 
+## Review approvals and Inbox (M2)
+
+`src/approvals/`: when a `human-final` task completes and enters `in-review`, the Host (inside the same transaction as the outcome) creates ONE pending `review` Approval (options `accept` / `request-changes`, 7-day expiry, a context digest over the task's current artifact versions). A new review supersedes a pending one; moving the task by hand withdraws it; expiry marks it `expired` and never approves.
+
+- `approvals.decide` checks the revision, the digest the person saw AND the freshly computed digest, expiry and the option, then applies exactly once in the pipeline transaction: `accept` -> task `done` (dependents advance), artifact versions `approved`, approval `applied` with the command id; `request-changes` -> approval `changes-requested`, a NEW attempt (epoch + 1) that starts from the previous branch, versions `rejected`. The comment is stored immutably (`approval_comments`, migration 0003) and reaches the next attempt as "Reviewer feedback:" in its handoff. Any failure leaves the database unchanged. The actor recorded is derived from the session credential.
+- Inbox: `GET /inbox` (all projects) and `GET /projects/:projectId/inbox` list pending approvals (oldest first) and tasks waiting at the start gate, with counts. Also `GET /projects/:projectId/approvals/:approvalId` and `GET /projects/:projectId/tasks/:taskId/approvals`. Public text masks absolute paths but keeps `CI/CD`-style words and URLs.
+- The handler is kind-agnostic; agent-raised `question` approvals arrive with the MCP slice.
+
 ## Process runner (M2)
 
 `src/exec/process-group.ts` runs a child on Linux only (it refuses every other platform): own session and process group, the EXACT environment it is given (nothing inherited from the Host), commands resolved only through the child's own `PATH`, bounded output (UTF-8 safe), timeout, and a stop that resolves only after the whole group is verified gone (SIGTERM, grace, SIGKILL; a group that survives the deadline is reported, never hidden). `buildSafeEnv` refuses secret-looking variable names unless allowed by name; `scrubForLog` redacts secrets. A child that deliberately escapes with `setsid` is NOT contained by process groups: the sandbox (a later slice) must contain it. The Linux integration tests run through `scripts/factory-v2/test-host-wsl.sh`.

@@ -64,6 +64,7 @@ export function createDispatcher(deps: {
   config?: Partial<DispatcherConfig>; timers?: Timers; onError?: (error: unknown) => void;
   workspace?: WorkspaceProvider; projectRootFor?: (projectId: string) => string | null;
   modelAccess?: ModelAccess;
+  onInReview?: (input: { projectId: string; taskId: string; attemptId: string }) => void;
   results?: { register(input: { projectId: string; taskId: string; attemptId: string; epoch: number;
     outcome: "completed" | "failed"; summary: string | null }): void };
 }): Dispatcher {
@@ -193,6 +194,11 @@ export function createDispatcher(deps: {
         taskOutcome(move(a, "failed"), "failed");
       }
       registerResults(a, event.type, event.type === "completed" ? event.summary : null);
+      if (event.type === "completed" && getTask(raw, a.projectId, a.taskId)?.state === "in-review" && deps.onInReview) {
+        try {
+          raw.transaction(() => deps.onInReview!({ projectId: a.projectId, taskId: a.taskId, attemptId: a.id }))();
+        } catch { report(new Error("Review request failed")); }
+      }
     });
   };
   const failBookkeeping = (original: AttemptRecord, error: unknown): void => {

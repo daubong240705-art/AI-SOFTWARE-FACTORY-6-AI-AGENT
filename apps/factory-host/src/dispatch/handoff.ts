@@ -1,5 +1,6 @@
 import type { Database } from "better-sqlite3";
 import { TERMINAL_ATTEMPT_STATES } from "@factory/contracts";
+import { publicApprovalText } from "../approvals/service.js";
 import { listAttempts } from "./attempts.js";
 
 const closing = "Do not repeat work that is already done; check the workspace first.";
@@ -33,5 +34,10 @@ export function buildHandoff(raw: Database, projectId: string, taskId: string): 
       if (text !== undefined) lines.push(plain(text).slice(0, 300));
     }
   }
-  return `${lines.join("\n").slice(0, 4000 - closing.length - 1)}\n${closing}`;
+  const approval = raw.prepare(`SELECT a.state, c.comment FROM approvals a LEFT JOIN approval_comments c
+    ON c.project_id = a.project_id AND c.approval_id = a.id WHERE a.project_id = ? AND a.task_id = ?
+    ORDER BY a.requested_at DESC, a.rowid DESC LIMIT 1`).get(projectId, taskId) as { state: string; comment: string | null } | undefined;
+  const feedback = approval?.state === "changes-requested"
+    ? `\nReviewer feedback:\n${plain(publicApprovalText(approval.comment ?? "")).slice(0, 1000)}` : "";
+  return `${lines.join("\n").slice(0, 4000 - closing.length - feedback.length - 1)}${feedback}\n${closing}`;
 }

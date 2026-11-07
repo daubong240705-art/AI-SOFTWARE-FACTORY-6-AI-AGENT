@@ -2,10 +2,11 @@ import { canTransitionTask, type EntityRef, type Task } from "@factory/contracts
 import { CommandError } from "../commands/errors.js";
 import type { HandlerContext, HandlerMap } from "../commands/pipeline.js";
 import { getTask } from "../work/service.js";
-import { advanceTasks, startTask } from "./advance.js";
-import { getAttempt, listAttempts, liveAttemptOfTask } from "./attempts.js";
+import { startTask } from "./advance.js";
+import { getAttempt, liveAttemptOfTask } from "./attempts.js";
 import type { Dispatcher } from "./dispatcher.js";
-import { moveTask } from "./tasks.js";
+import { moveTaskAndAdvance } from "./transitions.js";
+import { withdrawPendingReviews } from "../approvals/service.js";
 
 export { DispatchCommandError } from "./seats.js";
 const taskEffect = (task: Task): EntityRef => ({ kind: "task", id: task.id, revision: task.revision });
@@ -46,29 +47,9 @@ export function createDispatchHandlers(deps: { dispatcher: Dispatcher }): Partia
         throw new CommandError("conflict", "dependency is cancelled or declined", "refresh");
       if (payload.to === "cancelled" && task.state === "active" && liveAttemptOfTask(raw, projectId, task.id))
         throw new CommandError("conflict", "stop the attempt before cancelling the task", "refresh");
-      const effects = new Map<string, EntityRef>();
-      if (payload.to === "active") {
-        if (liveAttemptOfTask(raw, projectId, task.id))
-          throw new CommandError("conflict", "task has a live attempt", "refresh");
-        const seatId = task.ownerSeatId ?? listAttempts(raw, projectId, task.id).at(-1)?.seatId;
-        if (!seatId) throw new CommandError("validation", "no-seat", "correct-input");
-        if (task.ownerSeatId === null) raw.prepare("UPDATE tasks SET owner_seat_id = ?, revision = revision + 1 WHERE project_id = ? AND id = ?")
-          .run(seatId, projectId, task.id);
-        const active = moveTask(raw, projectId, task.id, "active");
-        const attempt = deps.dispatcher.enqueue({ projectId, taskId: task.id, seatId });
-        return { effects: [taskEffect(active), { kind: "attempt", id: attempt.id, revision: attempt.revision }] };
-      }
-      effects.set(task.id, taskEffect(moveTask(raw, projectId, task.id, payload.to)));
-      if (payload.to === "accepted" || payload.to === "done") {
-        for (const next of advanceTasks(raw, projectId, deps)) {
-          effects.set(next.id, taskEffect(next));
-          if (next.state === "active") {
-            const attempt = listAttempts(raw, projectId, next.id).at(-1)!;
-            effects.set(attempt.id, { kind: "attempt", id: attempt.id, revision: attempt.revision });
-          }
-        }
-      }
-      return { effects: [...effects.values()] };
+      const effects = moveTaskAndAdvance(raw, task, payload.to, deps);
+      if (task.state === "in-review") effects.push(...withdrawPendingReviews(raw, projectId, task.id, ctx.clock()));
+      return { effects };
     },
     "runs.cancel": (ctx, { projectId, payload }) => {
       const attempt = requireAttempt(ctx, projectId, payload.runId, payload.expectedRevision);

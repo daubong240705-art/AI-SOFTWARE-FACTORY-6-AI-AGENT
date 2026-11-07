@@ -20,6 +20,7 @@ import { createHash } from "node:crypto";
 import { assertInside } from "../workspace/index.js";
 import { ATTEMPT_UUID } from "../dispatch/workspace-provider.js";
 import { getArtifactVersion, listTaskArtifacts } from "../artifacts/service.js";
+import { getApprovalView, listApprovals, publicApprovalText } from "../approvals/service.js";
 import type { ContentStore } from "../artifacts/content-store.js";
 
 export function createRoutes(deps: {
@@ -35,6 +36,40 @@ export function createRoutes(deps: {
   const newId = createIdGenerator();
   return (app, guards) => {
     registerEventStream(app, guards, deps);
+    const inbox = (projectId?: string) => {
+      const projects = (deps.storage.raw.prepare("SELECT id, name FROM projects ORDER BY id").all() as { id: string; name: string }[])
+        .filter((project) => projectId === undefined || project.id === projectId);
+      const approvals = projects.flatMap((project) => listApprovals(deps.storage.raw, project.id, { states: ["pending"] }).reverse()
+        .map((approval) => ({ ...approval, ...(projectId === undefined ? { projectName: publicApprovalText(project.name) } : {}) })))
+        .sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
+      const startGates = projects.flatMap((project) => {
+        const tasks = deps.storage.raw.prepare("SELECT id, code, title FROM tasks WHERE project_id = ? AND state = 'awaiting-go' ORDER BY code, id")
+          .all(project.id) as { id: string; code: string; title: string }[];
+        return tasks.map((task) => ({ taskId: task.id, code: task.code, title: publicApprovalText(task.title),
+          ...(projectId === undefined ? { projectId: project.id, projectName: publicApprovalText(project.name) } : {}) }));
+      });
+      return { apiVersion: API_VERSION, ok: true, approvals, startGates,
+        counts: { approvals: approvals.length, startGates: startGates.length, total: approvals.length + startGates.length } };
+    };
+    app.get("/inbox", { preHandler: guards.session }, async () => inbox());
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/inbox", { preHandler: guards.session }, async (request, reply) => {
+      if (!getProject(deps.storage.raw, request.params.projectId))
+        return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      return inbox(request.params.projectId);
+    });
+    app.get<{ Params: { projectId: string; approvalId: string } }>("/projects/:projectId/approvals/:approvalId",
+      { preHandler: guards.session }, async (request, reply) => {
+        const approval = getApprovalView(deps.storage.raw, request.params.projectId, request.params.approvalId);
+        if (!approval) return failure(reply, 404, "not-found", "Approval not found.", "correct-input", newId);
+        return { apiVersion: API_VERSION, ok: true, approval };
+      });
+    app.get<{ Params: { projectId: string; taskId: string } }>("/projects/:projectId/tasks/:taskId/approvals",
+      { preHandler: guards.session }, async (request, reply) => {
+        const { projectId, taskId } = request.params;
+        if (!getTask(deps.storage.raw, projectId, taskId))
+          return failure(reply, 404, "not-found", "Task not found.", "correct-input", newId);
+        return { apiVersion: API_VERSION, ok: true, approvals: listApprovals(deps.storage.raw, projectId, { taskId }) };
+      });
     app.get<{ Params: { projectId: string; taskId: string } }>(
       "/projects/:projectId/tasks/:taskId/artifacts", { preHandler: guards.session }, async (request, reply) => {
         const { projectId, taskId } = request.params;
@@ -87,7 +122,13 @@ export function createRoutes(deps: {
       apiVersion: API_VERSION, ok: true, backup: deps.backupStatus?.() ?? null,
     }));
     app.post("/commands", { preHandler: guards.write }, async (request, reply) => {
-      const r = deps.pipeline.execute(request.body);
+      // Session ids are bearer credentials. Derive a stable UUID actor without persisting the credential.
+      const isApproval = typeof request.body === "object" && request.body !== null
+        && "type" in request.body && request.body.type === "approvals.decide";
+      const hash = isApproval && request.session ? createHash("sha256").update(request.session.id).digest("hex") : undefined;
+      const actorId = hash === undefined ? undefined
+        : `${hash.slice(0, 8)}-${hash.slice(8, 12)}-8${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+      const r = deps.pipeline.execute(request.body, actorId);
       try {
         const body = request.body;
         if (typeof body === "object" && body !== null && "type" in body && typeof body.type === "string")
