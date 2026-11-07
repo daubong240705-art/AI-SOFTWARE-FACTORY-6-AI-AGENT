@@ -13,6 +13,7 @@ import type { AttemptContext, RuntimeEvent, RuntimeRegistry, RuntimeSession } fr
 import { applyAttemptOutcome, eventsForAttempt, eventsForTask } from "./tasks.js";
 import type { AttemptRecord, RuntimeKind } from "./types.js";
 import type { WorkspaceProvider } from "./workspace-provider.js";
+import { sanitizeAgentText } from "../mcp/security.js";
 
 export interface DispatcherConfig {
   nodeSlots: number; leaseMs: number; leaseRenewMs: number; leaseCheckMs: number; stopTimeoutMs: number;
@@ -30,7 +31,7 @@ export interface Timers {
 }
 export interface RecoverSummary { leaseExpired: number; unknown: number; requeued: number; untouched: number }
 export interface ModelAccess {
-  issue(input: { attemptId: string; projectId: string; taskId: string; epoch: number }): { baseUrl: string; token: string; models: string[]; socketPath?: string };
+  issue(input: { attemptId: string; projectId: string; taskId: string; epoch: number; workspacePath?: string }): { baseUrl: string; token: string; models: string[]; socketPath?: string };
   revoke(attemptId: string): void;
 }
 export interface Dispatcher {
@@ -43,6 +44,7 @@ export interface Dispatcher {
   idle(): Promise<void>;
   stop(): Promise<void>;
   status(): { live: number; queued: number; nodeUsed: number; nodeTotal: number };
+  recordAgentProgress(ref: { projectId: string; attemptId: string; epoch: number }, message: string, percent?: number): boolean;
 }
 interface Live {
   controller: AbortController; session?: RuntimeSession; done: Promise<void>;
@@ -283,7 +285,8 @@ export function createDispatcher(deps: {
         projectId: preparing.projectId, attemptId: preparing.id, epoch: preparing.epoch, leaseId: preparing.leaseId,
       }, clock().getTime())) return;
       const model = deps.modelAccess?.issue({ attemptId: preparing.id, projectId: preparing.projectId,
-        taskId: preparing.taskId, epoch: preparing.epoch });
+        taskId: preparing.taskId, epoch: preparing.epoch,
+        ...(entry.workspace === undefined ? {} : { workspacePath: entry.workspace.path }) });
       const context: AttemptContext = {
         ref: { projectId: preparing.projectId, attemptId: preparing.id, epoch: preparing.epoch, leaseId: preparing.leaseId },
         task, seat, handoff: preparing.epoch > 1 ? buildHandoff(raw, preparing.projectId, preparing.taskId) : null,
@@ -504,6 +507,19 @@ export function createDispatcher(deps: {
       return result;
     },
     kick, recover, stopAttempt,
+    recordAgentProgress(ref, message, percent) {
+      if (stopped) return false;
+      return hub.transaction(() => {
+        const a = getAttempt(raw, ref.projectId, ref.attemptId);
+        if (!a || !a.leaseId || !["running", "waiting-input"].includes(a.state)
+          || isStaleCallback(a, { ...ref, leaseId: a.leaseId }, clock().getTime())) return false;
+        appendAttemptEvent(raw, { projectId: a.projectId, attemptId: a.id, kind: "progress",
+          body: { type: "progress", message: sanitizeAgentText(message), ...(percent === undefined ? {} : { percent }) }, at: now() });
+        const expires = new Date(clock().getTime() + config.leaseMs).toISOString();
+        changed(a.leaseExpiresAt !== null && expires > a.leaseExpiresAt ? renewLease(raw, a, a.leaseId, expires, now()) : a);
+        return true;
+      });
+    },
     enqueue(input) {
       if (stopped) throw new AttemptError("dispatcher-stopped");
       const a = hub.transaction(() => create(input));

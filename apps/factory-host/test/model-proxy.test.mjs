@@ -81,6 +81,24 @@ test("proxy authenticates, lists only grant models, and adds security headers", 
   assert.equal(r.headers["cache-control"], "no-store"); assert.equal(r.headers["x-content-type-options"], "nosniff");
   assert.equal(r.headers["set-cookie"], undefined); assert.equal(r.headers["access-control-allow-origin"], undefined);
 });
+test("MCP on the model listener uses its grant without model accounting", async (t) => {
+  let seen;
+  const f = await fixture(t, { maxRequestsPerAttempt: 1, mcp: { handle(grant, body) {
+    seen = grant; assert.ok(Buffer.isBuffer(body)); return { status: 202 };
+  } } });
+  for (let i = 0; i < 3; i++) {
+    const response = await f.inject({ jsonrpc: "2.0", method: "notifications/initialized" }, { url: "/mcp" });
+    assert.equal(response.statusCode, 202); assert.equal(response.body, "");
+  }
+  assert.equal(seen.attemptId, f.grant.attemptId); assert.equal(f.calls.length, 0); assert.equal(f.rows().length, 0);
+  assert.equal((await f.inject()).statusCode, 200);
+  f.tokens.revoke(f.grant.attemptId); rejected(await f.inject({}, { url: "/mcp" }), 401, "invalid_api_key");
+});
+test("MCP failures are bounded fixed protocol errors", async (t) => {
+  const f = await fixture(t, { mcp: { handle() { throw new Error("private handler details"); } } });
+  const response = await f.inject({}, { url: "/mcp" }); assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json().error, { code: -32603, message: "Internal error" }); assert.equal(f.rows().length, 0);
+});
 test("proxy missing malformed unknown revoked and expired auth have identical responses", async (t) => {
   const f = await fixture(t); const responses = [];
   for (const authorization of [undefined, "Basic garbled", "Bearer garbage", `Bearer fpx_${"A".repeat(43)}`]) {

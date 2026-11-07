@@ -84,11 +84,26 @@ test("configuration uses the relay and only approved provider models", async (t)
   const f = fixture(t); await f.run(); const config = JSON.parse(f.launched[0].spec.env.OPENCODE_CONFIG_CONTENT);
   assert.deepEqual(config, { $schema: "https://opencode.ai/config.json", autoupdate: false, share: "disabled",
     model: "factory/approved", small_model: "factory/approved", enabled_providers: ["factory"],
+    mcp: { factory: { type: "remote", url: `http://127.0.0.1:${SANDBOX_RELAY_PORT}/mcp`, enabled: true,
+      headers: { Authorization: `Bearer ${f.context.model.token}` } } },
     provider: { factory: { npm: "@ai-sdk/openai-compatible", name: "Factory",
       options: { baseURL: `http://127.0.0.1:${SANDBOX_RELAY_PORT}/v1`, apiKey: f.context.model.token },
       models: Object.fromEntries(f.context.model.models.map((name) => [name, { name, tool_call: true, limit: { context: 128000, output: 8192 } }])) } },
     permission: { edit: "allow", bash: "allow", webfetch: "deny", external_directory: "deny" } });
 });
+test("MCP uses the model credential and the prompt names both Factory tools", async (t) => {
+  const f = fixture(t); await f.run(); const spec = f.launched[0].spec;
+  const config = JSON.parse(spec.env.OPENCODE_CONFIG_CONTENT);
+  assert.equal(config.mcp.factory.headers.Authorization, `Bearer ${config.provider.factory.options.apiKey}`);
+  assert.equal(spec.env.OPENCODE_CONFIG_CONTENT.split(f.context.model.token).length - 1, 2);
+  for (const name of ["factory_task_progress", "factory_output_register", "Never include secrets"]) assert.ok(spec.args.at(-1).includes(name));
+});
+for (const name of ["factory_task_progress", "factory_output_register"]) for (const status of ["running", "completed", "error"])
+  test(`Factory tool ${name} reports ${status} without inputs`, async (t) => {
+    const f = fixture(t); const events = await f.run([tool(status, { command: "private-input", filePath: f.workspace, summary: f.context.model.token }, name)]);
+    assert.deepEqual(events[0], { type: "progress", message: `tool: ${name}` }); safe(events, f);
+    assert.equal(JSON.stringify(events).includes("private-input"), false);
+  });
 test("agent credential occurs only in the configuration env value", async (t) => {
   const f = fixture(t); await f.run(); const spec = structuredClone(f.launched[0].spec);
   assert.deepEqual(Object.keys(spec.env).sort(), ["OPENCODE_CONFIG_CONTENT", "OPENCODE_DISABLE_AUTOUPDATE", "OPENCODE_DISABLE_MODELS_FETCH"]);
@@ -122,9 +137,9 @@ test("absent handoff adds no handoff section", async (t) => {
   assert.equal(f.launched[0].spec.args.at(-1).includes("Handoff:"), false);
 });
 test("long multi-byte handoff truncates on a UTF-8 boundary", async (t) => {
-  const f = fixture(t, { maxPromptBytes: 1024 }); const session = await f.start({ handoff: "🧩漢é".repeat(1000) }); f.end(); await collect(session);
+  const f = fixture(t, { maxPromptBytes: 2048 }); const session = await f.start({ handoff: "🧩漢é".repeat(1000) }); f.end(); await collect(session);
   const prompt = f.launched[0].spec.args.at(-1);
-  assert.ok(Buffer.byteLength(prompt) <= 1024); assert.ok(Buffer.byteLength(prompt) > 1019); assert.equal(prompt.includes("�"), false);
+  assert.ok(Buffer.byteLength(prompt) <= 2048); assert.ok(Buffer.byteLength(prompt) > 2043); assert.equal(prompt.includes("�"), false);
   assert.ok(prompt.includes("Finish with a short summary"));
 });
 test("default prompt budget is ninety-six KiB", async (t) => {

@@ -164,3 +164,14 @@ test("a fresh lock held by a live publisher is respected and then times out gene
   fs.writeFileSync(join(dir, hash.slice(0, 2), `${hash}.lock`), "", { mode: 0o600 });
   assert.throws(() => store.put(bytes), generic);
 });
+test("a lock released between the failed open and the lstat is retried instead of failing the publisher", (t) => {
+  const { dir, store } = fixture(t); const bytes = "raced publisher"; const hash = digest(bytes);
+  fs.mkdirSync(join(dir, hash.slice(0, 2)), { mode: 0o700 });
+  const lock = join(dir, hash.slice(0, 2), `${hash}.lock`); fs.writeFileSync(lock, "", { mode: 0o600 });
+  const real = fs.lstatSync; let injected = false;
+  t.mock.method(fs, "lstatSync", (path, ...rest) => {
+    if (!injected && String(path) === lock) { injected = true; fs.unlinkSync(lock); throw Object.assign(new Error("released"), { code: "ENOENT" }); }
+    return real(path, ...rest);
+  });
+  assert.deepEqual(store.put(bytes), { hash, size: Buffer.byteLength(bytes) }); assert.equal(injected, true);
+});

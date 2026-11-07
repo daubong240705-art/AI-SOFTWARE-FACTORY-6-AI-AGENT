@@ -5,6 +5,9 @@ import type { Database } from "better-sqlite3";
 import { ARTIFACT_TRANSITIONS, type ArtifactStatus } from "@factory/contracts";
 import { assertInside } from "../workspace/paths.js";
 import type { ContentStore } from "./content-store.js";
+import type { TokenGrant } from "../proxy/tokens.js";
+import { agentOutputInputSchema, type AgentOutputInput } from "../mcp/tools.js";
+import { assertActiveGrant, McpToolError, readWorkspaceOutput, sanitizeAgentText } from "../mcp/security.js";
 
 export interface ResultRef { artifactId: string; version: number; kind: string; contentHash: string }
 export interface AttemptResultsInput {
@@ -75,6 +78,56 @@ function summaryBytes(summary: string): Buffer {
   }
 }
 
+/** Agent identity comes only from the authenticated grant, never from tool arguments. */
+export function registerAgentOutput(deps: {
+  raw: Database; store: ContentStore; now: () => Date; newId: () => string;
+}, input: { grant: TokenGrant } & AgentOutputInput): ResultRef {
+  const { raw, store } = deps;
+  return raw.transaction(() => {
+    const { grant } = input;
+    assertActiveGrant(raw, grant);
+    const { grant: _grant, ...fields } = input;
+    const parsed = agentOutputInputSchema.safeParse(fields);
+    if (!parsed.success) throw new McpToolError("output could not be registered");
+    const data = parsed.data;
+    const count = raw.prepare(`SELECT COUNT(*) AS n FROM artifact_versions WHERE project_id = ? AND produced_by_attempt_id = ?`)
+      .get(grant.projectId, grant.attemptId) as { n: number };
+    if (count.n >= 50) throw new McpToolError("tool limit reached");
+    for (const ref of data.inputs) {
+      if (!getArtifactVersion(raw, grant.projectId, ref.artifactId, ref.version))
+        throw new McpToolError("output could not be registered");
+    }
+    const bytes = readWorkspaceOutput(grant, data.path);
+    try {
+      const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      if (data.mediaType === "application/json") JSON.parse(text) as unknown;
+    } catch { throw new McpToolError("output could not be registered"); }
+    const title = sanitizeAgentText(data.title).trim() || "Output";
+    const previous = raw.prepare(`SELECT v.artifact_id AS artifactId, v.version, v.status FROM artifact_versions v
+      JOIN attempts a ON a.project_id = v.project_id AND a.id = v.produced_by_attempt_id
+      WHERE v.project_id = ? AND a.task_id = ? AND v.kind = ? AND v.title = ? ORDER BY v.version DESC LIMIT 1`)
+      .get(grant.projectId, grant.taskId, data.kind, title) as { artifactId: string; version: number; status: ArtifactStatus } | undefined;
+    // Filesystem and content-store operations are synchronous: the fence cannot change between these effects.
+    assertActiveGrant(raw, grant);
+    const content = store.put(bytes);
+    const artifactId = previous?.artifactId ?? deps.newId();
+    const version = (previous?.version ?? 0) + 1;
+    if (previous && !["superseded", "rejected", "withdrawn"].includes(previous.status))
+      raw.prepare("UPDATE artifact_versions SET status = 'superseded' WHERE project_id = ? AND artifact_id = ? AND version = ?")
+        .run(grant.projectId, artifactId, previous.version);
+    raw.prepare(`INSERT INTO artifact_versions (project_id, artifact_id, version, kind, title, media_type, content_hash,
+      size_bytes, status, abstract_l0, abstract_l1, produced_by_attempt_id, supersedes_version, visibility, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, 'project', ?)`)
+      .run(grant.projectId, artifactId, version, data.kind, title, data.mediaType, content.hash, content.size,
+        sanitizeAgentText(data.abstractL0), data.abstractL1 === undefined ? null : sanitizeAgentText(data.abstractL1),
+        grant.attemptId, previous?.version ?? null, deps.now().toISOString());
+    const insert = raw.prepare(`INSERT OR IGNORE INTO artifact_inputs (project_id, artifact_id, version, input_artifact_id, input_version)
+      VALUES (?, ?, ?, ?, ?)`);
+    for (const ref of data.inputs) insert.run(grant.projectId, artifactId, version, ref.artifactId, ref.version);
+    return { artifactId, version, kind: data.kind, contentHash: content.hash };
+  }).immediate();
+}
+
 /** A savepoint rolls back ALL metadata on failure, while leaving the outcome transaction intact. */
 export function registerAttemptResults(deps: {
   raw: Database; store: ContentStore; now: () => Date; newId: () => string; onError?: (error: Error) => void;
@@ -85,17 +138,29 @@ export function registerAttemptResults(deps: {
       const task = raw.prepare(`SELECT t.code FROM tasks t JOIN attempts a ON a.project_id = t.project_id AND a.task_id = t.id
         WHERE t.project_id = ? AND t.id = ? AND a.id = ? AND a.epoch = ?`)
         .get(input.projectId, input.taskId, input.attemptId, input.epoch) as { code: string } | undefined;
-      if (!task || raw.prepare("SELECT 1 FROM artifact_versions WHERE project_id = ? AND produced_by_attempt_id = ?")
-        .get(input.projectId, input.attemptId)) return [];
+      if (!task) return [];
+      const created: ResultRef[] = [];
+      if (input.outcome === "completed") {
+        const drafts = raw.prepare(`SELECT artifact_id AS artifactId, version, kind, content_hash AS contentHash
+          FROM artifact_versions WHERE project_id = ? AND produced_by_attempt_id = ? AND status = 'draft'`)
+          .all(input.projectId, input.attemptId) as ResultRef[];
+        raw.prepare(`UPDATE artifact_versions SET status = 'in-review' WHERE project_id = ? AND produced_by_attempt_id = ? AND status = 'draft'`)
+          .run(input.projectId, input.attemptId);
+        created.push(...drafts);
+      }
+      // Automatic results are idempotent independently of already registered agent outputs.
+      const automatic = raw.prepare(`SELECT title FROM artifact_versions WHERE project_id = ? AND produced_by_attempt_id = ?`)
+        .all(input.projectId, input.attemptId) as { title: string }[];
       const rows = raw.prepare(`SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ?
         AND kind = 'evidence' ORDER BY seq DESC`).all(input.projectId, input.attemptId) as { body_json: string }[];
       const evidence = rows.map((row) => object(JSON.parse(row.body_json) as unknown))
         .find((body) => body && Array.isArray(body.files) && "patchFile" in body && "patchSha256" in body);
       // Runtime-only evidence is not workspace evidence; it cannot produce Results.
-      if (!evidence) return [];
-      const created: ResultRef[] = [];
+      if (!evidence) return created;
       const register = (role: "Changes" | "Summary", kind: "code-ref" | "other", media: string,
         bytes: Buffer, l0: string, l1: string | null): void => {
+        const title = `${role} ${task.code} (epoch ${input.epoch})`.slice(0, 160);
+        if (automatic.some((row) => row.title === title)) return;
         const previous = raw.prepare(`SELECT v.artifact_id AS artifactId, v.version, v.status FROM artifact_versions v
           JOIN attempts a ON a.project_id = v.project_id AND a.id = v.produced_by_attempt_id
           WHERE v.project_id = ? AND a.task_id = ? AND v.kind = ? AND v.title LIKE ?

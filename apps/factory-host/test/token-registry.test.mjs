@@ -5,6 +5,13 @@ import { createTokenRegistry } from "../dist/proxy/index.js";
 
 const input = (extra = {}) => ({ attemptId: "attempt", projectId: "project", taskId: "task", epoch: 1,
   allowedModels: ["approved"], ...extra });
+test("registry keeps the optional workspace only on its immutable private grant", () => {
+  const { registry } = fixture(); const workspacePath = "synthetic-workspace-marker";
+  const issued = registry.issue(input({ workspacePath })); const grant = registry.resolve(issued.token);
+  assert.deepEqual(Object.keys(issued), ["token"]); assert.equal(grant.workspacePath, workspacePath);
+  assert.ok(Object.isFrozen(grant)); assert.throws(() => { grant.workspacePath = "changed"; }, TypeError);
+  assert.equal(inspect(registry, { showHidden: true, depth: null }).includes(workspacePath), false); registry.revokeAll();
+});
 function fixture(extra = {}) {
   let now = 1000;
   const registry = createTokenRegistry({ clock: () => new Date(now), ...extra });

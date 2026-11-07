@@ -63,6 +63,7 @@ function fixture(t, options = {}) {
   };
   const runtime = options.runtime ?? createFakeRuntime({ stepMs: 0 });
   const dispatcher = createDispatcher({ storage, hub: options.wrapHub?.(hub, raw) ?? hub,
+    ...(options.workspace ? { workspace: options.workspace, projectRootFor: () => "/synthetic/project" } : {}),
     ...(options.modelAccess ? { modelAccess: options.modelAccess } : {}),
     registry: new RuntimeRegistry([runtime]), clock, timers, onError: (error) => errors.push(error),
     config: { leaseMs: 100, leaseRenewMs: 20, leaseCheckMs: 5, stopTimeoutMs: 10, ...options.config } });
@@ -110,6 +111,36 @@ function controlled({ delayedStart = false, delayedStop = false, rejectStop = fa
     },
   };
 }
+
+test("agent progress matches runtime progress and fences wrong references", async (t) => {
+  const runtime = controlled(); const f = fixture(t, { runtime }); const a = f.enqueue(); await pumped();
+  const ref = { projectId: a.projectId, attemptId: a.id, epoch: a.epoch };
+  const body = { type: "progress", message: "Milestone", percent: 25 };
+  runtime.sessions[0].emit(body); await flush();
+  assert.equal(f.dispatcher.recordAgentProgress(ref, "Milestone", 25), true);
+  const progress = f.events(a).filter((event) => event.kind === "progress");
+  assert.deepEqual(progress.map((event) => event.body), [body, body]);
+  const before = f.events(a).length;
+  for (const wrong of [{ ...ref, epoch: 2 }, { ...ref, projectId: randomUUID() }, { ...ref, attemptId: randomUUID() }])
+    assert.equal(f.dispatcher.recordAgentProgress(wrong, "Late"), false);
+  assert.equal(f.events(a).length, before);
+  await f.dispatcher.stopAttempt(a.projectId, a.id);
+  const ended = f.events(a).length; assert.equal(f.dispatcher.recordAgentProgress(ref, "Late"), false); assert.equal(f.events(a).length, ended);
+});
+test("agent progress rejects an expired lease without a write", async (t) => {
+  const f = fixture(t, { runtime: controlled() }); const a = f.enqueue(); await pumped(); const count = f.events(a).length;
+  f.advance(100); assert.equal(f.dispatcher.recordAgentProgress({ projectId: a.projectId, attemptId: a.id, epoch: a.epoch }, "Late"), false);
+  assert.equal(f.events(a).length, count);
+});
+test("dispatcher issues workspace scope only to model access", async (t) => {
+  const issued = []; const workspace = { path: "/synthetic/attempt-workspace", branch: "branch", baseSha: "base" };
+  const runtime = controlled(); const f = fixture(t, { runtime,
+    workspace: { prepare: async () => workspace, finish: async () => ({ files: [] }) },
+    modelAccess: { issue(input) { issued.push(input); return { baseUrl: "http://fixture/v1", token: "synthetic-credential", models: ["approved"] }; }, revoke() {} } });
+  const a = f.enqueue(); await pumped(); assert.equal(issued[0].workspacePath, workspace.path);
+  assert.equal(Object.hasOwn(runtime.started[0].model, "workspacePath"), false);
+  assert.equal(JSON.stringify(f.events(a)).includes(workspace.path), false);
+});
 
 test("happy path emits the complete state sequence and valid ordered entity events", async (t) => {
   const states = [];

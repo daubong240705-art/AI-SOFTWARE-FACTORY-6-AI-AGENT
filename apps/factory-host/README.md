@@ -141,6 +141,15 @@ Correction: an earlier note here said the Lead created no Task. That was a bug i
 - Read routes: `GET /projects/:projectId/tasks/:taskId/artifacts` and `GET /projects/:projectId/artifacts/:artifactId/versions/:version/content` (text types only, hash-verified, no paths in responses).
 - The review/approval flow that moves these versions to `approved`/`rejected` is the next slice.
 
+## MCP endpoint for agents (M2)
+
+`src/mcp/`: the model proxy listener also serves `POST /mcp` (a hand-rolled JSON-RPC subset: `initialize`, `ping`, `tools/list`, `tools/call`; no new dependency), authenticated by the SAME per-attempt token as the model routes, so the sandboxed agent reaches it through the same relay. `GET`/`DELETE` answer 405. MCP calls never touch the model budget and are never forwarded upstream. OpenCode sees the tools as `factory_task_progress` and `factory_output_register`.
+
+- Every tool call re-checks in the database that the attempt is still `running`/`waiting-input` with the same epoch before any write; a stopped, fenced or finished attempt can write nothing. Tool failures are `isError` results with fixed short messages (no paths, ids or exception text).
+- `task.progress`: appends a fenced `progress` attempt event (control characters, paths and `fpx_`/`sk-` tokens masked), renews the lease, at most 500 calls per attempt.
+- `output.register` (Host-side input: the sandbox cannot upload bytes): the agent names a workspace-RELATIVE path of a deliverable. The Host reads it itself through descriptors anchored at the workspace (every component `lstat`-checked, `O_NOFOLLOW`, regular file only, no `.git`, no `..`/absolute/backslash paths, max 8 MiB, valid UTF-8/JSON), stores it in the content store and registers a `draft` Artifact Version (superseding earlier versions of the same task/kind/title; max 50 per attempt). When the attempt completes, its draft outputs move to `in-review`.
+- Still to come in the next slice: `decision.request` (park the attempt, create a `question` approval) — it is NOT listed in `tools/list` yet.
+
 ## Review approvals and Inbox (M2)
 
 `src/approvals/`: when a `human-final` task completes and enters `in-review`, the Host (inside the same transaction as the outcome) creates ONE pending `review` Approval (options `accept` / `request-changes`, 7-day expiry, a context digest over the task's current artifact versions). A new review supersedes a pending one; moving the task by hand withdraws it; expiry marks it `expired` and never approves.

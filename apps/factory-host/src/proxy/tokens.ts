@@ -4,9 +4,10 @@ import type { Clock } from "../ids.js";
 export interface TokenGrant {
   readonly attemptId: string; readonly projectId: string; readonly taskId: string; readonly epoch: number;
   readonly allowedModels: readonly string[]; readonly expiresAt: number;
+  readonly workspacePath?: string;
 }
 export interface TokenRegistry {
-  issue(input: { attemptId: string; projectId: string; taskId: string; epoch: number; allowedModels: string[] }): { token: string };
+  issue(input: { attemptId: string; projectId: string; taskId: string; epoch: number; allowedModels: string[]; workspacePath?: string }): { token: string };
   resolve(token: unknown): TokenGrant | null;
   revoke(attemptId: string): void;
   revokeAll(): void;

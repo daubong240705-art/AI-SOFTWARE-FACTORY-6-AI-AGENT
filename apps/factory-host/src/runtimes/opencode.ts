@@ -46,6 +46,7 @@ function promptFor(context: AttemptContext, maxBytes: number, token: string): st
     "Do not touch files outside the task scope.",
     "Run the project's own tests when they exist.",
     "Finish with a short summary of what changed and what was verified.",
+    "You have two Factory tools: factory_task_progress (call it at meaningful milestones, short summary) and factory_output_register (after you write a deliverable file in the workspace, register it with its workspace-relative path, a title, a kind and a one-sentence abstract). Never include secrets in them.",
   ].join("\n"));
   if (prompt.includes("\0") || Buffer.byteLength(prompt) > maxBytes) return invalid();
   return utf8Prefix(prompt + (context.handoff ? `\nHandoff:\n${redact(context.handoff.replaceAll("\0", ""))}` : ""), maxBytes);
@@ -124,6 +125,8 @@ export function createOpenCodeRuntime(options: OpenCodeRuntimeOptions): RuntimeA
                   limit: { context: 128000, output: 8192 } }])),
               } },
               enabled_providers: ["factory"],
+              mcp: { factory: { type: "remote", url: `http://127.0.0.1:${SANDBOX_RELAY_PORT}/mcp`, enabled: true,
+                headers: { Authorization: `Bearer ${model.token}` } } },
               permission: { edit: "allow", bash: "allow", webfetch: "deny", external_directory: "deny" },
             }),
             OPENCODE_DISABLE_AUTOUPDATE: "true", OPENCODE_DISABLE_MODELS_FETCH: "true",
@@ -201,7 +204,8 @@ export function createOpenCodeRuntime(options: OpenCodeRuntimeOptions): RuntimeA
         } else if (event.type === "tool_use" && typeof part.tool === "string") {
           const state = object(part.state);
           const tool = scrub(part.tool).slice(0, 80);
-          if (state.status === "error") emit({ type: "progress", message: `tool failed: ${tool}` });
+          if (part.tool.startsWith("factory_")) emit({ type: "progress", message: `tool: ${tool}` });
+          else if (state.status === "error") emit({ type: "progress", message: `tool failed: ${tool}` });
           else if (state.status === "completed") {
             const input = object(state.input);
             let detail = "";

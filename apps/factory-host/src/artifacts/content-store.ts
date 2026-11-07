@@ -87,10 +87,16 @@ export function createContentStore(options: { dir: string; maxObjectBytes?: numb
             const fd = fs.openSync(lock, "wx", 0o600);
             locked = true; fs.closeSync(fd); break;
           } catch (error) {
-            if ((error as NodeJS.ErrnoException).code !== "EEXIST" || Date.now() >= deadline) throw unavailable();
-            plain(lock, false);
+            // Windows reports a lock that is being deleted as EPERM/EACCES instead of EEXIST: wait and retry.
+            const code = (error as NodeJS.ErrnoException).code;
+            if (!["EEXIST", "EPERM", "EACCES"].includes(code ?? "") || Date.now() >= deadline) throw unavailable();
+            let held: fs.Stats | undefined;
+            // The holder may release the lock between our failed open and this lstat: that is not an error.
+            try { held = fs.lstatSync(lock); } catch (statError) { if (!missing(statError)) throw statError; }
+            if (held === undefined) continue;
+            if (held.isSymbolicLink() || !held.isFile()) throw unavailable();
             // A lock left by a crashed Host would otherwise block this content forever.
-            if (Date.now() - fs.lstatSync(lock).mtimeMs > 30_000) {
+            if (Date.now() - held.mtimeMs > 30_000) {
               try { fs.unlinkSync(assertInside(root, lock)); } catch { /* Another publisher may have removed it. */ }
               continue;
             }

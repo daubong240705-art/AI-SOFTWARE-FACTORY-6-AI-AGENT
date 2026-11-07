@@ -32,7 +32,9 @@ import { SANDBOX_RELAY_PORT } from "./sandbox/index.js";
 import { createContentStore, type ContentStore } from "./artifacts/content-store.js";
 import { approvalsDecideHandler, createApprovalsDecideHandler, expirePendingApprovals, requestTaskReview } from "./approvals/service.js";
 import type { Timers } from "./dispatch/dispatcher.js";
-import { registerAttemptResults } from "./artifacts/service.js";
+import { registerAgentOutput, registerAttemptResults } from "./artifacts/service.js";
+import { createMcpHandler } from "./mcp/rpc.js";
+import { assertActiveGrant, McpToolError } from "./mcp/security.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -198,6 +200,7 @@ export async function startHost(options: {
   let proxy: { port: number; socketPath?: string; tokens: TokenRegistry } | null = null;
   let ownsSocket = false;
   let modelAccess: ModelAccess | undefined;
+  let startModelProxy: (() => Promise<void>) | undefined;
   let evidenceDir: string | undefined;
   let backup: { service: BackupService; status(): BackupStatus } | null = null;
   let scheduler: ReturnType<typeof startBackupScheduler> | undefined;
@@ -275,8 +278,32 @@ export async function startHost(options: {
       const upstream = createUpstream(configured.upstream);
       const tokens = createTokenRegistry({ clock });
       const allowedHosts = configured.allowedHosts === undefined ? [] : [...configured.allowedHosts];
-      modelProxy = createModelProxy({ upstream, tokens, raw: storage.raw, budget: budgetConfig, clock,
-        newId: createIdGenerator(clock), allowedHosts });
+      let modelPort = SANDBOX_RELAY_PORT;
+      const approvedModels = [...configured.approvedModels];
+      modelAccess = { issue(input) {
+        const { token } = tokens.issue({ ...input, allowedModels: approvedModels });
+        return { token, models: [...approvedModels], baseUrl: `http://127.0.0.1:${modelPort}/v1`,
+          ...(socketPath === undefined ? {} : { socketPath }) };
+      }, revoke: (attemptId) => tokens.revoke(attemptId) };
+      const raw = storage.raw;
+      startModelProxy = async () => {
+      const dispatcher = dispatch;
+      const mcp = dispatcher === null ? undefined : createMcpHandler({
+        progress(grant, input) {
+          assertActiveGrant(raw, grant);
+          if (!dispatcher.recordAgentProgress(grant, input.summary, input.percent)) throw new McpToolError("attempt is not active");
+        },
+        registerOutput(grant, input) {
+          return hub.transaction(() => {
+            const ref = registerAgentOutput({ raw, store: artifacts.store, now: clock, newId: resultId }, { ...input, grant });
+            hub.append({ projectId: grant.projectId, causationId: grant.attemptId, rootCausationId: grant.attemptId,
+              payload: { type: "entity.changed", entity: { kind: "artifact-version", id: ref.artifactId, revision: ref.version } } });
+            return ref;
+          });
+        },
+      });
+      modelProxy = createModelProxy({ upstream, tokens, raw, budget: budgetConfig, clock,
+        newId: createIdGenerator(clock), allowedHosts, ...(mcp === undefined ? {} : { mcp }) });
       let listeningPort = 0;
       if (socketPath === undefined) listeningPort = await listenLoopback(modelProxy.app, configured.port);
       else {
@@ -288,15 +315,10 @@ export async function startHost(options: {
         } catch { throw new Error("Proxy socket unavailable"); }
       }
       // Until the actual port is known the default allow-list rejects every request.
-      const modelPort = socketPath === undefined ? listeningPort : SANDBOX_RELAY_PORT;
+      modelPort = socketPath === undefined ? listeningPort : SANDBOX_RELAY_PORT;
       if (configured.allowedHosts === undefined) allowedHosts.push(`127.0.0.1:${modelPort}`, `localhost:${modelPort}`);
       proxy = { port: listeningPort, tokens, ...(socketPath === undefined ? {} : { socketPath }) };
-      const approvedModels = [...configured.approvedModels];
-      modelAccess = { issue(input) {
-        const { token } = tokens.issue({ ...input, allowedModels: approvedModels });
-        return { token, models: [...approvedModels], baseUrl: `http://127.0.0.1:${modelPort}/v1`,
-          ...(socketPath === undefined ? {} : { socketPath }) };
-      }, revoke: (attemptId) => tokens.revoke(attemptId) };
+      };
     }
     if (options.dispatch) {
       const { stepMs, adapters, ...config } = options.dispatch;
@@ -316,18 +338,23 @@ export async function startHost(options: {
         ...(options.timers === undefined ? {} : { timers: options.timers }),
         onInReview(input) { requestTaskReview({ raw, hub, now: clock, newId: resultId }, input); },
         ...(modelAccess === undefined ? {} : { modelAccess }),
-        ...(workspace && roots && resultsEvidenceDir ? { workspace, results: { register(input) {
+        results: { register(input) {
           const refs = registerAttemptResults({ raw, store: artifacts.store, now: clock, newId: resultId,
-            onError: () => { console.error("Artifact registration failed"); } }, { ...input, evidenceDir: resultsEvidenceDir });
+            onError: () => { console.error("Artifact registration failed"); } }, { ...input, evidenceDir: resultsEvidenceDir ?? join(stateDir, "evidence") });
           for (const ref of refs) hub.append({ projectId: input.projectId, causationId: input.attemptId,
             rootCausationId: input.attemptId, payload: { type: "entity.changed",
               entity: { kind: "artifact-version", id: ref.artifactId, revision: ref.version } } });
-        } }, projectRootFor(projectId: string) {
+        } },
+        ...(workspace && roots ? { workspace, projectRootFor(projectId: string) {
           const row = raw.prepare("SELECT workspace_root FROM projects WHERE id = ?").get(projectId) as { workspace_root: string | null } | undefined;
           try { return row?.workspace_root ? assertInside(roots.projectsRoot, row.workspace_root) : null; }
           catch { return null; }
         } } : {}),
       });
+    }
+    await startModelProxy?.();
+    if (dispatch) {
+      const raw = storage.raw;
       dispatch.start();
       const dispatcher = dispatch;
       for (const project of raw.prepare("SELECT id FROM projects ORDER BY id").all() as { id: string }[]) {

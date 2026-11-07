@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import Fastify from "fastify";
 import { createContentStore } from "../dist/artifacts/content-store.js";
-import { registerAttemptResults, listTaskArtifacts, getArtifactVersion, setTaskArtifactStatus } from "../dist/artifacts/service.js";
+import { registerAgentOutput, registerAttemptResults, listTaskArtifacts, getArtifactVersion, setTaskArtifactStatus } from "../dist/artifacts/service.js";
 import { createRoutes } from "../dist/api/routes.js";
 import { createCommandPipeline } from "../dist/commands/pipeline.js";
 import { EventHub } from "../dist/events/hub.js";
@@ -96,6 +96,22 @@ test("completed results register patch and summary with project visibility", (t)
   assert.equal(f.version(refs[0]).abstractL1, "modified file.txt");
   assert.equal(f.version(refs[1]).mediaType, "text/markdown");
   assert.deepEqual(f.raw.prepare("SELECT DISTINCT visibility FROM artifact_versions").all(), [{ visibility: "project" }]);
+});
+for (const outcome of ["completed", "failed"]) test(`agent outputs and automatic results coexist for ${outcome} outcome`, (t) => {
+  const f = fixture(t); const input = f.attempt(1, "queued"); f.evidence(input);
+  f.raw.prepare("INSERT INTO nodes (id,revision,name,platform,trust,state,slots_total,slots_used) VALUES ('fixture',1,'fixture','linux','server-sandboxed','online',1,0)").run();
+  f.raw.prepare("UPDATE attempts SET state = 'running',node_id = 'fixture',lease_id = 'lease',lease_expires_at = ? WHERE id = ?")
+    .run(new Date(now().getTime() + 60000).toISOString(), input.attemptId);
+  const workspacePath = join(f.root, "workspace"); fs.mkdirSync(workspacePath); fs.writeFileSync(join(workspacePath, "agent.md"), "Agent content\n");
+  const ref = registerAgentOutput({ raw: f.raw, store: f.store, now, newId: randomUUID }, {
+    grant: { projectId: f.projectId, taskId: f.taskId, attemptId: input.attemptId, epoch: 1, workspacePath, allowedModels: [], expiresAt: Infinity },
+    title: "Agent deliverable", kind: "research-report", mediaType: "text/markdown", path: "agent.md", abstractL0: "Agent output.", inputs: [],
+  });
+  assert.equal(f.version(ref).status, "draft"); const refs = f.register({ ...input, outcome });
+  assert.equal(f.version(ref).status, outcome === "completed" ? "in-review" : "draft");
+  assert.equal(refs.length, outcome === "completed" ? 3 : 1);
+  // A second outcome callback neither adds versions nor republishes an unchanged promotion.
+  assert.deepEqual(f.register({ ...input, outcome }), []);
 });
 test("second epoch reuses identities and supersedes previous versions", (t) => {
   const f = fixture(t); const first = completed(f).refs; const secondInput = f.attempt(2); f.evidence(secondInput);

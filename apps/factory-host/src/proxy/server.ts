@@ -7,6 +7,7 @@ import { ModelError } from "../models/gateway.js";
 import { createResponseGuard, type Upstream } from "../models/upstream.js";
 import { checkAndReserve, recordUsage, type BudgetConfig } from "../policy/budget.js";
 import type { TokenGrant, TokenRegistry } from "./tokens.js";
+import { rpcError } from "../mcp/rpc.js";
 
 const toolCall = z.object({ id: z.string(), type: z.literal("function"),
   function: z.object({ name: z.string(), arguments: z.string() }) });
@@ -55,6 +56,7 @@ export function createModelProxy(options: {
   approvedModels?: never; maxBodyBytes?: number; maxOutputTokens?: number; maxConcurrentPerAttempt?: number;
   maxRequestsPerAttempt?: number; requestTimeoutMs?: number; allowedHosts: string[];
   maxResponseBytes?: number; onError?: (error: Error) => void;
+  mcp?: { handle(grant: TokenGrant, body: unknown): { status: number; body?: unknown } | Promise<{ status: number; body?: unknown }> };
 }): { app: FastifyInstance; close(): Promise<void>; inflight(): number } {
   const { upstream, tokens, raw, budget, clock, newId, maxBodyBytes = 4_194_304, maxOutputTokens = 32_768,
     maxConcurrentPerAttempt = 4, maxRequestsPerAttempt = 2_000, requestTimeoutMs = 600_000,
@@ -94,6 +96,27 @@ export function createModelProxy(options: {
     return failure(reply, code === "FST_ERR_CTP_BODY_TOO_LARGE" ? 413 : 400, "invalid_request");
   });
   app.setNotFoundHandler((_request, reply) => failure(reply, 404, "not_found"));
+  if (options.mcp) {
+    const mcp = options.mcp;
+    // Encapsulation leaves model-route JSON parsing and error responses unchanged.
+    app.register(async (routes) => {
+      routes.removeContentTypeParser("application/json");
+      routes.addContentTypeParser("application/json", { parseAs: "buffer" }, (_request, body, done) => done(null, body));
+      routes.post("/mcp", { bodyLimit: 1_048_576 }, async (request, reply) => {
+        const access = grants.get(request);
+        if (!access || tokens.resolve(access.token) !== access.grant) return failure(reply, 401, "invalid_api_key");
+        try {
+          const response = await mcp.handle(access.grant, request.body);
+          if (response.body === undefined) return reply.code(response.status).send();
+          const bytes = JSON.stringify(response.body);
+          // A handler cannot accidentally return private, unbounded exception text.
+          if (Buffer.byteLength(bytes) > 65536) return reply.type("application/json").send(rpcError(-32603).body);
+          return reply.code(response.status).type("application/json").send(bytes);
+        } catch { return reply.type("application/json").send(rpcError(-32603).body); }
+      });
+      routes.route({ method: ["GET", "DELETE"], url: "/mcp", handler: (_request, reply) => reply.header("allow", "POST").code(405).send() });
+    });
+  }
   app.get("/v1/models", async (request, reply) => {
     const access = grants.get(request);
     if (!access || tokens.resolve(access.token) !== access.grant) return failure(reply, 401, "invalid_api_key");
