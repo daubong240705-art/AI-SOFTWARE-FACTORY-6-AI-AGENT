@@ -55,7 +55,7 @@ Host sao lưu mỗi giờ và khi tắt (`VACUUM INTO`, kiểm `integrity_check`
 ```bash
 node ~/factory-v2/app/apps/factory-host/dist/backup/cli.js list /mnt/d/factory-backup
 # TẮT Host trước. Khôi phục không bao giờ xóa DB cũ: nó được chuyển vào <state>/pre-restore-<thời gian>/
-node ~/factory-v2/app/apps/factory-host/dist/backup/cli.js restore /mnt/d/factory-backup/<file>.db ~/factory-v2/state   --migrations ~/factory-v2/app/apps/factory-host/migrations
+node ~/factory-v2/app/apps/factory-host/dist/backup/cli.js restore /mnt/d/factory-backup/<file>.db ~/factory-v2/state \n  --migrations ~/factory-v2/app/apps/factory-host/migrations
 ```
 
 Đã diễn tập thật trong WSL: sao lưu lên `/mnt/d`, phá DB, khôi phục, Host chạy lại đủ dữ liệu; khôi phục bị từ chối khi Host đang chạy.
