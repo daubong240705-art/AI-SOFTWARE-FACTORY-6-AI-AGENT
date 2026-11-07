@@ -52,7 +52,7 @@
 | **OSS-10** | **WinSW** chạy node agent như Windows service (§6A) | **Đã duyệt** 07/11/2026 |
 | **OSS-11** | **croner**, **cockatiel**; `dagre`, `ntfy` tùy chọn (§6B) | **Đã duyệt** 07/11/2026 |
 | **OSS-12** | **Fastify**, **better-sqlite3**, **Kysely**, **pino**, **OpenTelemetry**; loại MinIO, AutoGen (§6C) | **Đã duyệt** 07/11/2026 |
-| **OSS-13** | **Playwright** (E2E UI), **fast-check** (property test) (§6D) | Đề xuất chọn |
+| **OSS-13** | **Playwright** (E2E UI), **fast-check** (property test) (§6D) | **Đã duyệt** 07/11/2026 |
 
 ---
 

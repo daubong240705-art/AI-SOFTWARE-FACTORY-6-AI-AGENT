@@ -141,7 +141,7 @@ Mười thực thể được yêu cầu, cộng các thực thể hỗ trợ c�
 | **Session / Run Attempt** | Một lần thực thi cụ thể của Agent Instance cho một Assignment (V2 `run_attempts`, runtime session) |
 | **Artifact** | Đầu ra có phiên bản, hash và nguồn gốc; có thể được chia sẻ cho Project khác |
 | **Execution Profile / Grant** | Phạm vi quyền thực thi đã cấp (V2 ADR-004) |
-| **Workflow Run** | Một lần áp dụng Workflow trong một Project |
+| **Workflow Instance** | Một lần áp dụng Workflow trong một Project (trước đây gọi "Workflow Run"; thuật ngữ chuẩn theo 05 I1) |
 | **Trigger / Schedule** | Sự kiện hoặc lịch tạo command, là đầu vào cho Team 24/7 (V2 F5) |
 
 ### 3.2 Định nghĩa chi tiết
@@ -153,7 +153,7 @@ Mười thực thể được yêu cầu, cộng các thực thể hỗ trợ c�
 - **Bất biến:** mọi Team, Node, Project thuộc đúng một Organization. Không chia sẻ tài nguyên xuyên Organization.
 
 #### Project
-- **Trách nhiệm:** định nghĩa *cần đạt điều gì*: mục tiêu, workspace (Git, thư mục hoặc chỉ artifact — V2 D09), ngân sách, chính sách review, Work Item, Workflow Run và Artifact của mình.
+- **Trách nhiệm:** định nghĩa *cần đạt điều gì*: mục tiêu, workspace (Git, thư mục hoặc chỉ artifact — V2 D09), ngân sách, chính sách review, Work Item, Workflow Instance và Artifact của mình.
 - **Không** sở hữu Team. Project **mời** Team qua Engagement.
 - Có một **Project Lead** (agent điều phối ở mức Project): một Seat của Team được chỉ định làm điều phối, hoặc Lead riêng của Project. Đây là quyết định mở (D-04, mục 12).
 - **Bất biến:** dữ liệu Project (workspace, secret của Project, hội thoại) mặc định không nhìn thấy được từ Project khác, trừ Artifact được công bố rõ ràng.
@@ -239,7 +239,7 @@ flowchart TB
         PRJ["Project"] --> ENG["Engagement"]
         ENG --> TEAM
         PRJ --> WI["Work Item"]
-        PRJ --> WFR["Workflow Run"]
+        PRJ --> WFR["Workflow Instance"]
         WI --> ASG["Assignment"]
         ASG --> ART["Artifact"]
     end
@@ -283,10 +283,10 @@ erDiagram
     WORKER_NODE ||--o{ AGENT_INSTANCE : "chạy"
     AGENT_INSTANCE ||--o{ SESSION : "thực hiện"
 
-    WORKFLOW ||--o{ WORKFLOW_RUN : "áp dụng"
-    PROJECT ||--o{ WORKFLOW_RUN : "có"
+    WORKFLOW ||--o{ WORKFLOW_INSTANCE : "áp dụng"
+    PROJECT ||--o{ WORKFLOW_INSTANCE : "có"
     PROJECT ||--o{ WORK_ITEM : "có"
-    WORKFLOW_RUN ||--o{ WORK_ITEM : "sinh"
+    WORKFLOW_INSTANCE ||--o{ WORK_ITEM : "sinh"
     WORK_ITEM }o--o{ CAPABILITY : "yêu cầu"
     WORK_ITEM ||--o{ ASSIGNMENT : "được giao"
     ENGAGEMENT ||--o{ ASSIGNMENT : "trong phạm vi"

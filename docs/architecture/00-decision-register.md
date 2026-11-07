@@ -151,12 +151,39 @@ Nguồn: [06](06-implementation-roadmap.md).
 
 | ID | Đề xuất | Trạng thái |
 |---|---|---|
-| RM-01 (AP-1) | Đổi thứ tự theo lớp năng lực: R0 → M0 → M1 → M2 (MVP) → M3 Multi-Team/Knowledge → M4 Distributed → M5 Workflow/Automation → M6 Hardening → M7 Đa lĩnh vực → M8 Import V1; M2b khi cần 24/7. Thay thứ tự 05 §13 | Đề xuất chọn |
-| RM-02 | MVP dùng hằng ngày = R0 → M2, theo checklist parity 06 §5.2 | Đề xuất chọn |
-| RM-03 (AP-4) | Mã nguồn Project trong MVP: clone vào filesystem WSL, trả kết quả bằng branch | Đề xuất chọn |
-| RM-04 | Nâng cấp kiểu strangler: không sửa V1, V1 Protection Guard ở mọi milestone, V1 chạy song song tới M8 | Đề xuất chọn |
-| RM-05 | Milestone bắt đầu lập trình: R0 + M0 | Đề xuất chọn |
-| OSS-13 | Playwright, fast-check | Đề xuất chọn |
+| RM-01 (AP-1) | Đổi thứ tự theo lớp năng lực: R0 → M0 → M1 → M2 (MVP) → M3 Multi-Team/Knowledge → M4 Distributed → M5 Workflow/Automation → M6 Hardening → M7 Đa lĩnh vực → M8 Import V1; M2b khi cần 24/7. Thay thứ tự 05 §13 | **Đã duyệt** (07/11/2026) |
+| RM-02 | MVP dùng hằng ngày = **MVP-lite** (07 §8: R0 → M0-lite → M1 → M2-lite), theo checklist parity 06 §5.2 | **Đã duyệt** (07/11/2026) |
+| RM-03 (AP-4) | Mã nguồn Project trong MVP: clone vào filesystem WSL, trả kết quả bằng branch | **Đã duyệt** (07/11/2026) |
+| RM-04 | Nâng cấp kiểu strangler: không sửa V1, V1 Protection Guard ở mọi milestone, V1 chạy song song tới M8 | **Đã duyệt** (07/11/2026) |
+| RM-05 | Milestone bắt đầu lập trình: **R0 + M0-lite** (07 §9) | **Đã duyệt** (07/11/2026) |
+| OSS-13 | Playwright, fast-check | **Đã duyệt** (07/11/2026) |
+
+---
+
+## 3E. Điều chỉnh sau Architecture Review (tài liệu 07)
+
+Nguồn: [07](07-architecture-review.md). Người dùng duyệt toàn bộ khuyến nghị ngày 07/11/2026. Khi mâu thuẫn với tài liệu 05/06, mục này được ưu tiên.
+
+| ID | Quyết định đã duyệt | Giải quyết | Mốc |
+|---|---|---|---|
+| AP-R1 | **Cô lập agent từ MVP**: CLI agent chạy dưới user Linux riêng `factory-agent` (nhóm `factory`), không đọc được thư mục state/config của Host; workspace là thư mục duy nhất được cấp (`/srv/factory/workspaces`); key 9Router chỉ ở model proxy của Host, agent nhận token tạm; dùng sandbox-runtime (OSS-04) nếu kịp | AR-C1 (Critical) | M2 |
+| AP-R2 | **M0-lite**: chỉ chốt thực thể M1–M2 cần + điểm mở rộng (`kind`, `origin`, trường tùy chọn); thực thể khác thêm theo milestone bằng phiên bản contracts tăng dần | AR-H1 | M0 |
+| AP-R3 | **MVP-lite** (07 §8), 20–32 ngày công có điều kiện | AR-H2 | M1–M2 |
+| AP-R4 | Cơ chế an toàn đi cùng chức năng gây rủi ro: ngân sách Task/ngày + sổ usage ở M1; Effect Executor tối thiểu (đẩy branch, Effect Record) ở M2; hop limit + ngân sách chuỗi gốc cùng milestone với yêu cầu giữa Team | AR-H3, AR-M9 | M1–M3 |
+| AP-R5 | Sao lưu định kỳ từ M1 (SQLite `.backup`/`VACUUM INTO` + kho file → `D:\factory-backup`, mỗi giờ và khi tắt); diễn tập khôi phục là tiêu chí nghiệm thu M2; Litestream ở M6 | AR-H4 | M1–M2 |
+| AP-R6 | M2 dùng adapter native OpenCode (từ V1); ACP khi thêm Codex/Claude | AR-H5 | M2, M4 |
+| AP-R7 | Lead (API agent) có tool chỉ-đọc workspace do node cung cấp | AR-H6 | M1 |
+| AP-R8 | Hợp nhất CTR vào Task (`origin`, `requestKind`, `requesterTaskId`); clarify/consult là tin nhắn trong thread | AR-M1 | M0, M3 |
+| AP-R9 | Agent Instance ngầm định (slot) tới khi có Seat dedicated | AR-M2 | M0 |
+| AP-R10 | Chỉ giữ 5 abstraction ban đầu: `RuntimeAdapter`, `SandboxProvider`, `ModelGateway`, `Clock`, Repository (Kysely); các abstraction khác tạo khi có hiện thực thứ hai | AR-M3 | M1 |
+| AP-R11 | Cập nhật tài liệu 01, 02 theo ADR-T04 và thuật ngữ Workflow Instance | AR-M4 | Trước M1 (đã làm 07/11/2026) |
+| AP-R12 | Execution Gate ở MVP: Task do Lead tạo ở trạng thái `AwaitingGo` khi bật gate, Operator bấm "Bắt đầu" | AR-M5 | M2 |
+| AP-R13 | Lỗi tool MCP trả lỗi có cấu trúc; attempt chuyển Failed/Interrupted, agent không tự diễn giải | AR-M6 | M2 |
+| AP-R14 | Node dừng ngay khi gia hạn lease thất bại/bị từ chối; so cả đồng hồ thực sau suspend | AR-M7 | M4 |
+| AP-R15 | Node Windows (WinSW) chạy bằng tài khoản người dùng | AR-M8 | M4 |
+| AP-R16 | Khóa working copy theo Artifact (một người giữ, có hạn) | AR-M10 | M3 |
+| AP-11 | Chưa dùng đăng nhập Claude/Codex cá nhân cho tự động hóa; chỉ API key qua 9Router, cho tới khi kiểm điều khoản từng nhà cung cấp | R15 | Liên tục |
+| PoC | Kết quả PoC model routing (nhánh `poc/model-routing`): chính sách bậc theo loại Task là nền cho module `model-router` sau này; chưa tích hợp | — | Sau M1 |
 
 ---
 
@@ -189,3 +216,4 @@ Dùng checklist ở [oss-options §2.5](oss-options.md).
 | 07/11/2026 | Người dùng chốt phương án giai đoạn 4: E-01..E-14, OSS-09, OSS-10 **Đã duyệt**; ghi chú làm rõ vào D-07 |
 | 07/11/2026 | Đồng bộ: thêm W-01..W-18 (§3B), ADR-T01..T14 (§3C), OSS-11, OSS-12; sửa E-01, E-02, E-14 theo VMware trên laptop (05 §21) |
 | 07/11/2026 | Giai đoạn 7 (tài liệu 06): thêm RM-01..RM-05, OSS-13 ở trạng thái Đề xuất chọn |
+| 07/11/2026 | Người dùng duyệt toàn bộ khuyến nghị của Architecture Review (07): RM-01..RM-05, OSS-13 **Đã duyệt**; thêm §3E (AP-R1..R16, AP-11); RM-02 và RM-05 đổi sang MVP-lite và R0 + M0-lite |
