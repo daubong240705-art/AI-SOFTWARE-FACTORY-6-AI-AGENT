@@ -107,3 +107,14 @@ Correction: an earlier note here said the Lead created no Task. That was a bug i
 ## Process runner (M2)
 
 `src/exec/process-group.ts` runs a child on Linux only (it refuses every other platform): own session and process group, the EXACT environment it is given (nothing inherited from the Host), commands resolved only through the child's own `PATH`, bounded output (UTF-8 safe), timeout, and a stop that resolves only after the whole group is verified gone (SIGTERM, grace, SIGKILL; a group that survives the deadline is reported, never hidden). `buildSafeEnv` refuses secret-looking variable names unless allowed by name; `scrubForLog` redacts secrets. A child that deliberately escapes with `setsid` is NOT contained by process groups: the sandbox (a later slice) must contain it. The Linux integration tests run through `scripts/factory-v2/test-host-wsl.sh`.
+
+## Workspace (M2)
+
+`src/workspace/` (Linux only) implements AP-4: a project is CLONED into the WSL ext4 filesystem and results come back as patches or branches; the original repository is only ever READ.
+
+- `cloneProject` (`git clone --no-local --no-hardlinks --template=`): source is an absolute local path or a credential-free `https://` URL; the clone owns its objects, has `remote.origin.pushurl = no-push://disabled` and a local identity. Only COMMITTED content is cloned: uncommitted work in the source working tree is not included.
+- `createWorktree` / `removeWorktree`: one worktree and branch (`factory/<task>-e<epoch>`) per attempt, always inside the worktrees root; removal only for registered worktrees of that project.
+- `collectEvidence` / `buildPatch` / `patchIsSafeToApply` / `applyPatchToRepo`: evidence and patch are computed without changing the branch history; a truncated patch is never offered; patches that touch `.git`, use `..`, absolute paths or outward symlinks are refused; `applyPatchToRepo` always checks first and never stages or commits.
+- Every git call runs through the process runner with an exact environment: no hooks, no global/system config, no credential helpers, no prompts.
+- CLI: `node dist/workspace/cli.js clone --projects-root <dir> --name <name> --source <path|url>`.
+- Checked on the real `E:\GIT\BTL-LTM` (read-only): clone in about 30 s over the 9p mount, evidence and patch round trip, and the source `.git` (1742 files) unchanged.
