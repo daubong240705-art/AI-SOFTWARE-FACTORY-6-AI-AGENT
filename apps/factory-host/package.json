@@ -1,0 +1,25 @@
+{
+  "name": "@factory/host",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Factory V2 control plane (Host): storage, events, API. Independent of V1.",
+  "engines": {
+    "node": ">=22.20.0"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "build": "tsc",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@factory/contracts": "file:../../packages/factory-contracts",
+    "better-sqlite3": "13.0.3",
+    "kysely": "0.29.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
+  }
+}
