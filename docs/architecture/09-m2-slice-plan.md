@@ -9,6 +9,26 @@ Nguồn: [06 §M2](06-implementation-roadmap.md), [07 §8 MVP-lite](07-architect
 - Agent không bao giờ thấy key 9Router (AP-R1, AP-11); chỉ dùng token tạm của model proxy.
 - Không replay: attempt bị gián đoạn thành `unknown` → `reconciling`, không tự chạy lại prompt (W-xx, ATTEMPT_TRANSITIONS).
 
+## Tiến độ (cập nhật 08/11/2026)
+
+| # | Trạng thái | Commit | Ghi chú kiểm chứng |
+|---|---|---|---|
+| S1 | Xong | 5e1373e | Sao lưu mỗi giờ + khi tắt, khôi phục, diễn tập |
+| S2a–c | Xong | 3250cab, 16f75da, f22500c | Dispatcher, lease/fencing, lệnh điều phối; không replay |
+| S3a–c | Xong | c1a0130, 27a08f2, 575fd7b | Process group, clone/worktree/evidence/patch; chạy thật trên bản sao BTL-LTM, repo gốc không đổi |
+| S4 | Xong | 3960357 | Model proxy: token tạm, model được duyệt, ngân sách trước request; key không rời Host |
+| S5a | Xong | 1d7ea76 | Sandbox bubblewrap thật (mạng chỉ còn relay tới proxy); 26/26 đột biến cô lập bị bắt |
+| S5b | Xong | b19f502 | OpenCode 1.19.5 thật trong sandbox thật; chuỗi đầy đủ qua `main.js` với upstream giả |
+| S6a | Xong | 27aafe3 | Kho nội dung theo hash + Artifact Version cho patch/summary |
+| S6b | Xong | 05a28f7 | Review approval, `approvals.decide` áp dụng đúng một lần, Inbox, hết hạn |
+| S6c-1 | Xong | 6c72acf | MCP `task.progress`, `output.register` trên listener proxy (OpenCode thật gọi được) |
+| S6c-2 | Xong | b82f6d9 | `decision.request` → câu hỏi → attempt `parked` → trả lời → attempt mới có quyết định trong handoff |
+| S6d | **Chưa** | — | Effect `git.push-branch` (Critical, đã được duyệt). Hai lượt Codex đầu (08/11) thất bại do 9Router trả 502 trước khi làm được gì; không có thay đổi nào. Chạy lại khi gateway ổn định |
+| S7 | Chưa | — | UI (Board, chi tiết Task + diff, Inbox, Bắt đầu/Dừng, áp dụng patch) |
+| S8 | Chưa | — | E2E Playwright, chạy thật OpenCode trên repo thử, chuẩn bị thử BTL-LTM |
+
+Số kiểm thử Host tại b82f6d9: Windows 2418 đạt (140 bỏ qua vì chỉ chạy Linux), Linux 2598 đạt; 0 lỗi. Các giới hạn đã biết: sandbox chưa có hạn mức CPU/số tiến trình/đĩa và chưa có seccomp; chi phí luôn "unknown" (chưa có bảng giá); PD-5 (tự chuyển model khi tốn kém) chưa làm; phiên đăng nhập chỉ trong bộ nhớ.
+
 ## Lát cắt
 
 | # | Lát cắt | Nội dung | Rủi ro / ghi chú |

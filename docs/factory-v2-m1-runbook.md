@@ -34,6 +34,19 @@ Host in ra một **token khởi tạo dùng một lần**. Mở `http://127.0.0.
 | `FACTORY_BUDGET_TASK_TOKENS`, `FACTORY_BUDGET_DAY_TOKENS` | 200000, 1000000 | Ngân sách mặc định; đổi bằng lệnh `budgets.set` |
 | `FACTORY_UI_DIR` | `<app>/apps/factory-ui/dist` | Thư mục UI đã build |
 
+**Thêm ở M2** (chi tiết trong `apps/factory-host/README.md`):
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `FACTORY_NODE_SLOTS` | `2` | Số attempt chạy song song (1–16) |
+| `FACTORY_PROJECTS_ROOT`, `FACTORY_WORKTREES_ROOT` | `/srv/factory/workspaces` nếu tồn tại, không thì `~/factory-v2/workspaces`; `~/factory-v2/worktrees` | Nơi đặt bản clone Project và worktree mỗi attempt. Phải nằm trên ext4, không lồng nhau, không dưới `/mnt` |
+| `FACTORY_AGENT_MODELS` | (không, **không có mặc định**) | Danh sách model agent được dùng, ngăn cách bằng dấu phẩy; cùng `NINE_ROUTER_API_KEY` và `FACTORY_GATEWAY_URL` thì bật model proxy cho agent |
+| `FACTORY_PROXY_PORT` | `FACTORY_PORT + 1` | Cổng loopback của model proxy (chế độ TCP) |
+| `FACTORY_PROXY_SOCKET` | (không) | Đường dẫn tuyệt đối của unix socket cho proxy (thư mục cha 0700, không dưới `/mnt`); bắt buộc khi chạy agent trong sandbox |
+| `FACTORY_RUNTIME` | `fake` | `opencode` để chạy OpenCode thật trong sandbox bubblewrap. Cần thêm: `FACTORY_OPENCODE_DIR` (thư mục có `bin/opencode`), `FACTORY_PROXY_SOCKET`, `FACTORY_AGENT_MODELS`, khóa + URL gateway, hai thư mục gốc workspace và bubblewrap chạy được; thiếu gì Host từ chối khởi động và nêu rõ thiếu gì (không in giá trị) |
+
+Lưu ý vận hành: không bao giờ push nhánh agent tới remote không phải của bạn (ví dụ `origin` của BTL-LTM). Effect `git.push-branch` (S6d, chưa xong) sẽ chỉ push tới các remote do chính bạn khai báo.
+
 ## Đã kiểm chứng
 
 - Host: 422 test (Linux ext4 đủ; Windows bỏ qua 4 test symlink), cộng kiểm tra đột biến cho các chốt an toàn (Origin, CSRF, khóa token, idempotency, ngân sách, path traversal…).
