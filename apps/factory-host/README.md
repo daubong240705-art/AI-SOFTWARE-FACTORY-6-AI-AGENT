@@ -59,3 +59,7 @@ FACTORY_STATE_DIR=$HOME/factory-v2/state FACTORY_PORT=8787 node $HOME/factory-v2
 - `src/lead/prompt.ts`: profile + protocol + context (project, team, tasks) as the system prompt; history without system messages, capped by count and characters; a conservative token estimate.
 - `src/lead/runner.ts`: one turn at a time, in order. Budget check before the call (a blocked turn never reaches the model), exactly one call and no retry, then reply + usage + tasks + turn state + events in one transaction. If the provider answered but the bookkeeping failed, the usage is still recorded. `recover()` marks turns interrupted by a restart as `unknown` and never calls the model. Failure messages are generic (kind only).
 - Env: `FACTORY_LEAD_MODEL` (default `gpt-6.1-sol`), `FACTORY_LEAD_EFFORT` (default `medium`).
+
+### Live check against 9Router (2026-11-07)
+
+Three real calls through the Host process in WSL (agreed limit 3): the gateway, budget ledger, replies and events work end to end (about 1.7k to 2.0k tokens per call, `gpt-6.1-sol` via `/chat/completions`). **Open issue:** for a `delegate` request the Lead answered in prose and did not emit the `factory-plan` block, with or without the protocol reminder appended to the user message, at effort `low` and `medium`. The raw model output was not captured, so the cause is not yet known. See the next-steps note in the session report; no Task was created by the Lead in the live runs.

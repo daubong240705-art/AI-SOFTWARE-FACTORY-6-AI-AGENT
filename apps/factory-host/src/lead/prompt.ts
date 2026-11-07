@@ -11,6 +11,9 @@ interface LeadRequestInput {
     maxHistoryChars: number; maxTasksInContext: number; timeoutMs: number };
 }
 
+export const DELEGATE_REMINDER =
+  "Factory protocol reminder: this message has intent 'delegate'. If it asks for work to be done, end your reply with exactly one ```factory-plan fenced JSON block as described in the system prompt (a short plain-text answer first is fine). Do not describe a plan without the block.";
+
 // Indent every continuation line, including hostile Markdown headings, as context data.
 const data = (value: string): string => value.replace(/\r\n?|\n/g, "\n    ").replace(/^#/, "\\#");
 
@@ -55,6 +58,13 @@ ${tasks.map((task) => `${data(task.code)} [${data(task.state)}] ${data(task.titl
   if (last && last.content.length > config.maxHistoryChars) {
     last.content = last.content.slice(0, config.maxHistoryChars); truncated = true;
   }
+  // Models often follow a profile written for another protocol and skip the plan block. Repeat the
+  // requirement right where it is acted on: the end of the operator's current message.
+  const final = messages.at(-1);
+  if (input.intent === "delegate" && final?.role === "user")
+    final.content += `
+
+[${DELEGATE_REMINDER}]`;
   const request: ModelRequest = { model: config.model, effort: config.effort, system, messages,
     maxOutputTokens: config.maxOutputTokens, timeoutMs: config.timeoutMs };
   return { request, truncated,
