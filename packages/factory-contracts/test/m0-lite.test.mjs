@@ -385,7 +385,7 @@ test("effect records: unknown is never retried automatically and main is never p
 // ---- Usage and budget -----------------------------------------------------------------------------
 test("usage may be absent and cost is never silently zero", () => {
   const base = {
-    id: uuidv7(), projectId: uuidv7(), taskId: uuidv7(),
+    id: uuidv7(), projectId: uuidv7(), taskId: uuidv7(), conversationId: null,
     attempt: { projectId: uuidv7(), runId: uuidv7(), assignmentId: uuidv7(), epoch: 1, leaseId: uuidv7() },
     provider: "9router", model: "gpt-6-luna", effort: "low", recordedAt: at(),
   };
@@ -606,4 +606,14 @@ test("host capabilities accept new command types and events can announce the new
   for (const kind of ["team", "seat", "engagement", "attempt", "approval", "artifact-version", "effect", "budget", "node"])
     assert.equal(c.eventSchema.safeParse({ ...event, payload: { type: "entity.changed", entity: { kind, id: uuidv7(), revision: 1 } } }).success, true, kind);
   assert.equal(cursor(1).sequence, "1");
+});
+
+test("usage may come from a conversation turn, but never from nothing", () => {
+  const unknownCost = { kind: "unknown", reason: "no price list" };
+  const chat = { id: uuidv7(), projectId: uuidv7(), taskId: null, attempt: null, conversationId: uuidv7(), provider: "9router", model: "gpt-6.1-sol", effort: null, usage: null, cost: unknownCost, recordedAt: at() };
+  assert.equal(c.usageRecordSchema.safeParse(chat).success, true);
+  assert.equal(c.usageRecordSchema.safeParse({ ...chat, conversationId: null }).success, false); // no attempt, no conversation
+  const attempt = { projectId: uuidv7(), runId: uuidv7(), assignmentId: uuidv7(), epoch: 1, leaseId: uuidv7() };
+  assert.equal(c.usageRecordSchema.safeParse({ ...chat, conversationId: null, attempt }).success, false); // attempt usage needs its task
+  assert.equal(c.usageRecordSchema.safeParse({ ...chat, conversationId: null, attempt, taskId: uuidv7() }).success, true);
 });

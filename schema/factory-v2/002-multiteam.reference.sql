@@ -316,11 +316,12 @@ BEGIN SELECT RAISE(ABORT, 'a completed effect is final'); END;
 CREATE TABLE usage_records (
   project_id TEXT NOT NULL,
   id TEXT NOT NULL,
-  task_id TEXT NOT NULL,
-  attempt_id TEXT NOT NULL,
+  task_id TEXT,
+  attempt_id TEXT,
+  conversation_id TEXT,
   provider TEXT NOT NULL,
   model TEXT NOT NULL,
-  effort TEXT NOT NULL CHECK (effort IN ('low','medium','high','xhigh')),
+  effort TEXT CHECK (effort IN ('low','medium','high','xhigh')),
   -- NULL token counts mean "not reported", which is different from zero.
   input_tokens INTEGER CHECK (input_tokens >= 0),
   cached_input_tokens INTEGER CHECK (cached_input_tokens >= 0),
@@ -332,12 +333,15 @@ CREATE TABLE usage_records (
   cost_unknown_reason TEXT,
   recorded_at TEXT NOT NULL,
   PRIMARY KEY (project_id, id),
-  UNIQUE (project_id, attempt_id, recorded_at),
+  -- usage belongs to an attempt (task work) or to a conversation turn (Lead chat), never to nothing
+  CHECK (attempt_id IS NOT NULL OR conversation_id IS NOT NULL),
+  CHECK (attempt_id IS NULL OR task_id IS NOT NULL),
   -- Unknown cost is stored as unknown, never as 0.
   CHECK ((cost_kind = 'known') = (cost_amount IS NOT NULL AND cost_currency IS NOT NULL)),
   CHECK ((cost_kind = 'unknown') = (cost_unknown_reason IS NOT NULL)),
   FOREIGN KEY (project_id, task_id) REFERENCES tasks(project_id, id),
-  FOREIGN KEY (project_id, attempt_id) REFERENCES attempts(project_id, id)
+  FOREIGN KEY (project_id, attempt_id) REFERENCES attempts(project_id, id),
+  FOREIGN KEY (project_id, conversation_id) REFERENCES conversations(project_id, id)
 ) STRICT;
 CREATE INDEX usage_by_task ON usage_records(project_id, task_id);
 CREATE INDEX usage_by_day ON usage_records(project_id, substr(recorded_at, 1, 10));

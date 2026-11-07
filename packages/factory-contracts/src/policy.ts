@@ -27,18 +27,28 @@ export const costSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export const usageRecordSchema = z.strictObject({
-  id: idSchema,
-  projectId: idSchema,
-  taskId: idSchema,
-  attempt: attemptIdentitySchema,
-  provider: labelSchema,
-  model: labelSchema,
-  effort: reasoningEffortSchema.nullable(),
-  usage: usageSchema.nullable(), // null: the runtime reported nothing (do not guess)
-  cost: costSchema,
-  recordedAt: timestampSchema,
-});
+export const usageRecordSchema = z
+  .strictObject({
+    id: idSchema,
+    projectId: idSchema,
+    // Usage comes from an Attempt (task work) or from a conversation turn (e.g. the Lead's chat, AP-R4):
+    // both count against the same budgets.
+    taskId: idSchema.nullable(),
+    attempt: attemptIdentitySchema.nullable(),
+    conversationId: idSchema.nullable(),
+    provider: labelSchema,
+    model: labelSchema,
+    effort: reasoningEffortSchema.nullable(),
+    usage: usageSchema.nullable(), // null: the runtime reported nothing (do not guess)
+    cost: costSchema,
+    recordedAt: timestampSchema,
+  })
+  .superRefine((record, ctx) => {
+    if (!record.attempt && !record.conversationId)
+      ctx.addIssue({ code: "custom", message: "usage names an attempt or a conversation" });
+    if (record.attempt && !record.taskId)
+      ctx.addIssue({ code: "custom", message: "attempt usage names its task" });
+  });
 export type UsageRecord = z.infer<typeof usageRecordSchema>;
 
 /** Budget in tokens. M0-lite has two scopes; more (engagement, team, chain) arrive with their features. */

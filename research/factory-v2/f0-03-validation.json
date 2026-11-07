@@ -89,7 +89,7 @@
     },
     {
       "path": "packages/factory-contracts/src/policy.ts",
-      "sha256": "f33741d7329a28eb6732eea75100659dbdfd9a925b91d2bd79f269143dd305ed"
+      "sha256": "01850a162f67f2095fe30ad1778894000292f623d910b0f849a0a201724f01b6"
     },
     {
       "path": "packages/factory-contracts/src/preferences.ts",

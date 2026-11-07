@@ -271,7 +271,7 @@ class Schema002Tests(unittest.TestCase):
     def test_usage_never_stores_unknown_cost_as_zero(self):
         self.task()
         self.attempt("a1", state="running")
-        base = "INSERT INTO usage_records VALUES ('p1',?,'t1','a1','9router','m','low',?,?,?,?,?,?,?,?,?)"
+        base = "INSERT INTO usage_records VALUES ('p1',?,'t1','a1',NULL,'9router','m','low',?,?,?,?,?,?,?,?,?)"
         self.db.execute(base, ("u1", 55176, 39040, 537, 0, "unknown", None, None, "no price list", T))
         self.db.execute(base, ("u2", None, None, None, None, "unknown", None, None, "not reported", "2026-11-07T00:00:01.000Z"))
         self.db.execute(base, ("u3", 1, 0, 1, 0, "known", 0.12, "USD", None, "2026-11-07T00:00:02.000Z"))
@@ -279,6 +279,21 @@ class Schema002Tests(unittest.TestCase):
         self.rejects(self.db.execute, base, ("u5", 1, 0, 1, 0, "known", None, None, None, "2026-11-07T00:00:04.000Z"))
         self.rejects(self.db.execute, base, ("u6", -1, 0, 1, 0, "unknown", None, None, "x", "2026-11-07T00:00:05.000Z"))
         self.assertEqual(self.db.execute("SELECT count(*) FROM usage_records WHERE input_tokens IS NULL").fetchone()[0], 1)
+
+    def test_conversation_usage_counts_without_an_attempt(self):
+        self.db.execute("INSERT INTO agents VALUES ('p1','lead',1,'{}')")
+        self.db.execute("INSERT INTO workflow_revisions VALUES ('p1','wf',1,'{}')")
+        self.db.execute("INSERT INTO conversations VALUES ('p1','chat',1,'lead',NULL,'Lead')")
+        cols = ("(project_id,id,task_id,attempt_id,conversation_id,provider,model,effort,cost_kind,"
+                "cost_unknown_reason,recorded_at)")
+        ok = "INSERT INTO usage_records " + cols + " VALUES ('p1',?,?,?,?,'9router','m',NULL,'unknown','no price',?)"
+        self.db.execute(ok, ("c1", None, None, "chat", T))  # effort may be absent
+        self.rejects(self.db.execute, ok, ("c2", None, None, None, T))  # neither attempt nor conversation
+        self.rejects(self.db.execute, ok, ("c3", None, None, "missing-chat", T))
+        self.task()
+        self.rejects(self.db.execute, ok, ("c4", None, "a-none", "chat", T))  # unknown attempt
+        self.attempt("a1", state="running")
+        self.rejects(self.db.execute, ok, ("c5", None, "a1", None, T))  # attempt usage must name its task
 
     def test_budgets(self):
         ins = "INSERT INTO budgets VALUES ('p1',?,1,?,?,?,?)"
