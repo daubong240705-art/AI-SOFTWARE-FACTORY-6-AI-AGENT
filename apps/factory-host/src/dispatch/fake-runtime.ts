@@ -37,6 +37,7 @@ export function createFakeRuntime(options: { stepMs?: number; timers?: FakeTimer
       let ended = false;
       let cancelWait: (() => void) | undefined;
       let stopPromise: Promise<void> | undefined;
+      const modelController = new AbortController();
       const emit = (event: RuntimeEvent): void => {
         if (cancelled) return;
         const reader = readers.shift();
@@ -58,6 +59,20 @@ export function createFakeRuntime(options: { stepMs?: number; timers?: FakeTimer
       const execution = Promise.resolve().then(async () => {
         try {
           if (cancelled) return;
+          if (context.model && goal.includes("[fake:model]")) {
+            const model = context.model.models[0];
+            if (!model) throw new Error("Model request failed");
+            const response = await fetch(`${context.model.baseUrl}/chat/completions`, {
+              method: "POST", signal: modelController.signal,
+              headers: { "content-type": "application/json", authorization: `Bearer ${context.model.token}` },
+              body: JSON.stringify({ model, messages: [{ role: "user", content: "Describe the next step." }], max_tokens: 16 }),
+            });
+            if (!response.ok) throw new Error("Model request failed");
+            const data = await response.json() as { choices?: { message?: { content?: unknown } }[] };
+            const answer = data.choices?.[0]?.message?.content;
+            if (typeof answer !== "string" || answer.includes(context.model.token)) throw new Error("Model request failed");
+            emit({ type: "progress", message: answer.slice(0, 80) });
+          }
           if (context.workspace && goal.includes("[fake:edit]")) {
             const root = context.workspace.path;
             if (!/^[A-Z]{2,6}-\d{3,6}$/.test(context.task.code)) throw new Error("Invalid fake task code");
@@ -92,6 +107,7 @@ export function createFakeRuntime(options: { stepMs?: number; timers?: FakeTimer
         if (stopPromise === undefined) {
           stopped.push({ ...context.ref });
           cancelled = true;
+          modelController.abort();
           queue.length = 0;
           cancelWait?.();
           stopPromise = execution.then(() => undefined);

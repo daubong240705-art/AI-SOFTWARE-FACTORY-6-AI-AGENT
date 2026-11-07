@@ -14,7 +14,7 @@ function budgetTokens(name: string, input: string | undefined, fallback: number)
 }
 
 try {
-  const { dispatch, workspace, ...hostOptions } = parseEnv(process.env);
+  const { dispatch, workspace, agentProxy, ...hostOptions } = parseEnv(process.env);
   const lead: Partial<LeadConfig> = {};
   if (process.env.FACTORY_LEAD_MODEL !== undefined) {
     if (!process.env.FACTORY_LEAD_MODEL.trim()) throw new Error("FACTORY_LEAD_MODEL must be a non-empty string");
@@ -33,12 +33,15 @@ try {
   const modelGateway = apiKey === undefined ? null : createChatCompletionsGateway({
     baseUrl: process.env.FACTORY_GATEWAY_URL ?? "https://ai.lazy.local/v1", apiKey,
   });
+  const modelProxy = apiKey && process.env.FACTORY_GATEWAY_URL && agentProxy ? {
+    ...agentProxy, upstream: { apiKey, baseUrl: process.env.FACTORY_GATEWAY_URL },
+  } : null;
   let uiDir = process.env.FACTORY_UI_DIR;
   if (uiDir === undefined) {
     const defaultUiDir = fileURLToPath(new URL("../../factory-ui/dist/", import.meta.url));
     try { if ((await stat(defaultUiDir)).isDirectory()) uiDir = defaultUiDir; } catch { /* UI build is optional. */ }
   }
-  const host = await startHost({ ...hostOptions, dispatch, workspace, modelGateway, budgetConfig, lead,
+  const host = await startHost({ ...hostOptions, dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead,
     ...(uiDir === undefined ? {} : { uiDir }), onBootstrapToken(token) {
     process.stdout.write(`One-time bootstrap token: ${token}\n`);
   } });

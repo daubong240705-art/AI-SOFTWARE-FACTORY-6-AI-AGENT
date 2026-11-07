@@ -9,9 +9,12 @@ import { createCommandPipeline } from "./commands/pipeline.js";
 import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
 import { EventHub } from "./events/hub.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
-import { systemClock, type Clock } from "./ids.js";
+import { createIdGenerator, systemClock, type Clock } from "./ids.js";
 import { createLeadRunner, type LeadConfig, type LeadRunner } from "./lead/runner.js";
 import type { ModelGateway } from "./models/index.js";
+import { createUpstream } from "./models/upstream.js";
+import { createModelProxy, createTokenRegistry, type TokenRegistry } from "./proxy/index.js";
+import type { ModelAccess } from "./dispatch/dispatcher.js";
 import { loadPack } from "./org/index.js";
 import { budgetsSetHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
 import { createProjectsCreateHandler } from "./projects/service.js";
@@ -29,6 +32,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   periodicBackup: { dir: string; intervalMs: number };
   dispatch: { nodeSlots: number };
   workspace: { projectsRoot: string; worktreesRoot: string };
+  agentProxy?: { port: number; approvedModels: string[] };
 } {
   const input = env.FACTORY_PORT ?? "8787";
   if (!/^[0-9]+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) < 1 || Number(input) > 65_535)
@@ -41,6 +45,16 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   if (!/^[0-9]+$/.test(slots) || !Number.isSafeInteger(Number(slots)) || Number(slots) < 1 || Number(slots) > 16)
     throw new Error("FACTORY_NODE_SLOTS must be an integer from 1 to 16");
   if ((env.FACTORY_RUNTIME ?? "fake") !== "fake") throw new Error("unsupported runtime");
+  let approvedModels: string[] | undefined;
+  if (env.FACTORY_AGENT_MODELS !== undefined) {
+    approvedModels = env.FACTORY_AGENT_MODELS.split(",");
+    if (approvedModels.some((model) => !model || /[\s\p{Cc}]/u.test(model)) || new Set(approvedModels).size !== approvedModels.length)
+      throw new Error("FACTORY_AGENT_MODELS must contain unique non-empty model names without whitespace");
+  }
+  const proxyPort = env.FACTORY_PROXY_PORT ?? String(Number(input) + 1);
+  if ((approvedModels || env.FACTORY_PROXY_PORT !== undefined) && (!/^[0-9]+$/.test(proxyPort)
+    || !Number.isSafeInteger(Number(proxyPort)) || Number(proxyPort) < 1 || Number(proxyPort) > 65_535))
+    throw new Error("FACTORY_PROXY_PORT must be an integer from 1 to 65535");
   let workspace: { projectsRoot: string; worktreesRoot: string };
   try {
     workspace = canonicalRoots({
@@ -51,6 +65,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   } catch { throw new Error("Workspace roots must be absolute, separate directories outside /mnt"); }
   return {
     stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) }, workspace,
+    ...(approvedModels === undefined ? {} : { agentProxy: { port: Number(proxyPort), approvedModels } }),
     ...(env.FACTORY_MIGRATION_BACKUP_DIR === undefined ? {} : { backupDir: env.FACTORY_MIGRATION_BACKUP_DIR }),
     periodicBackup: {
       dir: env.FACTORY_BACKUP_DIR ?? (existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(stateDir, "backups", "periodic")),
@@ -81,12 +96,15 @@ export async function startHost(options: {
   periodicBackup?: { dir: string; intervalMs?: number; firstRunDelayMs?: number; keep?: BackupKeep } | null;
   dispatch?: Partial<DispatcherConfig> & { stepMs?: number; adapters?: RuntimeAdapter[] } | null;
   workspace?: { projectsRoot: string; worktreesRoot: string; evidenceDir?: string } | null;
+  modelProxy?: { port: number; upstream: { baseUrl: string; apiKey: string; providerId?: string; fetchImpl?: typeof fetch };
+    approvedModels: string[]; allowedHosts?: string[] } | null;
 }): Promise<{
   app: FastifyInstance; port: number; origins: string[]; storage: Storage; hub: EventHub; close(): Promise<void>;
   models: { gateway: ModelGateway | null; budgetConfig: BudgetConfig };
   lead: LeadRunner;
   dispatch: Dispatcher | null;
   workspace: WorkspaceProvider | null;
+  proxy: { port: number; tokens: TokenRegistry } | null;
   backup: { service: BackupService; status(): BackupStatus } | null;
 }> {
   // Check POSIX spelling too, including when validating a WSL path on Windows.
@@ -105,6 +123,9 @@ export async function startHost(options: {
   let runner: LeadRunner | undefined;
   let dispatch: Dispatcher | null = null;
   let workspace: WorkspaceProvider | null = null;
+  let modelProxy: ReturnType<typeof createModelProxy> | undefined;
+  let proxy: { port: number; tokens: TokenRegistry } | null = null;
+  let modelAccess: ModelAccess | undefined;
   let evidenceDir: string | undefined;
   let backup: { service: BackupService; status(): BackupStatus } | null = null;
   let scheduler: ReturnType<typeof startBackupScheduler> | undefined;
@@ -113,13 +134,15 @@ export async function startHost(options: {
   const close = (): Promise<void> => {
     closePromise ??= (async () => {
       try { await runner?.stop(); } finally {
-        try { await dispatch?.stop(); } finally {
-          try { await app?.close(); } finally {
-            try {
-              await scheduler?.stop();
-              try { backup?.service.run("shutdown"); } catch { /* Backup failure cannot prevent closing storage. */ }
-            } finally {
-              try { storage?.close(); } finally { unlockState?.(); }
+        try { proxy?.tokens.revokeAll(); await modelProxy?.close(); } finally {
+          try { await dispatch?.stop(); } finally {
+            try { await app?.close(); } finally {
+              try {
+                await scheduler?.stop();
+                try { backup?.service.run("shutdown"); } catch { /* Backup failure cannot prevent closing storage. */ }
+              } finally {
+                try { storage?.close(); } finally { unlockState?.(); }
+              }
             }
           }
         }
@@ -153,6 +176,26 @@ export async function startHost(options: {
       ...(options.lead === undefined ? {} : { config: options.lead }),
     });
     runner.recover();
+    if (options.modelProxy) {
+      const configured = options.modelProxy;
+      if (!Number.isSafeInteger(configured.port) || configured.port < 0 || configured.port > 65_535
+        || !configured.approvedModels.length || configured.approvedModels.some((model) => !model || /[\s\p{Cc}]/u.test(model))
+        || new Set(configured.approvedModels).size !== configured.approvedModels.length) throw new Error("Invalid model proxy configuration");
+      const upstream = createUpstream(configured.upstream);
+      const tokens = createTokenRegistry({ clock });
+      const allowedHosts = configured.allowedHosts === undefined ? [] : [...configured.allowedHosts];
+      modelProxy = createModelProxy({ upstream, tokens, raw: storage.raw, budget: budgetConfig, clock,
+        newId: createIdGenerator(clock), allowedHosts });
+      const listeningPort = await listenLoopback(modelProxy.app, configured.port);
+      // Until the actual port is known the default allow-list rejects every request.
+      if (configured.allowedHosts === undefined) allowedHosts.push(`127.0.0.1:${listeningPort}`, `localhost:${listeningPort}`);
+      proxy = { port: listeningPort, tokens };
+      const approvedModels = [...configured.approvedModels];
+      modelAccess = { issue(input) {
+        const { token } = tokens.issue({ ...input, allowedModels: approvedModels });
+        return { token, models: [...approvedModels], baseUrl: `http://127.0.0.1:${listeningPort}/v1` };
+      }, revoke: (attemptId) => tokens.revoke(attemptId) };
+    }
     if (options.dispatch) {
       const { stepMs, adapters, ...config } = options.dispatch;
       const registry = new RuntimeRegistry(adapters ?? [createFakeRuntime(stepMs === undefined ? {} : { stepMs })]);
@@ -165,6 +208,7 @@ export async function startHost(options: {
         workspace = createWorkspaceProvider({ roots, evidenceDir });
       }
       dispatch = createDispatcher({ storage, hub, registry, clock, config,
+        ...(modelAccess === undefined ? {} : { modelAccess }),
         ...(workspace && roots ? { workspace, projectRootFor(projectId: string) {
           const row = raw.prepare("SELECT workspace_root FROM projects WHERE id = ?").get(projectId) as { workspace_root: string | null } | undefined;
           try { return row?.workspace_root ? assertInside(roots.projectsRoot, row.workspace_root) : null; }
@@ -210,7 +254,7 @@ export async function startHost(options: {
     const token = gate.token;
     if (token === undefined) throw new Error("Bootstrap token unavailable");
     options.onBootstrapToken(token);
-    return { app, port, origins, storage, hub, lead, dispatch, workspace, backup, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
+    return { app, port, origins, storage, hub, lead, dispatch, workspace, proxy, backup, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
   } catch (error) {
     try { await close(); } catch { /* Preserve the original startup failure. */ }
     throw error;

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createTokenRegistry } from "../dist/proxy/index.js";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
@@ -62,6 +63,7 @@ function fixture(t, options = {}) {
   };
   const runtime = options.runtime ?? createFakeRuntime({ stepMs: 0 });
   const dispatcher = createDispatcher({ storage, hub: options.wrapHub?.(hub, raw) ?? hub,
+    ...(options.modelAccess ? { modelAccess: options.modelAccess } : {}),
     registry: new RuntimeRegistry([runtime]), clock, timers, onError: (error) => errors.push(error),
     config: { leaseMs: 100, leaseRenewMs: 20, leaseCheckMs: 5, stopTimeoutMs: 10, ...options.config } });
   t.after(async () => { await dispatcher.stop(); storage.close(); });
@@ -505,6 +507,70 @@ for (const phase of ["start", "iterator"]) test(`late ${phase} rejection after l
   assert.equal(f.read(a).state, "unknown");
   assert.equal(getTask(f.raw, a.projectId, a.taskId).state, "active");
   assert.ok(!JSON.stringify(f.events(a)).includes("private"));
+});
+
+function accessFixture(t) {
+  const tokens = createTokenRegistry({ clock: () => new Date() }); const issued = [];
+  t.after(() => tokens.revokeAll());
+  const modelAccess = { issue(input) {
+    const grant = tokens.issue({ ...input, allowedModels: ["approved"] });
+    issued.push({ input, token: grant.token });
+    return { baseUrl: "http://127.0.0.1:8788/v1", token: grant.token, models: ["approved"] };
+  }, revoke: (id) => tokens.revoke(id) };
+  return { tokens, issued, modelAccess };
+}
+
+test("dispatcher without model access passes no model context", async (t) => {
+  const f = fixture(t); f.enqueue(); await f.dispatcher.idle(); assert.equal(f.runtime.started[0].model, undefined);
+});
+for (const type of ["completed", "failed"]) test(`dispatcher revokes model access on runtime ${type}`, async (t) => {
+  const access = accessFixture(t); const runtime = controlled(); const f = fixture(t, { runtime, modelAccess: access.modelAccess });
+  const a = f.enqueue(); assert.equal(access.issued.length, 0); await pumped();
+  const { token, input } = access.issued[0]; assert.equal(input.attemptId, a.id); assert.equal(input.taskId, a.taskId);
+  assert.equal(input.projectId, a.projectId); assert.equal(input.epoch, 1); assert.ok(access.tokens.resolve(token));
+  assert.deepEqual(runtime.started[0].model, { baseUrl: "http://127.0.0.1:8788/v1", token, models: ["approved"] });
+  runtime.sessions[0].emit(type === "completed" ? { type, summary: "Done" } : { type, kind: "runtime", message: "Failure" });
+  await f.dispatcher.idle(); assert.equal(access.tokens.resolve(token), null);
+  assert.equal(f.raw.serialize().includes(Buffer.from(token)), false); assert.equal(JSON.stringify(f.events(a)).includes(token), false);
+  assert.equal(JSON.stringify(f.hub.readAfter(a.projectId, { epoch: f.hub.currentCursor(a.projectId).epoch, sequence: "0" })).includes(token), false);
+  assert.equal(JSON.stringify(f.read(a)).includes(token), false); assert.equal(JSON.stringify(f.errors).includes(token), false);
+});
+test("dispatcher revokes synchronously at the start of an operator stop", async (t) => {
+  const access = accessFixture(t); const runtime = controlled({ delayedStop: true });
+  const f = fixture(t, { runtime, modelAccess: access.modelAccess }); const a = f.enqueue(); await pumped();
+  const token = access.issued[0].token; const pending = f.dispatcher.stopAttempt(a.projectId, a.id);
+  assert.equal(access.tokens.resolve(token), null); await flush(); assert.equal(f.read(a).state, "stopping");
+  runtime.stopGate.resolve(); await pending;
+});
+test("dispatcher revokes a preparing runtime while its start is pending", async (t) => {
+  const access = accessFixture(t); const runtime = controlled({ delayedStart: true });
+  const f = fixture(t, { runtime, modelAccess: access.modelAccess }); const a = f.enqueue(); await pumped();
+  const pending = f.dispatcher.stopAttempt(a.projectId, a.id); assert.equal(access.tokens.resolve(access.issued[0].token), null);
+  runtime.startGate.resolve(); await pending;
+});
+test("dispatcher lease expiry fences and revokes the old model grant", async (t) => {
+  const access = accessFixture(t); const runtime = controlled(); const f = fixture(t, { runtime, modelAccess: access.modelAccess });
+  const a = f.enqueue(); await pumped(); f.advance(100); await f.fire(5); await f.dispatcher.idle();
+  assert.equal(f.read(a).state, "unknown"); assert.equal(access.tokens.resolve(access.issued[0].token), null);
+});
+test("dispatcher shutdown revokes access before awaiting session stop", async (t) => {
+  const access = accessFixture(t); const runtime = controlled({ delayedStop: true });
+  const f = fixture(t, { runtime, modelAccess: access.modelAccess }); f.enqueue(); await pumped();
+  const pending = f.dispatcher.stop(); assert.equal(access.tokens.resolve(access.issued[0].token), null);
+  runtime.stopGate.resolve(); await pending;
+});
+test("dispatcher runtime start failure revokes the issued grant", async (t) => {
+  const access = accessFixture(t); const f = fixture(t, { modelAccess: access.modelAccess });
+  f.enqueue(f.task("[fake:crash]")); await f.dispatcher.idle(); assert.equal(access.tokens.resolve(access.issued[0].token), null);
+});
+test("dispatcher refuses to persist model credentials echoed by a runtime", async (t) => {
+  const access = accessFixture(t); const runtime = controlled(); const f = fixture(t, { runtime, modelAccess: access.modelAccess });
+  const a = f.enqueue(); await pumped(); const token = access.issued[0].token;
+  const logs = []; for (const method of ["log", "error", "warn"]) t.mock.method(console, method, (...args) => logs.push(args));
+  runtime.sessions[0].emit({ type: "progress", message: token }); await f.dispatcher.idle();
+  assert.equal(f.read(a).state, "failed"); assert.equal(f.raw.serialize().includes(Buffer.from(token)), false);
+  assert.equal(JSON.stringify(f.events(a)).includes(token), false); assert.equal(JSON.stringify(logs).includes(token), false);
+  assert.equal(access.tokens.resolve(token), null);
 });
 
 test("node capacity limits concurrency even when every seat has a free slot", async (t) => {

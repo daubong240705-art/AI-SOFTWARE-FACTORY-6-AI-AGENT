@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
+import { createServer as createHttpServer } from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -535,4 +536,99 @@ test("a dispatcher shutdown failure still closes the application and storage", a
   host.app.close = async () => { closed = true; await appClose(); };
   await assert.rejects(host.close(), /injected dispatcher stop failure/);
   assert.equal(closed, true); assert.equal(host.storage.raw.open, false);
+});
+
+test("host model proxy is disabled by default and when null", async (t) => {
+  assert.equal((await launch(t)).proxy, null);
+  assert.equal((await launch(t, undefined, { modelProxy: null })).proxy, null);
+});
+
+async function proxyUpstream(t, handler) {
+  const server = createHttpServer(handler); await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(async () => { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); });
+  return `http://127.0.0.1:${server.address().port}/v1`;
+}
+const proxyKey = "host-upstream-private-marker";
+test("host exposes a separate local proxy with authentication and approved model discovery", async (t) => {
+  const baseUrl = await proxyUpstream(t, (_req, res) => res.end("{}"));
+  const host = await launch(t, undefined, { modelProxy: { port: 0, upstream: { baseUrl, apiKey: proxyKey }, approvedModels: ["approved"] } });
+  assert.ok(host.proxy.port > 0); assert.notEqual(host.port, host.proxy.port);
+  const url = `http://127.0.0.1:${host.proxy.port}/v1/models`;
+  const denied = await fetch(url); assert.equal(denied.status, 401);
+  const token = host.proxy.tokens.issue({ attemptId: randomUUID(), taskId: randomUUID(), projectId: randomUUID(), epoch: 1, allowedModels: ["approved"] }).token;
+  const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
+  assert.deepEqual((await response.json()).data.map((m) => m.id), ["approved"]);
+  const control = await host.app.inject({ method: "GET", url: "/v1/models", headers: { host: `127.0.0.1:${host.port}` } });
+  assert.equal(control.statusCode, 404);
+  await assert.rejects(fetch(`http://[::1]:${host.proxy.port}/v1/models`));
+});
+test("host fake model marker runs through the proxy and fails cleanly after budget exhaustion", async (t) => {
+  const calls = []; const logs = [];
+  for (const method of ["log", "error", "warn"]) t.mock.method(console, method, (...args) => logs.push(args));
+  const baseUrl = await proxyUpstream(t, async (req, res) => {
+    let text = ""; for await (const chunk of req) text += chunk;
+    calls.push({ body: JSON.parse(text), auth: req.headers.authorization });
+    res.setHeader("content-type", "application/json"); res.end(JSON.stringify({ choices: [{ message: { content: "Proceed with implementation." } }],
+      usage: { prompt_tokens: 32, completion_tokens: 32 } }));
+  });
+  const runtime = createFakeRuntime({ stepMs: 0 });
+  const host = await launch(t, undefined, { dispatch: { adapters: [runtime] }, budgetConfig: { ...DEFAULT_BUDGET_CONFIG, defaultDayTokens: 64 },
+    modelProxy: { port: 0, upstream: { baseUrl, apiKey: proxyKey }, approvedModels: ["approved"] } });
+  const input = hostDispatchTask(host, "[fake:model]"); const a = host.dispatch.enqueue(input); await host.dispatch.idle();
+  assert.equal(getAttempt(host.storage.raw, a.projectId, a.id).state, "succeeded");
+  const token = runtime.started[0].model.token; assert.equal(host.proxy.tokens.resolve(token), null);
+  assert.equal(calls.length, 1); assert.equal(calls[0].auth, `Bearer ${proxyKey}`); assert.equal(calls[0].body.model, "approved"); assert.equal(calls[0].body.max_tokens, 16);
+  const usage = host.storage.raw.prepare("SELECT * FROM usage_records").all(); assert.equal(usage.length, 1); assert.equal(usage[0].attempt_id, a.id);
+  const session = await bootstrap(host);
+  for (const path of [`/projects/${a.projectId}/tasks/${a.taskId}/attempts`, `/projects/${a.projectId}/attempts/${a.id}/events`]) {
+    const response = await host.app.inject({ method: "GET", url: path, headers: { host: `127.0.0.1:${host.port}`, cookie: session.cookie } });
+    assert.equal(response.statusCode, 200); assert.equal(response.body.includes(token), false); assert.equal(response.body.includes(proxyKey), false);
+  }
+  const events = host.hub.readAfter(a.projectId, { epoch: host.hub.currentCursor(a.projectId).epoch, sequence: "0" }).events;
+  assert.ok(events.length > 0); assert.equal(JSON.stringify(events).includes(token), false);
+  assert.equal(host.storage.raw.serialize().includes(Buffer.from(token)), false); assert.equal(host.storage.raw.serialize().includes(Buffer.from(proxyKey)), false);
+  assert.equal(JSON.stringify(logs).includes(token), false); assert.equal(JSON.stringify(logs).includes(proxyKey), false);
+  host.storage.raw.prepare("UPDATE tasks SET state = 'active' WHERE project_id = ? AND id = ?").run(input.projectId, input.taskId);
+  const second = host.dispatch.enqueue(input); await host.dispatch.idle();
+  assert.equal(getAttempt(host.storage.raw, second.projectId, second.id).state, "failed"); assert.equal(calls.length, 1);
+  assert.equal(host.storage.raw.prepare("SELECT COUNT(*) AS n FROM usage_records").get().n, 1);
+  assert.equal(host.proxy.tokens.resolve(runtime.started[1].model.token), null);
+});
+test("host closes the proxy and revokes credentials before dispatcher shutdown", async (t) => {
+  const baseUrl = await proxyUpstream(t, (_req, res) => res.end("{}"));
+  const runtime = createFakeRuntime({ stepMs: 0 }); const host = await launch(t, undefined, { dispatch: { adapters: [runtime] },
+    modelProxy: { port: 0, upstream: { baseUrl, apiKey: proxyKey }, approvedModels: ["approved"] } });
+  host.dispatch.enqueue(hostDispatchTask(host)); await new Promise(setImmediate); for (let i = 0; i < 20; i++) await Promise.resolve();
+  const token = runtime.started[0].model.token; const stop = host.dispatch.stop.bind(host.dispatch); let checked = false;
+  host.dispatch.stop = async () => {
+    checked = true; assert.equal(host.storage.raw.open, true); assert.equal(host.proxy.tokens.resolve(token), null);
+    await assert.rejects(fetch(`http://127.0.0.1:${host.proxy.port}/v1/models`)); await stop();
+  };
+  await host.close(); assert.equal(checked, true);
+});
+test("host ignores the fake model marker when model access is disabled", async (t) => {
+  const host = await launch(t, undefined, { dispatch: { stepMs: 0 } }); const a = host.dispatch.enqueue(hostDispatchTask(host, "[fake:model]"));
+  await host.dispatch.idle(); assert.equal(getAttempt(host.storage.raw, a.projectId, a.id).state, "succeeded");
+  assert.equal(host.storage.raw.prepare("SELECT COUNT(*) AS n FROM usage_records").get().n, 0);
+});
+test("parseEnv exposes proxy settings without carrying credentials", () => {
+  const parsed = parseEnv({ FACTORY_AGENT_MODELS: "approved,provider/other", NINE_ROUTER_API_KEY: proxyKey, FACTORY_GATEWAY_URL: "http://127.0.0.1:9000/v1" });
+  assert.deepEqual(parsed.agentProxy, { port: 8788, approvedModels: ["approved", "provider/other"] });
+  assert.equal(JSON.stringify(parsed).includes(proxyKey), false);
+  assert.equal(parseEnv({ FACTORY_AGENT_MODELS: "approved", FACTORY_PROXY_PORT: "9000" }).agentProxy.port, 9000);
+});
+for (const [label, value] of [["empty", ""], ["leading empty", ",approved"], ["trailing empty", "approved,"],
+  ["middle empty", "a,,b"], ["space", "a, b"], ["leading space", " a"], ["trailing space", "a "], ["duplicate", "a,a"]])
+  test(`parseEnv refuses ${label} approved model entries generically`, () => {
+    assert.throws(() => parseEnv({ FACTORY_AGENT_MODELS: value, NINE_ROUTER_API_KEY: proxyKey }), (error) => {
+      assert.match(error.message, /^FACTORY_AGENT_MODELS/); assert.equal(error.message.includes(proxyKey), false); return true;
+    });
+  });
+for (const [label, value] of [["empty", ""], ["zero", "0"], ["negative", "-1"], ["overflow", "65536"],
+  ["fractional", "1.5"], ["space", " 9000"], ["nonnumeric", "abc"]])
+  test(`parseEnv refuses ${label} proxy port`, () => {
+    assert.throws(() => parseEnv({ FACTORY_PROXY_PORT: value }), /FACTORY_PROXY_PORT must be an integer from 1 to 65535/);
+  });
+test("parseEnv rejects overflowing implicit proxy ports", () => {
+  assert.throws(() => parseEnv({ FACTORY_PORT: "65535", FACTORY_AGENT_MODELS: "approved" }), /FACTORY_PROXY_PORT/);
 });

@@ -104,6 +104,16 @@ Correction: an earlier note here said the Lead created no Task. That was a bug i
 - Late events of a fenced (expired, stopped or replaced) execution are dropped.
 - `startHost({ dispatch: {...} })` enables it; `main.ts` enables it by default (`FACTORY_NODE_SLOTS` 1..16 default 2, `FACTORY_RUNTIME=fake` for now). Nothing enqueues attempts yet: the commands that do (start gate, stop, reconcile) come next.
 
+## Model proxy for agents (M2)
+
+`src/proxy/` + `src/models/upstream.ts`: agents never see the 9Router key. The Host runs a SEPARATE loopback-only OpenAI-compatible listener (`POST /v1/chat/completions`, `GET /v1/models`; no cookies, no CORS) and gives every attempt a random token (`fpx_…`, only its SHA-256 is kept, memory only, max 6 h) that is revoked when the attempt ends, is stopped (before any wait), is fenced, or the Host stops.
+
+- Enabled only when `NINE_ROUTER_API_KEY`, `FACTORY_GATEWAY_URL` and `FACTORY_AGENT_MODELS` (comma separated, no default: the operator decides which models agents may use) are all set; `FACTORY_PROXY_PORT` defaults to `FACTORY_PORT + 1`.
+- Requests are rebuilt from an allow-list of fields (unknown fields dropped), the model must be in the approved list, output tokens are clamped, `stream_options.include_usage` is forced.
+- The budget is checked BEFORE the upstream call, including estimates of requests still in flight; usage is recorded per attempt (an estimate when the upstream reports none). A definite upstream HTTP rejection (401/429/5xx) generated nothing and is not charged.
+- Upstream bodies, headers and errors are never relayed (generic OpenAI-shaped errors); a response containing the key or the agent token is dropped, also when split across stream chunks.
+- Known limits: sessions/tokens live in memory only; the per-attempt request counter is not freed until the Host restarts; image content parts are not supported yet; only chat completions (no `/responses`).
+
 ## Process runner (M2)
 
 `src/exec/process-group.ts` runs a child on Linux only (it refuses every other platform): own session and process group, the EXACT environment it is given (nothing inherited from the Host), commands resolved only through the child's own `PATH`, bounded output (UTF-8 safe), timeout, and a stop that resolves only after the whole group is verified gone (SIGTERM, grace, SIGKILL; a group that survives the deadline is reported, never hidden). `buildSafeEnv` refuses secret-looking variable names unless allowed by name; `scrubForLog` redacts secrets. A child that deliberately escapes with `setsid` is NOT contained by process groups: the sandbox (a later slice) must contain it. The Linux integration tests run through `scripts/factory-v2/test-host-wsl.sh`.

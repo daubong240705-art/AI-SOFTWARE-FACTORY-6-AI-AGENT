@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createTokenRegistry } from "../dist/proxy/index.js";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
@@ -65,9 +66,10 @@ function fixture(t) {
     return a;
   };
   const dispatchers = [];
-  const create = () => {
+  const create = (modelAccess) => {
     const runtime = createFakeRuntime({ stepMs: 0 });
-    const dispatcher = createDispatcher({ storage, hub, registry: new RuntimeRegistry([runtime]), clock });
+    const dispatcher = createDispatcher({ storage, hub, registry: new RuntimeRegistry([runtime]), clock,
+      ...(modelAccess === undefined ? {} : { modelAccess }) });
     dispatchers.push(dispatcher);
     return { dispatcher, runtime };
   };
@@ -75,6 +77,14 @@ function fixture(t) {
   const read = (a) => getAttempt(raw, a.projectId, a.id);
   return { storage, raw, hub, projectId, seat, task, seed, create, read };
 }
+
+test("boot recovery revokes every surviving attempt credential before allowing more work", async (t) => {
+  const f = fixture(t); const a = f.seed("running"); const tokens = createTokenRegistry({ clock }); t.after(() => tokens.revokeAll());
+  const { token } = tokens.issue({ attemptId: a.id, projectId: a.projectId, taskId: a.taskId, epoch: a.epoch, allowedModels: ["approved"] });
+  const { dispatcher, runtime } = f.create({ issue() { throw new Error("Unexpected issue"); }, revoke: (id) => tokens.revoke(id) });
+  dispatcher.start(); assert.equal(tokens.resolve(token), null); assert.equal(runtime.started.length, 0); assert.equal(f.read(a).state, "unknown");
+  assert.equal(f.raw.serialize().includes(Buffer.from(token)), false);
+});
 
 for (const state of [...PLACED_ATTEMPT_STATES, "lease-expired"]) {
   for (const safe of [false, true]) test(`recovery of ${state} ${safe ? "safe" : "default"} work never starts a runtime`, async (t) => {

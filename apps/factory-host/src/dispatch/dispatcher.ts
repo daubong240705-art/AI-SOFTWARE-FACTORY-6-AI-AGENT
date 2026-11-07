@@ -29,6 +29,10 @@ export interface Timers {
   clearInterval(handle: unknown): void;
 }
 export interface RecoverSummary { leaseExpired: number; unknown: number; requeued: number; untouched: number }
+export interface ModelAccess {
+  issue(input: { attemptId: string; projectId: string; taskId: string; epoch: number }): { baseUrl: string; token: string; models: string[] };
+  revoke(attemptId: string): void;
+}
 export interface Dispatcher {
   start(): RecoverSummary;
   kick(): void;
@@ -59,6 +63,7 @@ export function createDispatcher(deps: {
   storage: Storage; hub: EventHub; registry: RuntimeRegistry; clock?: Clock; newId?: () => string;
   config?: Partial<DispatcherConfig>; timers?: Timers; onError?: (error: unknown) => void;
   workspace?: WorkspaceProvider; projectRootFor?: (projectId: string) => string | null;
+  modelAccess?: ModelAccess;
 }): Dispatcher {
   const { raw } = deps.storage;
   const { hub, registry } = deps;
@@ -131,6 +136,7 @@ export function createDispatcher(deps: {
     return a;
   };
   const expire = (original: AttemptRecord): "unknown" | "requeued" => hub.transaction(() => {
+    deps.modelAccess?.revoke(original.id);
     let a = current(original.projectId, original.id);
     if (a.state === "stopping") {
       // The contract graph has no stopping -> lease-expired edge: a stop that did not complete is unknown.
@@ -153,6 +159,7 @@ export function createDispatcher(deps: {
   const recover = (): RecoverSummary => {
     const result: RecoverSummary = { leaseExpired: 0, unknown: 0, requeued: 0, untouched: 0 };
     for (const a of listLiveAttempts(raw)) {
+      deps.modelAccess?.revoke(a.id);
       if (PLACED_ATTEMPT_STATES.has(a.state) || a.state === "lease-expired") {
         if (a.state !== "lease-expired") result.leaseExpired++;
         result[expire(a)]++;
@@ -161,6 +168,7 @@ export function createDispatcher(deps: {
     return result;
   };
   const finishOutcome = (a: AttemptRecord, event: Extract<RuntimeEvent, { type: "completed" | "failed" }>, workspaceUnavailable = false): void => {
+    deps.modelAccess?.revoke(a.id);
     hub.transaction(() => {
       if (event.type === "completed") {
         const submitting = move(a, "submitting");
@@ -252,10 +260,16 @@ export function createDispatcher(deps: {
           return;
         }
       }
+      if (stopped || entry.controller.signal.aborted || isStaleCallback(current(preparing.projectId, preparing.id), {
+        projectId: preparing.projectId, attemptId: preparing.id, epoch: preparing.epoch, leaseId: preparing.leaseId,
+      }, clock().getTime())) return;
+      const model = deps.modelAccess?.issue({ attemptId: preparing.id, projectId: preparing.projectId,
+        taskId: preparing.taskId, epoch: preparing.epoch });
       const context: AttemptContext = {
         ref: { projectId: preparing.projectId, attemptId: preparing.id, epoch: preparing.epoch, leaseId: preparing.leaseId },
         task, seat, handoff: preparing.epoch > 1 ? buildHandoff(raw, preparing.projectId, preparing.taskId) : null,
         signal: entry.controller.signal,
+        ...(model === undefined ? {} : { model }),
         ...(entry.workspace === undefined ? {} : { workspace: entry.workspace }),
       };
       startInvoked = true;
@@ -276,14 +290,17 @@ export function createDispatcher(deps: {
         const a = current(preparing.projectId, preparing.id);
         if (isStaleCallback(a, context.ref, clock().getTime())) return;
         if (!item || item.done) {
+          deps.modelAccess?.revoke(a.id);
           entry.executionEnded = true;
           if (entry.workspace) await finishWorkspace(a, entry);
           if (!entry.controller.signal.aborted && !stopped && !isStaleCallback(current(a.projectId, a.id), context.ref, clock().getTime()))
             finishOutcome(current(a.projectId, a.id), { type: "failed", kind: "runtime", message: "runtime ended without a result" });
           return;
         }
-        const event = item.value;
+        const event: RuntimeEvent = model && JSON.stringify(item.value).includes(model.token)
+          ? { type: "failed", kind: "runtime", message: "runtime failed" } : item.value;
         if (event.type === "completed" || event.type === "failed") {
+          deps.modelAccess?.revoke(a.id);
           entry.executionEnded = true;
           if (entry.workspace) await finishWorkspace(a, entry);
           if (!entry.controller.signal.aborted && !stopped && !isStaleCallback(current(a.projectId, a.id), context.ref, clock().getTime()))
@@ -297,6 +314,7 @@ export function createDispatcher(deps: {
         });
       }
     } catch {
+      deps.modelAccess?.revoke(leased.id);
       // Never forward a runtime exception (including its raw text) to storage or observers.
       if (!stopped && !entry.controller.signal.aborted) {
         try {
@@ -309,6 +327,7 @@ export function createDispatcher(deps: {
         } catch { report(new Error("attempt bookkeeping failed")); }
       }
     } finally {
+      deps.modelAccess?.revoke(leased.id);
       if (!startInvoked) entry.finishStart();
       // An operator stop owns the execution until stop() settles or its deadline expires.
       const stopping = stops.get(`${leased.projectId}:${leased.id}`);
@@ -372,6 +391,7 @@ export function createDispatcher(deps: {
       for (const a of listLiveAttempts(raw)) {
         if (!PLACED_ATTEMPT_STATES.has(a.state) || a.leaseExpiresAt === null || Date.parse(a.leaseExpiresAt) > clock().getTime()) continue;
         const entry = live.get(a.id);
+        deps.modelAccess?.revoke(a.id);
         entry?.controller.abort();
         entry?.fence();
         if (entry) void stopSession(entry).catch(() => report(new Error("runtime stop failed")));
@@ -395,6 +415,8 @@ export function createDispatcher(deps: {
     } catch (error) { report(error); }
   };
   const stopAttempt = (projectId: string, id: string): Promise<AttemptRecord> => {
+    // Synchronous revocation precedes all waits and stop bookkeeping.
+    if (deps.modelAccess && getAttempt(raw, projectId, id)) deps.modelAccess.revoke(id);
     const key = `${projectId}:${id}`;
     const existing = stops.get(key);
     if (existing) return existing;
@@ -488,6 +510,7 @@ export function createDispatcher(deps: {
     stop() {
       stopPromise ??= (async () => {
         stopped = true;
+        for (const a of listLiveAttempts(raw)) deps.modelAccess?.revoke(a.id);
         signalShutdown();
         if (scheduled !== undefined) { clearImmediate(scheduled); scheduled = undefined; }
         if (checkTimer !== undefined) timers.clearInterval(checkTimer);
