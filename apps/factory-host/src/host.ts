@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createApiServer, createRoutes, listenLoopback, originsFor } from "./api/index.js";
+import { createApiServer, createRoutes, listenLoopback, originsFor, registerStaticUi } from "./api/index.js";
 import { createCommandPipeline } from "./commands/pipeline.js";
 import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
 import { EventHub } from "./events/hub.js";
@@ -48,7 +48,7 @@ async function freeLoopbackPort(): Promise<number> {
 export async function startHost(options: {
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
-  budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>;
+  budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>; uiDir?: string;
 }): Promise<{
   app: FastifyInstance; port: number; origins: string[]; storage: Storage; hub: EventHub; close(): Promise<void>;
   models: { gateway: ModelGateway | null; budgetConfig: BudgetConfig };
@@ -62,6 +62,7 @@ export async function startHost(options: {
   const stateDir = resolve(options.stateDir);
   if (!Number.isSafeInteger(options.port) || options.port < 0 || options.port > 65_535)
     throw new Error("Host port must be an integer from 0 to 65535");
+  if (options.uiDir && !isAbsolute(options.uiDir)) throw new Error("UI directory must be an absolute path");
   const clock = options.clock ?? systemClock;
   const budgetConfig = options.budgetConfig ?? { ...DEFAULT_BUDGET_CONFIG };
   let storage: Storage | undefined;
@@ -102,10 +103,14 @@ export async function startHost(options: {
     const sessions = createSessionStore({ clock });
     const port = options.port === 0 ? await freeLoopbackPort() : options.port;
     const origins = originsFor(port);
-    app = createApiServer({ origins, gate, sessions, clock, register: createRoutes({ storage, hub, pipeline, clock, budgetConfig,
+    const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig,
       afterCommand: (type) => { if (type === "chat.send") lead.kick(); },
       ...(options.keepAliveMs === undefined ? {} : { keepAliveMs: options.keepAliveMs }),
-    }) });
+    });
+    app = createApiServer({ origins, gate, sessions, clock, register(app, guards) {
+      routes(app, guards);
+      if (options.uiDir) registerStaticUi(app, { dir: options.uiDir });
+    } });
     await listenLoopback(app, port);
     lead.kick();
     const token = gate.token;

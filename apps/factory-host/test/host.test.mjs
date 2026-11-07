@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
@@ -198,6 +198,62 @@ test("close is idempotent, closes storage, and releases the listening port", asy
   assert.equal(host.app.server.listening, false);
   const server = await bind(host.port);
   await closeServer(server);
+});
+
+test("uiDir serves the built UI and health on the same listening origin", async (t) => {
+  const dir = tempDir(t);
+  const uiDir = join(dir, "ui");
+  mkdirSync(uiDir);
+  const html = "<!doctype html><html><body>Factory Host UI</body></html>";
+  writeFileSync(join(uiDir, "index.html"), html);
+  const host = await launch(t, join(dir, "state"), { uiDir });
+  const ui = await fetch(`${host.origin}/`);
+  assert.equal(ui.status, 200);
+  assert.equal(await ui.text(), html);
+  assert.equal(ui.headers.get("cache-control"), "no-store");
+  assert.equal(ui.headers.get("x-frame-options"), "DENY");
+  const health = await fetch(`${host.origin}/health`);
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { ok: true, apiVersion: API_VERSION });
+  const result = await postCommand(host, await bootstrap(host), command());
+  assert.equal(result.status, 200);
+});
+
+test("invalid uiDir fails startup and releases the port and database for restart", async (t) => {
+  const dir = tempDir(t);
+  const stateDir = join(dir, "state");
+  const noIndex = join(dir, "no-index");
+  const badIndex = join(dir, "bad-index");
+  const file = join(dir, "file");
+  mkdirSync(noIndex);
+  mkdirSync(join(badIndex, "index.html"), { recursive: true });
+  writeFileSync(file, "not a directory");
+  const reservation = await bind();
+  const port = reservation.address().port;
+  await closeServer(reservation);
+  for (const uiDir of [join(dir, "missing"), noIndex, badIndex, file]) {
+    await assert.rejects(startHost({ stateDir, uiDir, port,
+      onBootstrapToken() { assert.fail("must not emit token"); } }), /UI directory.*index\.html/);
+    const available = await bind(port);
+    await closeServer(available);
+    const next = await launch(t, stateDir, { port });
+    assert.equal(next.storage.raw.open, true);
+    await next.close();
+    // Windows refuses deletion if a failed startup retained a database handle.
+    rmSync(join(stateDir, "host.db"));
+  }
+});
+
+test("relative uiDir is refused and an empty uiDir leaves static serving disabled", async (t) => {
+  const dir = tempDir(t);
+  const stateDir = join(dir, "state");
+  await assert.rejects(startHost({ stateDir, uiDir: "relative-ui", port: 0,
+    onBootstrapToken() { assert.fail("must not emit token"); } }), /UI directory must be an absolute path/);
+  assert.equal(existsSync(stateDir), false);
+  const host = await launch(t, stateDir, { uiDir: "" });
+  const response = await fetch(`${host.origin}/`);
+  assert.equal(response.status, 404);
+  assert.equal((await response.json()).error.code, "not-found");
 });
 
 test("restart retains projects and cursors, with no new migration or backup", async (t) => {
