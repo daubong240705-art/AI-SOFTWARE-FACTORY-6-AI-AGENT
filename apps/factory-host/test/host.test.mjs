@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
-import { createServer as createHttpServer } from "node:http";
+import { createServer as createHttpServer, request as httpRequest } from "node:http";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +18,7 @@ import { createProjectsCreateHandler } from "../dist/projects/service.js";
 import { tasksCreateHandler, getTask } from "../dist/work/service.js";
 import { createAttempt, createFakeRuntime, getAttempt, ensureLocalNode, LOCAL_NODE_ID, transitionAttempt, moveTask } from "../dist/dispatch/index.js";
 import { DEFAULT_BUDGET_CONFIG } from "../dist/policy/index.js";
+import { SANDBOX_RELAY_PORT } from "../dist/sandbox/index.js";
 
 const test = (name, fn) => nodeTest(name, { timeout: 15_000 }, fn);
 const migrationsDir = fileURLToPath(new URL("../migrations/", import.meta.url));
@@ -631,4 +632,83 @@ for (const [label, value] of [["empty", ""], ["zero", "0"], ["negative", "-1"], 
   });
 test("parseEnv rejects overflowing implicit proxy ports", () => {
   assert.throws(() => parseEnv({ FACTORY_PORT: "65535", FACTORY_AGENT_MODELS: "approved" }), /FACTORY_PROXY_PORT/);
+});
+
+const socketTest = (name, fn) => nodeTest(name, { timeout: 15_000, skip: process.platform === "win32" ? "Unix sockets require POSIX" : false }, fn);
+function socketRequest(socketPath, host, token) {
+  return new Promise((done, reject) => {
+    const request = httpRequest({ socketPath, path: "/v1/models", headers: { host, authorization: `Bearer ${token}` } }, (response) => {
+      let body = ""; response.on("data", (chunk) => { body += chunk; });
+      response.once("end", () => done({ status: response.statusCode, body }));
+    });
+    request.once("error", reject); request.end();
+  });
+}
+function socketOptions(socketPath, port = 0) {
+  return { port, socketPath, approvedModels: ["approved"], upstream: { baseUrl: "http://127.0.0.1:9000/v1", apiKey: proxyKey } };
+}
+socketTest("host socket proxy uses only its Unix listener with private permissions and removes it on close", async (t) => {
+  const root = tempDir(t); const directory = join(root, "proxy"); mkdirSync(directory, { mode: 0o700 });
+  const socketPath = join(directory, "model.sock");
+  const reserved = await bind(); const port = reserved.address().port; await closeServer(reserved);
+  const host = await launch(t, join(root, "state"), { modelProxy: socketOptions(socketPath, port) });
+  assert.equal(host.proxy.port, 0); assert.equal(host.proxy.socketPath, socketPath); assert.equal(statSync(socketPath).mode & 0o777, 0o600);
+  const tcp = await bind(port); await closeServer(tcp);
+  const token = host.proxy.tokens.issue({ attemptId: randomUUID(), taskId: randomUUID(), projectId: randomUUID(), epoch: 1, allowedModels: ["approved"] }).token;
+  for (const name of ["127.0.0.1", "localhost"]) {
+    const response = await socketRequest(socketPath, `${name}:${SANDBOX_RELAY_PORT}`, token);
+    assert.equal(response.status, 200); assert.equal(JSON.parse(response.body).data[0].id, "approved");
+  }
+  assert.equal((await socketRequest(socketPath, "unapproved.test", token)).status, 403);
+  await host.close(); assert.equal(existsSync(socketPath), false); await host.close();
+});
+socketTest("host socket proxy replaces a stale socket file", async (t) => {
+  const root = tempDir(t); const directory = join(root, "proxy"); mkdirSync(directory, { mode: 0o700 });
+  const socketPath = join(directory, "model.sock"); writeFileSync(socketPath, "stale");
+  const host = await launch(t, join(root, "state"), { modelProxy: socketOptions(socketPath) });
+  assert.equal(statSync(socketPath).isSocket(), true); assert.equal(statSync(socketPath).mode & 0o777, 0o600); await host.close();
+});
+socketTest("host socket mode supplies relay model access to runtime attempts", async (t) => {
+  const root = tempDir(t); const directory = join(root, "proxy"); mkdirSync(directory, { mode: 0o700 });
+  const socketPath = join(directory, "model.sock"); const runtime = createFakeRuntime({ stepMs: 0 });
+  const host = await launch(t, join(root, "state"), { modelProxy: socketOptions(socketPath), dispatch: { adapters: [runtime] } });
+  const attempt = host.dispatch.enqueue(hostDispatchTask(host, "Complete quickly")); await host.dispatch.idle();
+  assert.equal(getAttempt(host.storage.raw, attempt.projectId, attempt.id).state, "succeeded");
+  assert.equal(runtime.started[0].model.baseUrl, `http://127.0.0.1:${SANDBOX_RELAY_PORT}/v1`);
+  assert.equal(runtime.started[0].model.socketPath, socketPath);
+});
+socketTest("host socket mode honors a configured host allow-list", async (t) => {
+  const root = tempDir(t); const directory = join(root, "proxy"); mkdirSync(directory, { mode: 0o700 }); const socketPath = join(directory, "model.sock");
+  const host = await launch(t, join(root, "state"), { modelProxy: { ...socketOptions(socketPath), allowedHosts: ["custom.test"] } });
+  const token = host.proxy.tokens.issue({ attemptId: randomUUID(), taskId: randomUUID(), projectId: randomUUID(), epoch: 1, allowedModels: ["approved"] }).token;
+  assert.equal((await socketRequest(socketPath, "custom.test", token)).status, 200);
+  assert.equal((await socketRequest(socketPath, `127.0.0.1:${SANDBOX_RELAY_PORT}`, token)).status, 403);
+});
+for (const [label, mode] of [["group accessible", 0o750], ["world accessible", 0o755], ["overly restricted", 0o600]])
+  socketTest(`host socket mode refuses a ${label} parent`, async (t) => {
+    const root = tempDir(t); const directory = join(root, "proxy"); mkdirSync(directory, { mode: 0o700 }); chmodSync(directory, mode);
+    t.after(() => { try { chmodSync(directory, 0o700); } catch { /* Temporary root may already be removed. */ } });
+    await assert.rejects(startHost({ stateDir: join(root, "state"), port: 0, onBootstrapToken() {}, modelProxy: socketOptions(join(directory, "model.sock")) }),
+      { message: "Invalid proxy socket configuration" });
+  });
+socketTest("host socket mode refuses a missing parent", async (t) => {
+  const root = tempDir(t);
+  await assert.rejects(startHost({ stateDir: join(root, "state"), port: 0, onBootstrapToken() {}, modelProxy: socketOptions(join(root, "missing", "model.sock")) }),
+    { message: "Invalid proxy socket configuration" });
+});
+for (const [label, value] of [["relative", "relative.sock"], ["drive mount", "/mnt/private/model.sock"], ["zero byte", `${resolve("model.sock")}\0`],
+  ["parent traversal", `${resolve("proxy")}/../model.sock`], ["empty", ""]]) {
+  test(`parseEnv refuses ${label} proxy socket configuration`, () => {
+    assert.throws(() => parseEnv({ FACTORY_PROXY_SOCKET: value }), { message: "Invalid proxy socket configuration" });
+  });
+  test(`host refuses ${label} proxy socket configuration`, async (t) => {
+    await assert.rejects(startHost({ stateDir: tempDir(t), port: 0, onBootstrapToken() {}, modelProxy: socketOptions(value) }),
+      { message: "Invalid proxy socket configuration" });
+  });
+}
+test("parseEnv carries the optional proxy socket without changing TCP defaults", (t) => {
+  const socketPath = join(tempDir(t), "proxy.sock");
+  const options = parseEnv({ FACTORY_AGENT_MODELS: "approved", FACTORY_PROXY_SOCKET: socketPath });
+  assert.deepEqual(options.agentProxy, { port: 8788, approvedModels: ["approved"], socketPath });
+  assert.deepEqual(parseEnv({ FACTORY_AGENT_MODELS: "approved" }).agentProxy, { port: 8788, approvedModels: ["approved"] });
 });

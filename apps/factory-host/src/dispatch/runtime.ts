@@ -7,7 +7,7 @@ export interface AttemptContext {
   seat: { id: string; name: string; role: string };
   handoff: string | null;
   signal: AbortSignal;
-  model?: { baseUrl: string; token: string; models: string[] };
+  model?: { baseUrl: string; token: string; models: string[]; socketPath?: string };
   workspace?: { path: string; branch: string; baseSha: string };
 }
 

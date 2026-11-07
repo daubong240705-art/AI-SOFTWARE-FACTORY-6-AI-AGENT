@@ -1,8 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { createServer } from "node:net";
 import { existsSync, readFileSync } from "node:fs";
+import { chmod, lstat, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
-import { isAbsolute, join, posix, resolve } from "node:path";
+import { dirname, isAbsolute, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApiServer, createRoutes, listenLoopback, originsFor, registerStaticUi } from "./api/index.js";
 import { createCommandPipeline } from "./commands/pipeline.js";
@@ -26,13 +27,39 @@ import { lockStateDirectory } from "./backup/lock.js";
 import { advanceTasks, createDispatchHandlers, createDispatcher, createFakeRuntime, eventsForTask, RuntimeRegistry, type Dispatcher, type DispatcherConfig, type RuntimeAdapter } from "./dispatch/index.js";
 import { assertInside, canonicalRoots } from "./workspace/index.js";
 import { createWorkspaceProvider, type WorkspaceProvider } from "./dispatch/workspace-provider.js";
+import { canonicalPath, refuseMount } from "./workspace/paths.js";
+import { SANDBOX_RELAY_PORT } from "./sandbox/index.js";
+
+function proxySocketPath(path: string): string {
+  try {
+    if (typeof path !== "string" || !isAbsolute(path) || /[\0\r\n]/.test(path)
+      || path.split(/[\\/]/).some((part) => part === "." || part === "..") || resolve(path) !== path) throw new Error();
+    refuseMount(path);
+    const canonical = canonicalPath(path);
+    refuseMount(canonical);
+    if (canonical !== path) throw new Error();
+    return canonical;
+  } catch { throw new Error("Invalid proxy socket configuration"); }
+}
+
+async function prepareProxySocket(path: string): Promise<void> {
+  try {
+    const parent = await lstat(dirname(path));
+    if (!parent.isDirectory() || (parent.mode & 0o777) !== 0o700) throw new Error();
+    try {
+      const previous = await lstat(path);
+      if (!previous.isSocket() && !previous.isFile()) throw new Error();
+      await unlink(path);
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  } catch { throw new Error("Invalid proxy socket configuration"); }
+}
 
 export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   stateDir: string; port: number; backupDir?: string;
   periodicBackup: { dir: string; intervalMs: number };
   dispatch: { nodeSlots: number };
   workspace: { projectsRoot: string; worktreesRoot: string };
-  agentProxy?: { port: number; approvedModels: string[] };
+  agentProxy?: { port: number; approvedModels: string[]; socketPath?: string };
 } {
   const input = env.FACTORY_PORT ?? "8787";
   if (!/^[0-9]+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) < 1 || Number(input) > 65_535)
@@ -52,6 +79,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
       throw new Error("FACTORY_AGENT_MODELS must contain unique non-empty model names without whitespace");
   }
   const proxyPort = env.FACTORY_PROXY_PORT ?? String(Number(input) + 1);
+  const socketPath = env.FACTORY_PROXY_SOCKET === undefined ? undefined : proxySocketPath(env.FACTORY_PROXY_SOCKET);
   if ((approvedModels || env.FACTORY_PROXY_PORT !== undefined) && (!/^[0-9]+$/.test(proxyPort)
     || !Number.isSafeInteger(Number(proxyPort)) || Number(proxyPort) < 1 || Number(proxyPort) > 65_535))
     throw new Error("FACTORY_PROXY_PORT must be an integer from 1 to 65535");
@@ -65,7 +93,8 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   } catch { throw new Error("Workspace roots must be absolute, separate directories outside /mnt"); }
   return {
     stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) }, workspace,
-    ...(approvedModels === undefined ? {} : { agentProxy: { port: Number(proxyPort), approvedModels } }),
+    ...(approvedModels === undefined ? {} : { agentProxy: { port: Number(proxyPort), approvedModels,
+      ...(socketPath === undefined ? {} : { socketPath }) } }),
     ...(env.FACTORY_MIGRATION_BACKUP_DIR === undefined ? {} : { backupDir: env.FACTORY_MIGRATION_BACKUP_DIR }),
     periodicBackup: {
       dir: env.FACTORY_BACKUP_DIR ?? (existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(stateDir, "backups", "periodic")),
@@ -97,14 +126,14 @@ export async function startHost(options: {
   dispatch?: Partial<DispatcherConfig> & { stepMs?: number; adapters?: RuntimeAdapter[] } | null;
   workspace?: { projectsRoot: string; worktreesRoot: string; evidenceDir?: string } | null;
   modelProxy?: { port: number; upstream: { baseUrl: string; apiKey: string; providerId?: string; fetchImpl?: typeof fetch };
-    approvedModels: string[]; allowedHosts?: string[] } | null;
+    approvedModels: string[]; allowedHosts?: string[]; socketPath?: string } | null;
 }): Promise<{
   app: FastifyInstance; port: number; origins: string[]; storage: Storage; hub: EventHub; close(): Promise<void>;
   models: { gateway: ModelGateway | null; budgetConfig: BudgetConfig };
   lead: LeadRunner;
   dispatch: Dispatcher | null;
   workspace: WorkspaceProvider | null;
-  proxy: { port: number; tokens: TokenRegistry } | null;
+  proxy: { port: number; socketPath?: string; tokens: TokenRegistry } | null;
   backup: { service: BackupService; status(): BackupStatus } | null;
 }> {
   // Check POSIX spelling too, including when validating a WSL path on Windows.
@@ -116,6 +145,7 @@ export async function startHost(options: {
   if (!Number.isSafeInteger(options.port) || options.port < 0 || options.port > 65_535)
     throw new Error("Host port must be an integer from 0 to 65535");
   if (options.uiDir && !isAbsolute(options.uiDir)) throw new Error("UI directory must be an absolute path");
+  const socketPath = options.modelProxy?.socketPath === undefined ? undefined : proxySocketPath(options.modelProxy.socketPath);
   const clock = options.clock ?? systemClock;
   const budgetConfig = options.budgetConfig ?? { ...DEFAULT_BUDGET_CONFIG };
   let storage: Storage | undefined;
@@ -124,7 +154,8 @@ export async function startHost(options: {
   let dispatch: Dispatcher | null = null;
   let workspace: WorkspaceProvider | null = null;
   let modelProxy: ReturnType<typeof createModelProxy> | undefined;
-  let proxy: { port: number; tokens: TokenRegistry } | null = null;
+  let proxy: { port: number; socketPath?: string; tokens: TokenRegistry } | null = null;
+  let ownsSocket = false;
   let modelAccess: ModelAccess | undefined;
   let evidenceDir: string | undefined;
   let backup: { service: BackupService; status(): BackupStatus } | null = null;
@@ -134,7 +165,16 @@ export async function startHost(options: {
   const close = (): Promise<void> => {
     closePromise ??= (async () => {
       try { await runner?.stop(); } finally {
-        try { proxy?.tokens.revokeAll(); await modelProxy?.close(); } finally {
+        try {
+          proxy?.tokens.revokeAll();
+          try { await modelProxy?.close(); } finally {
+            if (ownsSocket && socketPath) {
+              ownsSocket = false;
+              try { await unlink(socketPath); }
+              catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new Error("Proxy socket cleanup failed"); }
+            }
+          }
+        } finally {
           try { await dispatch?.stop(); } finally {
             try { await app?.close(); } finally {
               try {
@@ -186,14 +226,25 @@ export async function startHost(options: {
       const allowedHosts = configured.allowedHosts === undefined ? [] : [...configured.allowedHosts];
       modelProxy = createModelProxy({ upstream, tokens, raw: storage.raw, budget: budgetConfig, clock,
         newId: createIdGenerator(clock), allowedHosts });
-      const listeningPort = await listenLoopback(modelProxy.app, configured.port);
+      let listeningPort = 0;
+      if (socketPath === undefined) listeningPort = await listenLoopback(modelProxy.app, configured.port);
+      else {
+        await prepareProxySocket(socketPath);
+        try {
+          await modelProxy.app.listen({ path: socketPath });
+          ownsSocket = true;
+          await chmod(socketPath, 0o600);
+        } catch { throw new Error("Proxy socket unavailable"); }
+      }
       // Until the actual port is known the default allow-list rejects every request.
-      if (configured.allowedHosts === undefined) allowedHosts.push(`127.0.0.1:${listeningPort}`, `localhost:${listeningPort}`);
-      proxy = { port: listeningPort, tokens };
+      const modelPort = socketPath === undefined ? listeningPort : SANDBOX_RELAY_PORT;
+      if (configured.allowedHosts === undefined) allowedHosts.push(`127.0.0.1:${modelPort}`, `localhost:${modelPort}`);
+      proxy = { port: listeningPort, tokens, ...(socketPath === undefined ? {} : { socketPath }) };
       const approvedModels = [...configured.approvedModels];
       modelAccess = { issue(input) {
         const { token } = tokens.issue({ ...input, allowedModels: approvedModels });
-        return { token, models: [...approvedModels], baseUrl: `http://127.0.0.1:${listeningPort}/v1` };
+        return { token, models: [...approvedModels], baseUrl: `http://127.0.0.1:${modelPort}/v1`,
+          ...(socketPath === undefined ? {} : { socketPath }) };
       }, revoke: (attemptId) => tokens.revoke(attemptId) };
     }
     if (options.dispatch) {

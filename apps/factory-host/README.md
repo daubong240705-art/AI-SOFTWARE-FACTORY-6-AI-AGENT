@@ -114,6 +114,16 @@ Correction: an earlier note here said the Lead created no Task. That was a bug i
 - Upstream bodies, headers and errors are never relayed (generic OpenAI-shaped errors); a response containing the key or the agent token is dropped, also when split across stream chunks.
 - Known limits: sessions/tokens live in memory only; the per-attempt request counter is not freed until the Host restarts; image content parts are not supported yet; only chat completions (no `/responses`).
 
+## Sandbox for coding agents (M2)
+
+`src/sandbox/` (Linux only; needs `bwrap` 0.8+ and user namespaces, both present in this WSL2). `buildSandboxCommand` is a pure, strictly validating builder; `startSandboxed` runs it through the exec runner (exact host env `PATH` only, own process group, verified stop).
+
+- Fresh namespaces for everything (`--unshare-all`): private PID, IPC, UTS and a NETWORK namespace that contains only `lo`. The root is a tmpfs made read-only (`--remount-ro /`); `/usr` is read-only, `/etc` only has `passwd`, `group`, `nsswitch.conf`, `ld.so.cache`, `localtime`. `/tmp` (256 MiB) and the agent HOME `/home/agent` (512 MiB) are capped tmpfs that vanish with the sandbox.
+- The ONLY writable host location is the attempt worktree, mounted at its real path so the worktree's `.git` pointer works. The clone's `.git` is read-only except the worktree's own git dir, so `git status/diff` work and commits/ref changes fail (the Host checkpoints). State dir, other projects/worktrees, the user's home and `/mnt` are invisible; the builder refuses to bind them.
+- Environment is `--clearenv` plus the builder's fixed variables and an allow-listed few; secret-looking names are refused except `FACTORY_MODEL_TOKEN` and `OPENCODE_CONFIG_CONTENT`.
+- Network: the sandbox cannot reach the host loopback or the internet. Models are reached through `relay-main.js` inside the sandbox (`127.0.0.1:18787` -> a unix socket bound from the Host), and the Host proxy listens on that socket (`FACTORY_PROXY_SOCKET`, absolute path in a 0700 directory, socket mode 0600) instead of TCP.
+- Known limits: no CPU, process-count or disk quotas yet (only the tmpfs caps); a runaway agent can still use CPU and fill its worktree; seccomp is not applied.
+
 ## Process runner (M2)
 
 `src/exec/process-group.ts` runs a child on Linux only (it refuses every other platform): own session and process group, the EXACT environment it is given (nothing inherited from the Host), commands resolved only through the child's own `PATH`, bounded output (UTF-8 safe), timeout, and a stop that resolves only after the whole group is verified gone (SIGTERM, grace, SIGKILL; a group that survives the deadline is reported, never hidden). `buildSafeEnv` refuses secret-looking variable names unless allowed by name; `scrubForLog` redacts secrets. A child that deliberately escapes with `setsid` is NOT contained by process groups: the sandbox (a later slice) must contain it. The Linux integration tests run through `scripts/factory-v2/test-host-wsl.sh`.

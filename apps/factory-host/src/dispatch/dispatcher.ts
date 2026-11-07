@@ -30,7 +30,7 @@ export interface Timers {
 }
 export interface RecoverSummary { leaseExpired: number; unknown: number; requeued: number; untouched: number }
 export interface ModelAccess {
-  issue(input: { attemptId: string; projectId: string; taskId: string; epoch: number }): { baseUrl: string; token: string; models: string[] };
+  issue(input: { attemptId: string; projectId: string; taskId: string; epoch: number }): { baseUrl: string; token: string; models: string[]; socketPath?: string };
   revoke(attemptId: string): void;
 }
 export interface Dispatcher {

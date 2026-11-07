@@ -34,6 +34,7 @@ try {
     baseUrl: process.env.FACTORY_GATEWAY_URL ?? "https://ai.lazy.local/v1", apiKey,
   });
   const modelProxy = apiKey && process.env.FACTORY_GATEWAY_URL && agentProxy ? {
+    // Includes the optional FACTORY_PROXY_SOCKET selected by parseEnv.
     ...agentProxy, upstream: { apiKey, baseUrl: process.env.FACTORY_GATEWAY_URL },
   } : null;
   let uiDir = process.env.FACTORY_UI_DIR;
