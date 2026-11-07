@@ -7,6 +7,7 @@ export interface AttemptContext {
   seat: { id: string; name: string; role: string };
   handoff: string | null;
   signal: AbortSignal;
+  workspace?: { path: string; branch: string; baseSha: string };
 }
 
 export type RuntimeEvent =

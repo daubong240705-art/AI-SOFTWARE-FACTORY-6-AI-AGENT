@@ -1,5 +1,8 @@
 import type { AttemptContext, RuntimeAdapter, RuntimeEvent, RuntimeSession } from "./runtime.js";
 import type { AttemptRef } from "./types.js";
+import fs from "node:fs";
+import { join } from "node:path";
+import { assertInside } from "../workspace/index.js";
 
 export interface FakeTimers {
   setTimeout(callback: () => void, ms: number): unknown;
@@ -55,6 +58,14 @@ export function createFakeRuntime(options: { stepMs?: number; timers?: FakeTimer
       const execution = Promise.resolve().then(async () => {
         try {
           if (cancelled) return;
+          if (context.workspace && goal.includes("[fake:edit]")) {
+            const root = context.workspace.path;
+            if (!/^[A-Z]{2,6}-\d{3,6}$/.test(context.task.code)) throw new Error("Invalid fake task code");
+            fs.writeFileSync(assertInside(root, join(root, `FAKE-${context.task.code}.md`)),
+              `edited by the fake runtime, epoch ${context.ref.epoch}`);
+            const readme = assertInside(root, join(root, "README.md"));
+            if (fs.existsSync(readme)) fs.appendFileSync(assertInside(root, readme), `\nedited by the fake runtime, epoch ${context.ref.epoch}\n`);
+          }
           if (goal.includes("[fake:silent]")) { await wait(); return; }
           emit({ type: "progress", message: "Starting" });
           if (goal.includes("[fake:hang]")) { await wait(); return; }
@@ -68,6 +79,8 @@ export function createFakeRuntime(options: { stepMs?: number; timers?: FakeTimer
             if (cancelled) return;
             emit(event);
           }
+        } catch {
+          emit({ type: "failed", kind: "runtime", message: "runtime failed" });
         } finally {
           executionsEnded.push({ ...context.ref });
           ended = true;

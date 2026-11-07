@@ -14,7 +14,7 @@ function budgetTokens(name: string, input: string | undefined, fallback: number)
 }
 
 try {
-  const { dispatch, ...hostOptions } = parseEnv(process.env);
+  const { dispatch, workspace, ...hostOptions } = parseEnv(process.env);
   const lead: Partial<LeadConfig> = {};
   if (process.env.FACTORY_LEAD_MODEL !== undefined) {
     if (!process.env.FACTORY_LEAD_MODEL.trim()) throw new Error("FACTORY_LEAD_MODEL must be a non-empty string");
@@ -38,7 +38,7 @@ try {
     const defaultUiDir = fileURLToPath(new URL("../../factory-ui/dist/", import.meta.url));
     try { if ((await stat(defaultUiDir)).isDirectory()) uiDir = defaultUiDir; } catch { /* UI build is optional. */ }
   }
-  const host = await startHost({ ...hostOptions, dispatch, modelGateway, budgetConfig, lead,
+  const host = await startHost({ ...hostOptions, dispatch, workspace, modelGateway, budgetConfig, lead,
     ...(uiDir === undefined ? {} : { uiDir }), onBootstrapToken(token) {
     process.stdout.write(`One-time bootstrap token: ${token}\n`);
   } });

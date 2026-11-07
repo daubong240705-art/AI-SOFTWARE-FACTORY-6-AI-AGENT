@@ -9,3 +9,4 @@ export * from "./dispatcher.js";
 export * from "./seats.js";
 export * from "./advance.js";
 export * from "./commands.js";
+export * from "./workspace-provider.js";

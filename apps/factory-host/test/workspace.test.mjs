@@ -533,3 +533,22 @@ integration("CLI refuses missing, duplicate, and unknown options generically", a
     const result = await invokeCli(t, args); assert.equal(result.exitCode, 1); assert.equal(result.stderr, "Workspace clone failed: invalid-input\n");
   }
 });
+
+integration("continuation worktree starts at the earlier factory branch tip", async (t) => {
+  const f = await fixture(t);
+  fs.writeFileSync(join(f.attempt.path, "continuation.txt"), "previous work\n");
+  const { commit } = await checkpoint(f.attempt.path, "previous work");
+  const next = await createWorktree(f.roots, { projectRoot: f.project.root, projectSlug: f.project.slug,
+    taskCode: "DEV-001", epoch: 2, startFromBranch: f.attempt.branch });
+  assert.equal(next.baseSha, commit);
+  assert.equal(fs.readFileSync(join(next.path, "continuation.txt"), "utf8"), "previous work\n");
+  assert.equal(treeHash(f.source), f.sourceHash);
+  assert.equal(fs.existsSync(join(f.project.root, "continuation.txt")), false);
+});
+
+for (const branch of ["main", "factory/missing", "factory/../main", "factory/bad..name"])
+  integration(`continuation refuses invalid or missing branch ${branch}`, async (t) => {
+    const f = await fixture(t, false);
+    await assert.rejects(createWorktree(f.roots, { projectRoot: f.project.root, projectSlug: f.project.slug,
+      taskCode: "DEV-001", epoch: 1, startFromBranch: branch }), (error) => error instanceof WorkspaceError);
+  });

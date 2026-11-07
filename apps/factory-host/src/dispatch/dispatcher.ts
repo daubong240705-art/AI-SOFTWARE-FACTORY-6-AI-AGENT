@@ -12,12 +12,15 @@ import { ensureLocalNode, LOCAL_NODE_ID, markNodeSlots, nodeLoad, seatLoad } fro
 import type { AttemptContext, RuntimeEvent, RuntimeRegistry, RuntimeSession } from "./runtime.js";
 import { applyAttemptOutcome, eventsForAttempt, eventsForTask } from "./tasks.js";
 import type { AttemptRecord, RuntimeKind } from "./types.js";
+import type { WorkspaceProvider } from "./workspace-provider.js";
 
 export interface DispatcherConfig {
   nodeSlots: number; leaseMs: number; leaseRenewMs: number; leaseCheckMs: number; stopTimeoutMs: number;
+  /** Collecting evidence (git add, diff, patch) can take long on big repositories: its own limit. */
+  evidenceTimeoutMs: number;
 }
 export const DEFAULT_DISPATCHER_CONFIG: DispatcherConfig = {
-  nodeSlots: 2, leaseMs: 60_000, leaseRenewMs: 20_000, leaseCheckMs: 5_000, stopTimeoutMs: 10_000,
+  nodeSlots: 2, leaseMs: 60_000, leaseRenewMs: 20_000, leaseCheckMs: 5_000, stopTimeoutMs: 10_000, evidenceTimeoutMs: 120_000,
 };
 export interface Timers {
   setTimeout(callback: () => void, ms: number): unknown;
@@ -41,6 +44,9 @@ interface Live {
   controller: AbortController; session?: RuntimeSession; done: Promise<void>;
   startSettled: Promise<void>; finishStart(): void;
   fenced: Promise<void>; fence(): void; stopSession?: Promise<void>;
+  workspace?: NonNullable<AttemptContext["workspace"]>;
+  evidence?: Promise<void>;
+  executionEnded?: boolean;
 }
 const defaultTimers: Timers = {
   setTimeout: (callback, ms) => setTimeout(callback, ms).unref(),
@@ -52,6 +58,7 @@ const defaultTimers: Timers = {
 export function createDispatcher(deps: {
   storage: Storage; hub: EventHub; registry: RuntimeRegistry; clock?: Clock; newId?: () => string;
   config?: Partial<DispatcherConfig>; timers?: Timers; onError?: (error: unknown) => void;
+  workspace?: WorkspaceProvider; projectRootFor?: (projectId: string) => string | null;
 }): Dispatcher {
   const { raw } = deps.storage;
   const { hub, registry } = deps;
@@ -104,11 +111,11 @@ export function createDispatcher(deps: {
     for (const resolve of waiters) resolve();
     waiters.clear();
   };
-  const bounded = async (work: Promise<unknown>): Promise<void> => {
+  const bounded = async (work: Promise<unknown>, limitMs: number = config.stopTimeoutMs): Promise<void> => {
     let handle: unknown;
     try {
       await Promise.race([work, new Promise<never>((_resolve, reject) => {
-        handle = timers.setTimeout(() => reject(new Error("runtime stop timed out")), config.stopTimeoutMs);
+        handle = timers.setTimeout(() => reject(new Error("runtime stop timed out")), limitMs);
       })]);
     } finally { if (handle !== undefined) timers.clearTimeout(handle); }
   };
@@ -153,7 +160,7 @@ export function createDispatcher(deps: {
     }
     return result;
   };
-  const finishOutcome = (a: AttemptRecord, event: Extract<RuntimeEvent, { type: "completed" | "failed" }>): void => {
+  const finishOutcome = (a: AttemptRecord, event: Extract<RuntimeEvent, { type: "completed" | "failed" }>, workspaceUnavailable = false): void => {
     hub.transaction(() => {
       if (event.type === "completed") {
         const submitting = move(a, "submitting");
@@ -161,7 +168,8 @@ export function createDispatcher(deps: {
         taskOutcome(move(submitting, "succeeded"), "succeeded");
       } else {
         // Runtime text is untrusted and may contain secrets. Persist only a fixed message.
-        stateEvent(a, { to: "failed", kind: event.kind, message: event.message === "runtime ended without a result"
+        stateEvent(a, { to: "failed", kind: event.kind, message: workspaceUnavailable
+          ? "workspace unavailable" : event.message === "runtime ended without a result"
           ? event.message : "runtime failed" });
         taskOutcome(move(a, "failed"), "failed");
       }
@@ -179,6 +187,33 @@ export function createDispatcher(deps: {
       });
     } catch (fallbackError) { report(fallbackError); }
   };
+  const finishWorkspace = (a: AttemptRecord, entry: Live): Promise<void> => {
+    if (!deps.workspace || !entry.workspace) return Promise.resolve();
+    entry.evidence ??= (async () => {
+      const valid = (): boolean => {
+        const latest = current(a.projectId, a.id);
+        return !stopped && latest.leaseId === a.leaseId && latest.leaseExpiresAt !== null &&
+          Date.parse(latest.leaseExpiresAt) > clock().getTime() &&
+          ((!entry.controller.signal.aborted && ["preparing", "running"].includes(latest.state)) ||
+            (latest.state === "stopping" && entry.executionEnded === true));
+      };
+      try {
+        if (!valid()) return;
+        let evidence: Awaited<ReturnType<WorkspaceProvider["finish"]>> | undefined;
+        const finishing = deps.workspace!.finish({ ...entry.workspace!, attemptId: a.id }).then((value) => { evidence = value; });
+        // A stop keeps confirmed partial work; expiry and shutdown detach an unfinished collector.
+        const abandoned = entry.fenced.then(() => current(a.projectId, a.id).state === "stopping" ? shutdown : undefined);
+        await bounded(Promise.race([finishing, abandoned, shutdown]), config.evidenceTimeoutMs);
+        if (valid() && evidence) appendAttemptEvent(raw, {
+          projectId: a.projectId, attemptId: a.id, kind: "evidence", body: evidence, at: now(),
+        });
+      } catch {
+        report(new Error("workspace evidence failed"));
+        if (valid()) stateEvent(a, { to: "evidence-failed" });
+      }
+    })();
+    return entry.evidence;
+  };
   const run = async (leased: AttemptRecord, entry: Live): Promise<void> => {
     let startInvoked = false;
     try {
@@ -192,10 +227,36 @@ export function createDispatcher(deps: {
       const seat = raw.prepare("SELECT id, name, role FROM seats WHERE id = ?").get(preparing.seatId) as AttemptContext["seat"] | undefined;
       const adapter = registry.get(preparing.runtime);
       if (!task || !seat || !adapter || !preparing.leaseId) throw new Error("Missing attempt context");
+      if (deps.workspace) {
+        try {
+          const projectRoot = deps.projectRootFor?.(preparing.projectId);
+          if (!projectRoot) throw new Error("workspace unavailable");
+          const earlier = raw.prepare(`SELECT e.body_json FROM attempts a JOIN attempt_events e
+            ON e.project_id = a.project_id AND e.attempt_id = a.id
+            WHERE a.project_id = ? AND a.task_id = ? AND a.epoch < ? AND e.kind = 'state'
+            ORDER BY a.epoch DESC, e.seq DESC`).all(preparing.projectId, preparing.taskId, preparing.epoch) as { body_json: string }[];
+          const previous = earlier.map((row) => JSON.parse(row.body_json) as { to?: string; branch?: string })
+            .find((body) => body.to === "workspace-ready" && typeof body.branch === "string");
+          const prepared = await Promise.race([deps.workspace.prepare({ projectId: preparing.projectId, taskCode: task.code,
+            epoch: preparing.epoch, projectRoot, startFromBranch: preparing.epoch > 1 ? previous?.branch ?? null : null }),
+          entry.fenced.then(() => undefined)]);
+          if (!prepared) return;
+          entry.workspace = prepared;
+          if (stopped || entry.controller.signal.aborted || isStaleCallback(current(preparing.projectId, preparing.id), {
+            projectId: preparing.projectId, attemptId: preparing.id, epoch: preparing.epoch, leaseId: preparing.leaseId,
+          }, clock().getTime())) return;
+          stateEvent(preparing, { to: "workspace-ready", branch: entry.workspace.branch, baseSha: entry.workspace.baseSha });
+        } catch {
+          if (!stopped && !entry.controller.signal.aborted) finishOutcome(current(preparing.projectId, preparing.id),
+            { type: "failed", kind: "config", message: "workspace unavailable" }, true);
+          return;
+        }
+      }
       const context: AttemptContext = {
         ref: { projectId: preparing.projectId, attemptId: preparing.id, epoch: preparing.epoch, leaseId: preparing.leaseId },
         task, seat, handoff: preparing.epoch > 1 ? buildHandoff(raw, preparing.projectId, preparing.taskId) : null,
         signal: entry.controller.signal,
+        ...(entry.workspace === undefined ? {} : { workspace: entry.workspace }),
       };
       startInvoked = true;
       const starting = Promise.resolve().then(() => adapter.start(context)).then((session) => {
@@ -215,11 +276,20 @@ export function createDispatcher(deps: {
         const a = current(preparing.projectId, preparing.id);
         if (isStaleCallback(a, context.ref, clock().getTime())) return;
         if (!item || item.done) {
-          finishOutcome(a, { type: "failed", kind: "runtime", message: "runtime ended without a result" });
+          entry.executionEnded = true;
+          if (entry.workspace) await finishWorkspace(a, entry);
+          if (!entry.controller.signal.aborted && !stopped && !isStaleCallback(current(a.projectId, a.id), context.ref, clock().getTime()))
+            finishOutcome(current(a.projectId, a.id), { type: "failed", kind: "runtime", message: "runtime ended without a result" });
           return;
         }
         const event = item.value;
-        if (event.type === "completed" || event.type === "failed") { finishOutcome(a, event); return; }
+        if (event.type === "completed" || event.type === "failed") {
+          entry.executionEnded = true;
+          if (entry.workspace) await finishWorkspace(a, entry);
+          if (!entry.controller.signal.aborted && !stopped && !isStaleCallback(current(a.projectId, a.id), context.ref, clock().getTime()))
+            finishOutcome(current(a.projectId, a.id), event);
+          return;
+        }
         hub.transaction(() => {
           appendAttemptEvent(raw, { projectId: a.projectId, attemptId: a.id, kind: event.type, body: event, at: now() });
           const expires = new Date(clock().getTime() + config.leaseMs).toISOString();
@@ -234,7 +304,8 @@ export function createDispatcher(deps: {
           if (leased.leaseId === null || isStaleCallback(a, {
             projectId: leased.projectId, attemptId: leased.id, epoch: leased.epoch, leaseId: leased.leaseId,
           }, clock().getTime())) return;
-          failBookkeeping(leased, new Error("runtime or outcome bookkeeping failed"));
+          if (entry.workspace) await finishWorkspace(a, entry);
+          if (!stopped && !entry.controller.signal.aborted) failBookkeeping(leased, new Error("runtime or outcome bookkeeping failed"));
         } catch { report(new Error("attempt bookkeeping failed")); }
       }
     } finally {
@@ -363,6 +434,8 @@ export function createDispatcher(deps: {
           shutdown.then(() => false),
         ]);
       } catch { report(new Error("runtime stop failed or timed out")); }
+      if (stopped) return current(projectId, id);
+      if (ended && entry) { entry.executionEnded = true; await finishWorkspace(a, entry); }
       if (stopped) return current(projectId, id);
       return hub.transaction(() => {
         const latest = current(projectId, id);

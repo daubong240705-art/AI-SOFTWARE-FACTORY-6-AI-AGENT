@@ -14,6 +14,11 @@ import { failure } from "./http.js";
 import type { ApiGuards } from "./server.js";
 import type { BackupStatus } from "../backup/service.js";
 import { registerEventStream } from "./sse.js";
+import fs from "node:fs";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { assertInside } from "../workspace/index.js";
+import { ATTEMPT_UUID } from "../dispatch/workspace-provider.js";
 
 export function createRoutes(deps: {
   storage: Storage; hub: EventHub; pipeline: ReturnType<typeof createCommandPipeline>;
@@ -22,10 +27,32 @@ export function createRoutes(deps: {
   afterCommand?: (type: string, result: PipelineResult) => void;
   backupStatus?: () => BackupStatus | null;
   dispatch?: Dispatcher;
+  evidenceDir?: string;
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
     registerEventStream(app, guards, deps);
+    app.get<{ Params: { projectId: string; attemptId: string } }>(
+      "/projects/:projectId/attempts/:attemptId/patch", { preHandler: guards.session }, async (request, reply) => {
+        const missing = () => failure(reply, 404, "not-found", "Patch not found.", "correct-input", newId);
+        const { projectId, attemptId } = request.params;
+        if (!deps.dispatch || !deps.evidenceDir || !ATTEMPT_UUID.test(attemptId) ||
+          !getAttempt(deps.storage.raw, projectId, attemptId)) return missing();
+        const rows = deps.storage.raw.prepare(`SELECT body_json FROM attempt_events
+          WHERE project_id = ? AND attempt_id = ? AND kind = 'evidence' ORDER BY seq DESC`)
+          .all(projectId, attemptId) as { body_json: string }[];
+        try {
+          const name = `${attemptId}.patch`;
+          const evidence = rows.map((row) => JSON.parse(row.body_json) as { patchFile?: string; patchSha256?: string })
+            .find((body) => body.patchFile === name && typeof body.patchSha256 === "string");
+          if (!evidence) return missing();
+          const data = fs.readFileSync(assertInside(deps.evidenceDir, join(deps.evidenceDir, name)));
+          const sha256 = createHash("sha256").update(data).digest("hex");
+          if (sha256 !== evidence.patchSha256) return missing();
+          return { apiVersion: API_VERSION, ok: true, patch: data.toString("utf8"), sha256, bytes: data.length };
+        } catch { return missing(); }
+      },
+    );
     app.get("/system/backups", { preHandler: guards.session }, async () => ({
       apiVersion: API_VERSION, ok: true, backup: deps.backupStatus?.() ?? null,
     }));

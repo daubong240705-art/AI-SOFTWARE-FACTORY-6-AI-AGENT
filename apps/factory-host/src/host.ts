@@ -21,11 +21,14 @@ import { createBackupService, type BackupKeep, type BackupService, type BackupSt
 import { startBackupScheduler } from "./backup/scheduler.js";
 import { lockStateDirectory } from "./backup/lock.js";
 import { advanceTasks, createDispatchHandlers, createDispatcher, createFakeRuntime, eventsForTask, RuntimeRegistry, type Dispatcher, type DispatcherConfig, type RuntimeAdapter } from "./dispatch/index.js";
+import { assertInside, canonicalRoots } from "./workspace/index.js";
+import { createWorkspaceProvider, type WorkspaceProvider } from "./dispatch/workspace-provider.js";
 
 export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   stateDir: string; port: number; backupDir?: string;
   periodicBackup: { dir: string; intervalMs: number };
   dispatch: { nodeSlots: number };
+  workspace: { projectsRoot: string; worktreesRoot: string };
 } {
   const input = env.FACTORY_PORT ?? "8787";
   if (!/^[0-9]+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) < 1 || Number(input) > 65_535)
@@ -38,8 +41,16 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   if (!/^[0-9]+$/.test(slots) || !Number.isSafeInteger(Number(slots)) || Number(slots) < 1 || Number(slots) > 16)
     throw new Error("FACTORY_NODE_SLOTS must be an integer from 1 to 16");
   if ((env.FACTORY_RUNTIME ?? "fake") !== "fake") throw new Error("unsupported runtime");
+  let workspace: { projectsRoot: string; worktreesRoot: string };
+  try {
+    workspace = canonicalRoots({
+      projectsRoot: env.FACTORY_PROJECTS_ROOT ?? (existsSync("/srv/factory/workspaces")
+        ? resolve("/srv/factory/workspaces") : join(homedir(), "factory-v2", "workspaces")),
+      worktreesRoot: env.FACTORY_WORKTREES_ROOT ?? join(homedir(), "factory-v2", "worktrees"),
+    });
+  } catch { throw new Error("Workspace roots must be absolute, separate directories outside /mnt"); }
   return {
-    stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) },
+    stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) }, workspace,
     ...(env.FACTORY_MIGRATION_BACKUP_DIR === undefined ? {} : { backupDir: env.FACTORY_MIGRATION_BACKUP_DIR }),
     periodicBackup: {
       dir: env.FACTORY_BACKUP_DIR ?? (existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(stateDir, "backups", "periodic")),
@@ -69,11 +80,13 @@ export async function startHost(options: {
   budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>; uiDir?: string;
   periodicBackup?: { dir: string; intervalMs?: number; firstRunDelayMs?: number; keep?: BackupKeep } | null;
   dispatch?: Partial<DispatcherConfig> & { stepMs?: number; adapters?: RuntimeAdapter[] } | null;
+  workspace?: { projectsRoot: string; worktreesRoot: string; evidenceDir?: string } | null;
 }): Promise<{
   app: FastifyInstance; port: number; origins: string[]; storage: Storage; hub: EventHub; close(): Promise<void>;
   models: { gateway: ModelGateway | null; budgetConfig: BudgetConfig };
   lead: LeadRunner;
   dispatch: Dispatcher | null;
+  workspace: WorkspaceProvider | null;
   backup: { service: BackupService; status(): BackupStatus } | null;
 }> {
   // Check POSIX spelling too, including when validating a WSL path on Windows.
@@ -91,6 +104,8 @@ export async function startHost(options: {
   let app: FastifyInstance | undefined;
   let runner: LeadRunner | undefined;
   let dispatch: Dispatcher | null = null;
+  let workspace: WorkspaceProvider | null = null;
+  let evidenceDir: string | undefined;
   let backup: { service: BackupService; status(): BackupStatus } | null = null;
   let scheduler: ReturnType<typeof startBackupScheduler> | undefined;
   let unlockState: (() => void) | undefined;
@@ -141,10 +156,23 @@ export async function startHost(options: {
     if (options.dispatch) {
       const { stepMs, adapters, ...config } = options.dispatch;
       const registry = new RuntimeRegistry(adapters ?? [createFakeRuntime(stepMs === undefined ? {} : { stepMs })]);
-      dispatch = createDispatcher({ storage, hub, registry, clock, config });
+      const raw = storage.raw;
+      let roots: ReturnType<typeof canonicalRoots> | null = null;
+      try { if (options.workspace) roots = canonicalRoots(options.workspace); }
+      catch { throw new Error("Workspace roots must be absolute, separate directories outside /mnt"); }
+      if (roots) {
+        evidenceDir = options.workspace?.evidenceDir ?? join(stateDir, "evidence");
+        workspace = createWorkspaceProvider({ roots, evidenceDir });
+      }
+      dispatch = createDispatcher({ storage, hub, registry, clock, config,
+        ...(workspace && roots ? { workspace, projectRootFor(projectId: string) {
+          const row = raw.prepare("SELECT workspace_root FROM projects WHERE id = ?").get(projectId) as { workspace_root: string | null } | undefined;
+          try { return row?.workspace_root ? assertInside(roots.projectsRoot, row.workspace_root) : null; }
+          catch { return null; }
+        } } : {}),
+      });
       dispatch.start();
       const dispatcher = dispatch;
-      const raw = storage.raw;
       for (const project of raw.prepare("SELECT id FROM projects ORDER BY id").all() as { id: string }[]) {
         try {
           hub.transaction(() => {
@@ -169,6 +197,7 @@ export async function startHost(options: {
     const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, backupStatus: () => backup?.status() ?? null,
       afterCommand: (type) => { if (type === "chat.send") lead.kick(); },
       ...(dispatch === null ? {} : { dispatch }),
+      ...(evidenceDir === undefined ? {} : { evidenceDir }),
       ...(options.keepAliveMs === undefined ? {} : { keepAliveMs: options.keepAliveMs }),
     });
     app = createApiServer({ origins, gate, sessions, clock, register(app, guards) {
@@ -181,7 +210,7 @@ export async function startHost(options: {
     const token = gate.token;
     if (token === undefined) throw new Error("Bootstrap token unavailable");
     options.onBootstrapToken(token);
-    return { app, port, origins, storage, hub, lead, dispatch, backup, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
+    return { app, port, origins, storage, hub, lead, dispatch, workspace, backup, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
   } catch (error) {
     try { await close(); } catch { /* Preserve the original startup failure. */ }
     throw error;

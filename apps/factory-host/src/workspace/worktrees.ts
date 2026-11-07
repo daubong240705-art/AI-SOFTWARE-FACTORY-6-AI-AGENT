@@ -41,7 +41,7 @@ export async function listWorktrees(projectRoot: string): Promise<WorktreeInfo[]
 }
 
 export async function createWorktree(roots: WorkspaceRoots, input: {
-  projectRoot: string; projectSlug: string; taskCode: string; epoch: number;
+  projectRoot: string; projectSlug: string; taskCode: string; epoch: number; startFromBranch?: string;
 }): Promise<{ path: string; branch: string; baseSha: string }> {
   validateAttempt(input);
   const safe = validateRoots(roots);
@@ -54,7 +54,13 @@ export async function createWorktree(roots: WorkspaceRoots, input: {
     fs.lstatSync(assertInside(safe.worktreesRoot, path));
     throw new WorkspaceError("exists");
   } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-  const baseSha = (await runGit(assertInside(safe.projectsRoot, project), ["rev-parse", "--verify", "HEAD"])).stdout.trim();
+  if (input.startFromBranch !== undefined) {
+    if (typeof input.startFromBranch !== "string" || !input.startFromBranch.startsWith("factory/"))
+      throw new WorkspaceError("invalid-input");
+    await runGit(assertInside(safe.projectsRoot, project), ["check-ref-format", `refs/heads/${input.startFromBranch}`]);
+  }
+  const baseSha = (await runGit(assertInside(safe.projectsRoot, project), ["rev-parse", "--verify",
+    input.startFromBranch === undefined ? "HEAD" : `refs/heads/${input.startFromBranch}`])).stdout.trim();
   fs.mkdirSync(assertInside(safe.worktreesRoot, parent), { recursive: true, mode: 0o700 });
   await runGit(assertInside(safe.projectsRoot, project), ["worktree", "add", "-b", branch,
     assertInside(safe.worktreesRoot, path), baseSha]);
