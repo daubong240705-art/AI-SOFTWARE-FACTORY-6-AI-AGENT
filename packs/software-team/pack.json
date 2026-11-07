@@ -1,0 +1,16 @@
+{
+  "key": "software-team",
+  "version": "1.0.0",
+  "name": "Software Team",
+  "description": "Default team for software projects. Profiles and skills are carried over from Windows Worker V1 (agent-profiles, skills).",
+  "seats": [
+    { "name": "Lead", "role": "Technical lead: talks with the operator, plans, proposes tasks", "profile": "profiles/lead.md", "runtime": "api-agent", "slots": 1, "isLead": true },
+    { "name": "PM", "role": "Product manager", "profile": "profiles/pm.md", "runtime": "native-opencode", "slots": 1, "isLead": false },
+    { "name": "BA", "role": "Business analyst", "profile": "profiles/ba.md", "runtime": "native-opencode", "slots": 1, "isLead": false },
+    { "name": "FE", "role": "Frontend developer", "profile": "profiles/fe.md", "runtime": "native-opencode", "slots": 1, "isLead": false },
+    { "name": "BE", "role": "Backend developer", "profile": "profiles/be.md", "runtime": "native-opencode", "slots": 1, "isLead": false },
+    { "name": "DevOps", "role": "DevOps engineer", "profile": "profiles/devops.md", "runtime": "native-opencode", "slots": 1, "isLead": false },
+    { "name": "Test", "role": "Tester", "profile": "profiles/test.md", "runtime": "native-opencode", "slots": 1, "isLead": false }
+  ],
+  "skills": ["skills/fix-bug", "skills/implement-feature", "skills/local-dev", "skills/testing"]
+}
