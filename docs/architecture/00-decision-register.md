@@ -200,6 +200,8 @@ Nguồn: contracts 0.2.0 (commit `b9f541b`, nhánh `feature/m0-contracts-v2`).
 | PD-3 | Giao diện **mặc định tiếng Anh**; tiếng Việt bổ sung sau. Mọi chuỗi giao diện đi qua một lớp thông điệp (i18n) ngay từ đầu | Đã duyệt | M2 |
 | PD-4 | **Không chạy song song** V1 và bản mới. So sánh tương đương bằng lịch sử V1 và bộ test của dự án thử | Đã duyệt | M2 |
 | ENV-1 | Môi trường người dùng đã chuẩn bị, đã kiểm tra: user `factory-agent` (nhóm `factory`), `/srv/factory/workspaces` (setgid, nhóm `factory`), bubblewrap 0.9.0, `D:\factory-backup`. **Chưa có**: JDK 21 trong WSL (cần để `factory-agent` chạy `gradlew test` của BTL-LTM); `.wslconfig` (tùy chọn) | Đã kiểm | M1 |
+| PD-8 | **Bỏ qua dùng thử M1, bắt đầu M2** (người dùng, 07/11/2026). JDK 21 đã cài trong WSL. Kế hoạch lát cắt: [09](09-m2-slice-plan.md) | Đã duyệt | M2 |
+| PD-9 | **Sao lưu do lead quyết định**: mỗi giờ và khi tắt, `VACUUM INTO` + `integrity_check`, giữ 48 bản giờ và 14 bản ngày, mặc định `/mnt/d/factory-backup`, diễn tập khôi phục là test | Đã duyệt (người dùng giao quyền) | S1 |
 | PD-6 | **Fastify 5.12.7 được duyệt** làm web framework của Host (MIT). Chỉ một dependency web: không dùng plugin cookie/CSRF/CORS; cookie, phiên, CSRF viết tay bằng `node:crypto` và có test. `zod` 4.6.7 khai báo trực tiếp ở Host (cùng phiên bản contracts đã ghim) | Đã duyệt | M1 |
 | PD-7 | **Phát triển bằng Codex qua Skill `codex-routing`**: lead (Claude) viết đặc tả, giao việc, review diff, tự chạy test và đột biến rồi mới commit. Người dùng cho phép chạy tự động theo kế hoạch, dừng khi cần xác nhận. Việc gắn cờ Critical vẫn phải có phê duyệt rõ ràng của người dùng cho từng lần gọi | Đã duyệt | Liên tục |
 
@@ -239,3 +241,4 @@ Dùng checklist ở [oss-options §2.5](oss-options.md).
 | 07/11/2026 | Người dùng duyệt PD-2 (mức chỉnh được) và thêm PD-5 (chuyển sang model DeepSeek/Antigravity khi chi phí lớn, hệ thống tự quyết định trong tập đã duyệt); bắt đầu M1 |
 | 07/11/2026 | Duyệt Fastify (PD-6) và phát triển tự động bằng Codex (PD-7); hoàn tất mô-đun events và lớp bảo mật API của M1 |
 | 07/11/2026 | M1 hoàn tất về kỹ thuật (Host, Lead chat, UI, e2e); chờ người dùng dùng thử 2–3 ngày theo roadmap. Runbook: [docs/factory-v2-m1-runbook.md](../factory-v2-m1-runbook.md) |
+| 07/11/2026 | Push nhánh `feature/m0-contracts-v2` lên GitHub `origin`; bỏ qua dùng thử M1 và bắt đầu M2 (PD-8, PD-9); thêm tài liệu 09 |
