@@ -2,8 +2,9 @@ import type { Database } from "better-sqlite3";
 import { projectSchema, type Project } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerMap } from "../commands/pipeline.js";
+import { ensureEngagement, ensureTeamFromPack, type LoadedPack } from "../org/index.js";
 
-export const projectsCreateHandler: HandlerMap["projects.create"] = ({ raw, hub }, command) => {
+const createProject: HandlerMap["projects.create"] = ({ raw, hub }, command) => {
   const { projectId, payload } = command;
   if (raw.prepare("SELECT id FROM projects WHERE id = ?").get(projectId))
     throw new CommandError("conflict", "project already exists", "refresh");
@@ -14,6 +15,19 @@ export const projectsCreateHandler: HandlerMap["projects.create"] = ({ raw, hub 
   hub.ensureStream(projectId);
   return { effects: [{ kind: "project", id: projectId, revision: 1 }] };
 };
+
+export const projectsCreateHandler: HandlerMap["projects.create"] = createProject;
+
+export function createProjectsCreateHandler({ pack }: { pack: LoadedPack }): HandlerMap["projects.create"] {
+  return (ctx, command) => {
+    const result = createProject(ctx, command);
+    const team = ensureTeamFromPack(ctx.raw, pack, ctx);
+    const engagement = ensureEngagement(ctx.raw, { projectId: command.projectId, teamId: team.teamId }, ctx);
+    if (team.created) result.effects.push({ kind: "team", id: team.teamId, revision: 1 });
+    result.effects.push({ kind: "engagement", id: engagement.engagementId, revision: 1 });
+    return result;
+  };
+}
 
 interface ProjectRow {
   id: string; revision: number; name: string; workspace_kind: string; workspace_root: string; disposition: string;

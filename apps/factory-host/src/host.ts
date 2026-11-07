@@ -8,7 +8,10 @@ import { createCommandPipeline } from "./commands/pipeline.js";
 import { EventHub } from "./events/hub.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { systemClock, type Clock } from "./ids.js";
+import { loadPack } from "./org/index.js";
+import { createProjectsCreateHandler } from "./projects/service.js";
 import { openStorage, type Storage } from "./storage/database.js";
+import { tasksCreateHandler, tasksTransitionHandler } from "./work/service.js";
 
 export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   stateDir: string; port: number; backupDir?: string;
@@ -38,7 +41,7 @@ async function freeLoopbackPort(): Promise<number> {
 }
 
 export async function startHost(options: {
-  stateDir: string; port: number; backupDir?: string; migrationsDir?: string; clock?: Clock;
+  stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number;
 }): Promise<{
   app: FastifyInstance; port: number; origins: string[]; storage: Storage; hub: EventHub; close(): Promise<void>;
@@ -62,13 +65,17 @@ export async function startHost(options: {
     return closePromise;
   };
   try {
+    const pack = loadPack(options.packDir ?? fileURLToPath(new URL("../../../packs/software-team/", import.meta.url)));
     storage = openStorage(join(stateDir, "host.db"));
     storage.migrate({
       migrationsDir: options.migrationsDir ?? fileURLToPath(new URL("../migrations/", import.meta.url)),
       backupDir: options.backupDir ?? join(stateDir, "backups"), now: clock,
     });
     const hub = new EventHub(storage.raw, { clock });
-    const pipeline = createCommandPipeline({ storage, hub, clock });
+    const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
+      "projects.create": createProjectsCreateHandler({ pack }),
+      "tasks.create": tasksCreateHandler, "tasks.transition": tasksTransitionHandler,
+    } });
     const gate = createBootstrapGate({ clock });
     const sessions = createSessionStore({ clock });
     const port = options.port === 0 ? await freeLoopbackPort() : options.port;

@@ -9,6 +9,7 @@ import { test as nodeTest } from "node:test";
 import Database from "better-sqlite3";
 import { API_VERSION } from "@factory/contracts";
 import { parseEnv, startHost } from "../dist/host.js";
+import { loadPack } from "../dist/org/index.js";
 
 const test = (name, fn) => nodeTest(name, { timeout: 15_000 }, fn);
 const migrationsDir = fileURLToPath(new URL("../migrations/", import.meta.url));
@@ -103,7 +104,50 @@ test("bootstrapped session creates a project with Origin and CSRF headers", asyn
   const response = await fetch(`${host.origin}/projects`, { headers: { cookie: session.cookie } });
   assert.equal(response.status, 200);
   assert.equal((await response.json()).projects[0].id, c.projectId);
-  assert.equal(host.hub.currentCursor(c.projectId).sequence, "2");
+  // Pack-aware startup emits project, team and engagement changes, followed by the receipt.
+  assert.equal(host.hub.currentCursor(c.projectId).sequence, "4");
+});
+
+test("packDir override supplies the team and host startup wires task creation and transitions", async (t) => {
+  const dir = tempDir(t);
+  const packDir = join(dir, "custom-pack");
+  cpSync(fileURLToPath(new URL("../../../packs/software-team/", import.meta.url)), packDir, { recursive: true });
+  const manifest = loadPack(packDir).manifest;
+  manifest.key = "custom-team";
+  manifest.name = "Custom Team";
+  writeFileSync(join(packDir, "pack.json"), JSON.stringify(manifest));
+  const host = await launch(t, join(dir, "state"), { packDir });
+  const session = await bootstrap(host);
+  const c = command();
+  const created = await postCommand(host, session, c);
+  assert.equal(created.status, 200);
+  assert.deepEqual(created.body.receipt.effects.map((effect) => effect.kind), ["project", "team", "engagement"]);
+  const team = await fetch(`${host.origin}/projects/${c.projectId}/team`, { headers: { cookie: session.cookie } });
+  assert.equal(team.status, 200);
+  assert.equal((await team.json()).team.pack.key, "custom-team");
+  const taskId = randomUUID();
+  const task = { apiVersion: API_VERSION, commandId: randomUUID(), projectId: c.projectId, type: "tasks.create", payload: {
+    taskId, code: "WK-001", title: "Task", goal: "Complete task", brief: "Work to do", parentTaskId: null,
+    engagementId: null, ownerSeatId: null, requiredCapabilities: [], acceptance: [], inputs: [], dependsOn: [],
+  } };
+  assert.equal((await postCommand(host, session, task)).status, 200);
+  assert.equal((await postCommand(host, session, { ...task, commandId: randomUUID(), type: "tasks.transition",
+    payload: { taskId, expectedRevision: 1, to: "proposed" } })).status, 200);
+  const tasks = await fetch(`${host.origin}/projects/${c.projectId}/tasks`, { headers: { cookie: session.cookie } });
+  assert.equal(tasks.status, 200);
+  const listed = (await tasks.json()).items;
+  assert.equal(listed[0].state, "proposed");
+  assert.equal(listed[0].revision, 2);
+});
+
+test("invalid pack override rejects startup before storage creation and token delivery", async (t) => {
+  const dir = tempDir(t);
+  const packDir = join(dir, "invalid-pack");
+  cpSync(fileURLToPath(new URL("../../../packs/software-team/", import.meta.url)), packDir, { recursive: true });
+  writeFileSync(join(packDir, "pack.json"), "{}");
+  const stateDir = join(dir, "state");
+  await assert.rejects(startHost({ stateDir, packDir, port: 0, onBootstrapToken() { assert.fail("must not emit token"); } }));
+  assert.equal(existsSync(stateDir), false);
 });
 
 test("close is idempotent, closes storage, and releases the listening port", async (t) => {

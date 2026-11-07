@@ -1,6 +1,6 @@
 # Factory Host (V2 control plane)
 
-Independent of V1. M1 in progress: **storage**, **events** and the **API security layer** and the **command pipeline**, **SSE** and the **Host start-up** done.
+Independent of V1. M1 in progress: **storage**, **events** and the **API security layer** and the **command pipeline**, **SSE**, the **Host start-up**, **org** (Pack to Team) and **work** (tasks) done.
 
 ```bash
 cd apps/factory-host
@@ -32,3 +32,11 @@ Do not run the Host from `/mnt/<drive>`: loading `node_modules` over 9p takes 20
 bash /mnt/e/GIT/AI-SOFTWARE-FACTORY-6-AI-AGENT/scripts/factory-v2/deploy-host-wsl.sh
 FACTORY_STATE_DIR=$HOME/factory-v2/state FACTORY_PORT=8787 node $HOME/factory-v2/app/apps/factory-host/dist/main.js
 ```
+
+## Org and work
+
+- `src/org/pack.ts`: `loadPack` validates `packs/<key>/pack.json` (one lead, unique seat names, profile and skill paths must stay inside the pack, also after resolving symlinks) and returns a digest over the manifest and profiles. Note: skill files are checked for existence but are not part of the digest yet.
+- `src/org/service.ts`: `ensureTeamFromPack` (idempotent, deterministic profile ids) and `ensureEngagement` (one active engagement per project and team).
+- `projects.create` now also creates the default team from the pack once and an engagement per project.
+- `src/work/service.ts`: `tasks.create` (always starts as `draft`) and `tasks.transition` (optimistic `expectedRevision`, the contracts transition table; in M1 only `proposed`, `accepted`, `declined`, `cancelled` are reachable). Read routes: `GET /projects/:id/tasks`, `GET /projects/:id/team`.
+- Tests that need symlinks are skipped on Windows (EPERM) and run in WSL: `wsl -e bash -c 'cd /mnt/e/.../apps/factory-host && ~/factory-v2/node/bin/node --test test/*.test.mjs'`.
