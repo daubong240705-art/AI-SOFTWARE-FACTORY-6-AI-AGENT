@@ -1,0 +1,266 @@
+import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
+import { homedir, tmpdir } from "node:os";
+import { join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { test as nodeTest } from "node:test";
+import Database from "better-sqlite3";
+import { API_VERSION } from "@factory/contracts";
+import { parseEnv, startHost } from "../dist/host.js";
+
+const test = (name, fn) => nodeTest(name, { timeout: 15_000 }, fn);
+const migrationsDir = fileURLToPath(new URL("../migrations/", import.meta.url));
+const hostsByTest = new WeakMap();
+const command = () => ({ apiVersion: API_VERSION, commandId: randomUUID(), projectId: randomUUID(), type: "projects.create",
+  payload: { name: "Persistent project", workspace: { kind: "directory", root: `/workspace/${randomUUID()}` } } });
+
+function tempDir(t) {
+  const dir = mkdtempSync(join(tmpdir(), "factory-host-"));
+  t.after(async () => {
+    for (const host of hostsByTest.get(t) ?? []) await host.close();
+    assert.ok(resolve(dir).startsWith(resolve(tmpdir()) + sep + "factory-host-"));
+    rmSync(dir, { recursive: true, force: true });
+  });
+  return dir;
+}
+
+async function launch(t, stateDir = tempDir(t), options = {}) {
+  const tokens = [];
+  const host = await startHost({ stateDir, port: 0, onBootstrapToken: (token) => { tokens.push(token); }, ...options });
+  const hosts = hostsByTest.get(t) ?? [];
+  hosts.push(host);
+  hostsByTest.set(t, hosts);
+  t.after(() => host.close());
+  return { ...host, tokens, stateDir, origin: `http://127.0.0.1:${host.port}` };
+}
+
+async function bootstrap(host, token = host.tokens[0]) {
+  const response = await fetch(`${host.origin}/auth/bootstrap`, { method: "POST", headers: {
+    origin: host.origin, "content-type": "application/json",
+  }, body: JSON.stringify({ token }) });
+  const body = await response.json();
+  return { response, body, cookie: response.headers.get("set-cookie")?.split(";")[0], csrf: body.csrfToken };
+}
+
+async function postCommand(host, session, body) {
+  const response = await fetch(`${host.origin}/commands`, { method: "POST", body: JSON.stringify(body), headers: {
+    origin: host.origin, cookie: session.cookie, "x-csrf-token": session.csrf, "content-type": "application/json",
+  } });
+  return { status: response.status, body: await response.json() };
+}
+
+async function bind(port = 0) {
+  const server = createServer();
+  await new Promise((resolve, reject) => { server.once("error", reject); server.listen(port, "127.0.0.1", resolve); });
+  return server;
+}
+const closeServer = (server) => new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+
+test("port zero resolves loopback origins and emits one usable, single-use bootstrap token", async (t) => {
+  const host = await launch(t);
+  assert.ok(Number.isInteger(host.port) && host.port > 0);
+  assert.equal(host.app.server.address().address, "127.0.0.1");
+  assert.deepEqual(host.origins, [host.origin, `http://localhost:${host.port}`]);
+  assert.equal(host.tokens.length, 1);
+  const first = await bootstrap(host);
+  assert.equal(first.response.status, 200);
+  assert.equal(first.body.ok, true);
+  assert.ok(first.cookie.startsWith("factory_session="));
+  const second = await bootstrap(host);
+  assert.equal(second.response.status, 401);
+  assert.equal(second.body.error.code, "needs-auth");
+  assert.equal(host.tokens.length, 1);
+});
+
+test("bootstrap callback runs only after the server is listening", async (t) => {
+  const dir = tempDir(t);
+  const server = await bind();
+  const port = server.address().port;
+  await closeServer(server);
+  let health;
+  let calls = 0;
+  const host = await launch(t, dir, { port, onBootstrapToken() {
+    calls++;
+    health = fetch(`http://127.0.0.1:${port}/health`).then(async (response) => {
+      assert.equal(response.status, 200);
+      assert.equal((await response.json()).ok, true);
+    });
+  } });
+  assert.equal(host.port, port);
+  assert.equal(calls, 1);
+  await health;
+});
+
+test("bootstrapped session creates a project with Origin and CSRF headers", async (t) => {
+  const host = await launch(t);
+  const session = await bootstrap(host);
+  const c = command();
+  const result = await postCommand(host, session, c);
+  assert.equal(result.status, 200);
+  assert.equal(result.body.receipt.projectId, c.projectId);
+  const response = await fetch(`${host.origin}/projects`, { headers: { cookie: session.cookie } });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).projects[0].id, c.projectId);
+  assert.equal(host.hub.currentCursor(c.projectId).sequence, "2");
+});
+
+test("close is idempotent, closes storage, and releases the listening port", async (t) => {
+  const host = await launch(t);
+  const first = host.close();
+  const second = host.close();
+  assert.equal(first, second);
+  await Promise.all([first, second]);
+  await host.close();
+  assert.equal(host.storage.raw.open, false);
+  assert.equal(host.app.server.listening, false);
+  const server = await bind(host.port);
+  await closeServer(server);
+});
+
+test("restart retains projects and cursors, with no new migration or backup", async (t) => {
+  const dir = tempDir(t);
+  const first = await launch(t, dir);
+  const session = await bootstrap(first);
+  const c = command();
+  assert.equal((await postCommand(first, session, c)).status, 200);
+  const cursor = first.hub.currentCursor(c.projectId);
+  const ledger = first.storage.raw.prepare("SELECT * FROM migration_ledger ORDER BY version").all();
+  await first.close();
+  const second = await launch(t, dir);
+  const nextSession = await bootstrap(second);
+  const response = await fetch(`${second.origin}/projects`, { headers: { cookie: nextSession.cookie } });
+  assert.equal((await response.json()).projects[0].id, c.projectId);
+  assert.deepEqual(second.hub.currentCursor(c.projectId), cursor);
+  assert.deepEqual(second.storage.raw.prepare("SELECT * FROM migration_ledger ORDER BY version").all(), ledger);
+  assert.equal(existsSync(join(dir, "backups")), false);
+});
+
+test("pending migration backs up the existing database before applying the new file", async (t) => {
+  const dir = tempDir(t);
+  const stateDir = join(dir, "state");
+  const first = await launch(t, stateDir);
+  const c = command();
+  assert.equal((await postCommand(first, await bootstrap(first), c)).status, 200);
+  await first.close();
+  const customMigrations = join(dir, "migrations");
+  cpSync(migrationsDir, customMigrations, { recursive: true });
+  writeFileSync(join(customMigrations, "0002_marker.sql"), "CREATE TABLE migration_marker (id INTEGER PRIMARY KEY) STRICT;\n");
+  const backupDir = join(dir, "saved-backups");
+  const second = await launch(t, stateDir, { migrationsDir: customMigrations, backupDir });
+  assert.deepEqual(second.storage.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }]);
+  const backups = readdirSync(backupDir);
+  assert.equal(backups.length, 1);
+  assert.match(backups[0], /^pre-migration-0002-.*\.db$/);
+  const backup = new Database(join(backupDir, backups[0]), { readonly: true });
+  try {
+    assert.equal(backup.prepare("SELECT id FROM projects WHERE id = ?").get(c.projectId).id, c.projectId);
+    assert.deepEqual(backup.prepare("SELECT version FROM migration_ledger").all(), [{ version: 1 }]);
+    assert.equal(backup.prepare("SELECT name FROM sqlite_master WHERE name = ?").get("migration_marker"), undefined);
+  } finally { backup.close(); }
+});
+
+test("relative state directories are refused without creating a directory", async () => {
+  const stateDir = `factory-host-refused-${randomUUID()}`;
+  assert.equal(existsSync(stateDir), false);
+  await assert.rejects(startHost({ stateDir, port: 0, onBootstrapToken() { assert.fail("must not emit a token"); } }), /absolute path/);
+  assert.equal(existsSync(stateDir), false);
+});
+
+test("WSL Windows-drive mount paths are refused before creating anything", async () => {
+  for (const stateDir of [`/mnt/c/factory-host-refused-${randomUUID()}`, `/mnt/c/../c/factory-host-refused-${randomUUID()}`]) {
+    assert.equal(existsSync(stateDir), false);
+    await assert.rejects(startHost({ stateDir, port: 0, onBootstrapToken() { assert.fail("must not emit a token"); } }), /\/mnt\/.*SQLite WAL/);
+    assert.equal(existsSync(stateDir), false);
+  }
+});
+
+test("occupied port rejects startup without token delivery or leaked database handles", async (t) => {
+  const dir = tempDir(t);
+  const occupied = await bind();
+  t.after(async () => { if (occupied.listening) await closeServer(occupied); });
+  const port = occupied.address().port;
+  let calls = 0;
+  await assert.rejects(startHost({ stateDir: dir, port, onBootstrapToken() { calls++; } }), { code: "EADDRINUSE" });
+  assert.equal(calls, 0);
+  // Deletion after restart on Windows checks for a SQLite handle leaked by the failed host.
+  await closeServer(occupied);
+  const next = await launch(t, dir, { port });
+  assert.equal(next.port, port);
+  await next.close();
+  rmSync(join(dir, "host.db"));
+  assert.equal(existsSync(join(dir, "host.db")), false);
+});
+
+test("migration failure closes storage and allows a corrected restart", async (t) => {
+  const dir = tempDir(t);
+  const stateDir = join(dir, "state");
+  const customMigrations = join(dir, "migrations");
+  cpSync(migrationsDir, customMigrations, { recursive: true });
+  writeFileSync(join(customMigrations, "0002_broken.sql"), "invalid SQL;");
+  let calls = 0;
+  await assert.rejects(startHost({ stateDir, port: 0, migrationsDir: customMigrations,
+    onBootstrapToken() { calls++; } }), /migration 2 .* failed/);
+  assert.equal(calls, 0);
+  const next = await launch(t, stateDir);
+  assert.equal(next.storage.raw.open, true);
+  await next.close();
+});
+
+test("bootstrap callback failure closes the listening app and storage", async (t) => {
+  const dir = tempDir(t);
+  const reservation = await bind();
+  const port = reservation.address().port;
+  await closeServer(reservation);
+  let calls = 0;
+  await assert.rejects(startHost({ stateDir: dir, port, onBootstrapToken() { calls++; throw new Error("callback failed"); } }), /callback failed/);
+  assert.equal(calls, 1);
+  const server = await bind(port);
+  await closeServer(server);
+  const next = await launch(t, dir, { port });
+  await next.close();
+  rmSync(join(dir, "host.db"));
+});
+
+test("host close ends open SSE replies before closing storage", async (t) => {
+  const host = await launch(t, undefined, { keepAliveMs: 50 });
+  const session = await bootstrap(host);
+  const c = command();
+  assert.equal((await postCommand(host, session, c)).status, 200);
+  const cursor = host.hub.currentCursor(c.projectId);
+  const response = await fetch(`${host.origin}/projects/${c.projectId}/events?after=${cursor.epoch}:${cursor.sequence}`, {
+    headers: { cookie: session.cookie }, signal: AbortSignal.timeout(5000),
+  });
+  assert.equal(response.status, 200);
+  const reader = response.body.getReader();
+  await host.close();
+  while (!(await reader.read()).done) { /* Consume any ping emitted before shutdown. */ }
+  assert.equal(host.storage.raw.open, false);
+});
+
+test("injected clock is used by migrations and the command pipeline", async (t) => {
+  const now = "2026-11-07T12:00:00.000Z";
+  const host = await launch(t, undefined, { clock: () => new Date(now) });
+  assert.equal(host.storage.raw.prepare("SELECT applied_at FROM migration_ledger").get().applied_at, now);
+  const c = command();
+  assert.equal((await postCommand(host, await bootstrap(host), c)).status, 200);
+  const events = host.hub.readAfter(c.projectId, { epoch: host.hub.currentCursor(c.projectId).epoch, sequence: "0" });
+  assert.ok(events.events.every((event) => event.occurredAt === now));
+});
+
+test("parseEnv defaults are an absolute home state directory and port 8787", () => {
+  assert.deepEqual(parseEnv({}), { stateDir: join(homedir(), "factory-v2", "state"), port: 8787 });
+});
+
+test("parseEnv accepts state, backup, and integer port overrides", () => {
+  assert.deepEqual(parseEnv({ FACTORY_STATE_DIR: "/state", FACTORY_PORT: "12345", FACTORY_BACKUP_DIR: "/backup" }),
+    { stateDir: "/state", port: 12345, backupDir: "/backup" });
+  assert.equal(parseEnv({ FACTORY_PORT: "1" }).port, 1);
+  assert.equal(parseEnv({ FACTORY_PORT: "65535" }).port, 65535);
+});
+
+test("parseEnv rejects noninteger, empty, and out-of-range ports", () => {
+  for (const port of ["", "0", "-1", "65536", "8787.5", "1e3", "abc", " 8787", "8787 ", "Infinity", "9007199254740993"])
+    assert.throws(() => parseEnv({ FACTORY_PORT: port }), /FACTORY_PORT must be an integer from 1 to 65535/);
+});
