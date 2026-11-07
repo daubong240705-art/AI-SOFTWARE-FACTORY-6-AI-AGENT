@@ -681,3 +681,30 @@ test("listenLoopback binds IPv4 port 0 and serves health over real fetch", async
 test("originsFor returns only the configured IPv4 and localhost HTTP origins", () => {
   assert.deepEqual(originsFor(8787), ["http://127.0.0.1:8787", "http://localhost:8787"]);
 });
+
+test("GET /auth/session returns the CSRF token of a valid session only", async (t) => {
+  const { app, sessions, advance } = fixture(t);
+  const login = await bootstrap(app);
+  const cookie = `factory_session=${/factory_session=([^;]+)/.exec(login.headers["set-cookie"])[1]}`;
+  const csrf = login.json().csrfToken;
+
+  const ok = await request(app, { url: "/auth/session", headers: { cookie } });
+  assert.equal(ok.statusCode, 200);
+  assert.deepEqual(ok.json(), { ...successBody, csrfToken: csrf });
+  assert.equal(ok.headers["cache-control"], "no-store");
+  assert.equal(ok.headers["access-control-allow-origin"], undefined);
+
+  failureBody(await request(app, { url: "/auth/session" }), 401, "needs-auth", "authenticate");
+  failureBody(await request(app, { url: "/auth/session", headers: { cookie: "factory_session=forged" } }), 401, "needs-auth", "authenticate");
+  failureBody(await request(app, { url: "/auth/session", headers: { cookie, host: "evil.example:8787" } }), 403, "forbidden", "correct-input");
+  assert.ok(!JSON.stringify((await request(app, { url: "/auth/session" })).json()).includes(csrf));
+
+  // the recovered token is the one the write guard accepts
+  const recovered = await request(app, { method: "POST", url: "/private", payload: {}, headers: { cookie, origin, "x-csrf-token": ok.json().csrfToken } });
+  assert.equal(recovered.statusCode, 200);
+
+  // an expired session recovers nothing
+  advance(13 * 60 * 60 * 1000);
+  assert.equal(sessions.size(), 0);
+  failureBody(await request(app, { url: "/auth/session", headers: { cookie } }), 401, "needs-auth", "authenticate");
+});

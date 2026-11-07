@@ -147,6 +147,11 @@ export function createApiServer(options: ApiServerOptions): FastifyInstance {
     reply.header("Set-Cookie", sessionCookie(current.id, { maxAgeSec: 7 * 24 * 60 * 60 }));
     return { ok: true, apiVersion: API_VERSION, csrfToken: current.csrfToken };
   });
+  // Lets the UI recover its CSRF token after a page reload (the cookie is HttpOnly). Another site cannot
+  // read this response: the Host sends no CORS headers and the cookie is SameSite=Strict.
+  app.get("/auth/session", { preHandler: guards.session }, async (request) => ({
+    ok: true, apiVersion: API_VERSION, csrfToken: request.session?.csrfToken,
+  }));
   app.post("/auth/logout", { preHandler: guards.write }, async (request, reply) => {
     if (request.session) options.sessions.destroy(request.session.id);
     reply.header("Set-Cookie", clearSessionCookie());
