@@ -9,6 +9,7 @@ import { test as nodeTest } from "node:test";
 import Database from "better-sqlite3";
 import { API_VERSION } from "@factory/contracts";
 import { parseEnv, startHost } from "../dist/host.js";
+import { createFakeGateway } from "../dist/models/index.js";
 import { loadPack } from "../dist/org/index.js";
 
 const test = (name, fn) => nodeTest(name, { timeout: 15_000 }, fn);
@@ -73,6 +74,16 @@ test("port zero resolves loopback origins and emits one usable, single-use boots
   assert.equal(second.response.status, 401);
   assert.equal(second.body.error.code, "needs-auth");
   assert.equal(host.tokens.length, 1);
+});
+
+test("host exposes a null model gateway by default and preserves an injected gateway", async (t) => {
+  const defaultHost = await launch(t);
+  assert.deepEqual(defaultHost.models, { gateway: null });
+  const gateway = createFakeGateway([{ text: "hello" }]);
+  const injectedHost = await launch(t, undefined, { modelGateway: gateway });
+  assert.equal(injectedHost.models.gateway, gateway);
+  const disabledHost = await launch(t, undefined, { modelGateway: null });
+  assert.equal(disabledHost.models.gateway, null);
 });
 
 test("bootstrap callback runs only after the server is listening", async (t) => {

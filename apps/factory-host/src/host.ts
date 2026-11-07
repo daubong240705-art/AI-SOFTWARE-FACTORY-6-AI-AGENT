@@ -8,6 +8,7 @@ import { createCommandPipeline } from "./commands/pipeline.js";
 import { EventHub } from "./events/hub.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { systemClock, type Clock } from "./ids.js";
+import type { ModelGateway } from "./models/index.js";
 import { loadPack } from "./org/index.js";
 import { createProjectsCreateHandler } from "./projects/service.js";
 import { openStorage, type Storage } from "./storage/database.js";
@@ -42,9 +43,10 @@ async function freeLoopbackPort(): Promise<number> {
 
 export async function startHost(options: {
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
-  onBootstrapToken: (token: string) => void; keepAliveMs?: number;
+  onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
 }): Promise<{
   app: FastifyInstance; port: number; origins: string[]; storage: Storage; hub: EventHub; close(): Promise<void>;
+  models: { gateway: ModelGateway | null };
 }> {
   // Check POSIX spelling too, including when validating a WSL path on Windows.
   const normalized = posix.normalize(options.stateDir.replaceAll("\\", "/"));
@@ -87,7 +89,7 @@ export async function startHost(options: {
     const token = gate.token;
     if (token === undefined) throw new Error("Bootstrap token unavailable");
     options.onBootstrapToken(token);
-    return { app, port, origins, storage, hub, close };
+    return { app, port, origins, storage, hub, models: { gateway: options.modelGateway ?? null }, close };
   } catch (error) {
     try { await close(); } catch { /* Preserve the original startup failure. */ }
     throw error;

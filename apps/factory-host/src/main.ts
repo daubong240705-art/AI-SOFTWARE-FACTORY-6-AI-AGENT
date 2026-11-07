@@ -1,7 +1,12 @@
 import { parseEnv, startHost } from "./host.js";
+import { createChatCompletionsGateway } from "./models/index.js";
 
 try {
-  const host = await startHost({ ...parseEnv(process.env), onBootstrapToken(token) {
+  const apiKey = process.env.NINE_ROUTER_API_KEY;
+  const modelGateway = apiKey === undefined ? null : createChatCompletionsGateway({
+    baseUrl: process.env.FACTORY_GATEWAY_URL ?? "https://ai.lazy.local/v1", apiKey,
+  });
+  const host = await startHost({ ...parseEnv(process.env), modelGateway, onBootstrapToken(token) {
     process.stdout.write(`One-time bootstrap token: ${token}\n`);
   } });
   process.stdout.write(`Factory Host listening on http://127.0.0.1:${host.port}\n`);
