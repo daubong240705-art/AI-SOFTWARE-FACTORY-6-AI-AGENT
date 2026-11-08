@@ -4,8 +4,8 @@ import { visibleToScope, type KnowledgeScope } from "./permissions.js";
 import { sanitizeAgentText } from "../mcp/security.js";
 
 export class ArtifactLifecycleError extends Error {
-  constructor(readonly code: "not-found" | "transition-not-allowed" | "not-latest" | "visibility-not-allowed" | "validation") {
-    super(code);
+  constructor(readonly code: "not-found" | "transition-not-allowed" | "not-latest" | "visibility-not-allowed" | "validation" | "summary-required") {
+    super(code === "summary-required" ? "summary (L1) is required before approval" : code);
   }
 }
 interface VersionKey { projectId: string; artifactId: string; version: number }
@@ -78,11 +78,17 @@ export function markDependantsStale(raw: Database, input: {
 }
 
 export function transitionArtifactVersion(raw: Database, input: VersionKey & {
-  to: ArtifactStatus; actorId: string; now: string;
+  to: ArtifactStatus; actorId: string; now: string; multiTeam?: boolean;
 }): EntityRef[] {
   const { projectId, artifactId, version, to } = input;
   const previous = versionOf(raw, input);
   if (!canTransitionArtifact(previous.status, to)) throw new ArtifactLifecycleError("transition-not-allowed");
+  if (to === "approved" && input.multiTeam) {
+    const summary = raw.prepare("SELECT kind,abstract_l1 AS l1 FROM artifact_versions WHERE project_id = ? AND artifact_id = ? AND version = ?")
+      .get(projectId, artifactId, version) as { kind: string; l1: string | null };
+    if (["research-report", "requirements", "adr", "data-model", "api-contract", "ui-spec", "plan", "dossier"].includes(summary.kind)
+      && !summary.l1?.trim()) throw new ArtifactLifecycleError("summary-required");
+  }
   if (to === "approved" && raw.prepare(`SELECT 1 FROM artifact_versions WHERE project_id = ? AND artifact_id = ?
     AND version > ? AND status <> 'withdrawn' LIMIT 1`).get(projectId, artifactId, version))
     throw new ArtifactLifecycleError("not-latest");

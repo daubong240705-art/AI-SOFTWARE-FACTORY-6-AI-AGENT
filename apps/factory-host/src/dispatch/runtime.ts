@@ -6,6 +6,7 @@ export interface AttemptContext {
   task: Task;
   seat: { id: string; name: string; role: string };
   handoff: string | null;
+  contextPack?: string | null;
   signal: AbortSignal;
   model?: { baseUrl: string; token: string; models: string[]; socketPath?: string };
   workspace?: { path: string; branch: string; baseSha: string };

@@ -59,7 +59,8 @@ Thứ tự đề xuất: **K1 → O1 → C1 → X1 → P1 → U1 → E1**. K1 đ
 | U1 (tab Knowledge) | Xong | b8db9d4 | Tìm kiếm, duyệt, chi tiết Artifact với Version và provenance; e2e Host thật 8/8 |
 | C1a | Xong | 8864d79 | CTR bất đồng bộ: `request.create/reply/get`, triage, hop ≤ 3, dedup, tự tạo Engagement, tối đa 3 vòng rồi leo thang, quyền đọc `contextRefs` (migration 0006). C1b: xem dòng dưới |
 | C1b | Xong | (commit này) | CTR blocking (park requester, nhả slot, tiếp tục bằng attempt mới với mục `Request results:`), trần chờ 24 giờ, quá hạn triage 7 ngày, hủy lan truyền, ngân sách theo root (15 yêu cầu / 40 attempt) và chặn vòng lặp (migration 0007). Chưa có test cho 2 điểm park khi runtime kết thúc đúng lúc và khôi phục lease có hold (fake runtime chưa điều khiển được) |
-| X1, P1 | Chưa | — | Sau C1 |
+| X1a | Xong | (commit này) | Context Pack xác định: brief + artifact đầu vào (L1/L0) vào prompt, trần token, `omitted`/no-access không lộ tồn tại, bảng đo `context_packs` + route xem, kiểm tra L1 khi đăng ký và bắt buộc L1 khi duyệt (chỉ khi bật multi-team) (migration 0008) |
+| X1b, P1 | Chưa | — | X1b: Project Dossier (Artifact sống) và Resume Briefing; P1: Team Pack nghiên cứu/kiến trúc/thiết kế |
 | U1 (còn lại) | Chưa | — | Màn Team / CTR / Dossier; Codex đã ghi được vào `apps/factory-ui` sau khi cấp quyền |
 | E1 | Chưa | — | Cần bạn chọn model và ngân sách |
 

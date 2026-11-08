@@ -8,6 +8,7 @@ import {
   PLACED_ATTEMPT_STATES, renewLease, transitionAttempt,
 } from "./attempts.js";
 import { buildHandoff } from "./handoff.js";
+import { buildContextPack, renderContextPack, storeContextPack } from "../context/pack.js";
 import { engagementLoad, ensureLocalNode, LOCAL_NODE_ID, markNodeSlots, nodeLoad, seatLoad } from "./node.js";
 import type { AttemptContext, RuntimeEvent, RuntimeRegistry, RuntimeSession } from "./runtime.js";
 import { applyAttemptOutcome, eventsForAttempt, eventsForTask } from "./tasks.js";
@@ -67,6 +68,7 @@ const defaultTimers: Timers = {
 };
 
 export function createDispatcher(deps: {
+  contextMaxTokens?: number;
   multiTeam?: boolean;
   storage: Storage; hub: EventHub; registry: RuntimeRegistry; clock?: Clock; newId?: () => string;
   config?: Partial<DispatcherConfig>; timers?: Timers; onError?: (error: unknown) => void;
@@ -293,9 +295,18 @@ export function createDispatcher(deps: {
       const model = deps.modelAccess?.issue({ attemptId: preparing.id, projectId: preparing.projectId,
         taskId: preparing.taskId, epoch: preparing.epoch,
         ...(entry.workspace === undefined ? {} : { workspacePath: entry.workspace.path }) });
+      let contextPack: string | null = null;
+      try {
+        const pack = buildContextPack(raw, { projectId: preparing.projectId, taskId: preparing.taskId,
+          seatId: seat.id, attemptId: preparing.id, now: clock(),
+          ...(deps.contextMaxTokens === undefined ? {} : { maxTokens: deps.contextMaxTokens }) });
+        storeContextPack(raw, preparing.projectId, preparing.id, pack);
+        contextPack = renderContextPack(pack);
+      } catch { console.error("Context pack unavailable"); }
       const context: AttemptContext = {
         ref: { projectId: preparing.projectId, attemptId: preparing.id, epoch: preparing.epoch, leaseId: preparing.leaseId },
         task, seat, handoff: preparing.epoch > 1 ? buildHandoff(raw, preparing.projectId, preparing.taskId) : null,
+        contextPack,
         signal: entry.controller.signal,
         ...(model === undefined ? {} : { model }),
         ...(entry.workspace === undefined ? {} : { workspace: entry.workspace }),

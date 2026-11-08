@@ -2,6 +2,7 @@ import { z } from "zod";
 import { artifactKindSchema, artifactRefSchema, decisionRequestInputSchema, knowledgeGetInputSchema, knowledgeSearchInputSchema, labelSchema, taskProgressInputSchema, requestCreateInputSchema, requestReplyInputSchema, requestGetInputSchema } from "@factory/contracts";
 import type { TokenGrant } from "../proxy/tokens.js";
 import { McpToolError, sanitizeAgentText } from "./security.js";
+import { cleanArtifactSummary } from "../artifacts/summary.js";
 
 export const agentOutputInputSchema = z.strictObject({
   title: labelSchema, kind: artifactKindSchema,
@@ -81,6 +82,7 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
       if (name === "output.register") {
         const parsed = agentOutputInputSchema.safeParse(args);
         if (!parsed.success) return result("invalid tool input", true);
+        cleanArtifactSummary(parsed.data.abstractL0, parsed.data.abstractL1);
         const ref = deps.registerOutput(grant, parsed.data);
         return result(JSON.stringify({ artifactId: ref.artifactId, version: ref.version }));
       }

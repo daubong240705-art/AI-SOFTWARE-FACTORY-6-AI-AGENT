@@ -41,7 +41,7 @@ import { createEffectExecutor, type EffectExecutor } from "./effects/executor.js
 import { createKnowledgeIndex, type KnowledgeIndex } from "./knowledge/index.js";
 import { registerKnowledgeRoutes } from "./knowledge/routes.js";
 import { createKnowledgeMcp } from "./knowledge/mcp.js";
-import { knowledgeHandlers, withKnowledgeEffects } from "./knowledge/commands.js";
+import { createKnowledgeHandlers, withKnowledgeEffects } from "./knowledge/commands.js";
 import { collectLifecycleChanges } from "./knowledge/lifecycle.js";
 import { createRequestsMcp } from "./requests/mcp.js";
 import { createRequestHandlers, REQUEST_COMMANDS } from "./requests/commands.js";
@@ -458,7 +458,7 @@ export async function startHost(options: {
       "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,
       "approvals.decide": withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch })),
-      ...knowledgeHandlers,
+        ...createKnowledgeHandlers({ multiTeam: options.multiTeam ?? false }),
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
       ...dispatchHandlers,
       "tasks.transition": withKnowledgeEffects(dispatchHandlers["tasks.transition"] ?? tasksTransitionHandler),

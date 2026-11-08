@@ -5,7 +5,7 @@ import type { TokenGrant } from "../proxy/tokens.js";
 import { assertInside, canonicalPath } from "../workspace/paths.js";
 
 export class McpToolError extends Error {
-  constructor(readonly reason: "attempt is not active" | "tool limit reached" | "output could not be registered" | "a decision is already pending" | "invalid tool input") {
+  constructor(readonly reason: "attempt is not active" | "tool limit reached" | "output could not be registered" | "a decision is already pending" | "invalid tool input" | "summary (L1) is too short or unstructured") {
     super(reason);
   }
 }

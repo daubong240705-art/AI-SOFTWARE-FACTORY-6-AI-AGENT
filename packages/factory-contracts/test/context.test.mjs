@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { contextPackSchema,estimateContextTokens } from "../dist/index.js";
+const id="123e4567-e89b-42d3-a456-426614174000";
+const pack=()=>({forTask:id,forSeat:id,builtAt:"2026-11-08T00:00:00.000Z",budget:{maxTokens:6000},tokens:0,sections:{brief:{goal:"Goal",brief:"",acceptance:[],outputContract:"Output"},constraints:{placement:"portable",requiresGo:true,sideEffect:"none",readScope:"project"},inputs:[],decisions:[],openQuestions:[],handoff:null,retrievalHints:[]},omitted:[]});
+test("context contract accepts a minimal pack",()=>assert.deepEqual(contextPackSchema.parse(pack()),pack()));
+for(const maxTokens of [499,32001,600.5,-1])test(`context rejects invalid budget ${maxTokens}`,()=>{const p=pack();p.budget.maxTokens=maxTokens;assert.equal(contextPackSchema.safeParse(p).success,false);});
+for(const maxTokens of [500,32000])test(`context accepts boundary budget ${maxTokens}`,()=>{const p=pack();p.budget.maxTokens=maxTokens;assert.equal(contextPackSchema.safeParse(p).success,true);});
+for(const reason of ["over-budget","no-access","not-found"])test(`context preserves omitted ${reason}`,()=>{const p=pack();p.omitted=[{ref:{artifactId:id,version:1},reason}];assert.equal(contextPackSchema.parse(p).omitted[0].reason,reason);});
+for(const tier of ["L0","L1"])test(`context accepts ${tier} inputs`,()=>{const p=pack();p.sections.inputs=[{ref:{artifactId:id,version:1},tier,title:"Input",kind:"plan",status:"approved",stale:false,why:"declared input",text:"Summary"}];assert.equal(contextPackSchema.safeParse(p).success,true);});
+test("context rejects additional fields",()=>assert.equal(contextPackSchema.safeParse({...pack(),secret:"invalid"}).success,false));
+test("context rejects negative estimates",()=>assert.equal(contextPackSchema.safeParse({...pack(),tokens:-1}).success,false));
+test("context rejects invalid identities",()=>assert.equal(contextPackSchema.safeParse({...pack(),forSeat:"invalid"}).success,false));
+test("context estimates multibyte UTF8 exactly",()=>assert.equal(estimateContextTokens("é界🙂"),3));

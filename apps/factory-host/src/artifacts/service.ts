@@ -5,6 +5,7 @@ import type { Database } from "better-sqlite3";
 import { ARTIFACT_TRANSITIONS, type ArtifactStatus } from "@factory/contracts";
 import { assertInside } from "../workspace/paths.js";
 import type { ContentStore } from "./content-store.js";
+import { cleanArtifactSummary } from "./summary.js";
 import type { TokenGrant } from "../proxy/tokens.js";
 import { agentOutputInputSchema, type AgentOutputInput } from "../mcp/tools.js";
 import { assertActiveGrant, McpToolError, readWorkspaceOutput, sanitizeAgentText } from "../mcp/security.js";
@@ -96,6 +97,7 @@ export function registerAgentOutput(deps: {
     const parsed = agentOutputInputSchema.safeParse(fields);
     if (!parsed.success) throw new McpToolError("output could not be registered");
     const data = parsed.data;
+    const abstractL1 = cleanArtifactSummary(data.abstractL0, data.abstractL1);
     const count = raw.prepare(`SELECT COUNT(*) AS n FROM artifact_versions WHERE project_id = ? AND produced_by_attempt_id = ?`)
       .get(grant.projectId, grant.attemptId) as { n: number };
     if (count.n >= 50) throw new McpToolError("tool limit reached");
@@ -122,7 +124,7 @@ export function registerAgentOutput(deps: {
       size_bytes, status, abstract_l0, abstract_l1, produced_by_attempt_id, supersedes_version, visibility, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, 'project', ?)`)
       .run(grant.projectId, artifactId, version, data.kind, title, data.mediaType, content.hash, content.size,
-        sanitizeAgentText(data.abstractL0), data.abstractL1 === undefined ? null : sanitizeAgentText(data.abstractL1),
+        sanitizeAgentText(data.abstractL0), abstractL1,
         grant.attemptId, previous?.version ?? null, deps.now().toISOString());
     const insert = raw.prepare(`INSERT OR IGNORE INTO artifact_inputs (project_id, artifact_id, version, input_artifact_id, input_version)
       VALUES (?, ?, ?, ?, ?)`);

@@ -1,4 +1,4 @@
-import { API_VERSION, conversationSchema, idSchema, messageSchema, projectSchema } from "@factory/contracts";
+import { API_VERSION, contextPackSchema, conversationSchema, idSchema, messageSchema, projectSchema } from "@factory/contracts";
 import type { FastifyInstance } from "fastify";
 import type { createCommandPipeline, PipelineResult } from "../commands/pipeline.js";
 import { getConversation, listConversations, listMessages } from "../chat/index.js";
@@ -43,6 +43,21 @@ export function createRoutes(deps: {
   const newId = createIdGenerator();
   return (app, guards) => {
     registerEventStream(app, guards, deps);
+    app.get<{ Params: { projectId: string; taskId: string } }>("/projects/:projectId/tasks/:taskId/context",
+      { preHandler: guards.session }, async (request, reply) => {
+        const { projectId, taskId } = request.params;
+        if (!getProject(deps.storage.raw, projectId) || !getTask(deps.storage.raw, projectId, taskId))
+          return failure(reply, 404, "not-found", "Task not found.", "correct-input", newId);
+        const rows = deps.storage.raw.prepare(`SELECT p.attempt_id AS attemptId,a.epoch,p.built_at AS builtAt,
+          p.tokens,p.max_tokens AS maxTokens,p.l0_count AS l0,p.l1_count AS l1,p.omitted_count AS omitted,p.pack_json AS json
+          FROM context_packs p JOIN attempts a ON a.project_id = p.project_id AND a.id = p.attempt_id
+          WHERE a.project_id = ? AND a.task_id = ? ORDER BY a.epoch DESC,p.built_at DESC LIMIT 20`)
+          .all(projectId, taskId) as { attemptId: string; epoch: number; builtAt: string; tokens: number;
+            maxTokens: number; l0: number; l1: number; omitted: number; json: string }[];
+        return { apiVersion: API_VERSION, ok: true, packs: rows.map(({ json, ...row }) => ({
+          ...row, pack: contextPackSchema.parse(JSON.parse(json) as unknown),
+        })) };
+      });
     app.get("/packs", { preHandler: guards.session }, async () => ({
       packs: (deps.packs ?? []).map(({ key, version, name, description, seats }) =>
         ({ key, version, name, description, seatCount: seats.length, seats })),

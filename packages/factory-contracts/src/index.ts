@@ -16,3 +16,4 @@ export * from "./effects.js";
 export * from "./policy.js";
 export * from "./nodes.js";
 export * from "./mcp-tools.js";
+export * from "./context.js";

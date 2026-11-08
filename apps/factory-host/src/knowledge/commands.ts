@@ -34,6 +34,13 @@ export const knowledgeHandlers = {
   "artifacts.clear-stale": artifactsClearStaleHandler,
 };
 
+export function createKnowledgeHandlers(options: { multiTeam: boolean }): typeof knowledgeHandlers {
+  return { ...knowledgeHandlers, "artifacts.transition": (ctx, { projectId, payload }) =>
+    apply(ctx, projectId, () => ({ effects: transitionArtifactVersion(ctx.raw, {
+      projectId, ...payload, actorId: ctx.actorId, now: ctx.clock().toISOString(), multiTeam: options.multiTeam,
+    }) })) };
+}
+
 /** Review decisions keep their existing effects and add the versions/tasks changed by approval. */
 export function withKnowledgeEffects<T extends Command["type"]>(handler: HandlerMap[T]): HandlerMap[T] {
   return ((ctx: HandlerContext, command: Parameters<HandlerMap[T]>[1]) => apply(ctx, command.projectId, () => {

@@ -50,7 +50,8 @@ function promptFor(context: AttemptContext, maxBytes: number, token: string): st
     "If a business decision blocks you and you cannot make it yourself, call factory_decision_request with the question and 2-6 options, then stop immediately without further tool calls. The operator will answer and a new session will continue your work.",
   ].join("\n"));
   if (prompt.includes("\0") || Buffer.byteLength(prompt) > maxBytes) return invalid();
-  return utf8Prefix(prompt + (context.handoff ? `\nHandoff:\n${redact(context.handoff.replaceAll("\0", ""))}` : ""), maxBytes);
+  return utf8Prefix(prompt + (context.contextPack ? `\nContext:\n${redact(context.contextPack.replaceAll("\0", ""))}` : "")
+    + (context.handoff ? `\nHandoff:\n${redact(context.handoff.replaceAll("\0", ""))}` : ""), maxBytes);
 }
 
 function gitDirectories(workspace: string, roots: SandboxSpec["roots"]): NonNullable<SandboxSpec["gitDirs"]> {

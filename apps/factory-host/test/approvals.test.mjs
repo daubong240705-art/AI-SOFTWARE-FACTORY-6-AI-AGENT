@@ -430,16 +430,16 @@ function scratch() { return fs.mkdtempSync(join(tmpdir(), "factory-approvals-"))
 function cleanupScratch(root) {
   assert.ok(resolve(root).startsWith(resolve(tmpdir()) + sep + "factory-approvals-")); fs.rmSync(root, { recursive: true, force: true });
 }
-test("fresh migration ledger reaches exactly 0007", (t) => {
-  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }]);
+test("fresh migration ledger reaches exactly 0008", (t) => {
+  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }]);
 });
-test("0002 database upgrades additively to 0007 with backup and existing review preserved", (t) => {
+test("0002 database upgrades additively to 0008 with backup and existing review preserved", (t) => {
   const root = scratch(t); const dir = join(root, "migrations"); fs.mkdirSync(dir);
   for (const name of ["0001_core.sql", "0002_dispatch.sql"]) fs.copyFileSync(join(migrationsDir, name), join(dir, name));
   const s = openStorage(join(root, "host.db")); t.after(() => s.close()); t.after(() => cleanupScratch(root)); s.migrate({ migrationsDir: dir, backupDir: null });
   s.raw.prepare("INSERT INTO projects VALUES (?,1,'Upgrade','directory','/private/workspace','active')").run(randomUUID());
-  assert.deepEqual(s.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [3, 4, 5, 6, 7]);
-  assert.deepEqual(s.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }]);
+  assert.deepEqual(s.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [3, 4, 5, 6, 7, 8]);
+  assert.deepEqual(s.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }]);
   assert.equal(s.raw.prepare("SELECT count(*) AS n FROM projects").get().n, 1); assert.deepEqual(s.raw.prepare("PRAGMA foreign_key_check").all(), []);
 });
 test("host expires at startup, schedules an injectable 60s sweep and clears it on close", async (t) => {
