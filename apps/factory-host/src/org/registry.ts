@@ -4,7 +4,9 @@ import { loadPack, type LoadedPack } from "./pack.js";
 
 export interface RegistryPack {
   key: string; version: string; name: string; description: string;
-  seats: { name: string; role: string; runtime: LoadedPack["manifest"]["seats"][number]["runtime"]; slots: number; isLead: boolean }[];
+  seats: { name: string; role: string; runtime: LoadedPack["manifest"]["seats"][number]["runtime"]; slots: number; isLead: boolean;
+    capabilities?: string[]; tools?: string[] }[];
+  produces?: LoadedPack["manifest"]["produces"];
   isDefault: boolean;
 }
 const loaded = new WeakMap<RegistryPack, LoadedPack>();
@@ -13,8 +15,10 @@ const loaded = new WeakMap<RegistryPack, LoadedPack>();
 export function registryEntry(pack: LoadedPack, isDefault = false): RegistryPack {
   const { manifest } = pack;
   const entry: RegistryPack = { key: manifest.key, version: manifest.version, name: manifest.name,
-    description: manifest.description, seats: manifest.seats.map(({ name, role, runtime, slots, isLead }) =>
-      ({ name, role, runtime, slots, isLead })), isDefault };
+    description: manifest.description, seats: manifest.seats.map(({ name, role, runtime, slots, isLead, capabilities, tools }) =>
+      ({ name, role, runtime, slots, isLead, ...(capabilities === undefined ? {} : { capabilities }),
+        ...(tools === undefined ? {} : { tools }) })), isDefault,
+    ...(manifest.produces === undefined ? {} : { produces: manifest.produces }) };
   loaded.set(entry, pack);
   return entry;
 }
@@ -34,7 +38,7 @@ export function loadPackRegistry(packsDir: string, options: {
   catch { report(); return options.defaultPack ? [registryEntry(options.defaultPack, true)] : []; }
   const entries: RegistryPack[] = [];
   for (const directory of directories.sort((a, b) => a.name.localeCompare(b.name))) {
-    if (!directory.isDirectory()) continue;
+    if (!directory.isDirectory() || directory.name.startsWith("_") || directory.name.startsWith(".")) continue;
     let pack: LoadedPack;
     try { pack = loadPack(join(packsDir, directory.name)); }
     catch { report(); continue; }

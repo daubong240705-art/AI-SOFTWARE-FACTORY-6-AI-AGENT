@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import type { Task } from "@factory/contracts";
 import { listSeats } from "../org/service.js";
+import { getSeatCapabilities } from "../instructions/snapshot.js";
 
 export class DispatchCommandError extends Error {
   constructor(readonly code: string) { super(code); this.name = "DispatchCommandError"; }
@@ -32,6 +33,22 @@ export function pickSeat(raw: Database, projectId: string, task: Task): { seatId
     return { seatId: lead.id, reason: "lead only team" };
   }
   const capabilities = task.requiredCapabilities.map((value) => value.toLowerCase());
+  const declared = workers.map((seat) => ({ seat, capabilities: getSeatCapabilities(raw, { seatId: seat.id }) }));
+  if (declared.some((entry) => entry.capabilities !== null)) {
+    const candidates = declared.filter((entry) => capabilities.every((required) =>
+      entry.capabilities?.some((value) => value.toLowerCase() === required || value.toLowerCase().startsWith(`${required}.`))));
+    if (candidates.length === 0) throw new DispatchCommandError("no-seat-for-capabilities");
+    const load = raw.prepare(`SELECT count(*) AS n FROM attempts a
+      JOIN attempt_seats s ON s.project_id = a.project_id AND s.attempt_id = a.id
+      JOIN seats seat ON seat.id = s.seat_id
+      WHERE a.project_id = ? AND seat.team_id = ? AND s.seat_id = ?
+      AND a.state IN ('queued', 'leased', 'preparing', 'running', 'waiting-input', 'parked')`);
+    // Stable sorting preserves listSeats' name/id order for equal loads.
+    const ranked = candidates.map(({ seat }) => ({ seat,
+      load: (load.get(projectId, engagement!.team_id, seat.id) as { n: number }).n }));
+    ranked.sort((a, b) => a.load - b.load);
+    return { seatId: ranked[0]!.seat.id, reason: capabilities.length ? "capability match" : "least loaded" };
+  }
   const words = new Set([task.title.toLowerCase(), ...capabilities].join(" ").split(/[^a-z0-9]+/));
   const rule = rules.find((entry) => capabilities.some((value) => entry.prefixes.some((prefix) => value.startsWith(prefix)))
     || entry.words.some((word) => words.has(word)));

@@ -1,0 +1,46 @@
+{
+  "key": "template-team",
+  "version": "0.1.0",
+  "name": "Template Team",
+  "description": "Produces scoped, evidence-based deliverables and reviewable handoffs for a project.",
+  "seats": [
+    {
+      "name": "Lead",
+      "role": "Team coordinator",
+      "profile": "profiles/lead.md",
+      "runtime": "api-agent",
+      "slots": 1,
+      "isLead": true,
+      "capabilities": [
+        "delivery.document"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    },
+    {
+      "name": "Worker",
+      "role": "Deliverable author",
+      "profile": "profiles/worker.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": [
+        "delivery.document"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    }
+  ],
+  "skills": [
+    "skills/example-skill"
+  ],
+  "produces": [
+    "other"
+  ]
+}

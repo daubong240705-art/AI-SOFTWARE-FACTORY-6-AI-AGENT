@@ -32,6 +32,7 @@ export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
   return clean.data;
 }
 export interface McpDeps {
+  toolPolicy?: (grant: TokenGrant) => { allows(name: string): boolean };
   skills?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   briefing?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   requests?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
@@ -42,6 +43,13 @@ export interface McpDeps {
 }
 export interface ToolResult { content: { type: "text"; text: string }[]; isError: boolean }
 const result = (text: string, isError = false): ToolResult => ({ content: [{ type: "text", text }], isError });
+
+const coreTools = new Set(["task.progress", "output.register", "decision.request", "skill.get"]);
+export function toolAllowed(deps: McpDeps, grant: TokenGrant, name: string): boolean {
+  if (coreTools.has(name) || deps.toolPolicy === undefined) return true;
+  try { return deps.toolPolicy(grant).allows(name); }
+  catch { return false; }
+}
 
 export const toolDefinitions = [
   { name: "skill.get", description: "Read a skill from this team's pinned pack snapshot.", inputSchema: z.toJSONSchema(skillGetInputSchema) },
@@ -66,6 +74,7 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
   const progressCalls = new Map<string, number>();
   return { call(grant, name, args) {
     try {
+      if (!toolAllowed(deps, grant, name)) return result("tool is not available", true);
       if (name === "skill.get") return deps.skills?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "project.briefing") return deps.briefing?.call(grant,name,args) ?? result("tool is not available",true);
       if (name === "request.create" || name === "request.reply" || name === "request.get")

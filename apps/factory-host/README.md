@@ -285,3 +285,54 @@ has the same key and version. Unavailable packs stay without instructions, and
 backfill or delivery failures log a generic message without failing attempts.
 `attempt_instructions` records provenance and byte metrics per attempt; the task
 context endpoint includes `instructions` metadata, or null for older attempts.
+
+## Pack v2: capabilities, tools and the template (V2a)
+
+Pack v2 adds optional fields to the existing manifest, with no migration or new
+dependency. `seats[].capabilities` contains up to 12 unique identifiers matching
+`^[a-z0-9][a-z0-9.-]{0,39}$`. `seats[].tools` contains up to 32 exact Host tool
+names or `prefix.*` patterns matching at least one known Host tool. Duplicate
+tools produce a validator warning. `produces` contains up to 13 unique artifact
+kinds and is informational. `GET /packs` exposes these fields when declared,
+alongside seat metadata, without profile or skill text.
+
+An explicit owner always wins. If any non-lead seat declares capabilities, the
+Host selects a worker satisfying every required capability: equality or a dotted
+descendant, ignoring case. For example, `research.evidence.sources` satisfies
+`research.evidence`. It selects the worker with the fewest live attempts in that
+project and team (queued, leased, preparing, running, waiting-input, parked),
+breaking ties by name then id. Without requirements, all workers are candidates.
+Unsatisfied requirements fail with `no-seat-for-capabilities`; a Lead-only team
+falls back to its Lead. Teams without worker capability declarations retain the
+legacy keyword rules. Capabilities and tools resolve through the team's pinned
+snapshot by seat name; disk edits never change an existing team.
+
+Core tools are always allowed: `task.progress`, `output.register`,
+`decision.request`, `skill.get`. An allowlist can only REMOVE optional Host tools,
+never add tools or affect the core tools. Omitted `tools` preserves v1 access;
+`tools: []` denies all optional tools. Both `tools/list` and `tools/call` enforce
+the policy from the attempt's persisted seat. Denied tools are hidden and return
+the same `tool is not available` error as unknown tools, before side effects or
+tool counters. Existing Host availability and permission checks still apply.
+
+Copy `packs/_template` to a new ordinary directory such as `packs/marketing-team`,
+set its key, name, charter, seat capabilities and tool rules, then write its English
+profiles and skills. Build and validate from `apps/factory-host`:
+
+```sh
+npm run build
+npm run pack:check -- ../../packs/marketing-team
+npm run pack:check -- ../../packs/_template ../../packs/software-team ../../packs/research-team
+```
+
+The validator prints one block per pack, metadata counts and digest, content-free
+errors and advisory warnings. Exit codes are 0 when all packs pass, 1 for invalid
+packs, and 2 for usage errors. Profiles above 450 words, skills above 700 words,
+descriptions above 250 characters, missing capabilities, duplicate tools,
+unsupported Lead capabilities and missing `produces` generate warnings.
+Missing skill descriptions are errors for v2 packs and advisory warnings for
+legacy packs, preserving existing pinned content such as software-team.
+Directories beginning with `_` or `.` are silently skipped by the registry.
+Restart the Host to discover the new pack, create a team from its key/version,
+and engage it in a project. This adds a team entirely through data. Bump the pack
+version to publish subsequent changes; existing teams retain their snapshot.

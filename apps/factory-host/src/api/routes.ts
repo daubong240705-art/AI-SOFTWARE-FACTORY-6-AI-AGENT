@@ -66,8 +66,9 @@ export function createRoutes(deps: {
         })) };
       });
     app.get("/packs", { preHandler: guards.session }, async () => ({
-      packs: (deps.packs ?? []).map(({ key, version, name, description, seats }) =>
-        ({ key, version, name, description, seatCount: seats.length, seats })),
+      packs: (deps.packs ?? []).map(({ key, version, name, description, seats, produces }) =>
+        ({ key, version, name, description, seatCount: seats.length, seats,
+          ...(produces === undefined ? {} : { produces }) })),
     }));
     app.get("/teams", { preHandler: guards.session }, async () => ({ teams: teamViews(deps.storage.raw) }));
     app.get<{ Params: { teamId: string } }>("/teams/:teamId/queue", { preHandler: guards.session }, async (request, reply) => {

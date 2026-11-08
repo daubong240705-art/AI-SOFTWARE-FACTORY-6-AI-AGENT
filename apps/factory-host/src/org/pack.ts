@@ -1,13 +1,17 @@
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
-import { labelSchema, runtimeKindSchema } from "@factory/contracts";
+import { artifactKindSchema, labelSchema, MCP_TOOL_NAMES, runtimeKindSchema } from "@factory/contracts";
 import { z } from "zod";
 
 const relativePathSchema = z.string().min(1).refine((path) =>
   !isAbsolute(path) && !win32.isAbsolute(path) && !path.includes(":") && !path.includes("\0") &&
   !path.split(/[/\\]/).some((part) => part === ".." || part === "." || part === ""),
 "Expected a relative path inside the pack without traversal");
+
+const capabilitySchema = z.string().regex(/^[a-z0-9][a-z0-9.-]{0,39}$/);
+const toolSchema = z.string().refine((name) => MCP_TOOL_NAMES.some((tool) => tool === name
+  || (/^[a-z0-9]+(?:\.[a-z0-9]+)*\.\*$/.test(name) && tool.startsWith(name.slice(0, -1)))), "unknown tool");
 
 export const packManifestSchema = z.strictObject({
   key: z.string().regex(/^[a-z0-9-]{2,40}$/),
@@ -18,8 +22,13 @@ export const packManifestSchema = z.strictObject({
     name: labelSchema, role: labelSchema,
     profile: relativePathSchema.refine((path) => path.endsWith(".md"), "Expected a .md profile"),
     runtime: runtimeKindSchema, slots: z.number().int().min(1).max(8), isLead: z.boolean(),
+    capabilities: z.array(capabilitySchema).max(12).refine((values) => new Set(values).size === values.length,
+      "duplicate capability").optional(),
+    tools: z.array(toolSchema).max(32).optional(),
   })).min(1).max(16),
   skills: z.array(relativePathSchema),
+  produces: z.array(artifactKindSchema).max(13).refine((values) => new Set(values).size === values.length,
+    "duplicate artifact kind").optional(),
 }).superRefine((manifest, ctx) => {
   if (new Set(manifest.seats.map((seat) => seat.name)).size !== manifest.seats.length)
     ctx.addIssue({ code: "custom", path: ["seats"], message: "Duplicate seat name" });
@@ -56,7 +65,9 @@ function inside(root: string, path: string): string {
 export function loadPack(dir: string): LoadedPack {
   const root = realpathSync(resolve(dir));
   const manifestBytes = readFileSync(inside(root, "pack.json"));
-  const manifest = packManifestSchema.parse(JSON.parse(manifestBytes.toString("utf8")));
+  let manifest: LoadedPack["manifest"];
+  try { manifest = packManifestSchema.parse(JSON.parse(manifestBytes.toString("utf8")) as unknown); }
+  catch { throw new Error("Invalid pack manifest"); }
   const hash = createHash("sha256");
   const files: LoadedPack["files"] = { profiles: [], skills: [] };
   // Length-prefixed byte strings give an unambiguous concatenation, independent of OS or absolute directory.

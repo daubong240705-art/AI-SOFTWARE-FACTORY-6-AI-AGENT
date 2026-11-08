@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { TokenGrant } from "../proxy/tokens.js";
-import { createMcpTools, toolDefinitions, type McpDeps } from "./tools.js";
+import { createMcpTools, toolAllowed, toolDefinitions, type McpDeps } from "./tools.js";
 
 export interface RpcResponse { status: number; body?: unknown }
 const object = (value: unknown): value is Record<string, unknown> =>
@@ -53,7 +53,7 @@ export function createMcpHandler(deps: McpDeps, version = "0.1.0", options: { ma
         case "ping":
         case "tools/list":
           if (!empty.safeParse(params).success) return error(-32602);
-          result = body.method === "ping" ? {} : { tools: definitions };
+          result = body.method === "ping" ? {} : { tools: definitions.filter((tool) => toolAllowed(deps, grant, tool.name)) };
           break;
         case "tools/call": {
           const parsed = call.safeParse(params);

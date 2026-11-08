@@ -49,6 +49,7 @@ import { createDossierHandlers } from "./dossier/commands.js";
 import { createBriefingMcp } from "./dossier/mcp.js";
 import { backfillPackSnapshots } from "./instructions/snapshot.js";
 import { createSkillsMcp } from "./instructions/mcp.js";
+import { createToolPolicy } from "./mcp/policy.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -362,6 +363,7 @@ export async function startHost(options: {
       startModelProxy = async () => {
       const dispatcher = dispatch;
       const mcp = dispatcher === null ? undefined : createMcpHandler({
+        toolPolicy: createToolPolicy(raw),
         skills: createSkillsMcp({ raw, now: clock }),
         ...(options.multiTeam ? { briefing: createBriefingMcp({ raw,store: artifacts.store,now: clock }) } : {}),
         ...(options.multiTeam ? { requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }) } : {}),

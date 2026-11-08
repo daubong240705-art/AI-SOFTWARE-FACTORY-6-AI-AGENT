@@ -10,7 +10,18 @@
       "profile": "profiles/lead.md",
       "runtime": "api-agent",
       "slots": 1,
-      "isLead": true
+      "isLead": true,
+      "capabilities": [
+        "architecture.adr",
+        "architecture.data-model",
+        "architecture.api",
+        "review.architecture"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
     },
     {
       "name": "Architect",
@@ -18,7 +29,15 @@
       "profile": "profiles/architect.md",
       "runtime": "native-opencode",
       "slots": 1,
-      "isLead": false
+      "isLead": false,
+      "capabilities": [
+        "architecture.adr"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
     },
     {
       "name": "Data Designer",
@@ -26,7 +45,15 @@
       "profile": "profiles/data-designer.md",
       "runtime": "native-opencode",
       "slots": 1,
-      "isLead": false
+      "isLead": false,
+      "capabilities": [
+        "architecture.data-model"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
     },
     {
       "name": "API Designer",
@@ -34,7 +61,15 @@
       "profile": "profiles/api-designer.md",
       "runtime": "native-opencode",
       "slots": 1,
-      "isLead": false
+      "isLead": false,
+      "capabilities": [
+        "architecture.api"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
     },
     {
       "name": "Architecture Reviewer",
@@ -42,7 +77,16 @@
       "profile": "profiles/architecture-reviewer.md",
       "runtime": "native-opencode",
       "slots": 1,
-      "isLead": false
+      "isLead": false,
+      "capabilities": [
+        "review.architecture"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.get",
+        "request.reply",
+        "project.briefing"
+      ]
     }
   ],
   "skills": [
@@ -51,5 +95,11 @@
     "skills/data-model-design",
     "skills/api-contract-design",
     "skills/architecture-review"
+  ],
+  "produces": [
+    "adr",
+    "data-model",
+    "api-contract",
+    "plan"
   ]
 }
