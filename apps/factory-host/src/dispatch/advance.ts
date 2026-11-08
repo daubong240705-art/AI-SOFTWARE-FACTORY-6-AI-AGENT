@@ -3,7 +3,7 @@ import type { Task } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import { getTask, listTasks } from "../work/service.js";
 import type { Dispatcher } from "./dispatcher.js";
-import { DispatchCommandError, pickSeat } from "./seats.js";
+import { DispatchCommandError, engagementAvailable, pickSeat } from "./seats.js";
 import { liveAttemptOfTask } from "./attempts.js";
 import { moveTask } from "./tasks.js";
 
@@ -20,6 +20,8 @@ export function startTask(raw: Database, projectId: string, taskId: string, deps
     throw new CommandError("conflict", "task dependencies are not done", "refresh");
   if (liveAttemptOfTask(raw, projectId, taskId))
     throw new CommandError("conflict", "task has a live attempt", "refresh");
+  if (deps.dispatcher.multiTeam && !engagementAvailable(raw, projectId, task.engagementId))
+    throw new CommandError("conflict", "task engagement or team is not active", "refresh");
   let seatId: string;
   try { seatId = pickSeat(raw, projectId, task).seatId; }
   catch (error) {
@@ -42,6 +44,7 @@ export function advanceTasks(raw: Database, projectId: string, deps: { dispatche
   }
   for (const task of listTasks(raw, projectId)) {
     if (task.state !== "ready" || !dependenciesDone(raw, projectId, task)) continue;
+    if (deps.dispatcher.multiTeam && !engagementAvailable(raw, projectId, task.engagementId)) continue;
     const next = task.gate.requiresGo ? moveTask(raw, projectId, task.id, "awaiting-go")
       : startTask(raw, projectId, task.id, deps).task;
     changed.set(task.id, next);

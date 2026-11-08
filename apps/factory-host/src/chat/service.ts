@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import { conversationSchema, messageSchema, type Command, type Conversation, type Message } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerMap } from "../commands/pipeline.js";
-import { findLeadSeat, getActiveEngagement } from "../org/service.js";
+import { findLeadSeat, getPrimaryEngagement } from "../org/service.js";
 
 interface ConversationRow { project_id: string; id: string; revision: number; seat_id: string; task_id: string | null; title: string }
 interface MessageRow { body_json: string; ordinal: number }
@@ -101,7 +101,7 @@ export const conversationsCreateHandler: HandlerMap["conversations.create"] = ({
     throw new CommandError("not-found", "project not found", "correct-input");
   if (raw.prepare("SELECT id FROM conversations WHERE id = ?").get(payload.conversationId))
     throw new CommandError("conflict", "conversation already exists", "correct-input");
-  const engagement = getActiveEngagement(raw, projectId);
+  const engagement = getPrimaryEngagement(raw, projectId);
   const lead = engagement === undefined ? undefined : findLeadSeat(raw, engagement.teamId);
   if (!lead || lead.id !== payload.agentId)
     throw new CommandError("validation", "only the Lead seat can chat in M1", "correct-input");

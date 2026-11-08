@@ -156,6 +156,22 @@ export const commandSchema = z.discriminatedUnion("type", [
       maxConcurrent: z.number().int().min(1).max(32),
     }),
   ),
+  command("teams.create-from-pack", z.strictObject({
+    teamId: idSchema, packKey: labelSchema, packVersion: labelSchema,
+  })),
+  command("teams.set-lifecycle", z.strictObject({
+    ...change, teamId: idSchema, lifecycle: z.enum(["active", "paused", "archived"]),
+  })),
+  command("engagements.update", z.strictObject({
+    ...change, engagementId: idSchema,
+    priority: z.number().int().min(0).max(100).optional(),
+    maxConcurrent: z.number().int().min(1).max(32).optional(),
+    state: z.enum(["active", "paused", "ended"]).optional(),
+  })),
+  // Seats remain elastic; dedicated node assignment arrives in M4.
+  command("seats.update", z.strictObject({
+    ...change, seatId: idSchema, slots: z.number().int().min(1).max(8).optional(),
+  })),
   command(
     "tasks.create",
     z.strictObject({

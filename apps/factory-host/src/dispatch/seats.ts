@@ -14,6 +14,12 @@ const rules = [
   { name: "PM", prefixes: ["plan.", "product."], words: [] },
 ];
 
+export function engagementAvailable(raw: Database, projectId: string, engagementId: string | null): boolean {
+  return raw.prepare(`SELECT e.id FROM engagements e JOIN teams t ON t.id = e.team_id
+    WHERE e.project_id = ? AND e.id = ? AND e.state = 'active' AND t.lifecycle = 'active'`)
+    .get(projectId, engagementId) !== undefined;
+}
+
 export function pickSeat(raw: Database, projectId: string, task: Task): { seatId: string; reason: string } {
   if (task.ownerSeatId !== null) return { seatId: task.ownerSeatId, reason: "explicit owner" };
   const engagement = raw.prepare("SELECT team_id FROM engagements WHERE project_id = ? AND id = ?")

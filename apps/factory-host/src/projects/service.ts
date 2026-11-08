@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import { projectSchema, type Project } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerMap } from "../commands/pipeline.js";
-import { ensureEngagement, ensureTeamFromPack, type LoadedPack } from "../org/index.js";
+import { ensureEngagement, ensureTeamFromPack, getTeam, type LoadedPack } from "../org/index.js";
 
 const createProject: HandlerMap["projects.create"] = ({ raw, hub }, command) => {
   const { projectId, payload } = command;
@@ -18,10 +18,12 @@ const createProject: HandlerMap["projects.create"] = ({ raw, hub }, command) => 
 
 export const projectsCreateHandler: HandlerMap["projects.create"] = createProject;
 
-export function createProjectsCreateHandler({ pack }: { pack: LoadedPack }): HandlerMap["projects.create"] {
+export function createProjectsCreateHandler({ pack, multiTeam = false }: { pack: LoadedPack; multiTeam?: boolean }): HandlerMap["projects.create"] {
   return (ctx, command) => {
     const result = createProject(ctx, command);
     const team = ensureTeamFromPack(ctx.raw, pack, ctx);
+    if (multiTeam && getTeam(ctx.raw, team.teamId)?.lifecycle !== "active")
+      throw new CommandError("conflict", "default team is not active", "refresh");
     const engagement = ensureEngagement(ctx.raw, { projectId: command.projectId, teamId: team.teamId }, ctx);
     if (team.created) result.effects.push({ kind: "team", id: team.teamId, revision: 1 });
     result.effects.push({ kind: "engagement", id: engagement.engagementId, revision: 1 });

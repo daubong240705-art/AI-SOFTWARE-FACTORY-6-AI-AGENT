@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import { canTransitionTask, taskSchema, type Task, type TaskState, type TaskProposeInput } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerMap } from "../commands/pipeline.js";
-import { deterministicUuid, getActiveEngagement } from "../org/service.js";
+import { deterministicUuid, getPrimaryEngagement } from "../org/service.js";
 
 interface TaskRow {
   id: string; project_id: string; revision: number; code: string; title: string; goal: string; brief: string;
@@ -87,7 +87,7 @@ export const tasksCreateHandler: HandlerMap["tasks.create"] = ({ raw }, { projec
     if (!raw.prepare("SELECT id FROM tasks WHERE project_id = ? AND id = ?").get(projectId, id))
       throw new CommandError("not-found", "referenced task not found in project", "correct-input");
   }
-  const engagementId = payload.engagementId ?? getActiveEngagement(raw, projectId)?.id ?? null;
+  const engagementId = payload.engagementId ?? getPrimaryEngagement(raw, projectId)?.id ?? null;
   const engagement = engagementId === null ? undefined : raw.prepare("SELECT team_id FROM engagements WHERE project_id = ? AND id = ?")
     .get(projectId, engagementId) as { team_id: string } | undefined;
   if (engagementId !== null && !engagement)

@@ -3,7 +3,7 @@ import { appendMessage, getConversation, listPendingTurns, setTurnState, type Le
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import { ModelError, type ModelGateway, type ModelResult, type ReasoningEffort } from "../models/gateway.js";
-import { findLeadSeat, getActiveEngagement, listSeats } from "../org/service.js";
+import { findLeadSeat, getPrimaryEngagement, listSeats } from "../org/service.js";
 import { checkAndReserve, DEFAULT_BUDGET_CONFIG, recordUsage, type BudgetConfig } from "../policy/budget.js";
 import { getProject } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
@@ -73,7 +73,7 @@ export function createLeadRunner(deps: {
       const project = getProject(raw, turn.projectId);
       if (!conversation || !project) throw new Error("Missing turn context");
       taskId = conversation.workItemId;
-      const engagement = getActiveEngagement(raw, turn.projectId);
+      const engagement = getPrimaryEngagement(raw, turn.projectId);
       const lead = engagement && findLeadSeat(raw, engagement.teamId);
       const seats = lead && engagement ? listSeats(raw, engagement.teamId) : [];
       const user = raw.prepare("SELECT body_json, ordinal FROM messages WHERE project_id = ? AND conversation_id = ? AND id = ?")

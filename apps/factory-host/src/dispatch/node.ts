@@ -45,6 +45,15 @@ export function seatLoad(raw: Database, seatId: string): { slots: number; used: 
   return row ?? { slots: 0, used: 0 };
 }
 
+/** Queued attempts do not hold capacity; uncertain executions do. */
+export function engagementLoad(raw: Database, projectId: string, engagementId: string): number {
+  const states = [...CAPACITY_ATTEMPT_STATES];
+  return (raw.prepare(`SELECT COUNT(*) AS used FROM attempts a JOIN tasks t
+    ON t.project_id = a.project_id AND t.id = a.task_id
+    WHERE t.project_id = ? AND t.engagement_id = ? AND a.state IN (${states.map(() => "?").join(",")})`)
+    .get(projectId, engagementId, ...states) as { used: number }).used;
+}
+
 export function heartbeatNode(raw: Database, nodeId: string, now: string): void {
   raw.prepare("UPDATE nodes SET last_heartbeat_at = ?, revision = revision + 1 WHERE id = ?").run(now, nodeId);
 }

@@ -509,7 +509,7 @@ test("injected clock is used by migrations and the command pipeline", async (t) 
 
 test("parseEnv defaults are an absolute home state directory and port 8787", () => {
   const stateDir = join(homedir(), "factory-v2", "state");
-  assert.deepEqual(parseEnv({}), { stateDir, port: 8787, pushRemotes: null, dispatch: { nodeSlots: 2 }, workspace: {
+  assert.deepEqual(parseEnv({}), { stateDir, port: 8787, multiTeam: false, pushRemotes: null, dispatch: { nodeSlots: 2 }, workspace: {
     projectsRoot: existsSync('/srv/factory/workspaces') ? resolve('/srv/factory/workspaces') : join(homedir(), 'factory-v2', 'workspaces'),
     worktreesRoot: join(homedir(), 'factory-v2', 'worktrees'),
   }, periodicBackup: {
@@ -520,7 +520,7 @@ test("parseEnv defaults are an absolute home state directory and port 8787", () 
 test("parseEnv accepts state, backup, and integer port overrides", () => {
   assert.deepEqual(parseEnv({ FACTORY_STATE_DIR: "/state", FACTORY_PORT: "12345", FACTORY_BACKUP_DIR: "/backup",
     FACTORY_MIGRATION_BACKUP_DIR: "/migration", FACTORY_BACKUP_INTERVAL_MINUTES: "30" }),
-    { stateDir: "/state", port: 12345, pushRemotes: null, dispatch: { nodeSlots: 2 }, workspace: parseEnv({}).workspace,
+    { stateDir: "/state", port: 12345, multiTeam: false, pushRemotes: null, dispatch: { nodeSlots: 2 }, workspace: parseEnv({}).workspace,
       backupDir: "/migration", periodicBackup: { dir: "/backup", intervalMs: 1_800_000 } });
   assert.equal(parseEnv({ FACTORY_PORT: "1" }).port, 1);
   assert.equal(parseEnv({ FACTORY_PORT: "65535" }).port, 65535);

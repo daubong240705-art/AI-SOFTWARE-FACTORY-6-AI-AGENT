@@ -16,7 +16,7 @@ import type { ModelGateway } from "./models/index.js";
 import { createUpstream } from "./models/upstream.js";
 import { createModelProxy, createTokenRegistry, type TokenRegistry } from "./proxy/index.js";
 import type { ModelAccess } from "./dispatch/dispatcher.js";
-import { loadPack } from "./org/index.js";
+import { createOrgHandlers, loadPack, loadPackRegistry, ORG_COMMANDS } from "./org/index.js";
 import { budgetsSetHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
 import { createProjectsCreateHandler } from "./projects/service.js";
 import { openStorage, type Storage } from "./storage/database.js";
@@ -68,6 +68,7 @@ async function prepareProxySocket(path: string): Promise<void> {
 }
 
 export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
+  multiTeam: boolean;
   stateDir: string; port: number; backupDir?: string;
   periodicBackup: { dir: string; intervalMs: number };
   dispatch: { nodeSlots: number };
@@ -77,6 +78,8 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   pushRemotes: PushRemote[] | null;
   pushSshCommand?: string;
 } {
+  if (env.FACTORY_MULTI_TEAM !== undefined && env.FACTORY_MULTI_TEAM !== "0" && env.FACTORY_MULTI_TEAM !== "1")
+    throw new Error("FACTORY_MULTI_TEAM must be 0 or 1");
   const pushRemotes = env.FACTORY_PUSH_REMOTES === undefined ? null : parsePushRemotes(env.FACTORY_PUSH_REMOTES);
   validatePushSshCommand(env.FACTORY_PUSH_SSH_COMMAND);
   const input = env.FACTORY_PORT ?? "8787";
@@ -141,6 +144,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
     }
   }
   return {
+    multiTeam: env.FACTORY_MULTI_TEAM === "1",
     stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) }, workspace, pushRemotes,
     ...(env.FACTORY_PUSH_SSH_COMMAND === undefined ? {} : { pushSshCommand: env.FACTORY_PUSH_SSH_COMMAND }),
     ...(opencode === undefined ? {} : { opencode }),
@@ -170,6 +174,7 @@ async function freeLoopbackPort(): Promise<number> {
 }
 
 export async function startHost(options: {
+  multiTeam?: boolean; packsDir?: string;
   contentDir?: string;
   pushRemotes?: PushRemote[] | null;
   pushSshCommand?: string;
@@ -263,6 +268,9 @@ export async function startHost(options: {
   };
   try {
     const pack = loadPack(options.packDir ?? fileURLToPath(new URL("../../../packs/software-team/", import.meta.url)));
+    const packs = loadPackRegistry(options.packsDir ?? fileURLToPath(new URL("../../../packs/", import.meta.url)), {
+      defaultPack: pack, onError: (message) => { console.error(message); },
+    });
     unlockState = lockStateDirectory(stateDir);
     storage = openStorage(join(stateDir, "host.db"));
     storage.migrate({
@@ -395,7 +403,7 @@ export async function startHost(options: {
         workspace = createWorkspaceProvider({ roots, evidenceDir });
       }
       const resultsEvidenceDir = evidenceDir;
-      dispatch = createDispatcher({ storage, hub, registry, clock, config,
+      dispatch = createDispatcher({ storage, hub, registry, clock, config, multiTeam: options.multiTeam ?? false,
         ...(options.timers === undefined ? {} : { timers: options.timers }),
         onInReview(input) { requestTaskReview({ raw, hub, now: clock, newId: resultId }, input); },
         ...(modelAccess === undefined ? {} : { modelAccess }),
@@ -433,7 +441,8 @@ export async function startHost(options: {
     const lead = runner;
     const dispatchHandlers = dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch });
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
-      "projects.create": createProjectsCreateHandler({ pack }),
+      ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
+      "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false }),
       "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,
       "approvals.decide": withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch })),
@@ -446,9 +455,14 @@ export async function startHost(options: {
     const sessions = createSessionStore({ clock });
     const port = options.port === 0 ? await freeLoopbackPort() : options.port;
     const origins = originsFor(port);
-    const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, artifacts, backupStatus: () => backup?.status() ?? null,
+    const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, artifacts, packs, backupStatus: () => backup?.status() ?? null,
       ...(effects === null ? {} : { effects }),
-      afterCommand: (type) => { if (type === "chat.send") lead.kick(); },
+      afterCommand: (type, result) => {
+        if (type === "chat.send") lead.kick();
+        if (result.body.ok && ORG_COMMANDS.some((command) => command === type) && dispatch) {
+          dispatch.kick();
+        }
+      },
       ...(dispatch === null ? {} : { dispatch }),
       ...(evidenceDir === undefined ? {} : { evidenceDir }),
       ...(options.keepAliveMs === undefined ? {} : { keepAliveMs: options.keepAliveMs }),
@@ -458,6 +472,7 @@ export async function startHost(options: {
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge });
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
         apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set",
+          ...(options.multiTeam ? ORG_COMMANDS : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],
         capabilities: ["inbox", "approvals.review"],

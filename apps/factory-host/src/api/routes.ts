@@ -4,7 +4,9 @@ import type { createCommandPipeline, PipelineResult } from "../commands/pipeline
 import { getConversation, listConversations, listMessages } from "../chat/index.js";
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
-import { getActiveEngagement, getTeam, listSeats } from "../org/service.js";
+import { getPrimaryEngagement, getTeam, listSeats } from "../org/service.js";
+import type { RegistryPack } from "../org/registry.js";
+import { projectEngagements, teamQueue, teamViews } from "../org/views.js";
 import { budgetStatus, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "../policy/index.js";
 import { getProject, listProjects } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
@@ -26,6 +28,7 @@ import { z } from "zod";
 import { PushError, type EffectExecutor } from "../effects/executor.js";
 
 export function createRoutes(deps: {
+  packs?: readonly RegistryPack[];
   storage: Storage; hub: EventHub; pipeline: ReturnType<typeof createCommandPipeline>;
   keepAliveMs?: number; maxStreams?: number; batchSize?: number;
   budgetConfig?: BudgetConfig; clock?: Clock;
@@ -39,6 +42,18 @@ export function createRoutes(deps: {
   const newId = createIdGenerator();
   return (app, guards) => {
     registerEventStream(app, guards, deps);
+    app.get("/packs", { preHandler: guards.session }, async () => ({
+      packs: (deps.packs ?? []).map(({ key, version, name, description, seats }) =>
+        ({ key, version, name, description, seatCount: seats.length, seats })),
+    }));
+    app.get("/teams", { preHandler: guards.session }, async () => ({ teams: teamViews(deps.storage.raw) }));
+    app.get<{ Params: { teamId: string } }>("/teams/:teamId/queue", { preHandler: guards.session }, async (request, reply) => {
+      const parsed = idSchema.safeParse(request.params.teamId);
+      if (!parsed.success) return failure(reply, 400, "validation", "Invalid team id.", "correct-input", newId);
+      if (!getTeam(deps.storage.raw, parsed.data))
+        return failure(reply, 404, "not-found", "Team not found.", "correct-input", newId);
+      return { items: teamQueue(deps.storage.raw, parsed.data) };
+    });
     const effectFailure = (reply: import("fastify").FastifyReply, error: unknown) => {
       const code = error instanceof PushError ? error.code : "invalid-record";
       const status = ["not-found", "not-available"].includes(code) ? 404
@@ -240,10 +255,11 @@ export function createRoutes(deps: {
       if (!parsed.success) return failure(reply, 400, "validation", "Invalid project id.", "correct-input", newId);
       if (!getProject(deps.storage.raw, parsed.data))
         return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
-      const engagement = getActiveEngagement(deps.storage.raw, parsed.data);
+      const engagement = getPrimaryEngagement(deps.storage.raw, parsed.data);
       const team = engagement === undefined ? undefined : getTeam(deps.storage.raw, engagement.teamId);
       if (!engagement || !team) return failure(reply, 404, "not-found", "Project team not found.", "correct-input", newId);
-      return { apiVersion: API_VERSION, ok: true, team, seats: listSeats(deps.storage.raw, team.id), engagement };
+      return { apiVersion: API_VERSION, ok: true, team, seats: listSeats(deps.storage.raw, team.id), engagement,
+        engagements: projectEngagements(deps.storage.raw, parsed.data) };
     });
     app.get<{ Params: { projectId: string; taskId: string } }>(
       "/projects/:projectId/tasks/:taskId/attempts", { preHandler: guards.session }, async (request, reply) => {

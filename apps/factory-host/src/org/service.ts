@@ -4,7 +4,7 @@ import { engagementSchema, seatSchema, teamSchema, type Engagement, type Seat, t
 import type { Clock } from "../ids.js";
 import type { LoadedPack } from "./pack.js";
 
-type Deps = { newId: () => string; clock: Clock };
+type Deps = { newId: () => string; clock: Clock; teamId?: string };
 interface TeamRow { id: string; revision: number; name: string; charter: string; pack_key: string | null; pack_version: string | null; lifecycle: string }
 interface SeatRow {
   id: string; team_id: string; revision: number; name: string; role: string; profile_id: string;
@@ -37,7 +37,7 @@ export function ensureTeamFromPack(raw: Database, pack: LoadedPack, deps: Deps):
     const existing = raw.prepare("SELECT id FROM teams WHERE pack_key = ? AND pack_version = ? ORDER BY id LIMIT 1")
       .get(manifest.key, manifest.version) as { id: string } | undefined;
     if (existing) return { teamId: existing.id, created: false, seatIds: listSeats(raw, existing.id).map((seat) => seat.id) };
-    const teamId = deps.newId();
+    const teamId = deps.teamId ?? deps.newId();
     raw.prepare("INSERT INTO teams (id, revision, name, charter, pack_key, pack_version, lifecycle) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(teamId, 1, manifest.name, manifest.description, manifest.key, manifest.version, "active");
     for (const seat of manifest.seats) raw.prepare(`INSERT INTO seats
@@ -69,6 +69,16 @@ export function findLeadSeat(raw: Database, teamId: string): Seat | undefined {
 
 export function getActiveEngagement(raw: Database, projectId: string): Engagement | undefined {
   const row = raw.prepare("SELECT * FROM engagements WHERE project_id = ? AND state = ? ORDER BY priority DESC, id LIMIT 1")
+    .get(projectId, "active") as EngagementRow | undefined;
+  return row === undefined ? undefined : engagementSchema.parse({
+    id: row.id, projectId: row.project_id, teamId: row.team_id, revision: row.revision,
+    priority: row.priority, maxConcurrent: row.max_concurrent, state: row.state, createdAt: row.created_at,
+  });
+}
+
+/** The earliest active engagement owns the project's Lead; priority only controls dispatch. */
+export function getPrimaryEngagement(raw: Database, projectId: string): Engagement | undefined {
+  const row = raw.prepare("SELECT * FROM engagements WHERE project_id = ? AND state = ? ORDER BY created_at, id LIMIT 1")
     .get(projectId, "active") as EngagementRow | undefined;
   return row === undefined ? undefined : engagementSchema.parse({
     id: row.id, projectId: row.project_id, teamId: row.team_id, revision: row.revision,

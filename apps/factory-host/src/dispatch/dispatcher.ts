@@ -8,12 +8,13 @@ import {
   PLACED_ATTEMPT_STATES, renewLease, transitionAttempt,
 } from "./attempts.js";
 import { buildHandoff } from "./handoff.js";
-import { ensureLocalNode, LOCAL_NODE_ID, markNodeSlots, nodeLoad, seatLoad } from "./node.js";
+import { engagementLoad, ensureLocalNode, LOCAL_NODE_ID, markNodeSlots, nodeLoad, seatLoad } from "./node.js";
 import type { AttemptContext, RuntimeEvent, RuntimeRegistry, RuntimeSession } from "./runtime.js";
 import { applyAttemptOutcome, eventsForAttempt, eventsForTask } from "./tasks.js";
 import type { AttemptRecord, RuntimeKind } from "./types.js";
 import type { WorkspaceProvider } from "./workspace-provider.js";
 import { sanitizeAgentText } from "../mcp/security.js";
+import { advanceTasks } from "./advance.js";
 
 export interface DispatcherConfig {
   nodeSlots: number; leaseMs: number; leaseRenewMs: number; leaseCheckMs: number; stopTimeoutMs: number;
@@ -35,6 +36,7 @@ export interface ModelAccess {
   revoke(attemptId: string): void;
 }
 export interface Dispatcher {
+  readonly multiTeam?: boolean;
   start(): RecoverSummary;
   kick(): void;
   enqueue(input: { projectId: string; taskId: string; seatId: string }): AttemptRecord;
@@ -63,6 +65,7 @@ const defaultTimers: Timers = {
 };
 
 export function createDispatcher(deps: {
+  multiTeam?: boolean;
   storage: Storage; hub: EventHub; registry: RuntimeRegistry; clock?: Clock; newId?: () => string;
   config?: Partial<DispatcherConfig>; timers?: Timers; onError?: (error: unknown) => void;
   workspace?: WorkspaceProvider; projectRootFor?: (projectId: string) => string | null;
@@ -376,21 +379,31 @@ export function createDispatcher(deps: {
   const pump = (): void => {
     pumping = true;
     try {
+      if (deps.multiTeam) hub.transaction(() => {
+        for (const project of raw.prepare("SELECT id FROM projects ORDER BY id").all() as { id: string }[])
+          for (const task of advanceTasks(raw, project.id, { dispatcher }))
+            hub.append({ projectId: project.id, causationId: task.id, rootCausationId: task.id, payload: eventsForTask(task) });
+      });
       do {
         again = false;
         while (!stopped) {
           const load = nodeLoad(raw, LOCAL_NODE_ID);
           if (load.used >= load.total) break;
-          const rows = raw.prepare(`SELECT a.project_id, a.id FROM attempts AS a JOIN tasks AS t
+          const rows = raw.prepare(`SELECT a.project_id, a.id, e.id AS engagement_id, e.max_concurrent FROM attempts AS a JOIN tasks AS t
             ON t.project_id = a.project_id AND t.id = a.task_id JOIN engagements AS e
-            ON e.project_id = t.project_id AND e.id = t.engagement_id
-            WHERE a.state = ? AND t.state = ? ORDER BY e.priority DESC, a.rowid`).all("queued", "active") as { project_id: string; id: string }[];
-          const next = rows.map((row) => current(row.project_id, row.id)).find((a) => {
+            ON e.project_id = t.project_id AND e.id = t.engagement_id JOIN teams team ON team.id = e.team_id
+            WHERE a.state = ? AND t.state = ? ${deps.multiTeam ? "AND e.state = 'active' AND team.lifecycle = 'active'" : ""}
+            ORDER BY e.priority DESC, a.rowid`).all("queued", "active") as
+            { project_id: string; id: string; engagement_id: string; max_concurrent: number }[];
+          const row = rows.find((row) => {
+            if (deps.multiTeam && engagementLoad(raw, row.project_id, row.engagement_id) >= row.max_concurrent) return false;
+            const a = current(row.project_id, row.id);
             if (!a.seatId) return false;
             const seat = seatLoad(raw, a.seatId);
             return seat.used < seat.slots;
           });
-          if (!next) break;
+          if (!row) break;
+          const next = current(row.project_id, row.id);
           const leased = hub.transaction(() => {
             const a = move(next, "leased", { nodeId: LOCAL_NODE_ID, leaseId: newId(),
               leaseExpiresAt: new Date(clock().getTime() + config.leaseMs).toISOString(), now: now() });
@@ -548,7 +561,8 @@ export function createDispatcher(deps: {
     void promise.finally(() => { stops.delete(key); }).catch(() => undefined);
     return promise.then((attempt) => attempt.state === "parked");
   };
-  return {
+  const dispatcher: Dispatcher = {
+    multiTeam: deps.multiTeam ?? false,
     start() {
       if (stopped) throw new AttemptError("dispatcher-stopped");
       if (started) return { leaseExpired: 0, unknown: 0, requeued: 0, untouched: listLiveAttempts(raw).length };
@@ -618,4 +632,5 @@ export function createDispatcher(deps: {
       return { live: live.size, queued: attempts.filter((a) => a.state === "queued").length, nodeUsed: load.used, nodeTotal: load.total };
     },
   };
+  return dispatcher;
 }

@@ -563,8 +563,8 @@ test("the original 14 commands remain and 6 are added without removing any", () 
   const added = ["engagements.create", "tasks.create", "tasks.transition", "tasks.release", "approvals.decide", "budgets.set"];
   for (const t of [...original, ...added]) assert.ok(c.FOUNDATION_COMMANDS.includes(t), t);
   for (const t of ["artifacts.transition", "artifacts.share", "artifacts.clear-stale"]) assert.ok(c.FOUNDATION_COMMANDS.includes(t), t);
-  assert.equal(c.FOUNDATION_COMMANDS.length, 23);
-  assert.equal(new Set(c.FOUNDATION_COMMANDS).size, 23);
+  assert.equal(c.FOUNDATION_COMMANDS.length, 27);
+  assert.equal(new Set(c.FOUNDATION_COMMANDS).size, 27);
 });
 
 test("tasks.create applies the restrictive defaults and keeps the gate on", () => {
