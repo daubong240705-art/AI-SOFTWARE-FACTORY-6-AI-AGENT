@@ -1,0 +1,32 @@
+# 11 · Kế hoạch lát cắt M5 (Workflow, Automation, Policy)
+
+Trạng thái: **bản nháp tự quyết 08/11/2026** (người dùng giao quyền tự quyết cho phần M3 → M5; xem bộ nhớ dự án). Nguồn thiết kế đã duyệt: [04 · Workflow và Governance](04-workflow-and-governance.md) (W-01..W-18), [06 §M5](06-implementation-roadmap.md). Mức hiện thực: control plane xác định, không LLM; Lead chỉ **đề xuất**.
+
+## Nguyên tắc
+
+- Mỗi lát cắt: đặc tả → Codex (`codex-routing`) → review, đột biến, test Windows + Linux → commit. Lát cắt có cờ rủi ro dùng quyền tự quyết (ghi quyết định vào commit).
+- Migration chỉ thêm số mới (0010 trở đi). Contracts chỉ thêm.
+- **Không đổi hành vi M3**: workflow là lớp bổ sung; Task/CTR/Approval hiện có giữ nguyên. Workflow chỉ **tạo và nối Task** bằng đường lệnh sẵn có.
+- **Quyết định thứ tự (tự quyết)**: roadmap ghi M5 phụ thuộc M4 (nhiều máy). M4 cần hai VM của bạn (AP-7) nên chưa làm được; lõi workflow, lịch và chính sách chạy trên một máy trước. Phần cần control plane tách khỏi máy làm việc (lịch 24/7) dùng nguyên cơ chế một máy và chuyển sang M4 sau, không đổi dữ liệu.
+- **Giao diện**: chỉ API và màn hình tối thiểu; bạn sẽ có yêu cầu cải thiện giao diện lớn sau M5.
+- **Khảo sát OSS**: croner (MIT) cho cron, đã duyệt ở OSS-11; cockatiel không cần (đã có cầu dao riêng ở V2b, sẽ tái dùng mẫu); không dùng n8n, Temporal, LangGraph (04 §1, OSS-08). Điều kiện dùng biểu thức có kiểu tự viết (không json-logic: tránh phụ thuộc, tập phép toán nhỏ).
+
+## Lát cắt
+
+| # | Lát cắt | Nội dung | Rủi ro |
+|---|---|---|---|
+| **W1a** | **Định nghĩa và Instance (dữ liệu)** | Schema Workflow Definition (tham số có kiểu, stage gắn capability, cạnh `finish-to-start`/`artifact-approved`/`informs`/`rework`, `parallelGroup` + `joins`, `gates`, `allowedPatches`, điều kiện có kiểu `includeIf`/`skipIf`) trong contracts; validator xác định (DAG, tham chiếu, giới hạn, capability tồn tại trong Pack nào đó); `pack.json` thêm `workflows`; `pack:check` kiểm; migration 0010: `workflow_instances`, `workflow_stages`; lệnh `workflows.create/start/pause/resume/cancel` và máy trạng thái Instance (04 §8.3); view API | Migration, public API → Critical |
+| **W1b** | **Bộ máy chạy** | Stage → Task (capability, Engagement chọn theo danh sách ngắn xác định), cạnh/chặn, song song và join all/any/quorum, cổng (Execution Gate, approval), rework có `maxLoops`, hoàn tất/thất bại Instance; phản ứng khi Task/Artifact đổi trạng thái | Orchestration → Critical |
+| **W2** | **Plan Patch** | Tool MCP `workflow.patch` cho Lead; validator; `allowedPatches` auto / approval / operator; revision; từ chối chu trình | Public API, security |
+| **A1** | **Scheduler** | croner; lịch theo Project/Workflow; misfire skip/coalesce; không chạy chồng; khởi động lại không chạy bù ngoài ý muốn | Dependency (đã duyệt OSS-11) |
+| **A2** | **Rule, Monitor, Watchdog** | Rule Evaluator (hop limit, quarantine rule lặp), Monitor theo cạnh, Watchdog phát hiện treo/deadlock → Stalled + chẩn đoán | |
+| **P3** | **Policy** | Ngân sách nhiều cấp theo token (chưa có giá nên không quy tiền), reservation, mức tự chủ L0–L4, cầu dao | AP-8 do bạn duyệt giá trị mặc định |
+| **N1** | **Approvals và thông báo** | Standing Approval, TTL, nhắc, digest, giờ yên lặng; ntfy nếu bạn bật | AP-8 |
+| **E2** | **Kịch bản** | 04 §15.1 (Software Delivery: bỏ Design khi không có UI, rework QA → Dev ≤ 3 vòng), Reporting ngày §16 bằng runtime giả; model thật chờ bạn | |
+
+## Tiến độ
+
+| # | Trạng thái | Commit | Ghi chú |
+|---|---|---|---|
+| W1a | Đang làm | — | |
+| W1b, W2, A1, A2, P3, N1, E2 | Chưa | — | |
