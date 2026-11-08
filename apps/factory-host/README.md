@@ -158,7 +158,7 @@ Behind `FACTORY_MULTI_TEAM=1` (default OFF: the Host behaves exactly like M2, at
 - Pack registry: every valid `packs/*/pack.json` is discoverable (`GET /packs`, metadata only; a broken pack is skipped with a generic message, duplicate keys refuse). Commands: `teams.create-from-pack`, `teams.set-lifecycle` (`active`/`paused`/`archived`), `engagements.create` (invite a Team to a Project), `engagements.update` (priority, `maxConcurrent`, `active`/`paused`/`ended`; only the given fields change), `seats.update` (slots only; dedicated nodes arrive in M4), all with revision checks.
 - The PRIMARY engagement (the earliest created active one) owns the Project's Lead, the plan and the default engagement of new tasks: adding a higher-priority Team never changes who the Lead is. Priority only orders dispatch.
 - The dispatcher enforces `maxConcurrent` per Engagement (a task at the limit stays queued and starts when a slot frees), and does not start tasks of a paused/ended Engagement or a paused/archived Team: nothing is failed, running attempts are never interrupted, and work resumes when the Engagement/Team becomes active again. Queue order across Engagements: priority, then FIFO.
-- Read views: `GET /teams` (seats, live load, engagements), `GET /teams/:teamId/queue` (cross-project queue in start order), `GET /projects/:id/team` now lists all engagements.
+- Read views: `GET /teams` (charter, revisions of team, seats and engagements for the operator commands, seats with live load and, for v2 packs, pinned capabilities and tools, engagements), `GET /teams/:teamId/queue` (cross-project queue in start order), `GET /projects/:id/team` now lists all engagements.
 
 ## Knowledge: search and read permissions (M3 K1a)
 

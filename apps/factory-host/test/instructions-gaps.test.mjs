@@ -49,3 +49,17 @@ test("the skills handler refuses any other tool name", async (t) => {
   const result = createSkillsMcp({ raw: f.raw, now: f.clock }).call(grant, "knowledge.get", { name: "verify" });
   assert.equal(result.isError, true); assert.equal(result.content[0].text, "invalid tool input");
 });
+test("the team view exposes pinned capabilities and tools for a v2 pack", async (t) => {
+  const { teamViews } = await import("../dist/org/views.js");
+  const f = instructionsFixture(t);
+  const disk = diskPack(t, { key: "v2-view-team", skills: ["verify"] });
+  const manifestPath = join(disk.dir, "pack.json");
+  const manifest = JSON.parse((await import("node:fs")).readFileSync(manifestPath, "utf8"));
+  manifest.seats[1].capabilities = ["research.evidence"]; manifest.seats[1].tools = ["knowledge.*"];
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  const team = f.create(disk.load());
+  const view = teamViews(f.raw).find((entry) => entry.id === team.teamId);
+  const worker = view.seats.find((seat) => seat.name === manifest.seats[1].name);
+  assert.deepEqual(worker.capabilities, ["research.evidence"]); assert.deepEqual(worker.tools, ["knowledge.*"]);
+  assert.equal("capabilities" in view.seats.find((seat) => seat.isLead), false);
+});

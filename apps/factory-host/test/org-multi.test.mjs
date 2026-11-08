@@ -302,3 +302,24 @@ test("seats.update without slots keeps the capacity and still bumps the revision
   const row = f.raw.prepare("SELECT slots, revision FROM seats WHERE id = ?").get(f.seat.id);
   assert.deepEqual(row, { slots: 3, revision: revision + 1 });
 });
+test("team view carries the revisions and charter the operator commands need", async (t) => {
+  const f = await api(t); const team = (await f.get("/teams")).json().teams.find((entry) => entry.id === f.teamId);
+  assert.equal(typeof team.charter, "string"); assert.ok(team.charter.length > 0);
+  const seatRow = f.raw.prepare("SELECT revision FROM seats WHERE id = ?").get(f.seat.id);
+  assert.equal(team.seats.find((s) => s.id === f.seat.id).revision, seatRow.revision);
+  const engagementRow = f.raw.prepare("SELECT revision FROM engagements WHERE id = ?").get(f.primary.id);
+  assert.equal(team.engagements.find((e) => e.engagementId === f.primary.id).revision, engagementRow.revision);
+});
+test("team view revisions follow the commands that change them", async (t) => {
+  const f = await api(t);
+  f.slots(3); f.updateEngagement(f.primary.id, { priority: 77 });
+  const team = (await f.get("/teams")).json().teams.find((entry) => entry.id === f.teamId);
+  assert.equal(team.seats.find((s) => s.id === f.seat.id).slots, 3);
+  assert.ok(team.seats.find((s) => s.id === f.seat.id).revision > 1);
+  assert.ok(team.engagements.find((e) => e.engagementId === f.primary.id).revision > 1);
+  assert.equal(team.engagements.find((e) => e.engagementId === f.primary.id).priority, 77);
+});
+test("team view omits capabilities and tools for v1 packs", async (t) => {
+  const f = await api(t); const team = (await f.get("/teams")).json().teams.find((entry) => entry.id === f.teamId);
+  for (const seat of team.seats) { assert.equal("capabilities" in seat, false); assert.equal("tools" in seat, false); }
+});

@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { LIVE_ATTEMPT_STATES } from "@factory/contracts";
 import { engagementLoad, seatLoad } from "../dispatch/node.js";
+import { getSeatCapabilities, getSeatTools } from "../instructions/snapshot.js";
 import { listSeats } from "./service.js";
 
 export function projectEngagements(raw: Database, projectId: string) {
@@ -12,16 +13,21 @@ export function projectEngagements(raw: Database, projectId: string) {
 }
 
 export function teamViews(raw: Database) {
-  const teams = raw.prepare(`SELECT id, name, pack_key AS packKey, pack_version AS packVersion, lifecycle, revision
-    FROM teams ORDER BY name, id`).all() as { id: string; name: string; packKey: string | null;
+  const teams = raw.prepare(`SELECT id, name, charter, pack_key AS packKey, pack_version AS packVersion, lifecycle, revision
+    FROM teams ORDER BY name, id`).all() as { id: string; name: string; charter: string; packKey: string | null;
       packVersion: string | null; lifecycle: string; revision: number }[];
   return teams.map((team) => {
     const engagements = raw.prepare(`SELECT e.project_id AS projectId, p.name AS projectName, e.id AS engagementId,
-      e.priority, e.max_concurrent AS maxConcurrent, e.state FROM engagements e JOIN projects p ON p.id = e.project_id
+      e.priority, e.max_concurrent AS maxConcurrent, e.state, e.revision FROM engagements e JOIN projects p ON p.id = e.project_id
       WHERE e.team_id = ? ORDER BY e.priority DESC, e.created_at, e.id`).all(team.id) as {
-        projectId: string; projectName: string; engagementId: string; priority: number; maxConcurrent: number; state: string }[];
-    return { ...team, seats: listSeats(raw, team.id).map(({ id, name, role, slots, isLead }) =>
-      ({ id, name, role, slots, isLead, live: seatLoad(raw, id).used })),
+        projectId: string; projectName: string; engagementId: string; priority: number; maxConcurrent: number; state: string; revision: number }[];
+    return { ...team, seats: listSeats(raw, team.id).map(({ id, name, role, slots, isLead, revision }) => {
+      // Capabilities and tools come from the pinned pack snapshot; absent for v1 packs and teams without one.
+      const capabilities = getSeatCapabilities(raw, { seatId: id });
+      const tools = getSeatTools(raw, { seatId: id });
+      return { id, name, role, slots, isLead, revision, live: seatLoad(raw, id).used,
+        ...(capabilities === null ? {} : { capabilities }), ...(tools === null ? {} : { tools }) };
+    }),
     engagements: engagements.map((engagement) => ({ ...engagement,
       live: engagementLoad(raw, engagement.projectId, engagement.engagementId) })) };
   });
