@@ -3,6 +3,7 @@ import type { ArtifactStatus } from "@factory/contracts";
 import type { ContentStore } from "../artifacts/content-store.js";
 import { visibleToScope, type KnowledgeScope, type SqlPredicate } from "./permissions.js";
 import { buildMatchQuery, normalizeForSearch, snippetOf } from "./text.js";
+import { isVersionStale, versionStale } from "./lifecycle.js";
 
 export { visibleToScope, type KnowledgeScope } from "./permissions.js";
 export interface KnowledgeQuery {
@@ -11,7 +12,7 @@ export interface KnowledgeQuery {
 }
 export interface KnowledgeResult {
   artifactId: string; version: number; kind: string; title: string; status: ArtifactStatus;
-  visibility: "team-draft" | "project" | "shared"; abstractL0: string; snippet: string; rank: number; projectId: string;
+  visibility: "team-draft" | "project" | "shared"; abstractL0: string; snippet: string; rank: number; projectId: string; stale: boolean;
 }
 export interface KnowledgeGetInput { artifactId: string; version?: number | undefined; level?: "l0" | "l1" | "l2" | undefined }
 export interface KnowledgeDocument extends Omit<KnowledgeResult, "rank" | "snippet"> {
@@ -24,7 +25,7 @@ const readable = new Set(["text/markdown", "text/plain", "application/json"]);
 const summaryColumns = `v.project_id AS projectId, v.artifact_id AS artifactId, v.version, v.kind, v.title, v.status,
   CASE v.visibility WHEN 'organization' THEN 'shared' ELSE v.visibility END AS visibility,
   v.abstract_l0 AS abstractL0`;
-type StoredVersion = Omit<KnowledgeResult, "rank" | "snippet"> & {
+type StoredVersion = Omit<KnowledgeResult, "rank" | "snippet" | "stale"> & {
   abstractL1: string | null; contentHash: string; mediaType: string; sizeBytes: number;
 };
 
@@ -109,8 +110,8 @@ export function createKnowledgeIndex({ raw, store }: { raw: Database; store: Con
       ORDER BY rank, v.version DESC, v.project_id, v.artifact_id LIMIT ? OFFSET ?`)
       .all(match, ...permission.params, ...filter.params, ...(query.latestOnly === false ? [] : newer.params),
         ...(options.projectOnly ? [scope.projectId] : []),
-        bounded(query.limit, 10, 1, max), bounded(query.offset, 0, 0, Number.MAX_SAFE_INTEGER)) as Omit<KnowledgeResult, "snippet">[];
-    return rows.map((row) => ({ ...row, snippet: snippetOf(row.abstractL0) }));
+        bounded(query.limit, 10, 1, max), bounded(query.offset, 0, 0, Number.MAX_SAFE_INTEGER)) as Omit<KnowledgeResult, "snippet" | "stale">[];
+    return rows.map((row) => ({ ...row, snippet: snippetOf(row.abstractL0), stale: isVersionStale(raw, row) }));
   };
   const get = (scope: KnowledgeScope, input: KnowledgeGetInput): KnowledgeDocument | null => {
     const permission = visibleToScope(scope);
@@ -132,7 +133,7 @@ export function createKnowledgeIndex({ raw, store }: { raw: Database; store: Con
         truncated = bytes.length > 32 * 1024;
       } catch { throw new KnowledgeError("not found"); }
     }
-    return { ...summary, text, level, truncated };
+    return { ...summary, text, level, truncated, stale: isVersionStale(raw, row) };
   };
   const rebuild = async () => {
     raw.transaction(() => { raw.prepare("DELETE FROM knowledge_index").run(); raw.prepare("DELETE FROM knowledge_indexed").run(); })();
@@ -179,5 +180,7 @@ export function getKnowledgeArtifact(raw: Database, scope: KnowledgeScope, artif
     WHERE i.project_id = ? AND ${dependants ? "i.input_artifact_id" : "i.artifact_id"} = ? AND ${permission.sql}
     ORDER BY v.artifact_id, v.version`).all(scope.projectId, artifactId, ...permission.params) as
     { artifactId: string; version: number; title: string }[];
-  return { artifactId, kind: first.kind, title: first.title, versions, inputs: provenance(false), dependants: provenance(true) };
+  return { artifactId, kind: first.kind, title: first.title,
+    versions: versions.map((row) => ({ ...row, stale: versionStale(raw, row, scope), isStale: isVersionStale(raw, row) })),
+    inputs: provenance(false), dependants: provenance(true) };
 }

@@ -36,10 +36,10 @@ function fixture(t) {
   return {raw,projectId,otherProject,base,read,add,knowledge};
 }
 
-for(const suffix of ["/search?q=marker","/artifacts","/artifacts/absent"]) test(`operator requires session for ${suffix.split("?")[0]}`,async(t)=>{
+for(const suffix of ["/search?q=marker","/artifacts","/artifacts/absent","/stale"]) test(`operator requires session for ${suffix.split("?")[0]}`,async(t)=>{
   const f=fixture(t); const response=await f.read(suffix,null); assert.equal(response.statusCode,401); assert.equal(response.json().ok,false);
 });
-for(const suffix of ["/search?q=marker","/artifacts","/artifacts/absent"]) test(`operator rejects unknown project for ${suffix.split("?")[0]}`,async(t)=>{
+for(const suffix of ["/search?q=marker","/artifacts","/artifacts/absent","/stale"]) test(`operator rejects unknown project for ${suffix.split("?")[0]}`,async(t)=>{
   const f=fixture(t); const response=await f.read(`/projects/${randomUUID()}/knowledge${suffix}`); assert.equal(response.statusCode,404);
   assert.equal(response.json().error.message,"Project not found.");
 });
@@ -111,4 +111,30 @@ for(const field of ["title","abstractL0","abstractL1"]) test(`operator sanitizes
 test("operator search failure is a fixed service error",async(t)=>{
   const f=fixture(t); f.raw.exec("DROP TABLE knowledge_index"); const response=await f.read("/search?q=marker");
   assert.equal(response.statusCode,503); assert.equal(response.json().error.message,"Search is temporarily unavailable."); assert.doesNotMatch(response.body,/SELECT|SQLITE|knowledge_index/);
+});
+
+
+test("stale route returns empty items for a project without stale knowledge", async(t)=>{
+  const f=fixture(t); const response=await f.read("/stale");
+  assert.equal(response.statusCode,200); assert.deepEqual(response.json(),{apiVersion:1,ok:true,items:[]});
+});
+test("stale route and artifact detail expose version reasons within their project", async(t)=>{
+  const f=fixture(t); const cause=f.add({status:"approved",title:"Replacement"}); const row=f.add({title:"Stale document"});
+  const other=f.add({projectId:f.otherProject}); const otherCause=f.add({projectId:f.otherProject,status:"approved"});
+  f.raw.prepare("INSERT INTO knowledge_stale VALUES (?,?,1,?,1,?)").run(f.projectId,row.artifactId,cause.artifactId,"2026-11-08T01:00:00.000Z");
+  f.raw.prepare("INSERT INTO knowledge_stale VALUES (?,?,1,?,1,?)").run(f.otherProject,other.artifactId,otherCause.artifactId,"2026-11-08T00:00:00.000Z");
+  const response=await f.read("/stale"); assert.equal(response.statusCode,200);
+  assert.deepEqual(response.json().items,[{artifactId:row.artifactId,version:1,title:"Stale document",becauseArtifactId:cause.artifactId,becauseVersion:1,since:"2026-11-08T01:00:00.000Z"}]);
+  const detail=(await f.read(`/artifacts/${row.artifactId}`)).json().artifact;
+  assert.deepEqual(detail.versions[0].stale,[{becauseArtifactId:cause.artifactId,becauseVersion:1,since:"2026-11-08T01:00:00.000Z"}]);
+  assert.equal((await f.read(`/artifacts/${cause.artifactId}`)).json().artifact.versions[0].stale.length,0);
+});
+test("stale route limits results to two hundred in oldest-first order",async(t)=>{
+  const f=fixture(t); const cause=f.add({status:"approved"});
+  for(let i=0;i<201;i++) {
+    const row=f.add(); f.raw.prepare("INSERT INTO knowledge_stale VALUES (?,?,1,?,1,?)")
+      .run(f.projectId,row.artifactId,cause.artifactId,new Date(Date.parse("2026-11-08T00:00:00.000Z")+i*1000).toISOString());
+  }
+  const items=(await f.read("/stale")).json().items; assert.equal(items.length,200);
+  assert.equal(items[0].since,"2026-11-08T00:00:00.000Z"); assert.equal(items[199].since,"2026-11-08T00:03:19.000Z");
 });

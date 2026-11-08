@@ -7,6 +7,7 @@ import { failure } from "../api/http.js";
 import { createIdGenerator } from "../ids.js";
 import { sanitizeAgentText } from "../mcp/security.js";
 import { getKnowledgeArtifact, listKnowledgeArtifacts, type KnowledgeIndex } from "./index.js";
+import { listStale } from "./lifecycle.js";
 
 function parseQuery(query: Record<string, unknown>, search: boolean) {
   const list = (value: unknown): unknown => value === undefined ? undefined
@@ -33,6 +34,12 @@ function publicMetadata(value: unknown): unknown {
 export function registerKnowledgeRoutes(app: FastifyInstance, guards: ApiGuards, deps: { raw: Database; knowledge: KnowledgeIndex }): void {
   const newId = createIdGenerator();
   const exists = (id: string): boolean => Boolean(deps.raw.prepare("SELECT 1 FROM projects WHERE id = ?").get(id));
+  app.get<{ Params: { projectId: string } }>(
+    "/projects/:projectId/knowledge/stale", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!exists(projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      return { apiVersion: API_VERSION, ok: true, items: publicMetadata(listStale(deps.raw, projectId)) };
+    });
   app.get<{ Params: { projectId: string }; Querystring: Record<string, unknown> }>(
     "/projects/:projectId/knowledge/search", { preHandler: guards.session }, async (request, reply) => {
       const { projectId } = request.params;

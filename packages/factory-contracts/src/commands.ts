@@ -9,7 +9,7 @@ import {
   linuxPathSchema,
   sha256Schema,
 } from "./base.js";
-import { artifactRefSchema } from "./knowledge.js";
+import { artifactRefSchema, artifactStatusSchema } from "./knowledge.js";
 import { capabilityIdSchema } from "./nodes.js";
 import {
   DEFAULT_PLACEMENT,
@@ -206,6 +206,15 @@ export const commandSchema = z.discriminatedUnion("type", [
       warnAtPercent: z.number().int().min(1).max(99),
     }),
   ),
+  command("artifacts.transition", z.strictObject({
+    artifactId: idSchema, version: revisionSchema, to: artifactStatusSchema, comment: z.string().max(4_000),
+  })),
+  command("artifacts.share", z.strictObject({
+    artifactId: idSchema, version: revisionSchema, visibility: z.enum(["team-draft", "project", "shared"]),
+  })),
+  command("artifacts.clear-stale", z.strictObject({
+    artifactId: idSchema, version: revisionSchema, becauseArtifactId: idSchema, becauseVersion: revisionSchema,
+  })),
 ]);
 export type Command = z.infer<typeof commandSchema>;
 export type CommandType = Command["type"];

@@ -237,3 +237,19 @@ for (const transport of ["handler", "proxy"]) {
       assert.equal(JSON.stringify(result).includes(f.otherProject),false);
     });
 }
+
+
+for(const transport of ["handler","proxy"]) for(const hidden of [false,true]) test(`${transport} stale flags preserve hidden because-artifact privacy ${hidden}`,async(t)=>{
+  const f=fixture(t,transport); const row=f.add(); const cause=f.add({visibility:hidden?"team-draft":"project",producer:f.attempts[1]});
+  f.raw.prepare("INSERT INTO knowledge_stale VALUES (?,?,1,?,1,?)").run(f.projectId,row.artifactId,cause.artifactId,now().toISOString());
+  const get=data(await f.call("knowledge.get",{artifactId:row.artifactId,version:1,level:"l0"})); assert.equal(get.stale,true);
+  const results=data(await f.call("knowledge.search",{query:"marker"})).results;
+  assert.equal(results.find(r=>r.artifactId===row.artifactId).stale,true);
+  assert.equal(JSON.stringify(get).includes(cause.artifactId),false); assert.equal("becauseArtifactId" in get,false);
+  if(hidden) assert.equal(results.some(r=>r.artifactId===cause.artifactId),false);
+});
+for(const tool of ["knowledge.search","knowledge.get"]) test(`${tool} returns false for fresh knowledge`,async(t)=>{
+  const f=fixture(t,"handler"); const row=f.add();
+  const result=data(await f.call(tool,tool==="knowledge.get"?{artifactId:row.artifactId}:{query:"marker"}));
+  assert.equal(tool==="knowledge.get"?result.stale:result.results[0].stale,false);
+});

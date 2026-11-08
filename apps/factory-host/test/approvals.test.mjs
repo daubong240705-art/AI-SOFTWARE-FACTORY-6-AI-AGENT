@@ -430,16 +430,16 @@ function scratch() { return fs.mkdtempSync(join(tmpdir(), "factory-approvals-"))
 function cleanupScratch(root) {
   assert.ok(resolve(root).startsWith(resolve(tmpdir()) + sep + "factory-approvals-")); fs.rmSync(root, { recursive: true, force: true });
 }
-test("fresh migration ledger reaches exactly 0004", (t) => {
-  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
+test("fresh migration ledger reaches exactly 0005", (t) => {
+  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
 });
-test("0002 database upgrades additively to 0004 with backup and existing review preserved", (t) => {
+test("0002 database upgrades additively to 0005 with backup and existing review preserved", (t) => {
   const root = scratch(t); const dir = join(root, "migrations"); fs.mkdirSync(dir);
   for (const name of ["0001_core.sql", "0002_dispatch.sql"]) fs.copyFileSync(join(migrationsDir, name), join(dir, name));
   const s = openStorage(join(root, "host.db")); t.after(() => s.close()); t.after(() => cleanupScratch(root)); s.migrate({ migrationsDir: dir, backupDir: null });
   s.raw.prepare("INSERT INTO projects VALUES (?,1,'Upgrade','directory','/private/workspace','active')").run(randomUUID());
-  assert.deepEqual(s.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [3, 4]);
-  assert.deepEqual(s.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
+  assert.deepEqual(s.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [3, 4, 5]);
+  assert.deepEqual(s.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
   assert.equal(s.raw.prepare("SELECT count(*) AS n FROM projects").get().n, 1); assert.deepEqual(s.raw.prepare("PRAGMA foreign_key_check").all(), []);
 });
 test("host expires at startup, schedules an injectable 60s sweep and clears it on close", async (t) => {
@@ -502,3 +502,4 @@ test("summary and reviewer comment never expose absolute paths in the public vie
   ok(f.decide(approvalId, "request-changes", "please fix /home/me/project/file.ts first"));
   assert.equal(f.view(approvalId).outcome.comment, "please fix [path] first");
 });
+

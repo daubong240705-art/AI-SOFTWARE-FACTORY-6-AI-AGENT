@@ -10,6 +10,7 @@ import { createContentStore } from "../dist/artifacts/content-store.js";
 import { registerAgentOutput, registerAttemptResults } from "../dist/artifacts/service.js";
 import { createKnowledgeIndex } from "../dist/knowledge/index.js";
 import { appendAttemptEvent } from "../dist/dispatch/index.js";
+import { collectLifecycleChanges, versionStale } from "../dist/knowledge/lifecycle.js";
 
 const migrationsDir=fileURLToPath(new URL("../migrations/",import.meta.url));
 function fixture(t) {
@@ -102,4 +103,57 @@ test("diff results index metadata and omit body text",(t)=>{
   assert.equal(f.search("diffbodymarker").length,0); assert.equal(f.search("changes")[0].artifactId,diff.artifactId);
   assert.equal(f.search("files changed")[0].artifactId,diff.artifactId); assert.equal(f.search("change txt")[0].artifactId,diff.artifactId);
   assert.equal(f.raw.prepare("SELECT body_indexed FROM knowledge_indexed WHERE artifact_id=?").get(diff.artifactId).body_indexed,0);
+});
+
+
+function seedPrevious(f, mode, status) {
+  const source=randomUUID(); const dependant=randomUUID(); const taskId=randomUUID();
+  const insert=f.raw.prepare(`INSERT INTO artifact_versions (project_id,artifact_id,version,kind,title,media_type,content_hash,
+    size_bytes,status,abstract_l0,visibility,created_at,produced_by_attempt_id) VALUES (?,?,1,?,?,'text/markdown',?,1,?,'Abstract','project',?,?)`);
+  const kind=mode==="agent"?"requirements":"other";
+  insert.run(f.projectId,source,kind,mode==="agent"?"Registrationmarker":"Summary KN-001 (epoch 0)","b".repeat(64),status,new Date().toISOString(),f.attemptId);
+  insert.run(f.projectId,dependant,"other","Dependant","c".repeat(64),"reviewed",new Date().toISOString(),null);
+  f.raw.prepare("INSERT INTO artifact_inputs VALUES (?,?,1,?,1)").run(f.projectId,dependant,source);
+  f.raw.prepare(`INSERT INTO tasks (project_id,id,revision,code,title,goal,brief,origin_kind,state,required_capabilities_json,acceptance_json,inputs_json)
+    VALUES (?,?,1,'KN-002','Dependant','Goal','Brief','operator','active','[]','[]',?)`).run(f.projectId,taskId,JSON.stringify([{artifactId:source,version:1}]));
+  return {source,dependant,taskId};
+}
+for(const mode of ["agent","results"]) for(const status of ["approved","reviewed","in-review","draft"]) test(`${mode} registration over ${status} shares transactional stale analysis`,(t)=>{
+  const f=fixture(t); const {source,dependant,taskId}=seedPrevious(f,mode,status); if(mode==="results") f.evidence();
+  const before=f.raw.prepare("SELECT * FROM attempts").all();
+  const captured=collectLifecycleChanges(f.raw,()=>mode==="agent"?[f.agent()]:f.results());
+  const newer=captured.result.find(row=>row.artifactId===source&&row.version===2); assert.ok(newer); assert.equal(newer.version,2);
+  assert.equal(f.raw.prepare("SELECT status FROM artifact_versions WHERE artifact_id=? AND version=1").get(source).status,"superseded");
+  const stale=versionStale(f.raw,{projectId:f.projectId,artifactId:dependant,version:1});
+  assert.equal(stale.length,status==="approved"?1:0);
+  if(status==="approved") { assert.equal(stale[0].becauseArtifactId,source); assert.equal(stale[0].becauseVersion,2); }
+  assert.equal(f.raw.prepare("SELECT count(*) AS n FROM task_holds WHERE task_id=?").get(taskId).n,status==="approved"?1:0);
+  assert.equal(f.raw.prepare("SELECT revision FROM tasks WHERE id=?").get(taskId).revision,status==="approved"?2:1);
+  assert.deepEqual(f.raw.prepare("SELECT * FROM attempts").all(),before);
+  assert.ok(captured.effects.some(e=>e.kind==="artifact-version"&&e.id===source&&e.revision===1));
+  assert.equal(captured.effects.some(e=>e.id===dependant),status==="approved");
+  assert.equal(captured.effects.some(e=>e.id===taskId),status==="approved");
+});
+for(const mode of ["agent","results"]) test(`${mode} supersession and stale analysis roll back with outer transaction`,(t)=>{
+  const f=fixture(t); const {source,dependant,taskId}=seedPrevious(f,mode,"approved"); if(mode==="results") f.evidence();
+  assert.throws(()=>f.raw.transaction(()=>{
+    if(mode==="agent") f.agent(); else f.results();
+    assert.equal(versionStale(f.raw,{projectId:f.projectId,artifactId:dependant,version:1}).length,1);
+    throw new Error("Rollback");
+  })(),/Rollback/);
+  assert.equal(f.raw.prepare("SELECT status FROM artifact_versions WHERE artifact_id=? AND version=1").get(source).status,"approved");
+  assert.equal(versionStale(f.raw,{projectId:f.projectId,artifactId:dependant,version:1}).length,0);
+  assert.equal(f.raw.prepare("SELECT revision FROM tasks WHERE id=?").get(taskId).revision,1);
+});
+for(const mode of ["agent","results"]) test(`${mode} failed stale analysis rolls back replacement metadata`,(t)=>{
+  const f=fixture(t); const {source}=seedPrevious(f,mode,"approved"); if(mode==="results") f.evidence();
+  f.raw.exec("CREATE TRIGGER fail_stale BEFORE INSERT ON knowledge_stale BEGIN SELECT RAISE(ABORT,'stale failure'); END");
+  const captured=collectLifecycleChanges(f.raw,()=>{
+    if(mode==="agent") assert.throws(()=>f.agent(),/stale failure/);
+    else assert.deepEqual(f.results(),[]);
+  });
+  assert.deepEqual(captured.effects,[]);
+  assert.equal(f.raw.prepare("SELECT count(*) AS n FROM artifact_versions WHERE artifact_id=?").get(source).n,1);
+  assert.equal(f.raw.prepare("SELECT status FROM artifact_versions WHERE artifact_id=?").get(source).status,"approved");
+  assert.equal(f.raw.prepare("SELECT count(*) AS n FROM knowledge_stale").get().n,0);
 });

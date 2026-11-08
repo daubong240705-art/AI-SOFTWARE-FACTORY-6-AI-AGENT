@@ -108,6 +108,8 @@ export const tasksCreateHandler: HandlerMap["tasks.create"] = ({ raw }, { projec
 };
 
 export const tasksTransitionHandler: HandlerMap["tasks.transition"] = ({ raw }, { projectId, payload }) => {
+  // An input hold reports stale knowledge; it alone never vetoes an operator's move.
+  // The Lead decides whether the pinned input needs replacement or any work needs redoing.
   const task = raw.prepare("SELECT * FROM tasks WHERE project_id = ? AND id = ?").get(projectId, payload.taskId) as TaskRow | undefined;
   if (!task) throw new CommandError("not-found", "task not found", "correct-input");
   if (payload.expectedRevision !== task.revision)

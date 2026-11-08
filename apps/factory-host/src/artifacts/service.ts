@@ -8,6 +8,7 @@ import type { ContentStore } from "./content-store.js";
 import type { TokenGrant } from "../proxy/tokens.js";
 import { agentOutputInputSchema, type AgentOutputInput } from "../mcp/tools.js";
 import { assertActiveGrant, McpToolError, readWorkspaceOutput, sanitizeAgentText } from "../mcp/security.js";
+import { ArtifactLifecycleError, collectLifecycleChanges, supersedeForRegistration, transitionArtifactVersion } from "../knowledge/lifecycle.js";
 
 export interface ResultRef { artifactId: string; version: number; kind: string; contentHash: string }
 type AfterRegister = (ref: { projectId: string; artifactId: string; version: number }) => void;
@@ -88,7 +89,7 @@ export function registerAgentOutput(deps: {
   afterRegister?: AfterRegister;
 }, input: { grant: TokenGrant } & AgentOutputInput): ResultRef {
   const { raw, store } = deps;
-  return raw.transaction(() => {
+  return collectLifecycleChanges(raw, () => raw.transaction(() => {
     const { grant } = input;
     assertActiveGrant(raw, grant);
     const { grant: _grant, ...fields } = input;
@@ -117,9 +118,6 @@ export function registerAgentOutput(deps: {
     const content = store.put(bytes);
     const artifactId = previous?.artifactId ?? deps.newId();
     const version = (previous?.version ?? 0) + 1;
-    if (previous && !["superseded", "rejected", "withdrawn"].includes(previous.status))
-      raw.prepare("UPDATE artifact_versions SET status = 'superseded' WHERE project_id = ? AND artifact_id = ? AND version = ?")
-        .run(grant.projectId, artifactId, previous.version);
     raw.prepare(`INSERT INTO artifact_versions (project_id, artifact_id, version, kind, title, media_type, content_hash,
       size_bytes, status, abstract_l0, abstract_l1, produced_by_attempt_id, supersedes_version, visibility, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, 'project', ?)`)
@@ -129,9 +127,12 @@ export function registerAgentOutput(deps: {
     const insert = raw.prepare(`INSERT OR IGNORE INTO artifact_inputs (project_id, artifact_id, version, input_artifact_id, input_version)
       VALUES (?, ?, ?, ?, ?)`);
     for (const ref of data.inputs) insert.run(grant.projectId, artifactId, version, ref.artifactId, ref.version);
+    if (previous) supersedeForRegistration(raw, {
+      projectId: grant.projectId, artifactId, supersededVersion: previous.version, byVersion: version, now: deps.now().toISOString(),
+    });
     afterRegister(deps.afterRegister, grant.projectId, artifactId, version);
     return { artifactId, version, kind: data.kind, contentHash: content.hash };
-  }).immediate();
+  }).immediate()).result;
 }
 
 /** A savepoint rolls back ALL metadata on failure, while leaving the outcome transaction intact. */
@@ -140,7 +141,7 @@ export function registerAttemptResults(deps: {
   afterRegister?: AfterRegister;
 }, input: AttemptResultsInput & { evidenceDir: string }): ResultRef[] {
   try {
-    return deps.raw.transaction(() => {
+    return collectLifecycleChanges(deps.raw, () => deps.raw.transaction(() => {
       const { raw, store } = deps;
       const task = raw.prepare(`SELECT t.code FROM tasks t JOIN attempts a ON a.project_id = t.project_id AND a.task_id = t.id
         WHERE t.project_id = ? AND t.id = ? AND a.id = ? AND a.epoch = ?`)
@@ -176,10 +177,6 @@ export function registerAttemptResults(deps: {
         const artifactId = previous?.artifactId ?? deps.newId();
         const version = previous ? previous.version + 1 : 1;
         const content = store.put(bytes);
-        if (previous && !["superseded", "rejected", "withdrawn"].includes(previous.status)) {
-          raw.prepare("UPDATE artifact_versions SET status = 'superseded' WHERE project_id = ? AND artifact_id = ? AND version = ?")
-            .run(input.projectId, artifactId, previous.version);
-        }
         raw.prepare(`INSERT INTO artifact_versions (project_id, artifact_id, version, kind, title, media_type, content_hash,
           size_bytes, status, abstract_l0, abstract_l1, produced_by_attempt_id, supersedes_version, visibility, created_at)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'project', ?)`)
@@ -187,6 +184,9 @@ export function registerAttemptResults(deps: {
             content.hash, content.size, input.outcome === "completed" ? "in-review" : "draft", l0, l1,
             input.attemptId, previous?.version ?? null, deps.now().toISOString());
         created.push({ artifactId, version, kind, contentHash: content.hash });
+        if (previous) supersedeForRegistration(raw, {
+          projectId: input.projectId, artifactId, supersededVersion: previous.version, byVersion: version, now: deps.now().toISOString(),
+        });
         afterRegister(deps.afterRegister, input.projectId, artifactId, version);
       };
       const patch = patchBytes(evidence, input.evidenceDir, input.attemptId);
@@ -204,7 +204,7 @@ export function registerAttemptResults(deps: {
         register("Summary", "other", "text/markdown", bytes, (bytes.toString("utf8").split(/\r?\n/, 1)[0] ?? "Summary").trim().slice(0, 400) || "Summary", null);
       }
       return created;
-    })();
+    })()).result;
   } catch {
     try { deps.onError?.(new Error("Artifact registration failed")); } catch { /* Observers cannot change outcomes. */ }
     return [];
@@ -216,7 +216,7 @@ export function setTaskArtifactStatus(raw: Database, input: {
   projectId: string; taskId: string; to: "approved" | "rejected" | "withdrawn" | "reviewed";
 }): ResultRef[] {
   try {
-    return raw.transaction(() => {
+    return collectLifecycleChanges(raw, () => raw.transaction(() => {
       const refs: ResultRef[] = [];
       for (const artifact of listTaskArtifacts(raw, input.projectId, input.taskId)) {
         const version = artifact.versions[0];
@@ -233,11 +233,16 @@ export function setTaskArtifactStatus(raw: Database, input: {
           for (const next of ARTIFACT_TRANSITIONS[status]) queue.push([...candidate, next]);
         }
         if (!path) throw new Error("Artifact transition not allowed");
-        for (const status of path.slice(1)) raw.prepare("UPDATE artifact_versions SET status = ? WHERE project_id = ? AND artifact_id = ? AND version = ?")
-          .run(status, input.projectId, artifact.artifactId, version.version);
+        for (const status of path.slice(1)) transitionArtifactVersion(raw, {
+          projectId: input.projectId, artifactId: artifact.artifactId, version: version.version,
+          to: status, actorId: "operator", now: new Date().toISOString(),
+        });
         refs.push({ artifactId: artifact.artifactId, version: version.version, kind: artifact.kind, contentHash: version.contentHash });
       }
       return refs;
-    })();
-  } catch { throw new Error("Artifact transition not allowed"); }
+    })()).result;
+  } catch (error) {
+    if (error instanceof ArtifactLifecycleError) throw error;
+    throw new Error("Artifact transition not allowed");
+  }
 }

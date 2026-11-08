@@ -103,7 +103,7 @@ test("host backfills existing artifact versions when upgrading from schema three
   const host = await launch(t, stateDir);
   const deadline = Date.now() + 5000;
   while (host.knowledge.stats().missing && Date.now() < deadline) await new Promise((done) => setImmediate(done));
-  assert.equal(host.storage.raw.prepare("SELECT MAX(version) AS version FROM migration_ledger").get().version, 4);
+  assert.equal(host.storage.raw.prepare("SELECT MAX(version) AS version FROM migration_ledger").get().version, 5);
   assert.equal(host.knowledge.stats().missing, 0);
   for (const query of ["thiet ke", "searchablebodymarker"]) {
     const rows = host.knowledge.search({ projectId, teamId: null, viewer: "operator" }, query);
@@ -175,7 +175,11 @@ nodeTest("host wires real workspace results and publishes version events with ou
   assert.deepEqual(after.map((a) => a.artifactId), before.map((a) => a.artifactId));
   for (const artifact of after) assert.deepEqual(artifact.versions.map((v) => v.status), ["in-review", "superseded"]);
   const events = host.storage.raw.prepare("SELECT body_json FROM event_log WHERE project_id=?").all(c.projectId).map((r) => JSON.parse(r.body_json));
-  assert.equal(events.filter((e) => e.payload.type === "entity.changed" && e.payload.entity.kind === "artifact-version").length, 4);
+  // 2 registrations in epoch 1 + 2 in epoch 2, plus one event for each epoch-1 version that epoch 2 superseded:
+  // a status change must be visible to clients (K1b publishes it; before K1b it was silent).
+  const versionEvents = events.filter((e) => e.payload.type === "entity.changed" && e.payload.entity.kind === "artifact-version").map((e) => e.payload.entity);
+  assert.equal(versionEvents.length, 6);
+  for (const artifact of before) assert.deepEqual(versionEvents.filter((e) => e.id === artifact.artifactId).map((e) => e.revision).sort(), [1, 1, 2]);
   assert.equal(JSON.stringify(events).includes(root), false);
 });
 
@@ -400,17 +404,17 @@ test("pending migration backs up the existing database before applying the new f
   await first.close();
   const customMigrations = join(dir, "migrations");
   cpSync(migrationsDir, customMigrations, { recursive: true });
-  writeFileSync(join(customMigrations, "0005_marker.sql"), "CREATE TABLE migration_marker (id INTEGER PRIMARY KEY) STRICT;\n");
+  writeFileSync(join(customMigrations, "0006_marker.sql"), "CREATE TABLE migration_marker (id INTEGER PRIMARY KEY) STRICT;\n");
   const backupDir = join(dir, "saved-backups");
   const second = await launch(t, stateDir, { migrationsDir: customMigrations, backupDir });
-  assert.deepEqual(second.storage.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
+  assert.deepEqual(second.storage.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }]);
   const backups = readdirSync(backupDir);
   assert.equal(backups.length, 1);
-  assert.match(backups[0], /^pre-migration-0005-.*\.db$/);
+  assert.match(backups[0], /^pre-migration-0006-.*\.db$/);
   const backup = new Database(join(backupDir, backups[0]), { readonly: true });
   try {
     assert.equal(backup.prepare("SELECT id FROM projects WHERE id = ?").get(c.projectId).id, c.projectId);
-    assert.deepEqual(backup.prepare("SELECT version FROM migration_ledger").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
+    assert.deepEqual(backup.prepare("SELECT version FROM migration_ledger").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
     assert.equal(backup.prepare("SELECT name FROM sqlite_master WHERE name = ?").get("migration_marker"), undefined);
   } finally { backup.close(); }
 });
@@ -452,10 +456,10 @@ test("migration failure closes storage and allows a corrected restart", async (t
   const stateDir = join(dir, "state");
   const customMigrations = join(dir, "migrations");
   cpSync(migrationsDir, customMigrations, { recursive: true });
-  writeFileSync(join(customMigrations, "0005_broken.sql"), "invalid SQL;");
+  writeFileSync(join(customMigrations, "0006_broken.sql"), "invalid SQL;");
   let calls = 0;
   await assert.rejects(startHost({ stateDir, port: 0, migrationsDir: customMigrations,
-    onBootstrapToken() { calls++; } }), /migration 5 .* failed/);
+    onBootstrapToken() { calls++; } }), /migration 6 .* failed/);
   assert.equal(calls, 0);
   const next = await launch(t, stateDir);
   assert.equal(next.storage.raw.open, true);
@@ -960,4 +964,22 @@ nodeTest("opencode entrypoint refuses an unavailable sandbox before opening host
   });
   assert.ifError(result.error); assert.equal(result.status, 1); assert.equal(result.stdout, "");
   assert.equal(result.stderr.trim(), "FACTORY_RUNTIME=opencode requires working bubblewrap on Linux");
+});
+
+
+test("host advertises and executes all document lifecycle commands",async(t)=>{
+  const host=await launch(t,undefined,{dispatch:null}); const session=await bootstrap(host); const project=command();
+  assert.equal((await postCommand(host,session,project)).status,200);
+  const response=await fetch(`${host.origin}/system/capabilities`,{headers:{cookie:session.cookie}}); const capabilities=await response.json();
+  for(const type of ["artifacts.transition","artifacts.share","artifacts.clear-stale"]) assert.ok(capabilities.commands.includes(type));
+  const artifactId=randomUUID(); const raw=host.storage.raw;
+  raw.prepare(`INSERT INTO artifact_versions (project_id,artifact_id,version,kind,title,media_type,content_hash,size_bytes,status,
+    abstract_l0,visibility,created_at) VALUES (?,?,1,'other','Document','text/plain',?,1,'reviewed','Abstract','team-draft',?)`)
+    .run(project.projectId,artifactId,"a".repeat(64),new Date().toISOString());
+  const execute=(type,payload)=>postCommand(host,session,{apiVersion:1,commandId:randomUUID(),projectId:project.projectId,type,payload});
+  assert.equal((await execute("artifacts.transition",{artifactId,version:1,to:"approved",comment:"Accepted"})).status,200);
+  assert.equal((await execute("artifacts.share",{artifactId,version:1,visibility:"shared"})).status,200);
+  raw.prepare("INSERT INTO knowledge_stale VALUES (?,?,1,?,1,?)").run(project.projectId,artifactId,artifactId,new Date().toISOString());
+  assert.equal((await execute("artifacts.clear-stale",{artifactId,version:1,becauseArtifactId:artifactId,becauseVersion:1})).status,200);
+  assert.equal(raw.prepare("SELECT count(*) AS n FROM knowledge_stale").get().n,0);
 });

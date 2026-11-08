@@ -40,6 +40,8 @@ import { createEffectExecutor, type EffectExecutor } from "./effects/executor.js
 import { createKnowledgeIndex, type KnowledgeIndex } from "./knowledge/index.js";
 import { registerKnowledgeRoutes } from "./knowledge/routes.js";
 import { createKnowledgeMcp } from "./knowledge/mcp.js";
+import { knowledgeHandlers, withKnowledgeEffects } from "./knowledge/commands.js";
+import { collectLifecycleChanges } from "./knowledge/lifecycle.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -351,7 +353,10 @@ export async function startHost(options: {
         },
         registerOutput(grant, input) {
           return hub.transaction(() => {
-            const ref = registerAgentOutput({ raw, store: artifacts.store, now: clock, newId: resultId, afterRegister }, { ...input, grant });
+            const { result: ref, effects: changes } = collectLifecycleChanges(raw, () => registerAgentOutput(
+              { raw, store: artifacts.store, now: clock, newId: resultId, afterRegister }, { ...input, grant }));
+            for (const entity of changes) hub.append({ projectId: grant.projectId, causationId: grant.attemptId,
+              rootCausationId: grant.attemptId, payload: { type: "entity.changed", entity } });
             hub.append({ projectId: grant.projectId, causationId: grant.attemptId, rootCausationId: grant.attemptId,
               payload: { type: "entity.changed", entity: { kind: "artifact-version", id: ref.artifactId, revision: ref.version } } });
             return ref;
@@ -395,9 +400,11 @@ export async function startHost(options: {
         onInReview(input) { requestTaskReview({ raw, hub, now: clock, newId: resultId }, input); },
         ...(modelAccess === undefined ? {} : { modelAccess }),
         results: { register(input) {
-          const refs = registerAttemptResults({ raw, store: artifacts.store, now: clock, newId: resultId,
+          const { result: refs, effects: changes } = collectLifecycleChanges(raw, () => registerAttemptResults({ raw, store: artifacts.store, now: clock, newId: resultId,
             afterRegister,
-            onError: () => { console.error("Artifact registration failed"); } }, { ...input, evidenceDir: resultsEvidenceDir ?? join(stateDir, "evidence") });
+            onError: () => { console.error("Artifact registration failed"); } }, { ...input, evidenceDir: resultsEvidenceDir ?? join(stateDir, "evidence") }));
+          for (const entity of changes) hub.append({ projectId: input.projectId, causationId: input.attemptId,
+            rootCausationId: input.attemptId, payload: { type: "entity.changed", entity } });
           for (const ref of refs) hub.append({ projectId: input.projectId, causationId: input.attemptId,
             rootCausationId: input.attemptId, payload: { type: "entity.changed",
               entity: { kind: "artifact-version", id: ref.artifactId, revision: ref.version } } });
@@ -424,13 +431,16 @@ export async function startHost(options: {
       }
     }
     const lead = runner;
+    const dispatchHandlers = dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch });
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       "projects.create": createProjectsCreateHandler({ pack }),
-      "tasks.create": tasksCreateHandler, "tasks.transition": tasksTransitionHandler,
+      "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,
-      "approvals.decide": dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch }),
+      "approvals.decide": withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch })),
+      ...knowledgeHandlers,
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
-      ...(dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch })),
+      ...dispatchHandlers,
+      "tasks.transition": withKnowledgeEffects(dispatchHandlers["tasks.transition"] ?? tasksTransitionHandler),
     } });
     const gate = createBootstrapGate({ clock });
     const sessions = createSessionStore({ clock });
@@ -448,7 +458,7 @@ export async function startHost(options: {
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge });
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
         apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set",
-          "conversations.create", "chat.send", "approvals.decide",
+          "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],
         capabilities: ["inbox", "approvals.review"],
       }));
