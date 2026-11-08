@@ -3,6 +3,7 @@ import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
 import { artifactKindSchema, labelSchema, MCP_TOOL_NAMES, runtimeKindSchema } from "@factory/contracts";
 import { z } from "zod";
+import { externalToolPattern } from "../mcp-external/config.js";
 
 const relativePathSchema = z.string().min(1).refine((path) =>
   !isAbsolute(path) && !win32.isAbsolute(path) && !path.includes(":") && !path.includes("\0") &&
@@ -10,7 +11,7 @@ const relativePathSchema = z.string().min(1).refine((path) =>
 "Expected a relative path inside the pack without traversal");
 
 const capabilitySchema = z.string().regex(/^[a-z0-9][a-z0-9.-]{0,39}$/);
-const toolSchema = z.string().refine((name) => MCP_TOOL_NAMES.some((tool) => tool === name
+const toolSchema = z.string().refine((name) => externalToolPattern.test(name) || MCP_TOOL_NAMES.some((tool) => tool === name
   || (/^[a-z0-9]+(?:\.[a-z0-9]+)*\.\*$/.test(name) && tool.startsWith(name.slice(0, -1)))), "unknown tool");
 
 export const packManifestSchema = z.strictObject({

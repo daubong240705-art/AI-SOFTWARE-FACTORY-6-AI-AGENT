@@ -50,6 +50,8 @@ import { createBriefingMcp } from "./dossier/mcp.js";
 import { backfillPackSnapshots } from "./instructions/snapshot.js";
 import { createSkillsMcp } from "./instructions/mcp.js";
 import { createToolPolicy } from "./mcp/policy.js";
+import { loadMcpServers, parseMcpServers, type McpServersConfig } from "./mcp-external/config.js";
+import { createExternalTools, type ExternalTools } from "./mcp-external/index.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -76,6 +78,7 @@ async function prepareProxySocket(path: string): Promise<void> {
 }
 
 export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
+  mcpServers?: McpServersConfig;
   multiTeam: boolean;
   stateDir: string; port: number; backupDir?: string;
   periodicBackup: { dir: string; intervalMs: number };
@@ -152,6 +155,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
     }
   }
   return {
+    ...(!env.FACTORY_MCP_SERVERS_FILE ? {} : { mcpServers: loadMcpServers(env.FACTORY_MCP_SERVERS_FILE) }),
     multiTeam: env.FACTORY_MULTI_TEAM === "1",
     stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) }, workspace, pushRemotes,
     ...(env.FACTORY_PUSH_SSH_COMMAND === undefined ? {} : { pushSshCommand: env.FACTORY_PUSH_SSH_COMMAND }),
@@ -182,6 +186,7 @@ async function freeLoopbackPort(): Promise<number> {
 }
 
 export async function startHost(options: {
+  mcpServers?: McpServersConfig;
   multiTeam?: boolean; packsDir?: string;
   contentDir?: string;
   pushRemotes?: PushRemote[] | null;
@@ -222,6 +227,8 @@ export async function startHost(options: {
   const pushRemotes = options.pushRemotes?.length
     ? parsePushRemotes(options.pushRemotes.map((remote) => `${remote.name}=${remote.url}`).join(",")) : null;
   const clock = options.clock ?? systemClock;
+  const mcpServers = options.mcpServers === undefined ? undefined : parseMcpServers(options.mcpServers);
+  let external: ExternalTools | undefined;
   const budgetConfig = options.budgetConfig ?? { ...DEFAULT_BUDGET_CONFIG };
   let storage: Storage | undefined;
   let app: FastifyInstance | undefined;
@@ -245,6 +252,7 @@ export async function startHost(options: {
   let closePromise: Promise<void> | undefined;
   const close = (): Promise<void> => {
     closePromise ??= (async () => {
+      external?.close();
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
       await effects?.close();
@@ -286,6 +294,7 @@ export async function startHost(options: {
       backupDir: options.backupDir ?? join(stateDir, "backups"), now: clock,
     });
     backfillPackSnapshots(storage.raw, packs, clock());
+    if (mcpServers) external = createExternalTools(mcpServers, { raw: storage.raw, now: () => clock().getTime() });
     if (options.periodicBackup) {
       const service = createBackupService({ storage, dir: options.periodicBackup.dir, clock,
         ...(options.periodicBackup.keep === undefined ? {} : { keep: options.periodicBackup.keep }),
@@ -363,6 +372,7 @@ export async function startHost(options: {
       startModelProxy = async () => {
       const dispatcher = dispatch;
       const mcp = dispatcher === null ? undefined : createMcpHandler({
+        ...(external === undefined ? {} : { external }),
         toolPolicy: createToolPolicy(raw),
         skills: createSkillsMcp({ raw, now: clock }),
         ...(options.multiTeam ? { briefing: createBriefingMcp({ raw,store: artifacts.store,now: clock }) } : {}),
@@ -478,6 +488,7 @@ export async function startHost(options: {
     const port = options.port === 0 ? await freeLoopbackPort() : options.port;
     const origins = originsFor(port);
     const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, artifacts, packs, backupStatus: () => backup?.status() ?? null,
+      ...(external === undefined ? {} : { external }),
       ...(effects === null ? {} : { effects }),
       afterCommand: (type, result) => {
         if (type === "chat.send") lead.kick();

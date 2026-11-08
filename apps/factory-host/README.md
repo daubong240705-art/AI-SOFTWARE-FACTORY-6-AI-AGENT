@@ -286,6 +286,65 @@ backfill or delivery failures log a generic message without failing attempts.
 `attempt_instructions` records provenance and byte metrics per attempt; the task
 context endpoint includes `instructions` metadata, or null for older attempts.
 
+## External tools through remote MCP (V2b)
+
+Set `FACTORY_MCP_SERVERS_FILE` to an operator-owned JSON configuration file.
+Unset or empty leaves external tools off. An unreadable or invalid configuration
+refuses startup with a generic error. No new dependency or process launcher is used.
+
+```json
+{
+  "servers": [{
+    "name": "reference",
+    "url": "https://mcp.example.invalid/mcp",
+    "headers": { "Authorization": "env:EXAMPLE_MCP_AUTHORIZATION" },
+    "timeoutMs": 15000,
+    "maxResultBytes": 32768,
+    "maxTools": 32
+  }]
+}
+```
+
+Header values are literal strings unless they start with `env:NAME`, which resolves
+from the Host environment at each request. Supply the complete header value in
+that variable, including any authentication scheme. A missing or invalid value
+disables that server. Header injection and reserved transport headers are refused.
+URLs require HTTPS, except HTTP on localhost, 127.0.0.1 or [::1]; URL credentials
+are refused. Redirects and cookies are refused. Only the Host contacts servers;
+sandboxed agents reach the Host MCP endpoint.
+
+Packs reference tools as `ext.reference.lookup` or `ext.reference.*`; they cannot
+register servers. Seats receive external tools only through their pinned explicit
+`tools` list. Omitting that field grants no external tools. Core Host tools retain
+their existing behavior. `tools/list` includes permitted discovered tools with an
+`External (reference):` description prefix. Results carry a Host wrapper identifying
+them as reference data, not instructions. Treat every remote result as untrusted,
+including text that imitates Host messages.
+
+Limits: 16 servers; 1–64 tools per server (default 32); discovery cached five minutes;
+1–60 second operation timeout (default 15); 16 KiB arguments and input schemas;
+1 MiB response body before parsing; 1–64 KiB result text (default 32 KiB), truncated
+at a whole character with `[truncated]`. The Host response envelope may further
+reduce the output or tool catalog to fit its existing 64 KiB JSON limit. Each
+attempt may make 50 external calls. Evidence events contain only tool name,
+success/error, duration and byte count, without arguments or result content.
+Resolved header values are redacted from reference results and discovery text.
+Three consecutive failures open a server circuit for 60 seconds; one probe is
+allowed afterwards. Success closes the circuit. Shutdown aborts in-flight requests.
+
+`GET /mcp-servers` requires an operator session and reports only name, URL origin,
+state (`ready`, `unreachable`, `disabled`, `circuit-open`), cached tool count and last
+check time. Discovery is lazy, so an uncontacted server starts as `unreachable`.
+`node scripts/pack-check.mjs --servers <file> <packDir>` optionally warns when a
+tool reference names an unconfigured server. Without `--servers`, runtime names
+are accepted without that warning.
+
+SSRF destinations are controlled by the operator's server registration; grant
+metadata and Host workspace paths are never attached to remote requests. Stdio
+servers, OAuth flows, resources, prompts, sampling and server-initiated requests
+are unsupported. JSON and SSE responses, session headers, one session-loss retry,
+and paginated tool discovery are supported by the minimal Streamable HTTP client.
+
 ## Pack v2: capabilities, tools and the template (V2a)
 
 Pack v2 adds optional fields to the existing manifest, with no migration or new

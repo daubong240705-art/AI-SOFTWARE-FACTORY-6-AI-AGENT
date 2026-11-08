@@ -19,7 +19,7 @@ export function rpcError(code: number, id: string | number | null = null): RpcRe
 }
 
 export function createMcpHandler(deps: McpDeps, version = "0.1.0", options: { maxProgressPerAttempt?: number } = {}): {
-  handle(grant: TokenGrant, body: unknown): RpcResponse;
+  handle(grant: TokenGrant, body: unknown): RpcResponse | Promise<RpcResponse>;
 } {
   const tools = createMcpTools(deps, options);
   const definitions = toolDefinitions.filter((tool) => (deps.knowledge !== undefined || !tool.name.startsWith("knowledge."))
@@ -39,6 +39,12 @@ export function createMcpHandler(deps: McpDeps, version = "0.1.0", options: { ma
     if (body.jsonrpc !== "2.0" || typeof body.method !== "string" || (hasId && !validId)
       || Object.keys(body).some((key) => !["jsonrpc", "id", "method", "params"].includes(key))) return rpcError(-32600, id);
     const error = (code: number): RpcResponse => hasId ? rpcError(code, id) : { status: 202 };
+    const respond = (result: unknown): RpcResponse => {
+      if (!hasId) return { status: 202 };
+      const response = { jsonrpc: "2.0", id, result };
+      if (Buffer.byteLength(JSON.stringify(response)) > 65536) return rpcError(-32603);
+      return { status: 200, body: response };
+    };
     try {
       let result: unknown;
       const params = body.params === undefined ? {} : body.params;
@@ -53,20 +59,28 @@ export function createMcpHandler(deps: McpDeps, version = "0.1.0", options: { ma
         case "ping":
         case "tools/list":
           if (!empty.safeParse(params).success) return error(-32602);
+          if (body.method === "tools/list" && deps.external) {
+            const hostTools = definitions.filter((tool) => toolAllowed(deps, grant, tool.name));
+            return deps.external.definitionsFor(grant).then((external) => {
+              const combined: unknown[] = [...hostTools];
+              for (const tool of external) if (Buffer.byteLength(JSON.stringify({ tools: [...combined, tool] })) < 64000) combined.push(tool);
+              return respond({ tools: combined });
+            }).catch(() => respond({ tools: hostTools }));
+          }
           result = body.method === "ping" ? {} : { tools: definitions.filter((tool) => toolAllowed(deps, grant, tool.name)) };
           break;
         case "tools/call": {
           const parsed = call.safeParse(params);
           if (!parsed.success) return error(-32602);
+          if (parsed.data.name.startsWith("ext.") && deps.external)
+            return Promise.resolve(tools.call(grant, parsed.data.name, parsed.data.arguments ?? {})).then(respond).catch(() => respond({
+              content: [{ type: "text", text: "external tool unavailable" }], isError: true }));
           result = tools.call(grant, parsed.data.name, parsed.data.arguments ?? {});
           break;
         }
         default: return error(-32601);
       }
-      if (!hasId) return { status: 202 };
-      const response = { jsonrpc: "2.0", id, result };
-      if (Buffer.byteLength(JSON.stringify(response)) > 65536) return rpcError(-32603);
-      return { status: 200, body: response };
+      return respond(result);
     } catch { return error(-32603); }
   } };
 }

@@ -4,6 +4,7 @@ import type { TokenGrant } from "../proxy/tokens.js";
 import { McpToolError, sanitizeAgentText } from "./security.js";
 import { cleanArtifactSummary } from "../artifacts/summary.js";
 import { skillGetInputSchema } from "@factory/contracts";
+import type { ExternalTools } from "../mcp-external/index.js";
 
 export const agentOutputInputSchema = z.strictObject({
   title: labelSchema, kind: artifactKindSchema,
@@ -32,6 +33,7 @@ export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
   return clean.data;
 }
 export interface McpDeps {
+  external?: ExternalTools;
   toolPolicy?: (grant: TokenGrant) => { allows(name: string): boolean };
   skills?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   briefing?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
@@ -46,6 +48,7 @@ const result = (text: string, isError = false): ToolResult => ({ content: [{ typ
 
 const coreTools = new Set(["task.progress", "output.register", "decision.request", "skill.get"]);
 export function toolAllowed(deps: McpDeps, grant: TokenGrant, name: string): boolean {
+  if (name.startsWith("ext.") && deps.toolPolicy === undefined) return false;
   if (coreTools.has(name) || deps.toolPolicy === undefined) return true;
   try { return deps.toolPolicy(grant).allows(name); }
   catch { return false; }
@@ -69,11 +72,12 @@ export const toolDefinitions = [
     inputSchema: z.toJSONSchema(knowledgeGetInputSchema) },
 ];
 
-export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?: number } = {}): { call(grant: TokenGrant, name: string, args: unknown): ToolResult } {
+export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?: number } = {}): { call(grant: TokenGrant, name: string, args: unknown): ToolResult | Promise<ToolResult> } {
   const maxProgress = options.maxProgressPerAttempt ?? 500;
   const progressCalls = new Map<string, number>();
   return { call(grant, name, args) {
     try {
+      if (name.startsWith("ext.")) return deps.external?.call(grant, name, args) ?? result("tool is not available", true);
       if (!toolAllowed(deps, grant, name)) return result("tool is not available", true);
       if (name === "skill.get") return deps.skills?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "project.briefing") return deps.briefing?.call(grant,name,args) ?? result("tool is not available",true);

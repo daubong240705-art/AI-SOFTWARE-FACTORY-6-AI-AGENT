@@ -28,8 +28,10 @@ import { z } from "zod";
 import { PushError, type EffectExecutor } from "../effects/executor.js";
 import { getRequest, listRequests, RequestError } from "../requests/service.js";
 import { registerDossierRoutes } from "../dossier/routes.js";
+import type { ExternalTools } from "../mcp-external/index.js";
 
 export function createRoutes(deps: {
+  external?: ExternalTools;
   packs?: readonly RegistryPack[];
   storage: Storage; hub: EventHub; pipeline: ReturnType<typeof createCommandPipeline>;
   keepAliveMs?: number; maxStreams?: number; batchSize?: number;
@@ -43,6 +45,9 @@ export function createRoutes(deps: {
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
+    app.get("/mcp-servers", { preHandler: guards.session }, async () => ({
+      apiVersion: API_VERSION, ok: true, servers: deps.external?.status() ?? [],
+    }));
     registerDossierRoutes(app,guards,{ raw: deps.storage.raw,now: deps.clock ?? systemClock,
       ...(deps.artifacts === undefined ? {} : { store: deps.artifacts.store }) });
     registerEventStream(app, guards, deps);

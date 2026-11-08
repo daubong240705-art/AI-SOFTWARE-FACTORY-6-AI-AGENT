@@ -1,6 +1,7 @@
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { loadPack, packManifestSchema } from "./pack.js";
+import { loadMcpServers } from "../mcp-external/config.js";
 
 export interface PackCheckResult {
   ok: boolean; errors: string[]; warnings: string[];
@@ -11,10 +12,15 @@ const words = (text: string): number => text.trim() ? text.trim().split(/\s+/u).
 // Paths are labels only: never include arbitrary content, control characters or host paths in diagnostics.
 const label = (path: string): string => /^[a-zA-Z0-9_./-]{1,160}$/.test(path) ? path : "[file]";
 
-export function checkPackDirectory(dir: string): PackCheckResult {
+export function checkPackDirectory(dir: string, options: { serversFile?: string } = {}): PackCheckResult {
   const errors: string[] = []; const warnings: string[] = [];
   const summary: PackCheckResult["summary"] = { key: "", version: "", seats: 0, skills: 0, digest: "", capabilities: 0, tools: 0 };
   const done = (): PackCheckResult => ({ ok: errors.length === 0, errors, warnings, summary });
+  let serverNames: Set<string> | undefined;
+  if (options.serversFile !== undefined) {
+    try { serverNames = new Set(loadMcpServers(options.serversFile).servers.map((server) => server.name)); }
+    catch { errors.push("Invalid external MCP configuration"); return done(); }
+  }
   let root: string;
   try { root = realpathSync(resolve(dir)); }
   catch { errors.push("pack directory: unavailable"); return done(); }
@@ -42,6 +48,10 @@ export function checkPackDirectory(dir: string): PackCheckResult {
     return done();
   }
   const manifest = parsed.data;
+  if (serverNames !== undefined) for (const tool of new Set(manifest.seats.flatMap((seat) => seat.tools ?? []))) {
+    if (tool.startsWith("ext.") && !serverNames.has(tool.split(".")[1] ?? ""))
+      warnings.push(`tools: ${tool} references a server that is not configured`);
+  }
   Object.assign(summary, { key: manifest.key, version: manifest.version, seats: manifest.seats.length,
     skills: manifest.skills.length, capabilities: new Set(manifest.seats.flatMap((seat) => seat.capabilities ?? [])).size,
     tools: new Set(manifest.seats.flatMap((seat) => seat.tools ?? [])).size });
