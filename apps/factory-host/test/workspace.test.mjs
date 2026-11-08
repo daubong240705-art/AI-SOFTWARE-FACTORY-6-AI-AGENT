@@ -12,6 +12,8 @@ import {
   runGit, cloneProject, createWorktree, removeWorktree, listWorktrees, checkpoint, collectEvidence,
   parseDiffRecords, buildPatch, patchIsSafeToApply, applyPatchToRepo,
 } from "../dist/workspace/index.js";
+import { createWorkspaceProvider } from "../dist/dispatch/workspace-provider.js";
+import { randomUUID } from "node:crypto";
 
 const linux = process.platform === "linux";
 const linuxOptions = { skip: linux ? false : "Workspace integration requires Linux/ext4 and /usr/bin/git" };
@@ -552,3 +554,43 @@ for (const branch of ["main", "factory/missing", "factory/../main", "factory/bad
     await assert.rejects(createWorktree(f.roots, { projectRoot: f.project.root, projectSlug: f.project.slug,
       taskCode: "DEV-001", epoch: 1, startFromBranch: branch }), (error) => error instanceof WorkspaceError);
   });
+
+// --- added by the lead after mutation testing (S3b/S3c) -------------------------------------------------------------
+integration("apply refuses a Git-valid patch whose symlink points outside the repository, leaving everything untouched", async (t) => {
+  const f = await fixture(t); fs.symlinkSync("../../outside", join(f.attempt.path, "escape-link"));
+  const { patch } = await buildPatch(f.attempt.path, f.attempt.baseSha); assert.match(patch, /120000/);
+  assert.equal(patchIsSafeToApply(patch).ok, false); const before = treeHash(f.project.root);
+  await assert.rejects(applyPatchToRepo({ repo: f.project.root, patch }), code("unsafe-content"));
+  await assert.rejects(applyPatchToRepo({ repo: f.project.root, patch, dryRun: true }), code("unsafe-content"));
+  assert.equal(treeHash(f.project.root), before); assert.equal(fs.existsSync(join(f.project.root, "escape-link")), false);
+});
+function providerFixture(t, f, evidenceName = "evidence") {
+  const evidenceDir = join(f.root, evidenceName);
+  return { evidenceDir, provider: createWorkspaceProvider({ roots: f.roots, evidenceDir }) };
+}
+const finishInput = (f, attemptId) => ({ path: f.attempt.path, baseSha: f.attempt.baseSha, branch: f.attempt.branch, attemptId });
+integration("provider never overwrites or follows a pre-existing patch file or symlink (exclusive create)", async (t) => {
+  const f = await fixture(t); change(f.attempt.path); const { evidenceDir, provider } = providerFixture(t, f);
+  fs.mkdirSync(evidenceDir, { mode: 0o700 });
+  const victim = join(f.root, "victim.txt"); fs.writeFileSync(victim, "precious\n");
+  const linked = randomUUID(); fs.symlinkSync(victim, join(evidenceDir, `${linked}.patch`));
+  await assert.rejects(provider.finish(finishInput(f, linked)), code("git-failed"));
+  assert.equal(fs.readFileSync(victim, "utf8"), "precious\n");
+  const stale = randomUUID(); fs.writeFileSync(join(evidenceDir, `${stale}.patch`), "stale artifact\n");
+  await assert.rejects(provider.finish(finishInput(f, stale)), code("git-failed"));
+  assert.equal(fs.readFileSync(join(evidenceDir, `${stale}.patch`), "utf8"), "stale artifact\n");
+});
+integration("provider tightens an existing evidence directory to 0700 and writes the patch with mode 0600", async (t) => {
+  const f = await fixture(t); change(f.attempt.path); const { evidenceDir, provider } = providerFixture(t, f);
+  fs.mkdirSync(evidenceDir, { mode: 0o755 }); fs.chmodSync(evidenceDir, 0o755);
+  const id = randomUUID(); const evidence = await provider.finish(finishInput(f, id));
+  assert.equal(evidence.patchSafe, true); assert.equal(evidence.patchFile, `${id}.patch`);
+  assert.equal(fs.statSync(evidenceDir).mode & 0o777, 0o700); assert.equal(fs.statSync(join(evidenceDir, `${id}.patch`)).mode & 0o777, 0o600);
+});
+integration("provider worktrees live under a hash of the project id, never under the raw id", async (t) => {
+  const f = await fixture(t, false); const { provider } = providerFixture(t, f);
+  const projectId = "project-raw-id-must-not-appear";
+  const prepared = await provider.prepare({ projectId, taskCode: "DEV-002", epoch: 1, projectRoot: f.project.root, startFromBranch: null });
+  assert.equal(prepared.path.includes(projectId), false);
+  assert.ok(prepared.path.includes(createHash("sha256").update(projectId).digest("hex")));
+});
