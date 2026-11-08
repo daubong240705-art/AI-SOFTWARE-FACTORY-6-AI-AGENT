@@ -53,6 +53,7 @@
 | **OSS-11** | **croner**, **cockatiel**; `dagre`, `ntfy` tùy chọn (§6B) | **Đã duyệt** 07/11/2026 |
 | **OSS-12** | **Fastify**, **better-sqlite3**, **Kysely**, **pino**, **OpenTelemetry**; loại MinIO, AutoGen (§6C) | **Đã duyệt** 07/11/2026 |
 | **OSS-13** | **Playwright** (E2E UI), **fast-check** (property test) (§6D) | **Đã duyệt** 07/11/2026 |
+| **OSS-14** | Pack v2 và tool ngoài: **tự xây lớp khai báo mỏng** (năng lực, tool, MCP server do operator đăng ký), dùng từ vựng A2A/Agent Skills; hoãn gateway (§3 O11) | **Chờ duyệt** 08/11/2026 |
 
 ---
 
@@ -233,6 +234,20 @@ Quyết định cũ của Factory V2 là "học Paperclip, không nhập company
 | Khuyến nghị | Trace theo OpenTelemetry (Apache-2.0) và GenAI semantic conventions, cộng bảng usage tự quản trong DB |
 | Quyết định liên quan | 02 §10.3 (chỉ số token, re-ask, pack hit rate) |
 | Hoãn | `langfuse/langfuse` (core MIT, có phần enterprise): tự host cần Postgres, ClickHouse, Redis và S3, quá nặng cho quy mô cá nhân |
+
+### O11 · Pack v2 và tool bên ngoài: khai báo năng lực, gắn MCP server (khảo sát 08/11/2026)
+
+| Mục | Nội dung |
+|---|---|
+| Nhu cầu | Mục tiêu 'linh hoạt giữa các loại agent, dễ mở rộng': một đội mới (ví dụ marketing) cần khai báo **năng lực** của seat và **tool** được phép dùng (kể cả tool do MCP server bên ngoài cung cấp) ngay trong Pack, không sửa code lõi |
+| Phương án A (đề xuất) | **Tự xây lớp khai báo mỏng, dùng định dạng mở có sẵn làm từ vựng**: manifest Pack v2 thêm `capabilities` cho seat (căn theo AgentSkill của A2A, OSS-06), `tools` (danh sách tool được phép theo tên, gồm tool Host và tool của MCP server được khai báo), `allowed-tools` trong SKILL.md theo chuẩn Agent Skills (trường **thử nghiệm**, mỗi client xử lý khác nhau, nên Host coi là gợi ý và vẫn tự kiểm theo `tools` của seat). Máy chủ MCP ngoài do **operator** đăng ký trong cấu hình Host (không phải Pack), Pack chỉ tham chiếu theo tên; Host là client MCP, chạy server trong sandbox hoặc qua proxy có allowlist, ghi vết mọi lần gọi |
+| Phương án B | Đặt một **MCP gateway** mã nguồn mở giữa agent và các server: Docker MCP Gateway (MIT, bật/tắt từng tool theo profile), Bifrost (Apache-2.0, allowlist theo khóa ảo), Gate22 (aipotheosis-labs), SentinelGate, Enkrypt MCP Gateway, IBM ContextForge, MetaMCP. Lợi: có sẵn lọc tool, quản lý thông tin xác thực. Hại: thêm một dịch vụ phải chạy và bảo trì, một số giấy phép chưa xác nhận, nặng cho quy mô một operator; Host vẫn cần tự kiểm quyền theo seat |
+| Phương án C | Chỉ dùng **MCP Registry** chính thức (`modelcontextprotocol/registry`, định dạng `server.json`) làm nguồn **tìm** server: là danh mục metadata ở trạng thái preview, không lưu mã, chưa đủ để thi hành quyền; dùng sau như nguồn nhập cấu hình |
+| Thư viện client MCP | `@modelcontextprotocol/sdk` (đã duyệt ở OSS-03 cho phía server). Kết quả tìm kiếm cho thấy dòng v2 tách thành `@modelcontextprotocol/server` và `@modelcontextprotocol/client`, giấy phép ghi Apache-2.0 cho đóng góp mới và MIT cho mã cũ; **phải đối chiếu LICENSE và phiên bản ghim trước khi thêm dependency** |
+| Quyết định liên quan | 01 §8.2 (Team Pack: Roles, Tool requirements, Policies), D-10 (taxonomy năng lực), OSS-02/03/05/06 |
+| Rủi ro | Tool ngoài mở đường cho tiêm lệnh qua kết quả tool (coi mọi kết quả là dữ liệu, không phải chỉ thị), rò thông tin xác thực (secret chỉ ở Host, không vào prompt hay Pack), mở rộng bề mặt tấn công (cần allowlist, giới hạn tốc độ, timeout, ghi vết, bước duyệt khi đăng ký server) |
+| Chưa kiểm chứng | Giấy phép và hành vi của MetaMCP, ContextForge, Gate22, SentinelGate; phiên bản MCP SDK v2 hiện hành; mức hỗ trợ `allowed-tools` của OpenCode |
+| Đề xuất | **OSS-14**: chọn phương án A; B và C hoãn |
 
 ---
 
@@ -490,6 +505,7 @@ Số sao làm tròn để tham khảo, không phải tiêu chí chính. "NOASSER
 | 07/11/2026 | Giai đoạn 4 (thực thi phân tán) | Thêm §6A, §7A: 21 repo; OSS-09 Litestream, OSS-10 WinSW; bổ sung metadata 4 repo còn thiếu |
 | 07/11/2026 | Quyết định | Người dùng chốt phương án giai đoạn 4: OSS-09, OSS-10 Đã duyệt |
 | 07/11/2026 | Đồng bộ giai đoạn 5–6 | Thêm §6B, §6C; OSS-11 (croner, cockatiel), OSS-12 (Fastify, better-sqlite3, Kysely, pino, OpenTelemetry) Đã duyệt |
+| 08/11/2026 | Mở rộng Pack (M3+) | Thêm §3 O11: khảo sát gateway MCP, MCP Registry, `allowed-tools`; OSS-14 chờ duyệt |
 
 ---
 
