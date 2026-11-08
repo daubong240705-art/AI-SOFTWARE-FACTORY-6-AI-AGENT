@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: 'e2e',
+  testIgnore: 'work/**', // needs the WSL Host: see playwright.work.config.ts
   globalTeardown: './e2e/teardown.ts',
   fullyParallel: false,
   workers: 1,

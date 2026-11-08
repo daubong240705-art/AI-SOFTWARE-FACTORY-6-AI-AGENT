@@ -23,9 +23,9 @@ Nguồn: [06 §M2](06-implementation-roadmap.md), [07 §8 MVP-lite](07-architect
 | S6b | Xong | 05a28f7 | Review approval, `approvals.decide` áp dụng đúng một lần, Inbox, hết hạn |
 | S6c-1 | Xong | 6c72acf | MCP `task.progress`, `output.register` trên listener proxy (OpenCode thật gọi được) |
 | S6c-2 | Xong | b82f6d9 | `decision.request` → câu hỏi → attempt `parked` → trả lời → attempt mới có quyết định trong handoff |
-| S6d | **Chưa** | — | Effect `git.push-branch` (Critical, đã được duyệt). Hai lượt Codex đầu (08/11) thất bại do 9Router trả 502 trước khi làm được gì; không có thay đổi nào. Chạy lại khi gateway ổn định |
-| S7 | Chưa | — | UI (Board, chi tiết Task + diff, Inbox, Bắt đầu/Dừng, áp dụng patch) |
-| S8 | Chưa | — | E2E Playwright, chạy thật OpenCode trên repo thử, chuẩn bị thử BTL-LTM |
+| S6d | Xong | 3ebc58b | Effect `git.push-branch`: chỉ remote do bạn khai báo, ghi trước khi push, không force, `unknown` chỉ giải quyết bằng reconcile; 10 test git thật. (Hai lượt Codex đầu thất bại do 9Router 502, chạy lại được bạn duyệt)
+| S7 | Xong | 485c475, 29f49f8 | Board, chi tiết Task (tiến độ, kết quả, diff an toàn), Bắt đầu/Dừng/Thử lại, Inbox + hộp thoại quyết định, push, nhập Project git. "Áp dụng patch" vào repo gốc chưa làm: dùng Download .patch + `git apply` (cần quyết định riêng vì là tác động lên repo của bạn) |
+| S8 | Gần xong | (commit kế tiếp) | `npm run e2e:work`: 7 test Playwright trên Host THẬT trong WSL (OpenCode thật + sandbox + git + push, model giả) đều đạt; hướng dẫn thử BTL-LTM trong runbook. CHƯA làm: chạy với model thật (cần bạn chọn model và ngân sách) |
 
 Số kiểm thử Host tại b82f6d9: Windows 2418 đạt (140 bỏ qua vì chỉ chạy Linux), Linux 2598 đạt; 0 lỗi. Các giới hạn đã biết: sandbox chưa có hạn mức CPU/số tiến trình/đĩa và chưa có seccomp; chi phí luôn "unknown" (chưa có bảng giá); PD-5 (tự chuyển model khi tốn kém) chưa làm; phiên đăng nhập chỉ trong bộ nhớ.
 

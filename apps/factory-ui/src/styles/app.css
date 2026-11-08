@@ -82,8 +82,9 @@ button, input, select { min-width: 0; }
 .project-tabs .badge { margin-left: var(--space-xs); }
 [hidden] { display: none !important; }
 .project-view, .project-view [role="tabpanel"], .task-detail, .task-detail > *, .diff, .diff-file { min-width: 0; max-width: 100%; }
-.board { display: flex; width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; gap: var(--space-lg); padding: var(--space-sm); align-items: stretch; }
-.board-column { flex: 0 0 var(--size-board-column-max); min-width: 0; padding: var(--space-sm); background: var(--color-raised); border-radius: var(--radius-panel); }
+/* Columns wrap onto new rows instead of scrolling sideways, so Running and In review are always on screen. */
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--size-board-column-min), 1fr)); width: 100%; min-width: 0; max-width: 100%; gap: var(--space-lg); padding: var(--space-sm); align-items: start; }
+.board-column { min-width: 0; padding: var(--space-sm); background: var(--color-raised); border-radius: var(--radius-panel); }
 .board-column h3 { font-size: var(--type-body-size); overflow-wrap: anywhere; }
 .board-column h3 span { color: var(--color-muted); font-weight: var(--type-meta-weight); }
 .board-card { text-align: left; width: 100%; align-items: flex-start; white-space: normal; font: inherit; color: var(--color-text); }
@@ -106,8 +107,8 @@ button, input, select { min-width: 0; }
 .diff-removed { color: var(--color-danger); background: var(--color-danger-surface); }
 .diff-hunk { background: var(--color-raised); }
 @media (max-width: 600px) {
-  .board { flex-direction: column; overflow-x: hidden; }
-  .board-column { flex: auto; width: 100%; }
+  .board { grid-template-columns: 1fr; }
+  .board-column { width: 100%; }
   .task-detail-backdrop > .dialog { width: 100%; max-width: 100%; padding: var(--space-lg); }
   .diff-number { flex-basis: var(--space-xl); }
 }
