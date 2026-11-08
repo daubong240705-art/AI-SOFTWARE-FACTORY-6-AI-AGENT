@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { workflowKeySchema } from "./workflow.js";
 import {
   API_VERSION,
   idSchema,
@@ -31,6 +32,13 @@ const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
 const change = { expectedRevision: revisionSchema };
 // No actor, credentials, effective grant, status category or windowId supplied by the browser.
 export const commandSchema = z.discriminatedUnion("type", [
+  command("workflows.create", z.strictObject({ instanceId: idSchema, definitionKey: workflowKeySchema,
+    packKey: workflowKeySchema.optional(), params: z.record(z.string(), z.union([z.boolean(), z.string().max(500), z.number().finite()])).optional(),
+    title: labelSchema.optional() })),
+  command("workflows.start", z.strictObject({ instanceId: idSchema, ...change })),
+  command("workflows.pause", z.strictObject({ instanceId: idSchema, ...change, reason: z.string().min(1).max(500) })),
+  command("workflows.resume", z.strictObject({ instanceId: idSchema, ...change })),
+  command("workflows.cancel", z.strictObject({ instanceId: idSchema, ...change, reason: z.string().min(1).max(500) })),
   command(
     "projects.create",
     z.strictObject({

@@ -46,3 +46,10 @@ The Host discovers the copied pack at startup; create a team from its key/versio
 then engage it in a project. Declare task requirements using the same capabilities.
 Allowlists can only remove optional Host tools; they cannot add tools or grant access
 beyond the Host's existing permissions. External tools are outside this slice.
+# Workflow definitions
+
+`pack.json` includes `workflows/template-flow.json`, a two-stage example.
+Declare at most eight relative JSON files in `workflows`; each must stay inside
+the pack and be at most 64 KiB. Conditions contain typed data only, never code.
+Run `npm run pack:check -- ../../packs/_template` from `apps/factory-host`.
+Instances copy definitions by value, so later pack edits do not change them.

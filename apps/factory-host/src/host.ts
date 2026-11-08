@@ -8,6 +8,7 @@ import { dirname, isAbsolute, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApiServer, createRoutes, listenLoopback, originsFor, registerStaticUi } from "./api/index.js";
 import { createCommandPipeline } from "./commands/pipeline.js";
+import { createWorkflowHandlers, WORKFLOW_COMMANDS } from "./workflow/commands.js";
 import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
 import { EventHub } from "./events/hub.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
@@ -473,6 +474,7 @@ export async function startHost(options: {
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
       ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
+      ...createWorkflowHandlers({ packs }),
       ...createRequestHandlers({ multiTeam: options.multiTeam ?? false, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
       "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false }),
       "tasks.create": tasksCreateHandler,
@@ -506,6 +508,7 @@ export async function startHost(options: {
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
         apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set",
           "dossier.refresh",
+          ...WORKFLOW_COMMANDS,
           ...(options.multiTeam ? [...ORG_COMMANDS, ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],

@@ -28,5 +28,5 @@ Trạng thái: **bản nháp tự quyết 08/11/2026** (người dùng giao quy�
 
 | # | Trạng thái | Commit | Ghi chú |
 |---|---|---|---|
-| W1a | Đang làm | — | |
+| W1a | Xong | (commit này) | Schema Workflow Definition + validator xác định (chu trình, cạnh, join, điều kiện có kiểu, không có code), `pack.json` khai báo `workflows`, workflow `software-delivery` cho `software-team` (digest của gói này đổi có chủ ý), Instance + máy trạng thái 04 §8.3 (migration 0010), lệnh `workflows.create/start/pause/resume/cancel`, route đọc. Chưa tạo Task (W1b). Codex hết giờ 900 s sau khi ghi gần đủ; lead sửa 2 test đếm lệnh/trường registry và thêm test bổ sung |
 | W1b, W2, A1, A2, P3, N1, E2 | Chưa | — | |

@@ -38,6 +38,7 @@ export const entityKindSchema = z.enum([
   "effect",
   "budget",
   "node",
+  "workflow-instance",
 ]);
 export const entityRefSchema = z.strictObject({
   kind: entityKindSchema,

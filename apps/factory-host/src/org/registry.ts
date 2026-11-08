@@ -7,6 +7,7 @@ export interface RegistryPack {
   seats: { name: string; role: string; runtime: LoadedPack["manifest"]["seats"][number]["runtime"]; slots: number; isLead: boolean;
     capabilities?: string[]; tools?: string[] }[];
   produces?: LoadedPack["manifest"]["produces"];
+  workflows?: { key: string; revision: number; title: string }[];
   isDefault: boolean;
 }
 const loaded = new WeakMap<RegistryPack, LoadedPack>();
@@ -18,7 +19,8 @@ export function registryEntry(pack: LoadedPack, isDefault = false): RegistryPack
     description: manifest.description, seats: manifest.seats.map(({ name, role, runtime, slots, isLead, capabilities, tools }) =>
       ({ name, role, runtime, slots, isLead, ...(capabilities === undefined ? {} : { capabilities }),
         ...(tools === undefined ? {} : { tools }) })), isDefault,
-    ...(manifest.produces === undefined ? {} : { produces: manifest.produces }) };
+    ...(manifest.produces === undefined ? {} : { produces: manifest.produces }),
+    ...(pack.files.workflows.length ? { workflows: pack.files.workflows.map(({ definition: { key, revision, title } }) => ({ key, revision, title })) } : {}) };
   loaded.set(entry, pack);
   return entry;
 }

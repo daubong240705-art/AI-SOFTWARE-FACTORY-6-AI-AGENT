@@ -2,6 +2,7 @@ import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { loadPack, packManifestSchema } from "./pack.js";
 import { loadMcpServers } from "../mcp-external/config.js";
+import { validateWorkflowDefinition } from "../workflow/validate.js";
 
 export interface PackCheckResult {
   ok: boolean; errors: string[]; warnings: string[];
@@ -40,7 +41,7 @@ export function checkPackDirectory(dir: string, options: { serversFile?: string 
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       const path = issue.path.map((part) => typeof part === "number" ? String(part)
-        : ["key", "version", "name", "description", "seats", "skills", "produces", "role", "profile", "runtime", "slots", "isLead", "capabilities", "tools"].includes(String(part)) ? String(part) : "field").join(".") || "manifest";
+        : ["key", "version", "name", "description", "seats", "skills", "workflows", "produces", "role", "profile", "runtime", "slots", "isLead", "capabilities", "tools"].includes(String(part)) ? String(part) : "field").join(".") || "manifest";
       const message = issue.message === "unknown tool" ? "unknown tool"
         : issue.message.startsWith("duplicate") || issue.message.startsWith("Duplicate") ? "duplicate value" : "invalid value";
       errors.push(`${path}: ${message}`);
@@ -81,7 +82,15 @@ export function checkPackDirectory(dir: string, options: { serversFile?: string 
       if (words(content) > 700) warnings.push(`skill ${label(skill)}: above 700 words`);
     } catch { errors.push(`skill ${label(skill)}: SKILL.md missing or invalid`); }
   }
-  try { summary.digest = loadPack(root).digest; }
+  try {
+    const pack = loadPack(root); summary.digest = pack.digest;
+    for (const [index, file] of pack.files.workflows.entries()) {
+      const result = validateWorkflowDefinition(file.definition, v2
+        ? { knownCapabilities: new Set(manifest.seats.flatMap((seat) => seat.capabilities ?? [])) } : {});
+      errors.push(...result.errors.map((message) => `workflows.${index}.${message}`));
+      warnings.push(...result.warnings.map((message) => `workflows.${index}.${message}`));
+    }
+  }
   catch { if (!errors.length) errors.push("pack: invalid content"); }
   return done();
 }

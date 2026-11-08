@@ -42,5 +42,8 @@
   ],
   "produces": [
     "other"
+  ],
+  "workflows": [
+    "workflows/template-flow.json"
   ]
 }

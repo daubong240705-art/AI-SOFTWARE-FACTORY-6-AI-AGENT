@@ -11,7 +11,7 @@ test("registry discovers the default repository pack", () => {
   const entry = registry.find((entry) => entry.key === "software-team");
   assert.equal(entry.isDefault, true); assert.equal(entry.seats.length, 7);
   assert.deepEqual(registryPack(entry), pack);
-  assert.deepEqual(Object.keys(entry).sort(), ["key", "version", "name", "description", "seats", "isDefault"].sort());
+  assert.deepEqual(Object.keys(entry).sort(), ["key", "version", "name", "description", "seats", "isDefault", "workflows"].sort());
 });
 test("empty registry is valid", (t) => assert.deepEqual(loadPackRegistry(temp(t)), []));
 test("registry loads multiple valid packs in key order", (t) => {

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
-import { artifactKindSchema, labelSchema, MCP_TOOL_NAMES, runtimeKindSchema } from "@factory/contracts";
+import { artifactKindSchema, labelSchema, MCP_TOOL_NAMES, runtimeKindSchema, workflowDefinitionSchema, type WorkflowDefinition } from "@factory/contracts";
 import { z } from "zod";
 import { externalToolPattern } from "../mcp-external/config.js";
 
@@ -28,6 +28,8 @@ export const packManifestSchema = z.strictObject({
     tools: z.array(toolSchema).max(32).optional(),
   })).min(1).max(16),
   skills: z.array(relativePathSchema),
+  workflows: z.array(relativePathSchema.refine((path) => path.endsWith(".json"), "Expected a .json workflow"))
+    .max(8).refine((paths) => new Set(paths.map((path) => path.replaceAll("\\", "/"))).size === paths.length, "duplicate workflow").optional(),
   produces: z.array(artifactKindSchema).max(13).refine((values) => new Set(values).size === values.length,
     "duplicate artifact kind").optional(),
 }).superRefine((manifest, ctx) => {
@@ -40,7 +42,8 @@ export const packManifestSchema = z.strictObject({
 export type LoadedPack = {
   manifest: z.infer<typeof packManifestSchema>; digest: string; dir: string;
   files: { profiles: { path: string; content: string }[];
-    skills: { name: string; path: string; description: string; content: string }[] };
+    skills: { name: string; path: string; description: string; content: string }[];
+    workflows: { path: string; definition: WorkflowDefinition }[] };
 };
 
 function descriptionFor(content: string): string {
@@ -70,7 +73,7 @@ export function loadPack(dir: string): LoadedPack {
   try { manifest = packManifestSchema.parse(JSON.parse(manifestBytes.toString("utf8")) as unknown); }
   catch { throw new Error("Invalid pack manifest"); }
   const hash = createHash("sha256");
-  const files: LoadedPack["files"] = { profiles: [], skills: [] };
+  const files: LoadedPack["files"] = { profiles: [], skills: [], workflows: [] };
   // Length-prefixed byte strings give an unambiguous concatenation, independent of OS or absolute directory.
   const add = (bytes: Buffer): void => { hash.update(`${bytes.length}:`); hash.update(bytes); };
   add(manifestBytes);
@@ -95,5 +98,13 @@ export function loadPack(dir: string): LoadedPack {
     add(bytes);
     files.skills.push({ name, path, description: descriptionFor(content), content });
   }
+  try {
+    for (const path of manifest.workflows ?? []) {
+      const { bytes, content } = readContent(path);
+      const definition = workflowDefinitionSchema.parse(JSON.parse(content) as unknown);
+      if (files.workflows.some((file) => file.definition.key === definition.key)) throw new Error();
+      add(bytes); files.workflows.push({ path, definition });
+    }
+  } catch { throw new Error("Invalid pack content"); }
   return { manifest, digest: hash.digest("hex"), dir: root, files };
 }

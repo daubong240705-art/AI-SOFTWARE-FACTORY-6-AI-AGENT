@@ -29,6 +29,7 @@ import { PushError, type EffectExecutor } from "../effects/executor.js";
 import { getRequest, listRequests, RequestError } from "../requests/service.js";
 import { registerDossierRoutes } from "../dossier/routes.js";
 import type { ExternalTools } from "../mcp-external/index.js";
+import { listWorkflowInstances, workflowInstanceView } from "../workflow/service.js";
 
 export function createRoutes(deps: {
   external?: ExternalTools;
@@ -45,6 +46,17 @@ export function createRoutes(deps: {
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/workflows", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      return { instances: listWorkflowInstances(deps.storage.raw, projectId) };
+    });
+    app.get<{ Params: { projectId: string; instanceId: string } }>("/projects/:projectId/workflows/:instanceId", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId, instanceId } = request.params;
+      const instance = getProject(deps.storage.raw, projectId) ? workflowInstanceView(deps.storage.raw, projectId, instanceId) : undefined;
+      if (!instance) return failure(reply, 404, "not-found", "Workflow not found.", "correct-input", newId);
+      return { instance };
+    });
     app.get("/mcp-servers", { preHandler: guards.session }, async () => ({
       apiVersion: API_VERSION, ok: true, servers: deps.external?.status() ?? [],
     }));
@@ -71,9 +83,9 @@ export function createRoutes(deps: {
         })) };
       });
     app.get("/packs", { preHandler: guards.session }, async () => ({
-      packs: (deps.packs ?? []).map(({ key, version, name, description, seats, produces }) =>
+      packs: (deps.packs ?? []).map(({ key, version, name, description, seats, produces, workflows }) =>
         ({ key, version, name, description, seatCount: seats.length, seats,
-          ...(produces === undefined ? {} : { produces }) })),
+          ...(produces === undefined ? {} : { produces }), ...(workflows === undefined ? {} : { workflows }) })),
     }));
     app.get("/teams", { preHandler: guards.session }, async () => ({ teams: teamViews(deps.storage.raw) }));
     app.get<{ Params: { teamId: string } }>("/teams/:teamId/queue", { preHandler: guards.session }, async (request, reply) => {

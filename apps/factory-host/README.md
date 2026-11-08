@@ -345,6 +345,32 @@ servers, OAuth flows, resources, prompts, sampling and server-initiated requests
 are unsupported. JSON and SSE responses, session headers, one session-loss retry,
 and paginated tool discovery are supported by the minimal Streamable HTTP client.
 
+## Workflows as data (M5 W1a)
+
+Packs may declare `workflows`, up to eight unique relative `.json` files inside
+the pack, each at most 64 KiB. Copy the example in `packs/_template/workflows`,
+declare it in `pack.json`, then run `npm run pack:check -- <pack-directory>`.
+The checker validates schemas, graph references and cycles, bounded rework,
+parallel joins, parameter comparisons and advisory capabilities. Workflow bytes
+participate in the pack digest; packs without workflows retain their digest.
+
+`GET /packs` lists workflow keys, revisions and titles. The always available
+`workflows.create`, `workflows.start`, `workflows.pause`, `workflows.resume` and
+`workflows.cancel` commands use command replay protection and revision checks.
+Create takes an instance UUID, definition key, optional pack key, parameter
+overrides and optional title. Ambiguous definitions require a pack key.
+Instances start proposed, fill parameter defaults and mark stages skipped only
+when their parameter-only `includeIf` is false. Facts remain unknown.
+Authenticated reads are `/projects/:projectId/workflows` and the same route
+with `/:instanceId`; list reads return the newest 100 instances and stage counts.
+
+Definitions are pinned by value in migration 0010, independent of later pack
+edits. Conditions are bounded typed data: no code, LLM or arbitrary expressions.
+W1a only stores instances and state changes; it creates no Tasks, evaluates no
+dependencies and performs no execution. Resume atomically collapses
+paused → resuming → active into one revision. W1b adds freshness checks,
+Task generation, dependency evaluation, parallel joins, gates and bounded rework.
+
 ## Pack v2: capabilities, tools and the template (V2a)
 
 Pack v2 adds optional fields to the existing manifest, with no migration or new
@@ -352,7 +378,8 @@ dependency. `seats[].capabilities` contains up to 12 unique identifiers matching
 `^[a-z0-9][a-z0-9.-]{0,39}$`. `seats[].tools` contains up to 32 exact Host tool
 names or `prefix.*` patterns matching at least one known Host tool. Duplicate
 tools produce a validator warning. `produces` contains up to 13 unique artifact
-kinds and is informational. `GET /packs` exposes these fields when declared,
+kinds and is informational. Optional `workflows` lists up to eight relative JSON
+definitions (see Workflows as data above). `GET /packs` exposes these fields when declared,
 alongside seat metadata, without profile or skill text.
 
 An explicit owner always wins. If any non-lead seat declares capabilities, the
