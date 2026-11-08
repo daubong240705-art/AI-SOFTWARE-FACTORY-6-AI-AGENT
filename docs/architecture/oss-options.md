@@ -53,7 +53,7 @@
 | **OSS-11** | **croner**, **cockatiel**; `dagre`, `ntfy` tùy chọn (§6B) | **Đã duyệt** 07/11/2026 |
 | **OSS-12** | **Fastify**, **better-sqlite3**, **Kysely**, **pino**, **OpenTelemetry**; loại MinIO, AutoGen (§6C) | **Đã duyệt** 07/11/2026 |
 | **OSS-13** | **Playwright** (E2E UI), **fast-check** (property test) (§6D) | **Đã duyệt** 07/11/2026 |
-| **OSS-14** | Pack v2 và tool ngoài: **tự xây lớp khai báo mỏng** (năng lực, tool, MCP server do operator đăng ký), dùng từ vựng A2A/Agent Skills; hoãn gateway (§3 O11) | **Chờ duyệt** 08/11/2026 |
+| **OSS-14** | Pack v2 và tool ngoài: **tự xây lớp khai báo mỏng** (năng lực, tool, MCP server do operator đăng ký), dùng từ vựng A2A/Agent Skills; hoãn gateway (§3 O11) | **Đã duyệt** 08/11/2026 (phương án A) |
 
 ---
 
@@ -505,7 +505,7 @@ Số sao làm tròn để tham khảo, không phải tiêu chí chính. "NOASSER
 | 07/11/2026 | Giai đoạn 4 (thực thi phân tán) | Thêm §6A, §7A: 21 repo; OSS-09 Litestream, OSS-10 WinSW; bổ sung metadata 4 repo còn thiếu |
 | 07/11/2026 | Quyết định | Người dùng chốt phương án giai đoạn 4: OSS-09, OSS-10 Đã duyệt |
 | 07/11/2026 | Đồng bộ giai đoạn 5–6 | Thêm §6B, §6C; OSS-11 (croner, cockatiel), OSS-12 (Fastify, better-sqlite3, Kysely, pino, OpenTelemetry) Đã duyệt |
-| 08/11/2026 | Mở rộng Pack (M3+) | Thêm §3 O11: khảo sát gateway MCP, MCP Registry, `allowed-tools`; OSS-14 chờ duyệt |
+| 08/11/2026 | Mở rộng Pack (M3+) | Thêm §3 O11: khảo sát gateway MCP, MCP Registry, `allowed-tools`; OSS-14 đã duyệt (phương án A) |
 
 ---
 
