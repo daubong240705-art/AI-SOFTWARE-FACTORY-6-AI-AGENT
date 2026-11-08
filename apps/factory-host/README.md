@@ -256,3 +256,32 @@ Artifact metadata and counts use `visibleToScope`; private drafts stay scoped to
 their team or exact request grants. The tool enforces active attempts, 100 calls
 per attempt and a 48,000-byte JSON response budget.
 
+## Seat instructions (M3 P2)
+
+Teams pin pack content at creation. `pack_snapshots` stores the manifest by digest,
+`pack_files` stores profile and skill text, and `teams.pack_digest` selects that
+snapshot. The digest covers the manifest, profiles and every declared SKILL.md,
+using length-prefixed bytes. Files must contain no NUL and fit within 65536 bytes.
+Editing a pack on disk does not change an existing team. Publish changed content
+by bumping the pack version; the existing key and version rule creates a new team.
+
+Agents receive the seat profile after the task, acceptance criteria and fixed
+rules, before Context and Handoff. OpenCode includes at most 6000 UTF-8 bytes of
+profile and twenty skill catalog entries (name and description, at most 250
+characters), plus a sentence explaining how dotted tool names map to
+`factory_` names. Redaction applies before truncation. The total prompt retains
+its existing byte ceiling, cutting instructions first and preserving the goal.
+Without instructions the prompt remains byte-identical.
+
+Use `skill.get` (`factory_skill_get` in OpenCode) with `{ "name": "skill-name" }`
+to read full pinned skill text as data. The Host derives the seat from the active
+attempt; only that team's snapshot is readable. Reads are fenced, capped at 200
+per attempt and bounded to 32768 UTF-8 bytes, with a final `[truncated]` line when
+shortened. Unknown and inaccessible skills return the same `skill not found` error.
+This tool is available independently of multi-team mode.
+
+At startup, teams lacking a digest are backfilled only when a registered pack
+has the same key and version. Unavailable packs stay without instructions, and
+backfill or delivery failures log a generic message without failing attempts.
+`attempt_instructions` records provenance and byte metrics per attempt; the task
+context endpoint includes `instructions` metadata, or null for older attempts.

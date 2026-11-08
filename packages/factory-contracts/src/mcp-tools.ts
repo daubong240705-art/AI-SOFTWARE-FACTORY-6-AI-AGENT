@@ -134,8 +134,11 @@ export const requestReplyInputSchema = z.strictObject({
 export type RequestReplyInput = z.infer<typeof requestReplyInputSchema>;
 export const requestGetInputSchema = z.strictObject({ requestId: idSchema });
 export const projectBriefingInputSchema = z.strictObject({});
+export const skillGetInputSchema = z.strictObject({ name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/) });
+export type SkillGetInput = z.infer<typeof skillGetInputSchema>;
 
 export const MCP_TOOLS = {
+  "skill.get": skillGetInputSchema,
   "project.briefing": projectBriefingInputSchema,
   "task.propose": taskProposeInputSchema,
   "task.progress": taskProgressInputSchema,

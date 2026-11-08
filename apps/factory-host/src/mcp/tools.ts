@@ -3,6 +3,7 @@ import { artifactKindSchema, artifactRefSchema, decisionRequestInputSchema, know
 import type { TokenGrant } from "../proxy/tokens.js";
 import { McpToolError, sanitizeAgentText } from "./security.js";
 import { cleanArtifactSummary } from "../artifacts/summary.js";
+import { skillGetInputSchema } from "@factory/contracts";
 
 export const agentOutputInputSchema = z.strictObject({
   title: labelSchema, kind: artifactKindSchema,
@@ -31,6 +32,7 @@ export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
   return clean.data;
 }
 export interface McpDeps {
+  skills?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   briefing?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   requests?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   knowledge?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
@@ -42,6 +44,7 @@ export interface ToolResult { content: { type: "text"; text: string }[]; isError
 const result = (text: string, isError = false): ToolResult => ({ content: [{ type: "text", text }], isError });
 
 export const toolDefinitions = [
+  { name: "skill.get", description: "Read a skill from this team's pinned pack snapshot.", inputSchema: z.toJSONSchema(skillGetInputSchema) },
   { name: "project.briefing", description: "Read the project resume briefing and knowledge freshness.", inputSchema: z.toJSONSchema(z.strictObject({})) },
   { name: "request.create", description: "Ask another team asynchronously from this task.", inputSchema: z.toJSONSchema(requestCreateInputSchema) },
   { name: "request.reply", description: "Reply to or acknowledge a request from this task.", inputSchema: z.toJSONSchema(requestReplyInputSchema) },
@@ -63,6 +66,7 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
   const progressCalls = new Map<string, number>();
   return { call(grant, name, args) {
     try {
+      if (name === "skill.get") return deps.skills?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "project.briefing") return deps.briefing?.call(grant,name,args) ?? result("tool is not available",true);
       if (name === "request.create" || name === "request.reply" || name === "request.get")
         return deps.requests?.call(grant, name, args) ?? result("multi-team is disabled", true);

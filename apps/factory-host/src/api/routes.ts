@@ -59,6 +59,10 @@ export function createRoutes(deps: {
             maxTokens: number; l0: number; l1: number; omitted: number; json: string }[];
         return { apiVersion: API_VERSION, ok: true, packs: rows.map(({ json, ...row }) => ({
           ...row, pack: contextPackSchema.parse(JSON.parse(json) as unknown),
+          instructions: deps.storage.raw.prepare(`SELECT pack_digest AS packDigest, profile_path AS profilePath,
+            skills_count AS skillsCount, bytes FROM attempt_instructions
+            WHERE project_id = ? AND attempt_id = ? AND pack_digest IS NOT NULL`)
+            .get(projectId, row.attemptId) ?? null,
         })) };
       });
     app.get("/packs", { preHandler: guards.session }, async () => ({

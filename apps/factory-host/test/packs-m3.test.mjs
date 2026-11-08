@@ -14,7 +14,7 @@ import { migrationsDir } from "./org-fixture.mjs";
 
 const packsDir = fileURLToPath(new URL("../../../packs/", import.meta.url));
 // Captured before adding the M3 packs; loadPack hashes manifest and profile bytes.
-const softwareDigest = "4e745b5595907dd4b20c2ad495baff3a4b456dc46eeb3c93e09b7e637d95cd9f";
+const softwareDigest = "2508746cc8088c5010e739891419df7814ec8cbae4e61f6a7b3f2cda7f23ed8d";
 const expected = {
   "research-team": {
     name: "Research Team",

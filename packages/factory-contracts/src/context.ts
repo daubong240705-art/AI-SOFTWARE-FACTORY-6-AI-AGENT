@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, timestampSchema } from "./base.js";
+import { idSchema, sha256Schema, timestampSchema } from "./base.js";
 import { artifactKindSchema, artifactRefSchema, artifactStatusSchema } from "./knowledge.js";
 import { placementSchema, sideEffectSchema } from "./work.js";
 
@@ -21,6 +21,17 @@ export const contextPackSchema = z.strictObject({
   omitted: z.array(z.strictObject({ ref: artifactRefSchema, reason: z.enum(["over-budget", "no-access", "not-found"]) })).max(100),
 });
 export type ContextPack = z.infer<typeof contextPackSchema>;
+
+export const attemptInstructionsSchema = z.strictObject({
+  packDigest: sha256Schema, profilePath: z.string(), skillsCount: z.number().int().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+});
+export const taskContextItemSchema = z.strictObject({
+  attemptId: idSchema, epoch: z.number().int().positive(), builtAt: timestampSchema,
+  tokens: z.number().int().nonnegative(), maxTokens: z.number().int().nonnegative(),
+  l0: z.number().int().nonnegative(), l1: z.number().int().nonnegative(), omitted: z.number().int().nonnegative(),
+  pack: contextPackSchema, instructions: attemptInstructionsSchema.nullable(),
+});
 
 /** Deterministic estimate, independent of a model tokenizer and safe in browsers. */
 export const estimateContextTokens = (text: string): number => Math.ceil(new TextEncoder().encode(text).length / 4);

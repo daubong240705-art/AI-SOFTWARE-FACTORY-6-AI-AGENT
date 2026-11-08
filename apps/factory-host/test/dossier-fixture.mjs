@@ -28,7 +28,7 @@ export function fixture(t) {
     ...createKnowledgeHandlers({multiTeam:true}),"tasks.transition":withKnowledgeEffects(tasksTransitionHandler)}});
   const execute=(type,payload={},patch={})=>pipeline.execute({apiVersion:1,commandId:randomUUID(),projectId,type,payload,...patch});
   const refresh=()=>{const r=execute("dossier.refresh");assert.equal(r.status,200,JSON.stringify(r.body));return r.body.receipt.effects[0];};
-  const team=(name="Example team",patch={})=>{const id=randomUUID();raw.prepare("INSERT INTO teams VALUES (?,1,?,'Charter',?,?,'active')").run(id,name,patch.packKey??"example",patch.packVersion??"1.0.0");return id;};
+  const team=(name="Example team",patch={})=>{const id=randomUUID();raw.prepare("INSERT INTO teams (id,revision,name,charter,pack_key,pack_version,lifecycle) VALUES (?,1,?,'Charter',?,?,'active')").run(id,name,patch.packKey??"example",patch.packVersion??"1.0.0");return id;};
   const engage=(teamId,patch={})=>{const id=randomUUID();raw.prepare("INSERT INTO engagements VALUES (?,?,?,1,?,?,?,?)").run(projectId,id,teamId,patch.priority??50,patch.maxConcurrent??2,patch.state??"active",BEFORE);return id;};
   let code=0;
   const task=(patch={})=>{const id=randomUUID();const n=++code;raw.prepare(`INSERT INTO tasks (project_id,id,revision,code,title,goal,brief,origin_kind,state,required_capabilities_json,acceptance_json,inputs_json)

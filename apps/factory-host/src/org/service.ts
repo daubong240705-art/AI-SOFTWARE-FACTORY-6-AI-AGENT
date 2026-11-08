@@ -3,6 +3,7 @@ import type { Database } from "better-sqlite3";
 import { engagementSchema, seatSchema, teamSchema, type Engagement, type Seat, type Team } from "@factory/contracts";
 import type { Clock } from "../ids.js";
 import type { LoadedPack } from "./pack.js";
+import { capturePackSnapshot } from "../instructions/snapshot.js";
 
 type Deps = { newId: () => string; clock: Clock; teamId?: string };
 interface TeamRow { id: string; revision: number; name: string; charter: string; pack_key: string | null; pack_version: string | null; lifecycle: string }
@@ -38,8 +39,9 @@ export function ensureTeamFromPack(raw: Database, pack: LoadedPack, deps: Deps):
       .get(manifest.key, manifest.version) as { id: string } | undefined;
     if (existing) return { teamId: existing.id, created: false, seatIds: listSeats(raw, existing.id).map((seat) => seat.id) };
     const teamId = deps.teamId ?? deps.newId();
-    raw.prepare("INSERT INTO teams (id, revision, name, charter, pack_key, pack_version, lifecycle) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .run(teamId, 1, manifest.name, manifest.description, manifest.key, manifest.version, "active");
+    const digest = capturePackSnapshot(raw, pack, deps.clock());
+    raw.prepare("INSERT INTO teams (id, revision, name, charter, pack_key, pack_version, lifecycle, pack_digest) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(teamId, 1, manifest.name, manifest.description, manifest.key, manifest.version, "active", digest);
     for (const seat of manifest.seats) raw.prepare(`INSERT INTO seats
       (id, team_id, revision, name, role, profile_id, profile_revision, runtime, slots, node_policy, dedicated_node_id, is_lead)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)

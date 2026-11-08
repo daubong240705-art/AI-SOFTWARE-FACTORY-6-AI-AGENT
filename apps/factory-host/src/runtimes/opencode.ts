@@ -50,8 +50,20 @@ function promptFor(context: AttemptContext, maxBytes: number, token: string): st
     "If a business decision blocks you and you cannot make it yourself, call factory_decision_request with the question and 2-6 options, then stop immediately without further tool calls. The operator will answer and a new session will continue your work.",
   ].join("\n"));
   if (prompt.includes("\0") || Buffer.byteLength(prompt) > maxBytes) return invalid();
-  return utf8Prefix(prompt + (context.contextPack ? `\nContext:\n${redact(context.contextPack.replaceAll("\0", ""))}` : "")
-    + (context.handoff ? `\nHandoff:\n${redact(context.handoff.replaceAll("\0", ""))}` : ""), maxBytes);
+  const suffix = (context.contextPack ? `\nContext:\n${redact(context.contextPack.replaceAll("\0", ""))}` : "")
+    + (context.handoff ? `\nHandoff:\n${redact(context.handoff.replaceAll("\0", ""))}` : "");
+  if (!context.instructions) return utf8Prefix(prompt + suffix, maxBytes);
+  const { profile, skills } = context.instructions;
+  const mapping = "Tool names written with dots in profiles and skills (for example knowledge.search) are called here as factory_ plus the name with dots replaced by underscores (for example factory_knowledge_search).";
+  const catalog = skills.length ? "\nSkills available (read one in full with factory_skill_get before relying on it):\n"
+    + skills.slice(0, 20).map(({ name, description }) => `- ${name}: ${description.replace(/[\r\n\0]/g, " ")}`).join("\n") : "";
+  const header = "\nSeat profile:\n";
+  const tail = redact(catalog + "\n" + mapping);
+  const profileText = utf8Prefix(redact(profile.replaceAll("\0", "")), 6000);
+  const available = Math.max(0, maxBytes - Buffer.byteLength(prompt + suffix));
+  const overhead = Buffer.byteLength(header + tail);
+  const block = available >= overhead ? header + utf8Prefix(profileText, available - overhead) + tail : "";
+  return utf8Prefix(prompt + block + suffix, maxBytes);
 }
 
 function gitDirectories(workspace: string, roots: SandboxSpec["roots"]): NonNullable<SandboxSpec["gitDirs"]> {

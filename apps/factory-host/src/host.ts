@@ -47,6 +47,8 @@ import { createRequestsMcp } from "./requests/mcp.js";
 import { createRequestHandlers, REQUEST_COMMANDS } from "./requests/commands.js";
 import { createDossierHandlers } from "./dossier/commands.js";
 import { createBriefingMcp } from "./dossier/mcp.js";
+import { backfillPackSnapshots } from "./instructions/snapshot.js";
+import { createSkillsMcp } from "./instructions/mcp.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -282,6 +284,7 @@ export async function startHost(options: {
       migrationsDir: options.migrationsDir ?? fileURLToPath(new URL("../migrations/", import.meta.url)),
       backupDir: options.backupDir ?? join(stateDir, "backups"), now: clock,
     });
+    backfillPackSnapshots(storage.raw, packs, clock());
     if (options.periodicBackup) {
       const service = createBackupService({ storage, dir: options.periodicBackup.dir, clock,
         ...(options.periodicBackup.keep === undefined ? {} : { keep: options.periodicBackup.keep }),
@@ -359,6 +362,7 @@ export async function startHost(options: {
       startModelProxy = async () => {
       const dispatcher = dispatch;
       const mcp = dispatcher === null ? undefined : createMcpHandler({
+        skills: createSkillsMcp({ raw, now: clock }),
         ...(options.multiTeam ? { briefing: createBriefingMcp({ raw,store: artifacts.store,now: clock }) } : {}),
         ...(options.multiTeam ? { requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }) } : {}),
         knowledge: createKnowledgeMcp({ raw, knowledge, now: clock }),

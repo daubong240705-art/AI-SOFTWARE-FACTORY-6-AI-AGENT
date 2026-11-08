@@ -17,7 +17,7 @@ function fixture(t) {
       VALUES (?,'task',1,'DOC-001','Task','Goal','Brief','operator','draft','[]','[]','[]')`).run(project);
   }
   for(const team of ["t1","t2"]) {
-    raw.prepare("INSERT INTO teams VALUES (?,1,?,'Charter',NULL,NULL,'active')").run(team,team);
+    raw.prepare("INSERT INTO teams (id,revision,name,charter,pack_key,pack_version,lifecycle) VALUES (?,1,?,'Charter',NULL,NULL,'active')").run(team,team);
     raw.prepare("INSERT INTO seats VALUES (?,?,1,?,'Writer','profile',1,'fake',1,'elastic',NULL,0)").run(`s-${team}`,team,team);
     for(const project of ["p1","p2"]) {
       raw.prepare(`INSERT INTO attempts (project_id,id,task_id,revision,epoch,state,outcome,runtime,provider,model,effort,ended_at)

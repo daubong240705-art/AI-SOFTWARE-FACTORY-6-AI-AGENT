@@ -500,7 +500,7 @@ const proposed = (over = {}) => ({
 });
 
 test("the tool surface is the agreed M0-lite set", () => {
-  assert.deepEqual([...c.MCP_TOOL_NAMES].sort(), ["decision.request", "handoff.submit", "knowledge.get", "knowledge.search", "output.register", "project.briefing", "request.create", "request.get", "request.reply", "task.progress", "task.propose"]);
+  assert.deepEqual([...c.MCP_TOOL_NAMES].sort(), ["decision.request", "handoff.submit", "knowledge.get", "knowledge.search", "output.register", "project.briefing", "request.create", "request.get", "request.reply", "skill.get", "task.progress", "task.propose"]);
 });
 
 test("task.propose keeps the V1 plan rules: at most 10 tasks, dependencies point backwards", () => {

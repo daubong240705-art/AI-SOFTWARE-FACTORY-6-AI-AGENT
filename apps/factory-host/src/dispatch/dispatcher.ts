@@ -9,6 +9,7 @@ import {
 } from "./attempts.js";
 import { buildHandoff } from "./handoff.js";
 import { buildContextPack, renderContextPack, storeContextPack } from "../context/pack.js";
+import { getSeatInstructions } from "../instructions/snapshot.js";
 import { engagementLoad, ensureLocalNode, LOCAL_NODE_ID, markNodeSlots, nodeLoad, seatLoad } from "./node.js";
 import type { AttemptContext, RuntimeEvent, RuntimeRegistry, RuntimeSession } from "./runtime.js";
 import { applyAttemptOutcome, eventsForAttempt, eventsForTask } from "./tasks.js";
@@ -303,10 +304,20 @@ export function createDispatcher(deps: {
         storeContextPack(raw, preparing.projectId, preparing.id, pack);
         contextPack = renderContextPack(pack);
       } catch { console.error("Context pack unavailable"); }
+      let instructions: AttemptContext["instructions"] = null;
+      try {
+        const captured = getSeatInstructions(raw, { seatId: seat.id });
+        const bytes = captured ? Buffer.byteLength(captured.profile) + Buffer.byteLength(JSON.stringify(captured.skills)) : 0;
+        raw.prepare(`INSERT OR REPLACE INTO attempt_instructions
+          (project_id, attempt_id, pack_digest, profile_path, skills_count, bytes) VALUES (?, ?, ?, ?, ?, ?)`)
+          .run(preparing.projectId, preparing.id, captured?.packDigest ?? null, captured?.profilePath ?? null,
+            captured?.skills.length ?? 0, bytes);
+        instructions = captured ? { profile: captured.profile, skills: captured.skills } : null;
+      } catch { console.error("Instructions unavailable"); }
       const context: AttemptContext = {
         ref: { projectId: preparing.projectId, attemptId: preparing.id, epoch: preparing.epoch, leaseId: preparing.leaseId },
         task, seat, handoff: preparing.epoch > 1 ? buildHandoff(raw, preparing.projectId, preparing.taskId) : null,
-        contextPack,
+        contextPack, instructions,
         signal: entry.controller.signal,
         ...(model === undefined ? {} : { model }),
         ...(entry.workspace === undefined ? {} : { workspace: entry.workspace }),

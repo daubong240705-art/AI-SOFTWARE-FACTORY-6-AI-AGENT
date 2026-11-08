@@ -33,7 +33,7 @@ function fixture(t, transport, enabled = true) {
     VALUES (?,?,1,'KN-002','Task','Goal','Brief','operator','active','[]','[]','[]')`).run(projectId,otherTask);
   raw.prepare("INSERT INTO nodes (id,revision,name,platform,trust,state,slots_total,slots_used) VALUES ('local',1,'Local','linux','trusted-workstation','online',2,0)").run();
   for (let i = 0; i < 2; i++) {
-    raw.prepare("INSERT INTO teams VALUES (?,1,'Team','Charter',NULL,NULL,'active')").run(teams[i]);
+    raw.prepare("INSERT INTO teams (id,revision,name,charter,pack_key,pack_version,lifecycle) VALUES (?,1,'Team','Charter',NULL,NULL,'active')").run(teams[i]);
     raw.prepare("INSERT INTO seats VALUES (?,?,1,'Seat','Writer','profile',1,'fake',1,'elastic',NULL,0)").run(seats[i], teams[i]);
     raw.prepare(`INSERT INTO attempts (project_id,id,task_id,revision,epoch,state,outcome,runtime,provider,model,effort,node_id,lease_id,lease_expires_at)
       VALUES (?,?,?,1,?,'running','known','fake','fake','fake','medium','local',?,'2026-11-08T01:00:00.000Z')`)

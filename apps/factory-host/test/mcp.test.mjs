@@ -350,7 +350,7 @@ for (const enabled of [false, true]) test(`real Host MCP dispatcher wiring ${ena
   const ping = await send(rpc("ping")); assert.equal(ping.status, enabled ? 200 : 404);
   if (enabled) {
     assert.deepEqual((await send(rpc("tools/list"))).body.result.tools.map((tool) => tool.name),
-      ["task.progress", "output.register", "decision.request", "knowledge.search", "knowledge.get"]);
+      ["skill.get", "task.progress", "output.register", "decision.request", "knowledge.search", "knowledge.get"]);
     assert.equal((await send(rpc("tools/call", { name: "task.progress", arguments: { summary: "Host milestone" } }))).body.result.isError, false);
     assert.equal((await send(rpc("tools/call", { name: "output.register", arguments: output() }))).body.result.isError, false);
     assert.equal(host.storage.raw.prepare("SELECT status FROM artifact_versions").get().status, "draft");
