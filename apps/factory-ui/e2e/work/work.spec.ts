@@ -89,6 +89,28 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await page.getByRole("button", { name: "Close task", exact: true }).click();
   });
 
+  test("the Knowledge tab finds the registered deliverable (prefix search, accents ignored) and reads it", async () => {
+    await page.getByRole("tab", { name: /^Knowledge/ }).click();
+    await expect(page.getByText("Agent notes").first()).toBeVisible({ timeout: 20_000 });
+    await shot(page, "05b-knowledge-all");
+    const search = page.getByRole("searchbox").or(page.getByRole("textbox", { name: "Search documents" })).first();
+    await search.fill("AGENT nôtes");
+    await expect(page.getByRole("heading", { name: /Search results/ })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Agent notes").first()).toBeVisible();
+    await shot(page, "05c-knowledge-search");
+    await search.fill("zzzz-nothing-like-this");
+    await expect(page.getByText(/No matches/)).toBeVisible({ timeout: 20_000 });
+    await search.fill("agent");
+    await page.getByRole("button", { name: /Agent notes/ }).first().click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Versions")).toBeVisible();
+    await dialog.getByRole("button", { name: "Read text" }).click();
+    await expect(dialog.getByText("Written by the agent inside the sandbox.")).toBeVisible({ timeout: 20_000 });
+    await shot(page, "05d-knowledge-detail");
+    await page.keyboard.press("Escape");
+    await page.getByRole("tab", { name: "Tasks", exact: true }).click();
+  });
+
   test("the Inbox badge leads to the review; accepting finishes the task", async () => {
     const inbox = page.getByRole("button", { name: /^Inbox/ }).first();
     await expect(inbox).toBeVisible();

@@ -35,6 +35,12 @@ Reviews and questions load the current approval before a decision. Options show 
 
 Push appears only for done tasks with a `factory/` workspace branch and configured remote names. Confirmation publishes that branch outside Factory, never forces, and never touches main. Unknown results require explicit reconciliation against the remote; the UI never retries automatically. Failed pushes may be requested again. Remote URLs are never requested or displayed. Git projects use an existing clone under the Host's projects root; see the runbook for clone setup.
 
+## Knowledge tab
+
+Knowledge searches documents (including Vietnamese with or without accents), browses filtered artifacts, and shows versions and provenance. Search waits 300 ms; collections page up to 500 rows. Artifact events refresh open views only. Project changes and session loss clear knowledge state and discard obsolete responses.
+
+This tab is read-only. Responses use strict field, enum, size, and array validation; errors use fixed translated categories. Titles, summaries, snippets, provenance and content are React plain text, never HTML or markdown. Text previews stop at 20,000 characters with a visible note. Data stays in memory, using the existing bounded content cache. Status and visibility have visible text labels. Details use the shared focus-trapping dialog, presented as a side panel on wide screens and full screen on phones.
+
 ## End-to-end with a real Host (WSL)
 
 `npm run e2e` drives the built UI against a Windows-hosted Host with a fake model (M1 flows). `npm run e2e:work` starts the REAL Host inside WSL (real OpenCode in the bubblewrap sandbox, real git and push to a local bare remote, scripted fake model) and runs `e2e/work/work.spec.ts` against it: project import, task creation and start, progress, results/diff, Inbox review and accept, push, an agent question that parks the attempt and resumes after the answer, Vietnamese/dark/phone screenshots. Prerequisites: `npm run e2e:ui-build` and `scripts/factory-v2/deploy-host-wsl.sh`. The bootstrap token is single-use, so every run starts a fresh Host.

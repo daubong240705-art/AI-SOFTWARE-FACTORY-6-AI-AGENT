@@ -1,7 +1,8 @@
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
-import { readModels } from './readModels';
+import { readModels, type KnowledgePage } from './readModels';
+export type { KnowledgeResult, KnowledgeItem, KnowledgeArtifact, KnowledgeFilters, KnowledgePage } from './readModels';
 export type { Attempt, AttemptEvent, AttemptPatch, TaskArtifact, ArtifactContent, Inbox, Effect } from './readModels';
 
 // Extend exported strict contract objects to validate the Host's HTTP envelopes without
@@ -10,7 +11,8 @@ const ok = successResponseSchema.pick({ ok: true, apiVersion: true });
 const object = ok.omit({ ok: true, apiVersion: true });
 const auth = ok.extend({ csrfToken: textSchema });
 const projects = ok.extend({ projects: projectSchema.array() });
-const team = ok.extend({ team: teamSchema, seats: seatSchema.array(), engagement: engagementSchema });
+// The Host adds fields to this response over time (M3 added `engagements`): unknown fields are ignored, known ones stay strict.
+const team = ok.extend({ team: teamSchema, seats: seatSchema.array(), engagement: engagementSchema }).loose();
 const tasks = ok.extend({ items: taskSchema.array() });
 const conversations = ok.extend({ conversations: conversationSchema.array() });
 type TurnState = 'queued' | 'running' | 'done' | 'failed' | 'unknown' | 'budget-blocked';
@@ -77,6 +79,15 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     return parsed.data;
   }
   const projectPath = (id: string) => `/projects/${encodeURIComponent(id)}`;
+  const knowledgeQuery = (options: KnowledgePage, query?: string) => {
+    const params = new URLSearchParams();
+    if (query !== undefined) params.set('q', query);
+    for (const kind of options.kinds ?? []) params.append('kind', kind);
+    for (const status of options.statuses ?? []) params.append('status', status);
+    if (options.limit !== undefined) params.set('limit', String(options.limit));
+    if (options.offset !== undefined) params.set('offset', String(options.offset));
+    return params.size ? `?${params}` : '';
+  };
   return {
     get csrfToken() { return csrfToken; },
     health: () => request('/health', ok),
@@ -99,6 +110,9 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     },
     listTaskArtifacts: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/artifacts`, readModels.artifacts),
     getArtifactContent: (id: string, artifactId: string, version: number) => request(`${projectPath(id)}/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(version)}/content`, readModels.content),
+    searchKnowledge: (id: string, options: KnowledgePage & { query: string }) => request(`${projectPath(id)}/knowledge/search${knowledgeQuery(options, options.query)}`, readModels.knowledgeSearch),
+    listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
+    getKnowledgeArtifact: (id: string, artifactId: string) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact),
     listTaskApprovals: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/approvals`, readModels.approvals),
     getInbox: (id: string) => request(`${projectPath(id)}/inbox`, readModels.inbox),
     getGlobalInbox: () => request('/inbox', readModels.globalInbox),

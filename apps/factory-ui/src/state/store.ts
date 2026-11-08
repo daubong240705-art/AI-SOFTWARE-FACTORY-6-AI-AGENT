@@ -3,6 +3,10 @@ import type { Approval, Command, Conversation, FactoryEvent, Project, Task } fro
 import { ApiClientError, createApiClient, type ApiClient, type ArtifactContent, type Attempt, type AttemptEvent, type AttemptPatch, type TaskArtifact, type BudgetResponse, type MessagesResponse, type TeamResponse } from '../api/client';
 import { openProjectEvents, type ProjectEventsOptions, type StreamStatus } from '../api/events';
 import type { Inbox, Effect } from '../api/client';
+import type { KnowledgeArtifact, KnowledgeFilters, KnowledgeItem, KnowledgeResult } from '../api/client';
+
+export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean };
+const emptyKnowledge = (): KnowledgeState => ({ query: '', filters: {}, results: [], list: [], detail: {}, loading: {}, errors: {}, hasMore: false });
 
 export type StoreError = { kind: string; message: string; correlationId?: string; code?: string };
 export type PendingCommand = { command: Command; status: 'pending' | 'failed'; error?: StoreError };
@@ -18,6 +22,7 @@ export type StoreState = {
   pending: Record<string, PendingCommand | undefined>;
   details: Record<string, TaskDetailState>; artifactContents: Record<string, ArtifactContent>;
   liveAttempts: Record<string, Attempt>;
+  knowledge: KnowledgeState;
   inbox: Inbox; globalInbox: Inbox; remotes: string[] | null; approvals: Record<string, Approval>; announcement: number;
 };
 export type StoreOptions = {
@@ -25,7 +30,7 @@ export type StoreOptions = {
   openEvents?: (options: ProjectEventsOptions) => { close(): void };
   timer?: { setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 };
-const projectState = () => ({ team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
+const projectState = () => ({ knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
@@ -41,6 +46,9 @@ export function createStore(options: StoreOptions = {}) {
   type Job = { run: () => Promise<void>; promise?: Promise<void>; dirty: boolean; timer?: unknown };
   const jobs = new Map<string, Job>();
   const openTasks = new Set<string>();
+  const openKnowledge = new Set<string>();
+  let knowledgeOpen = false;
+  let knowledgeRevision = 0;
   const openTaskCounts = new Map<string, number>();
   let inboxTimer: unknown;
   let remotesPromise: Promise<void> | undefined;
@@ -64,7 +72,7 @@ export function createStore(options: StoreOptions = {}) {
     stream?.close(); stream = undefined;
     for (const job of jobs.values()) if (job.timer !== undefined) timer.clearTimeout(job.timer);
     jobs.clear();
-    openTasks.clear(); openTaskCounts.clear(); contentCache.clear();
+    openTasks.clear(); openTaskCounts.clear(); contentCache.clear(); openKnowledge.clear(); knowledgeOpen = false; knowledgeRevision++;
   };
   const anonymous = () => {
     authGeneration++;
@@ -80,21 +88,27 @@ export function createStore(options: StoreOptions = {}) {
     if (error instanceof ApiClientError && error.status === 401) anonymous();
     update({ errors: { ...state.errors, [area]: errorDetails(error) } });
   }
-  async function guarded(area: string, scope: number, work: () => Promise<Partial<StoreState>>) {
-    if (!active(scope)) return;
+  async function guarded(area: string, scope: number, work: () => Promise<Partial<StoreState>>, valid = () => true) {
+    const current = () => active(scope) && valid();
+    if (!current()) return;
+    const knowledgeArea = area === 'knowledge' || area.startsWith('knowledge-detail:');
+    const knowledgeActivity = (loading: boolean, error?: StoreError) => {
+      if (knowledgeArea) update({ knowledge: { ...state.knowledge, loading: { ...state.knowledge.loading, [area]: loading }, errors: { ...state.knowledge.errors, [area]: error } } });
+    };
+    knowledgeActivity(true);
     update({ loading: { ...state.loading, [area]: true }, errors: { ...state.errors, [area]: undefined } });
     const detailId = area.startsWith('detail:') ? area.slice(7) : null;
     if (detailId) update({ details: { ...state.details, [detailId]: { ...(state.details[detailId] ?? emptyDetail()), loading: true, error: undefined } } });
-    try { const patch = await work(); if (active(scope)) update(patch); }
-    catch (error) { if (active(scope)) { failed(area, error); if (active(scope) && detailId) update({ details: { ...state.details, [detailId]: { ...(state.details[detailId] ?? emptyDetail()), error: errorDetails(error) } } }); } }
-    finally { if (active(scope)) { update({ loading: { ...state.loading, [area]: false } }); if (detailId && state.details[detailId]) update({ details: { ...state.details, [detailId]: { ...state.details[detailId], loading: false } } }); } }
+    try { const patch = await work(); if (current()) update(patch); }
+    catch (error) { if (current()) { failed(area, error); if (current()) knowledgeActivity(false, errorDetails(error)); if (active(scope) && detailId) update({ details: { ...state.details, [detailId]: { ...(state.details[detailId] ?? emptyDetail()), error: errorDetails(error) } } }); } }
+    finally { if (current()) { if (knowledgeArea) update({ knowledge: { ...state.knowledge, loading: { ...state.knowledge.loading, [area]: false } } }); update({ loading: { ...state.loading, [area]: false } }); if (detailId && state.details[detailId]) update({ details: { ...state.details, [detailId]: { ...state.details[detailId], loading: false } } }); } }
   }
   // All reads of a collection share one queue, including initial loads and snapshot recovery.
-  function enqueue(area: string, scope: number, work: () => Promise<Partial<StoreState>>, debounce = false): Promise<void> {
+  function enqueue(area: string, scope: number, work: () => Promise<Partial<StoreState>>, debounce = false, valid = () => true): Promise<void> {
     if (!active(scope)) return Promise.resolve();
     let job = jobs.get(area);
-    if (!job) { job = { run: () => guarded(area, scope, work), dirty: false }; jobs.set(area, job); }
-    job.run = () => guarded(area, scope, work);
+    if (!job) { job = { run: () => guarded(area, scope, work, valid), dirty: false }; jobs.set(area, job); }
+    job.run = () => guarded(area, scope, work, valid);
     const current = job;
     if (current.promise) { current.dirty = true; return current.promise; }
     const launch = () => {
@@ -114,6 +128,50 @@ export function createStore(options: StoreOptions = {}) {
     return launch();
   }
   const loadProjects = (debounce = false) => enqueue('projects', generation, async () => ({ projects: (await api.listProjects()).projects }), debounce);
+  function knowledgePatch(patch: Partial<KnowledgeState>): Partial<StoreState> {
+    // Resolve at publication so list and detail responses completing together merge.
+    return { get knowledge() { return { ...state.knowledge, ...patch, detail: { ...state.knowledge.detail, ...patch.detail } }; } };
+  }
+  function cancelKnowledgeSearch() {
+    knowledgeRevision++;
+    const job = jobs.get('knowledge');
+    if (job?.timer !== undefined) timer.clearTimeout(job.timer);
+    if (job) job.dirty = false;
+    jobs.delete('knowledge');
+    if (state.session === 'authenticated') update({ knowledge: { ...state.knowledge, loading: { ...state.knowledge.loading, knowledge: false } }, loading: { ...state.loading, knowledge: false } });
+  }
+  function readKnowledge(more = false, debounce = false) {
+    const id = state.selectedProjectId; const revision = knowledgeRevision;
+    if (!id || state.session !== 'authenticated') return Promise.resolve();
+    const { query, filters } = state.knowledge;
+    const offset = more ? (query ? state.knowledge.results.length : state.knowledge.list.length) : 0;
+    if (offset >= 500 || (more && (!state.knowledge.hasMore || state.knowledge.loading.knowledge))) return Promise.resolve();
+    return enqueue('knowledge', generation, async () => {
+      if (debounce && !knowledgeOpen) return {};
+      const page = { ...filters, offset, limit: Math.min(50, 500 - offset) };
+      if (query) {
+        const result = await api.searchKnowledge(id, { ...page, query });
+        return knowledgePatch({ results: [...(more ? state.knowledge.results : []), ...result.results].slice(0, 500), hasMore: result.results.length === page.limit && offset + result.results.length < 500 });
+      }
+      const result = await api.listKnowledgeArtifacts(id, page);
+      return knowledgePatch({ list: [...(more ? state.knowledge.list : []), ...result.items].slice(0, 500), hasMore: result.items.length === page.limit && offset + result.items.length < 500 });
+    }, debounce, () => revision === knowledgeRevision);
+  }
+  function searchKnowledge(query: string, filters: KnowledgeFilters = {}) {
+    if (!state.selectedProjectId || state.session !== 'authenticated') return Promise.resolve();
+    cancelKnowledgeSearch();
+    update({ knowledge: { ...state.knowledge, query: query.trim(), filters: { ...(filters.kinds ? { kinds: [...filters.kinds] } : {}), ...(filters.statuses ? { statuses: [...filters.statuses] } : {}) }, results: [], list: [], hasMore: false } });
+    return readKnowledge();
+  }
+  function loadKnowledgeDetail(artifactId: string, debounce = false) {
+    const id = state.selectedProjectId;
+    if (!id || state.session !== 'authenticated') return Promise.resolve();
+    return enqueue(`knowledge-detail:${artifactId}`, generation, async () => {
+      if (!openKnowledge.has(artifactId)) return {};
+      const result = await api.getKnowledgeArtifact(id, artifactId);
+      return knowledgePatch({ detail: { [artifactId]: result.artifact } });
+    }, debounce, () => openKnowledge.has(artifactId));
+  }
   function loadInbox(debounce = false) {
     const id = state.selectedProjectId;
     if (!id || state.session !== 'authenticated') return Promise.resolve();
@@ -282,6 +340,8 @@ export function createStore(options: StoreOptions = {}) {
     });
   }
   async function refresh() {
+    if (knowledgeOpen) void readKnowledge();
+    for (const id of openKnowledge) void loadKnowledgeDetail(id);
     await Promise.all([loadProjects(), loadInbox(), loadGlobalInbox(), loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget'),
       ...Object.keys(state.messages).map((id) => loadMessages(id))]);
     await Promise.all([...openTasks].map(id => loadTaskDetail(id)));
@@ -304,6 +364,10 @@ export function createStore(options: StoreOptions = {}) {
     if (payload.type === 'message.appended') void loadMessages(payload.message.conversationId, true);
     else if (payload.type === 'command.receipted') void loadArea('budget', true);
     else if (payload.type === 'entity.changed') {
+      if (payload.entity.kind === 'artifact-version') {
+        if (knowledgeOpen) void readKnowledge(false, true);
+        for (const id of openKnowledge) void loadKnowledgeDetail(id, true);
+      }
       if (payload.entity.kind === 'task' || payload.entity.kind === 'approval') { void loadInbox(true); void loadGlobalInbox(true); }
       if (payload.entity.kind === 'effect') for (const taskId of openTasks) for (const attempt of state.details[taskId]?.attempts ?? []) void loadEffects(taskId, attempt.id, true);
       if (['task', 'attempt', 'artifact-version', 'approval'].includes(payload.entity.kind)) {
@@ -357,6 +421,13 @@ export function createStore(options: StoreOptions = {}) {
       anonymous();
     },
     loadProjects: () => loadProjects(),
+    searchKnowledge, loadKnowledgeList: (filters: KnowledgeFilters = {}) => searchKnowledge('', filters),
+    loadKnowledgeMore: () => readKnowledge(true), cancelKnowledgeSearch,
+    openKnowledgeList: () => { knowledgeOpen = true; },
+    closeKnowledgeList: () => { knowledgeOpen = false; cancelKnowledgeSearch(); },
+    openKnowledgeArtifact: (id: string) => { openKnowledge.add(id); return loadKnowledgeDetail(id); },
+    closeKnowledgeArtifact: (id: string) => { openKnowledge.delete(id); },
+    knowledgeTimer: timer,
     loadConversations: () => loadArea('conversations'),
     loadTasks: () => loadArea('tasks'),
     loadBudget: () => loadArea('budget'),

@@ -133,6 +133,19 @@ button, input, select { min-width: 0; }
   .dialog-backdrop { padding: var(--space-md); }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+.knowledge, .knowledge-row, .knowledge-detail-backdrop .dialog { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.knowledge-filters { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
+.knowledge-filters input, .knowledge-filters select { width: 100%; min-width: 0; }
+.knowledge-row { width: 100%; text-align: start; color: var(--color-text); background: var(--color-surface); cursor: pointer; font: inherit; }
+.knowledge-row .task-meta { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.knowledge-row:focus-visible, .knowledge-filters :focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-xs); }
+.knowledge-detail-backdrop { justify-items: end; padding: 0; }
+.knowledge-detail-backdrop > .dialog { width: min(100%, calc(var(--size-chat-expanded) + var(--space-xxl) * 2)); height: 100dvh; max-height: 100dvh; border-radius: 0; }
+.knowledge-detail-backdrop pre { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+@media (max-width: 600px) {
+  .knowledge-filters { grid-template-columns: minmax(0, 1fr); }
+  .knowledge-detail-backdrop > .dialog { width: 100%; }
+}
 .inbox, .inbox-list, .inbox-list > li, .push-section, .decision-option { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .decision-option { display: flex; align-items: flex-start; gap: var(--space-sm); }
 .decision-option input { flex-shrink: 0; }

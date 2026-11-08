@@ -1,4 +1,4 @@
-import { API_VERSION, approvalSchema, type Approval, type AttemptState } from '@factory/contracts';
+import { API_VERSION, approvalSchema, artifactKindSchema, artifactStatusSchema, type Approval, type AttemptState } from '@factory/contracts';
 
 type Reader<T> = (value: unknown) => T;
 const invalid = (): never => { throw new Error('Invalid read model'); };
@@ -32,6 +32,21 @@ const name: Reader<string> = v => { const s = string(40, 1)(v); return /^[a-z0-9
 const effect = object({ id: identifier, attemptId: identifier, kind: enumeration(['git.push-branch'] as const), remote: name, branch: string(160, 1), state: enumeration(['pending', 'done', 'failed', 'unknown'] as const), error: nullable(enumeration(['auth', 'rejected', 'network', 'timeout', 'other', 'not-pushed'] as const)), createdAt: timestamp, completedAt: nullable(timestamp) });
 const counts = object({ approvals: integer(), startGates: integer(), total: integer() });
 const gateFields = { taskId: identifier, code: string(40, 1), title: string(160, 1), projectId: identifier };
+export const knowledgeKinds = artifactKindSchema.options;
+export const knowledgeStatuses = artifactStatusSchema.options;
+export const knowledgeVisibilities = ['team-draft', 'project', 'shared'] as const;
+const knowledgeArray = <T,>(read: Reader<T>): Reader<T[]> => v => Array.isArray(v) && v.length <= 200 ? v.map(read) : invalid();
+const knowledgeFields = { artifactId: identifier, version: integer(1), kind: enumeration(knowledgeKinds), title: string(500, 1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), projectId: identifier };
+const knowledgeResult = object({ ...knowledgeFields, snippet: string(1000), rank: (v: unknown): number => typeof v === 'number' && Number.isFinite(v) ? v : invalid() });
+const knowledgeItem = object({ ...knowledgeFields, mediaType: string(128, 1), sizeBytes: integer(), createdAt: timestamp, versionCount: integer(1) });
+const knowledgeVersion = object({ version: integer(1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), mediaType: string(128, 1), sizeBytes: integer(), abstractL0: string(6000), abstractL1: nullable(string(6000)), producedByAttemptId: nullable(identifier), supersedesVersion: nullable(integer(1)), createdAt: timestamp });
+const knowledgeRef = object({ artifactId: identifier, version: integer(1), title: string(500, 1) });
+const knowledgeArtifact = object({ artifactId: identifier, kind: enumeration(knowledgeKinds), title: string(500, 1), versions: knowledgeArray(knowledgeVersion), inputs: knowledgeArray(knowledgeRef), dependants: knowledgeArray(knowledgeRef) });
+export type KnowledgeResult = ReturnType<typeof knowledgeResult>;
+export type KnowledgeItem = ReturnType<typeof knowledgeItem>;
+export type KnowledgeArtifact = ReturnType<typeof knowledgeArtifact>;
+export type KnowledgeFilters = { kinds?: Array<typeof knowledgeKinds[number]>; statuses?: Array<typeof knowledgeStatuses[number]> };
+export type KnowledgePage = KnowledgeFilters & { limit?: number; offset?: number };
 export type Inbox = { approvals: Array<Approval & { projectName?: string }>; startGates: Array<{ taskId: string; code: string; title: string; projectId: string; projectName?: string }>; counts: { approvals: number; startGates: number; total: number } };
 function inbox(global: boolean): Reader<Inbox> {
   return object({ approvals: array(v => ({ ...approval(v), ...(global ? { projectName: string(160, 1)(record(v).projectName) } : {}) })),
@@ -48,7 +63,8 @@ function envelope<T>(read: Reader<T>) {
 }
 // These adapters deliberately copy only validated fields; unknown event bodies stay opaque.
 export const readModels = { attempts: envelope(object({ attempts: array(attempt) })), events: envelope(object({ events: array((v) => { const r = record(v); if (!Object.hasOwn(r, 'body')) invalid(); return event(v); }) })), patch: envelope(patch), artifacts: envelope(object({ items: array(artifact) })), content: envelope(content), approvals: envelope(object({ approvals: array(approval) })),
-  approval: envelope(object({ approval })), inbox: envelope(inbox(false)), globalInbox: envelope(inbox(true)), remotes: envelope(object({ remotes: array(name) })), effects: envelope(object({ effects: array(effect) })), effect: envelope(object({ effect })) };
+  approval: envelope(object({ approval })), inbox: envelope(inbox(false)), globalInbox: envelope(inbox(true)), remotes: envelope(object({ remotes: array(name) })), effects: envelope(object({ effects: array(effect) })), effect: envelope(object({ effect })),
+  knowledgeSearch: envelope(object({ results: knowledgeArray(knowledgeResult) })), knowledgeList: envelope(object({ items: knowledgeArray(knowledgeItem) })), knowledgeArtifact: envelope(object({ artifact: knowledgeArtifact })) };
 export type Effect = ReturnType<typeof effect>;
 export type Attempt = ReturnType<typeof attempt>;
 export type AttemptEvent = ReturnType<typeof event>;

@@ -1,6 +1,16 @@
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  knowledgeUi: {
+    tab: 'Tri thức', search: 'Tìm tài liệu', kind: 'Loại tài liệu', status: 'Trạng thái tài liệu', allKinds: 'Tất cả loại', allStatuses: 'Tất cả trạng thái',
+    results: 'Kết quả tìm kiếm', allDocuments: 'Tất cả tài liệu', empty: 'Chưa có tài liệu.', noMatches: 'Không có kết quả. Hãy thử ít từ hơn; tìm kiếm không phân biệt dấu.',
+    count: { one: 'tài liệu được hiển thị', other: 'tài liệu được hiển thị' }, versionCount: { one: 'phiên bản', other: 'phiên bản' }, version: 'Phiên bản', more: 'Tải thêm', close: 'Đóng tài liệu', detail: 'Chi tiết tài liệu',
+    versions: 'Các phiên bản', bytes: 'byte', supersedes: 'Thay thế', l0: 'Tóm tắt', l1: 'Tóm tắt chi tiết', read: 'Đọc văn bản', truncated: 'Đã cắt tại {count} ký tự.',
+    provenance: 'Nguồn gốc', inputs: 'Được tạo từ', dependants: 'Được dùng bởi', noRefs: 'Không có.',
+    visibility: { 'team-draft': 'Bản nháp của nhóm', project: 'Dự án', shared: 'Được chia sẻ' },
+    statuses: { draft: 'Bản nháp', 'in-review': 'Đang xét duyệt', reviewed: 'Đã xét duyệt', approved: 'Đã phê duyệt', superseded: 'Đã thay thế', rejected: 'Đã từ chối', withdrawn: 'Đã rút lại' },
+    kinds: { 'research-report': 'Báo cáo nghiên cứu', requirements: 'Yêu cầu', adr: 'Quyết định kiến trúc', 'data-model': 'Mô hình dữ liệu', 'api-contract': 'Hợp đồng API', 'ui-spec': 'Đặc tả giao diện', 'design-asset': 'Tài nguyên thiết kế', media: 'Đa phương tiện', 'code-ref': 'Tham chiếu mã nguồn', dataset: 'Tập dữ liệu', dossier: 'Hồ sơ', plan: 'Kế hoạch', other: 'Khác' },
+  },
   inboxUi: {
     inbox: 'Hộp thư', title: 'Cần bạn xử lý', count: { one: 'mục cần xử lý', other: 'mục cần xử lý' },
     empty: 'Bạn đã xử lý xong mọi việc. Hiện không có mục nào cần chú ý.', close: 'Đóng', requested: 'Đã yêu cầu', expires: 'Hết hạn',

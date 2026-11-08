@@ -70,7 +70,8 @@ it.each([
 ])('rejects malformed project responses %#', async (body) => {
   await expect(createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response(body)) }).listProjects()).rejects.toMatchObject({ kind: 'bad-response' });
 });
-it.each(routes)('%s rejects unvalidated collections and extra fields', async (method, args, _path, _verb, body) => {
+// getTeam is the one response that tolerates additive Host fields (see the dedicated test below).
+it.each(routes.filter(([method]) => method !== 'getTeam'))('%s rejects unvalidated collections and extra fields', async (method, args, _path, _verb, body) => {
   const client = createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response({ ...body, extra: 'x' })) });
   await expect((client[method] as (...args: readonly unknown[]) => Promise<unknown>)(...args)).rejects.toMatchObject({ kind: 'bad-response' });
 });
@@ -104,4 +105,14 @@ it('messages without options have no query suffix', async () => {
   const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response({ ...envelope, messages: [], turns: [] }));
   await createApiClient({ fetchImpl }).listMessages(id, otherId);
   expect(fetchImpl.mock.calls[0]![0]).toBe(`/projects/${id}/conversations/${otherId}/messages`);
+});
+
+describe('team response tolerates additive Host fields', () => {
+  it('ignores the M3 engagements list but still validates the known fields', async () => {
+    const extra = { ...envelope, team, seats: [], engagement, engagements: [{ engagementId: id, teamName: 'Second', priority: 80, maxConcurrent: 2, state: 'active' }] };
+    const api = createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response(extra)) });
+    await expect(api.getTeam(id)).resolves.toMatchObject({ team, engagement });
+    const broken = createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response({ ...extra, team: { ...team, name: 7 } })) });
+    await expect(broken.getTeam(id)).rejects.toMatchObject({ kind: 'bad-response' });
+  });
 });

@@ -21,6 +21,7 @@ function setup() {
     listAttemptEvents: vi.fn().mockResolvedValue({ ...envelope, events: [] }),
     getAttemptPatch: vi.fn().mockResolvedValue(null),
     listTaskArtifacts: vi.fn().mockResolvedValue({ ...envelope, items: [] }),
+    searchKnowledge: vi.fn(), listKnowledgeArtifacts: vi.fn(), getKnowledgeArtifact: vi.fn(),
     getArtifactContent: vi.fn().mockResolvedValue({ ...envelope, mediaType: 'text/plain', text: '', sizeBytes: 0, contentHash: 'a'.repeat(64) }),
     listTaskApprovals: vi.fn().mockResolvedValue({ ...envelope, approvals: [] }),
     getInbox: vi.fn().mockResolvedValue({ ...envelope, approvals: [], startGates: [], counts: { approvals: 0, startGates: 0, total: 0 } }),

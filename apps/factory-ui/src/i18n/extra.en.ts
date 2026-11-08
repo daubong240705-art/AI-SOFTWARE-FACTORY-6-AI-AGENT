@@ -1,4 +1,14 @@
 export const extra = {
+  knowledgeUi: {
+    tab: 'Knowledge', search: 'Search documents', kind: 'Document kind', status: 'Document status', allKinds: 'All kinds', allStatuses: 'All statuses',
+    results: 'Search results', allDocuments: 'All documents', empty: 'No documents yet.', noMatches: 'No matches. Try fewer words; search ignores accents.',
+    count: { one: 'document shown', other: 'documents shown' }, versionCount: { one: 'version', other: 'versions' }, version: 'v', more: 'Load more', close: 'Close document', detail: 'Document details',
+    versions: 'Versions', bytes: 'bytes', supersedes: 'Supersedes', l0: 'Summary', l1: 'Detailed summary', read: 'Read text', truncated: 'Truncated at {count} characters.',
+    provenance: 'Provenance', inputs: 'Built from', dependants: 'Used by', noRefs: 'None.',
+    visibility: { 'team-draft': 'Team draft', project: 'Project', shared: 'Shared' },
+    statuses: { draft: 'Draft', 'in-review': 'In review', reviewed: 'Reviewed', approved: 'Approved', superseded: 'Superseded', rejected: 'Rejected', withdrawn: 'Withdrawn' },
+    kinds: { 'research-report': 'Research report', requirements: 'Requirements', adr: 'Architecture decision', 'data-model': 'Data model', 'api-contract': 'API contract', 'ui-spec': 'UI specification', 'design-asset': 'Design asset', media: 'Media', 'code-ref': 'Code reference', dataset: 'Dataset', dossier: 'Dossier', plan: 'Plan', other: 'Other' },
+  },
   inboxUi: {
     inbox: 'Inbox', title: 'Needs attention', count: { one: 'item needing attention', other: 'items needing attention' },
     empty: 'All caught up. There is nothing that needs your attention.', close: 'Close', requested: 'Requested', expires: 'Expires',
