@@ -3,6 +3,8 @@ import { TERMINAL_ATTEMPT_STATES } from "@factory/contracts";
 import { publicApprovalText } from "../approvals/service.js";
 import { sanitizeAgentText } from "../mcp/security.js";
 import { listAttempts } from "./attempts.js";
+import { knowledgeScopeForGrant } from "../knowledge/mcp.js";
+import { visibleToScope } from "../knowledge/permissions.js";
 
 const closing = "Do not repeat work that is already done; check the workspace first.";
 
@@ -54,5 +56,23 @@ export function buildHandoff(raw: Database, projectId: string, taskId: string): 
     WHERE m.project_id = ? AND m.task_id = ? AND m.rounds > 0 AND message.author = 'requester'
     ORDER BY message.seq DESC LIMIT 1`).get(projectId, taskId) as { text: string } | undefined;
   const requesterFeedback = requester ? `\nRequester feedback:\n${plain(requester.text).slice(0, 1500)}` : "";
-  return `${lines.join("\n").slice(0, Math.max(0, 4000 - closing.length - feedback.length - decisionText.length - requesterFeedback.length - 1))}${feedback}${decisionText}${requesterFeedback}\n${closing}`;
+  const results: string[] = [];
+  if (latest?.state === "parked") {
+    const visibility = visibleToScope(knowledgeScopeForGrant(raw, { projectId, taskId, attemptId: latest.id, epoch: latest.epoch }));
+    const waits = raw.prepare(`SELECT w.ctr_task_id,t.code,w.outcome,
+      (SELECT text FROM ctr_messages WHERE project_id = w.project_id AND task_id = w.ctr_task_id AND author = 'target' ORDER BY seq DESC LIMIT 1) AS message
+      FROM ctr_waits w JOIN tasks t ON t.project_id = w.project_id AND t.id = w.ctr_task_id
+      WHERE w.project_id = ? AND w.waiter_task_id = ? AND w.attempt_id = ? AND w.resolved_at IS NOT NULL ORDER BY w.since,w.ctr_task_id LIMIT 3`)
+      .all(projectId, taskId, latest.id) as { ctr_task_id: string; code: string; outcome: string; message: string | null }[];
+    for (const wait of waits) {
+      const text = wait.outcome === "timed-out" ? "still open; continue without it or ask again" : plain(wait.message ?? "").slice(0, 600);
+      const artifacts = wait.outcome === "delivered" ? raw.prepare(`SELECT v.title,v.artifact_id,v.version FROM artifact_versions v JOIN attempts a
+        ON a.project_id = v.project_id AND a.id = v.produced_by_attempt_id WHERE a.project_id = ? AND a.task_id = ? AND ${visibility.sql}
+        ORDER BY v.created_at DESC,v.rowid DESC LIMIT 3`).all(projectId, wait.ctr_task_id, ...visibility.params) as { title: string; artifact_id: string; version: number }[] : [];
+      results.push(`${plain(wait.code)} ${wait.outcome}: ${text}${artifacts.map((v) => `\n${plain(v.title).slice(0, 120)} (${v.artifact_id}@${v.version})`).join("")}`);
+    }
+  }
+  const requestResults = results.length ? `\nRequest results:\n${results.join("\n")}`.slice(0, 3000) : "";
+  const sections = `${feedback}${decisionText}${requesterFeedback}${requestResults}`;
+  return `${lines.join("\n").slice(0, Math.max(0, 4000 - closing.length - sections.length - 1))}${sections.slice(0, 4000 - closing.length - 1)}\n${closing}`;
 }

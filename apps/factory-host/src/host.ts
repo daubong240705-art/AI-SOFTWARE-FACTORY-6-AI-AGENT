@@ -1,3 +1,4 @@
+import { expireRequests } from "./requests/service.js";
 import type { FastifyInstance } from "fastify";
 import { createServer } from "node:net";
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -307,7 +308,13 @@ export async function startHost(options: {
       effects.recoverAtStart();
     }
     const approvalRaw = storage.raw;
-    const sweepApprovals = (): void => { expirePendingApprovals({ raw: approvalRaw, hub, now: clock }); };
+    const sweepApprovals = (): void => {
+      expirePendingApprovals({ raw: approvalRaw, hub, now: clock });
+      if (options.multiTeam && dispatch) {
+        try { expireRequests({ raw: approvalRaw, hub, dispatcher: dispatch, multiTeam: true, now: clock, newId: createIdGenerator(clock) }, clock()); }
+        catch { console.error("Request expiry failed"); }
+      }
+    };
     sweepApprovals();
     expiryTimer = interval(() => { try { sweepApprovals(); } catch { console.error("Approval expiry failed"); } }, 60_000);
     const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content") }) };
@@ -431,6 +438,7 @@ export async function startHost(options: {
     if (dispatch) {
       const raw = storage.raw;
       dispatch.start();
+      sweepApprovals();
       const dispatcher = dispatch;
       for (const project of raw.prepare("SELECT id FROM projects ORDER BY id").all() as { id: string }[]) {
         try {

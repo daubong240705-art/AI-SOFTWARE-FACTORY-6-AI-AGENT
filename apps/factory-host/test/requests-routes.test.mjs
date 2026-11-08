@@ -48,7 +48,7 @@ test("list items and details carry no paths, tokens or foreign ids", async (t) =
   const body = (await http.read(list(f))).body + (await http.read(`${list(f)}/${a.requestId}`)).body;
   assert.doesNotMatch(body, /[A-Za-z]:\|\/home\/|token|secret/i);
   const item = (await http.read(list(f))).json().items[0];
-  assert.deepEqual(Object.keys(item).sort(), ["code", "createdAt", "hop", "kind", "requesterCode", "rounds", "subject", "targetTeamName", "taskId", "taskState", "triageState"]);
+  assert.deepEqual(Object.keys(item).sort(), ["code", "createdAt", "hop", "kind", "requesterCode", "rounds", "subject", "targetTeamName", "taskId", "taskState", "triageState", "waiting"]);
 });
 test("detail shows the thread and state for the operator", async (t) => {
   const f = fixture(t); const http = await api(t, f); const a = f.create();

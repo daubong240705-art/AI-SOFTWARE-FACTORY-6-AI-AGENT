@@ -16,6 +16,8 @@ export function startTask(raw: Database, projectId: string, taskId: string, deps
   if (!task) throw new CommandError("not-found", "task not found", "correct-input");
   if (!["ready", "awaiting-go"].includes(task.state))
     throw new CommandError("conflict", "task cannot be started in its current state", "refresh");
+  if (task.holds.some((hold) => hold.kind === "cross-team" || hold.kind === "decision"))
+    throw new CommandError("conflict", "task is waiting", "refresh");
   if (!dependenciesDone(raw, projectId, task))
     throw new CommandError("conflict", "task dependencies are not done", "refresh");
   if (liveAttemptOfTask(raw, projectId, taskId))
@@ -43,7 +45,7 @@ export function advanceTasks(raw: Database, projectId: string, deps: { dispatche
       changed.set(task.id, moveTask(raw, projectId, task.id, "ready"));
   }
   for (const task of listTasks(raw, projectId)) {
-    if (task.state !== "ready" || !dependenciesDone(raw, projectId, task)) continue;
+    if (task.state !== "ready" || !dependenciesDone(raw, projectId, task) || task.holds.some((hold) => hold.kind === "decision" || hold.kind === "cross-team")) continue;
     if (deps.dispatcher.multiTeam && !engagementAvailable(raw, projectId, task.engagementId)) continue;
     const next = task.gate.requiresGo ? moveTask(raw, projectId, task.id, "awaiting-go")
       : startTask(raw, projectId, task.id, deps).task;

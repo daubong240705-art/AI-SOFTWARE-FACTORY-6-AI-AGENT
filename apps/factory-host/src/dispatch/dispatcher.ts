@@ -15,6 +15,8 @@ import type { AttemptRecord, RuntimeKind } from "./types.js";
 import type { WorkspaceProvider } from "./workspace-provider.js";
 import { sanitizeAgentText } from "../mcp/security.js";
 import { advanceTasks } from "./advance.js";
+import { registerRequestLifecycle } from "../requests/lifecycle.js";
+import { onRequestTransition, resumeWaiter } from "../requests/waits.js";
 
 export interface DispatcherConfig {
   nodeSlots: number; leaseMs: number; leaseRenewMs: number; leaseCheckMs: number; stopTimeoutMs: number;
@@ -166,7 +168,7 @@ export function createDispatcher(deps: {
     if (a.state !== "lease-expired") a = move(a, "lease-expired");
     const task = getTask(raw, a.projectId, a.taskId);
     // A cancelled task cannot accept a replacement attempt.
-    const safe = task?.state === "active" && canRequeueAfterLeaseExpiry(task);
+    const safe = task?.state === "active" && !task.holds.some((hold) => hold.kind === "decision" || hold.kind === "cross-team") && canRequeueAfterLeaseExpiry(task);
     stateEvent(a, { to: safe ? "requeued" : "unknown", reason: safe
       ? "lease expired: task is safe to requeue" : "lease expired: execution outcome is unknown; operator reconciliation required" });
     a = move(a, safe ? "requeued" : "unknown");
@@ -316,7 +318,7 @@ export function createDispatcher(deps: {
         const a = current(preparing.projectId, preparing.id);
         if (isStaleCallback(a, context.ref, clock().getTime())) return;
         if (!item || item.done) {
-          if (raw.prepare("SELECT 1 FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'decision'").get(a.projectId, a.taskId)) {
+          if (raw.prepare("SELECT 1 FROM task_holds WHERE project_id = ? AND task_id = ? AND kind IN ('decision','cross-team')").get(a.projectId, a.taskId)) {
             void parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: a.epoch });
             return;
           }
@@ -332,7 +334,7 @@ export function createDispatcher(deps: {
         if (event.type === "completed" || event.type === "failed") {
           // An agent may finish immediately after receiving the tool response, before the Host's
           // deferred park fires. The decision owns this completion and keeps the task active.
-          if (raw.prepare("SELECT 1 FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'decision'").get(a.projectId, a.taskId)) {
+          if (raw.prepare("SELECT 1 FROM task_holds WHERE project_id = ? AND task_id = ? AND kind IN ('decision','cross-team')").get(a.projectId, a.taskId)) {
             void parkAttempt({ projectId: a.projectId, attemptId: a.id, epoch: a.epoch });
             return;
           }
@@ -392,7 +394,7 @@ export function createDispatcher(deps: {
           const rows = raw.prepare(`SELECT a.project_id, a.id, e.id AS engagement_id, e.max_concurrent FROM attempts AS a JOIN tasks AS t
             ON t.project_id = a.project_id AND t.id = a.task_id JOIN engagements AS e
             ON e.project_id = t.project_id AND e.id = t.engagement_id JOIN teams team ON team.id = e.team_id
-            WHERE a.state = ? AND t.state = ? ${deps.multiTeam ? "AND e.state = 'active' AND team.lifecycle = 'active'" : ""}
+            WHERE a.state = ? AND t.state = ? AND NOT EXISTS (SELECT 1 FROM task_holds h WHERE h.project_id = t.project_id AND h.task_id = t.id AND h.kind IN ('decision','cross-team')) ${deps.multiTeam ? "AND e.state = 'active' AND team.lifecycle = 'active'" : ""}
             ORDER BY e.priority DESC, a.rowid`).all("queued", "active") as
             { project_id: string; id: string; engagement_id: string; max_concurrent: number }[];
           const row = rows.find((row) => {
@@ -552,6 +554,7 @@ export function createDispatcher(deps: {
         stateEvent(latest, { to: ended ? "parked" : "unknown", reason: "decision" });
         const final = move(latest, ended ? "parked" : "unknown");
         if (ended) registerResults(final, "failed", null);
+        if (ended && deps.multiTeam) resumeWaiter(requestDeps, final.projectId, final.taskId);
         markNodeSlots(raw, LOCAL_NODE_ID);
         kick();
         return final;
@@ -632,5 +635,7 @@ export function createDispatcher(deps: {
       return { live: live.size, queued: attempts.filter((a) => a.state === "queued").length, nodeUsed: load.used, nodeTotal: load.total };
     },
   };
+  const requestDeps = { raw, hub, dispatcher, multiTeam: deps.multiTeam ?? false, now: clock, newId };
+  if (deps.multiTeam) registerRequestLifecycle(raw, (projectId, taskId, state) => onRequestTransition(requestDeps, projectId, taskId, state));
   return dispatcher;
 }

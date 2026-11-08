@@ -221,7 +221,8 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
           .run(projectId, task.id, payload.optionId === "accept-as-is" ? "request accepted; followers notified"
             : payload.optionId === "cancel-request" ? "request cancelled" : "operator continued the request", ctx.clock().toISOString(), projectId, task.id);
       }
-      if (task.state === "active" && !liveAttemptOfTask(raw, projectId, task.id) && deps && previous?.seatId) {
+      if (task.state === "active" && !liveAttemptOfTask(raw, projectId, task.id) && deps && previous?.seatId
+        && !raw.prepare("SELECT 1 FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'cross-team'").get(projectId, task.id)) {
         const attempt = deps.dispatcher.enqueue({ projectId, taskId: task.id, seatId: previous.seatId });
         effects.push({ kind: "attempt", id: attempt.id, revision: attempt.revision });
       }

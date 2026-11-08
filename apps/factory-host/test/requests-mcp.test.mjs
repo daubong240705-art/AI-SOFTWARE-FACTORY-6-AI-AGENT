@@ -44,10 +44,10 @@ for (const transport of ["handler","proxy"]) {
     assert.equal((await f.call("request.reply", { requestId, action: "message", message: "Extra context" })).isError, false);
     assert.equal(f.view(requestId).thread.at(-1).text, "Extra context");
   });
-  test(`${transport} returns the fixed blocking refusal without writes`, async (t) => {
+  test(`${transport} returns the fixed notify-cannot-block refusal without writes`, async (t) => {
     const f = mcpFixture(t, transport); const before = snapshot(f.raw);
-    const result = await f.call("request.create", requestInput(f.team, { responseMode: "blocking" }));
-    assert.equal(result.content[0].text, "blocking requests are not available yet"); assert.equal(result.isError, true); assert.equal(snapshot(f.raw), before);
+    const result = await f.call("request.create", requestInput(f.team, { kind: "notify", responseMode: "blocking" }));
+    assert.equal(result.content[0].text, "notify cannot block"); assert.equal(result.isError, true); assert.equal(snapshot(f.raw), before);
   });
   for (const [name,args] of [["request.create",{}],["request.reply",{}],["request.get",{}],
     ["request.create",{ targetTeamId: randomUUID(), taskId: randomUUID() }],["request.get",{ requestId: randomUUID(), grant: {} }]])

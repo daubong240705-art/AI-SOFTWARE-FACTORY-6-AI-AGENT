@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { canTransitionTask, taskSchema, type Task, type TaskState } from "@factory/contracts";
 import { getTask } from "../work/service.js";
 import type { AttemptRecord } from "./types.js";
+import { requestTaskTransition } from "../requests/lifecycle.js";
 
 export class TaskMoveError extends Error {
   constructor(readonly code: string) { super(code); this.name = "TaskMoveError"; }
@@ -16,6 +17,14 @@ export function moveTask(raw: Database, projectId: string, taskId: string, to: T
     if ((expectedRevision !== undefined && task.revision !== expectedRevision)
       || (expectedState !== undefined && task.state !== expectedState)) throw new TaskMoveError("task-changed");
     if (!canTransitionTask(task.state, to)) throw new TaskMoveError("transition-not-allowed");
+    if (to === "cancelled" && task.origin.kind === "cross-team" && task.ownerSeatId === null) {
+      const seat = raw.prepare(`SELECT s.id FROM seats s JOIN ctr_meta m ON m.target_team_id = s.team_id
+        WHERE m.project_id = ? AND m.task_id = ? ORDER BY s.is_lead DESC LIMIT 1`).get(projectId, taskId) as { id: string } | undefined;
+      if (seat) {
+        raw.prepare("UPDATE tasks SET owner_seat_id = ? WHERE project_id = ? AND id = ?").run(seat.id, projectId, taskId);
+        task.ownerSeatId = seat.id;
+      }
+    }
     taskSchema.parse({ ...task, state: to, revision: task.revision + 1 });
     const changed = raw.prepare("UPDATE tasks SET state = ?, revision = revision + 1 WHERE project_id = ? AND id = ? AND state = ? AND revision = ?")
       .run(to, projectId, taskId, task.state, task.revision);
@@ -26,6 +35,7 @@ export function moveTask(raw: Database, projectId: string, taskId: string, to: T
       if (to === "in-review") raw.prepare("UPDATE ctr_meta SET delivered_at = ? WHERE project_id = ? AND task_id = ?")
         .run(now ?? new Date().toISOString(), projectId, taskId);
     }
+    requestTaskTransition(raw, projectId, taskId, to);
     return getTask(raw, projectId, taskId) as Task;
   }).immediate();
 }

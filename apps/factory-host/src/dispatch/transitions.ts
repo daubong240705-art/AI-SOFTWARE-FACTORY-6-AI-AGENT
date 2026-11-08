@@ -12,6 +12,8 @@ const taskEffect = (task: Task): EntityRef => ({ kind: "task", id: task.id, revi
 export function moveTaskAndAdvance(raw: Database, task: Task, to: TaskState, deps: { dispatcher: Dispatcher }): EntityRef[] {
   const projectId = task.projectId;
   if (to === "active") {
+    if (task.holds.some((hold) => hold.kind === "decision" || hold.kind === "cross-team"))
+      throw new CommandError("conflict", "task is waiting", "refresh");
     if (liveAttemptOfTask(raw, projectId, task.id))
       throw new CommandError("conflict", "task has a live attempt", "refresh");
     const seatId = task.ownerSeatId ?? listAttempts(raw, projectId, task.id).at(-1)?.seatId;

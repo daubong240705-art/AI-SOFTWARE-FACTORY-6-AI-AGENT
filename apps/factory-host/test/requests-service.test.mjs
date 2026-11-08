@@ -41,7 +41,7 @@ for (const kind of ["produce", "review", "decision", "notify"]) test(`${kind} wa
   assert.equal(f.runtime.started.some((entry) => entry.task.id === requestId), false);
 });
 for (const [label, patch, message] of [
-  ["blocking", { responseMode: "blocking" }, "blocking requests are not available yet"],
+  ["notify cannot block", { kind: "notify", responseMode: "blocking" }, "notify cannot block"],
   ["unknown team", { targetTeamId: randomUUID() }, "team not found"],
   ["unknown kind", { kind: "invalid" }, "invalid tool input"],
   ["unknown mode", { responseMode: "invalid" }, "invalid tool input"],
@@ -108,8 +108,8 @@ test("the open request cap is ten", (t) => {
 });
 test("the durable attempt creation cap is twenty even after closing requests", (t) => {
   const f = fixture(t);
-  for (let i = 0; i < 20; i++) { const { requestId } = f.create({ ask: `Question ${i}` }); f.triage(requestId, "decline"); }
-  refused(f, () => f.create({ ask: "Twenty first question" }), "too many requests");
+  for (let i = 0; i < 20; i++) { const { requestId } = f.create({ ask: `Question ${i}` }, f.grant, { maxRequestsPerRoot: 100, maxAttemptsPerRoot: 1000 }); f.triage(requestId, "decline"); }
+  refused(f, () => f.create({ ask: "Twenty first question" }, f.grant, { maxRequestsPerRoot: 100, maxAttemptsPerRoot: 1000 }), "too many requests");
 });
 test("unreadable foreign team drafts cannot become context", (t) => {
   const f = fixture(t); const other = f.secondTeam(); const engagement = f.engage(other);
@@ -129,16 +129,17 @@ for (const operation of ["UPDATE ctr_messages SET text = 'changed'", "DELETE FRO
     const f = fixture(t); f.create(); refused(f, () => f.raw.exec(operation), "request messages are immutable");
   });
 test("fresh migration ledger reaches six", (t) => {
-  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map((r) => r.version), [1,2,3,4,5,6]);
+  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map((r) => r.version), [1,2,3,4,5,6,7]);
   assert.deepEqual(f.raw.pragma("foreign_key_check"), []);
 });
 test("migration six upgrades a five database without changing tasks", () => {
   const dir = mkdtempSync(join(tmpdir(), "ctr-migration-")); const storage = openStorage(":memory:");
   try {
-    cpSync(migrationsDir, dir, { recursive: true }); rmSync(join(dir, "0006_ctr.sql"));
+    cpSync(migrationsDir, dir, { recursive: true }); rmSync(join(dir, "0006_ctr.sql")); rmSync(join(dir, "0007_ctr_waits.sql"));
     storage.migrate({ migrationsDir: dir, backupDir: null }); storage.raw.prepare("INSERT INTO projects VALUES ('p',1,'Preserved','artifact','unused','active')").run();
     cpSync(join(migrationsDir, "0006_ctr.sql"), join(dir, "0006_ctr.sql"));
+    cpSync(join(migrationsDir, "0007_ctr_waits.sql"), join(dir, "0007_ctr_waits.sql"));
     const result = storage.migrate({ migrationsDir: dir, backupDir: join(dir, "backup") });
-    assert.deepEqual(result.applied, [6]); assert.equal(storage.raw.prepare("SELECT name FROM projects").get().name, "Preserved");
+    assert.deepEqual(result.applied, [6,7]); assert.equal(storage.raw.prepare("SELECT name FROM projects").get().name, "Preserved");
   } finally { storage.close(); rmSync(dir, { recursive: true, force: true }); }
 });

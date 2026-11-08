@@ -12,10 +12,16 @@ import { normalizeForSearch } from "../knowledge/text.js";
 import { assertActiveGrant, sanitizeAgentText } from "../mcp/security.js";
 import { findLeadSeat } from "../org/service.js";
 import { getTask } from "../work/service.js";
+import { addWait, BLOCKING_MESSAGE, moveWaiters, releaseWaiters } from "./waits.js";
+export { releaseWaiters, expireRequests, WAIT_CEILING_MS, TRIAGE_TTL_MS } from "./waits.js";
+
+export const MAX_REQUESTS_PER_ROOT = 15;
+export const MAX_ATTEMPTS_PER_ROOT = 40;
 
 export type RequestGrant = { projectId: string; taskId: string; attemptId: string; epoch: number };
 export interface RequestDeps {
   raw: Database; multiTeam: boolean; dispatcher: Dispatcher; hub?: EventHub; now: () => Date; newId: () => string;
+  waitCeilingMs?: number; triageTtlMs?: number; maxRequestsPerRoot?: number; maxAttemptsPerRoot?: number;
 }
 type ErrorCode = "not-found" | "validation" | "conflict" | "disabled";
 export class RequestError extends Error {
@@ -108,8 +114,8 @@ function insertRequest(deps: RequestDeps, input: RequestCreateInput, source: { p
       ["produce", "review"].includes(input.kind) ? "artifact" : "none", Number(!["clarify", "consult", "notify"].includes(input.kind)),
       JSON.stringify(input.expectedResponse.acceptance), JSON.stringify(input.contextRefs));
   raw.prepare(`INSERT INTO ctr_meta (project_id,task_id,root_task_id,dedup_key,target_team_id,response_mode,needed_by,
-    expected_response_json,context_refs_json,excerpt,triage_state) VALUES (?,?,?,?,?,'async',?,?,?,?,'submitted')`)
-    .run(projectId, id, source.rootTaskId, requestDedupKey(input), input.targetTeamId, input.neededBy ?? null,
+    expected_response_json,context_refs_json,excerpt,triage_state) VALUES (?,?,?,?,?,?,?,?,?,?,'submitted')`)
+    .run(projectId, id, source.rootTaskId, requestDedupKey(input), input.targetTeamId, input.responseMode, input.neededBy ?? null,
       JSON.stringify(input.expectedResponse), JSON.stringify(input.contextRefs), input.excerpt ?? null);
   appendRequestMessage(raw, { projectId, requestTaskId: id, author: "requester", text: input.ask, now });
   moveTask(raw, projectId, id, "proposed");
@@ -130,7 +136,7 @@ export function createRequest(deps: RequestDeps, { grant, input }: { grant: Requ
     const parsed = requestCreateInputSchema.safeParse(input);
     if (!parsed.success) refuse("invalid tool input", "validation");
     const value = parsed.data;
-    if (value.responseMode === "blocking") refuse("blocking requests are not available yet");
+    if (value.responseMode === "blocking" && value.kind === "notify") refuse("notify cannot block");
     targetTeam(raw, value.targetTeamId);
     const task = getTask(raw, grant.projectId, grant.taskId)!;
     const team = raw.prepare("SELECT team_id FROM engagements WHERE project_id = ? AND id = ?")
@@ -138,6 +144,39 @@ export function createRequest(deps: RequestDeps, { grant, input }: { grant: Requ
     if (team?.team_id === value.targetTeamId) refuse("ask another team");
     const hop = (task.origin.kind === "cross-team" ? task.origin.hop : 0) + 1;
     if (hop > 3) refuse("request chain is too deep");
+    const rootTaskId = task.origin.kind === "cross-team" ? rowOf(raw, grant.projectId, task.id).root_task_id : task.id;
+    const rootCount = raw.prepare("SELECT COUNT(*) AS n FROM ctr_meta WHERE project_id = ? AND root_task_id = ?").get(grant.projectId, rootTaskId) as { n: number };
+    const attempts = raw.prepare(`SELECT COUNT(*) AS n FROM attempts a WHERE a.project_id = ? AND (a.task_id = ? OR a.task_id IN
+      (SELECT task_id FROM ctr_meta WHERE project_id = ? AND root_task_id = ?))`).get(grant.projectId, rootTaskId, grant.projectId, rootTaskId) as { n: number };
+    if (rootCount.n >= (deps.maxRequestsPerRoot ?? MAX_REQUESTS_PER_ROOT) || attempts.n >= (deps.maxAttemptsPerRoot ?? MAX_ATTEMPTS_PER_ROOT)) refuse("request budget exhausted");
+    const teamTimes: string[] = []; let ancestor = task;
+    for (let depth = 0; depth < 4; depth++) {
+      const ancestorTeam = raw.prepare("SELECT team_id FROM engagements WHERE project_id = ? AND id = ?").get(grant.projectId, ancestor.engagementId) as { team_id: string } | undefined;
+      if (ancestor.origin.kind !== "cross-team") {
+        if (ancestorTeam?.team_id === value.targetTeamId) {
+          const earliest = raw.prepare("SELECT MIN(at) AS at FROM ctr_messages WHERE project_id = ? AND task_id IN (SELECT task_id FROM ctr_meta WHERE project_id = ? AND root_task_id = ?)")
+            .get(grant.projectId, grant.projectId, rootTaskId) as { at: string | null };
+          if (earliest.at) teamTimes.push(earliest.at);
+        }
+        break;
+      }
+      const meta = rowOf(raw, grant.projectId, ancestor.id);
+      if (meta.target_team_id === value.targetTeamId) {
+        const first = raw.prepare("SELECT at FROM ctr_messages WHERE project_id = ? AND task_id = ? AND seq = 1").get(grant.projectId, ancestor.id) as { at: string };
+        teamTimes.push(first.at);
+      }
+      ancestor = getTask(raw, grant.projectId, ancestor.origin.requesterTaskId)!;
+    }
+    if (teamTimes.length) {
+      const produced = raw.prepare(`SELECT 1 FROM artifact_versions v JOIN attempts a ON a.project_id = v.project_id AND a.id = v.produced_by_attempt_id
+        WHERE a.project_id = ? AND (a.task_id = ? OR a.task_id IN (SELECT task_id FROM ctr_meta WHERE project_id = ? AND root_task_id = ?))
+        AND v.created_at > ? LIMIT 1`).get(grant.projectId, rootTaskId, grant.projectId, rootTaskId, teamTimes.sort()[0]!);
+      if (!produced) refuse("request would loop");
+    }
+    if (value.responseMode === "blocking") {
+      const waiting = raw.prepare("SELECT COUNT(*) AS n FROM ctr_waits WHERE project_id = ? AND waiter_task_id = ? AND resolved_at IS NULL").get(grant.projectId, task.id) as { n: number };
+      if (waiting.n >= 3) refuse("too many blocking requests");
+    }
     const count = raw.prepare(`${selection} WHERE m.project_id = ? AND t.requester_task_id = ?`).all(grant.projectId, grant.taskId) as RequestRow[];
     const used = raw.prepare("SELECT COUNT(*) AS n FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND json_extract(body_json,'$.ctrCreated') = 1")
       .get(grant.projectId, grant.attemptId) as { n: number };
@@ -153,14 +192,18 @@ export function createRequest(deps: RequestDeps, { grant, input }: { grant: Requ
       .all(grant.projectId, requestDedupKey(clean.data)) as RequestRow[]).find(open);
     if (duplicate) {
       follow(raw, duplicate, grant.taskId, deps.now().toISOString());
-      publish(deps, grant.projectId, [duplicate.task_id]);
-      return { requestId: duplicate.task_id, merged: true as const };
+      if (value.responseMode === "blocking") {
+        addWait(deps, grant, duplicate.task_id);
+        if (duplicate.state === "in-review") releaseWaiters(deps, duplicate.task_id, "delivered");
+      }
+      publish(deps, grant.projectId, [duplicate.task_id, ...(value.responseMode === "blocking" ? [grant.taskId] : [])]);
+      return { requestId: duplicate.task_id, merged: true as const, ...(value.responseMode === "blocking" ? { message: BLOCKING_MESSAGE } : {}) };
     }
-    const rootTaskId = task.origin.kind === "cross-team" ? rowOf(raw, grant.projectId, task.id).root_task_id : task.id;
     const result = insertRequest(deps, clean.data, { projectId: grant.projectId, requesterTaskId: task.id, rootTaskId, hop });
+    if (value.responseMode === "blocking") addWait(deps, grant, result.requestId);
     appendAttemptEvent(raw, { projectId: grant.projectId, attemptId: grant.attemptId, kind: "state", at: deps.now().toISOString(), body: { ctrCreated: true } });
-    publish(deps, grant.projectId, [result.requestId]);
-    return result;
+    publish(deps, grant.projectId, [result.requestId, ...(value.responseMode === "blocking" ? [grant.taskId] : [])]);
+    return { ...result, ...(value.responseMode === "blocking" ? { message: BLOCKING_MESSAGE } : {}) };
   });
 }
 
@@ -194,7 +237,7 @@ export function triageRequest(raw: Database, input: TriageInput, deps: RequestDe
         if (input.redirectTeamId === row.target_team_id) refuse("ask another team");
         const content = requestCreateInputSchema.parse({ kind: row.request_kind, targetTeamId: input.redirectTeamId,
           subject: row.title, ask: row.brief, expectedResponse: JSON.parse(row.expected_response_json) as unknown,
-          contextRefs: JSON.parse(row.context_refs_json) as unknown, ...(row.needed_by === null ? {} : { neededBy: row.needed_by }),
+          responseMode: row.response_mode, contextRefs: JSON.parse(row.context_refs_json) as unknown, ...(row.needed_by === null ? {} : { neededBy: row.needed_by }),
           ...(row.excerpt === null ? {} : { excerpt: row.excerpt }) });
         redirected = insertRequest(deps, content, { projectId, requesterTaskId: row.requester_task_id, rootTaskId: row.root_task_id, hop: row.hop }).requestId;
         for (const follower of raw.prepare("SELECT follower_task_id FROM ctr_followers WHERE project_id = ? AND task_id = ?").all(projectId, requestTaskId) as { follower_task_id: string }[])
@@ -215,6 +258,8 @@ export function triageRequest(raw: Database, input: TriageInput, deps: RequestDe
       // The original schema requires an owner even when declining an unassigned proposal.
       raw.prepare("UPDATE tasks SET owner_seat_id = COALESCE(owner_seat_id,?) WHERE project_id = ? AND id = ?")
         .run(owner(raw, row.target_team_id), projectId, requestTaskId);
+      if (redirected || merged) moveWaiters(deps, projectId, requestTaskId, (redirected ?? merged)!);
+      else releaseWaiters(deps, requestTaskId, "declined");
       moveTask(raw, projectId, requestTaskId, "declined");
     }
     raw.prepare(`UPDATE ctr_meta SET triage_state = ?,triage_by = ?,triage_at = ?,triage_reason = ?,
@@ -304,13 +349,15 @@ export function getRequest(raw: Database, input: { grantOrOperator: RequestGrant
     .get(viewer.projectId, row.task_id) as { n: number };
   return { requestId: row.task_id, code: row.code, kind: row.request_kind, subject: requestText(row.title), state: row.state,
     triageState: row.triage_state, rounds: row.rounds, hop: row.hop, thread: thread.map((message) => ({ ...message, text: requestText(message.text) })),
-    deliverables: deliverables.map((item) => ({ ...item, title: requestText(item.title) })), followers: followers.n };
+    deliverables: deliverables.map((item) => ({ ...item, title: requestText(item.title) })), followers: followers.n,
+    waiting: (raw.prepare("SELECT COUNT(*) AS n FROM ctr_waits WHERE project_id = ? AND ctr_task_id = ? AND resolved_at IS NULL").get(viewer.projectId, row.task_id) as { n: number }).n };
 }
 
 export function listRequests(raw: Database, projectId: string, options: { state?: string; team?: string; limit?: number } = {}) {
   const limit = Math.max(1, Math.min(100, Math.trunc(options.limit ?? 100) || 100));
   return (raw.prepare(`SELECT t.id AS taskId,t.code,t.request_kind AS kind,t.title AS subject,t.state AS taskState,
     m.triage_state AS triageState,team.name AS targetTeamName,t.hop,m.rounds,r.code AS requesterCode,
+    (SELECT COUNT(*) FROM ctr_waits w WHERE w.project_id = t.project_id AND w.ctr_task_id = t.id AND w.resolved_at IS NULL) AS waiting,
     (SELECT at FROM ctr_messages WHERE project_id = t.project_id AND task_id = t.id AND seq = 1) AS createdAt
     FROM ctr_meta m JOIN tasks t ON t.project_id = m.project_id AND t.id = m.task_id
     JOIN teams team ON team.id = m.target_team_id JOIN tasks r ON r.project_id = t.project_id AND r.id = t.requester_task_id
@@ -318,7 +365,7 @@ export function listRequests(raw: Database, projectId: string, options: { state?
     ORDER BY createdAt DESC,m.rowid DESC LIMIT ?`)
     .all(projectId, options.state ?? null, options.state ?? null, options.state ?? null, options.team ?? null, options.team ?? null, limit) as {
       taskId: string; code: string; kind: string; subject: string; taskState: string; triageState: string; targetTeamName: string;
-      hop: number; rounds: number; requesterCode: string; createdAt: string;
+      hop: number; rounds: number; requesterCode: string; createdAt: string; waiting: number;
     }[]).map((item) => ({ ...item, subject: requestText(item.subject), targetTeamName: requestText(item.targetTeamName) }));
 }
 
