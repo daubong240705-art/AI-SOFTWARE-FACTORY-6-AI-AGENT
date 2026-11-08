@@ -1,3 +1,4 @@
+import { Teams } from './Teams';
 import { useEffect, useId, useRef, useState } from 'react';
 import { applyTheme, getPreferences, i18n, useT, type Theme } from '../i18n';
 import type { Store } from '../state/store';
@@ -27,6 +28,7 @@ export function AppShell({ store }: { store: Store }) {
   const t = useT();
   const state = store.useStoreSelector((value) => value);
   const [theme, setTheme] = useState(getPreferences().theme);
+  const [teams, setTeams] = useState(false);
   const [creating, setCreating] = useState(false);
   const [inbox, setInbox] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -60,18 +62,19 @@ export function AppShell({ store }: { store: Store }) {
       {compact && <Button aria-expanded={expanded} aria-controls={navId} onClick={() => setExpanded(!expanded)}>{t('shell.toggleProjects')}</Button>}
     </header>
     <nav id={navId} className="sidebar stack" aria-label={t('global.projects')} hidden={compact && !expanded}>
+      <Button aria-pressed={teams} onClick={() => setTeams(true)}>{t('m3.teams')}</Button>
       <h2>{t('global.projects')}</h2>
       {state.loading.projects && <p role="status">{t('viewStates.loading')}</p>}
       {state.errors.projects && <><ErrorNotice error={state.errors.projects} /><Button onClick={() => { void store.loadProjects(); }}>{t('errors.retry')}</Button></>}
       {!state.loading.projects && !state.errors.projects && state.projects.length === 0 && <p className="muted">{t('projects.empty')}</p>}
       <ul className="project-list stack">{state.projects.map((project) => <li key={project.id}>
-        <Button className="project-link" aria-current={state.selectedProjectId === project.id ? 'page' : undefined} onClick={() => { void store.selectProject(project.id); setExpanded(false); }}>
+        <Button className="project-link" aria-current={state.selectedProjectId === project.id ? 'page' : undefined} onClick={() => { void store.selectProject(project.id); setExpanded(false); setTeams(false); }}>
           <span>{project.name}</span>{state.selectedProjectId === project.id && <Badge>{t(streamLabel)}</Badge>}
         </Button>
       </li>)}</ul>
       <Button variant="accent" onClick={() => setCreating(true)}>{t('projects.create')}</Button>
     </nav>
-    <main className="content">{selected ? <ProjectView key={selected.id} store={store} project={selected} /> : <Card className="state-empty">
+    <main className="content">{teams ? <Teams store={store} /> : selected ? <ProjectView key={selected.id} store={store} project={selected} /> : <Card className="state-empty">
       <h1>{t('shell.welcome')}</h1><p className="muted">{t('shell.chooseProject')}</p>
       <Button variant="primary" onClick={() => setCreating(true)}>{t('projects.create')}</Button>
     </Card>}</main>

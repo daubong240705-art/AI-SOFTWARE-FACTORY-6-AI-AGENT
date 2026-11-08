@@ -1,0 +1,10 @@
+import { id, otherId, envelope } from './fixtures';
+import { changeKeys } from '../src/api/m3Models';
+export const now = '2026-11-08T00:00:00.000Z';
+export const orgTeam = { id, name: 'Research', charter: 'Find evidence', packKey: 'research', packVersion: '1', lifecycle: 'active', revision: 2, seats: [{ id, name: 'Worker', role: 'Research', slots: 2, revision: 3, isLead: false, live: 1, capabilities: ['research'], tools: ['knowledge.*'] }], engagements: [{ projectId: id, projectName: 'Project', engagementId: otherId, priority: 50, maxConcurrent: 2, state: 'active', revision: 4, live: 1 }] };
+export const pack = { key: 'research', version: '1', name: 'Research', description: 'Evidence', seatCount: 1, seats: [{ name: 'Worker' }] };
+export const requestItem = { taskId: id, code: 'REQ-001', kind: 'produce', subject: 'Find sources', taskState: 'proposed', triageState: 'submitted', targetTeamName: 'Research', hop: 1, rounds: 0, waiting: 1, requesterCode: 'TSK-001', createdAt: now };
+export const requestDetail = { requestId: id, code: 'REQ-001', kind: 'produce', subject: 'Find sources', state: 'proposed', triageState: 'submitted', rounds: 0, hop: 1, followers: 2, waiting: 1, thread: [{ seq: 1, author: 'operator', text: '<img onerror=alert(1)>', at: now }], deliverables: [] };
+export const dossier = { ref: { artifactId: id, version: 1 }, status: 'draft', createdAt: now, markdown: '<img onerror=alert(1)>', state: 'current' };
+export const briefing = { ...envelope, baseline: { since: now, dossierRef: null }, changes: Object.fromEntries(changeKeys.map(k => [k, { count: 1, examples: ['Example'] }])), freshness: { stale: [], awaitingReview: [], unapprovedDossier: true }, teams: [], suggestions: ['Review work'], limits: ['Tracking is bounded'] };
+export const context = { attemptId: id, epoch: 1, builtAt: now, tokens: 100, maxTokens: 6000, l0: 1, l1: 0, omitted: 1, pack: { omitted: [{ ref: { artifactId: id, version: 1 }, reason: 'no-access' }] }, instructions: { packDigest: 'a'.repeat(64), profilePath: 'profiles/research.md', skillsCount: 2, bytes: 20 } };

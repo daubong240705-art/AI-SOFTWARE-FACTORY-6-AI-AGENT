@@ -1,3 +1,4 @@
+import type { OrgTeam, RequestItem, RequestDetail, Dossier, Briefing, TaskContext } from '../api/m3Models';
 import { useSyncExternalStore } from 'react';
 import type { Approval, Command, Conversation, FactoryEvent, Project, Task } from '@factory/contracts';
 import { ApiClientError, createApiClient, type ApiClient, type ArtifactContent, type Attempt, type AttemptEvent, type AttemptPatch, type TaskArtifact, type BudgetResponse, type MessagesResponse, type TeamResponse } from '../api/client';
@@ -13,7 +14,10 @@ export type PendingCommand = { command: Command; status: 'pending' | 'failed'; e
 export type TaskDetailState = { loading: boolean; error?: StoreError | undefined; attempts: Attempt[]; events: Record<string, AttemptEvent[]>; artifacts: TaskArtifact[]; approvals: Approval[]; patches: Record<string, AttemptPatch | null>; effects: Record<string, Effect[]> };
 const emptyDetail = (): TaskDetailState => ({ loading: false, attempts: [], events: {}, artifacts: [], approvals: [], patches: {}, effects: {} });
 const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], counts: { approvals: 0, startGates: 0, total: 0 } });
+export type M3State = { teams: OrgTeam[]; packs: Awaited<ReturnType<ApiClient['listPacks']>>['packs']; queues: Record<string, Awaited<ReturnType<ApiClient['getTeamQueue']>>['items']>; disabled: boolean; requestTargets: RequestItem[]; requests: RequestItem[]; requestDetails: Record<string, RequestDetail>; dossier: Dossier | null; briefing: Briefing | null; contexts: Record<string, TaskContext[]> };
+const emptyM3 = (): M3State => ({ teams: [], packs: [], queues: {}, disabled: false, requestTargets: [], requests: [], requestDetails: {}, dossier: null, briefing: null, contexts: {} });
 export type StoreState = {
+  m3: M3State;
   session: 'unknown' | 'anonymous' | 'authenticated'; projects: Project[]; selectedProjectId: string | null;
   team: TeamResponse | null; tasks: Task[]; conversations: Conversation[];
   messages: Record<string, MessagesResponse['messages']>; turns: Record<string, MessagesResponse['turns']>;
@@ -30,7 +34,7 @@ export type StoreOptions = {
   openEvents?: (options: ProjectEventsOptions) => { close(): void };
   timer?: { setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 };
-const projectState = () => ({ knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
+const projectState = () => ({ m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
@@ -45,6 +49,7 @@ export function createStore(options: StoreOptions = {}) {
   const timer = options.timer ?? { setTimeout: (cb: () => void, ms: number) => setTimeout(cb, ms), clearTimeout: (handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>) };
   type Job = { run: () => Promise<void>; promise?: Promise<void>; dirty: boolean; timer?: unknown };
   const jobs = new Map<string, Job>();
+  const openM3 = new Map<string, () => Promise<void>>();
   const openTasks = new Set<string>();
   const openKnowledge = new Set<string>();
   let knowledgeOpen = false;
@@ -71,7 +76,7 @@ export function createStore(options: StoreOptions = {}) {
     generation++;
     stream?.close(); stream = undefined;
     for (const job of jobs.values()) if (job.timer !== undefined) timer.clearTimeout(job.timer);
-    jobs.clear();
+    jobs.clear(); openM3.clear();
     openTasks.clear(); openTaskCounts.clear(); contentCache.clear(); openKnowledge.clear(); knowledgeOpen = false; knowledgeRevision++;
   };
   const anonymous = () => {
@@ -127,6 +132,30 @@ export function createStore(options: StoreOptions = {}) {
     }
     return launch();
   }
+  function m3Patch(patch: Partial<M3State>): Partial<StoreState> {
+    return { get m3() { return { ...state.m3, ...patch, queues: { ...state.m3.queues, ...patch.queues }, contexts: { ...state.m3.contexts, ...patch.contexts }, requestDetails: { ...state.m3.requestDetails, ...patch.requestDetails } }; } };
+  }
+  const m3Revisions = new Map<string, number>();
+  function readM3(area: string, work: (projectId: string) => Promise<Partial<M3State>>) {
+    const id = state.selectedProjectId;
+    if (state.session !== 'authenticated' || (!id && area !== 'teams')) return Promise.resolve();
+    const revision = (m3Revisions.get(area) ?? 0) + 1; m3Revisions.set(area, revision); jobs.delete(area);
+    return enqueue(area, generation, async () => {
+      try { return m3Patch(await work(id ?? '')); }
+      catch (error) {
+        if (area === 'teams' && error instanceof ApiClientError && (error.code === 'unsupported' || error.status === 404 || error.status === 501 || (error.kind === 'bad-response' && error.status !== 401))) return m3Patch({ disabled: true });
+        throw error;
+      }
+    }, false, () => m3Revisions.get(area) === revision);
+  }
+  const loadTeams = () => readM3('teams', async () => { const [teams, packs] = await Promise.all([api.listTeams(), api.listPacks()]); return { teams: teams.teams, packs: packs.packs }; });
+  const loadQueue = (teamId: string) => readM3(`queue:${teamId}`, async () => ({ queues: { ...state.m3.queues, [teamId]: (await api.getTeamQueue(teamId)).items } }));
+  const loadRequests = (filters: { state?: string; team?: string } = {}) => readM3('requests', async id => ({ requests: (await api.listRequests(id, filters)).items }));
+  const loadRequestTargets = () => readM3('request-targets', async id => ({ requestTargets: (await api.listRequests(id)).items }));
+  const loadRequest = (taskId: string) => readM3(`request:${taskId}`, async id => ({ requestDetails: { ...state.m3.requestDetails, [taskId]: (await api.getRequest(id, taskId)).request } }));
+  const loadDossier = () => readM3('dossier', async id => ({ dossier: (await api.getDossier(id)).dossier }));
+  const loadBriefing = (since?: string) => readM3('briefing', async id => { const result = await api.getBriefing(id, since); return { briefing: result }; });
+  const loadContext = (taskId: string) => readM3(`context:${taskId}`, async id => ({ contexts: { ...state.m3.contexts, [taskId]: (await api.getTaskContext(id, taskId)).packs } }));
   const loadProjects = (debounce = false) => enqueue('projects', generation, async () => ({ projects: (await api.listProjects()).projects }), debounce);
   function knowledgePatch(patch: Partial<KnowledgeState>): Partial<StoreState> {
     // Resolve at publication so list and detail responses completing together merge.
@@ -340,6 +369,7 @@ export function createStore(options: StoreOptions = {}) {
     });
   }
   async function refresh() {
+    for (const read of openM3.values()) void read();
     if (knowledgeOpen) void readKnowledge();
     for (const id of openKnowledge) void loadKnowledgeDetail(id);
     await Promise.all([loadProjects(), loadInbox(), loadGlobalInbox(), loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget'),
@@ -361,6 +391,14 @@ export function createStore(options: StoreOptions = {}) {
   function applyEvent(event: FactoryEvent) {
     if (event.projectId !== state.selectedProjectId) return;
     const payload = event.payload;
+    if (payload.type === 'entity.changed' || payload.type === 'artifact.status-changed' || payload.type === 'task.status-changed') {
+      for (const [area, read] of openM3) {
+        const key = `refresh:${area}`;
+        const previous = jobs.get(key); if (previous?.timer !== undefined) timer.clearTimeout(previous.timer);
+        const job: Job = { run: read, dirty: false }; jobs.set(key, job);
+        job.timer = timer.setTimeout(() => { if (openM3.has(area)) void read(); }, options.debounceMs ?? 150);
+      }
+    }
     if (payload.type === 'message.appended') void loadMessages(payload.message.conversationId, true);
     else if (payload.type === 'command.receipted') void loadArea('budget', true);
     else if (payload.type === 'entity.changed') {
@@ -404,6 +442,7 @@ export function createStore(options: StoreOptions = {}) {
       return undefined;
     } catch (error) {
       if (active(scope)) {
+        if (error instanceof ApiClientError && error.code === 'unsupported' && /^(teams|seats|engagements)\./.test(command.type)) update(m3Patch({ disabled: true }));
         failed('command', error);
         if (active(scope)) update({ pending: { ...state.pending, [command.commandId]: { command, status: 'failed', error: errorDetails(error) } } });
       }
@@ -421,6 +460,9 @@ export function createStore(options: StoreOptions = {}) {
       anonymous();
     },
     loadProjects: () => loadProjects(),
+    refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
+    loadTeams, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
+    watchM3: (area: string, read: () => Promise<void>) => { openM3.set(area, read); void read(); return () => { openM3.delete(area); }; },
     searchKnowledge, loadKnowledgeList: (filters: KnowledgeFilters = {}) => searchKnowledge('', filters),
     loadKnowledgeMore: () => readKnowledge(true), cancelKnowledgeSearch,
     openKnowledgeList: () => { knowledgeOpen = true; },

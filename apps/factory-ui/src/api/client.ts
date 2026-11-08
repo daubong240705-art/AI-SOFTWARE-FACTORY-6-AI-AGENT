@@ -1,3 +1,4 @@
+import { m3Models } from './m3Models';
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
@@ -89,6 +90,17 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     return params.size ? `?${params}` : '';
   };
   return {
+    listTeams: () => request('/teams', m3Models.teams),
+    listPacks: () => request('/packs', m3Models.packs),
+    getTeamQueue: (id: string) => request(`/teams/${encodeURIComponent(id)}/queue`, m3Models.queue),
+    listRequests: (id: string, filters: { state?: string; team?: string } = {}) => {
+      const params = new URLSearchParams({ limit: '100', ...filters });
+      return request(`${projectPath(id)}/requests?${params}`, m3Models.requests);
+    },
+    getRequest: (id: string, taskId: string) => request(`${projectPath(id)}/requests/${encodeURIComponent(taskId)}`, m3Models.request),
+    getDossier: (id: string) => request(`${projectPath(id)}/dossier`, m3Models.dossier),
+    getBriefing: (id: string, since?: string) => request(`${projectPath(id)}/briefing${since ? `?since=${encodeURIComponent(since)}` : ''}`, m3Models.briefing),
+    getTaskContext: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/context`, m3Models.context),
     get csrfToken() { return csrfToken; },
     health: () => request('/health', ok),
     async bootstrap(token: string) { const result = await request('/auth/bootstrap', auth, { token }); csrfToken = result.csrfToken; return result; },

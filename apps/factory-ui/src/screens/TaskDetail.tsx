@@ -1,3 +1,4 @@
+import { TaskContext } from './TaskContext';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { deriveDisplayStatus, isLiveAttempt, type Command, type Task } from '@factory/contracts';
 import { runsCancel, tasksRelease, tasksRetry } from '../api/commands';
@@ -49,6 +50,7 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request' }: {
       {detail?.error && <><ErrorNotice error={detail.error} /><Button onClick={() => { void store.loadTaskDetail(taskId); }}>{t('errors.retry')}</Button></>}
       <div className="stack" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tabs[active]}`} tabIndex={0}>
         {active === 0 && <>
+          <TaskContext store={store} taskId={taskId} />
           <h3>{t('taskUi.goal')}</h3><p className="plain-text">{task.goal}</p><p className="plain-text">{task.brief}</p>
           <h3>{t('taskUi.acceptance')}</h3><ul>{task.acceptance.map((item, index) => <li key={index}>{item}</li>)}</ul>
           <h3>{t('taskUi.dependencies')}</h3><ul>{task.dependsOn.map(dependency => <li key={dependency}>{state.tasks.find(item => item.id === dependency)?.code ?? dependency}</li>)}</ul>

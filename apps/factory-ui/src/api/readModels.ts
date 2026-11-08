@@ -1,3 +1,4 @@
+import { requestItemSchema, type RequestItem } from './m3Models';
 import { API_VERSION, approvalSchema, artifactKindSchema, artifactStatusSchema, type Approval, type AttemptState } from '@factory/contracts';
 
 type Reader<T> = (value: unknown) => T;
@@ -30,7 +31,7 @@ const approvalFields = object({ id: identifier, projectId: identifier, revision:
 const approval: Reader<Approval> = v => { const result = approvalSchema.safeParse(approvalFields(v)); return result.success ? result.data : invalid(); };
 const name: Reader<string> = v => { const s = string(40, 1)(v); return /^[a-z0-9][a-z0-9-]{0,39}$/.test(s) ? s : invalid(); };
 const effect = object({ id: identifier, attemptId: identifier, kind: enumeration(['git.push-branch'] as const), remote: name, branch: string(160, 1), state: enumeration(['pending', 'done', 'failed', 'unknown'] as const), error: nullable(enumeration(['auth', 'rejected', 'network', 'timeout', 'other', 'not-pushed'] as const)), createdAt: timestamp, completedAt: nullable(timestamp) });
-const counts = object({ approvals: integer(), startGates: integer(), total: integer() });
+const counts = object({ approvals: integer(), startGates: integer(), total: integer(), requests: (v: unknown) => v === undefined ? undefined : integer()(v) });
 const gateFields = { taskId: identifier, code: string(40, 1), title: string(160, 1), projectId: identifier };
 export const knowledgeKinds = artifactKindSchema.options;
 export const knowledgeStatuses = artifactStatusSchema.options;
@@ -47,9 +48,9 @@ export type KnowledgeItem = ReturnType<typeof knowledgeItem>;
 export type KnowledgeArtifact = ReturnType<typeof knowledgeArtifact>;
 export type KnowledgeFilters = { kinds?: Array<typeof knowledgeKinds[number]>; statuses?: Array<typeof knowledgeStatuses[number]> };
 export type KnowledgePage = KnowledgeFilters & { limit?: number; offset?: number };
-export type Inbox = { approvals: Array<Approval & { projectName?: string }>; startGates: Array<{ taskId: string; code: string; title: string; projectId: string; projectName?: string }>; counts: { approvals: number; startGates: number; total: number } };
+export type Inbox = { requests?: RequestItem[] | undefined; approvals: Array<Approval & { projectName?: string }>; startGates: Array<{ taskId: string; code: string; title: string; projectId: string; projectName?: string }>; counts: { approvals: number; startGates: number; total: number; requests?: number | undefined } };
 function inbox(global: boolean): Reader<Inbox> {
-  return object({ approvals: array(v => ({ ...approval(v), ...(global ? { projectName: string(160, 1)(record(v).projectName) } : {}) })),
+  return object({ requests: (v: unknown) => v === undefined ? undefined : array((item: unknown) => requestItemSchema.parse(item))(v), approvals: array(v => ({ ...approval(v), ...(global ? { projectName: string(160, 1)(record(v).projectName) } : {}) })),
     startGates: array(global ? object({ ...gateFields, projectName: string(160, 1) }) : object(gateFields)), counts });
 }
 function envelope<T>(read: Reader<T>) {
@@ -71,3 +72,5 @@ export type AttemptEvent = ReturnType<typeof event>;
 export type AttemptPatch = ReturnType<typeof patch>;
 export type TaskArtifact = ReturnType<typeof artifact>;
 export type ArtifactContent = ReturnType<typeof content>;
+
+export type { OrgTeam, RequestItem, RequestDetail, Dossier, Briefing, TaskContext } from './m3Models';

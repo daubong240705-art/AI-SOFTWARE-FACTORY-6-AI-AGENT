@@ -53,3 +53,21 @@ export function nextTaskCode(tasks: readonly { code: string }[], prefix = 'TSK')
 export function budgetsSet({ projectId, ...payload }: Of<'budgets.set'>['payload'] & { projectId: string }) {
   return build('budgets.set', projectId, payload);
 }
+
+export function teamsCreateFromPack({ projectId, ...payload }: Of<'teams.create-from-pack'>['payload'] & { projectId: string }) { return build('teams.create-from-pack', projectId, payload); }
+
+export function teamsSetLifecycle({ projectId, ...payload }: Of<'teams.set-lifecycle'>['payload'] & { projectId: string }) { return build('teams.set-lifecycle', projectId, payload); }
+
+export function engagementsCreate({ projectId, ...payload }: Of<'engagements.create'>['payload'] & { projectId: string }) { return build('engagements.create', projectId, payload); }
+
+export function engagementsUpdate({ projectId, ...payload }: Of<'engagements.update'>['payload'] & { projectId: string }) { return build('engagements.update', projectId, payload); }
+
+export function seatsUpdate({ projectId, ...payload }: Of<'seats.update'>['payload'] & { projectId: string }) { return build('seats.update', projectId, payload); }
+
+export function requestsTriage({ projectId, ...payload }: Of<'requests.triage'>['payload'] & { projectId: string }) { return build('requests.triage', projectId, payload); }
+
+export function requestsMessage({ projectId, ...payload }: Of<'requests.message'>['payload'] & { projectId: string }) { return build('requests.message', projectId, payload); }
+
+export function artifactsTransition({ projectId, ...payload }: Of<'artifacts.transition'>['payload'] & { projectId: string }) { return build('artifacts.transition', projectId, payload); }
+
+export function dossierRefresh({ projectId, ...payload }: { projectId: string }) { return build('dossier.refresh', projectId, payload); }

@@ -1,3 +1,5 @@
+import { Requests } from './Requests';
+import { DossierPanel } from './Dossier';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { Project } from '@factory/contracts';
 import { i18n, plural, useT } from '../i18n';
@@ -9,7 +11,7 @@ import { TeamPanel } from './TeamPanel';
 import { Inbox, inboxCount } from './Inbox';
 import { ProjectKnowledge } from './ProjectKnowledge';
 
-const tabs = ['chat', 'tasks', 'team', 'inbox', 'knowledge'] as const;
+const tabs = ['chat', 'tasks', 'team', 'inbox', 'knowledge', 'requests', 'dossier'] as const;
 export function ProjectView({ store, project }: { store: Store; project: Project }) {
   const t = useT();
   const proposed = store.useStoreSelector((state) => state.tasks.filter((task) => task.state === 'proposed').length);
@@ -29,11 +31,11 @@ export function ProjectView({ store, project }: { store: Store; project: Project
   return <div className="project-view stack">
     <header role="generic" className="projectbar stack"><h1>{project.name}</h1>
       <div role="tablist" aria-label={t('shell.projectTabs')} className="project-tabs">
-        {tabs.map((tab, index) => <button key={tab} ref={(node) => { buttons.current[index] = node; }} type="button" role="tab" id={`${id}-${tab}`} aria-controls={`${id}-panel`} aria-selected={active === index} tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={(event) => navigate(event, index)}>{t(tab === 'knowledge' ? 'knowledgeUi.tab' : tab === 'inbox' ? 'inboxUi.inbox' : `tabs.${tab}`)}{tab === 'inbox' && inboxTotal > 0 && <> <Badge>{inboxCount(t, inboxTotal)}</Badge></>}{tab === 'tasks' && proposed > 0 && <> <Badge>{new Intl.NumberFormat(i18n.locale).format(proposed)} {plural(t, i18n.locale, proposed, 'taskUi.proposedCount')}</Badge></>}</button>)}
+        {tabs.map((tab, index) => <button key={tab} ref={(node) => { buttons.current[index] = node; }} type="button" role="tab" id={`${id}-${tab}`} aria-controls={`${id}-panel`} aria-selected={active === index} tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={(event) => navigate(event, index)}>{t(tab === 'requests' || tab === 'dossier' ? `m3.${tab}` : tab === 'knowledge' ? 'knowledgeUi.tab' : tab === 'inbox' ? 'inboxUi.inbox' : `tabs.${tab}`)}{tab === 'inbox' && inboxTotal > 0 && <> <Badge>{inboxCount(t, inboxTotal)}</Badge></>}{tab === 'tasks' && proposed > 0 && <> <Badge>{new Intl.NumberFormat(i18n.locale).format(proposed)} {plural(t, i18n.locale, proposed, 'taskUi.proposedCount')}</Badge></>}</button>)}
       </div>
     </header>
     <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tabs[active]}`} tabIndex={0}>
-      {active === 0 ? <ProjectChat store={store} projectId={project.id} /> : active === 1 ? <ProjectTasks store={store} projectId={project.id} /> : active === 2 ? <TeamPanel store={store} /> : active === 3 ? <Inbox store={store} /> : <ProjectKnowledge key={project.id} store={store} projectId={project.id} />}
+      {active === 0 ? <ProjectChat store={store} projectId={project.id} /> : active === 1 ? <ProjectTasks store={store} projectId={project.id} /> : active === 2 ? <TeamPanel store={store} /> : active === 3 ? <Inbox store={store} /> : active === 4 ? <ProjectKnowledge key={project.id} store={store} projectId={project.id} /> : active === 5 ? <Requests store={store} /> : <DossierPanel store={store} />}
     </div>
   </div>;
 }

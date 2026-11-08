@@ -1,6 +1,8 @@
+import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  m3: m3Vi,
   knowledgeUi: {
     tab: 'Tri thức', search: 'Tìm tài liệu', kind: 'Loại tài liệu', status: 'Trạng thái tài liệu', allKinds: 'Tất cả loại', allStatuses: 'Tất cả trạng thái',
     results: 'Kết quả tìm kiếm', allDocuments: 'Tất cả tài liệu', empty: 'Chưa có tài liệu.', noMatches: 'Không có kết quả. Hãy thử ít từ hơn; tìm kiếm không phân biệt dấu.',

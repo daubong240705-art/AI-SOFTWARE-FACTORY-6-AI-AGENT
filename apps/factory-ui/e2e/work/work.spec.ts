@@ -111,6 +111,21 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await page.getByRole("tab", { name: "Tasks", exact: true }).click();
   });
 
+  test("Dossier, Resume briefing, empty Requests and the Teams screen work on the real Host", async () => {
+    await page.getByRole("tab", { name: "Dossier", exact: true }).click();
+    await page.getByRole("button", { name: "Refresh dossier" }).first().click();
+    await expect(page.getByText("# Project Dossier").or(page.getByText("Project Dossier").first())).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Current", { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Resume briefing").first()).toBeVisible();
+    await shot(page, "05e-dossier-briefing");
+    await page.getByRole("tab", { name: "Requests", exact: true }).click();
+    await expect(page.getByText("Nothing here yet.").first()).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Teams", exact: true }).click();
+    await expect(page.getByText("Multi-team management is unavailable on this Host.").or(page.getByText("Create team from pack")).first()).toBeVisible({ timeout: 20_000 });
+    await shot(page, "05f-teams");
+    await page.getByRole("button", { name: /^Demo project/ }).click();
+    await page.getByRole("tab", { name: "Tasks", exact: true }).click();
+  });
   test("the Inbox badge leads to the review; accepting finishes the task", async () => {
     const inbox = page.getByRole("button", { name: /^Inbox/ }).first();
     await expect(inbox).toBeVisible();

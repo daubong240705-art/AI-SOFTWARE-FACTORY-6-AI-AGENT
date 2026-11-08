@@ -1,3 +1,4 @@
+import { RequestPanel } from './Requests';
 import { useEffect, useId, useState } from 'react';
 import type { Inbox as InboxModel } from '../api/client';
 import { Badge } from '../components/Badge';
@@ -15,7 +16,7 @@ export function relativeTime(value: string, now = Date.now()): string {
   const [size, unit] = Math.abs(seconds) >= 86400 ? [86400, 'day'] as const : Math.abs(seconds) >= 3600 ? [3600, 'hour'] as const : Math.abs(seconds) >= 60 ? [60, 'minute'] as const : [1, 'second'] as const;
   return new Intl.RelativeTimeFormat(i18n.locale, { numeric: 'always', style: 'short' }).format(Math.round(seconds / size), unit);
 }
-type Selection = { kind: 'approval' | 'task'; id: string };
+type Selection = { kind: 'approval' | 'task' | 'request'; id: string };
 export function Inbox({ store, global = false, onClose }: { store: Store; global?: boolean; onClose?: () => void }) {
   const t = useT(); const id = useId();
   const state = store.useStoreSelector(value => value);
@@ -30,6 +31,7 @@ export function Inbox({ store, global = false, onClose }: { store: Store; global
   }
   if (state.session !== 'authenticated') return null;
   if (selection?.kind === 'approval') return <DecisionDialog store={store} approvalId={selection.id} onClose={() => setSelection(null)} />;
+  if (selection?.kind === 'request') return <RequestPanel store={store} taskId={selection.id} onClose={() => setSelection(null)} />;
   if (selection?.kind === 'task') return <TaskDetail store={store} taskId={selection.id} onClose={() => setSelection(null)} />;
   const content = <>
     {onClose && <Button onClick={onClose}>{t('inboxUi.close')}</Button>}
@@ -42,8 +44,9 @@ export function Inbox({ store, global = false, onClose }: { store: Store; global
 }
 function InboxItems({ inbox, store, global, busy, onOpen }: { inbox: InboxModel; store: Store; global: boolean; busy: boolean; onOpen: (projectId: string, selection: Selection) => void }) {
   const t = useT(); const tasks = store.useStoreSelector(state => state.tasks);
-  if (!inbox.approvals.length && !inbox.startGates.length) return <p>{t('inboxUi.empty')}</p>;
+  if (!inbox.approvals.length && !inbox.startGates.length && !inbox.requests?.length) return <p>{t('inboxUi.empty')}</p>;
   return <ul className="task-list stack inbox-list">
+    {!!inbox.requests?.length && <li className="stack"><h3>{t('m3.awaitingTriage')}</h3><ul>{inbox.requests.map(item => <li key={item.taskId} className="card stack"><h4>{item.code} {item.subject}</h4>{global && <p>{item.projectName}</p>}<Button disabled={busy} onClick={() => onOpen(item.projectId ?? store.getState().selectedProjectId!, { kind: 'request', id: item.taskId })}>{t('m3.openRequest')}</Button></li>)}</ul></li>}
     {[...inbox.approvals].sort((a, b) => Date.parse(a.requestedAt) - Date.parse(b.requestedAt)).map(item => <li key={item.id} className="card stack">
       <Badge>{t(`inboxUi.kinds.${item.kind}`)}</Badge>{global && <p>{item.projectName}</p>}
       <h3>{tasks.find(task => task.id === item.taskId && task.projectId === item.projectId)?.code} {item.subject}</h3>
