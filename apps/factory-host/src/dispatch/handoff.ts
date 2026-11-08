@@ -49,5 +49,10 @@ export function buildHandoff(raw: Database, projectId: string, taskId: string): 
   const answer = decision && latest?.startedAt && Date.parse(decision.decided_at) > Date.parse(latest.startedAt)
     ? (JSON.parse(decision.options_json) as { id: string; label: string }[]).find((option) => option.id === decision.outcome_option_id) : undefined;
   const decisionText = answer && decision ? `\nDecision from the operator:\nQuestion: ${plain(decision.subject).slice(0, 160)}\nAnswer: ${plain(answer.label).slice(0, 160)}\n${plain(decision.comment ?? "").slice(0, 1000)}` : "";
-  return `${lines.join("\n").slice(0, 4000 - closing.length - feedback.length - decisionText.length - 1)}${feedback}${decisionText}\n${closing}`;
+  const requester = raw.prepare(`SELECT message.text FROM ctr_messages message JOIN ctr_meta m
+    ON m.project_id = message.project_id AND m.task_id = message.task_id
+    WHERE m.project_id = ? AND m.task_id = ? AND m.rounds > 0 AND message.author = 'requester'
+    ORDER BY message.seq DESC LIMIT 1`).get(projectId, taskId) as { text: string } | undefined;
+  const requesterFeedback = requester ? `\nRequester feedback:\n${plain(requester.text).slice(0, 1500)}` : "";
+  return `${lines.join("\n").slice(0, Math.max(0, 4000 - closing.length - feedback.length - decisionText.length - requesterFeedback.length - 1))}${feedback}${decisionText}${requesterFeedback}\n${closing}`;
 }

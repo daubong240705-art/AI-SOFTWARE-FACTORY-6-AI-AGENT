@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { artifactKindSchema, artifactRefSchema, decisionRequestInputSchema, knowledgeGetInputSchema, knowledgeSearchInputSchema, labelSchema, taskProgressInputSchema } from "@factory/contracts";
+import { artifactKindSchema, artifactRefSchema, decisionRequestInputSchema, knowledgeGetInputSchema, knowledgeSearchInputSchema, labelSchema, taskProgressInputSchema, requestCreateInputSchema, requestReplyInputSchema, requestGetInputSchema } from "@factory/contracts";
 import type { TokenGrant } from "../proxy/tokens.js";
 import { McpToolError, sanitizeAgentText } from "./security.js";
 
@@ -30,6 +30,7 @@ export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
   return clean.data;
 }
 export interface McpDeps {
+  requests?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   knowledge?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   progress(grant: TokenGrant, input: { summary: string; percent?: number }): void;
   registerOutput(grant: TokenGrant, input: AgentOutputInput): { artifactId: string; version: number };
@@ -39,6 +40,9 @@ export interface ToolResult { content: { type: "text"; text: string }[]; isError
 const result = (text: string, isError = false): ToolResult => ({ content: [{ type: "text", text }], isError });
 
 export const toolDefinitions = [
+  { name: "request.create", description: "Ask another team asynchronously from this task.", inputSchema: z.toJSONSchema(requestCreateInputSchema) },
+  { name: "request.reply", description: "Reply to or acknowledge a request from this task.", inputSchema: z.toJSONSchema(requestReplyInputSchema) },
+  { name: "request.get", description: "Read a request thread and readable deliverables.", inputSchema: z.toJSONSchema(requestGetInputSchema) },
   { name: "task.progress", description: "Report a meaningful milestone. Never include secrets.",
     inputSchema: z.toJSONSchema(taskProgressInputSchema) },
   { name: "output.register", description: "Register a deliverable file using its workspace-relative path. Never include secrets.",
@@ -56,6 +60,8 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
   const progressCalls = new Map<string, number>();
   return { call(grant, name, args) {
     try {
+      if (name === "request.create" || name === "request.reply" || name === "request.get")
+        return deps.requests?.call(grant, name, args) ?? result("multi-team is disabled", true);
       if (name === "knowledge.search" || name === "knowledge.get")
         return deps.knowledge?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "decision.request") {

@@ -26,6 +26,7 @@ import { getApprovalView, listApprovals, publicApprovalText } from "../approvals
 import type { ContentStore } from "../artifacts/content-store.js";
 import { z } from "zod";
 import { PushError, type EffectExecutor } from "../effects/executor.js";
+import { getRequest, listRequests, RequestError } from "../requests/service.js";
 
 export function createRoutes(deps: {
   packs?: readonly RegistryPack[];
@@ -105,10 +106,36 @@ export function createRoutes(deps: {
         return tasks.map((task) => ({ taskId: task.id, code: task.code, title: publicApprovalText(task.title),
           ...(projectId === undefined ? { projectId: project.id, projectName: publicApprovalText(project.name) } : {}) }));
       });
-      return { apiVersion: API_VERSION, ok: true, approvals, startGates,
-        counts: { approvals: approvals.length, startGates: startGates.length, total: approvals.length + startGates.length } };
+      const requests = projects.flatMap((project) => listRequests(deps.storage.raw, project.id)
+        .filter((item) => ["submitted", "need-info"].includes(item.triageState) && item.taskState === "proposed")
+        .map((item) => ({ ...item, ...(projectId === undefined ? { projectId: project.id, projectName: publicApprovalText(project.name) } : {}) })));
+      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests,
+        counts: { approvals: approvals.length, startGates: startGates.length, requests: requests.length,
+          total: approvals.length + startGates.length + requests.length } };
     };
     app.get("/inbox", { preHandler: guards.session }, async () => inbox());
+    app.get<{ Params: { projectId: string }; Querystring: { state?: string; team?: string; limit?: string } }>(
+      "/projects/:projectId/requests", { preHandler: guards.session }, async (request, reply) => {
+        const { projectId } = request.params;
+        if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+        const query = z.strictObject({ state: z.enum(["submitted", "need-info", "accepted", "declined", "redirected", "merged",
+          "draft", "proposed", "ready", "awaiting-go", "active", "in-review", "done", "failed", "cancelled", "superseded"]).optional(),
+          team: idSchema.optional(), limit: z.string().regex(/^[1-9][0-9]*$/).transform(Number).refine(Number.isSafeInteger).optional() }).safeParse(request.query);
+        if (!query.success) return failure(reply, 400, "validation", "Invalid request filters.", "correct-input", newId);
+        return { apiVersion: API_VERSION, ok: true, items: listRequests(deps.storage.raw, projectId, {
+          ...(query.data.state === undefined ? {} : { state: query.data.state }), ...(query.data.team === undefined ? {} : { team: query.data.team }),
+          ...(query.data.limit === undefined ? {} : { limit: query.data.limit }),
+        }) };
+      });
+    app.get<{ Params: { projectId: string; taskId: string } }>("/projects/:projectId/requests/:taskId",
+      { preHandler: guards.session }, async (request, reply) => {
+        try { return { apiVersion: API_VERSION, ok: true, request: getRequest(deps.storage.raw,
+          { grantOrOperator: { projectId: request.params.projectId, operator: true }, requestId: request.params.taskId }) }; }
+        catch (error) {
+          if (!(error instanceof RequestError)) throw error;
+          return failure(reply, 404, "not-found", "Request not found.", "correct-input", newId);
+        }
+      });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/inbox", { preHandler: guards.session }, async (request, reply) => {
       if (!getProject(deps.storage.raw, request.params.projectId))
         return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);

@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { idSchema, labelSchema, sha256Schema, textSchema } from "./base.js";
+import { idSchema, labelSchema, sha256Schema, textSchema, timestampSchema } from "./base.js";
 import { artifactKindSchema, artifactRefSchema, artifactStatusSchema } from "./knowledge.js";
 import { approvalOptionSchema } from "./approvals.js";
 import {
   placementSchema,
   sideEffectSchema,
   reviewPolicySchema,
+  requestKindSchema,
 } from "./work.js";
 import { capabilityIdSchema } from "./nodes.js";
 
@@ -106,6 +107,33 @@ export const knowledgeGetInputSchema = z.strictObject({
 });
 export type KnowledgeGetInput = z.infer<typeof knowledgeGetInputSchema>;
 
+export const requestCreateInputSchema = z.strictObject({
+  kind: requestKindSchema,
+  targetTeamId: idSchema,
+  subject: labelSchema,
+  ask: z.string().min(1).max(2000),
+  responseMode: z.enum(["async", "blocking"]).default("async"),
+  neededBy: timestampSchema.optional(),
+  expectedResponse: z.strictObject({
+    form: z.enum(["answer", "artifact", "verdict", "decision"]),
+    format: z.string().max(200),
+    acceptance: z.array(z.string().min(1).max(500)).max(8),
+  }),
+  contextRefs: z.array(artifactRefSchema).max(20).default([]),
+  excerpt: z.string().max(1000).optional(),
+});
+export type RequestCreateInput = z.infer<typeof requestCreateInputSchema>;
+export const requestReplyInputSchema = z.strictObject({
+  requestId: idSchema,
+  action: z.enum(["message", "accept", "request-changes"]),
+  message: z.string().max(2000).optional(),
+}).superRefine((value, ctx) => {
+  if (value.action !== "accept" && !value.message?.trim())
+    ctx.addIssue({ code: "custom", path: ["message"], message: "message is required" });
+});
+export type RequestReplyInput = z.infer<typeof requestReplyInputSchema>;
+export const requestGetInputSchema = z.strictObject({ requestId: idSchema });
+
 export const MCP_TOOLS = {
   "task.propose": taskProposeInputSchema,
   "task.progress": taskProgressInputSchema,
@@ -114,6 +142,9 @@ export const MCP_TOOLS = {
   "handoff.submit": handoffSubmitInputSchema,
   "knowledge.search": knowledgeSearchInputSchema,
   "knowledge.get": knowledgeGetInputSchema,
+  "request.create": requestCreateInputSchema,
+  "request.reply": requestReplyInputSchema,
+  "request.get": requestGetInputSchema,
 } as const;
 export type McpToolName = keyof typeof MCP_TOOLS;
 export const MCP_TOOL_NAMES = Object.keys(MCP_TOOLS) as McpToolName[];

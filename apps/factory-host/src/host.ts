@@ -42,6 +42,8 @@ import { registerKnowledgeRoutes } from "./knowledge/routes.js";
 import { createKnowledgeMcp } from "./knowledge/mcp.js";
 import { knowledgeHandlers, withKnowledgeEffects } from "./knowledge/commands.js";
 import { collectLifecycleChanges } from "./knowledge/lifecycle.js";
+import { createRequestsMcp } from "./requests/mcp.js";
+import { createRequestHandlers, REQUEST_COMMANDS } from "./requests/commands.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -348,6 +350,7 @@ export async function startHost(options: {
       startModelProxy = async () => {
       const dispatcher = dispatch;
       const mcp = dispatcher === null ? undefined : createMcpHandler({
+        ...(options.multiTeam ? { requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }) } : {}),
         knowledge: createKnowledgeMcp({ raw, knowledge, now: clock }),
         requestDecision(grant, request) {
           const result = requestAgentDecision({ raw, hub, now: clock, newId: resultId }, { grant, request });
@@ -442,6 +445,7 @@ export async function startHost(options: {
     const dispatchHandlers = dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch });
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
+      ...createRequestHandlers({ multiTeam: options.multiTeam ?? false, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
       "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false }),
       "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,
@@ -472,7 +476,7 @@ export async function startHost(options: {
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge });
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
         apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set",
-          ...(options.multiTeam ? ORG_COMMANDS : []),
+          ...(options.multiTeam ? [...ORG_COMMANDS, ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],
         capabilities: ["inbox", "approvals.review"],

@@ -54,10 +54,12 @@ Thứ tự đề xuất: **K1 → O1 → C1 → X1 → P1 → U1 → E1**. K1 đ
 | # | Trạng thái | Commit | Ghi chú |
 |---|---|---|---|
 | K1a | Xong | b87021b, 027baf0 | Chỉ mục FTS5 tiếng Việt, hàm quyền đọc duy nhất, tool MCP `knowledge.search/get`, route đọc; Windows 3267 / Linux 3461 test đạt; 36 đột biến bị bắt |
-| K1b | Card viết xong, **chờ duyệt** (Critical: data + migration + public-api) | — | Lệnh vòng đời tài liệu, supersede khi duyệt, đánh dấu stale; card `m3-knowledge-lifecycle` |
-| O1 | Card viết xong, **chờ duyệt** (Critical: public-api) | — | Registry Pack, lệnh Team/Engagement/Seat, Team chính, giới hạn `max_concurrent` + tạm dừng, cờ `FACTORY_MULTI_TEAM` (mặc định TẮT); card `m3-org-multi-team` |
-| C1, X1, P1 | Chưa | — | Sau K1b và O1 |
-| U1 | Card tab Knowledge viết xong; **bị chặn** | — | Sandbox Codex chưa ghi được vào file có sẵn của `apps/factory-ui` (cần cấp quyền quản trị như đã làm cho Host) |
+| K1b | Xong | 73141c1 | Lệnh vòng đời tài liệu, supersede khi duyệt, đánh dấu stale trực tiếp (migration 0005) |
+| O1 | Xong | 2c1d56b | Registry Pack, lệnh Team/Engagement/Seat, Team chính, giới hạn `max_concurrent` + tạm dừng, cờ `FACTORY_MULTI_TEAM` (mặc định TẮT) |
+| U1 (tab Knowledge) | Xong | b8db9d4 | Tìm kiếm, duyệt, chi tiết Artifact với Version và provenance; e2e Host thật 8/8 |
+| C1a | Code xong, đang kiểm (mutation) | — | CTR bất đồng bộ: `request.create/reply/get`, triage, hop ≤ 3, dedup, tự tạo Engagement, tối đa 3 vòng rồi leo thang, quyền đọc `contextRefs` (migration 0006). **C1b còn lại**: yêu cầu blocking (đỗ/tiếp tục requester), ngân sách theo `rootId`, hết hạn, hủy lan truyền |
+| X1, P1 | Chưa | — | Sau C1 |
+| U1 (còn lại) | Chưa | — | Màn Team / CTR / Dossier; Codex đã ghi được vào `apps/factory-ui` sau khi cấp quyền |
 | E1 | Chưa | — | Cần bạn chọn model và ngân sách |
 
 Cũng đã làm trong lúc chờ: đóng mục "chưa kiểm đột biến" của M2 (clone/worktree/patch: 4 lỗ hổng thật được vá, commit e6d382a; chạy tiến trình: 2 lỗ hổng thật được vá, commit 5aa5a94).

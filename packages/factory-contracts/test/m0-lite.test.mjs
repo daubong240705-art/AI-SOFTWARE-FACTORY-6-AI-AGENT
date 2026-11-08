@@ -500,7 +500,7 @@ const proposed = (over = {}) => ({
 });
 
 test("the tool surface is the agreed M0-lite set", () => {
-  assert.deepEqual([...c.MCP_TOOL_NAMES].sort(), ["decision.request", "handoff.submit", "knowledge.get", "knowledge.search", "output.register", "task.progress", "task.propose"]);
+  assert.deepEqual([...c.MCP_TOOL_NAMES].sort(), ["decision.request", "handoff.submit", "knowledge.get", "knowledge.search", "output.register", "request.create", "request.get", "request.reply", "task.progress", "task.propose"]);
 });
 
 test("task.propose keeps the V1 plan rules: at most 10 tasks, dependencies point backwards", () => {
@@ -563,8 +563,8 @@ test("the original 14 commands remain and 6 are added without removing any", () 
   const added = ["engagements.create", "tasks.create", "tasks.transition", "tasks.release", "approvals.decide", "budgets.set"];
   for (const t of [...original, ...added]) assert.ok(c.FOUNDATION_COMMANDS.includes(t), t);
   for (const t of ["artifacts.transition", "artifacts.share", "artifacts.clear-stale"]) assert.ok(c.FOUNDATION_COMMANDS.includes(t), t);
-  assert.equal(c.FOUNDATION_COMMANDS.length, 27);
-  assert.equal(new Set(c.FOUNDATION_COMMANDS).size, 27);
+  assert.equal(c.FOUNDATION_COMMANDS.length, 29);
+  assert.equal(new Set(c.FOUNDATION_COMMANDS).size, 29);
 });
 
 test("tasks.create applies the restrictive defaults and keeps the gate on", () => {

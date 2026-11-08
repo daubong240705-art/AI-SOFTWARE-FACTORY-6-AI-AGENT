@@ -179,6 +179,13 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
   const questionTask = approval.kind === "question" && approval.task_id
     ? raw.prepare("SELECT id, state FROM tasks WHERE project_id = ? AND id = ?").get(projectId, approval.task_id) as { id: string; state: string } | undefined : undefined;
   const previous = questionTask ? listAttempts(raw, projectId, questionTask.id).at(-1) : undefined;
+  const ctrDecision = questionTask && raw.prepare(`SELECT 1 FROM ctr_meta m JOIN task_holds h
+    ON h.project_id = m.project_id AND h.task_id = m.task_id AND h.kind = 'decision' AND h.ref_id = ?
+    WHERE m.project_id = ? AND m.task_id = ? AND m.rounds = 4`).get(approval.id, projectId, questionTask.id);
+  if (ctrDecision && (questionTask?.state !== "in-review" || !deps))
+    throw new CommandError("conflict", "request cannot apply this decision", "refresh");
+  if (ctrDecision && !["accept-as-is", "cancel-request", "continue"].includes(payload.optionId))
+    throw new CommandError("validation", "unknown option", "correct-input");
   if (questionTask?.state === "active" && liveAttemptOfTask(raw, projectId, questionTask.id))
     throw new CommandError("conflict", "attempt is still parking", "refresh");
   if (questionTask?.state === "active" && !liveAttemptOfTask(raw, projectId, questionTask.id)
@@ -202,6 +209,17 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
       if (deleted.changes) {
         raw.prepare("UPDATE tasks SET revision = revision + 1 WHERE project_id = ? AND id = ?").run(projectId, task.id);
         effects.push({ kind: "task", id: task.id, revision: getTask(raw, projectId, task.id)!.revision });
+      }
+      if (ctrDecision && deps) {
+        const to = payload.optionId === "accept-as-is" ? "done" : payload.optionId === "cancel-request" ? "cancelled" : "active";
+        if (to === "done") raw.prepare("DELETE FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'input'").run(projectId, task.id);
+        effects.push(...moveTaskAndAdvance(raw, getTask(raw, projectId, task.id)!, to, deps));
+        raw.prepare("UPDATE ctr_meta SET rounds = CASE WHEN ? = 'active' THEN 3 ELSE rounds END, closed_at = ? WHERE project_id = ? AND task_id = ?")
+          .run(to, to === "active" ? null : ctx.clock().toISOString(), projectId, task.id);
+        raw.prepare(`INSERT INTO ctr_messages (project_id,task_id,seq,author,text,at)
+          SELECT ?,?,COALESCE(MAX(seq),0)+1,'system',?,? FROM ctr_messages WHERE project_id = ? AND task_id = ?`)
+          .run(projectId, task.id, payload.optionId === "accept-as-is" ? "request accepted; followers notified"
+            : payload.optionId === "cancel-request" ? "request cancelled" : "operator continued the request", ctx.clock().toISOString(), projectId, task.id);
       }
       if (task.state === "active" && !liveAttemptOfTask(raw, projectId, task.id) && deps && previous?.seatId) {
         const attempt = deps.dispatcher.enqueue({ projectId, taskId: task.id, seatId: previous.seatId });

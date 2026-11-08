@@ -22,7 +22,8 @@ export function createMcpHandler(deps: McpDeps, version = "0.1.0", options: { ma
   handle(grant: TokenGrant, body: unknown): RpcResponse;
 } {
   const tools = createMcpTools(deps, options);
-  const definitions = toolDefinitions.filter((tool) => deps.knowledge !== undefined || !tool.name.startsWith("knowledge."));
+  const definitions = toolDefinitions.filter((tool) => (deps.knowledge !== undefined || !tool.name.startsWith("knowledge."))
+    && (deps.requests !== undefined || !tool.name.startsWith("request.")));
   return { handle(grant, input) {
     let body: unknown = input;
     if (typeof input === "string" || Buffer.isBuffer(input)) {

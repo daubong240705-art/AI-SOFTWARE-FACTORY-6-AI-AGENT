@@ -231,6 +231,15 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("artifacts.clear-stale", z.strictObject({
     artifactId: idSchema, version: revisionSchema, becauseArtifactId: idSchema, becauseVersion: revisionSchema,
   })),
+  command("requests.triage", z.strictObject({
+    requestTaskId: idSchema,
+    decision: z.enum(["accept", "need-info", "decline", "redirect", "merge"]),
+    reason: z.string().min(1).max(1000),
+    ownerSeatId: idSchema.optional(),
+    redirectTeamId: idSchema.optional(),
+    mergeIntoTaskId: idSchema.optional(),
+  })),
+  command("requests.message", z.strictObject({ requestTaskId: idSchema, text: z.string().min(1).max(2000) })),
 ]);
 export type Command = z.infer<typeof commandSchema>;
 export type CommandType = Command["type"];
