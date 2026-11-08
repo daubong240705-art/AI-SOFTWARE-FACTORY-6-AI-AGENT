@@ -1,1 +1,0 @@
-{"key":"instruction-team","version":"1.0.0","name":"Example Team","description":"Example charter","seats":[{"name":"Lead","role":"Lead","profile":"lead.md","runtime":"fake","slots":1,"isLead":true},{"name":"BE","role":"Builder","profile":"worker.md","runtime":"fake","slots":2,"isLead":false}],"skills":["skills/verify"]}
