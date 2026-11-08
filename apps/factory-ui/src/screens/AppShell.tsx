@@ -7,6 +7,7 @@ import { Card } from '../components/Card';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { ProjectView } from './ProjectView';
 import { CreateProject } from './CreateProject';
+import { Inbox, inboxCount } from './Inbox';
 
 // Design compact breakpoint: tokens.json (CSS variables cannot be used in media queries).
 const compactQuery = '(max-width: 1179px)';
@@ -27,6 +28,7 @@ export function AppShell({ store }: { store: Store }) {
   const state = store.useStoreSelector((value) => value);
   const [theme, setTheme] = useState(getPreferences().theme);
   const [creating, setCreating] = useState(false);
+  const [inbox, setInbox] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const compact = useCompact();
   const navId = useId();
@@ -52,6 +54,7 @@ export function AppShell({ store }: { store: Store }) {
         <select id={languageId} value={i18n.locale} onChange={(event) => i18n.setLocale(event.target.value === 'vi' ? 'vi' : 'en')}>
           <option value="en">{t('shell.english')}</option><option value="vi">{t('shell.vietnamese')}</option>
         </select>
+        <Button aria-label={`${t('inboxUi.inbox')}, ${inboxCount(t, state.globalInbox.counts.total)}`} onClick={() => setInbox(true)}>{t('inboxUi.inbox')}{state.globalInbox.counts.total > 0 && <> <Badge>{new Intl.NumberFormat(i18n.locale).format(state.globalInbox.counts.total)}</Badge></>}</Button>
         <Button onClick={() => { void store.signOut(); }}>{t('auth.signOut')}</Button>
       </div>
       {compact && <Button aria-expanded={expanded} aria-controls={navId} onClick={() => setExpanded(!expanded)}>{t('shell.toggleProjects')}</Button>}
@@ -73,5 +76,7 @@ export function AppShell({ store }: { store: Store }) {
       <Button variant="primary" onClick={() => setCreating(true)}>{t('projects.create')}</Button>
     </Card>}</main>
     {creating && <CreateProject store={store} onClose={() => setCreating(false)} />}
+    {inbox && <Inbox store={store} global onClose={() => setInbox(false)} />}
+    <p role="status" className="sr-only" key={state.announcement}>{state.announcement > 0 ? t('inboxUi.decided') : ''}</p>
   </div>;
 }

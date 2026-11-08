@@ -5,8 +5,8 @@ function build<T extends Command['type']>(type: T, projectId: string, payload: O
   return commandSchema.parse({ apiVersion: API_VERSION, commandId: crypto.randomUUID(), projectId, type, payload }) as Of<T>;
 }
 
-export function projectsCreate({ name, root }: { name: string; root: string }) {
-  return build('projects.create', crypto.randomUUID(), { name, workspace: { kind: 'directory', root } });
+export function projectsCreate({ name, root, kind = 'directory' }: { name: string; root: string; kind?: 'directory' | 'git' }) {
+  return build('projects.create', crypto.randomUUID(), { name, workspace: { kind, root } });
 }
 export function conversationsCreate({ projectId, seatId, title }: { projectId: string; seatId: string; title: string }) {
   return build('conversations.create', projectId, { conversationId: crypto.randomUUID(), agentId: seatId, title, workItemId: null });

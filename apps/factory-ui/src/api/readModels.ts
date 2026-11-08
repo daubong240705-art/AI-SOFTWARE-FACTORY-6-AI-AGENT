@@ -26,8 +26,17 @@ const patch = object({ patch: string(8_388_608), sha256: hash, bytes: integer() 
 const content = object({ mediaType: string(128, 1), sizeBytes: integer(), contentHash: hash, text: string(8_388_608) });
 const version = object({ version: integer(1), status: enumeration(['draft', 'in-review', 'reviewed', 'approved', 'superseded', 'rejected', 'withdrawn'] as const), mediaType: string(128, 1), sizeBytes: integer(), contentHash: hash, abstractL0: string(500), abstractL1: nullable(string(6000)), producedByAttemptId: nullable(identifier), supersedesVersion: nullable(integer(1)), createdAt: timestamp });
 const artifact = object({ artifactId: identifier, kind: enumeration(['research-report', 'requirements', 'adr', 'data-model', 'api-contract', 'ui-spec', 'design-asset', 'media', 'code-ref', 'dataset', 'dossier', 'plan', 'other'] as const), title: string(500, 1), versions: array(version) });
-const approvalFields = object({ id: identifier, projectId: identifier, revision: integer(1), kind: enumeration(['question', 'review', 'start-gate'] as const), taskId: nullable(identifier), subject: string(500, 1), summary: string(4000), options: array(object({ id: string(500, 1), label: string(500, 1), consequence: string(1000) })), recommendation: nullable(string(500)), impactIfWaiting: string(1000), context: object({ refs: array(object({ artifactId: identifier, version: integer(1) })), digest: hash }), approver: enumeration(['operator', 'project-lead'] as const), requestedAt: timestamp, expiresAt: timestamp, state: enumeration(['requested', 'pending', 'approved', 'rejected', 'changes-requested', 'superseded', 'expired', 'withdrawn', 'applied'] as const), outcome: nullable(object({ optionId: string(500, 1), actorId: identifier, decidedAt: timestamp, comment: string(4000) })), appliedByCommandId: nullable(identifier) });
+const approvalFields = object({ id: identifier, projectId: identifier, revision: integer(1), kind: enumeration(['question', 'review', 'start-gate'] as const), taskId: nullable(identifier), subject: string(500, 1), summary: string(4000), options: array(object({ id: string(500, 1), label: string(500, 1), consequence: string(1000) })), recommendation: nullable(string(500)), impactIfWaiting: string(1000), context: object({ refs: array(object({ artifactId: identifier, version: integer(1) })), digest: hash }), approver: enumeration(['operator', 'project-lead'] as const), requestedAt: timestamp, expiresAt: timestamp, state: enumeration(['requested', 'pending', 'approved', 'rejected', 'changes-requested', 'superseded', 'expired', 'withdrawn', 'applied'] as const), outcome: nullable(object({ optionId: string(500, 1), actorId: identifier, decidedAt: timestamp, comment: string(32000) })), appliedByCommandId: nullable(identifier) });
 const approval: Reader<Approval> = v => { const result = approvalSchema.safeParse(approvalFields(v)); return result.success ? result.data : invalid(); };
+const name: Reader<string> = v => { const s = string(40, 1)(v); return /^[a-z0-9][a-z0-9-]{0,39}$/.test(s) ? s : invalid(); };
+const effect = object({ id: identifier, attemptId: identifier, kind: enumeration(['git.push-branch'] as const), remote: name, branch: string(160, 1), state: enumeration(['pending', 'done', 'failed', 'unknown'] as const), error: nullable(enumeration(['auth', 'rejected', 'network', 'timeout', 'other', 'not-pushed'] as const)), createdAt: timestamp, completedAt: nullable(timestamp) });
+const counts = object({ approvals: integer(), startGates: integer(), total: integer() });
+const gateFields = { taskId: identifier, code: string(40, 1), title: string(160, 1), projectId: identifier };
+export type Inbox = { approvals: Array<Approval & { projectName?: string }>; startGates: Array<{ taskId: string; code: string; title: string; projectId: string; projectName?: string }>; counts: { approvals: number; startGates: number; total: number } };
+function inbox(global: boolean): Reader<Inbox> {
+  return object({ approvals: array(v => ({ ...approval(v), ...(global ? { projectName: string(160, 1)(record(v).projectName) } : {}) })),
+    startGates: array(global ? object({ ...gateFields, projectName: string(160, 1) }) : object(gateFields)), counts });
+}
 function envelope<T>(read: Reader<T>) {
   return { safeParse(value: unknown): { success: true; data: T & { ok: true; apiVersion: typeof API_VERSION } } | { success: false } {
     try {
@@ -38,7 +47,9 @@ function envelope<T>(read: Reader<T>) {
   } };
 }
 // These adapters deliberately copy only validated fields; unknown event bodies stay opaque.
-export const readModels = { attempts: envelope(object({ attempts: array(attempt) })), events: envelope(object({ events: array((v) => { const r = record(v); if (!Object.hasOwn(r, 'body')) invalid(); return event(v); }) })), patch: envelope(patch), artifacts: envelope(object({ items: array(artifact) })), content: envelope(content), approvals: envelope(object({ approvals: array(approval) })) };
+export const readModels = { attempts: envelope(object({ attempts: array(attempt) })), events: envelope(object({ events: array((v) => { const r = record(v); if (!Object.hasOwn(r, 'body')) invalid(); return event(v); }) })), patch: envelope(patch), artifacts: envelope(object({ items: array(artifact) })), content: envelope(content), approvals: envelope(object({ approvals: array(approval) })),
+  approval: envelope(object({ approval })), inbox: envelope(inbox(false)), globalInbox: envelope(inbox(true)), remotes: envelope(object({ remotes: array(name) })), effects: envelope(object({ effects: array(effect) })), effect: envelope(object({ effect })) };
+export type Effect = ReturnType<typeof effect>;
 export type Attempt = ReturnType<typeof attempt>;
 export type AttemptEvent = ReturnType<typeof event>;
 export type AttemptPatch = ReturnType<typeof patch>;

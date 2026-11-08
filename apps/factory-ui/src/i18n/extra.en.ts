@@ -1,4 +1,19 @@
 export const extra = {
+  inboxUi: {
+    inbox: 'Inbox', title: 'Needs attention', count: { one: 'item needing attention', other: 'items needing attention' },
+    empty: 'All caught up. There is nothing that needs your attention.', close: 'Close', requested: 'Requested', expires: 'Expires',
+    kinds: { review: 'Review', question: 'Question', 'start-gate': 'Start' }, open: { review: 'Review', question: 'Answer', 'start-gate': 'Open' },
+    decision: 'Decision', review: 'Review', question: 'Question', reviewResult: 'Review result', answerQuestion: 'Answer question',
+    openResults: 'Open task results', options: 'Choose an option', recommended: 'Recommended', comment: 'Comment', required: 'Required', characters: 'characters', decide: 'Decide',
+    changed: 'This item changed. Please review it again.', decided: 'Decision recorded.', expired: 'Expired', outcome: 'Decision outcome',
+    history: 'Decision history', noHistory: 'No decisions yet.', needsDecision: 'Needs your decision',
+    states: { requested: 'Requested', pending: 'Pending', approved: 'Approved', rejected: 'Rejected', 'changes-requested': 'Changes requested', superseded: 'Superseded', expired: 'Expired', withdrawn: 'Withdrawn', applied: 'Applied' },
+    push: 'Push', remote: 'Remote name', pushConfirm: 'This publishes branch {branch} to the remote "{name}" outside Factory. It never forces and never touches main.',
+    effects: { pending: 'Pushing…', done: 'Pushed', failed: 'Push failed', unknown: 'Result unknown' },
+    effectErrors: { auth: 'Authentication failed', rejected: 'Remote rejected the push', network: 'Network unavailable', timeout: 'Timed out', other: 'Push could not be completed', 'not-pushed': 'Branch was not pushed' },
+    reconcile: 'Reconcile', reconcileHelp: 'Checks the remote to find out whether the branch was pushed. This does not push again.',
+    workspaceKind: 'Project type', directory: 'Directory', git: 'Git project (existing clone)', clonePath: 'Path of existing clone', cloneHelp: "Path of a clone created under the Host's projects root (see the runbook)",
+  },
   workUi: {
     board: 'Board', list: 'List', views: 'Task views', empty: 'No tasks in this column.',
     columns: { proposed: 'Proposed', ready: 'Ready', running: 'Running', review: 'In review', done: 'Done', attention: 'Needs attention', closed: 'Closed' },

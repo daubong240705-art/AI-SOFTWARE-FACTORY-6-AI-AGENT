@@ -27,6 +27,7 @@ export function CreateProject({ store, onClose }: { store: Store; onClose: () =>
   const titleId = useId();
   const [name, setName] = useState('');
   const [root, setRoot] = useState('');
+  const [kind, setKind] = useState<'directory' | 'git'>('directory');
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [command, setCommand] = useState<Command | null>(null);
   const [busy, setBusy] = useState(false);
@@ -47,7 +48,7 @@ export function CreateProject({ store, onClose }: { store: Store; onClose: () =>
     event.preventDefault();
     if (inFlight.current || command) return;
     let created: Command;
-    try { created = projectsCreate({ name: name.trim(), root }); }
+    try { created = projectsCreate({ name: name.trim(), root, kind }); }
     catch (error) { setErrors(invalidFields(error)); return; }
     setErrors({}); setCommand(created); void execute(created);
   }
@@ -55,7 +56,9 @@ export function CreateProject({ store, onClose }: { store: Store; onClose: () =>
     <h2 id={titleId}>{t('projects.create')}</h2>
     <form className="stack" onSubmit={submit} noValidate>
       <Field label={t('projects.name')} value={name} onChange={(event) => setName(event.target.value)} disabled={!!command} error={errors.name ? t(errors.name) : undefined} />
-      <Field label={t('projects.root')} value={root} onChange={(event) => setRoot(event.target.value)} placeholder={t('projects.rootPlaceholder')} disabled={!!command} error={errors.root ? t(errors.root) : undefined} />
+      <fieldset disabled={!!command}><legend>{t('inboxUi.workspaceKind')}</legend>{(['directory', 'git'] as const).map(value => <label key={value} htmlFor={`${titleId}-${value}`}><input id={`${titleId}-${value}`} type="radio" name={`${titleId}-kind`} checked={kind === value} onChange={() => setKind(value)} />{t(`inboxUi.${value}`)}</label>)}</fieldset>
+      <Field label={t(kind === 'git' ? 'inboxUi.clonePath' : 'projects.root')} value={root} onChange={(event) => setRoot(event.target.value)} placeholder={t('projects.rootPlaceholder')} disabled={!!command} error={errors.root ? t(errors.root) : undefined} />
+      {kind === 'git' && <p>{t('inboxUi.cloneHelp')}</p>}
       {pending?.error && <ErrorNotice error={pending.error} />}
       <div className="dialog-actions">
         <Button onClick={onClose}>{t('actions.cancel')}</Button>

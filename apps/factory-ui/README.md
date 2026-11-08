@@ -27,3 +27,10 @@ Tasks open in a Board by default; Board/List preferences last only for the store
 Server text is always rendered as React text, including markdown artifacts and patch lines. No HTML or markdown is evaluated. Diff previews are bounded, expand on demand, and retain non-colour addition/removal cues. Patches can be copied or downloaded; unavailable browser APIs show manual fallback instructions.
 
 The store exposes `openTask(taskId)`, `closeTask(taskId)`, `loadTaskDetail(taskId)`, `loadAttemptEvents(taskId, attemptId)`, `loadPatch(taskId, attemptId)` and `loadArtifactContent(taskId, artifactId, version)`. `details` contains attempts, paged events (up to 2,000 per attempt), artifacts, approvals and patches. `artifactContents` and patches share a 20-entry memory cache. SSE changes refresh open details through the existing debounced queue; project/session changes discard stale reads and clear detail data. Approval decisions and Inbox UI are reserved for the next slice.
+### Inbox, decisions, and publishing branches
+
+The topbar Inbox collects pending reviews, questions, and start gates across projects. The project Inbox tab shows the selected project's items. Badges refresh after commands, on project events, on focus, and every minute while the tab is visible.
+
+Reviews and questions load the current approval before a decision. Options show their consequences and require confirmation; requesting review changes requires a comment. Changed or expired approvals must be reviewed again. Task Results and Actions show pending decisions and their history. All Host content is rendered as plain text.
+
+Push appears only for done tasks with a `factory/` workspace branch and configured remote names. Confirmation publishes that branch outside Factory, never forces, and never touches main. Unknown results require explicit reconciliation against the remote; the UI never retries automatically. Failed pushes may be requested again. Remote URLs are never requested or displayed. Git projects use an existing clone under the Host's projects root; see the runbook for clone setup.

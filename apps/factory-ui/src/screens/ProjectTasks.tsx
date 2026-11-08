@@ -70,7 +70,7 @@ function TaskRow({ store, projectId, task }: { store: Store; projectId: string; 
     setCommand(created); void execute(created);
   }
   return <Card className={`task-row${task.state === 'proposed' ? ' task-proposed' : ''}`}>
-    <div className="task-summary"><span className="task-code">{task.code}</span><h3>{task.title}</h3><Badge className={`status-${display.status}`}>{t(`taskUi.display.${display.status}`)}</Badge><span className="muted">{t(`taskUi.lifecycle.${task.state}`)}</span>
+    <div className="task-summary"><span className="task-code">{task.code}</span><h3>{task.title}</h3>{state.inbox.approvals.some(item => item.taskId === task.id) && <Badge>{t('inboxUi.needsDecision')}</Badge>}<Badge className={`status-${display.status}`}>{t(`taskUi.display.${display.status}`)}</Badge><span className="muted">{t(`taskUi.lifecycle.${task.state}`)}</span>
     </div>
     <div className="task-meta"><div className="capability-chips">{task.requiredCapabilities.map((capability) => <Badge key={capability}>{capability}</Badge>)}</div><span>{t('taskUi.owner')}: {owner?.name ?? t('taskUi.dash')}</span></div>
     <Button aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}>{t('taskUi.details')} {task.code}</Button>

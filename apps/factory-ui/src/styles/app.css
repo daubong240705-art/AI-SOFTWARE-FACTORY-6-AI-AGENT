@@ -132,3 +132,18 @@ button, input, select { min-width: 0; }
   .dialog-backdrop { padding: var(--space-md); }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+.inbox, .inbox-list, .inbox-list > li, .push-section, .decision-option { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.decision-option { display: flex; align-items: flex-start; gap: var(--space-sm); }
+.decision-option input { flex-shrink: 0; }
+.decision-option .consequence { display: block; margin-top: var(--space-xs); }
+.decision-option strong { display: inline-block; border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: var(--space-xs); }
+.dialog fieldset { min-width: 0; border: 1px solid var(--color-border); padding: var(--space-md); }
+.dialog fieldset > label { display: block; padding: var(--space-xs); }
+.push-section select { width: 100%; min-width: 0; }
+.decision-option:focus-within { outline: 2px solid var(--color-focus); outline-offset: var(--space-xs); }
+@media (max-width: 600px) {
+  .dialog-backdrop { padding: 0; }
+  .dialog-backdrop > .dialog { width: 100%; max-width: 100%; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+  .confirmation-row, .dialog-actions { flex-direction: column; align-items: stretch; }
+  .project-tabs { flex-wrap: wrap; }
+}

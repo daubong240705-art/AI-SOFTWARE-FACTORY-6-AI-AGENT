@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { createStore } from '../src/state/store';
+import { createStore, type StoreOptions } from '../src/state/store';
 import type { ApiClient } from '../src/api/client';
 import type { ProjectEventsOptions } from '../src/api/events';
 import { envelope, project, team, engagement, seat, budget, receipt } from './fixtures';
@@ -13,7 +13,7 @@ export const patch = { patch: 'diff --git a/a.ts b/a.ts\n@@ -1 +1 @@\n-old\n+<im
 export const artifact: TaskArtifact = { artifactId: id, kind: 'code-ref', title: 'Code patch', versions: [{ version: 1, status: 'in-review', mediaType: 'text/x-patch', sizeBytes: 100, contentHash: 'a'.repeat(64), abstractL0: 'Changes', abstractL1: null, producedByAttemptId: otherId, supersedesVersion: null, createdAt: '2026-11-07T00:00:00.000Z' }] };
 export const approval: Approval = { id, projectId: id, revision: 1, kind: 'question', taskId: id, subject: 'Choose', summary: 'A choice', options: [{ id: 'yes', label: 'Yes', consequence: 'Continue' }], recommendation: 'yes', impactIfWaiting: 'Wait', context: { refs: [], digest: 'a'.repeat(64) }, approver: 'operator', requestedAt: '2026-11-07T00:00:00.000Z', expiresAt: '2026-11-08T00:00:00.000Z', state: 'pending', outcome: null, appliedByCommandId: null };
 
-export function setupUI() {
+export function setupUI(options: Pick<StoreOptions, 'timer' | 'debounceMs'> = {}) {
   const api = {
     csrfToken: null,
     health: vi.fn().mockResolvedValue(envelope),
@@ -29,13 +29,19 @@ export function setupUI() {
     listTaskArtifacts: vi.fn().mockResolvedValue({ ...envelope, items: [] }),
     getArtifactContent: vi.fn().mockResolvedValue({ ...envelope, mediaType: 'text/plain', text: 'Artifact text', sizeBytes: 13, contentHash: 'a'.repeat(64) }),
     listTaskApprovals: vi.fn().mockResolvedValue({ ...envelope, approvals: [] }),
+    getInbox: vi.fn().mockResolvedValue({ ...envelope, approvals: [], startGates: [], counts: { approvals: 0, startGates: 0, total: 0 } }),
+    getGlobalInbox: vi.fn().mockResolvedValue({ ...envelope, approvals: [], startGates: [], counts: { approvals: 0, startGates: 0, total: 0 } }),
+    getApproval: vi.fn().mockResolvedValue({ ...envelope, approval }),
+    getEffectRemotes: vi.fn().mockResolvedValue({ ...envelope, remotes: [] }),
+    listAttemptEffects: vi.fn().mockResolvedValue({ ...envelope, effects: [] }),
+    pushAttempt: vi.fn(), reconcileEffect: vi.fn(),
     listConversations: vi.fn().mockResolvedValue({ ...envelope, conversations: [] }),
     listMessages: vi.fn().mockResolvedValue({ ...envelope, messages: [], turns: [] }),
     getBudget: vi.fn().mockResolvedValue({ ...envelope, budget }),
     sendCommand: vi.fn().mockResolvedValue({ ...envelope, receipt }),
   };
   const connections: ProjectEventsOptions[] = [];
-  const store = createStore({ api: api as ApiClient, openEvents(options) {
+  const store = createStore({ ...options, api: api as ApiClient, openEvents(options) {
     connections.push(options);
     options.onStatus?.('connecting', { lastEventId: null, invalidMessages: 0 });
     return { close: vi.fn() };

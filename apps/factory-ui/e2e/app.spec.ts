@@ -68,6 +68,9 @@ test.describe.serial('real Host and built Factory UI', () => {
     await expect(dialog.getByLabel('Project name', { exact: true })).toBeFocused();
     await page.keyboard.insertText('E2E Project');
     await page.keyboard.press('Tab');
+    // The project type radio group (Directory is the default) is a single tab stop between name and path.
+    await expect(dialog.getByRole('radio', { name: 'Directory', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(dialog.getByLabel('Workspace path', { exact: true })).toBeFocused();
     await page.keyboard.insertText('/srv/factory/workspaces/e2e-project');
     await page.keyboard.press('Tab');

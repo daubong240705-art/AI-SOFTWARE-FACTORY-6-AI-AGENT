@@ -21,10 +21,11 @@ export function Board({ store, onOpen }: { store: Store; onOpen: (taskId: string
   const t = useT();
   const state = store.useStoreSelector(value => value);
   const [closed, setClosed] = useState(false);
+  const decisions = new Set(state.inbox.approvals.map(item => item.taskId));
   const number = (v: number) => new Intl.NumberFormat(i18n.locale).format(v);
   return <div className="board" aria-label={t('workUi.board')}>
     {boardColumns.map(column => {
-      const tasks = state.tasks.filter(task => taskColumn(task) === column).sort((a, b) => a.code.localeCompare(b.code));
+      const tasks = state.tasks.filter(task => (decisions.has(task.id) ? 'attention' : taskColumn(task)) === column).sort((a, b) => a.code.localeCompare(b.code));
       const count = <span>{number(tasks.length)} {plural(t, i18n.locale, tasks.length, 'workUi.count')}</span>;
       return <section className="board-column stack" key={column} aria-label={t(`workUi.columns.${column}`)}>
         <h3>{column === 'closed' ? <button type="button" aria-expanded={closed} onClick={() => setClosed(!closed)}>{t('workUi.columns.closed')} {count}</button> : <>{t(`workUi.columns.${column}`)} {count}</>}</h3>
@@ -35,6 +36,7 @@ export function Board({ store, onOpen }: { store: Store; onOpen: (taskId: string
           const owner = state.team?.seats.find(seat => seat.id === task.ownerSeatId)?.name;
           return <li key={task.id}><button type="button" className="board-card card stack" onClick={() => onOpen(task.id)}>
             <span className="task-code">{task.code}</span><strong>{task.title}</strong>
+            {decisions.has(task.id) && <Badge>{t('inboxUi.needsDecision')}</Badge>}
             <Badge className={`status-${display.status}`}>{t(`taskUi.display.${display.status}`)}</Badge>
             <span>{t('taskUi.owner')}: {owner ?? t('taskUi.dash')}</span>
             {task.state === 'active' && live && <span className="live-attempt">{t('workUi.live')}: {t(`workUi.states.${live.state}`)}</span>}

@@ -89,7 +89,8 @@ it.each(['detail', 'events', 'patch', 'content'] as const)('401 in %s clears the
   if (area === 'content') { api.getArtifactContent.mockRejectedValueOnce(error); await store.loadArtifactContent(id, id, 1); }
   expect(store.getState().session).toBe('anonymous'); expect(store.getState().details).toEqual({}); expect(store.getState().artifactContents).toEqual({});
 });
-it.each(['task', 'attempt', 'artifact-version', 'approval', 'effect'] as const)('%s changes refresh open details once after debounce', async kind => {
+// 'effect' events refresh only the effects of open tasks (covered in inbox-store.test.ts).
+it.each(['task', 'attempt', 'artifact-version', 'approval'] as const)('%s changes refresh open details once after debounce', async kind => {
   vi.useFakeTimers(); const { store, api } = await setup(); await store.loadTaskDetail(otherId); await store.openTask(id); await flush(); api.listAttempts.mockClear();
   for (let i = 0; i < 4; i++) store.applyEvent(event({ type: 'entity.changed', entity: { kind, id, revision: 3 } }));
   expect(api.listAttempts).not.toHaveBeenCalled(); await vi.advanceTimersByTimeAsync(150); expect(api.listAttempts).toHaveBeenCalledTimes(1); expect(api.listAttempts).toHaveBeenCalledWith(id, id);

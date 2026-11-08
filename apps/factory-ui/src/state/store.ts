@@ -2,11 +2,13 @@ import { useSyncExternalStore } from 'react';
 import type { Approval, Command, Conversation, FactoryEvent, Project, Task } from '@factory/contracts';
 import { ApiClientError, createApiClient, type ApiClient, type ArtifactContent, type Attempt, type AttemptEvent, type AttemptPatch, type TaskArtifact, type BudgetResponse, type MessagesResponse, type TeamResponse } from '../api/client';
 import { openProjectEvents, type ProjectEventsOptions, type StreamStatus } from '../api/events';
+import type { Inbox, Effect } from '../api/client';
 
 export type StoreError = { kind: string; message: string; correlationId?: string; code?: string };
 export type PendingCommand = { command: Command; status: 'pending' | 'failed'; error?: StoreError };
-export type TaskDetailState = { loading: boolean; error?: StoreError | undefined; attempts: Attempt[]; events: Record<string, AttemptEvent[]>; artifacts: TaskArtifact[]; approvals: Approval[]; patches: Record<string, AttemptPatch | null> };
-const emptyDetail = (): TaskDetailState => ({ loading: false, attempts: [], events: {}, artifacts: [], approvals: [], patches: {} });
+export type TaskDetailState = { loading: boolean; error?: StoreError | undefined; attempts: Attempt[]; events: Record<string, AttemptEvent[]>; artifacts: TaskArtifact[]; approvals: Approval[]; patches: Record<string, AttemptPatch | null>; effects: Record<string, Effect[]> };
+const emptyDetail = (): TaskDetailState => ({ loading: false, attempts: [], events: {}, artifacts: [], approvals: [], patches: {}, effects: {} });
+const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], counts: { approvals: 0, startGates: 0, total: 0 } });
 export type StoreState = {
   session: 'unknown' | 'anonymous' | 'authenticated'; projects: Project[]; selectedProjectId: string | null;
   team: TeamResponse | null; tasks: Task[]; conversations: Conversation[];
@@ -16,19 +18,20 @@ export type StoreState = {
   pending: Record<string, PendingCommand | undefined>;
   details: Record<string, TaskDetailState>; artifactContents: Record<string, ArtifactContent>;
   liveAttempts: Record<string, Attempt>;
+  inbox: Inbox; globalInbox: Inbox; remotes: string[] | null; approvals: Record<string, Approval>; announcement: number;
 };
 export type StoreOptions = {
   api?: ApiClient; baseUrl?: string; debounceMs?: number;
   openEvents?: (options: ProjectEventsOptions) => { close(): void };
   timer?: { setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 };
-const projectState = () => ({ team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, stream: 'closed' as const });
+const projectState = () => ({ team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
 
 export function createStore(options: StoreOptions = {}) {
-  let state: StoreState = { session: 'unknown', projects: [], selectedProjectId: null, ...projectState(), errors: {}, loading: {}, pending: {} };
+  let state: StoreState = { session: 'unknown', projects: [], selectedProjectId: null, ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, errors: {}, loading: {}, pending: {} };
   const listeners = new Set<() => void>();
   const update = (patch: Partial<StoreState>) => { state = { ...state, ...patch }; listeners.forEach((listener) => listener()); };
   let generation = 0;
@@ -38,18 +41,36 @@ export function createStore(options: StoreOptions = {}) {
   type Job = { run: () => Promise<void>; promise?: Promise<void>; dirty: boolean; timer?: unknown };
   const jobs = new Map<string, Job>();
   const openTasks = new Set<string>();
+  const openTaskCounts = new Map<string, number>();
+  let inboxTimer: unknown;
+  let remotesPromise: Promise<void> | undefined;
+  let watching = false;
+  const clearInboxTimer = () => { if (inboxTimer !== undefined) timer.clearTimeout(inboxTimer); inboxTimer = undefined; };
+  function scheduleInbox() {
+    clearInboxTimer();
+    if (state.session !== 'authenticated' || (typeof document !== 'undefined' && document.hidden)) return;
+    inboxTimer = timer.setTimeout(() => { inboxTimer = undefined; void loadGlobalInbox(); scheduleInbox(); }, 60_000);
+  }
+  function focusInbox() { if (state.session === 'authenticated') { void loadGlobalInbox(); void loadInbox(); } }
+  function visibilityInbox() { if (!document.hidden) focusInbox(); scheduleInbox(); }
+  function watchInbox() {
+    if (!watching) { if (typeof window !== 'undefined') window.addEventListener('focus', focusInbox); if (typeof document !== 'undefined') document.addEventListener('visibilitychange', visibilityInbox); watching = true; }
+    scheduleInbox();
+  }
+  function unwatchInbox() { clearInboxTimer(); if (typeof window !== 'undefined') window.removeEventListener('focus', focusInbox); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', visibilityInbox); watching = false; }
   const contentCache = new Map<string, { taskId: string; attemptId?: string }>();
   const stop = () => {
     generation++;
     stream?.close(); stream = undefined;
     for (const job of jobs.values()) if (job.timer !== undefined) timer.clearTimeout(job.timer);
     jobs.clear();
-    openTasks.clear(); contentCache.clear();
+    openTasks.clear(); openTaskCounts.clear(); contentCache.clear();
   };
   const anonymous = () => {
     authGeneration++;
+    unwatchInbox(); remotesPromise = undefined;
     stop();
-    update({ session: 'anonymous', selectedProjectId: null, projects: [], ...projectState(), loading: {}, errors: {}, pending: {} });
+    update({ session: 'anonymous', selectedProjectId: null, projects: [], ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, loading: {}, errors: {}, pending: {} });
   };
   // Handle authentication failures inside the guarded action, where obsolete requests
   // can be discarded before they affect a newly selected project or session.
@@ -93,6 +114,54 @@ export function createStore(options: StoreOptions = {}) {
     return launch();
   }
   const loadProjects = (debounce = false) => enqueue('projects', generation, async () => ({ projects: (await api.listProjects()).projects }), debounce);
+  function loadInbox(debounce = false) {
+    const id = state.selectedProjectId;
+    if (!id || state.session !== 'authenticated') return Promise.resolve();
+    return enqueue('inbox', generation, async () => ({ inbox: await api.getInbox(id) }), debounce);
+  }
+  function loadGlobalInbox(debounce = false) {
+    if (state.session !== 'authenticated') return Promise.resolve();
+    return enqueue('globalInbox', generation, async () => ({ globalInbox: await api.getGlobalInbox() }), debounce);
+  }
+  function loadApproval(approvalId: string) {
+    const id = state.selectedProjectId;
+    if (!id) return Promise.resolve();
+    return enqueue(`approval:${approvalId}`, generation, async () => { const result = await api.getApproval(id, approvalId); return { approvals: { ...state.approvals, [approvalId]: result.approval } }; });
+  }
+  function loadRemotes(): Promise<void> {
+    if (state.session !== 'authenticated' || state.remotes !== null) return Promise.resolve();
+    if (remotesPromise) return remotesPromise;
+    const scope = authGeneration;
+    update({ loading: { ...state.loading, remotes: true } });
+    remotesPromise = (async () => {
+      try { const result = await api.getEffectRemotes(); if (scope === authGeneration) update({ remotes: result.remotes }); }
+      catch (error) { if (scope === authGeneration) failed('remotes', error); }
+      finally { if (scope === authGeneration) { update({ loading: { ...state.loading, remotes: false } }); remotesPromise = undefined; } }
+    })();
+    return remotesPromise;
+  }
+  function loadEffects(taskId: string, attemptId: string, debounce = false) {
+    const id = state.selectedProjectId;
+    if (!id) return Promise.resolve();
+    return enqueue(`effects:${taskId}:${attemptId}`, generation, async () => {
+      if (debounce && !openTasks.has(taskId)) return {};
+      const result = await api.listAttemptEffects(id, attemptId);
+      return detailPatch(taskId, { effects: { ...state.details[taskId]?.effects, [attemptId]: result.effects } });
+    }, debounce);
+  }
+  async function mutateEffect(taskId: string, attemptId: string, remoteOrId: string, reconcile: boolean) {
+    const id = state.selectedProjectId; const scope = generation; const area = `push:${taskId}:${attemptId}`;
+    if (!id || state.session !== 'authenticated' || state.loading[area]) return;
+    update({ loading: { ...state.loading, [area]: true }, errors: { ...state.errors, [area]: undefined } });
+    try {
+      const { effect } = await (reconcile ? api.reconcileEffect(id, remoteOrId) : api.pushAttempt(id, attemptId, remoteOrId));
+      if (!active(scope)) return;
+      const previous = state.details[taskId]?.effects[attemptId] ?? [];
+      update(detailPatch(taskId, { effects: { ...state.details[taskId]?.effects, [attemptId]: [...previous.filter(item => item.id !== effect.id), effect] } }));
+      return effect;
+    } catch (error) { if (active(scope)) { failed(area, error); if (active(scope) && error instanceof ApiClientError && error.code === 'conflict') await loadEffects(taskId, attemptId); } }
+    finally { if (active(scope)) update({ loading: { ...state.loading, [area]: false } }); }
+  }
   function loadArea(area: 'team' | 'tasks' | 'conversations' | 'budget', debounce = false) {
     const id = state.selectedProjectId;
     if (!id) return Promise.resolve();
@@ -134,7 +203,9 @@ export function createStore(options: StoreOptions = {}) {
     }, debounce);
   }
   function detailPatch(taskId: string, patch: Partial<TaskDetailState>): Partial<StoreState> {
-    return { details: { ...state.details, [taskId]: { ...(state.details[taskId] ?? emptyDetail()), ...patch } } };
+    // Resolve the base when guarded publishes the result: independent event/effect
+    // responses may finish in the same microtask turn.
+    return { get details() { const current = state.details[taskId] ?? emptyDetail(); return { ...state.details, [taskId]: { ...current, ...patch, events: { ...current.events, ...patch.events }, effects: { ...current.effects, ...patch.effects } } }; } };
   }
   function loadAttemptEvents(taskId: string, attemptId: string) {
     const id = state.selectedProjectId;
@@ -164,7 +235,7 @@ export function createStore(options: StoreOptions = {}) {
       const sorted = [...attempts.attempts].sort((a, b) => b.epoch - a.epoch);
       if (active(scope) && openTasks.has(taskId)) {
         const ids = new Set([sorted[0]?.id, ...Object.keys(state.details[taskId]?.events ?? {})]);
-        for (const attemptId of ids) if (attemptId) void loadAttemptEvents(taskId, attemptId);
+        for (const attemptId of ids) if (attemptId) { void loadAttemptEvents(taskId, attemptId); void loadEffects(taskId, attemptId); }
       }
       const patches = { ...state.details[taskId]?.patches };
       for (const [attemptId, patch] of Object.entries(patches)) if (patch === null) { delete patches[attemptId]; if (active(scope)) contentCache.delete(`patch:${attemptId}`); }
@@ -211,7 +282,7 @@ export function createStore(options: StoreOptions = {}) {
     });
   }
   async function refresh() {
-    await Promise.all([loadProjects(), loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget'),
+    await Promise.all([loadProjects(), loadInbox(), loadGlobalInbox(), loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget'),
       ...Object.keys(state.messages).map((id) => loadMessages(id))]);
     await Promise.all([...openTasks].map(id => loadTaskDetail(id)));
   }
@@ -233,7 +304,9 @@ export function createStore(options: StoreOptions = {}) {
     if (payload.type === 'message.appended') void loadMessages(payload.message.conversationId, true);
     else if (payload.type === 'command.receipted') void loadArea('budget', true);
     else if (payload.type === 'entity.changed') {
-      if (['task', 'attempt', 'artifact-version', 'approval', 'effect'].includes(payload.entity.kind)) {
+      if (payload.entity.kind === 'task' || payload.entity.kind === 'approval') { void loadInbox(true); void loadGlobalInbox(true); }
+      if (payload.entity.kind === 'effect') for (const taskId of openTasks) for (const attempt of state.details[taskId]?.attempts ?? []) void loadEffects(taskId, attempt.id, true);
+      if (['task', 'attempt', 'artifact-version', 'approval'].includes(payload.entity.kind)) {
         for (const taskId of openTasks) void loadTaskDetail(taskId, true);
       }
       switch (payload.entity.kind) {
@@ -248,7 +321,7 @@ export function createStore(options: StoreOptions = {}) {
   async function authAction(work: () => Promise<unknown>) {
     const scope = ++authGeneration;
     update({ loading: { ...state.loading, session: true }, errors: { ...state.errors, session: undefined } });
-    try { await work(); if (scope === authGeneration) update({ session: 'authenticated' }); }
+    try { await work(); if (scope === authGeneration) { update({ session: 'authenticated' }); watchInbox(); await Promise.all([loadGlobalInbox(), loadRemotes()]); } }
     catch (error) {
       if (scope === authGeneration) {
         if (!(error instanceof ApiClientError && error.status === 401)) anonymous();
@@ -263,8 +336,8 @@ export function createStore(options: StoreOptions = {}) {
     update({ pending: { ...state.pending, [command.commandId]: { command, status: 'pending' } }, errors: { ...state.errors, command: undefined } });
     try {
       const response = await api.sendCommand(command);
-      if (active(scope)) { const pending = { ...state.pending }; delete pending[command.commandId]; update({ pending }); }
-      return response;
+      if (active(scope)) { const pending = { ...state.pending }; delete pending[command.commandId]; update({ pending }); void loadGlobalInbox(); void loadInbox(); return response; }
+      return undefined;
     } catch (error) {
       if (active(scope)) {
         failed('command', error);
@@ -287,23 +360,31 @@ export function createStore(options: StoreOptions = {}) {
     loadConversations: () => loadArea('conversations'),
     loadTasks: () => loadArea('tasks'),
     loadBudget: () => loadArea('budget'),
+    loadInbox: () => loadInbox(), loadGlobalInbox: () => loadGlobalInbox(), loadRemotes, loadApproval, loadEffects,
+    push: (taskId: string, attemptId: string, remote: string) => mutateEffect(taskId, attemptId, remote, false),
+    reconcile: (taskId: string, attemptId: string, effectId: string) => mutateEffect(taskId, attemptId, effectId, true),
+    announceDecision: () => update({ announcement: state.announcement + 1 }),
     async selectProject(id: string) {
       stop(); const scope = generation;
       update({ selectedProjectId: id, ...projectState(), errors: {}, loading: {}, pending: {} });
       connect(id, scope);
-      await Promise.all([loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget')]);
+      await Promise.all([loadInbox(), loadGlobalInbox(), loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget')]);
     },
     loadMessages: (id: string) => loadMessages(id), send,
-    openTask(taskId: string) { openTasks.add(taskId); return loadTaskDetail(taskId); },
+    openTask(taskId: string) { openTaskCounts.set(taskId, (openTaskCounts.get(taskId) ?? 0) + 1); openTasks.add(taskId); return loadTaskDetail(taskId); },
     closeTask(taskId: string) {
+      const remaining = (openTaskCounts.get(taskId) ?? 1) - 1;
+      if (remaining > 0) { openTaskCounts.set(taskId, remaining); return; }
+      openTaskCounts.delete(taskId);
       openTasks.delete(taskId);
       const job = jobs.get(`detail:${taskId}`);
       if (job?.timer !== undefined) { timer.clearTimeout(job.timer); delete job.timer; }
+      for (const [area, effectJob] of jobs) if (area.startsWith(`effects:${taskId}:`) && effectJob.timer !== undefined) { timer.clearTimeout(effectJob.timer); delete effectJob.timer; }
     },
     loadTaskDetail: (taskId: string) => loadTaskDetail(taskId), loadAttemptEvents, loadPatch, loadArtifactContent,
     retry: (commandId: string) => { const pending = state.pending[commandId]; return pending?.status === 'failed' ? send(pending.command) : Promise.resolve(undefined); },
     applyEvent,
-    dispose: () => { stop(); listeners.clear(); },
+    dispose: () => { authGeneration++; unwatchInbox(); stop(); listeners.clear(); },
     useStoreSelector<T>(selector: (state: StoreState) => T): T {
       // Subscribe to the stable state object so selectors may safely return new objects.
       return selector(useSyncExternalStore(store.subscribe, store.getState, store.getState));

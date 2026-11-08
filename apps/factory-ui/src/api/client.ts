@@ -2,7 +2,7 @@ import { commandSchema, successResponseSchema, failureResponseSchema, projectSch
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
 import { readModels } from './readModels';
-export type { Attempt, AttemptEvent, AttemptPatch, TaskArtifact, ArtifactContent } from './readModels';
+export type { Attempt, AttemptEvent, AttemptPatch, TaskArtifact, ArtifactContent, Inbox, Effect } from './readModels';
 
 // Extend exported strict contract objects to validate the Host's HTTP envelopes without
 // importing their private schema-library dependency into this package.
@@ -100,6 +100,13 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listTaskArtifacts: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/artifacts`, readModels.artifacts),
     getArtifactContent: (id: string, artifactId: string, version: number) => request(`${projectPath(id)}/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(version)}/content`, readModels.content),
     listTaskApprovals: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/approvals`, readModels.approvals),
+    getInbox: (id: string) => request(`${projectPath(id)}/inbox`, readModels.inbox),
+    getGlobalInbox: () => request('/inbox', readModels.globalInbox),
+    getApproval: (id: string, approvalId: string) => request(`${projectPath(id)}/approvals/${encodeURIComponent(approvalId)}`, readModels.approval),
+    getEffectRemotes: () => request('/effects/remotes', readModels.remotes),
+    listAttemptEffects: (id: string, attemptId: string) => request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/effects`, readModels.effects),
+    pushAttempt: (id: string, attemptId: string, remote: string) => request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/push`, readModels.effect, { remote }),
+    reconcileEffect: (id: string, effectId: string) => request(`${projectPath(id)}/effects/${encodeURIComponent(effectId)}/reconcile`, readModels.effect, {}),
     listConversations: (id: string) => request(`${projectPath(id)}/conversations`, conversations),
     listMessages: (id: string, cid: string, options: { afterOrdinal?: number; limit?: number } = {}) => {
       const query = new URLSearchParams();

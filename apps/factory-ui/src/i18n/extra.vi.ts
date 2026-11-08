@@ -1,6 +1,21 @@
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  inboxUi: {
+    inbox: 'Hộp thư', title: 'Cần bạn xử lý', count: { one: 'mục cần xử lý', other: 'mục cần xử lý' },
+    empty: 'Bạn đã xử lý xong mọi việc. Hiện không có mục nào cần chú ý.', close: 'Đóng', requested: 'Đã yêu cầu', expires: 'Hết hạn',
+    kinds: { review: 'Duyệt', question: 'Câu hỏi', 'start-gate': 'Khởi chạy' }, open: { review: 'Duyệt', question: 'Trả lời', 'start-gate': 'Mở' },
+    decision: 'Quyết định', review: 'Duyệt', question: 'Câu hỏi', reviewResult: 'Duyệt kết quả', answerQuestion: 'Trả lời câu hỏi',
+    openResults: 'Mở kết quả công việc', options: 'Chọn phương án', recommended: 'Được đề xuất', comment: 'Nhận xét', required: 'Bắt buộc', characters: 'ký tự', decide: 'Quyết định',
+    changed: 'Mục này đã thay đổi. Vui lòng xem xét lại.', decided: 'Đã ghi nhận quyết định.', expired: 'Đã hết hạn', outcome: 'Kết quả quyết định',
+    history: 'Lịch sử quyết định', noHistory: 'Chưa có quyết định nào.', needsDecision: 'Cần quyết định của bạn',
+    states: { requested: 'Đã yêu cầu', pending: 'Đang chờ', approved: 'Đã chấp thuận', rejected: 'Đã từ chối', 'changes-requested': 'Đã yêu cầu sửa đổi', superseded: 'Đã được thay thế', expired: 'Đã hết hạn', withdrawn: 'Đã rút lại', applied: 'Đã áp dụng' },
+    push: 'Đẩy nhánh', remote: 'Tên kho từ xa', pushConfirm: 'Thao tác này công bố nhánh {branch} lên kho từ xa "{name}" bên ngoài Factory. Không bao giờ ép đẩy và không bao giờ thay đổi nhánh main.',
+    effects: { pending: 'Đang đẩy…', done: 'Đã đẩy', failed: 'Đẩy thất bại', unknown: 'Chưa rõ kết quả' },
+    effectErrors: { auth: 'Xác thực thất bại', rejected: 'Kho từ xa từ chối thao tác đẩy', network: 'Không có kết nối mạng', timeout: 'Đã hết thời gian chờ', other: 'Không thể hoàn tất thao tác đẩy', 'not-pushed': 'Nhánh chưa được đẩy' },
+    reconcile: 'Đối soát', reconcileHelp: 'Kiểm tra kho từ xa để xác định nhánh đã được đẩy hay chưa. Thao tác này không đẩy lại.',
+    workspaceKind: 'Loại dự án', directory: 'Thư mục', git: 'Dự án Git (bản sao có sẵn)', clonePath: 'Đường dẫn bản sao có sẵn', cloneHelp: 'Đường dẫn của bản sao được tạo trong thư mục gốc dự án của Host (xem hướng dẫn vận hành)',
+  },
   workUi: {
     board: 'Bảng', list: 'Danh sách', views: 'Chế độ xem công việc', empty: 'Chưa có công việc trong cột này.',
     columns: { proposed: 'Đề xuất', ready: 'Sẵn sàng', running: 'Đang chạy', review: 'Đang xét duyệt', done: 'Hoàn thành', attention: 'Cần chú ý', closed: 'Đã đóng' },

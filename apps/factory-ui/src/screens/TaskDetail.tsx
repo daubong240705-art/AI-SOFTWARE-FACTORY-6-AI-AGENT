@@ -11,14 +11,17 @@ import { evidenceView } from '../state/attemptView';
 import type { Store, TaskDetailState } from '../state/store';
 import { DiffView } from './DiffView';
 import { ProgressTimeline } from './ProgressTimeline';
+import { DecisionDialog, pendingApproval } from './DecisionDialog';
+import { PushSection } from './PushSection';
 
 const tabs = ['request', 'progress', 'results', 'actions'] as const;
 type Action = 'start' | 'stop' | 'retry';
 const stoppable = new Set(['queued', 'leased', 'preparing', 'running', 'waiting-input']);
-export function TaskDetail({ store, taskId, onClose }: { store: Store; taskId: string; onClose: () => void }) {
+export function TaskDetail({ store, taskId, onClose, initialTab = 'request' }: { store: Store; taskId: string; onClose: () => void; initialTab?: typeof tabs[number] }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState<number>(tabs.indexOf(initialTab));
+  const [decision, setDecision] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const id = useId();
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
@@ -35,6 +38,7 @@ export function TaskDetail({ store, taskId, onClose }: { store: Store; taskId: s
   if (!task || state.session !== 'authenticated') return null;
   const display = deriveDisplayStatus({ ...task, liveAttempt: live && isLiveAttempt(live.state) ? live.state : null });
   const date = (value: string | null) => value ? new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : t('taskUi.dash');
+  if (decision) return <DecisionDialog store={store} approvalId={decision} onClose={() => setDecision(null)} />;
   return <Dialog labelledBy={`${id}-title`} onClose={onClose} className="task-detail-backdrop">
     <div className="task-detail stack">
       <header className="stack"><Button onClick={onClose}>{t('workUi.close')}</Button><span className="task-code">{task.code}</span><h2 id={`${id}-title`}>{task.title}</h2>
@@ -61,7 +65,12 @@ export function TaskDetail({ store, taskId, onClose }: { store: Store; taskId: s
           {attempt && state.errors[`attempt-events:${taskId}:${attempt.id}`] && <><ErrorNotice error={state.errors[`attempt-events:${taskId}:${attempt.id}`]!} /><Button onClick={() => { void store.loadAttemptEvents(taskId, attempt.id); }}>{t('errors.retry')}</Button></>}
           <ProgressTimeline events={attempt ? detail?.events[attempt.id] ?? [] : []} />
         </>}
+        {(active === 2 || active === 3) && detail && <>
+          {detail.approvals.filter(item => pendingApproval(item) && (item.kind === 'review' || item.kind === 'question')).map(item => <section className="card stack" key={item.id}><h3>{t(item.kind === 'review' ? 'inboxUi.review' : 'inboxUi.question')}</h3><p>{item.subject}</p><Button onClick={() => setDecision(item.id)}>{t(item.kind === 'review' ? 'inboxUi.reviewResult' : 'inboxUi.answerQuestion')}</Button></section>)}
+          <section className="stack"><h3>{t('inboxUi.history')}</h3>{!detail.approvals.length && <p>{t('inboxUi.noHistory')}</p>}<ul className="task-list stack">{[...detail.approvals].sort((a, b) => Date.parse(b.requestedAt) - Date.parse(a.requestedAt)).map(item => <li key={item.id} className="plain-text"><strong>{item.subject}</strong> · {t(`inboxUi.states.${item.state}`)}{item.outcome && <><p>{item.options.find(option => option.id === item.outcome?.optionId)?.label}</p><p>{item.outcome.comment}</p></>}</li>)}</ul></section>
+        </>}
         {active === 2 && detail && <Results store={store} task={task} detail={detail} attempt={attempt} />}
+        {(active === 2 || active === 3) && <PushSection store={store} task={task} attempt={attempt} />}
         <div hidden={active !== 3}><TaskActions store={store} task={task} attempt={live} /></div>
       </div>
     </div>
