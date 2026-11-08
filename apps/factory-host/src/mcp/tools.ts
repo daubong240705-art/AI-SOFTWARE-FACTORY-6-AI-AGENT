@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { artifactKindSchema, artifactRefSchema, decisionRequestInputSchema, labelSchema, taskProgressInputSchema } from "@factory/contracts";
+import { artifactKindSchema, artifactRefSchema, decisionRequestInputSchema, knowledgeGetInputSchema, knowledgeSearchInputSchema, labelSchema, taskProgressInputSchema } from "@factory/contracts";
 import type { TokenGrant } from "../proxy/tokens.js";
 import { McpToolError, sanitizeAgentText } from "./security.js";
 
@@ -30,6 +30,7 @@ export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
   return clean.data;
 }
 export interface McpDeps {
+  knowledge?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   progress(grant: TokenGrant, input: { summary: string; percent?: number }): void;
   registerOutput(grant: TokenGrant, input: AgentOutputInput): { artifactId: string; version: number };
   requestDecision(grant: TokenGrant, input: DecisionRequestInput): { approvalId: string };
@@ -44,6 +45,10 @@ export const toolDefinitions = [
     inputSchema: z.toJSONSchema(agentOutputInputSchema) },
   { name: "decision.request", description: "Use ONLY for business decisions you cannot make yourself. Then stop: finish without further tool calls.",
     inputSchema: z.toJSONSchema(decisionRequestInputSchema) },
+  { name: "knowledge.search", description: "Search readable knowledge using a query and optional filters.",
+    inputSchema: z.toJSONSchema(knowledgeSearchInputSchema) },
+  { name: "knowledge.get", description: "Read a visible artifact at summary or full text level.",
+    inputSchema: z.toJSONSchema(knowledgeGetInputSchema) },
 ];
 
 export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?: number } = {}): { call(grant: TokenGrant, name: string, args: unknown): ToolResult } {
@@ -51,6 +56,8 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
   const progressCalls = new Map<string, number>();
   return { call(grant, name, args) {
     try {
+      if (name === "knowledge.search" || name === "knowledge.get")
+        return deps.knowledge?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "decision.request") {
         deps.requestDecision(grant, cleanDecisionRequest(args));
         return result("Decision requested. Stop working now and finish without further tool calls.");

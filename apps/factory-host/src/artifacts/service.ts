@@ -10,6 +10,10 @@ import { agentOutputInputSchema, type AgentOutputInput } from "../mcp/tools.js";
 import { assertActiveGrant, McpToolError, readWorkspaceOutput, sanitizeAgentText } from "../mcp/security.js";
 
 export interface ResultRef { artifactId: string; version: number; kind: string; contentHash: string }
+type AfterRegister = (ref: { projectId: string; artifactId: string; version: number }) => void;
+function afterRegister(hook: AfterRegister | undefined, projectId: string, artifactId: string, version: number): void {
+  try { hook?.({ projectId, artifactId, version }); } catch { /* Missing index entries are recovered by backfill. */ }
+}
 export interface AttemptResultsInput {
   projectId: string; taskId: string; attemptId: string; epoch: number;
   outcome: "completed" | "failed"; summary: string | null;
@@ -81,6 +85,7 @@ function summaryBytes(summary: string): Buffer {
 /** Agent identity comes only from the authenticated grant, never from tool arguments. */
 export function registerAgentOutput(deps: {
   raw: Database; store: ContentStore; now: () => Date; newId: () => string;
+  afterRegister?: AfterRegister;
 }, input: { grant: TokenGrant } & AgentOutputInput): ResultRef {
   const { raw, store } = deps;
   return raw.transaction(() => {
@@ -124,6 +129,7 @@ export function registerAgentOutput(deps: {
     const insert = raw.prepare(`INSERT OR IGNORE INTO artifact_inputs (project_id, artifact_id, version, input_artifact_id, input_version)
       VALUES (?, ?, ?, ?, ?)`);
     for (const ref of data.inputs) insert.run(grant.projectId, artifactId, version, ref.artifactId, ref.version);
+    afterRegister(deps.afterRegister, grant.projectId, artifactId, version);
     return { artifactId, version, kind: data.kind, contentHash: content.hash };
   }).immediate();
 }
@@ -131,6 +137,7 @@ export function registerAgentOutput(deps: {
 /** A savepoint rolls back ALL metadata on failure, while leaving the outcome transaction intact. */
 export function registerAttemptResults(deps: {
   raw: Database; store: ContentStore; now: () => Date; newId: () => string; onError?: (error: Error) => void;
+  afterRegister?: AfterRegister;
 }, input: AttemptResultsInput & { evidenceDir: string }): ResultRef[] {
   try {
     return deps.raw.transaction(() => {
@@ -180,6 +187,7 @@ export function registerAttemptResults(deps: {
             content.hash, content.size, input.outcome === "completed" ? "in-review" : "draft", l0, l1,
             input.attemptId, previous?.version ?? null, deps.now().toISOString());
         created.push({ artifactId, version, kind, contentHash: content.hash });
+        afterRegister(deps.afterRegister, input.projectId, artifactId, version);
       };
       const patch = patchBytes(evidence, input.evidenceDir, input.attemptId);
       if (patch !== null) {

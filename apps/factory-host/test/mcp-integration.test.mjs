@@ -64,7 +64,7 @@ test("real sandbox agent reports progress registers exact deliverable and refuse
     const body = JSON.parse(input); requests.push({ headers: req.headers, body });
     if (!body.tools?.length) return reply(res, body, { content: "Fixture title" }, "stop");
     const availableNames = body.tools.map((tool) => tool.function.name);
-    for (const name of ["write", "factory_task_progress", "factory_output_register"])
+    for (const name of ["write", "factory_task_progress", "factory_output_register", "factory_knowledge_search", "factory_knowledge_get"])
       if (!availableNames.includes(name)) { failures.push("Factory tools were unavailable"); return reply(res, body, { content: "Tools missing" }, "stop"); }
     const completed = (id) => body.messages.some((message) => message.role === "tool" && message.tool_call_id === id);
     const workspace = fs.readdirSync(roots.worktreesRoot, { recursive: true, withFileTypes: true })

@@ -9,6 +9,7 @@ import { join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test as nodeTest } from "node:test";
 import Database from "better-sqlite3";
+import { openStorage } from "../dist/storage/database.js";
 import { API_VERSION } from "@factory/contracts";
 import { parseEnv, startHost } from "../dist/host.js";
 import { createFakeGateway } from "../dist/models/index.js";
@@ -82,6 +83,34 @@ test("host content directory override supplies the exposed store", async (t) => 
   assert.equal(existsSync(join(host.stateDir, "content")), false);
 });
 
+test("host backfills existing artifact versions when upgrading from schema three", async (t) => {
+  const root = tempDir(t); const stateDir = join(root, "state"); const oldMigrations = join(root, "old-migrations");
+  mkdirSync(oldMigrations);
+  for (const name of readdirSync(migrationsDir).filter((name) => /^000[1-3]_.*\.sql$/.test(name)))
+    cpSync(join(migrationsDir, name), join(oldMigrations, name));
+  const storage = openStorage(join(stateDir, "host.db"));
+  const { createContentStore } = await import("../dist/artifacts/content-store.js");
+  const store = createContentStore({ dir: join(stateDir, "content") });
+  const projectId = randomUUID(); const artifactId = randomUUID();
+  try {
+    storage.migrate({ migrationsDir: oldMigrations, backupDir: null });
+    storage.raw.prepare("INSERT INTO projects VALUES (?,1,'Knowledge','artifact','unused','active')").run(projectId);
+    const content = store.put("Existing searchablebodymarker");
+    storage.raw.prepare(`INSERT INTO artifact_versions (project_id,artifact_id,version,kind,title,media_type,content_hash,size_bytes,
+      status,abstract_l0,visibility,created_at) VALUES (?,?,1,'requirements','Thiết kế','text/markdown',?,?,'draft','Existing abstract','project',?)`)
+      .run(projectId,artifactId,content.hash,content.size,new Date().toISOString());
+  } finally { storage.close(); }
+  const host = await launch(t, stateDir);
+  const deadline = Date.now() + 5000;
+  while (host.knowledge.stats().missing && Date.now() < deadline) await new Promise((done) => setImmediate(done));
+  assert.equal(host.storage.raw.prepare("SELECT MAX(version) AS version FROM migration_ledger").get().version, 4);
+  assert.equal(host.knowledge.stats().missing, 0);
+  for (const query of ["thiet ke", "searchablebodymarker"]) {
+    const rows = host.knowledge.search({ projectId, teamId: null, viewer: "operator" }, query);
+    assert.deepEqual(rows.map((row) => row.artifactId), [artifactId]);
+  }
+});
+
 test("host without workspace produces no results from runtime-only evidence", async (t) => {
   const host = await launch(t, undefined, { dispatch: {} }); const session = await bootstrap(host); const c = command();
   assert.equal((await postCommand(host, session, c)).status, 200);
@@ -135,6 +164,7 @@ nodeTest("host wires real workspace results and publishes version events with ou
   const url = `/projects/${c.projectId}/tasks/${taskId}/artifacts`;
   const listing = await read(url); assert.equal(listing.statusCode, 200); const before = listing.json().items;
   assert.equal(before.length, 2); assert.ok(observations.includes(2));
+  assert.equal(host.knowledge.stats().indexed, 2); assert.equal(host.knowledge.stats().missing, 0);
   for (const artifact of before) {
     const version = artifact.versions[0]; const response = await read(`/projects/${c.projectId}/artifacts/${artifact.artifactId}/versions/1/content`);
     assert.equal(response.statusCode, 200); assert.equal(response.json().text, host.artifacts.store.get(version.contentHash).toString("utf8"));

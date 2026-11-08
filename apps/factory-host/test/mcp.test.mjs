@@ -349,9 +349,15 @@ for (const enabled of [false, true]) test(`real Host MCP dispatcher wiring ${ena
   const send = async (value) => { const response = await fetch(url, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(value) }); return { status: response.status, body: await response.json() }; };
   const ping = await send(rpc("ping")); assert.equal(ping.status, enabled ? 200 : 404);
   if (enabled) {
+    assert.deepEqual((await send(rpc("tools/list"))).body.result.tools.map((tool) => tool.name),
+      ["task.progress", "output.register", "decision.request", "knowledge.search", "knowledge.get"]);
     assert.equal((await send(rpc("tools/call", { name: "task.progress", arguments: { summary: "Host milestone" } }))).body.result.isError, false);
     assert.equal((await send(rpc("tools/call", { name: "output.register", arguments: output() }))).body.result.isError, false);
     assert.equal(host.storage.raw.prepare("SELECT status FROM artifact_versions").get().status, "draft");
+    const found = (await send(rpc("tools/call", { name: "knowledge.search", arguments: { query: "Host deliverable" } }))).body.result;
+    assert.equal(found.isError, false); const row = JSON.parse(found.content[0].text).results[0]; assert.ok(row);
+    const document = (await send(rpc("tools/call", { name: "knowledge.get", arguments: { artifactId: row.artifactId, level: "l2" } }))).body.result;
+    assert.equal(document.isError, false); assert.equal(JSON.parse(document.content[0].text).text, "Host deliverable\n");
     assert.equal(host.storage.raw.prepare("SELECT COUNT(*) AS n FROM usage_records").get().n, 0);
     assert.equal(host.storage.raw.prepare("SELECT kind FROM attempt_events").get().kind, "progress");
     const ordinary = await host.app.inject({ method: "POST", url: "/mcp", headers: { host: `127.0.0.1:${host.port}`, "content-type": "application/json" }, payload: rpc("ping") }); assert.notEqual(ordinary.statusCode, 200);

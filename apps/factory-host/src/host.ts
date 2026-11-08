@@ -39,6 +39,7 @@ import { parsePushRemotes, validatePushSshCommand, type PushRemote } from "./eff
 import { createEffectExecutor, type EffectExecutor } from "./effects/executor.js";
 import { createKnowledgeIndex, type KnowledgeIndex } from "./knowledge/index.js";
 import { registerKnowledgeRoutes } from "./knowledge/routes.js";
+import { createKnowledgeMcp } from "./knowledge/mcp.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -299,6 +300,9 @@ export async function startHost(options: {
     expiryTimer = interval(() => { try { sweepApprovals(); } catch { console.error("Approval expiry failed"); } }, 60_000);
     const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content") }) };
     const knowledge = createKnowledgeIndex({ raw: storage.raw, store: artifacts.store });
+    const afterRegister = (ref: { projectId: string; artifactId: string; version: number }): void => {
+      knowledge.indexVersion(ref.projectId, ref.artifactId, ref.version);
+    };
     const backfill = (): void => {
       knowledgeTimer = undefined;
       try {
@@ -334,6 +338,7 @@ export async function startHost(options: {
       startModelProxy = async () => {
       const dispatcher = dispatch;
       const mcp = dispatcher === null ? undefined : createMcpHandler({
+        knowledge: createKnowledgeMcp({ raw, knowledge, now: clock }),
         requestDecision(grant, request) {
           const result = requestAgentDecision({ raw, hub, now: clock, newId: resultId }, { grant, request });
           // The synchronous tool result is serialized before this deferred stop fences its session.
@@ -346,7 +351,7 @@ export async function startHost(options: {
         },
         registerOutput(grant, input) {
           return hub.transaction(() => {
-            const ref = registerAgentOutput({ raw, store: artifacts.store, now: clock, newId: resultId }, { ...input, grant });
+            const ref = registerAgentOutput({ raw, store: artifacts.store, now: clock, newId: resultId, afterRegister }, { ...input, grant });
             hub.append({ projectId: grant.projectId, causationId: grant.attemptId, rootCausationId: grant.attemptId,
               payload: { type: "entity.changed", entity: { kind: "artifact-version", id: ref.artifactId, revision: ref.version } } });
             return ref;
@@ -391,6 +396,7 @@ export async function startHost(options: {
         ...(modelAccess === undefined ? {} : { modelAccess }),
         results: { register(input) {
           const refs = registerAttemptResults({ raw, store: artifacts.store, now: clock, newId: resultId,
+            afterRegister,
             onError: () => { console.error("Artifact registration failed"); } }, { ...input, evidenceDir: resultsEvidenceDir ?? join(stateDir, "evidence") });
           for (const ref of refs) hub.append({ projectId: input.projectId, causationId: input.attemptId,
             rootCausationId: input.attemptId, payload: { type: "entity.changed",

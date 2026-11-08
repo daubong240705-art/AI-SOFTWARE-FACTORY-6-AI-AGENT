@@ -22,6 +22,7 @@ export function createMcpHandler(deps: McpDeps, version = "0.1.0", options: { ma
   handle(grant: TokenGrant, body: unknown): RpcResponse;
 } {
   const tools = createMcpTools(deps, options);
+  const definitions = toolDefinitions.filter((tool) => deps.knowledge !== undefined || !tool.name.startsWith("knowledge."));
   return { handle(grant, input) {
     let body: unknown = input;
     if (typeof input === "string" || Buffer.isBuffer(input)) {
@@ -49,7 +50,7 @@ export function createMcpHandler(deps: McpDeps, version = "0.1.0", options: { ma
         case "ping":
         case "tools/list":
           if (!empty.safeParse(params).success) return error(-32602);
-          result = body.method === "ping" ? {} : { tools: toolDefinitions };
+          result = body.method === "ping" ? {} : { tools: definitions };
           break;
         case "tools/call": {
           const parsed = call.safeParse(params);

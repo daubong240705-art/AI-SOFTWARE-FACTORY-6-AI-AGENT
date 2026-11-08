@@ -14,9 +14,10 @@ export function createKnowledgeMcp(deps: { raw: Database; knowledge: KnowledgeIn
       WHERE a.project_id = ? AND a.attempt_id = ?`).get(grant.projectId, grant.attemptId) as { teamId: string } | undefined;
     return { projectId: grant.projectId, teamId: row?.teamId ?? null, viewer: "agent" };
   };
-  const clean = <T extends Pick<KnowledgeResult, "title" | "abstractL0">>(row: T): T => ({
-    ...row, title: sanitizeAgentText(row.title), abstractL0: sanitizeAgentText(row.abstractL0),
-  });
+  const clean = <T extends Pick<KnowledgeResult, "title" | "abstractL0" | "projectId">>(row: T): Omit<T, "projectId"> => {
+    const { projectId: _projectId, ...fields } = row;
+    return { ...fields, title: sanitizeAgentText(row.title), abstractL0: sanitizeAgentText(row.abstractL0) };
+  };
   const result = (text: string, isError = false): ToolResult => ({ content: [{ type: "text", text }], isError });
   return {
     call(grant: TokenGrant, name: string, input: unknown): ToolResult {

@@ -156,6 +156,7 @@ test("tool success has the exact stop instruction", () => {
 });
 test("tool list describes strict business questions and nested options", () => {
   const list = tools().handler.handle({}, { jsonrpc: "2.0", id: 1, method: "tools/list" }).body.result.tools;
+  assert.deepEqual(list.map((item) => item.name), ["task.progress", "output.register", "decision.request"]);
   const tool = list.find((item) => item.name === "decision.request"); assert.ok(tool); assert.equal(tool.inputSchema.additionalProperties, false);
   assert.equal(tool.inputSchema.properties.options.items.additionalProperties, false); assert.match(tool.description, /ONLY.*business decisions.*stop/);
   assert.equal(tool.inputSchema.properties.options.minItems, 2); assert.equal(tool.inputSchema.properties.options.maxItems, 6);
