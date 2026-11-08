@@ -92,7 +92,7 @@ test("release balances real fake-runtime attempts across matching workers", asyn
   assert.deepEqual(tasks.map((task) => f.seats.find((seat) => seat.id === f.getTask(task.id).ownerSeatId).name), ["Alpha", "Zulu"]);
   await pumped(); assert.equal(f.runtime.started.length, 2);
 });
-test("equal loads break ties by name before id", (t) => {
+test("equal loads break ties by manifest order", (t) => {
   const f = setup(t); const alpha = f.seats.find((seat) => seat.name === "Alpha"); const zulu = f.seats.find((seat) => seat.name === "Zulu");
   const low = "00000000-0000-4000-8000-000000000001"; const high = "ffffffff-ffff-4fff-8fff-ffffffffffff";
   f.raw.prepare("UPDATE seats SET id = ? WHERE id = ?").run(high, alpha.id); f.raw.prepare("UPDATE seats SET id = ? WHERE id = ?").run(low, zulu.id);

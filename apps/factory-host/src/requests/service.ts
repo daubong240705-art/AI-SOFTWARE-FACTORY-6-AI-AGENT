@@ -3,6 +3,7 @@ import type { Database } from "better-sqlite3";
 import { requestCreateInputSchema, requestReplyInputSchema, type EntityRef, type RequestCreateInput, type RequestReplyInput } from "@factory/contracts";
 import type { Dispatcher } from "../dispatch/dispatcher.js";
 import { appendAttemptEvent } from "../dispatch/attempts.js";
+import { pickSeat } from "../dispatch/seats.js";
 import { moveTask } from "../dispatch/tasks.js";
 import { moveTaskAndAdvance } from "../dispatch/transitions.js";
 import type { EventHub } from "../events/hub.js";
@@ -100,8 +101,7 @@ function insertRequest(deps: RequestDeps, input: RequestCreateInput, source: { p
   const projectId = source.projectId;
   const engagementId = engagement(raw, projectId, input.targetTeamId, ["clarify", "consult", "review"].includes(input.kind), now, deps.newId);
   const automatic = ["clarify", "consult"].includes(input.kind) && engagementId !== null;
-  const seatId = automatic ? owner(raw, input.targetTeamId) : null;
-  const id = deps.newId();
+    const id = deps.newId();
   const codes = raw.prepare("SELECT code FROM tasks WHERE project_id = ?").all(projectId) as { code: string }[];
   const next = codes.reduce((max, row) => /^REQ-\d+$/.test(row.code) ? Math.max(max, Number(row.code.slice(4))) : max, 0) + 1;
   const code = `REQ-${String(next).padStart(3, "0")}`;
@@ -109,7 +109,7 @@ function insertRequest(deps: RequestDeps, input: RequestCreateInput, source: { p
     origin_kind,requester_task_id,request_kind,hop,state,disposition,placement,side_effect,review_policy,requires_go,
     required_capabilities_json,acceptance_json,inputs_json)
     VALUES (?,?,1,?,?,?,?,?,?,'cross-team',?,?,?,'draft','active',?,?,'automatic',?,'[]',?,?)`)
-    .run(projectId, id, code, input.subject, input.ask.slice(0, 500), input.ask, engagementId, seatId,
+    .run(projectId, id, code, input.subject, input.ask.slice(0, 500), input.ask, engagementId, null,
       source.requesterTaskId, input.kind, source.hop, ["clarify", "consult"].includes(input.kind) ? "portable" : "node-bound",
       ["produce", "review"].includes(input.kind) ? "artifact" : "none", Number(!["clarify", "consult", "notify"].includes(input.kind)),
       JSON.stringify(input.expectedResponse.acceptance), JSON.stringify(input.contextRefs));
@@ -120,6 +120,9 @@ function insertRequest(deps: RequestDeps, input: RequestCreateInput, source: { p
   appendRequestMessage(raw, { projectId, requestTaskId: id, author: "requester", text: input.ask, now });
   moveTask(raw, projectId, id, "proposed");
   if (automatic) {
+    // Same seat selection as any task (capability match, else the legacy rules; Lead only for a lead-only team).
+    raw.prepare("UPDATE tasks SET owner_seat_id = ? WHERE project_id = ? AND id = ?")
+      .run(pickSeat(raw, projectId, getTask(raw, projectId, id)!).seatId, projectId, id);
     raw.prepare("UPDATE ctr_meta SET triage_state = 'accepted',triage_by = 'system',triage_at = ? WHERE project_id = ? AND task_id = ?")
       .run(now, projectId, id);
     moveTaskAndAdvance(raw, getTask(raw, projectId, id)!, "accepted", deps);
@@ -222,10 +225,17 @@ export function triageRequest(raw: Database, input: TriageInput, deps: RequestDe
     let triageState: string = input.decision; let redirected: string | null = null; let merged: string | null = null;
     if (input.decision === "accept") {
       targetTeam(raw, row.target_team_id);
-      const seatId = owner(raw, row.target_team_id, input.ownerSeatId);
+      const explicitSeat = input.ownerSeatId === undefined ? null : owner(raw, row.target_team_id, input.ownerSeatId);
       const engagementId = engagement(raw, projectId, row.target_team_id, row.request_kind === "produce", now, deps.newId, 50, 2);
       if (!engagementId) refuse("needs an engagement: operator triage required");
-      raw.prepare("UPDATE tasks SET engagement_id = ?,owner_seat_id = ? WHERE project_id = ? AND id = ?").run(engagementId, seatId, projectId, requestTaskId);
+      raw.prepare("UPDATE tasks SET engagement_id = ?,owner_seat_id = ? WHERE project_id = ? AND id = ?").run(engagementId, explicitSeat, projectId, requestTaskId);
+      if (explicitSeat === null) {
+        // Default owner: the same seat selection as any task (capability match, legacy rules, Lead only for a lead-only team).
+        let picked: string;
+        try { picked = pickSeat(raw, projectId, getTask(raw, projectId, requestTaskId)!).seatId; }
+        catch { return refuse("owner seat is required", "validation"); }
+        raw.prepare("UPDATE tasks SET owner_seat_id = ? WHERE project_id = ? AND id = ?").run(picked, projectId, requestTaskId);
+      }
       effects.push(...moveTaskAndAdvance(raw, getTask(raw, projectId, requestTaskId)!, "accepted", deps));
       triageState = "accepted";
     } else if (input.decision === "need-info") {

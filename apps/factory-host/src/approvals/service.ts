@@ -11,6 +11,7 @@ import { getTask } from "../work/service.js";
 import { assertActiveGrant, McpToolError, sanitizeAgentText } from "../mcp/security.js";
 import { cleanDecisionRequest, type DecisionRequestInput } from "../mcp/tools.js";
 import { listAttempts, liveAttemptOfTask } from "../dispatch/attempts.js";
+import { ArtifactLifecycleError } from "../knowledge/lifecycle.js";
 
 interface ApprovalRow {
   project_id: string; id: string; revision: number; kind: Approval["kind"]; task_id: string | null;
@@ -159,7 +160,7 @@ export function requestTaskReview(deps: { raw: Database; now: () => Date; newId:
 
 /** The optional dispatcher is supplied by host wiring; the command remains kind agnostic. */
 export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Command, { type: "approvals.decide" }>,
-  deps?: { dispatcher: Dispatcher }): HandlerResult {
+  deps?: { dispatcher: Dispatcher; multiTeam?: boolean }): HandlerResult {
   const { raw } = ctx;
   const { projectId, payload } = command;
   const approval = rowOf(raw, projectId, payload.approvalId);
@@ -232,8 +233,14 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
     effects.push(effect(approval.id, approval.revision + 2));
   } else if (task && deps) {
     effects.push(...moveTaskAndAdvance(raw, task, payload.optionId === "accept" ? "done" : "active", deps));
-    for (const ref of setTaskArtifactStatus(raw, { projectId, taskId: task.id, to: payload.optionId === "accept" ? "approved" : "rejected" }))
-      effects.push({ kind: "artifact-version", id: ref.artifactId, revision: ref.version });
+    let refs: ReturnType<typeof setTaskArtifactStatus>;
+    try { refs = setTaskArtifactStatus(raw, { projectId, taskId: task.id, to: payload.optionId === "accept" ? "approved" : "rejected", multiTeam: deps.multiTeam === true }); }
+    catch (error) {
+      // The whole decision rolls back: accepting must not approve a document that lacks its summary (L1).
+      if (error instanceof ArtifactLifecycleError) throw new CommandError("conflict", error.message, "correct-input");
+      throw error;
+    }
+    for (const ref of refs) effects.push({ kind: "artifact-version", id: ref.artifactId, revision: ref.version });
     if (payload.optionId === "accept") {
       raw.prepare("UPDATE approvals SET state = 'applied', applied_by_command_id = ?, revision = revision + 1 WHERE project_id = ? AND id = ?")
         .run(command.commandId, projectId, approval.id);
@@ -243,7 +250,7 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
   return { effects };
 }
 
-export function createApprovalsDecideHandler(deps: { dispatcher: Dispatcher }): HandlerMap["approvals.decide"] {
+export function createApprovalsDecideHandler(deps: { dispatcher: Dispatcher; multiTeam?: boolean }): HandlerMap["approvals.decide"] {
   return (ctx, command) => approvalsDecideHandler(ctx, command, deps);
 }
 

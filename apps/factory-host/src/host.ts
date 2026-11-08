@@ -467,7 +467,7 @@ export async function startHost(options: {
       "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false }),
       "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,
-      "approvals.decide": withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch })),
+      "approvals.decide": withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: options.multiTeam === true })),
         ...createKnowledgeHandlers({ multiTeam: options.multiTeam ?? false }),
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
       ...dispatchHandlers,

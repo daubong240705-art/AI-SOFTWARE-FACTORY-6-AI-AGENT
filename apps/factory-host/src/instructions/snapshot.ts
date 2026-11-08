@@ -28,7 +28,12 @@ function pinnedSeat(raw: Database, input: { seatId: string }) {
   const manifest = packManifestSchema.parse(JSON.parse(row.manifest) as unknown);
   const seat = manifest.seats.find((entry) => entry.name === row.name);
   if (!seat) return null;
-  return { digest: row.digest, seat };
+  return { digest: row.digest, seat, index: manifest.seats.indexOf(seat) };
+}
+
+/** Position of the seat in its pinned manifest: the pack author's order of preference for default work. */
+export function getSeatOrder(raw: Database, input: { seatId: string }): number | null {
+  return pinnedSeat(raw, input)?.index ?? null;
 }
 
 export function getSeatCapabilities(raw: Database, input: { seatId: string }): string[] | null {

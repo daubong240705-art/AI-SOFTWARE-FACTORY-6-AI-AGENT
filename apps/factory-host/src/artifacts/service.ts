@@ -218,7 +218,7 @@ export function registerAttemptResults(deps: {
 
 /** Follow contract edges to the requested status; final versions are untouched. */
 export function setTaskArtifactStatus(raw: Database, input: {
-  projectId: string; taskId: string; to: "approved" | "rejected" | "withdrawn" | "reviewed";
+  projectId: string; taskId: string; to: "approved" | "rejected" | "withdrawn" | "reviewed"; multiTeam?: boolean;
 }): ResultRef[] {
   try {
     return collectLifecycleChanges(raw, () => raw.transaction(() => {
@@ -241,6 +241,7 @@ export function setTaskArtifactStatus(raw: Database, input: {
         for (const status of path.slice(1)) transitionArtifactVersion(raw, {
           projectId: input.projectId, artifactId: artifact.artifactId, version: version.version,
           to: status, actorId: "operator", now: new Date().toISOString(),
+          ...(input.multiTeam === true ? { multiTeam: true } : {}),
         });
         refs.push({ artifactId: artifact.artifactId, version: version.version, kind: artifact.kind, contentHash: version.contentHash });
       }

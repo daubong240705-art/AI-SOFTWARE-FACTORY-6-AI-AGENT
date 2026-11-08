@@ -1,7 +1,7 @@
 import type { Database } from "better-sqlite3";
 import type { Task } from "@factory/contracts";
 import { listSeats } from "../org/service.js";
-import { getSeatCapabilities } from "../instructions/snapshot.js";
+import { getSeatCapabilities, getSeatOrder } from "../instructions/snapshot.js";
 
 export class DispatchCommandError extends Error {
   constructor(readonly code: string) { super(code); this.name = "DispatchCommandError"; }
@@ -43,10 +43,11 @@ export function pickSeat(raw: Database, projectId: string, task: Task): { seatId
       JOIN seats seat ON seat.id = s.seat_id
       WHERE a.project_id = ? AND seat.team_id = ? AND s.seat_id = ?
       AND a.state IN ('queued', 'leased', 'preparing', 'running', 'waiting-input', 'parked')`);
-    // Stable sorting preserves listSeats' name/id order for equal loads.
-    const ranked = candidates.map(({ seat }) => ({ seat,
+    // Equal loads follow the pack author's seat order (manifest position): reviewers are listed last, so default work goes to producers first.
+    // listSeats' name/id order remains the final tie-break through the stable sort.
+    const ranked = candidates.map(({ seat }) => ({ seat, order: getSeatOrder(raw, { seatId: seat.id }) ?? Number.MAX_SAFE_INTEGER,
       load: (load.get(projectId, engagement!.team_id, seat.id) as { n: number }).n }));
-    ranked.sort((a, b) => a.load - b.load);
+    ranked.sort((a, b) => a.load - b.load || a.order - b.order);
     return { seatId: ranked[0]!.seat.id, reason: capabilities.length ? "capability match" : "least loaded" };
   }
   const words = new Set([task.title.toLowerCase(), ...capabilities].join(" ").split(/[^a-z0-9]+/));
