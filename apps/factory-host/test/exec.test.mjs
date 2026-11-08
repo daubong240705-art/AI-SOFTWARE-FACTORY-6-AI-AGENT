@@ -500,3 +500,15 @@ describe("Linux process-group integration", { skip: !linux && "requires Linux pr
     assert.equal(result.exitCode, 0); assert.equal(result.groupGone, true);
   });
 });
+
+// --- added by the lead after mutation testing (M6-M11) ------------------------------------------------------------
+for (const relative of [".", "./", ""]) test(`invalid options: an EXISTING relative cwd ${JSON.stringify(relative)} is refused, not resolved against the Host`, (t) => {
+  validateAsLinux(t);
+  assert.throws(() => startProcess({ ...validationDefaults, cwd: relative }), errorCode("invalid-options"));
+});
+test("buildSafeEnv refuses supplied variables over 64 KiB in total, counting UTF-8 bytes", () => {
+  assert.throws(() => buildSafeEnv({ HOME: cwd, BIG: "x".repeat(65536) }), errorCode("invalid-options"));
+  assert.throws(() => buildSafeEnv({ HOME: cwd, BIG: "€".repeat(22000) }), errorCode("invalid-options"));
+  assert.throws(() => buildSafeEnv({ HOME: cwd, A: "x".repeat(40000), B: "y".repeat(30000) }), errorCode("invalid-options"));
+  assert.equal(buildSafeEnv({ HOME: cwd, OK: "x".repeat(60000) }).OK.length, 60000);
+});
