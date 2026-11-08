@@ -1,0 +1,46 @@
+{
+  "key": "design-team",
+  "version": "1.0.0",
+  "name": "Design Team",
+  "description": "Turns user goals into accessible interaction flows and implementable interface specifications. Delivers ui-spec artifacts covering screens, states, design tokens, and review evidence.",
+  "seats": [
+    {
+      "name": "Lead",
+      "role": "Design lead",
+      "profile": "profiles/lead.md",
+      "runtime": "api-agent",
+      "slots": 1,
+      "isLead": true
+    },
+    {
+      "name": "UX Designer",
+      "role": "User experience designer",
+      "profile": "profiles/ux-designer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false
+    },
+    {
+      "name": "UI Designer",
+      "role": "Interface specification designer",
+      "profile": "profiles/ui-designer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false
+    },
+    {
+      "name": "Design Reviewer",
+      "role": "Independent design reviewer",
+      "profile": "profiles/design-reviewer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false
+    }
+  ],
+  "skills": [
+    "skills/ux-flow",
+    "skills/ui-spec",
+    "skills/accessibility-review",
+    "skills/design-tokens"
+  ]
+}

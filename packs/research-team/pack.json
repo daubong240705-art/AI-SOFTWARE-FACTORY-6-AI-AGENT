@@ -1,0 +1,46 @@
+{
+  "key": "research-team",
+  "version": "1.0.0",
+  "name": "Research Team",
+  "description": "Answers scoped research questions with traceable evidence, explicit uncertainty, and practical comparisons. Delivers research-report artifacts for project decisions.",
+  "seats": [
+    {
+      "name": "Lead",
+      "role": "Research lead",
+      "profile": "profiles/lead.md",
+      "runtime": "api-agent",
+      "slots": 1,
+      "isLead": true
+    },
+    {
+      "name": "Researcher",
+      "role": "Evidence researcher",
+      "profile": "profiles/researcher.md",
+      "runtime": "native-opencode",
+      "slots": 2,
+      "isLead": false
+    },
+    {
+      "name": "Analyst",
+      "role": "Comparative research analyst",
+      "profile": "profiles/analyst.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false
+    },
+    {
+      "name": "Fact Checker",
+      "role": "Independent evidence reviewer",
+      "profile": "profiles/fact-checker.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false
+    }
+  ],
+  "skills": [
+    "skills/research-brief",
+    "skills/source-evaluation",
+    "skills/report-writing",
+    "skills/comparative-analysis"
+  ]
+}

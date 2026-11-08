@@ -11,7 +11,7 @@ rm -rf "$DST"; mkdir -p "$DST/apps/factory-host" "$DST/packages/factory-contract
 tarx() { (cd "$1" && tar cf - --exclude=node_modules --exclude=dist "${@:3}") | tar xf - -C "$2"; }
 tarx "$SRC/packages/factory-contracts" "$DST/packages/factory-contracts" .
 tarx "$SRC/apps/factory-host" "$DST/apps/factory-host" .
-(cd "$SRC/packs" && tar cf - software-team) | tar xf - -C "$DST/packs"
+(cd "$SRC/packs" && tar cf - .) | tar xf - -C "$DST/packs"
 mkdir -p "$DST/schema" && (cd "$SRC/schema" && tar cf - factory-v2) | tar xf - -C "$DST/schema"
 (cd "$DST/packages/factory-contracts" && npm ci --ignore-scripts --no-audit --no-fund >/dev/null && npm run build >/dev/null)
 (cd "$DST/apps/factory-host" && npm ci --ignore-scripts --no-audit --no-fund >/dev/null)

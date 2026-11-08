@@ -1,0 +1,55 @@
+{
+  "key": "architecture-team",
+  "version": "1.0.0",
+  "name": "Architecture Team",
+  "description": "Turns clarified requirements into reviewable technical plans and explicit design decisions. Delivers adr, data-model, api-contract, and plan artifacts with risks and acceptance criteria.",
+  "seats": [
+    {
+      "name": "Lead",
+      "role": "Architecture lead",
+      "profile": "profiles/lead.md",
+      "runtime": "api-agent",
+      "slots": 1,
+      "isLead": true
+    },
+    {
+      "name": "Architect",
+      "role": "System architect",
+      "profile": "profiles/architect.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false
+    },
+    {
+      "name": "Data Designer",
+      "role": "Data model designer",
+      "profile": "profiles/data-designer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false
+    },
+    {
+      "name": "API Designer",
+      "role": "API contract designer",
+      "profile": "profiles/api-designer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false
+    },
+    {
+      "name": "Architecture Reviewer",
+      "role": "Independent architecture reviewer",
+      "profile": "profiles/architecture-reviewer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false
+    }
+  ],
+  "skills": [
+    "skills/spec-driven-planning",
+    "skills/write-adr",
+    "skills/data-model-design",
+    "skills/api-contract-design",
+    "skills/architecture-review"
+  ]
+}
