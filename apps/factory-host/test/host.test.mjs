@@ -370,17 +370,17 @@ test("pending migration backs up the existing database before applying the new f
   await first.close();
   const customMigrations = join(dir, "migrations");
   cpSync(migrationsDir, customMigrations, { recursive: true });
-  writeFileSync(join(customMigrations, "0004_marker.sql"), "CREATE TABLE migration_marker (id INTEGER PRIMARY KEY) STRICT;\n");
+  writeFileSync(join(customMigrations, "0005_marker.sql"), "CREATE TABLE migration_marker (id INTEGER PRIMARY KEY) STRICT;\n");
   const backupDir = join(dir, "saved-backups");
   const second = await launch(t, stateDir, { migrationsDir: customMigrations, backupDir });
-  assert.deepEqual(second.storage.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
+  assert.deepEqual(second.storage.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }]);
   const backups = readdirSync(backupDir);
   assert.equal(backups.length, 1);
-  assert.match(backups[0], /^pre-migration-0004-.*\.db$/);
+  assert.match(backups[0], /^pre-migration-0005-.*\.db$/);
   const backup = new Database(join(backupDir, backups[0]), { readonly: true });
   try {
     assert.equal(backup.prepare("SELECT id FROM projects WHERE id = ?").get(c.projectId).id, c.projectId);
-    assert.deepEqual(backup.prepare("SELECT version FROM migration_ledger").all(), [{ version: 1 }, { version: 2 }, { version: 3 }]);
+    assert.deepEqual(backup.prepare("SELECT version FROM migration_ledger").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }]);
     assert.equal(backup.prepare("SELECT name FROM sqlite_master WHERE name = ?").get("migration_marker"), undefined);
   } finally { backup.close(); }
 });
@@ -422,10 +422,10 @@ test("migration failure closes storage and allows a corrected restart", async (t
   const stateDir = join(dir, "state");
   const customMigrations = join(dir, "migrations");
   cpSync(migrationsDir, customMigrations, { recursive: true });
-  writeFileSync(join(customMigrations, "0004_broken.sql"), "invalid SQL;");
+  writeFileSync(join(customMigrations, "0005_broken.sql"), "invalid SQL;");
   let calls = 0;
   await assert.rejects(startHost({ stateDir, port: 0, migrationsDir: customMigrations,
-    onBootstrapToken() { calls++; } }), /migration 4 .* failed/);
+    onBootstrapToken() { calls++; } }), /migration 5 .* failed/);
   assert.equal(calls, 0);
   const next = await launch(t, stateDir);
   assert.equal(next.storage.raw.open, true);

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { labelSchema, sha256Schema, textSchema } from "./base.js";
-import { artifactKindSchema, artifactRefSchema } from "./knowledge.js";
+import { idSchema, labelSchema, sha256Schema, textSchema } from "./base.js";
+import { artifactKindSchema, artifactRefSchema, artifactStatusSchema } from "./knowledge.js";
 import { approvalOptionSchema } from "./approvals.js";
 import {
   placementSchema,
@@ -90,12 +90,30 @@ export const handoffSubmitInputSchema = z.strictObject({
     .max(50),
 });
 
+export const knowledgeSearchInputSchema = z.strictObject({
+  query: z.string().min(1).max(200),
+  kinds: z.array(artifactKindSchema).max(5).optional(),
+  statuses: z.array(artifactStatusSchema).max(5).optional(),
+  limit: z.number().int().min(1).max(20).optional(),
+  offset: z.number().int().min(0).max(200).optional(),
+});
+export type KnowledgeSearchInput = z.infer<typeof knowledgeSearchInputSchema>;
+
+export const knowledgeGetInputSchema = z.strictObject({
+  artifactId: idSchema,
+  version: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
+  level: z.enum(["l0", "l1", "l2"]).default("l1"),
+});
+export type KnowledgeGetInput = z.infer<typeof knowledgeGetInputSchema>;
+
 export const MCP_TOOLS = {
   "task.propose": taskProposeInputSchema,
   "task.progress": taskProgressInputSchema,
   "output.register": outputRegisterInputSchema,
   "decision.request": decisionRequestInputSchema,
   "handoff.submit": handoffSubmitInputSchema,
+  "knowledge.search": knowledgeSearchInputSchema,
+  "knowledge.get": knowledgeGetInputSchema,
 } as const;
 export type McpToolName = keyof typeof MCP_TOOLS;
 export const MCP_TOOL_NAMES = Object.keys(MCP_TOOLS) as McpToolName[];

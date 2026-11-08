@@ -37,6 +37,8 @@ import { createMcpHandler } from "./mcp/rpc.js";
 import { assertActiveGrant, McpToolError } from "./mcp/security.js";
 import { parsePushRemotes, validatePushSshCommand, type PushRemote } from "./effects/config.js";
 import { createEffectExecutor, type EffectExecutor } from "./effects/executor.js";
+import { createKnowledgeIndex, type KnowledgeIndex } from "./knowledge/index.js";
+import { registerKnowledgeRoutes } from "./knowledge/routes.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -183,6 +185,7 @@ export async function startHost(options: {
   models: { gateway: ModelGateway | null; budgetConfig: BudgetConfig };
   lead: LeadRunner;
   artifacts: { store: ContentStore };
+  knowledge: KnowledgeIndex;
   dispatch: Dispatcher | null;
   workspace: WorkspaceProvider | null;
   effects: EffectExecutor | null;
@@ -220,12 +223,14 @@ export async function startHost(options: {
   let scheduler: ReturnType<typeof startBackupScheduler> | undefined;
   let unlockState: (() => void) | undefined;
   let expiryTimer: unknown;
+  let knowledgeTimer: ReturnType<typeof setImmediate> | undefined;
   const interval = options.timers?.setInterval ?? ((callback: () => void, ms: number) => setInterval(callback, ms).unref());
   const clearExpiry = options.timers?.clearInterval ?? ((handle: unknown) => clearInterval(handle as ReturnType<typeof setInterval>));
   let closePromise: Promise<void> | undefined;
   const close = (): Promise<void> => {
     closePromise ??= (async () => {
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
+      if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
       await effects?.close();
       try { await runner?.stop(); } finally {
         try {
@@ -293,6 +298,15 @@ export async function startHost(options: {
     sweepApprovals();
     expiryTimer = interval(() => { try { sweepApprovals(); } catch { console.error("Approval expiry failed"); } }, 60_000);
     const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content") }) };
+    const knowledge = createKnowledgeIndex({ raw: storage.raw, store: artifacts.store });
+    const backfill = (): void => {
+      knowledgeTimer = undefined;
+      try {
+        const batch = knowledge.indexAllMissing();
+        if (batch.remaining && batch.indexed) knowledgeTimer = setImmediate(backfill).unref();
+      } catch { console.error("Knowledge indexing failed"); }
+    };
+    knowledgeTimer = setImmediate(backfill).unref();
     const resultId = createIdGenerator(clock);
     const leadSeat = pack.manifest.seats.find((seat) => seat.isLead);
     if (!leadSeat) throw new Error("Pack has no Lead seat");
@@ -425,6 +439,7 @@ export async function startHost(options: {
     });
     app = createApiServer({ origins, gate, sessions, clock, register(app, guards) {
       routes(app, guards);
+      registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge });
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
         apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set",
           "conversations.create", "chat.send", "approvals.decide",
@@ -439,7 +454,7 @@ export async function startHost(options: {
     const token = gate.token;
     if (token === undefined) throw new Error("Bootstrap token unavailable");
     options.onBootstrapToken(token);
-    return { app, port, origins, storage, hub, lead, dispatch, workspace, effects, proxy, backup, artifacts, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
+    return { app, port, origins, storage, hub, lead, dispatch, workspace, effects, proxy, backup, artifacts, knowledge, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
   } catch (error) {
     try { await close(); } catch { /* Preserve the original startup failure. */ }
     throw error;
