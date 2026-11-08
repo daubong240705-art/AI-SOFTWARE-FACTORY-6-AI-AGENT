@@ -1,6 +1,8 @@
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
+import { readModels } from './readModels';
+export type { Attempt, AttemptEvent, AttemptPatch, TaskArtifact, ArtifactContent } from './readModels';
 
 // Extend exported strict contract objects to validate the Host's HTTP envelopes without
 // importing their private schema-library dependency into this package.
@@ -84,6 +86,20 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listProjects: () => request('/projects', projects),
     getTeam: (id: string) => request(`${projectPath(id)}/team`, team),
     listTasks: (id: string) => request(`${projectPath(id)}/tasks`, tasks),
+    listAttempts: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/attempts`, readModels.attempts),
+    listAttemptEvents: (id: string, attemptId: string, options: { afterSeq?: number; limit?: number } = {}) => {
+      const query = new URLSearchParams();
+      if (options.afterSeq !== undefined) query.set('afterSeq', String(options.afterSeq));
+      if (options.limit !== undefined) query.set('limit', String(options.limit));
+      return request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/events${query.size ? `?${query}` : ''}`, readModels.events);
+    },
+    async getAttemptPatch(id: string, attemptId: string) {
+      try { return await request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/patch`, readModels.patch); }
+      catch (error) { if (error instanceof ApiClientError && error.status === 404) return null; throw error; }
+    },
+    listTaskArtifacts: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/artifacts`, readModels.artifacts),
+    getArtifactContent: (id: string, artifactId: string, version: number) => request(`${projectPath(id)}/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(version)}/content`, readModels.content),
+    listTaskApprovals: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/approvals`, readModels.approvals),
     listConversations: (id: string) => request(`${projectPath(id)}/conversations`, conversations),
     listMessages: (id: string, cid: string, options: { afterOrdinal?: number; limit?: number } = {}) => {
       const query = new URLSearchParams();

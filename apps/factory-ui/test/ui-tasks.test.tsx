@@ -19,7 +19,7 @@ const error = (code: 'conflict' | 'internal' = 'internal') => new ApiClientError
 const makeTask = (patch: Partial<Task> = {}) => taskSchema.parse({ ...task, ...patch });
 async function tasks(items: Task[] = [makeTask()]) {
   const value = setupUI(); stores.push(value.store); value.api.listTasks.mockResolvedValue({ ...envelope, items }); await value.store.boot(); await value.store.selectProject(id);
-  const rendered = render(<ProjectTasks store={value.store} projectId={id} />); return { ...value, ...rendered };
+  const rendered = render(<ProjectTasks store={value.store} projectId={id} />); fireEvent.click(screen.getByRole('button', { name: 'List' })); return { ...value, ...rendered };
 }
 function newTask() { fireEvent.click(screen.getByRole('button', { name: 'New task' })); }
 function fill(title = 'My task', goal = 'Reach the goal', acceptance = 'First criterion\nSecond criterion') {

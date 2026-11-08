@@ -1,6 +1,22 @@
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  workUi: {
+    board: 'Bảng', list: 'Danh sách', views: 'Chế độ xem công việc', empty: 'Chưa có công việc trong cột này.',
+    columns: { proposed: 'Đề xuất', ready: 'Sẵn sàng', running: 'Đang chạy', review: 'Đang xét duyệt', done: 'Hoàn thành', attention: 'Cần chú ý', closed: 'Đã đóng' },
+    count: { one: 'công việc', other: 'công việc' }, dependencyCount: { one: 'phụ thuộc', other: 'phụ thuộc' },
+    request: 'Yêu cầu', progress: 'Tiến độ', results: 'Kết quả', actions: 'Thao tác', sections: 'Các mục công việc', close: 'Đóng công việc', lifecycle: 'Vòng đời', holds: 'Các điều kiện chờ',
+    attempts: 'Các lần thực thi', epoch: 'Lần thực thi', started: 'Bắt đầu', ended: 'Kết thúc', live: 'Trực tiếp', noAttempts: 'Chưa có lần thực thi.', noEvents: 'Chưa có sự kiện tiến độ.', noResults: 'Chưa có sản phẩm.',
+    states: { queued: 'Trong hàng đợi', leased: 'Đã cấp phiên', preparing: 'Đang chuẩn bị', running: 'Đang chạy', 'waiting-input': 'Chờ thông tin', parked: 'Tạm gác', stopping: 'Đang dừng', stopped: 'Đã dừng', submitting: 'Đang nộp', succeeded: 'Thành công', failed: 'Thất bại', 'lease-expired': 'Hết hạn phiên', unknown: 'Chưa xác định', reconciling: 'Đang đối soát', requeued: 'Đã xếp hàng lại' },
+    kinds: { progress: 'Tiến độ', state: 'Trạng thái', evidence: 'Bằng chứng', output: 'Đầu ra', question: 'Câu hỏi', usage: 'Mức sử dụng' },
+    holdKinds: { input: 'Thông tin đầu vào', dependency: 'Phụ thuộc', 'cross-team': 'Liên nhóm', decision: 'Quyết định', capacity: 'Năng lực', budget: 'Ngân sách', permission: 'Quyền hạn' },
+    statuses: { draft: 'Bản nháp', 'in-review': 'Đang xét duyệt', reviewed: 'Đã xét duyệt', approved: 'Đã phê duyệt', superseded: 'Đã thay thế', rejected: 'Đã từ chối', withdrawn: 'Đã rút lại' },
+    version: 'Phiên bản', viewText: 'Xem văn bản', viewPatch: 'Xem bản vá', noPatch: 'Chưa có bản vá.', copy: 'Sao chép bản vá', download: 'Tải tệp .patch', copied: 'Đã sao chép bản vá.', copyFailed: 'Không thể dùng bộ nhớ tạm. Hãy chọn văn bản bản vá và sao chép thủ công.', downloadFailed: 'Không thể tải xuống. Hãy chọn văn bản bản vá và lưu thủ công.',
+    evidence: 'Bằng chứng vùng làm việc', files: { one: 'tệp', other: 'tệp' }, additions: { one: 'dòng thêm', other: 'dòng thêm' }, deletions: { one: 'dòng xóa', other: 'dòng xóa' },
+    diff: 'So sánh bản vá', unnamed: 'Bản vá', showMore: 'Xem thêm', truncated: 'Bản xem trước bị giới hạn. Tải bản vá để đọc các dòng còn lại.', added: 'Đã thêm', removed: 'Đã xóa',
+    start: 'Bắt đầu', stop: 'Dừng', retry: 'Thử lại', confirm: 'Xác nhận', back: 'Quay lại', fresh: 'Thử lại với phiên bản mới nhất',
+    explanation: { start: 'Tác tử sẽ làm việc trong vùng làm việc riêng và sử dụng ngân sách mô hình.', stop: 'Tác tử được dừng và công việc đã làm được giữ lại.', retry: 'Một lần thực thi mới bắt đầu từ công việc trước đó.' },
+  },
   chatUi: {
     start: 'Bắt đầu trò chuyện với trưởng nhóm', noLead: 'Đội ngũ này chưa được phân công vị trí trưởng nhóm.',
     budget: 'NGÂN SÁCH TOKEN', tokens: 'token', budgetLoading: 'Chưa có thông tin ngân sách token.',
@@ -19,7 +35,7 @@ export const extra: Translated<typeof en> = {
     goal: 'Mục tiêu', acceptance: 'Tiêu chí nghiệm thu', acceptanceHelp: 'Mỗi dòng một tiêu chí; từ 1–30 tiêu chí, mỗi tiêu chí tối đa 500 ký tự.',
     owner: 'Người phụ trách', dash: '—', details: 'Chi tiết', dependencies: 'Công việc phụ thuộc', placement: 'Phạm vi thực thi', sideEffect: 'Tác động', reviewPolicy: 'Chính sách xét duyệt',
     display: { waiting: 'Đang chờ', running: 'Đang chạy', blocked: 'Bị chặn', 'approval-required': 'Cần phê duyệt', completed: 'Đã hoàn thành', closed: 'Đã đóng' },
-    lifecycle: { draft: 'Bản nháp', proposed: 'Đề xuất', accepted: 'Đã chấp nhận', queued: 'Trong hàng đợi', active: 'Đang thực hiện', 'awaiting-go': 'Chờ cho phép', 'in-review': 'Đang xét duyệt', done: 'Hoàn thành', failed: 'Thất bại', declined: 'Đã từ chối', cancelled: 'Đã hủy', superseded: 'Đã thay thế' },
+    lifecycle: { ready: 'Sẵn sàng', draft: 'Bản nháp', proposed: 'Đề xuất', accepted: 'Đã chấp nhận', queued: 'Trong hàng đợi', active: 'Đang thực hiện', 'awaiting-go': 'Chờ cho phép', 'in-review': 'Đang xét duyệt', done: 'Hoàn thành', failed: 'Thất bại', declined: 'Đã từ chối', cancelled: 'Đã hủy', superseded: 'Đã thay thế' },
     actions: { proposed: 'Đề xuất', accepted: 'Chấp nhận', declined: 'Từ chối', cancelled: 'Hủy' },
     confirmation: 'Xác nhận thao tác công việc', confirm: { declined: 'Từ chối công việc này?', cancelled: 'Hủy công việc này?' },
     confirmActions: { declined: 'Xác nhận từ chối', cancelled: 'Xác nhận hủy' }, keep: 'Giữ công việc', retryNew: 'Thử lại bằng lệnh mới',

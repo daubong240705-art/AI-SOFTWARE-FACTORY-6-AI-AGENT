@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, type ReactNode } from 'react';
 
 const focusable = 'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])';
 
-export function Dialog({ labelledBy, onClose, children }: { labelledBy: string; onClose: () => void; children: ReactNode }) {
+export function Dialog({ labelledBy, onClose, children, className = '' }: { labelledBy: string; onClose: () => void; children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -36,5 +36,5 @@ export function Dialog({ labelledBy, onClose, children }: { labelledBy: string; 
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
   }, []);
-  return <div className="dialog-backdrop"><div ref={ref} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1} className="dialog card stack">{children}</div></div>;
+  return <div className={`dialog-backdrop ${className}`}><div ref={ref} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1} className="dialog card stack">{children}</div></div>;
 }

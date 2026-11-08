@@ -36,6 +36,8 @@ test.describe.serial('real Host and built Factory UI', () => {
     await page.getByRole('radio', { name: 'Delegate: let the Lead propose tasks', exact: true }).check();
     await send('PLAN-PLEASE: please plan', planReply);
     await page.getByRole('tab', { name: /^Tasks/ }).click();
+    // The Board is the default view; the older list/filter flows below use the List view.
+    await page.getByRole('group', { name: 'Task views', exact: true }).getByRole('button', { name: 'List', exact: true }).click();
   }
 
   test('a: anonymous sign-in exposes no project data and rejects a wrong token', async () => {

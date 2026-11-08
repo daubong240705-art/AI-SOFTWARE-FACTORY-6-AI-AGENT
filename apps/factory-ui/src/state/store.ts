@@ -1,10 +1,12 @@
 import { useSyncExternalStore } from 'react';
-import type { Command, Conversation, FactoryEvent, Project, Task } from '@factory/contracts';
-import { ApiClientError, createApiClient, type ApiClient, type BudgetResponse, type MessagesResponse, type TeamResponse } from '../api/client';
+import type { Approval, Command, Conversation, FactoryEvent, Project, Task } from '@factory/contracts';
+import { ApiClientError, createApiClient, type ApiClient, type ArtifactContent, type Attempt, type AttemptEvent, type AttemptPatch, type TaskArtifact, type BudgetResponse, type MessagesResponse, type TeamResponse } from '../api/client';
 import { openProjectEvents, type ProjectEventsOptions, type StreamStatus } from '../api/events';
 
 export type StoreError = { kind: string; message: string; correlationId?: string; code?: string };
 export type PendingCommand = { command: Command; status: 'pending' | 'failed'; error?: StoreError };
+export type TaskDetailState = { loading: boolean; error?: StoreError | undefined; attempts: Attempt[]; events: Record<string, AttemptEvent[]>; artifacts: TaskArtifact[]; approvals: Approval[]; patches: Record<string, AttemptPatch | null> };
+const emptyDetail = (): TaskDetailState => ({ loading: false, attempts: [], events: {}, artifacts: [], approvals: [], patches: {} });
 export type StoreState = {
   session: 'unknown' | 'anonymous' | 'authenticated'; projects: Project[]; selectedProjectId: string | null;
   team: TeamResponse | null; tasks: Task[]; conversations: Conversation[];
@@ -12,13 +14,15 @@ export type StoreState = {
   budget: BudgetResponse['budget'] | null; stream: StreamStatus;
   errors: Record<string, StoreError | undefined>; loading: Record<string, boolean>;
   pending: Record<string, PendingCommand | undefined>;
+  details: Record<string, TaskDetailState>; artifactContents: Record<string, ArtifactContent>;
+  liveAttempts: Record<string, Attempt>;
 };
 export type StoreOptions = {
   api?: ApiClient; baseUrl?: string; debounceMs?: number;
   openEvents?: (options: ProjectEventsOptions) => { close(): void };
   timer?: { setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 };
-const projectState = () => ({ team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, stream: 'closed' as const });
+const projectState = () => ({ team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
@@ -33,11 +37,14 @@ export function createStore(options: StoreOptions = {}) {
   const timer = options.timer ?? { setTimeout: (cb: () => void, ms: number) => setTimeout(cb, ms), clearTimeout: (handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>) };
   type Job = { run: () => Promise<void>; promise?: Promise<void>; dirty: boolean; timer?: unknown };
   const jobs = new Map<string, Job>();
+  const openTasks = new Set<string>();
+  const contentCache = new Map<string, { taskId: string; attemptId?: string }>();
   const stop = () => {
     generation++;
     stream?.close(); stream = undefined;
     for (const job of jobs.values()) if (job.timer !== undefined) timer.clearTimeout(job.timer);
     jobs.clear();
+    openTasks.clear(); contentCache.clear();
   };
   const anonymous = () => {
     authGeneration++;
@@ -55,9 +62,11 @@ export function createStore(options: StoreOptions = {}) {
   async function guarded(area: string, scope: number, work: () => Promise<Partial<StoreState>>) {
     if (!active(scope)) return;
     update({ loading: { ...state.loading, [area]: true }, errors: { ...state.errors, [area]: undefined } });
+    const detailId = area.startsWith('detail:') ? area.slice(7) : null;
+    if (detailId) update({ details: { ...state.details, [detailId]: { ...(state.details[detailId] ?? emptyDetail()), loading: true, error: undefined } } });
     try { const patch = await work(); if (active(scope)) update(patch); }
-    catch (error) { if (active(scope)) failed(area, error); }
-    finally { if (active(scope)) update({ loading: { ...state.loading, [area]: false } }); }
+    catch (error) { if (active(scope)) { failed(area, error); if (active(scope) && detailId) update({ details: { ...state.details, [detailId]: { ...(state.details[detailId] ?? emptyDetail()), error: errorDetails(error) } } }); } }
+    finally { if (active(scope)) { update({ loading: { ...state.loading, [area]: false } }); if (detailId && state.details[detailId]) update({ details: { ...state.details, [detailId]: { ...state.details[detailId], loading: false } } }); } }
   }
   // All reads of a collection share one queue, including initial loads and snapshot recovery.
   function enqueue(area: string, scope: number, work: () => Promise<Partial<StoreState>>, debounce = false): Promise<void> {
@@ -90,7 +99,16 @@ export function createStore(options: StoreOptions = {}) {
     return enqueue(area, generation, async () => {
       switch (area) {
         case 'team': return { team: await api.getTeam(id) };
-        case 'tasks': return { tasks: (await api.listTasks(id)).items };
+        case 'tasks': {
+          const tasks = (await api.listTasks(id)).items;
+          const summaries = await Promise.all(tasks.filter(task => task.state === 'active').map(async task => {
+            const attempts = (await api.listAttempts(id, task.id)).attempts;
+            return [task.id, [...attempts].sort((a, b) => b.epoch - a.epoch)[0]] as const;
+          }));
+          const liveAttempts: Record<string, Attempt> = {};
+          for (const [taskId, attempt] of summaries) if (attempt) liveAttempts[taskId] = attempt;
+          return { tasks, liveAttempts };
+        }
         case 'conversations': return { conversations: (await api.listConversations(id)).conversations };
         case 'budget': return { budget: (await api.getBudget(id)).budget };
       }
@@ -115,9 +133,87 @@ export function createStore(options: StoreOptions = {}) {
         turns: { ...state.turns, [conversationId]: [...turns.values()] } };
     }, debounce);
   }
+  function detailPatch(taskId: string, patch: Partial<TaskDetailState>): Partial<StoreState> {
+    return { details: { ...state.details, [taskId]: { ...(state.details[taskId] ?? emptyDetail()), ...patch } } };
+  }
+  function loadAttemptEvents(taskId: string, attemptId: string) {
+    const id = state.selectedProjectId;
+    const scope = generation;
+    if (!id) return Promise.resolve();
+    return enqueue(`attempt-events:${taskId}:${attemptId}`, scope, async () => {
+      const events = new Map<number, AttemptEvent>();
+      let afterSeq = 0;
+      while (events.size < 2000 && active(scope)) {
+        const limit = Math.min(500, 2000 - events.size);
+        const page = await api.listAttemptEvents(id, attemptId, { afterSeq, limit });
+        for (const event of page.events) if (event.seq > afterSeq && events.size < 2000) events.set(event.seq, event);
+        const last = Math.max(afterSeq, ...page.events.map(event => event.seq));
+        if (page.events.length < limit || last <= afterSeq) break;
+        afterSeq = last;
+      }
+      return detailPatch(taskId, { events: { ...state.details[taskId]?.events, [attemptId]: [...events.values()].sort((a, b) => a.seq - b.seq) } });
+    });
+  }
+  async function loadTaskDetail(taskId: string, debounce = false) {
+    const id = state.selectedProjectId;
+    const scope = generation;
+    if (!id) return;
+    await enqueue(`detail:${taskId}`, scope, async () => {
+      if (debounce && !openTasks.has(taskId)) return {};
+      const [attempts, artifacts, approvals] = await Promise.all([api.listAttempts(id, taskId), api.listTaskArtifacts(id, taskId), api.listTaskApprovals(id, taskId)]);
+      const sorted = [...attempts.attempts].sort((a, b) => b.epoch - a.epoch);
+      if (active(scope) && openTasks.has(taskId)) {
+        const ids = new Set([sorted[0]?.id, ...Object.keys(state.details[taskId]?.events ?? {})]);
+        for (const attemptId of ids) if (attemptId) void loadAttemptEvents(taskId, attemptId);
+      }
+      const patches = { ...state.details[taskId]?.patches };
+      for (const [attemptId, patch] of Object.entries(patches)) if (patch === null) { delete patches[attemptId]; if (active(scope)) contentCache.delete(`patch:${attemptId}`); }
+      return detailPatch(taskId, { attempts: sorted, artifacts: artifacts.items, approvals: approvals.approvals, patches });
+    }, debounce);
+  }
+  // Patches and artifact text share a 20-entry in-memory LRU. Eviction removes rendered data too.
+  function cacheEntry(key: string, entry: { taskId: string; attemptId?: string }): Partial<StoreState> {
+    contentCache.delete(key); contentCache.set(key, entry);
+    const details = { ...state.details };
+    const artifactContents = { ...state.artifactContents };
+    while (contentCache.size > 20) {
+      const oldest = contentCache.entries().next().value;
+      if (!oldest) break;
+      const [oldKey, old] = oldest; contentCache.delete(oldKey);
+      if (old.attemptId && details[old.taskId]) {
+        const detail = details[old.taskId]!; const patches = { ...detail.patches }; delete patches[old.attemptId]; details[old.taskId] = { ...detail, patches };
+      } else delete artifactContents[oldKey];
+    }
+    return { details, artifactContents };
+  }
+  function loadPatch(taskId: string, attemptId: string) {
+    const id = state.selectedProjectId; const scope = generation; const key = `patch:${attemptId}`;
+    if (!id) return Promise.resolve();
+    if (Object.hasOwn(state.details[taskId]?.patches ?? {}, attemptId)) { cacheEntry(key, { taskId, attemptId }); return Promise.resolve(); }
+    return enqueue(key, scope, async () => {
+      if (Object.hasOwn(state.details[taskId]?.patches ?? {}, attemptId)) return {};
+      const patch = await api.getAttemptPatch(id, attemptId);
+      if (!active(scope)) return {};
+      const cached = cacheEntry(key, { taskId, attemptId });
+      return { ...cached, details: { ...cached.details, [taskId]: { ...(cached.details?.[taskId] ?? emptyDetail()), patches: { ...cached.details?.[taskId]?.patches, [attemptId]: patch } } } };
+    });
+  }
+  function loadArtifactContent(taskId: string, artifactId: string, version: number) {
+    const id = state.selectedProjectId; const scope = generation; const key = `${artifactId}:${version}`;
+    if (!id) return Promise.resolve();
+    if (state.artifactContents[key]) { cacheEntry(key, { taskId }); return Promise.resolve(); }
+    return enqueue(`content:${key}`, scope, async () => {
+      if (state.artifactContents[key]) return {};
+      const content = await api.getArtifactContent(id, artifactId, version);
+      if (!active(scope)) return {};
+      const cached = cacheEntry(key, { taskId });
+      return { ...cached, artifactContents: { ...cached.artifactContents, [key]: content } };
+    });
+  }
   async function refresh() {
     await Promise.all([loadProjects(), loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget'),
       ...Object.keys(state.messages).map((id) => loadMessages(id))]);
+    await Promise.all([...openTasks].map(id => loadTaskDetail(id)));
   }
   function connect(id: string, scope: number) {
     if (!active(scope) || state.selectedProjectId !== id) return;
@@ -137,8 +233,11 @@ export function createStore(options: StoreOptions = {}) {
     if (payload.type === 'message.appended') void loadMessages(payload.message.conversationId, true);
     else if (payload.type === 'command.receipted') void loadArea('budget', true);
     else if (payload.type === 'entity.changed') {
+      if (['task', 'attempt', 'artifact-version', 'approval', 'effect'].includes(payload.entity.kind)) {
+        for (const taskId of openTasks) void loadTaskDetail(taskId, true);
+      }
       switch (payload.entity.kind) {
-        case 'task': void loadArea('tasks', true); break;
+        case 'task': case 'attempt': void loadArea('tasks', true); break;
         case 'project': void loadProjects(true); break;
         case 'team': case 'seat': case 'engagement': void loadArea('team', true); break;
         case 'conversation': void loadArea('conversations', true); break;
@@ -195,6 +294,13 @@ export function createStore(options: StoreOptions = {}) {
       await Promise.all([loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget')]);
     },
     loadMessages: (id: string) => loadMessages(id), send,
+    openTask(taskId: string) { openTasks.add(taskId); return loadTaskDetail(taskId); },
+    closeTask(taskId: string) {
+      openTasks.delete(taskId);
+      const job = jobs.get(`detail:${taskId}`);
+      if (job?.timer !== undefined) { timer.clearTimeout(job.timer); delete job.timer; }
+    },
+    loadTaskDetail: (taskId: string) => loadTaskDetail(taskId), loadAttemptEvents, loadPatch, loadArtifactContent,
     retry: (commandId: string) => { const pending = state.pending[commandId]; return pending?.status === 'failed' ? send(pending.command) : Promise.resolve(undefined); },
     applyEvent,
     dispose: () => { stop(); listeners.clear(); },

@@ -19,6 +19,18 @@ export function chatSend({ projectId, conversationId, conversationRevision, text
 export function tasksTransition({ projectId, ...payload }: Of<'tasks.transition'>['payload'] & { projectId: string }) {
   return build('tasks.transition', projectId, payload);
 }
+export function tasksRelease({ projectId, ...payload }: Of<'tasks.release'>['payload'] & { projectId: string }) {
+  return build('tasks.release', projectId, payload);
+}
+export function runsCancel({ projectId, attemptId, expectedRevision }: { projectId: string; attemptId: string; expectedRevision: number }) {
+  return build('runs.cancel', projectId, { runId: attemptId, expectedRevision });
+}
+export function tasksRetry({ projectId, taskId, expectedRevision }: { projectId: string; taskId: string; expectedRevision: number }) {
+  return tasksTransition({ projectId, taskId, expectedRevision, to: 'active' });
+}
+export function approvalsDecide({ projectId, ...payload }: Of<'approvals.decide'>['payload'] & { projectId: string }) {
+  return build('approvals.decide', projectId, payload);
+}
 export function tasksCreate({ projectId, code, title, goal, brief = goal, acceptance, requiredCapabilities = [] }: {
   projectId: string; code: string; title: string; goal: string; brief?: string;
   acceptance: string[]; requiredCapabilities?: string[];

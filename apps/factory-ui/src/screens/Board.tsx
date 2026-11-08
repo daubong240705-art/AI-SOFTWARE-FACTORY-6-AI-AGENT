@@ -1,0 +1,48 @@
+import { useState } from 'react';
+import { deriveDisplayStatus, isLiveAttempt, type Task } from '@factory/contracts';
+import { Badge } from '../components/Badge';
+import { i18n, plural, useT } from '../i18n';
+import type { Store } from '../state/store';
+
+export const boardColumns = ['proposed', 'ready', 'running', 'review', 'done', 'attention', 'closed'] as const;
+export type BoardColumn = typeof boardColumns[number];
+export function taskColumn(task: Task): BoardColumn {
+  if (task.state === 'failed' || task.holds.some(hold => hold.needsAction)) return 'attention';
+  switch (task.state) {
+    case 'proposed': return 'proposed';
+    case 'accepted': case 'ready': case 'awaiting-go': return 'ready';
+    case 'active': return 'running';
+    case 'in-review': return 'review';
+    case 'done': return 'done';
+    default: return 'closed';
+  }
+}
+export function Board({ store, onOpen }: { store: Store; onOpen: (taskId: string) => void }) {
+  const t = useT();
+  const state = store.useStoreSelector(value => value);
+  const [closed, setClosed] = useState(false);
+  const number = (v: number) => new Intl.NumberFormat(i18n.locale).format(v);
+  return <div className="board" aria-label={t('workUi.board')}>
+    {boardColumns.map(column => {
+      const tasks = state.tasks.filter(task => taskColumn(task) === column).sort((a, b) => a.code.localeCompare(b.code));
+      const count = <span>{number(tasks.length)} {plural(t, i18n.locale, tasks.length, 'workUi.count')}</span>;
+      return <section className="board-column stack" key={column} aria-label={t(`workUi.columns.${column}`)}>
+        <h3>{column === 'closed' ? <button type="button" aria-expanded={closed} onClick={() => setClosed(!closed)}>{t('workUi.columns.closed')} {count}</button> : <>{t(`workUi.columns.${column}`)} {count}</>}</h3>
+        {(column !== 'closed' || closed) && (tasks.length ? <ul className="task-list stack">{tasks.map(task => {
+          const attempt = state.details[task.id]?.attempts.find(a => isLiveAttempt(a.state)) ?? state.liveAttempts[task.id];
+          const live = attempt && isLiveAttempt(attempt.state) ? attempt : null;
+          const display = deriveDisplayStatus({ ...task, liveAttempt: live?.state ?? null });
+          const owner = state.team?.seats.find(seat => seat.id === task.ownerSeatId)?.name;
+          return <li key={task.id}><button type="button" className="board-card card stack" onClick={() => onOpen(task.id)}>
+            <span className="task-code">{task.code}</span><strong>{task.title}</strong>
+            <Badge className={`status-${display.status}`}>{t(`taskUi.display.${display.status}`)}</Badge>
+            <span>{t('taskUi.owner')}: {owner ?? t('taskUi.dash')}</span>
+            {task.state === 'active' && live && <span className="live-attempt">{t('workUi.live')}: {t(`workUi.states.${live.state}`)}</span>}
+            <span className="capability-chips">{task.holds.map((hold, index) => <Badge key={index}>{t(`workUi.holdKinds.${hold.kind}`)}</Badge>)}</span>
+            <span>{number(task.dependsOn.length)} {plural(t, i18n.locale, task.dependsOn.length, 'workUi.dependencyCount')}</span>
+          </button></li>;
+        })}</ul> : <p className="muted">{t('workUi.empty')}</p>)}
+      </section>;
+    })}
+  </div>;
+}

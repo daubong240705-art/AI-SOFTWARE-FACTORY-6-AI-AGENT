@@ -8,6 +8,10 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Field } from '../components/Field';
+import { Board } from './Board';
+import { TaskDetail } from './TaskDetail';
+
+const viewChoices = new WeakMap<Store, 'board' | 'list'>();
 
 const supported: readonly TaskState[] = ['proposed', 'accepted', 'declined', 'cancelled'];
 const filters = ['all', 'proposed', 'accepted', 'done', 'closed'] as const;
@@ -17,6 +21,8 @@ export function ProjectTasks({ store, projectId }: { store: Store; projectId: st
   const t = useT();
   const state = store.useStoreSelector((value) => value);
   const [filter, setFilter] = useState<Filter>('all');
+  const [view, setView] = useState<'board' | 'list'>(() => viewChoices.get(store) ?? 'board');
+  const [selected, setSelected] = useState<string | null>(null);
   const id = useId();
   const tasks = [...state.tasks].sort((a, b) => a.code.localeCompare(b.code)).filter((task) => filter === 'all' || (filter === 'closed'
     ? deriveDisplayStatus({ ...task, liveAttempt: null }).status === 'closed' : task.state === filter));
@@ -25,11 +31,13 @@ export function ProjectTasks({ store, projectId }: { store: Store; projectId: st
     <div className="tasks-heading"><h2>{t('tabs.tasks')}</h2><p>{new Intl.NumberFormat(i18n.locale).format(count)} {plural(t, i18n.locale, count, 'taskUi.awaiting')}</p></div>
     {state.errors.tasks && <ErrorNotice error={state.errors.tasks} />}
     <NewTask store={store} projectId={projectId} />
-    <div className="field task-filter"><label htmlFor={id}>{t('taskUi.filter')}</label><select id={id} value={filter} onChange={(event) => setFilter(event.target.value as Filter)}>
+    <div className="task-actions" role="group" aria-label={t('workUi.views')}>{(['board', 'list'] as const).map(value => <Button key={value} aria-pressed={view === value} onClick={() => { setView(value); viewChoices.set(store, value); }}>{t(`workUi.${value}`)}</Button>)}</div>
+    {view === 'board' ? <Board store={store} onOpen={setSelected} /> : <><div className="field task-filter"><label htmlFor={id}>{t('taskUi.filter')}</label><select id={id} value={filter} onChange={(event) => setFilter(event.target.value as Filter)}>
       {filters.map((value) => <option key={value} value={value}>{t(`taskUi.filters.${value}`)}</option>)}
     </select></div>
     {state.loading.tasks && !state.tasks.length ? <p role="status">{t('viewStates.loading')}</p> : tasks.length ? <ul className="task-list stack">{tasks.map((task) => <li key={task.id}><TaskRow store={store} projectId={projectId} task={task} /></li>)}</ul>
-      : <Card><p>{t(state.tasks.length ? 'taskUi.noMatches' : 'tasks.empty')}</p></Card>}
+      : <Card><p>{t(state.tasks.length ? 'taskUi.noMatches' : 'tasks.empty')}</p></Card>}</>}
+    {selected && <TaskDetail key={selected} store={store} taskId={selected} onClose={() => setSelected(null)} />}
   </div>;
 }
 

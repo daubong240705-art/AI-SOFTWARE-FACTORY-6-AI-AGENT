@@ -81,6 +81,36 @@ button, input, select { min-width: 0; }
 .task-filter select { min-height: var(--size-control); }
 .project-tabs .badge { margin-left: var(--space-xs); }
 [hidden] { display: none !important; }
+.project-view, .project-view [role="tabpanel"], .task-detail, .task-detail > *, .diff, .diff-file { min-width: 0; max-width: 100%; }
+.board { display: flex; width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; gap: var(--space-lg); padding: var(--space-sm); align-items: stretch; }
+.board-column { flex: 0 0 var(--size-board-column-max); min-width: 0; padding: var(--space-sm); background: var(--color-raised); border-radius: var(--radius-panel); }
+.board-column h3 { font-size: var(--type-body-size); overflow-wrap: anywhere; }
+.board-column h3 span { color: var(--color-muted); font-weight: var(--type-meta-weight); }
+.board-card { text-align: left; width: 100%; align-items: flex-start; white-space: normal; font: inherit; color: var(--color-text); }
+.board-card strong, .board-card > span { max-width: 100%; overflow-wrap: anywhere; }
+.board-card .badge { white-space: normal; }
+.live-attempt { color: var(--color-working); }
+.task-detail-backdrop { place-items: stretch end; padding: 0; }
+.task-detail-backdrop > .dialog { max-width: calc(var(--size-chat-expanded) + var(--size-board-column-min)); height: 100dvh; max-height: 100dvh; border-radius: 0; }
+.task-detail .task-actions, .task-detail .project-tabs { flex-wrap: wrap; }
+.task-detail progress { max-width: 100%; accent-color: var(--color-success); }
+.progress-timeline { margin: 0; padding-left: var(--space-xl); overflow-wrap: anywhere; }
+.artifact-text { padding: var(--space-md); background: var(--color-canvas); overflow: auto; max-height: var(--size-chat); margin: 0; }
+.diff { border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: var(--space-sm); overflow: auto; }
+.diff-file > button { max-width: 100%; overflow-wrap: anywhere; white-space: normal; text-align: left; }
+.diff-lines { margin: var(--space-sm) 0; font: var(--type-code-weight) var(--type-code-size) / var(--type-code-line-height) var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.diff-line { display: flex; gap: var(--space-xs); align-items: flex-start; }
+.diff-line > span:last-child { min-width: 0; flex: 1; }
+.diff-number { flex: 0 0 calc(var(--space-xl) * 2); text-align: right; color: var(--color-muted); user-select: none; }
+.diff-added { color: var(--color-success); background: var(--color-success-surface); }
+.diff-removed { color: var(--color-danger); background: var(--color-danger-surface); }
+.diff-hunk { background: var(--color-raised); }
+@media (max-width: 600px) {
+  .board { flex-direction: column; overflow-x: hidden; }
+  .board-column { flex: auto; width: 100%; }
+  .task-detail-backdrop > .dialog { width: 100%; max-width: 100%; padding: var(--space-lg); }
+  .diff-number { flex-basis: var(--space-xl); }
+}
 /* Breakpoints from design tokens; custom properties are unavailable in media conditions. */
 @media (min-width: 1440px) { .seat-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 1179px) {
