@@ -49,6 +49,19 @@ Kết quả thử FTS5 (4 tài liệu: "Thiết kế cơ sở dữ liệu", "Đ�
 
 Thứ tự đề xuất: **K1 → O1 → C1 → X1 → P1 → U1 → E1**. K1 đi trước vì CTR cần `contextGrant` trên Artifact và tìm kiếm; O1 đi trước C1 vì CTR cần nhiều Team trong cùng Project.
 
+## Tiến độ (cập nhật 08/11/2026)
+
+| # | Trạng thái | Commit | Ghi chú |
+|---|---|---|---|
+| K1a | Xong | b87021b, 027baf0 | Chỉ mục FTS5 tiếng Việt, hàm quyền đọc duy nhất, tool MCP `knowledge.search/get`, route đọc; Windows 3267 / Linux 3461 test đạt; 36 đột biến bị bắt |
+| K1b | Card viết xong, **chờ duyệt** (Critical: data + migration + public-api) | — | Lệnh vòng đời tài liệu, supersede khi duyệt, đánh dấu stale; card `m3-knowledge-lifecycle` |
+| O1 | Card viết xong, **chờ duyệt** (Critical: public-api) | — | Registry Pack, lệnh Team/Engagement/Seat, Team chính, giới hạn `max_concurrent` + tạm dừng, cờ `FACTORY_MULTI_TEAM` (mặc định TẮT); card `m3-org-multi-team` |
+| C1, X1, P1 | Chưa | — | Sau K1b và O1 |
+| U1 | Card tab Knowledge viết xong; **bị chặn** | — | Sandbox Codex chưa ghi được vào file có sẵn của `apps/factory-ui` (cần cấp quyền quản trị như đã làm cho Host) |
+| E1 | Chưa | — | Cần bạn chọn model và ngân sách |
+
+Cũng đã làm trong lúc chờ: đóng mục "chưa kiểm đột biến" của M2 (clone/worktree/patch: 4 lỗ hổng thật được vá, commit e6d382a; chạy tiến trình: 2 lỗ hổng thật được vá, commit 5aa5a94).
+
 ## Test Cases bắt buộc (từ 06 §M3)
 
 1. Kịch bản 02 §18.1 chạy bằng Fake Runtime. 2. CTR vượt hop 3 bị từ chối; thread quá 3 vòng tự leo thang. 3. Hai CTR trùng được gộp. 4. Session Project A không đọc được Artifact nháp của Project B. 5. Version mới Approved làm bản cũ Superseded và đánh dấu stale đúng Task phụ thuộc. 6. Tìm "thiet ke" ra "thiết kế". 7. Tiếp nhận lại Project sau nhiều ngày dựng đúng Resume Briefing.
