@@ -23,7 +23,7 @@ function apply(ctx: HandlerContext, projectId: string, run: () => HandlerResult)
 export const artifactsTransitionHandler: HandlerMap["artifacts.transition"] = (ctx, { projectId, payload }) =>
   apply(ctx, projectId, () => ({ effects: transitionArtifactVersion(ctx.raw, {
     projectId, ...payload, actorId: ctx.actorId, now: ctx.clock().toISOString(),
-  }) }));
+  }), events: [{ type: "artifact.status-changed", artifactId: payload.artifactId, version: payload.version, to: payload.to }] }));
 export const artifactsShareHandler: HandlerMap["artifacts.share"] = (ctx, { projectId, payload }) =>
   apply(ctx, projectId, () => ({ effects: shareArtifactVersion(ctx.raw, { projectId, ...payload }) }));
 export const artifactsClearStaleHandler: HandlerMap["artifacts.clear-stale"] = (ctx, { projectId, payload }) =>
@@ -38,7 +38,7 @@ export function createKnowledgeHandlers(options: { multiTeam: boolean }): typeof
   return { ...knowledgeHandlers, "artifacts.transition": (ctx, { projectId, payload }) =>
     apply(ctx, projectId, () => ({ effects: transitionArtifactVersion(ctx.raw, {
       projectId, ...payload, actorId: ctx.actorId, now: ctx.clock().toISOString(), multiTeam: options.multiTeam,
-    }) })) };
+    }), events: [{ type: "artifact.status-changed", artifactId: payload.artifactId, version: payload.version, to: payload.to }] })) };
 }
 
 /** Review decisions keep their existing effects and add the versions/tasks changed by approval. */
@@ -57,7 +57,16 @@ export function withKnowledgeEffects<T extends Command["type"]>(handler: Handler
     if (completingTask) ctx.raw.prepare("DELETE FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'input'")
       .run(command.projectId, completingTask);
     const { result, effects } = collectLifecycleChanges(ctx.raw, () => handler(ctx, command));
-    return { ...result, effects: [...new Map([...result.effects, ...effects]
+    const events = [...(result.events ?? [])];
+    if (completion.type === "tasks.transition") events.push({ type: "task.status-changed", taskId: completion.payload.taskId, to: completion.payload.to });
+    if (completingTask && completion.type === "approvals.decide") events.push({ type: "task.status-changed", taskId: completingTask, to: "done" });
+    for (const entity of effects) {
+      if (entity.kind !== "artifact-version") continue;
+      const row = ctx.raw.prepare("SELECT status FROM artifact_versions WHERE project_id=? AND artifact_id=? AND version=?")
+        .get(command.projectId,entity.id,entity.revision) as { status: "approved" | "superseded" | string } | undefined;
+      if (row?.status === "approved" || row?.status === "superseded") events.push({ type: "artifact.status-changed",artifactId: entity.id,version: entity.revision,to: row.status });
+    }
+    return { ...result, events, effects: [...new Map([...result.effects, ...effects]
       .map((e) => [`${e.kind}:${e.id}:${e.revision}`, e])).values()] };
   })) as HandlerMap[T];
 }

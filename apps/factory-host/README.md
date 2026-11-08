@@ -227,3 +227,32 @@ Behind `FACTORY_MULTI_TEAM=1` only (flag off: the tools are not listed and the c
 - Every git call runs through the process runner with an exact environment: no hooks, no global/system config, no credential helpers, no prompts.
 - CLI: `node dist/workspace/cli.js clone --projects-root <dir> --name <name> --source <path|url>`.
 - Checked on the real `E:\GIT\BTL-LTM` (read-only): clone in about 30 s over the 9p mount, evidence and patch round trip, and the source `.git` (1742 files) unchanged.
+
+## Project Dossier and Resume Briefing (M3 X1b)
+
+`dossier.refresh {}` is an operator command available without a feature flag. It
+builds a deterministic Project Dossier from approved requirements and canonical
+artifacts, task and gate counts, applied decisions, pending questions, open
+cross-team requests, stale knowledge, engagements and next steps. Lists are
+bounded and ordered; free text is sanitized. No model is called.
+
+Refresh stores a new `dossier` draft version through artifact registration,
+including the content store, knowledge index, supersession, dependant staleness
+and entity events. Identical state returns the existing reference. The digest
+has no clock timestamp and excludes the dossier's own canonical reference.
+Review and approval use `artifacts.transition`; refresh never approves a version.
+
+Authenticated reads: `GET /projects/:projectId/dossier` returns the newest stored
+markdown and `current`/`outdated`; `GET /projects/:projectId/briefing?since=<ISO>`
+returns counts and up to ten examples per change category, knowledge freshness,
+team pack versions, fixed suggestions and explicit tracking limits. Without
+`since`, the baseline is the latest dossier creation or earliest retained project
+event. Windows are strictly after the baseline. Older transitions without recorded
+times are not reconstructed. Profile/skill diffs and Git HEAD changes are not
+tracked yet. Resume context comes from artifacts and decisions, never an old session.
+
+With `FACTORY_MULTI_TEAM=1`, agents can call read-only `project.briefing {}`.
+Artifact metadata and counts use `visibleToScope`; private drafts stay scoped to
+their team or exact request grants. The tool enforces active attempts, 100 calls
+per attempt and a 48,000-byte JSON response budget.
+

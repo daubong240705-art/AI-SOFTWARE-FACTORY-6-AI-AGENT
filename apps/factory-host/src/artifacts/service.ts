@@ -13,7 +13,7 @@ import { ArtifactLifecycleError, collectLifecycleChanges, supersedeForRegistrati
 
 export interface ResultRef { artifactId: string; version: number; kind: string; contentHash: string }
 type AfterRegister = (ref: { projectId: string; artifactId: string; version: number }) => void;
-function afterRegister(hook: AfterRegister | undefined, projectId: string, artifactId: string, version: number): void {
+export function afterRegister(hook: AfterRegister | undefined, projectId: string, artifactId: string, version: number): void {
   try { hook?.({ projectId, artifactId, version }); } catch { /* Missing index entries are recovered by backfill. */ }
 }
 export interface AttemptResultsInput {
@@ -111,7 +111,10 @@ export function registerAgentOutput(deps: {
       if (data.mediaType === "application/json") JSON.parse(text) as unknown;
     } catch { throw new McpToolError("output could not be registered"); }
     const title = sanitizeAgentText(data.title).trim() || "Output";
-    const previous = raw.prepare(`SELECT v.artifact_id AS artifactId, v.version, v.status FROM artifact_versions v
+    const previous = data.kind === "dossier" ? raw.prepare(`SELECT artifact_id AS artifactId,version,status FROM artifact_versions
+      WHERE project_id=? AND kind='dossier' ORDER BY created_at DESC,version DESC,artifact_id LIMIT 1`)
+      .get(grant.projectId) as { artifactId: string; version: number; status: ArtifactStatus } | undefined
+      : raw.prepare(`SELECT v.artifact_id AS artifactId, v.version, v.status FROM artifact_versions v
       JOIN attempts a ON a.project_id = v.project_id AND a.id = v.produced_by_attempt_id
       WHERE v.project_id = ? AND a.task_id = ? AND v.kind = ? AND v.title = ? ORDER BY v.version DESC LIMIT 1`)
       .get(grant.projectId, grant.taskId, data.kind, title) as { artifactId: string; version: number; status: ArtifactStatus } | undefined;

@@ -225,6 +225,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("artifacts.transition", z.strictObject({
     artifactId: idSchema, version: revisionSchema, to: artifactStatusSchema, comment: z.string().max(4_000),
   })),
+  command("dossier.refresh", z.strictObject({})),
   command("artifacts.share", z.strictObject({
     artifactId: idSchema, version: revisionSchema, visibility: z.enum(["team-draft", "project", "shared"]),
   })),

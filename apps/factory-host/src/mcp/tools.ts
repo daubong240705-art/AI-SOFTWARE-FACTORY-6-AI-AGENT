@@ -31,6 +31,7 @@ export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
   return clean.data;
 }
 export interface McpDeps {
+  briefing?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   requests?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   knowledge?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   progress(grant: TokenGrant, input: { summary: string; percent?: number }): void;
@@ -41,6 +42,7 @@ export interface ToolResult { content: { type: "text"; text: string }[]; isError
 const result = (text: string, isError = false): ToolResult => ({ content: [{ type: "text", text }], isError });
 
 export const toolDefinitions = [
+  { name: "project.briefing", description: "Read the project resume briefing and knowledge freshness.", inputSchema: z.toJSONSchema(z.strictObject({})) },
   { name: "request.create", description: "Ask another team asynchronously from this task.", inputSchema: z.toJSONSchema(requestCreateInputSchema) },
   { name: "request.reply", description: "Reply to or acknowledge a request from this task.", inputSchema: z.toJSONSchema(requestReplyInputSchema) },
   { name: "request.get", description: "Read a request thread and readable deliverables.", inputSchema: z.toJSONSchema(requestGetInputSchema) },
@@ -61,6 +63,7 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
   const progressCalls = new Map<string, number>();
   return { call(grant, name, args) {
     try {
+      if (name === "project.briefing") return deps.briefing?.call(grant,name,args) ?? result("tool is not available",true);
       if (name === "request.create" || name === "request.reply" || name === "request.get")
         return deps.requests?.call(grant, name, args) ?? result("multi-team is disabled", true);
       if (name === "knowledge.search" || name === "knowledge.get")

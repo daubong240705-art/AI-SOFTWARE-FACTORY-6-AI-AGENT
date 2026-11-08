@@ -27,6 +27,7 @@ import type { ContentStore } from "../artifacts/content-store.js";
 import { z } from "zod";
 import { PushError, type EffectExecutor } from "../effects/executor.js";
 import { getRequest, listRequests, RequestError } from "../requests/service.js";
+import { registerDossierRoutes } from "../dossier/routes.js";
 
 export function createRoutes(deps: {
   packs?: readonly RegistryPack[];
@@ -42,6 +43,8 @@ export function createRoutes(deps: {
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
+    registerDossierRoutes(app,guards,{ raw: deps.storage.raw,now: deps.clock ?? systemClock,
+      ...(deps.artifacts === undefined ? {} : { store: deps.artifacts.store }) });
     registerEventStream(app, guards, deps);
     app.get<{ Params: { projectId: string; taskId: string } }>("/projects/:projectId/tasks/:taskId/context",
       { preHandler: guards.session }, async (request, reply) => {

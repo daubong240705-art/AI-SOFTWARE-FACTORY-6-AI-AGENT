@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { dossierSchema, commandSchema, resumeBriefingSchema, taskStateSchema } from "../dist/index.js";
+const id="00000000-0000-4000-8000-000000000001";
+const empty=()=>({goal:{name:"Project",workspaceKind:"git",requirements:[]},stage:{tasks:Object.fromEntries(taskStateSchema.options.map(x=>[x,0])),awaitingGo:0,pendingApprovals:0},canonical:[],decisions:[],openQuestions:[],openRequests:[],risks:[],teams:[],nextSteps:[]});
+test("empty project dossier contract validates",()=>assert.equal(dossierSchema.safeParse(empty()).success,true));
+test("dossier refresh is an additive command",()=>assert.equal(commandSchema.safeParse({apiVersion:1,commandId:id,projectId:id,type:"dossier.refresh",payload:{}}).success,true));
+test("dossier refresh rejects nonempty payload",()=>assert.equal(commandSchema.safeParse({apiVersion:1,commandId:id,projectId:id,type:"dossier.refresh",payload:{extra:true}}).success,false));
+for(const field of ["decisions","openQuestions","openRequests","risks","teams","nextSteps"])test(`dossier contract bounds ${field}`,()=>{const d=empty();d[field]=Array(101).fill("invalid");assert.equal(dossierSchema.safeParse(d).success,false);});
+test("dossier contract rejects private fields",()=>assert.equal(dossierSchema.safeParse({...empty(),hostPath:"hidden"}).success,false));
+test("briefing contract rejects missing sections",()=>assert.equal(resumeBriefingSchema.safeParse({}).success,false));

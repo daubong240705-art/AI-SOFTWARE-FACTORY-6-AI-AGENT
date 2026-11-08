@@ -133,8 +133,10 @@ export const requestReplyInputSchema = z.strictObject({
 });
 export type RequestReplyInput = z.infer<typeof requestReplyInputSchema>;
 export const requestGetInputSchema = z.strictObject({ requestId: idSchema });
+export const projectBriefingInputSchema = z.strictObject({});
 
 export const MCP_TOOLS = {
+  "project.briefing": projectBriefingInputSchema,
   "task.propose": taskProposeInputSchema,
   "task.progress": taskProgressInputSchema,
   "output.register": outputRegisterInputSchema,
