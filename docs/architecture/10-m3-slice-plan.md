@@ -1,0 +1,58 @@
+# 10 · Kế hoạch lát cắt M3 (Multi-Team, Collaboration, Knowledge)
+
+Nguồn: [06 §M3](06-implementation-roadmap.md), [02 · Cộng tác và Tri thức](02-collaboration-and-knowledge.md) (§3 CTR, §5.3 state CTR, §7 chống vòng lặp, §8 Context, §12–16 Knowledge), [07 AP-R4, AP-R8](07-architecture-review.md), [oss-options.md](oss-options.md) (OSS-05, 06, 07 đã duyệt). Bắt đầu 08/11/2026 theo yêu cầu của người dùng.
+
+## Nguyên tắc (giữ từ M2)
+
+- Mỗi lát cắt: đặc tả → giao Codex qua Skill `codex-routing` → tôi review, chạy đột biến, test Windows + Linux → commit. Lát cắt có cờ rủi ro (data, security, secrets, effect ngoài) cần người dùng duyệt từng lượt Codex.
+- Migration chỉ thêm số mới (0004 trở đi); 0001–0003 đóng băng. Contracts chỉ thêm, không phá wire.
+- **Không đổi hành vi M2**: mọi tính năng M3 sau cờ hoặc bổ sung; Project hiện có chạy một Team mặc định như trước (rollback theo 06: tắt Multi-Team bằng cờ).
+- **AP-R4**: hop limit và ngân sách theo chuỗi gốc đi CÙNG lát cắt với CTR (không để cửa sổ M3 không có trần chi phí).
+- **AP-R8 đã chốt**: một CTR *là* một Task (`origin.kind = 'cross-team'`, đã có trong contracts); không tạo thực thể thứ hai.
+
+## Rủi ro cần nói thẳng
+
+- M2 chưa qua "5 ngày dùng thật" và chưa chạy với model thật. M3 thêm nhiều bề mặt trên nền đó; nếu bạn gặp lỗi M2 khi dùng thật, việc sửa M2 sẽ được ưu tiên trước lát cắt M3 đang dở.
+- Giả định B1 (agent viết L1 đủ chính xác), B2 (agent tuân thủ giao thức CTR), B9 (stale cảnh báo tràn lan) chưa được kiểm; chỉ kiểm được với model thật ở cuối M3.
+
+## Kết quả khảo sát OSS cho M3 (theo quy tắc mỗi giai đoạn)
+
+| Hạng mục | Kết luận | Căn cứ |
+|---|---|---|
+| Tìm toàn văn | **SQLite FTS5 có sẵn trong better-sqlite3 (SQLite 3.53.4)**; KHÔNG thêm dependency | Đã thử ngày 08/11/2026 (bảng dưới) |
+| Tìm tiếng Việt | `unicode61 remove_diacritics 2` thô **chưa đủ**: "dang nhap" không ra "đăng nhập" vì `đ` không phân rã dấu. Cần **chuẩn hóa văn bản (NFD bỏ dấu, đ→d) ở cả lúc lập chỉ mục và lúc truy vấn**; tokenizer `unicode61`, trigram tùy chọn cho tìm chuỗi con | Thử thật, bảng dưới |
+| Vector/embedding | **Hoãn** (OSS-07): `sqlite-vec` chỉ xét khi đo thấy tìm từ khóa thất bại nhiều | Giả định B3 |
+| Nội dung Team Pack | BMAD-METHOD, spec-kit làm nguồn mẫu có ghi nguồn (OSS-05 đã duyệt); nội dung duyệt ở AP-6 cuối M3 | oss-options.md |
+| Đồ thị tác động/stale | Tự xây trên `artifact_inputs` (đã có từ 0001); không cần thư viện đồ thị | Quy mô cá nhân |
+| A2A | Chỉ ánh xạ trạng thái CTR (OSS-06), không dùng làm transport | oss-options.md |
+
+Kết quả thử FTS5 (4 tài liệu: "Thiết kế cơ sở dữ liệu", "Đặc tả yêu cầu đăng nhập", "Báo cáo nghiên cứu thị trường", "Design the database schema"):
+
+| Cách | "thiet ke" | "thiết kế" | "dang nhap" | "dac ta" |
+|---|---|---|---|---|
+| unicode61 thô | ra | ra | **không** | **không** |
+| unicode61 + chuẩn hóa riêng | ra | ra | ra | ra |
+| trigram thô | **không** | ra | **không** | **không** |
+| trigram + chuẩn hóa riêng | ra | ra | ra | ra |
+
+## Lát cắt
+
+| # | Lát cắt | Nội dung | Rủi ro / ghi chú |
+|---|---|---|---|
+| **K1** | **Knowledge lõi** | Migration 0004: bảng chỉ mục FTS5 (nội dung đã chuẩn hóa) cho Artifact Version; trạng thái tài liệu đủ vòng đời (Draft → In-review → Reviewed → Approved → Superseded/Rejected/Withdrawn, 02 §13, quyết định C-06); đăng ký Version mới Approved làm bản cũ Superseded; **phân tích tác động**: Version đầu vào đổi → đánh dấu `stale` các Artifact/Task phụ thuộc (đồ thị `artifact_inputs`); phân quyền đọc theo Session/Project (02 §16: nháp của Project A không đọc được từ Project B); tool MCP `knowledge.search` / `knowledge.get`; routes đọc + tìm; sao lưu/khôi phục chỉ mục (dựng lại được từ Version) | Cờ `data` (ranh giới quyền đọc) → Critical, cần duyệt |
+| **O1** | **Org đầy đủ** | Team CRUD từ Pack (nhiều Team trong một Organization), Seat dedicated/elastic, Engagement có ưu tiên và hạn mức (đã có `engagements`), nhiều Team phục vụ một Project, hàng đợi Team xuyên Project (02 §6.1); cờ tắt Multi-Team | Không Critical |
+| **C1** | **CTR (Cross-Team Request)** | Tool MCP `request.create` / `request.reply`; CTR là Task `origin.kind='cross-team'` (AP-R8); 6 loại, triage (accept / need-info / decline / redirect / merge), tự tạo Engagement cho clarify/consult/review (C-03), `produce` cần Project Lead/Operator; `contextGrant` (chỉ đọc đúng các tham chiếu được cấp, hết hạn khi CTR đóng); **hop ≤ 3, thread ≤ 3 vòng, dedup/gộp CTR trùng, ngân sách theo `rootId`** (AP-R4, C-10); wait budget và nhả slot (C-09) | Cờ `security` (cấp quyền đọc xuyên Team) + chi phí → Critical |
+| **X1** | **Context Assembly** | Ba tầng L0/L1/L2 cho Artifact (L1 do agent viết khi đăng ký, kiểm độ dài/cấu trúc); Context Pack dựng xác định (không LLM) + Lead bổ sung; Project Dossier (Artifact sống) và Resume Briefing khi tiếp nhận lại Project sau nhiều ngày; đo kích thước/chi phí ngữ cảnh | Giả định B1, B7, B8 |
+| **P1** | **Team Pack** | `packs/research-team`, `architecture-team`, `design-team` (nội dung dựa BMAD-METHOD/spec-kit, ghi nguồn; tiếng Anh mặc định); kiểm Pack bằng bộ test sẵn có | AP-6: **bạn duyệt nội dung Pack** ở cuối M3 |
+| **U1** | **UI M3** | Màn Team (nhiều Team, Seat, hàng đợi), Knowledge (tìm kiếm, Version, trạng thái, stale, provenance), yêu cầu giữa Team (CTR trong Inbox/Task), Dossier/Resume | Theo mẫu UI M2 |
+| **E1** | **E2E M3** | Kịch bản 02 §18.1 (Research → BA → Architecture ∥ Design → sẵn sàng chờ lệnh) bằng Fake Runtime, rồi bằng model thật có ngân sách (acceptance M3) | Cần bạn chọn model và ngân sách |
+
+Thứ tự đề xuất: **K1 → O1 → C1 → X1 → P1 → U1 → E1**. K1 đi trước vì CTR cần `contextGrant` trên Artifact và tìm kiếm; O1 đi trước C1 vì CTR cần nhiều Team trong cùng Project.
+
+## Test Cases bắt buộc (từ 06 §M3)
+
+1. Kịch bản 02 §18.1 chạy bằng Fake Runtime. 2. CTR vượt hop 3 bị từ chối; thread quá 3 vòng tự leo thang. 3. Hai CTR trùng được gộp. 4. Session Project A không đọc được Artifact nháp của Project B. 5. Version mới Approved làm bản cũ Superseded và đánh dấu stale đúng Task phụ thuộc. 6. Tìm "thiet ke" ra "thiết kế". 7. Tiếp nhận lại Project sau nhiều ngày dựng đúng Resume Briefing.
+
+## Điều kiện chuyển sang M4 (06)
+
+Dùng thật 5 ngày với hai Team trên hai Project thật; AP-6 duyệt nội dung Pack.

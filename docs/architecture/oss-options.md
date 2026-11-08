@@ -211,6 +211,7 @@ Quyết định cũ của Factory V2 là "học Paperclip, không nhập company
 | Quyết định liên quan | 02 C-07 |
 | Hoãn | `asg017/sqlite-vec` (Apache-2.0, push 05/2026) nếu đo thấy tra cứu theo từ khóa thất bại thường xuyên. Orama (Apache-2.0) và MiniSearch (MIT) không cần vì đã có FTS5 trong DB |
 | Rủi ro | FTS5 xử lý tiếng Việt có dấu/không dấu cần tokenizer phù hợp (ví dụ `unicode61 remove_diacritics`); cần thử với nội dung thật |
+| **Đã thử 08/11/2026** | better-sqlite3 có SQLite 3.53.4 kèm FTS5. `unicode61 remove_diacritics 2` thô tìm được "thiet ke" → "thiết kế" nhưng **không** tìm được "dang nhap" → "đăng nhập" và "dac ta" → "đặc tả" (chữ `đ` không phân rã dấu). Thêm bước chuẩn hóa riêng (NFD bỏ dấu, đ→d) ở cả lúc lập chỉ mục và lúc truy vấn thì cả bốn truy vấn đạt. Không cần dependency mới. Chi tiết: 10-m3-slice-plan.md |
 
 ### O8 · Durable execution: giữ coordinator tự xây
 
