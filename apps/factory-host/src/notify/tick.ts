@@ -44,6 +44,10 @@ function collect(deps: NotificationDeps, projectId: string, now: Date, offset: n
     .all(projectId) as BlockerRow[];
   for (const row of rules) add({ dedupKey: notificationKey("rule", row.id, row.revision, "quarantined"), category: "action",
     urgency: "normal", title: `Automation rule quarantined: ${row.name}`, body: "Review and resume the rule.", entity: { kind: "rule", id: row.id } });
+  const schedules = raw.prepare("SELECT id,revision,name FROM schedules WHERE project_id=? AND state='quarantined' ORDER BY id")
+    .all(projectId) as BlockerRow[];
+  for (const row of schedules) add({ dedupKey: notificationKey("schedule", row.id, row.revision, "quarantined"), category: "action",
+    urgency: "normal", title: `Schedule quarantined: ${row.name}`, body: "Review and resume the schedule.", entity: { kind: "schedule", id: row.id } });
   const monitors = raw.prepare("SELECT id,revision,name FROM monitors WHERE project_id=? AND status<>'ok' ORDER BY id")
     .all(projectId) as BlockerRow[];
   for (const row of monitors) add({ dedupKey: notificationKey("monitor", row.id, row.revision, "non-ok"), category: "action",

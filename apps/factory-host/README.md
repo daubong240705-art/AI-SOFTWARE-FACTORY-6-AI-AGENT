@@ -774,3 +774,72 @@ today's used/remaining counts, and the project level/source, without individual 
 
 `deploy.staging` and `artifact.publish-to-project` are accepted action kinds but
 have no consumer yet.
+
+## Scenarios (M5 E2)
+
+`test/e2-{delivery,reporting,automation}.test.mjs` contains 20 deterministic
+scenarios. `e2-fixture.mjs` composes the E1a fixture with the real command
+pipeline, workflow engine, dispatcher, MCP artifact registration, approvals,
+Inbox reads, scheduler, rules and notifications. The runtime is always fake;
+clocks and fake-runtime timers are injected, and event-loop turns are pumped
+without sleeps. Each test has a timeout below five seconds. Reporting definitions
+are data registered in memory; no pack files are changed. The software-delivery
+definition comes from the shipped software-team pack.
+
+| Scenario | What it proves |
+|---|---|
+| D1 | `hasUI=false` excludes Design without a Task; approved architecture evidence unlocks development; staging delivery follows dependencies and finishes with an empty Inbox. |
+| D2 | Design and Architecture have concurrent live attempts; development waits for both approvals. |
+| D3a | Four real QA changes-requested decisions preserve reviews and restart QA; documents the missing development-rework integration. |
+| D3b | The engine's three development reworks preserve four iterations of Task/Attempt history; a fourth verdict stalls with `rework limit reached`, one Inbox item and one deduplicated notification; resume exposes the exhausted-edge limitation. Historical verdicts are explicitly seeded because D3a cannot produce them through commands. |
+| D4 | Two production deliveries each require fresh Operator Go and a separate completion review; `STANDING_FORBIDDEN` rejects production standing approval and staging standing approval is accepted. |
+| D5 (three tests) | A real Lead attempt proposes `addStage migration`: default approval at project L3, automatic application with `auto` at L3, and downgrade to approval at L2. Operator decisions apply pending patches; migration then runs before development. |
+| D6 | Exhausted day budget returns proxy `429 budget_exceeded` without an upstream call and leaves running fake work intact. Exposes missing failure events, then supplies recorded transitions to verify five-failure team pause, dispatch blocking, Inbox/notification deduplication and Operator resume without counting old failures again. |
+| R1 | Cron `0 7 * * *` in Asia/Ho_Chi_Minh starts one report at 07:00, uses deterministic command IDs, deduplicates repeated ticks, and completes another report the next day. The software BA seat supplies `docs.requirements`. |
+| R2 | Restart at 09:00 after a 06:59 outage runs one catch-up report; a running predecessor records `previous still running`; a longer backlog coalesces three missed days into one run. |
+| R3a | Three start failures quarantine the schedule; an action notification uses the schedule/revision dedup key and is visible through the notification API. Quarantine stops firing, resume clears failures, and a later quarantine revision gets a new notification. |
+| R3b | Three runtime-failed reports demonstrate that failed runs currently do not quarantine their schedule. |
+| R3c | Active/paused schedules create no quarantine notification; identical schedule IDs in different projects remain isolated. |
+| R4a | A real completed report and failed task expose missing runtime-failure counts in the digest, while completion, approval and token counts remain observable. |
+| R4b | Recorded day activity produces exactly one 18:00 digest with exact done/failed/decided/pending/token counts; fake push receives only title, level, urgency and Inbox link. |
+| R4c | A normal schedule action at 23:00 waits until 07:00; an urgent team-breaker action pushes immediately and only once. |
+| R5 | A Reporting tool grant using `standingMcpFixture` refuses L3, permits two internal sends at L4 under a token-capped standing approval, refuses the daily limit, resets at UTC+7 midnight, and enforces immediate revocation and expiry. Allowed calls each create one notification; refusals create none. |
+| A1 | An injected disk probe trips a monitor and starts incident-review once; cursor replay adds no duplicate. Real completion events propagate to depth three and stop at the hop limit. Three command failures quarantine the rule and produce an Inbox item and one action notification. |
+| A2 | No progress beyond `stallAfterMinutes` stalls a live workflow with a non-deadlock diagnostic, one notification and an Inbox item; Operator resume resets progress and the same fake attempt completes through review. |
+
+### Known gaps (not implemented, recorded on purpose)
+
+- Schedules have no per-run/day budget pre-check or `events-since-watermark`
+  step from architecture 04 section 16.2. `schedule/scheduler.ts` checks timing,
+  concurrency and workflow-command failure quarantine; it does not implement
+  the reporting watermark or no-change report path.
+- `deploy.staging` and `artifact.publish-to-project` standing approvals have no
+  consumer. D4 verifies staging approval creation without consuming it; only
+  `standing/service.ts`'s internal-notification path consumes standing approval.
+- Production's `irreversible-action` gate is implemented as Operator Go
+  (`awaiting-go` / `tasks.release`), not a pre-execution Approval row. D4 verifies
+  a distinct Go per run and a fresh review Approval after each fake deployment.
+  This does not prove a pre-deployment Approval or a real deployment effect.
+- **KNOWN DEFECT (D3a):** `approvals.decide(request-changes)` restarts the QA
+  Task, while the workflow rework evaluator requires QA to be done with a
+  changes-requested verdict. Four real requests do not rework development or
+  reach the loop limit. D3b explicitly seeds immutable historical verdict rows
+  to test the engine portion without claiming the real decision chain works.
+- **KNOWN DEFECT (D3b):** `workflows.resume` changes an exhausted-rework
+  instance to active but leaves QA blocked by `rework limit reached`. There is
+  no resume decision/reset command to clear that edge, so this case cannot
+  continue to delivery. The timeout-only stall in A2 resumes successfully.
+- **KNOWN DEFECT (D6, R4a):** runtime failure bookkeeping emits
+  `entity.changed` for failed Tasks, whereas the team breaker and digest failed
+  count read `task.status-changed`. Five real fake-runtime failures do not trip
+  the breaker and the digest reports zero failed Tasks. Downstream breaker and
+  exact digest checks use explicitly recorded transition events, following the
+  existing breaker/notification fixture convention.
+- **KNOWN DEFECT (R3b):** schedules reset their consecutive failure counter
+  after successful workflow creation/start and never reconcile failed workflow
+  runs. Three runtime-failed reports leave the schedule active; only three
+  command/start failures trigger the implemented quarantine and R3 notification.
+
+E2's only source change adds quarantined schedules to `notify/tick.ts`, using
+normal-urgency action notifications keyed by schedule ID and revision. Other
+defects above are assertions of current behavior and are deliberately unfixed.

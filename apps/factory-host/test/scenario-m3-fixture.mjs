@@ -87,7 +87,7 @@ export function fixture(t, options = {}) {
   const raw = storage.raw;
   shutdown = async () => storage.close();
   let time = Date.parse("2026-11-08T00:00:00.000Z");
-  const clock = () => new Date(time);
+  const clock = options.clock ?? (() => new Date(time));
   const tick = () => { time += 1000; };
   const multiTeam = options.multiTeam ?? true;
   const hub = new EventHub(raw, { clock });
@@ -99,10 +99,11 @@ export function fixture(t, options = {}) {
   };
   const knowledge = createKnowledgeIndex({ raw, store });
   const afterRegister = value => knowledge.indexVersion(value.projectId, value.artifactId, value.version);
-  const runtime = scriptedRuntime();
+  const runtime = options.runtime ? { fake: options.runtime, adapter: options.runtime } : scriptedRuntime();
   const errors = [];
   const dispatcher = createDispatcher({ storage, hub, clock, multiTeam,
     registry: new RuntimeRegistry([runtime.adapter]), config: { nodeSlots: 32 }, onError: error => errors.push(error),
+    ...(options.timers ? { timers: options.timers } : {}),
     projectRootFor: () => root,
     // No git operations: each real dispatcher attempt gets an isolated directory.
     workspace: {
