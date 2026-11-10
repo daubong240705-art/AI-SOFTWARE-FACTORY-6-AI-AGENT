@@ -63,6 +63,8 @@ export function buildContextPack(raw: Database, input: {
   });
   type Summary = { title: string; kind: ContextPack["sections"]["inputs"][number]["kind"];
     status: ContextPack["sections"]["inputs"][number]["status"]; abstract_l0: string; abstract_l1: string | null; stale: number };
+  const refKey = (ref: ArtifactRef): string => `${ref.artifactId}@${ref.version}`;
+  const order = new Map(task.inputs.map((ref, index) => [refKey(ref), index]));
   const l0 = new Map<ContextPack["sections"]["inputs"][number], string>();
   // Only the permission-filtered query can read content or metadata. Existence is retained solely for operators.
   for (const ref of task.inputs.slice(0, 100)) {
@@ -81,6 +83,34 @@ export function buildContextPack(raw: Database, input: {
       stale: row.stale === 1, why: task.origin.kind === "cross-team" ? "request context" : "declared input",
       text: clean(row.abstract_l1?.trim() ? row.abstract_l1 : row.abstract_l0),
     };
+    pack.sections.inputs.push(item); l0.set(item, clean(row.abstract_l0));
+  }
+  // Rank only readable, approved outputs within each direct dependency and project.
+  // Appending them makes the reverse budget loop exhaust dependency outputs first.
+  const outputs = raw.prepare(`WITH outputs AS (
+    SELECT v.artifact_id AS artifactId,v.version,v.title,v.kind,v.status,v.abstract_l0,v.abstract_l1,v.media_type,
+      dependency.code AS taskCode,
+      EXISTS (SELECT 1 FROM knowledge_stale s WHERE s.project_id = v.project_id AND s.artifact_id = v.artifact_id AND s.version = v.version) AS stale,
+      ROW_NUMBER() OVER (PARTITION BY dependency.id,v.artifact_id ORDER BY v.version DESC) AS rank
+    FROM task_dependencies d
+    JOIN tasks dependency ON dependency.project_id = d.project_id AND dependency.id = d.depends_on_task_id
+    JOIN attempts a ON a.project_id = dependency.project_id AND a.task_id = dependency.id
+    JOIN artifact_versions v ON v.project_id = a.project_id AND v.produced_by_attempt_id = a.id
+    WHERE d.project_id = ? AND d.task_id = ? AND dependency.state = 'done' AND v.status = 'approved' AND ${permission.sql}
+  ) SELECT * FROM outputs WHERE rank = 1 ORDER BY taskCode,title,artifactId,version`)
+    .all(input.projectId, input.taskId, ...permission.params) as (Summary & ArtifactRef & { taskCode: string; media_type: string })[];
+  const seen = new Set(task.inputs.map(refKey));
+  let added = 0;
+  for (const row of outputs) {
+    if (added >= 10) break;
+    const ref: ArtifactRef = { artifactId: row.artifactId, version: row.version };
+    if (seen.has(refKey(ref)) || !row.abstract_l0.trim() || (row.kind === "code-ref" && row.media_type === "text/x-diff")) continue;
+    const item: ContextPack["sections"]["inputs"][number] = {
+      ref, tier: row.abstract_l1?.trim() ? "L1" : "L0", title: clean(`${row.taskCode}: ${row.title}`), kind: row.kind,
+      status: row.status, stale: row.stale === 1, why: "dependency output",
+      text: clean(row.abstract_l1?.trim() ? row.abstract_l1 : row.abstract_l0),
+    };
+    order.set(refKey(ref), task.inputs.length + added++); seen.add(refKey(ref));
     pack.sections.inputs.push(item); l0.set(item, clean(row.abstract_l0));
   }
   const decisions = raw.prepare(`SELECT id,subject,options_json,outcome_option_id FROM approvals
@@ -102,8 +132,6 @@ export function buildContextPack(raw: Database, input: {
     const handoff = buildHandoff(raw, input.projectId, input.taskId);
     if (handoff) pack.sections.handoff = { text: clean(handoff).slice(0, 2000) };
   }
-  const refKey = (ref: ArtifactRef): string => `${ref.artifactId}@${ref.version}`;
-  const order = new Map(task.inputs.map((ref, index) => [refKey(ref), index]));
   const estimate = (): number => {
     pack.omitted.sort((a, b) => (order.get(refKey(a.ref)) ?? 0) - (order.get(refKey(b.ref)) ?? 0));
     pack.sections.retrievalHints = pack.omitted.map(({ ref }) => `knowledge.get artifactId=${ref.artifactId} version=${ref.version}`);

@@ -12,13 +12,13 @@ export const contextPackSchema = z.strictObject({
     constraints: z.strictObject({ placement: placementSchema, requiresGo: z.boolean(), sideEffect: sideEffectSchema, readScope: z.string() }),
     inputs: z.array(z.strictObject({ ref: artifactRefSchema, tier: z.enum(["L0", "L1"]), title: z.string(),
       kind: artifactKindSchema, status: artifactStatusSchema, stale: z.boolean(),
-      why: z.enum(["declared input", "request context"]), text: z.string() })).max(100),
+      why: z.enum(["declared input", "request context", "dependency output"]), text: z.string() })).max(110),
     decisions: z.array(z.strictObject({ approvalId: idSchema, oneLine: z.string().max(200) })).max(5),
     openQuestions: z.array(z.strictObject({ approvalId: idSchema, text: z.string() })).max(5),
     handoff: z.strictObject({ text: z.string().max(2000) }).nullable(),
-    retrievalHints: z.array(z.string()).max(100),
+    retrievalHints: z.array(z.string()).max(110),
   }),
-  omitted: z.array(z.strictObject({ ref: artifactRefSchema, reason: z.enum(["over-budget", "no-access", "not-found"]) })).max(100),
+  omitted: z.array(z.strictObject({ ref: artifactRefSchema, reason: z.enum(["over-budget", "no-access", "not-found"]) })).max(110),
 });
 export type ContextPack = z.infer<typeof contextPackSchema>;
 

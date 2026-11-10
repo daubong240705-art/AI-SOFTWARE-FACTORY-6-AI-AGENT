@@ -183,6 +183,31 @@ Migration 0008 adds the STRICT `context_packs` metrics table, one replaceable ro
 
 Registration accepts omitted L1. A supplied L1 must contain at least two non-empty lines and 80 trimmed characters, and differ from L0; malformed summaries are rejected before writes. With `FACTORY_MULTI_TEAM=1`, `artifacts.transition` requires L1 before approving research-report, requirements, adr, data-model, api-contract, ui-spec, plan and dossier versions. Other kinds and flag-off approval retain their existing behavior.
 
+## Dependency outputs in the Context Pack (CE-0b)
+
+After resolving declared inputs, the Host adds summaries from direct dependency
+Tasks in state `done`. For each dependency and artifact, only its latest approved,
+readable version produced by one of that Task's attempts is eligible. Every read
+uses the same `visibleToScope` policy; unreadable versions add no input, omitted
+entry, or retrieval hint. All joins stay within the current project.
+
+At most ten dependency inputs are added, ordered by Task code, artifact title,
+then artifact ID and version for ties. Exact `artifactId@version` references
+already declared in `Task.inputs` are skipped. Empty or whitespace-only L0 summaries
+and `code-ref` artifacts with media type `text/x-diff` are skipped. Dependencies
+that are unfinished or have no eligible output add nothing.
+
+Each added input has `why: 'dependency output'`, a sanitized `TSK-001: <title>`,
+L1 text when available (otherwise L0), and the usual stale marker. Dependency
+inputs follow declared inputs, so the budget loop degrades them from L1 to L0
+and omits them before touching declared inputs. Budget omissions have reason
+`over-budget` and a `knowledge.get artifactId=<id> version=<n>` retrieval hint.
+The contract accommodates 100 declared inputs plus ten dependency inputs.
+Tasks without dependencies retain their existing behavior.
+
+The pack carries summaries. Code only travels through the workspace (CE-0a);
+dependency summaries do not copy code or patches into the pack or workspace.
+
 ## Cross-team requests (M3 C1b)
 
 Behind `FACTORY_MULTI_TEAM=1` only (flag off: the tools are not listed and the commands answer `unsupported`). A request (CTR) IS a Task (`origin.kind='cross-team'`, code `REQ-nnn`, migration 0006 adds `ctr_meta`, immutable `ctr_messages`, `ctr_followers`); there is no second entity. Migration 0007 adds durable `ctr_waits`. `responseMode: 'blocking'` parks the requester session and releases its slot; a new attempt for the same seat receives `Request results:` when the answer arrives. Notify cannot block; at most three requests may block a task at once. A blocking duplicate also waits.
