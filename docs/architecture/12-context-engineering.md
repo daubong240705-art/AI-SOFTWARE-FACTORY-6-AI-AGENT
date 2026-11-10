@@ -27,6 +27,9 @@ Ký hiệu nguồn: **[Diễn giả]** · **[Tài liệu chính thức]** · **[
 - Đề xuất: lộ trình **CE-1 → CE-3**, nhỏ và kiểm chứng được bằng runtime giả. CE-1 có thể làm **song song với M4**, vì không đụng node hay transport.
   Benchmark cần model thật thì chờ E1b.
 
+> **Cập nhật sau baseline E1b (10/11/2026, §13):** chạy thật với DeepSeek cho thấy khoảng trống lớn nhất là một điểm **chưa có trong G1–G7**:
+> **G0, kết quả của Task phụ thuộc không đến được Task sau**, cả trong workspace lẫn trong Context Pack. Ưu tiên ở §13.4 thay thế ưu tiên ở trên.
+
 ---
 
 ## 1. Phương pháp và giới hạn nguồn
@@ -367,3 +370,66 @@ Không công bố phần trăm cải thiện cho đến khi có số đo thật.
 8. **Thiết kế cho cả subagent và agent độc lập?** Mô hình hybrid hiện có: Lead/engine giao Task, Host cấp context (không phải Lead truyền tay), agent kéo thêm theo quyền. Subagent và agent độc lập dùng chung một hợp đồng là Task + Context Pack + bàn giao.
 9. **MVP nhỏ nhất có giá trị?** Chọn quyết định theo quan hệ, cộng trường bàn giao có cấu trúc trong `task.progress`.
 10. **Ba thay đổi đầu tiên:** (1) CE-A quyết định theo quan hệ; (2) CE-B bàn giao có cấu trúc, refs được kiểm; (3) Objective + mã AC-n kiểm trước review.
+
+---
+
+## 13. Baseline E1b với model thật (10/11/2026)
+
+### 13.1 Cách chạy
+
+| Mục | Giá trị |
+|---|---|
+| Model | `ds/deepseek-v4-pro` qua 9Router, cho cả Lead và agent (người dùng duyệt khóa API, model và ngân sách tự do; Host vẫn đặt trần 50M token/ngày để chặn vòng lặp) |
+| Môi trường | Host thật trong WSL, `FACTORY_RUNTIME=opencode` (OpenCode 1.19.5 trong sandbox bwrap), một Team `software-team` |
+| Dự án | `textstats`: thư viện + CLI Node, test `node:test`, README, theo `SPEC.md` có sẵn trong repo |
+| Vai trò người | Tôi đóng vai Operator: đọc diff, chạy test, chấp nhận hoặc yêu cầu sửa |
+| Không có | Workflow definition, CTR, nhiều Team: đây là vòng một Team, kế hoạch từ Lead |
+
+### 13.2 Số liệu
+
+| Task | Lần chạy | Thời gian | Lời gọi model | Token vào (cache) | Token ra (suy luận) | Context Pack | Kết quả review |
+|---|---|---|---|---|---|---|---|
+| TSK-001 thư viện | 1 | 26 s | 8 | 94.889 (67.328) | 2.350 (703) | 194 | Chấp nhận |
+| TSK-002 CLI | 1 | 87 s | 17 | 239.308 (189.824) | 8.115 (4.580) | 205 | Chấp nhận |
+| TSK-003 unit test | 1 | 503 s | 43 | 960.959 (837.120) | 47.540 (39.162) | 187 | Chấp nhận (chỉ đạt khi ghép code) |
+| TSK-004 CLI test | 1 | 159 s | 22 | 430.363 (361.344) | 16.641 (12.719) | 207 | Chấp nhận (chỉ đạt khi ghép code) |
+| TSK-005 README | 1 | 87 s | 21 | 313.052 (254.080) | 7.470 (4.701) | 182 | **Yêu cầu sửa**: ví dụ đầu ra bịa |
+| TSK-005 README | 2 | 52 s | 13 | 194.649 (153.216) | 4.688 (2.377) | 424 | Chấp nhận: khớp CLI thật |
+| Lead lập kế hoạch | — | — | 1 | 4.560 | 4.737 (3.944) | — | 5 Task hợp lý |
+
+Tổng: 125 lời gọi, **2,24 triệu token vào**, 91,5 nghìn token ra, khoảng 12 phút. Chi phí tiền: **chưa có giá**.
+
+### 13.3 Phát hiện
+
+| # | Phát hiện | Bằng chứng | Xử lý |
+|---|---|---|---|
+| F1 | Lead dùng hết 4.096 token đầu ra cho suy luận, nội dung rỗng, Host trả "I have no answer for that." | Lượt Lead đầu: `output_tokens=4096`; lượt sau cần 4.737 | **Đã sửa** (commit `30454dd`): báo `output-limit`, `FACTORY_LEAD_MAX_OUTPUT_TOKENS` |
+| F2 | Task `reviewPolicy: automatic` nằm `in-review` mãi, không có approval | Chỉ `human-final` tạo review ([approvals/service.ts](../../apps/factory-host/src/approvals/service.ts)) | **Đã sửa** (`30454dd`): Task từ kế hoạch luôn `human-final` |
+| **F3 = G0** | **Kết quả Task phụ thuộc không có trong worktree của Task sau**: worktree mới luôn tạo từ `main`, chỉ lần chạy lại cùng Task mới nối nhánh cũ ([dispatcher.ts:284](../../apps/factory-host/src/dispatch/dispatcher.ts#L284)) | TSK-003, TSK-005 không có `src/`; test TSK-003 0/5 và TSK-004 0/6 khi chạy riêng, **29/29 và 6/6 khi ghép**; README lần 1 bịa đầu ra | **Chưa sửa**: cần quyết định CE-D6 |
+| F4 | Context Pack không chứa đầu ra của Task phụ thuộc: kế hoạch của Lead chỉ có `dependsOn`, không có `inputs` | Mọi pack: 0 input, chỉ gợi ý `knowledge.search` | Chưa sửa: CE-0b bên dưới |
+| F5 | Agent tự bù bằng cách đào git (`git ls-tree`, `git show factory/tsk-001-e1:...`), tốn khoảng 10 bước tool; agent khác thì không bù nên bịa | Sự kiện attempt TSK-002 và TSK-005 | Hệ quả của F3/F4 |
+| F6 | Hai Task chạy song song cùng tạo `test/cli.test.js` | TSK-003 viết cả CLI test ngoài phạm vi; TSK-004 cũng viết | Sẽ xung đột khi gộp nhánh; liên quan F3 |
+| F7 | **Context Pack chỉ chiếm 0,02–0,2% token đầu vào** của một attempt; phần lớn là system prompt và định nghĩa tool của OpenCode được gửi lại ở mỗi bước, cộng khoảng 2.100 token cố định của 9Router mỗi lời gọi | Pack 182–424 token so với 95k–961k token vào mỗi attempt; tỉ lệ cache 71–87% | Ảnh hưởng lớn tới ưu tiên, xem 13.4 |
+| F8 | Phản hồi review đến được lần chạy sau và agent làm theo (handoff hiện có hoạt động) | TSK-005 lần 2 dùng đúng nhánh TSK-002 để chạy CLI thật | Không cần đổi |
+| F9 | Bộ làm sạch văn bản biến regex trong tóm tắt thành `[path]` | Tóm tắt TSK-001: `[path]']+[path]` | Lỗi nhỏ, ghi nhận |
+
+### 13.4 Ưu tiên mới (thay §10.2 cho phần đầu)
+
+1. **CE-0a · Workspace của Task phụ thuộc phải có kết quả đã duyệt của Task nó phụ thuộc** (giải F3, F5, F6).
+   Phương án: Host duy trì một **nhánh tích hợp của Project**; khi review chấp nhận, nhánh của Task được gộp vào đó (đúng hướng Effect Executor của M4);
+   worktree mới tạo từ nhánh tích hợp thay vì `main`. Xung đột gộp → Task chặn với lý do rõ ràng, người quyết định. Cần duyệt CE-D6.
+2. **CE-0b · `dependsOn` tự sinh `inputs`** (giải F4): khi Task phụ thuộc xong, Artifact đầu ra đã duyệt của nó thành input của Task sau,
+   nên Context Pack có tóm tắt L1 và danh sách file. Không cần schema mới.
+3. **CE-2 rút gọn · Kiểm phạm vi trước review**: so file thay đổi với tiêu chí và phạm vi Task (F6: Task test lại viết CLI test). Deterministic.
+
+Các mục CE-A (chọn quyết định theo quan hệ) và bàn giao có cấu trúc **hạ ưu tiên**: vòng này không có quyết định nào, và bàn giao qua phản hồi review đã đủ (F8).
+Tối ưu kích thước Context Pack **không đáng làm** lúc này (F7). Chi phí token nằm ở runtime: muốn giảm thì giảm số bước tool (CE-0a giảm trực tiếp việc đào git),
+chọn model hoặc mức suy luận theo loại Task, và giữ Task nhỏ.
+
+### 13.5 Quyết định mới cần duyệt
+
+| ID | Câu hỏi | Đề xuất |
+|---|---|---|
+| CE-D6 | Dùng nhánh tích hợp của Project (gộp nhánh Task khi review chấp nhận; worktree mới tạo từ đó) không? | Có. Làm cùng M4 Effect Executor để chỉ có một đường ghi vào nhánh dùng chung |
+| CE-D7 | Xung đột khi gộp xử lý thế nào? | Task chặn với lý do "integration conflict", Operator chọn: yêu cầu sửa lại trên nhánh tích hợp, hoặc tự xử lý |
+| CE-D8 | Chạy lại baseline sau CE-0a/0b để so sánh | Có, cùng dự án `textstats`, cùng model |
