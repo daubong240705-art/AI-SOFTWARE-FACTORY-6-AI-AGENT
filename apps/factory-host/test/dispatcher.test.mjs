@@ -243,7 +243,8 @@ test("happy path emits the complete state sequence and valid ordered entity even
   const events = f.hub.readAfter(f.projectId, cursor).events;
   assert.ok(events.every((e) => eventSchema.safeParse(e).success));
   assert.ok(events.every((e) => e.causationId === a.id && e.rootCausationId === a.id));
-  assert.deepEqual(events.slice(-2).map((e) => e.payload.entity.kind), ["attempt", "task"]);
+  assert.deepEqual(events.slice(-3).map((e) => e.payload.entity?.kind ?? e.payload.type), ["attempt", "task", "task.status-changed"]);
+  assert.deepEqual({ taskId: events.at(-1).payload.taskId, to: events.at(-1).payload.to }, { taskId: a.taskId, to: "in-review" });
   assert.deepEqual(f.events(a).map((e) => e.kind), ["state", "progress", "progress", "evidence", "state"]);
   assert.deepEqual(f.events(a).map((e) => e.seq), [1, 2, 3, 4, 5]);
   assert.equal(f.raw.prepare("SELECT slots_used FROM nodes WHERE id = ?").get(LOCAL_NODE_ID).slots_used, 0);

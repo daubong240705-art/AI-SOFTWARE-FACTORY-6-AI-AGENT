@@ -121,14 +121,13 @@ test("E2 R3c: schedule quarantine collection ignores healthy schedules and isola
   assert.equal(f.raw.prepare("SELECT count(*) n FROM notifications WHERE project_id=?").get(other).n, 1);
 });
 
-test("E2 R4a: real completed/failed reports expose missing failure-transition digest counts", scenario, async t => {
+test("E2 R4a: real completed and failed work is counted by the digest", scenario, async t => {
   const f = reporting(t), id = f.create({}, "daily-report"); f.command("start", id); await f.complete(id);
   const failed = f.createTask("software", { goal: "[fake:fail]", requiresGo: false });
   await f.until(() => f.task(failed).state === "failed", "failed daily work");
   f.usage(37); f.set("2026-11-08T11:00:00.000Z"); await f.notify(); await f.notify();
   const digest = f.rows().filter(n => n.category === "digest"); assert.equal(digest.length, 1);
-  // KNOWN DEFECT: failed runtime tasks emit entity.changed, not the task.status-changed events counted by digests.
-  assert.equal(digest[0].body, "Tasks done: 1; approvals decided: 1; approvals pending: 0; failed tasks: 0; 37 tokens; cost: no price list");
+  assert.equal(digest[0].body, "Tasks done: 1; approvals decided: 1; approvals pending: 0; failed tasks: 1; 37 tokens; cost: no price list");
   assert.equal(f.stageTask(id, "report").state, "done"); assert.equal(f.task(failed).state, "failed");
 });
 

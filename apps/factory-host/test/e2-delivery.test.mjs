@@ -198,13 +198,9 @@ test("E2 D6: exhausted budget refuses proxy calls; running work survives and tea
     await f.until(() => f.task(taskId).state === "failed", "fake failed task");
     failures.push(taskId);
   }
-  tickTeamBreakers(f.deps, f.clock());
-  // KNOWN DEFECT: dispatcher writes entity.changed, while the breaker counts task.status-changed.
-  assert.equal(f.raw.prepare("SELECT lifecycle FROM teams WHERE id=?").get(teamId).lifecycle, "active");
-  assert.equal(f.events().filter(e => e.payload.type === "task.status-changed" && e.payload.to === "failed").length, 0);
-  // Supply the missing recorded transitions explicitly (the breaker-fixture convention).
-  for (const taskId of failures) f.hub.transaction(() => f.hub.append({ projectId: f.projectId, causationId: taskId,
-    payload: { type: "task.status-changed", taskId, to: "failed" } }));
+  // The dispatcher announces every real failure with task.status-changed, so the breaker sees them without help.
+  assert.equal(f.events().filter(e => e.payload.type === "task.status-changed" && e.payload.to === "failed").length, 5);
+  assert.equal(failures.length, 5);
   tickTeamBreakers(f.deps, f.clock());
   assert.equal(f.raw.prepare("SELECT lifecycle FROM teams WHERE id=?").get(teamId).lifecycle, "paused");
   const queued = f.createTask("software", { goal: "[fake:hang]", requiresGo: false });

@@ -829,12 +829,11 @@ definition comes from the shipped software-team pack.
   instance to active but leaves QA blocked by `rework limit reached`. There is
   no resume decision/reset command to clear that edge, so this case cannot
   continue to delivery. The timeout-only stall in A2 resumes successfully.
-- **KNOWN DEFECT (D6, R4a):** runtime failure bookkeeping emits
-  `entity.changed` for failed Tasks, whereas the team breaker and digest failed
-  count read `task.status-changed`. Five real fake-runtime failures do not trip
-  the breaker and the digest reports zero failed Tasks. Downstream breaker and
-  exact digest checks use explicitly recorded transition events, following the
-  existing breaker/notification fixture convention.
+- **FIXED after E2 (D6, R4a):** Host-driven task transitions (a finished or
+  failed attempt, and the multi-team task advance) used to emit only
+  `entity.changed`, so the team breaker, the daily digest and rules on
+  `task.status-changed` never saw real failures. The dispatcher now also emits
+  `task.status-changed` with the new state; D6 and R4a assert the real chain.
 - **KNOWN DEFECT (R3b):** schedules reset their consecutive failure counter
   after successful workflow creation/start and never reconcile failed workflow
   runs. Three runtime-failed reports leave the schedule active; only three

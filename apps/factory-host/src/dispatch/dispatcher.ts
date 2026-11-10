@@ -1,4 +1,4 @@
-import { canRequeueAfterLeaseExpiry, type AttemptState } from "@factory/contracts";
+import { canRequeueAfterLeaseExpiry, type AttemptState, type Task } from "@factory/contracts";
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import type { Storage } from "../storage/database.js";
@@ -121,9 +121,14 @@ export function createDispatcher(deps: {
     changed(next);
     return next;
   };
+  // A Host-driven task transition is announced like a command-driven one, so breakers, rules and digests see it.
+  const taskChanged = (projectId: string, causationId: string, task: Task): void => {
+    hub.append({ projectId, causationId, rootCausationId: causationId, payload: eventsForTask(task) });
+    hub.append({ projectId, causationId, rootCausationId: causationId, payload: { type: "task.status-changed", taskId: task.id, to: task.state } });
+  };
   const taskOutcome = (a: AttemptRecord, outcome: "succeeded" | "failed" | "stopped"): void => {
     const task = applyAttemptOutcome(raw, a.projectId, a.taskId, outcome, now());
-    if (task) hub.append({ projectId: a.projectId, causationId: a.id, rootCausationId: a.id, payload: eventsForTask(task) });
+    if (task) taskChanged(a.projectId, a.id, task);
   };
   const registerResults = (a: AttemptRecord, outcome: "completed" | "failed", summary: string | null): void => {
     const results = deps.results;
@@ -406,7 +411,7 @@ export function createDispatcher(deps: {
       if (deps.multiTeam) hub.transaction(() => {
         for (const project of raw.prepare("SELECT id FROM projects ORDER BY id").all() as { id: string }[])
           for (const task of advanceTasks(raw, project.id, { dispatcher }))
-            hub.append({ projectId: project.id, causationId: task.id, rootCausationId: task.id, payload: eventsForTask(task) });
+            taskChanged(project.id, task.id, task);
       });
       do {
         again = false;
