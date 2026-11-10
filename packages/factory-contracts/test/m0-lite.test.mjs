@@ -565,8 +565,8 @@ test("the original 14 commands remain and 6 are added without removing any", () 
   for (const t of ["artifacts.transition", "artifacts.share", "artifacts.clear-stale"]) assert.ok(c.FOUNDATION_COMMANDS.includes(t), t);
   assert.ok(c.FOUNDATION_COMMANDS.includes("dossier.refresh"));
   for (const t of ["workflows.create", "workflows.start", "workflows.pause", "workflows.resume", "workflows.cancel"]) assert.ok(c.FOUNDATION_COMMANDS.includes(t), t);
-  assert.equal(c.FOUNDATION_COMMANDS.length, 38);
-  assert.equal(new Set(c.FOUNDATION_COMMANDS).size, 38);
+  assert.equal(c.FOUNDATION_COMMANDS.length, 44);
+  assert.equal(new Set(c.FOUNDATION_COMMANDS).size, 44);
 });
 
 test("tasks.create applies the restrictive defaults and keeps the gate on", () => {

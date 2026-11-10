@@ -1,4 +1,6 @@
 import { createWorkflowPatchMcp } from "./workflow/mcp.js";
+import { createScheduleHandlers, SCHEDULE_COMMANDS } from "./schedule/commands.js";
+import { tickSchedules } from "./schedule/scheduler.js";
 import { registerWorkflowEngine, sweepWorkflows } from "./workflow/engine.js";
 import { expireRequests } from "./requests/service.js";
 import type { FastifyInstance } from "fastify";
@@ -249,6 +251,7 @@ export async function startHost(options: {
   let scheduler: ReturnType<typeof startBackupScheduler> | undefined;
   let unlockState: (() => void) | undefined;
   let expiryTimer: unknown;
+  let scheduleTimer: unknown;
   let knowledgeTimer: ReturnType<typeof setImmediate> | undefined;
   const interval = options.timers?.setInterval ?? ((callback: () => void, ms: number) => setInterval(callback, ms).unref());
   const clearExpiry = options.timers?.clearInterval ?? ((handle: unknown) => clearInterval(handle as ReturnType<typeof setInterval>));
@@ -257,6 +260,7 @@ export async function startHost(options: {
     closePromise ??= (async () => {
       external?.close();
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
+      if (scheduleTimer !== undefined) { clearExpiry(scheduleTimer); scheduleTimer = undefined; }
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
       await effects?.close();
       try { await runner?.stop(); } finally {
@@ -481,10 +485,18 @@ export async function startHost(options: {
     try { sweepWorkflows(workflowEngine); } catch { console.error("Workflow sweep failed"); }
     const lead = runner;
     const dispatchHandlers = dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch });
+    const workflowHandlers = createWorkflowHandlers({ packs, engine: { raw: storage.raw, hub, clock,
+      ...(dispatch === null ? {} : { dispatcher: dispatch }) } });
+    const workflowPipeline = createCommandPipeline({ storage, hub, clock, handlers: workflowHandlers });
+    const scheduleDeps = { raw: storage.raw, hub, packs, pipeline: workflowPipeline };
+    const sweepSchedules = (): void => tickSchedules(scheduleDeps, clock());
+    sweepSchedules();
+    scheduleTimer = interval(sweepSchedules, 30_000);
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
+      ...createScheduleHandlers({ packs, pipeline: workflowPipeline }),
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
       ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
-      ...createWorkflowHandlers({ packs, engine: { raw: storage.raw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) } }),
+      ...workflowHandlers,
       ...createRequestHandlers({ multiTeam: options.multiTeam ?? false, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
       "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false }),
       "tasks.create": tasksCreateHandler,
@@ -503,6 +515,7 @@ export async function startHost(options: {
       ...(external === undefined ? {} : { external }),
       ...(effects === null ? {} : { effects }),
       afterCommand: (type, result) => {
+        if (result.body.ok && (type === "schedules.resume" || type === "schedules.run-now")) sweepSchedules();
         if (type === "chat.send") lead.kick();
         if (result.body.ok && ORG_COMMANDS.some((command) => command === type) && dispatch) {
           dispatch.kick();
@@ -519,6 +532,7 @@ export async function startHost(options: {
         apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set",
           "dossier.refresh",
           ...WORKFLOW_COMMANDS,
+          ...SCHEDULE_COMMANDS,
           ...(options.multiTeam ? [...ORG_COMMANDS, ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],

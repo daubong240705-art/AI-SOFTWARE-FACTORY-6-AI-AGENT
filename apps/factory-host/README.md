@@ -487,3 +487,47 @@ Selection uses active engagements of active teams. A capability-declared team ne
 Start, resume, task transitions, artifact status changes, approvals.decide and engagement changes trigger evaluation. Startup and 60-second sweeps repair missed notifications. Paused and terminal instances create no tasks. Operators can add/reactivate an eligible engagement or use workflows.assign-stage with instanceId, expectedRevision, stageKey and engagementId (null clears it) on pending/blocked stages. Retry a failed task, then resume a stalled instance. Detail views include stage reasons, engagement, iteration, loops and task history.
 
 Label/check/monitor facts, Plan Patch, schedules and freshness checks on resume are not supported yet. Workflow code effects map to task artifact effects; external effects map to external-irreversible.
+# Scheduler (M5 A1)
+
+Schedules start workflow instances through `workflows.create` and, by default,
+`workflows.start`. They support cron (5 or 6 fields, at least 60 seconds between
+runs), intervals (60–2,592,000 seconds, anchored to creation), and once (a future
+ISO timestamp with an offset). The default timezone is `Asia/Ho_Chi_Minh`.
+Croner applies IANA timezone and DST rules: a missing local time is moved to the
+DST transition, and an overlapping local time runs once. Intervals use elapsed UTC time.
+
+The host ticks at startup and every 30 seconds without a feature flag. A run is
+on time through 90 seconds late. The default missed policy, `skip`, records the
+latest ten missed runs per tick. `coalesce-once` fires only the latest due time.
+`catch-up-limited` fires the latest 1–5 late runs (default 3), followed by on-time
+runs. For example, ten due minute intervals with the clock exactly at the tenth
+produce two on-time runs: skip fires those two, coalesce fires one, and catch-up
+with limit 3 fires five. Backlogs are bounded to the latest 50 due times, with
+at most 100 recorded occurrences across a tick.
+
+Concurrency counts all nonterminal instances previously started by the schedule.
+`skip-if-running` (default) skips while any remain. `queue-one` permits two
+nonterminal instances, representing one running and one queued; it does not
+delay activation of the second instance. `allow-parallel` requires a limit of
+2–5. Completed, failed, cancelled, and superseded instances release capacity.
+
+Occurrences deduplicate by project, schedule, UTC scheduled time, and trigger
+(`time` or `manual`). Workflow instance and command IDs are deterministic UUIDs
+derived from SHA-256 of that identity and command purpose. Each schedule tick
+commits occurrences, workflow commands, receipts, and events in one transaction;
+a duplicate occurrence is dropped. Three consecutive start failures quarantine
+the schedule. `schedules.resume` clears quarantine and failures and calculates a
+future run from the current clock. A once schedule pauses after processing its
+occurrence. Moving the clock backwards never fires a schedule.
+
+Commands are `schedules.create`, `update`, `pause`, `resume`, `delete`, and
+`run-now`. Mutations require the current revision. Manual runs use millisecond
+timestamps and obey concurrency and enabled state while ignoring missed policy.
+Schedule actions resolve definitions through registry packs and validate typed
+parameters. Projects have at most 50 schedules with unique names.
+
+Authenticated reads: `GET /projects/:projectId/schedules` (including quarantine
+state and three upcoming instants) and
+`GET /projects/:projectId/schedules/:scheduleId/occurrences` (latest 50).
+Read surfaces expose parameter keys only. Event triggers, monitors, quiet hours,
+and budgets arrive in A2/P3/N1.

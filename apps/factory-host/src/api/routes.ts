@@ -1,4 +1,5 @@
 import { pendingPatches } from "../workflow/patch.js";
+import { getSchedule, listSchedules, listOccurrences } from "../schedule/service.js";
 import { API_VERSION, contextPackSchema, conversationSchema, idSchema, messageSchema, projectSchema } from "@factory/contracts";
 import type { FastifyInstance } from "fastify";
 import type { createCommandPipeline, PipelineResult } from "../commands/pipeline.js";
@@ -47,6 +48,17 @@ export function createRoutes(deps: {
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/schedules", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      return { apiVersion: API_VERSION, ok: true, items: listSchedules(deps.storage.raw, projectId, (deps.clock ?? systemClock)()) };
+    });
+    app.get<{ Params: { projectId: string; scheduleId: string } }>("/projects/:projectId/schedules/:scheduleId/occurrences", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId, scheduleId } = request.params;
+      if (!getProject(deps.storage.raw, projectId) || !getSchedule(deps.storage.raw, projectId, scheduleId))
+        return failure(reply, 404, "not-found", "Schedule not found.", "correct-input", newId);
+      return { apiVersion: API_VERSION, ok: true, items: listOccurrences(deps.storage.raw, projectId, scheduleId) };
+    });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/workflows", { preHandler: guards.session }, async (request, reply) => {
       const { projectId } = request.params;
       if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);

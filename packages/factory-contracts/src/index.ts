@@ -19,3 +19,4 @@ export * from "./mcp-tools.js";
 export * from "./context.js";
 export * from "./dossier.js";
 export * from "./workflow.js";
+export * from "./schedule.js";

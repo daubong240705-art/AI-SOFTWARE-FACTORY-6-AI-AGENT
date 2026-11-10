@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { scheduleInputSchema, schedulePatchSchema } from "./schedule.js";
 import { workflowKeySchema, workflowPatchSchema } from "./workflow.js";
 import {
   API_VERSION,
@@ -32,6 +33,12 @@ const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
 const change = { expectedRevision: revisionSchema };
 // No actor, credentials, effective grant, status category or windowId supplied by the browser.
 export const commandSchema = z.discriminatedUnion("type", [
+  command("schedules.create", scheduleInputSchema.safeExtend({ scheduleId: idSchema })),
+  command("schedules.update", z.strictObject({ scheduleId: idSchema, ...change, patch: schedulePatchSchema })),
+  command("schedules.pause", z.strictObject({ scheduleId: idSchema, ...change })),
+  command("schedules.resume", z.strictObject({ scheduleId: idSchema, ...change })),
+  command("schedules.delete", z.strictObject({ scheduleId: idSchema, ...change })),
+  command("schedules.run-now", z.strictObject({ scheduleId: idSchema, ...change })),
   command("workflows.patch", z.strictObject({ instanceId: idSchema, ...change, ...workflowPatchSchema.shape })),
   command("workflows.decide-patch", z.strictObject({ patchId: idSchema, decision: z.enum(["approve", "reject"]), comment: z.string().max(500).optional() })),
   command("workflows.create", z.strictObject({ instanceId: idSchema, definitionKey: workflowKeySchema,
