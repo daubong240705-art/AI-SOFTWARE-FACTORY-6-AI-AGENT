@@ -531,3 +531,36 @@ state and three upcoming instants) and
 `GET /projects/:projectId/schedules/:scheduleId/occurrences` (latest 50).
 Read surfaces expose parameter keys only. Event triggers, monitors, quiet hours,
 and budgets arrive in A2/P3/N1.
+
+## Watchdog and monitors (M5 A2a)
+
+The 60 second sweep checks active workflows after advancing the engine. A workflow
+stalls when it exceeds its maximum duration (default 30 days), makes no progress
+while work remains (default 24 hours), or cannot advance pending/blocked stages
+without runnable work. Failed stages and exhausted rework limits also stall through
+the engine. The instance view includes `stalledReason` and `lastProgressAt`.
+After addressing the cause, use `workflows.resume` with the current revision;
+resume resets the progress timestamp. The watchdog never starts a workflow.
+
+Create up to 30 named monitors per project with `monitors.create`; update, pause,
+resume and delete require the current revision. Internal probes run at startup and
+on the 60 second sweep when due, at intervals from 60 seconds to one day:
+
+- `artifact-age`: count approved versions of the selected artifact kind older than `days`.
+- `approval-overdue`: count pending approvals requested more than `hours` ago.
+- `workflow-stalled`: count workflow instances currently stalled.
+- `disk-free`: available GiB on the Host state filesystem, rounded to two decimals;
+  the only accepted selector is `{ "path": "state" }`.
+
+Counts default to comparator `gt`; disk space defaults to `lt`. Equality does not
+breach the threshold. Hysteresis trips after `tripAfter` consecutive breaches
+(default 3) and recovers after `recoverAfter` consecutive healthy checks (default 1).
+An unknown monitor becomes healthy on its first non-breach. Opposite results reset
+the streak. Probe errors preserve status and advance the next check.
+
+Only status changes record history and emit `entity.changed` and `monitor.changed`.
+Every workflow state change emits `workflow.state-changed`. Tripped monitors and
+stalled workflows appear in the global and project Inbox with additive counts.
+Read monitor summaries and recent edges through the project monitor and monitor
+events routes. Probes use no model and no outbound network.
+HTTP probes are unsupported; rules/actions belong to A2b and notifications to N1.

@@ -5,7 +5,7 @@ import { workflowDefinitionSchema, workflowStageStateSchema, type WorkflowInstan
 export interface WorkflowInstanceRow {
   project_id: string; id: string; revision: number; key: string; pack_key: string; pack_version: string;
   definition_revision: number; definition_json: string; params_json: string; title: string;
-  state: WorkflowInstanceState; state_reason: string | null; created_at: string; started_at: string | null; ended_at: string | null;
+  last_progress_at: string | null; state: WorkflowInstanceState; state_reason: string | null; created_at: string; started_at: string | null; ended_at: string | null;
 }
 export function getWorkflowInstance(raw: Database, projectId: string, id: string): WorkflowInstanceRow | undefined {
   return raw.prepare("SELECT * FROM workflow_instances WHERE project_id = ? AND id = ?").get(projectId, id) as WorkflowInstanceRow | undefined;
@@ -30,7 +30,7 @@ export function workflowInstanceView(raw: Database, projectId: string, id: strin
   const stages = raw.prepare("SELECT stage_key AS key, phase, state, optional, loop_count AS loopCount, blocked_reason AS blockedReason, engagement_id AS engagementId, extra_tasks AS extraTasks FROM workflow_stages WHERE project_id = ? AND instance_id = ?")
     .all(projectId, id) as { key: string; phase: string; state: string; optional: number; loopCount: number; blockedReason: string | null; engagementId: string | null; extraTasks: number }[];
   const order = new Map(definition.stages.map((s, i) => [s.key, i]));
-  return { ...summary(raw, row), stages: stages.sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
+  return { ...summary(raw, row), stalledReason: row.state_reason, lastProgressAt: row.last_progress_at, stages: stages.sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
     .map((s) => {
       const tasks = raw.prepare(`SELECT l.iteration, t.id AS taskId, t.code, t.state FROM workflow_stage_tasks l
         JOIN tasks t ON t.project_id = l.project_id AND t.id = l.task_id

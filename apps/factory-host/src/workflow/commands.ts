@@ -1,5 +1,6 @@
+import { writeWorkflowState } from "./state.js";
 import { proposePatch, decidePatch, PatchError } from "./patch.js";
-import { canTransitionWorkflow, evaluateParamCondition, isTerminalWorkflowState, workflowDefinitionSchema,
+import { canTransitionWorkflow, evaluateParamCondition, workflowDefinitionSchema,
   type WorkflowInstanceState, type WorkflowValue } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerContext, HandlerMap } from "../commands/pipeline.js";
@@ -27,10 +28,7 @@ function transition(ctx: HandlerContext, projectId: string, payload: { instanceI
   if ((required !== undefined && row.state !== required) || !allowed)
     throw new CommandError("conflict", "invalid workflow transition", "refresh");
   const now = ctx.clock().toISOString();
-  ctx.raw.prepare(`UPDATE workflow_instances SET state = ?, state_reason = ?, revision = revision + 1,
-    started_at = ?, ended_at = ? WHERE project_id = ? AND id = ? AND revision = ?`)
-    .run(target, reason ?? null, row.started_at ?? (target === "active" ? now : null),
-      isTerminalWorkflowState(target) ? now : null, projectId, row.id, payload.expectedRevision);
+  writeWorkflowState(ctx, row, target, reason ?? null, now);
   return { effects: [{ kind: "workflow-instance" as const, id: row.id, revision: row.revision + 1 }] };
 }
 export function createWorkflowHandlers(deps: { packs: readonly RegistryPack[]; engine?: WorkflowEngineDeps }): Partial<HandlerMap> {
@@ -114,7 +112,7 @@ export function createWorkflowHandlers(deps: { packs: readonly RegistryPack[]; e
         throw new CommandError("not-found", "engagement not found in project", "correct-input");
       ctx.raw.prepare("UPDATE workflow_stages SET engagement_id = ?, blocked_reason = NULL, state = 'pending' WHERE project_id = ? AND instance_id = ? AND stage_key = ?")
         .run(payload.engagementId, projectId, row.id, payload.stageKey);
-      ctx.raw.prepare("UPDATE workflow_instances SET revision = revision + 1 WHERE project_id = ? AND id = ?").run(projectId, row.id);
+      ctx.raw.prepare("UPDATE workflow_instances SET revision = revision + 1, last_progress_at = ? WHERE project_id = ? AND id = ?").run(ctx.clock().toISOString(), projectId, row.id);
       if (deps.engine) advanceWorkflow(deps.engine, projectId, row.id);
       return { effects: [{ kind: "workflow-instance", id: row.id, revision: getWorkflowInstance(ctx.raw, projectId, row.id)!.revision }] };
     },

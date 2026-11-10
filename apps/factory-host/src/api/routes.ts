@@ -1,3 +1,4 @@
+import { getMonitor, listMonitors, listMonitorEvents } from "../automation/monitors.js";
 import { pendingPatches } from "../workflow/patch.js";
 import { getSchedule, listSchedules, listOccurrences } from "../schedule/service.js";
 import { API_VERSION, contextPackSchema, conversationSchema, idSchema, messageSchema, projectSchema } from "@factory/contracts";
@@ -48,6 +49,17 @@ export function createRoutes(deps: {
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/monitors", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!getProject(deps.storage.raw, projectId)) return failure(reply,404,"not-found","Project not found.","correct-input",newId);
+      return { apiVersion: API_VERSION, ok: true, items: listMonitors(deps.storage.raw,projectId) };
+    });
+    app.get<{ Params: { projectId: string; monitorId: string } }>("/projects/:projectId/monitors/:monitorId/events", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId,monitorId } = request.params;
+      if (!getProject(deps.storage.raw,projectId) || !getMonitor(deps.storage.raw,projectId,monitorId))
+        return failure(reply,404,"not-found","Monitor not found.","correct-input",newId);
+      return { apiVersion: API_VERSION, ok: true, items: listMonitorEvents(deps.storage.raw,projectId,monitorId) };
+    });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/schedules", { preHandler: guards.session }, async (request, reply) => {
       const { projectId } = request.params;
       if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
@@ -164,9 +176,16 @@ export function createRoutes(deps: {
         .map((item) => ({ ...item, ...(projectId === undefined ? { projectId: project.id, projectName: publicApprovalText(project.name) } : {}) })));
       const patches = projects.flatMap((project) => pendingPatches({ raw: deps.storage.raw }, project.id)
         .map((patch) => ({ ...patch, ...(projectId === undefined ? { projectName: publicApprovalText(project.name) } : {}) })));
-      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, patches,
-        counts: { patches: patches.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
-          total: approvals.length + startGates.length + requests.length + patches.length } };
+      const monitors = projects.flatMap((project) => (deps.storage.raw.prepare(`SELECT id AS monitorId,project_id AS projectId,name,kind,last_value AS value,
+        (SELECT at FROM monitor_events e WHERE e.project_id=m.project_id AND e.monitor_id=m.id AND to_status='tripped' ORDER BY seq DESC LIMIT 1) AS since
+        FROM monitors m WHERE project_id=? AND status='tripped' ORDER BY created_at,id`).all(project.id) as { monitorId: string; projectId: string; name: string; kind: string; value: number | null; since: string | null }[])
+        .map((row) => ({ ...row,name: publicApprovalText(row.name) })));
+      const stalledWorkflows = projects.flatMap((project) => (deps.storage.raw.prepare(`SELECT id AS instanceId,title,state_reason AS reason FROM workflow_instances
+        WHERE project_id=? AND state='stalled' ORDER BY created_at,id`).all(project.id) as { instanceId: string; title: string; reason: string | null }[])
+        .map((row) => ({ ...row,title: publicApprovalText(row.title),reason: row.reason === null ? null : publicApprovalText(row.reason) })));
+      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, patches, monitors, stalledWorkflows,
+        counts: { monitors: monitors.length, stalledWorkflows: stalledWorkflows.length, patches: patches.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
+          total: approvals.length + startGates.length + requests.length + patches.length + monitors.length + stalledWorkflows.length } };
     };
     app.get("/inbox", { preHandler: guards.session }, async () => inbox());
     app.get<{ Params: { projectId: string }; Querystring: { state?: string; team?: string; limit?: string } }>(

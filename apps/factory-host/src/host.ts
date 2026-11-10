@@ -1,3 +1,7 @@
+import { statfs } from "node:fs/promises";
+import { runWatchdog } from "./automation/watchdog.js";
+import { tickMonitors, type MonitorDeps } from "./automation/monitors.js";
+import { createMonitorHandlers, MONITOR_COMMANDS } from "./automation/monitorCommands.js";
 import { createWorkflowPatchMcp } from "./workflow/mcp.js";
 import { createScheduleHandlers, SCHEDULE_COMMANDS } from "./schedule/commands.js";
 import { tickSchedules } from "./schedule/scheduler.js";
@@ -196,6 +200,7 @@ export async function startHost(options: {
   contentDir?: string;
   pushRemotes?: PushRemote[] | null;
   pushSshCommand?: string;
+  monitorStatfs?: MonitorDeps["statfs"];
   timers?: Timers;
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
@@ -252,6 +257,7 @@ export async function startHost(options: {
   let unlockState: (() => void) | undefined;
   let expiryTimer: unknown;
   let scheduleTimer: unknown;
+  let monitorTick: Promise<void> | undefined;
   let knowledgeTimer: ReturnType<typeof setImmediate> | undefined;
   const interval = options.timers?.setInterval ?? ((callback: () => void, ms: number) => setInterval(callback, ms).unref());
   const clearExpiry = options.timers?.clearInterval ?? ((handle: unknown) => clearInterval(handle as ReturnType<typeof setInterval>));
@@ -280,6 +286,7 @@ export async function startHost(options: {
                 await scheduler?.stop();
                 try { backup?.service.run("shutdown"); } catch { /* Backup failure cannot prevent closing storage. */ }
               } finally {
+                await monitorTick;
                 try { storage?.close(); } finally { unlockState?.(); }
               }
             }
@@ -332,16 +339,18 @@ export async function startHost(options: {
     const approvalRaw = storage.raw;
     const sweepApprovals = (): void => {
       expirePendingApprovals({ raw: approvalRaw, hub, now: clock });
-      if (dispatch) {
-        try { sweepWorkflows({ raw: approvalRaw, hub, clock, dispatcher: dispatch }); }
-        catch { console.error("Workflow sweep failed"); }
-      }
+      try { sweepWorkflows({ raw: approvalRaw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) }); }
+      catch { console.error("Workflow sweep failed"); }
+      runWatchdog({ raw: approvalRaw, hub, clock }, clock());
+      monitorTick ??= tickMonitors({ raw: approvalRaw, hub, stateDir, statfs: options.monitorStatfs ?? statfs }, clock())
+        .finally(() => { monitorTick = undefined; });
       if (options.multiTeam && dispatch) {
         try { expireRequests({ raw: approvalRaw, hub, dispatcher: dispatch, multiTeam: true, now: clock, newId: createIdGenerator(clock) }, clock()); }
         catch { console.error("Request expiry failed"); }
       }
     };
     sweepApprovals();
+    await monitorTick;
     expiryTimer = interval(() => { try { sweepApprovals(); } catch { console.error("Approval expiry failed"); } }, 60_000);
     const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content") }) };
     const knowledge = createKnowledgeIndex({ raw: storage.raw, store: artifacts.store });
@@ -493,6 +502,7 @@ export async function startHost(options: {
     sweepSchedules();
     scheduleTimer = interval(sweepSchedules, 30_000);
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
+      ...createMonitorHandlers(),
       ...createScheduleHandlers({ packs, pipeline: workflowPipeline }),
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
       ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
@@ -533,6 +543,7 @@ export async function startHost(options: {
           "dossier.refresh",
           ...WORKFLOW_COMMANDS,
           ...SCHEDULE_COMMANDS,
+          ...MONITOR_COMMANDS,
           ...(options.multiTeam ? [...ORG_COMMANDS, ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],

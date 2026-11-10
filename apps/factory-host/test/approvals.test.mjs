@@ -337,7 +337,7 @@ for (const operation of ["update", "delete", "replace"]) test(`stored comment re
 
 test("project Inbox has pending views, start gates and exact counts", async (t) => {
   const f = fixture(t); const p = prepared(f); const gate = f.task("awaiting-go"); const http = await api(t, f); const r = await http.read(`/projects/${f.projectId}/inbox`);
-  assert.equal(r.statusCode, 200); const body = r.json(); assert.deepEqual(body.counts, { patches: 0, approvals: 1, startGates: 1, requests: 0, total: 2 });
+  assert.equal(r.statusCode, 200); const body = r.json(); assert.deepEqual(body.counts, { monitors: 0, stalledWorkflows: 0, patches: 0, approvals: 1, startGates: 1, requests: 0, total: 2 });
   assert.equal(body.approvals[0].id, p.approvalId); approvalSchema.parse(body.approvals[0]); assert.deepEqual(body.startGates, [{ taskId: gate, code: "REV-002", title: "Build result" }]);
 });
 test("Inbox approval ordering is oldest first and history is newest first", async (t) => {
@@ -349,12 +349,12 @@ test("Inbox approval ordering is oldest first and history is newest first", asyn
 });
 test("global Inbox aggregates projects and carries project names on every item", async (t) => {
   const f = fixture(t); prepared(f); f.task("awaiting-go"); const other = f.project("Other project"); const id = f.task("in-review", {}, other); f.review(id, f.attempt(id, 1, other), other); f.task("awaiting-go", {}, other);
-  const http = await api(t, f); const b = (await http.read("/inbox")).json(); assert.deepEqual(b.counts, { patches: 0, approvals: 2, startGates: 2, requests: 0, total: 4 });
+  const http = await api(t, f); const b = (await http.read("/inbox")).json(); assert.deepEqual(b.counts, { monitors: 0, stalledWorkflows: 0, patches: 0, approvals: 2, startGates: 2, requests: 0, total: 4 });
   for (const item of [...b.approvals, ...b.startGates]) { assert.ok([f.projectId, other].includes(item.projectId)); assert.ok(["Review project", "Other project"].includes(item.projectName)); }
   const scoped = (await http.read(`/projects/${other}/inbox`)).json(); assert.equal(scoped.approvals.length, 1); assert.equal(scoped.approvals[0].projectId, other);
 });
 test("empty Inbox counts are zero", async (t) => {
-  const f = fixture(t); const http = await api(t, f); const r = (await http.read("/inbox")).json(); assert.deepEqual(r.counts, { patches: 0, approvals: 0, startGates: 0, requests: 0, total: 0 });
+  const f = fixture(t); const http = await api(t, f); const r = (await http.read("/inbox")).json(); assert.deepEqual(r.counts, { monitors: 0, stalledWorkflows: 0, patches: 0, approvals: 0, startGates: 0, requests: 0, total: 0 });
 });
 for (const route of ["/inbox", "/projects/:project/inbox", "/projects/:project/approvals/:approval", "/projects/:project/tasks/:task/approvals"])
   test(`Inbox session guard: ${route}`, async (t) => {
@@ -430,16 +430,16 @@ function scratch() { return fs.mkdtempSync(join(tmpdir(), "factory-approvals-"))
 function cleanupScratch(root) {
   assert.ok(resolve(root).startsWith(resolve(tmpdir()) + sep + "factory-approvals-")); fs.rmSync(root, { recursive: true, force: true });
 }
-test("fresh migration ledger reaches exactly 0013", (t) => {
-  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }]);
+test("fresh migration ledger reaches exactly 0014", (t) => {
+  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }, { version: 14 }]);
 });
 test("0002 database upgrades additively to 0010 with backup and existing review preserved", (t) => {
   const root = scratch(t); const dir = join(root, "migrations"); fs.mkdirSync(dir);
   for (const name of ["0001_core.sql", "0002_dispatch.sql"]) fs.copyFileSync(join(migrationsDir, name), join(dir, name));
   const s = openStorage(join(root, "host.db")); t.after(() => s.close()); t.after(() => cleanupScratch(root)); s.migrate({ migrationsDir: dir, backupDir: null });
   s.raw.prepare("INSERT INTO projects VALUES (?,1,'Upgrade','directory','/private/workspace','active')").run(randomUUID());
-  assert.deepEqual(s.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
-  assert.deepEqual(s.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }]);
+  assert.deepEqual(s.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+  assert.deepEqual(s.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }, { version: 14 }]);
   assert.equal(s.raw.prepare("SELECT count(*) AS n FROM projects").get().n, 1); assert.deepEqual(s.raw.prepare("PRAGMA foreign_key_check").all(), []);
 });
 test("host expires at startup, schedules an injectable 60s sweep and clears it on close", async (t) => {

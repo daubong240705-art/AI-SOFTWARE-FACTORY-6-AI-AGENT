@@ -1,6 +1,7 @@
+import { writeWorkflowState } from "./state.js";
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
-import { canTransitionWorkflow, workflowDefinitionSchema, type Condition, type EntityRef, type WorkflowInstanceState,
+import { workflowDefinitionSchema, type Condition, type EntityRef, type WorkflowInstanceState,
   type WorkflowStageState, type WorkflowValue, type Task } from "@factory/contracts";
 import type { EventHub } from "../events/hub.js";
 import type { Dispatcher } from "../dispatch/dispatcher.js";
@@ -198,16 +199,9 @@ export function advanceWorkflow(deps: WorkflowEngineDeps, projectId: string, ins
       if (stages.every((stage) => ["done", "skipped"].includes(stage.state))) target = "completed";
       else if (!stages.some((stage) => currentTasks(stage.stage_key).some((task) => task.state === "active")) && waiting()) target = "awaiting-approval";
     }
-    if (target !== instance.state && !canTransitionWorkflow(instance.state, target)) {
-      // A waiting instance wakes before taking another allowed transition.
-      if (instance.state === "awaiting-approval" && canTransitionWorkflow(instance.state, "active") && canTransitionWorkflow("active", target))
-        raw.prepare("UPDATE workflow_instances SET state = 'active' WHERE project_id = ? AND id = ?").run(projectId, instanceId);
-      else throw new Error("Invalid workflow transition");
-    }
-    dirty = JSON.stringify(stages) !== beforeStages;
+    dirty = JSON.stringify(stages) !== beforeStages || effects.some((entity) => entity.kind === "task");
     if (dirty || target !== instance.state) {
-      raw.prepare("UPDATE workflow_instances SET state = ?, state_reason = ?, ended_at = ?, revision = revision + 1 WHERE project_id = ? AND id = ?")
-        .run(target, reason, target === "completed" ? now : null, projectId, instanceId);
+      writeWorkflowState(deps, getWorkflowInstance(raw,projectId,instanceId)!, target, reason, now);
       effects.push({ kind: "workflow-instance", id: instanceId, revision: instance.revision + 1 });
     }
     if (deps.dispatcher && target !== "stalled") {

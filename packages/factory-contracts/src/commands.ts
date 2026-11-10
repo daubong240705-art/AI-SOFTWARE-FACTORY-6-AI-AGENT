@@ -1,3 +1,4 @@
+import { monitorCreateSchema, monitorPatchSchema } from "./automation.js";
 import { z } from "zod";
 import { scheduleInputSchema, schedulePatchSchema } from "./schedule.js";
 import { workflowKeySchema, workflowPatchSchema } from "./workflow.js";
@@ -33,6 +34,11 @@ const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
 const change = { expectedRevision: revisionSchema };
 // No actor, credentials, effective grant, status category or windowId supplied by the browser.
 export const commandSchema = z.discriminatedUnion("type", [
+  command("monitors.create", monitorCreateSchema.safeExtend({ monitorId: idSchema })),
+  command("monitors.update", z.strictObject({ monitorId: idSchema, ...change, patch: monitorPatchSchema })),
+  command("monitors.pause", z.strictObject({ monitorId: idSchema, ...change })),
+  command("monitors.resume", z.strictObject({ monitorId: idSchema, ...change })),
+  command("monitors.delete", z.strictObject({ monitorId: idSchema, ...change })),
   command("schedules.create", scheduleInputSchema.safeExtend({ scheduleId: idSchema })),
   command("schedules.update", z.strictObject({ scheduleId: idSchema, ...change, patch: schedulePatchSchema })),
   command("schedules.pause", z.strictObject({ scheduleId: idSchema, ...change })),
