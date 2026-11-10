@@ -1,4 +1,5 @@
 import type { Database } from "better-sqlite3";
+import { workflowChanged } from "../workflow/lifecycle.js";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerMap } from "../commands/pipeline.js";
 import { ensureTeamFromPack, getTeam } from "./service.js";
@@ -60,6 +61,7 @@ export function createOrgHandlers(deps: { multiTeam?: boolean; packs: readonly R
       raw.prepare(`INSERT INTO engagements (project_id, id, team_id, revision, priority, max_concurrent, state, created_at)
         VALUES (?, ?, ?, 1, ?, ?, 'active', ?)`)
         .run(projectId, payload.engagementId, payload.teamId, payload.priority, payload.maxConcurrent, createdAt);
+      workflowChanged(raw, projectId);
       return { effects: [{ kind: "engagement", id: payload.engagementId, revision: 1 }] };
     },
     "engagements.update": ({ raw }, { projectId, payload }) => {
@@ -74,6 +76,7 @@ export function createOrgHandlers(deps: { multiTeam?: boolean; packs: readonly R
       raw.prepare(`UPDATE engagements SET priority = ?, max_concurrent = ?, state = ?, revision = revision + 1
         WHERE project_id = ? AND id = ?`).run(payload.priority ?? row.priority, payload.maxConcurrent ?? row.max_concurrent,
         payload.state ?? row.state, projectId, payload.engagementId);
+      workflowChanged(raw, projectId);
       return { effects: [{ kind: "engagement", id: payload.engagementId, revision: row.revision + 1 }] };
     },
     "seats.update": ({ raw }, { projectId, payload }) => {

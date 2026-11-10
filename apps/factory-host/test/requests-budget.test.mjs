@@ -36,7 +36,7 @@ test("a team outside the chain remains allowed", (t) => {
   assert.ok(f.create({ targetTeamId: f.secondTeam(), ask: "New team" }, f.seed(first.requestId, seat)).requestId);
 });
 test("migration seven has strict waits and composite foreign keys", (t) => {
-  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map((r) => r.version), [1,2,3,4,5,6,7,8,9,10]);
+  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map((r) => r.version), [1,2,3,4,5,6,7,8,9,10,11]);
   assert.equal(f.raw.prepare("SELECT strict FROM pragma_table_list WHERE name = 'ctr_waits'").get().strict, 1);
   assert.equal(f.raw.pragma("foreign_key_list(ctr_waits)").length, 6); assert.deepEqual(f.raw.pragma("foreign_key_check"), []);
 });

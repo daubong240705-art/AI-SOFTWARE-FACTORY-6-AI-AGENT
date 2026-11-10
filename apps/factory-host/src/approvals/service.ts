@@ -7,6 +7,7 @@ import type { HandlerContext, HandlerMap, HandlerResult } from "../commands/pipe
 import type { Dispatcher } from "../dispatch/dispatcher.js";
 import { moveTaskAndAdvance } from "../dispatch/transitions.js";
 import type { EventHub } from "../events/hub.js";
+import { workflowChanged } from "../workflow/lifecycle.js";
 import { getTask } from "../work/service.js";
 import { assertActiveGrant, McpToolError, sanitizeAgentText } from "../mcp/security.js";
 import { cleanDecisionRequest, type DecisionRequestInput } from "../mcp/tools.js";
@@ -247,6 +248,7 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
       effects.push(effect(approval.id, approval.revision + 2));
     }
   }
+  workflowChanged(raw, projectId);
   return { effects };
 }
 

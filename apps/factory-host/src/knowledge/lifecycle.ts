@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { canTransitionArtifact, type ArtifactStatus, type EntityRef } from "@factory/contracts";
 import { visibleToScope, type KnowledgeScope } from "./permissions.js";
+import { workflowChanged } from "../workflow/lifecycle.js";
 import { sanitizeAgentText } from "../mcp/security.js";
 
 export class ArtifactLifecycleError extends Error {
@@ -110,6 +111,7 @@ export function transitionArtifactVersion(raw: Database, input: VersionKey & {
     // Explicit invalidation has no replacement; the invalidated version is the stale reason.
     effects.push(...markDependantsStale(raw, { projectId, artifactId, supersededVersion: version, byVersion: version, now: input.now }));
   }
+  workflowChanged(raw, projectId);
   return changed(raw, effects);
 }
 
@@ -133,6 +135,7 @@ export function supersedeForRegistration(raw: Database, input: {
   if (["superseded", "rejected", "withdrawn"].includes(row.status)) return [];
   raw.prepare("UPDATE artifact_versions SET status = 'superseded' WHERE project_id = ? AND artifact_id = ? AND version = ?")
     .run(input.projectId, input.artifactId, input.supersededVersion);
+  workflowChanged(raw, input.projectId);
   return changed(raw, [effect(input.artifactId, input.supersededVersion),
     ...(row.status === "approved" ? markDependantsStale(raw, input) : [])]);
 }

@@ -1,3 +1,4 @@
+import { registerWorkflowEngine, sweepWorkflows } from "./workflow/engine.js";
 import { expireRequests } from "./requests/service.js";
 import type { FastifyInstance } from "fastify";
 import { createServer } from "node:net";
@@ -326,6 +327,10 @@ export async function startHost(options: {
     const approvalRaw = storage.raw;
     const sweepApprovals = (): void => {
       expirePendingApprovals({ raw: approvalRaw, hub, now: clock });
+      if (dispatch) {
+        try { sweepWorkflows({ raw: approvalRaw, hub, clock, dispatcher: dispatch }); }
+        catch { console.error("Workflow sweep failed"); }
+      }
       if (options.multiTeam && dispatch) {
         try { expireRequests({ raw: approvalRaw, hub, dispatcher: dispatch, multiTeam: true, now: clock, newId: createIdGenerator(clock) }, clock()); }
         catch { console.error("Request expiry failed"); }
@@ -469,12 +474,15 @@ export async function startHost(options: {
         } catch { console.error("Dispatch startup catch-up failed for project", project.id); }
       }
     }
+    const workflowEngine = { raw: storage.raw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) };
+    registerWorkflowEngine(workflowEngine);
+    try { sweepWorkflows(workflowEngine); } catch { console.error("Workflow sweep failed"); }
     const lead = runner;
     const dispatchHandlers = dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch });
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
       ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
-      ...createWorkflowHandlers({ packs }),
+      ...createWorkflowHandlers({ packs, engine: { raw: storage.raw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) } }),
       ...createRequestHandlers({ multiTeam: options.multiTeam ?? false, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
       "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false }),
       "tasks.create": tasksCreateHandler,

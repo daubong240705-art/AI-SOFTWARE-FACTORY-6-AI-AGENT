@@ -422,3 +422,18 @@ Directories beginning with `_` or `.` are silently skipped by the registry.
 Restart the Host to discover the new pack, create a team from its key/version,
 and engage it in a project. This adds a team entirely through data. Bump the pack
 version to publish subsequent changes; existing teams retain their snapshot.
+
+
+### Workflow engine (M5 W1b)
+
+The deterministic engine refreshes current task and output states, evaluates readiness and facts, creates one task per ready stage and iteration, applies bounded rework, then updates the instance. Repeated evaluation does not duplicate tasks. Briefs use definition fields and parameter lines. Inputs pin up to eight newest approved upstream versions.
+
+Finish-to-start requires a done or skipped source. Artifact-approved requires the declared kind at approved status; informs never blocks. Parallel groups join with all, any or quorum completion. includeIf is fixed at creation; skipIf is evaluated at readiness. Facts support project approved artifacts, review verdicts and produced artifact status. Unknown facts block conditional edges and gates with a warning.
+
+Execution and irreversible-action gates use the existing Go gate; review gates use human-final review. Rework resets its source and target, retains history and adds sanitised feedback to the next brief. Exhausted maxLoops stalls the instance. Required failures stall; optional failures are skipped.
+
+Selection uses active engagements of active teams. A capability-declared team needs one non-lead seat covering every capability using dispatch's case-insensitive dotted-prefix rule. Legacy teams are fallbacks. Ranking prefers declared coverage, teamHint in pack key or name, lower live engagement load, higher priority, then name/id. Active operator overrides take precedence.
+
+Start, resume, task transitions, artifact status changes, approvals.decide and engagement changes trigger evaluation. Startup and 60-second sweeps repair missed notifications. Paused and terminal instances create no tasks. Operators can add/reactivate an eligible engagement or use workflows.assign-stage with instanceId, expectedRevision, stageKey and engagementId (null clears it) on pending/blocked stages. Retry a failed task, then resume a stalled instance. Detail views include stage reasons, engagement, iteration, loops and task history.
+
+Label/check/monitor facts, Plan Patch, schedules and freshness checks on resume are not supported yet. Workflow code effects map to task artifact effects; external effects map to external-irreversible.

@@ -5,8 +5,9 @@ import type { HandlerContext, HandlerMap } from "../commands/pipeline.js";
 import { registryPack, type RegistryPack } from "../org/registry.js";
 import { getWorkflowInstance } from "./service.js";
 import { validateWorkflowDefinition } from "./validate.js";
+import { advanceWorkflow, type WorkflowEngineDeps } from "./engine.js";
 
-export const WORKFLOW_COMMANDS = ["workflows.create", "workflows.start", "workflows.pause", "workflows.resume", "workflows.cancel"] as const;
+export const WORKFLOW_COMMANDS = ["workflows.create", "workflows.start", "workflows.pause", "workflows.resume", "workflows.cancel", "workflows.assign-stage"] as const;
 function requireProject(ctx: HandlerContext, projectId: string): void {
   if (!ctx.raw.prepare("SELECT id FROM projects WHERE id = ?").get(projectId))
     throw new CommandError("not-found", "project not found", "correct-input");
@@ -31,7 +32,7 @@ function transition(ctx: HandlerContext, projectId: string, payload: { instanceI
       isTerminalWorkflowState(target) ? now : null, projectId, row.id, payload.expectedRevision);
   return { effects: [{ kind: "workflow-instance" as const, id: row.id, revision: row.revision + 1 }] };
 }
-export function createWorkflowHandlers(deps: { packs: readonly RegistryPack[] }): Partial<HandlerMap> {
+export function createWorkflowHandlers(deps: { packs: readonly RegistryPack[]; engine?: WorkflowEngineDeps }): Partial<HandlerMap> {
   return {
     "workflows.create": (ctx, { projectId, payload }) => {
       requireProject(ctx, projectId);
@@ -67,9 +68,35 @@ export function createWorkflowHandlers(deps: { packs: readonly RegistryPack[] })
         stage.includeIf && evaluateParamCondition(stage.includeIf, params) === "false" ? "skipped" : "pending", Number(stage.optional));
       return { effects: [{ kind: "workflow-instance", id: payload.instanceId, revision: 1 }] };
     },
-    "workflows.start": (ctx, { projectId, payload }) => transition(ctx, projectId, payload, "active", "proposed"),
+    "workflows.start": (ctx, { projectId, payload }) => {
+      const result = transition(ctx, projectId, payload, "active", "proposed");
+      if (deps.engine) advanceWorkflow(deps.engine, projectId, payload.instanceId);
+      return result;
+    },
     "workflows.pause": (ctx, { projectId, payload }) => transition(ctx, projectId, payload, "paused", "active", payload.reason),
-    "workflows.resume": (ctx, { projectId, payload }) => transition(ctx, projectId, payload, "active", "paused"),
+    "workflows.resume": (ctx, { projectId, payload }) => {
+      const row = getWorkflowInstance(ctx.raw, projectId, payload.instanceId);
+      const result = transition(ctx, projectId, payload, "active", deps.engine && row?.state === "stalled" ? "stalled" : "paused");
+      if (deps.engine) advanceWorkflow(deps.engine, projectId, payload.instanceId);
+      return result;
+    },
     "workflows.cancel": (ctx, { projectId, payload }) => transition(ctx, projectId, payload, "cancelled", undefined, payload.reason),
+    "workflows.assign-stage": (ctx, { projectId, payload }) => {
+      requireProject(ctx, projectId);
+      const row = getWorkflowInstance(ctx.raw, projectId, payload.instanceId);
+      if (!row) throw new CommandError("not-found", "workflow not found", "correct-input");
+      if (row.revision !== payload.expectedRevision) throw new CommandError("conflict", "revision changed", "refresh", { currentRevision: row.revision });
+      const stage = ctx.raw.prepare("SELECT state FROM workflow_stages WHERE project_id = ? AND instance_id = ? AND stage_key = ?")
+        .get(projectId, row.id, payload.stageKey) as { state: string } | undefined;
+      if (!stage) throw new CommandError("not-found", "stage not found", "correct-input");
+      if (!["pending", "blocked"].includes(stage.state)) throw new CommandError("conflict", "stage cannot be assigned", "refresh");
+      if (payload.engagementId !== null && !ctx.raw.prepare("SELECT id FROM engagements WHERE project_id = ? AND id = ?").get(projectId, payload.engagementId))
+        throw new CommandError("not-found", "engagement not found in project", "correct-input");
+      ctx.raw.prepare("UPDATE workflow_stages SET engagement_id = ?, blocked_reason = NULL, state = 'pending' WHERE project_id = ? AND instance_id = ? AND stage_key = ?")
+        .run(payload.engagementId, projectId, row.id, payload.stageKey);
+      ctx.raw.prepare("UPDATE workflow_instances SET revision = revision + 1 WHERE project_id = ? AND id = ?").run(projectId, row.id);
+      if (deps.engine) advanceWorkflow(deps.engine, projectId, row.id);
+      return { effects: [{ kind: "workflow-instance", id: row.id, revision: getWorkflowInstance(ctx.raw, projectId, row.id)!.revision }] };
+    },
   };
 }

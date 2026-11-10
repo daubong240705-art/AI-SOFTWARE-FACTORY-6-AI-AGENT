@@ -22,7 +22,7 @@ const leaf = z.union([
   // strings, or monitor numbers respectively. W1a never reads these facts.
   z.strictObject({ fact: z.literal("project.hasApprovedArtifact"), kind: artifactKindSchema, ...comparison }),
   z.strictObject({ fact: z.literal("review.verdict"), stage: workflowKeySchema.optional(), ...comparison }),
-  z.strictObject({ fact: z.literal("artifact.status"), kind: artifactKindSchema, ...comparison }),
+  z.strictObject({ fact: z.literal("artifact.status"), kind: artifactKindSchema, stage: workflowKeySchema.optional(), ...comparison }),
   z.strictObject({ fact: z.literal("check.result"), check: labelSchema, ...comparison }),
   z.strictObject({ fact: z.literal("monitor.value"), monitor: labelSchema, ...comparison }),
   z.strictObject({ fact: z.literal("label"), name: labelSchema, ...comparison }),
@@ -35,7 +35,7 @@ const leaf = z.union([
     const fact = condition.fact;
     valid &&= values.every((v) => fact === "project.hasApprovedArtifact" ? typeof v === "boolean"
       : fact === "monitor.value" ? typeof v === "number" : typeof v === "string");
-    if (fact === "review.verdict") valid &&= values.every((v) => ["accepted", "changes-requested"].includes(String(v)));
+    if (fact === "review.verdict") valid &&= values.every((v) => ["accepted", "approved", "changes-requested", "none"].includes(String(v)));
     if (fact === "artifact.status") valid &&= values.every((v) => artifactStatusSchema.safeParse(v).success);
   }
   if (!valid) ctx.addIssue({ code: "custom", message: "invalid comparison" });

@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { canTransitionTask, taskSchema, type Task, type TaskState } from "@factory/contracts";
 import { getTask } from "../work/service.js";
 import type { AttemptRecord } from "./types.js";
+import { workflowChanged } from "../workflow/lifecycle.js";
 import { requestTaskTransition } from "../requests/lifecycle.js";
 
 export class TaskMoveError extends Error {
@@ -36,6 +37,7 @@ export function moveTask(raw: Database, projectId: string, taskId: string, to: T
         .run(now ?? new Date().toISOString(), projectId, taskId);
     }
     requestTaskTransition(raw, projectId, taskId, to);
+    workflowChanged(raw, projectId);
     return getTask(raw, projectId, taskId) as Task;
   }).immediate();
 }

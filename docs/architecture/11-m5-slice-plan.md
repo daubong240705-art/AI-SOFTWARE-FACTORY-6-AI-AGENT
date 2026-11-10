@@ -29,4 +29,5 @@ Trạng thái: **bản nháp tự quyết 08/11/2026** (người dùng giao quy�
 | # | Trạng thái | Commit | Ghi chú |
 |---|---|---|---|
 | W1a | Xong | (commit này) | Schema Workflow Definition + validator xác định (chu trình, cạnh, join, điều kiện có kiểu, không có code), `pack.json` khai báo `workflows`, workflow `software-delivery` cho `software-team` (digest của gói này đổi có chủ ý), Instance + máy trạng thái 04 §8.3 (migration 0010), lệnh `workflows.create/start/pause/resume/cancel`, route đọc. Chưa tạo Task (W1b). Codex hết giờ 900 s sau khi ghi gần đủ; lead sửa 2 test đếm lệnh/trường registry và thêm test bổ sung |
-| W1b, W2, A1, A2, P3, N1, E2 | Chưa | — | |
+| W1b | Xong | (commit này) | Bộ máy workflow xác định: Stage thành Task (một Task mỗi lần lặp, mã `WF-nnn`, brief chỉ từ định nghĩa), cạnh finish-to-start/artifact-approved/informs, join all/any/quorum, skipIf với fact thật (`project.hasApprovedArtifact`, `review.verdict`, `artifact.status`), cổng Go/review, rework có giới hạn và phản hồi review, chọn đội xác định (năng lực, dự phòng legacy, gợi ý, tải) + lệnh `workflows.assign-stage`, trạng thái awaiting-approval/stalled/completed, kích hoạt theo sự kiện và vòng quét 60 s (migration 0011). Chưa có fact label/check/monitor (tính là chưa biết = false) |
+| W2, A1, A2, P3, N1, E2 | Chưa | — | |

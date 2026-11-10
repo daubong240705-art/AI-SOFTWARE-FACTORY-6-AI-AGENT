@@ -26,11 +26,18 @@ export function workflowInstanceView(raw: Database, projectId: string, id: strin
   const row = getWorkflowInstance(raw, projectId, id);
   if (!row) return undefined;
   const definition = workflowDefinitionSchema.parse(JSON.parse(row.definition_json) as unknown);
-  const stages = raw.prepare("SELECT stage_key AS key, phase, state, optional, loop_count AS loopCount FROM workflow_stages WHERE project_id = ? AND instance_id = ?")
-    .all(projectId, id) as { key: string; phase: string; state: string; optional: number; loopCount: number }[];
+  const stages = raw.prepare("SELECT stage_key AS key, phase, state, optional, loop_count AS loopCount, blocked_reason AS blockedReason, engagement_id AS engagementId FROM workflow_stages WHERE project_id = ? AND instance_id = ?")
+    .all(projectId, id) as { key: string; phase: string; state: string; optional: number; loopCount: number; blockedReason: string | null; engagementId: string | null }[];
   const order = new Map(definition.stages.map((s, i) => [s.key, i]));
   return { ...summary(raw, row), stages: stages.sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
-    .map((s) => ({ ...s, optional: s.optional === 1 })), params: JSON.parse(row.params_json) as Record<string, unknown>,
+    .map((s) => {
+      const tasks = raw.prepare(`SELECT l.iteration, t.id AS taskId, t.code, t.state FROM workflow_stage_tasks l
+        JOIN tasks t ON t.project_id = l.project_id AND t.id = l.task_id
+        WHERE l.project_id = ? AND l.instance_id = ? AND l.stage_key = ? ORDER BY l.iteration DESC, t.code, t.id`)
+        .all(projectId, id, s.key) as { iteration: number; taskId: string; code: string; state: string }[];
+      return { ...s, optional: s.optional === 1, iteration: tasks[0]?.iteration ?? 1,
+        tasks: tasks.map(({ taskId, code, state }) => ({ taskId, code, state })) };
+    }), params: JSON.parse(row.params_json) as Record<string, unknown>,
     definitionRevision: row.definition_revision, packKey: row.pack_key, packVersion: row.pack_version,
     definitionTitle: definition.title, phases: definition.phases };
 }
