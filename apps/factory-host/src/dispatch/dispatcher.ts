@@ -19,6 +19,7 @@ import { sanitizeAgentText } from "../mcp/security.js";
 import { advanceTasks } from "./advance.js";
 import { registerRequestLifecycle } from "../requests/lifecycle.js";
 import { onRequestTransition, resumeWaiter } from "../requests/waits.js";
+import { integratePending, integrationBlocked } from "../integration/service.js";
 
 export interface DispatcherConfig {
   nodeSlots: number; leaseMs: number; leaseRenewMs: number; leaseCheckMs: number; stopTimeoutMs: number;
@@ -96,6 +97,7 @@ export function createDispatcher(deps: {
   let pumping = false;
   let again = false;
   let scheduled: ReturnType<typeof setImmediate> | undefined;
+  let pumpDone: Promise<void> | undefined;
   let checkTimer: unknown;
   let renewTimer: unknown;
   let stopPromise: Promise<void> | undefined;
@@ -405,7 +407,7 @@ export function createDispatcher(deps: {
       settle();
     }
   };
-  const pump = (): void => {
+  const pump = async (): Promise<void> => {
     pumping = true;
     try {
       if (deps.multiTeam) hub.transaction(() => {
@@ -415,6 +417,11 @@ export function createDispatcher(deps: {
       });
       do {
         again = false;
+        if (!stopped && deps.workspace?.integrate) {
+          const worked = await integratePending({ raw, hub, workspace: deps.workspace,
+            projectRootFor: deps.projectRootFor ?? (() => null), now });
+          if (worked) again = true;
+        }
         while (!stopped) {
           const load = nodeLoad(raw, LOCAL_NODE_ID);
           if (load.used >= load.total) break;
@@ -427,6 +434,7 @@ export function createDispatcher(deps: {
           const row = rows.find((row) => {
             if (deps.multiTeam && engagementLoad(raw, row.project_id, row.engagement_id) >= row.max_concurrent) return false;
             const a = current(row.project_id, row.id);
+            if (deps.workspace && integrationBlocked(raw, a.projectId, a.taskId)) return false;
             if (!a.seatId) return false;
             const seat = seatLoad(raw, a.seatId);
             return seat.used < seat.slots;
@@ -458,7 +466,7 @@ export function createDispatcher(deps: {
     if (stopped || !started) return;
     if (pumping) { again = true; return; }
     if (scheduled !== undefined) return;
-    scheduled = setImmediate(() => { scheduled = undefined; pump(); });
+    scheduled = setImmediate(() => { scheduled = undefined; pumpDone = pump(); });
   };
   const leaseCheck = (): void => {
     if (stopped) return;
@@ -652,6 +660,7 @@ export function createDispatcher(deps: {
         try { await bounded(Promise.all(entries.map(stopSession))); }
         catch { report(new Error("runtime shutdown failed or timed out")); }
         await Promise.allSettled(entries.map((entry) => entry.done));
+        await pumpDone;
         settle();
       })();
       return stopPromise;

@@ -5,6 +5,7 @@ import { createIdGenerator } from "../ids.js";
 import { dayKey, DEFAULT_BUDGET_CONFIG, usedTokens } from "../policy/budget.js";
 import { createNotification, notificationKey, type NotificationInput } from "./service.js";
 import { claimDeliveries, sendDeliveries, type PushChannel } from "./push.js";
+import { integrationConflicts } from "../integration/views.js";
 
 export interface NotificationDeps { raw: Database; hub: EventHub; pushChannel?: PushChannel; utcOffsetMinutes?: number }
 interface ApprovalRow { id: string; revision: number; subject: string; summary: string; state: string; requested_at: string; expires_at: string }
@@ -20,6 +21,9 @@ function collect(deps: NotificationDeps, projectId: string, now: Date, offset: n
       (project_id,notification_id,channel,state,attempts) VALUES (?,?,?,'queued',0)
       ON CONFLICT(project_id,notification_id,channel) DO NOTHING`).run(projectId, id, deps.pushChannel.name);
   };
+  for (const row of integrationConflicts(raw, projectId)) add({ dedupKey: notificationKey("integration", row.taskId, "conflict"),
+    category: "action", urgency: "normal", title: `Integration conflict: ${row.code}`,
+    body: "The accepted work conflicts with the integration branch. Retry or skip it.", entity: { kind: "task", id: row.taskId } });
   const approvals = raw.prepare("SELECT * FROM approvals WHERE project_id=? AND state IN ('requested','pending') ORDER BY id")
     .all(projectId) as ApprovalRow[];
   for (const approval of approvals) {

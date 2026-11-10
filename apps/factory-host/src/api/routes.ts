@@ -29,6 +29,8 @@ import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { assertInside } from "../workspace/index.js";
 import { ATTEMPT_UUID } from "../dispatch/workspace-provider.js";
+import { integrationConflicts, listIntegration } from "../integration/views.js";
+import { INTEGRATION_BRANCH } from "../workspace/integration.js";
 import { getArtifactVersion, listTaskArtifacts } from "../artifacts/service.js";
 import { getApprovalView, listApprovals, publicApprovalText } from "../approvals/service.js";
 import type { ContentStore } from "../artifacts/content-store.js";
@@ -55,6 +57,11 @@ export function createRoutes(deps: {
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/integration", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      return { branch: INTEGRATION_BRANCH, items: listIntegration(deps.storage.raw, projectId) };
+    });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/standing-approvals", { preHandler: guards.session }, async (request, reply) => {
       const { projectId } = request.params;
       if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
@@ -225,9 +232,10 @@ export function createRoutes(deps: {
         .filter((row) => row.state === "open")
         .map((row) => ({ ...row, projectId: project.id, title: "team paused by circuit breaker",
           reason: row.reason === null ? null : publicApprovalText(row.reason) })));
-      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, patches, monitors, stalledWorkflows, quarantinedRules, teamBreakers,
-        counts: { ...(teamBreakers.length ? { teamBreakers: teamBreakers.length } : {}), quarantinedRules: quarantinedRules.length, monitors: monitors.length, stalledWorkflows: stalledWorkflows.length, patches: patches.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
-          total: approvals.length + startGates.length + requests.length + patches.length + monitors.length + stalledWorkflows.length + quarantinedRules.length + teamBreakers.length } };
+      const conflicts = projects.flatMap((project) => integrationConflicts(deps.storage.raw, project.id));
+      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, patches, monitors, stalledWorkflows, quarantinedRules, teamBreakers, integrationConflicts: conflicts,
+        counts: { ...(conflicts.length ? { integrationConflicts: conflicts.length } : {}), ...(teamBreakers.length ? { teamBreakers: teamBreakers.length } : {}), quarantinedRules: quarantinedRules.length, monitors: monitors.length, stalledWorkflows: stalledWorkflows.length, patches: patches.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
+          total: approvals.length + startGates.length + requests.length + patches.length + monitors.length + stalledWorkflows.length + quarantinedRules.length + teamBreakers.length + conflicts.length } };
     };
     app.get("/inbox", { preHandler: guards.session }, async () => inbox());
     app.get<{ Params: { projectId: string }; Querystring: { state?: string; team?: string; limit?: string } }>(

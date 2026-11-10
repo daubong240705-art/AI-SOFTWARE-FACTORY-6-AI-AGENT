@@ -7,6 +7,7 @@ import { assertInside, checkedDirectory, requireLinux, WorkspaceError } from "./
 export interface GitOptions {
   stdin?: string; timeoutMs?: number; maxOutputBytes?: number; allowSafeDirectory?: string;
   acceptExitCodes?: readonly number[];
+  factoryIdentity?: boolean;
 }
 export interface GitResult { stdout: string; stderr: string; exitCode: number }
 const defaults = [
@@ -35,6 +36,7 @@ async function execute(cwd: string, args: string[], options: GitOptions,
       GIT_ASKPASS: "/bin/false", GIT_SSH_COMMAND: "/bin/false", GIT_OPTIONAL_LOCKS: "0", GIT_ATTR_NOSYSTEM: "1",
     });
     const leading = [...defaults];
+    if (options.factoryIdentity) leading.push("-c", "user.name=Factory", "-c", "user.email=factory@localhost");
     if (options.allowSafeDirectory !== undefined) {
       const allowed = checkedDirectory(options.allowSafeDirectory);
       if (allowed !== options.allowSafeDirectory) throw new WorkspaceError("invalid-input");

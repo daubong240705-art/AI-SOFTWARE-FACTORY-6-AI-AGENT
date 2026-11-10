@@ -5,6 +5,7 @@ import { tickTeamBreakers } from "./automation/breakers.js";
 import { tickNotifications, createNotificationHandlers, NOTIFICATION_COMMANDS, type PushChannel } from "./notify/index.js";
 import { createRouteBreaker } from "./policy/breaker.js";
 import { createRuleHandlers, RULE_COMMANDS } from "./automation/ruleCommands.js";
+import { createIntegrationHandlers, INTEGRATION_COMMANDS } from "./integration/commands.js";
 import { runWatchdog } from "./automation/watchdog.js";
 import { tickMonitors, type MonitorDeps } from "./automation/monitors.js";
 import { createMonitorHandlers, MONITOR_COMMANDS } from "./automation/monitorCommands.js";
@@ -524,6 +525,7 @@ export async function startHost(options: {
       ...createNotificationHandlers(),
       ...createStandingApprovalHandlers(),
       ...createRuleHandlers({ packs }),
+      ...createIntegrationHandlers(),
       ...createMonitorHandlers(),
       ...createScheduleHandlers({ packs, pipeline: workflowPipeline }),
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
@@ -549,6 +551,7 @@ export async function startHost(options: {
       ...(external === undefined ? {} : { external }),
       ...(effects === null ? {} : { effects }),
       afterCommand: (type, result) => {
+          if (result.body.ok && (type === "approvals.decide" || type === "tasks.transition" || INTEGRATION_COMMANDS.some((command) => command === type))) dispatch?.kick();
         if (result.body.ok && (type === "schedules.resume" || type === "schedules.run-now")) sweepSchedules();
         if (type === "chat.send") lead.kick();
         if (result.body.ok && ORG_COMMANDS.some((command) => command === type) && dispatch) {
@@ -569,6 +572,7 @@ export async function startHost(options: {
           ...SCHEDULE_COMMANDS,
           ...MONITOR_COMMANDS,
           ...RULE_COMMANDS,
+          ...INTEGRATION_COMMANDS,
           ...NOTIFICATION_COMMANDS,
           ...STANDING_COMMANDS,
           ...(options.multiTeam ? [...ORG_COMMANDS, ...REQUEST_COMMANDS] : []),

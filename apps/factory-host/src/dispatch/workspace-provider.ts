@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import {
   assertInside, buildPatch, checkpoint, collectEvidence, createWorktree, patchIsSafeToApply,
   removeWorktree, validateRoots, WorkspaceError, type Evidence, type WorkspaceRoots,
+  mergeIntoIntegration, type IntegrationOutcome,
 } from "../workspace/index.js";
 
 export interface AttemptEvidence extends Evidence {
@@ -13,6 +14,7 @@ export interface AttemptEvidence extends Evidence {
 export interface WorkspaceProvider {
   prepare(input: { projectId: string; taskCode: string; epoch: number; projectRoot: string;
     startFromBranch: string | null }): Promise<{ path: string; branch: string; baseSha: string }>;
+  integrate?(input: { projectRoot: string; taskBranch: string; message: string }): Promise<IntegrationOutcome | { outcome: "git-failed" }>;
   finish(input: { path: string; baseSha: string; branch: string; attemptId: string }): Promise<AttemptEvidence>;
   discard(input: { projectRoot: string; path: string; deleteBranch: boolean }): Promise<void>;
 }
@@ -35,8 +37,10 @@ export function createWorkspaceProvider(options: { roots: WorkspaceRoots; eviden
       projectRoot: assertInside(roots.projectsRoot, input.projectRoot),
       projectSlug: createHash("sha256").update(input.projectId).digest("hex"),
       taskCode: input.taskCode, epoch: input.epoch,
+      preferIntegration: input.startFromBranch === null,
       ...(input.startFromBranch === null ? {} : { startFromBranch: input.startFromBranch }),
     })),
+    integrate: (input) => guarded(() => mergeIntoIntegration(roots, input)),
     finish: (input) => guarded(async () => {
       if (!ATTEMPT_UUID.test(input.attemptId)) throw new WorkspaceError("invalid-input");
       const path = assertInside(roots.worktreesRoot, input.path);

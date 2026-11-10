@@ -5,11 +5,12 @@ import { advanceTasks } from "./advance.js";
 import { listAttempts, liveAttemptOfTask } from "./attempts.js";
 import type { Dispatcher } from "./dispatcher.js";
 import { moveTask } from "./tasks.js";
+import { enqueueIntegration } from "../integration/service.js";
 
 const taskEffect = (task: Task): EntityRef => ({ kind: "task", id: task.id, revision: task.revision });
 
 /** Shared application for manual transitions and review decisions; caller owns the transaction. */
-export function moveTaskAndAdvance(raw: Database, task: Task, to: TaskState, deps: { dispatcher: Dispatcher }): EntityRef[] {
+export function moveTaskAndAdvance(raw: Database, task: Task, to: TaskState, deps: { dispatcher: Dispatcher; integrationAt?: string }): EntityRef[] {
   const projectId = task.projectId;
   if (to === "active") {
     if (task.holds.some((hold) => hold.kind === "decision" || hold.kind === "cross-team"))
@@ -26,6 +27,7 @@ export function moveTaskAndAdvance(raw: Database, task: Task, to: TaskState, dep
   }
   const effects = new Map<string, EntityRef>();
   effects.set(task.id, taskEffect(moveTask(raw, projectId, task.id, to)));
+  if (to === "done") enqueueIntegration(raw, { projectId, taskId: task.id, now: deps.integrationAt ?? new Date().toISOString() });
   if (to === "accepted" || to === "done") {
     for (const next of advanceTasks(raw, projectId, deps)) {
       effects.set(next.id, taskEffect(next));

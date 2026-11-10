@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import { join, resolve } from "node:path";
 import { runGit } from "./git.js";
+import { integrationExists, INTEGRATION_BRANCH } from "./integration.js";
 import { assertInside, checkedDirectory, refuseMount, requireLinux, validateRoots, WorkspaceError, type WorkspaceRoots } from "./paths.js";
 
 export interface WorktreeInfo { path: string; branch: string | null; headSha: string | null }
 
-async function checkedProject(projectsRoot: string, candidate: string): Promise<string> {
+export async function checkedProject(projectsRoot: string, candidate: string): Promise<string> {
   const project = assertInside(projectsRoot, candidate);
   checkedDirectory(assertInside(projectsRoot, project));
   // A project must own its Git metadata. A .git file could redirect writes to the original.
@@ -42,6 +43,7 @@ export async function listWorktrees(projectRoot: string): Promise<WorktreeInfo[]
 
 export async function createWorktree(roots: WorkspaceRoots, input: {
   projectRoot: string; projectSlug: string; taskCode: string; epoch: number; startFromBranch?: string;
+  preferIntegration?: boolean;
 }): Promise<{ path: string; branch: string; baseSha: string }> {
   validateAttempt(input);
   const safe = validateRoots(roots);
@@ -59,8 +61,10 @@ export async function createWorktree(roots: WorkspaceRoots, input: {
       throw new WorkspaceError("invalid-input");
     await runGit(assertInside(safe.projectsRoot, project), ["check-ref-format", `refs/heads/${input.startFromBranch}`]);
   }
+  const startFrom = input.startFromBranch ?? (input.preferIntegration !== false && await integrationExists(safe, project)
+    ? INTEGRATION_BRANCH : undefined);
   const baseSha = (await runGit(assertInside(safe.projectsRoot, project), ["rev-parse", "--verify",
-    input.startFromBranch === undefined ? "HEAD" : `refs/heads/${input.startFromBranch}`])).stdout.trim();
+    startFrom === undefined ? "HEAD" : `refs/heads/${startFrom}`])).stdout.trim();
   fs.mkdirSync(assertInside(safe.worktreesRoot, parent), { recursive: true, mode: 0o700 });
   await runGit(assertInside(safe.projectsRoot, project), ["worktree", "add", "-b", branch,
     assertInside(safe.worktreesRoot, path), baseSha]);

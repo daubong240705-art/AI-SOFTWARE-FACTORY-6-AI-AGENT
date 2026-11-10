@@ -433,3 +433,13 @@ chọn model hoặc mức suy luận theo loại Task, và giữ Task nhỏ.
 | CE-D6 | Dùng nhánh tích hợp của Project (gộp nhánh Task khi review chấp nhận; worktree mới tạo từ đó) không? | Có. Làm cùng M4 Effect Executor để chỉ có một đường ghi vào nhánh dùng chung |
 | CE-D7 | Xung đột khi gộp xử lý thế nào? | Task chặn với lý do "integration conflict", Operator chọn: yêu cầu sửa lại trên nhánh tích hợp, hoặc tự xử lý |
 | CE-D8 | Chạy lại baseline sau CE-0a/0b để so sánh | Có, cùng dự án `textstats`, cùng model |
+
+### 13.6 Tiến độ sửa (11/11/2026)
+
+| Hạng mục | Trạng thái |
+|---|---|
+| CE-0b: đầu ra Task phụ thuộc thành input của Context Pack | **Xong** (commit e6b10e8) |
+| CE-0a: nhánh tích hợp `factory/integration` của Project (gộp khi review chấp nhận, Task mới bắt đầu từ đó, chặn khi gộp chờ hoặc xung đột, Operator retry/skip; migration 0021) | **Xong** (commit này); test git thật chỉ chạy trên Linux |
+| CE-D8: chạy lại baseline textstats để so sánh | Chưa |
+
+Ghi chú CE-0a: `skip` cho các Task phụ thuộc chạy tiếp mà **không có** công việc của Task bị bỏ qua. Nhánh tích hợp nằm trong clone của Project và chưa có effect nào đẩy nó lên remote.

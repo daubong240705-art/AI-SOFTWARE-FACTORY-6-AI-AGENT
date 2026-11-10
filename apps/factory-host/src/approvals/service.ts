@@ -226,7 +226,7 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
       if (ctrDecision && deps) {
         const to = payload.optionId === "accept-as-is" ? "done" : payload.optionId === "cancel-request" ? "cancelled" : "active";
         if (to === "done") raw.prepare("DELETE FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'input'").run(projectId, task.id);
-        effects.push(...moveTaskAndAdvance(raw, getTask(raw, projectId, task.id)!, to, deps));
+        effects.push(...moveTaskAndAdvance(raw, getTask(raw, projectId, task.id)!, to, { ...deps, integrationAt: ctx.clock().toISOString() }));
         raw.prepare("UPDATE ctr_meta SET rounds = CASE WHEN ? = 'active' THEN 3 ELSE rounds END, closed_at = ? WHERE project_id = ? AND task_id = ?")
           .run(to, to === "active" ? null : ctx.clock().toISOString(), projectId, task.id);
         raw.prepare(`INSERT INTO ctr_messages (project_id,task_id,seq,author,text,at)
@@ -245,7 +245,7 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
     effects.push(effect(approval.id, approval.revision + 2));
   } else if (task && deps) {
     const finished = payload.optionId === "accept" || isReworkSource(raw, projectId, task.id);
-    effects.push(...moveTaskAndAdvance(raw, task, finished ? "done" : "active", deps));
+    effects.push(...moveTaskAndAdvance(raw, task, finished ? "done" : "active", { ...deps, integrationAt: ctx.clock().toISOString() }));
     let refs: ReturnType<typeof setTaskArtifactStatus>;
     try { refs = setTaskArtifactStatus(raw, { projectId, taskId: task.id, to: finished ? "approved" : "rejected", multiTeam: deps.multiTeam === true }); }
     catch (error) {

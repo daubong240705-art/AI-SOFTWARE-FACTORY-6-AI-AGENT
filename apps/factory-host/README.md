@@ -245,6 +245,32 @@ Behind `FACTORY_MULTI_TEAM=1` only (flag off: the tools are not listed and the c
 
 ## Workspace (M2)
 
+### Project integration branch (CE-0a)
+
+With a workspace provider configured, accepted task work accumulates on `factory/integration`
+in the project's clone. A done decision (review acceptance, manual transition, or CTR accept-as-is)
+enqueues one integration row when the task's latest attempt recorded a `workspace-ready` branch.
+Tasks without a workspace branch create no row. Enqueue and acceptance share one transaction.
+
+The dispatcher merges pending rows in creation order, one at a time per project, outside database
+transactions. The Linux-only Git helper creates the branch at the clone's current HEAD when absent,
+uses `merge-tree --write-tree --no-messages`, then `commit-tree` and a compare-and-swap `update-ref`.
+It never touches a working tree. Merge commits use the explicit Factory identity
+(`Factory <factory@localhost>`), never the user's identity. An identical tree needs no commit.
+The branch lives only in the project's clone and is **not pushed by any existing effect**.
+
+New first attempts start at the integration tip when present; reruns continue their own previous
+task branch. A queued attempt waits while any direct dependency's integration row is pending or
+in conflict. Merged, skipped, and absent rows do not block. Without a workspace provider, dispatch
+behavior is unchanged.
+
+Merge conflicts appear in the Inbox and `GET /projects/:projectId/integration`, with an action
+notification. Git failures retry up to three times before requiring an Operator decision.
+Only the Operator can use `integration.retry { taskId }` (reset attempts and retry) or
+`integration.skip { taskId }` (resolve the conflict without merging).
+**Skipping allows dependents to start from the integration branch WITHOUT that task's work.**
+These decisions are idempotent when already pending or skipped, respectively.
+
 `src/workspace/` (Linux only) implements AP-4: a project is CLONED into the WSL ext4 filesystem and results come back as patches or branches; the original repository is only ever READ.
 
 - `cloneProject` (`git clone --no-local --no-hardlinks --template=`): source is an absolute local path or a credential-free `https://` URL; the clone owns its objects, has `remote.origin.pushurl = no-push://disabled` and a local identity. Only COMMITTED content is cloned: uncommitted work in the source working tree is not included.

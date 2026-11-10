@@ -47,7 +47,7 @@ export function createDispatchHandlers(deps: { dispatcher: Dispatcher }): Partia
         throw new CommandError("conflict", "dependency is cancelled or declined", "refresh");
       if (payload.to === "cancelled" && task.state === "active" && liveAttemptOfTask(raw, projectId, task.id))
         throw new CommandError("conflict", "stop the attempt before cancelling the task", "refresh");
-      const effects = moveTaskAndAdvance(raw, task, payload.to, deps);
+      const effects = moveTaskAndAdvance(raw, task, payload.to, { ...deps, integrationAt: ctx.clock().toISOString() });
       if (task.state === "in-review" || payload.to === "cancelled") effects.push(...withdrawPendingReviews(raw, projectId, task.id, ctx.clock()));
       return { effects };
     },
