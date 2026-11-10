@@ -624,3 +624,46 @@ names only. Global and project inboxes include quarantined rules and their count
 
 Webhooks, network requests, LLM evaluation, actions other than starting a workflow,
 and cross-entity conditions are unsupported in this slice.
+
+## Policy (M5 P3a)
+
+Token reservations check **day, project, engagement, task**, in that order, and
+report the first exhausted or would-exceed budget. Project usage includes all
+project records across all dates. Engagement usage includes only records attached
+to tasks in that engagement. Unreported usage counts its reserved estimate;
+unknown costs remain unknown and are never converted to money.
+
+AP-8 audit: the lead selected defaults of **1,000,000 tokens/day**, **200,000
+tokens/task**, and **80% warning**. Project and engagement budgets have **no
+implicit limit**; use `budgets.set` to configure them explicitly. Project scope
+uses the project ID; engagement scope uses an engagement in that project. The
+budget read route adds project usage with a nullable limit and explicit engagement
+budgets. Reservations that end exactly at the limit fit; usage already at the
+limit blocks further calls.
+
+AP-8 autonomy defaults follow architecture 04 section 18: **project L3, team L2**.
+`autonomy.set` configures either subject with optimistic revisions (`null` on
+creation). Effective team authority is the minimum of its level and the project's.
+`GET /projects/:projectId/autonomy` returns configured levels, sources, project
+revision, effective team levels for engaged teams, and the defaults used.
+
+| Level | Authority |
+| --- | --- |
+| L0 suggest | Propose only |
+| L1 in-task | Task work |
+| L2 in-team | Split work, pick seats, add tasks within a stage, rework, clarify/consult requests |
+| L3 cross-team-in-budget | Produce requests, automatic plan patches, consulting engagements |
+| L4 external-under-standing-approval | External action under standing approval |
+
+Every level requires the operator for scope or criteria changes, opening gates,
+raising budgets, spending money, publishing externally, irreversible actions, and
+global knowledge. The contracts' `allows()` always rejects those actions.
+
+This slice enforces autonomy at two points: an automatic plan patch becomes an
+approval (Lead proposals stay pending) below project L3; cross-team requests
+require project L3 for produce and L2 for clarify/consult. Existing approval and
+operator patch policies retain their flow. Other action thresholds describe the
+contract for later enforcement.
+
+Organization monthly budgets await an organization entity. Chain budgets and
+circuit breakers belong to slice P3b.

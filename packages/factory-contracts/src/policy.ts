@@ -51,13 +51,13 @@ export const usageRecordSchema = z
   });
 export type UsageRecord = z.infer<typeof usageRecordSchema>;
 
-/** Budget in tokens. M0-lite has two scopes; more (engagement, team, chain) arrive with their features. */
+/** Token budgets: day, project lifetime, engagement lifetime, or task lifetime. */
 export const budgetSchema = z
   .strictObject({
     id: idSchema,
     projectId: idSchema,
-    scope: z.enum(["task", "day"]),
-    // task id for scope "task"; calendar date YYYY-MM-DD (Asia/Saigon unless configured) for "day"
+    scope: z.enum(["task", "day", "project", "engagement"]),
+    // Entity id, or calendar date YYYY-MM-DD (Asia/Saigon unless configured) for "day".
     scopeRef: z.string().min(1).max(64),
     limitTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
     warnAtPercent: z.number().int().min(1).max(99),
@@ -67,6 +67,10 @@ export const budgetSchema = z
       ctx.addIssue({ code: "custom", message: "day budgets use YYYY-MM-DD" });
     if (budget.scope === "task" && !idSchema.safeParse(budget.scopeRef).success)
       ctx.addIssue({ code: "custom", message: "task budgets use a task id" });
+    if ((budget.scope === "project" || budget.scope === "engagement") && !idSchema.safeParse(budget.scopeRef).success)
+      ctx.addIssue({ code: "custom", message: "entity budgets use an entity id" });
+    if (budget.scope === "project" && budget.scopeRef !== budget.projectId)
+      ctx.addIssue({ code: "custom", message: "project budgets use the project id" });
   });
 export type Budget = z.infer<typeof budgetSchema>;
 

@@ -14,6 +14,7 @@ export * from "./knowledge.js";
 export * from "./approvals.js";
 export * from "./effects.js";
 export * from "./policy.js";
+export * from "./autonomy.js";
 export * from "./nodes.js";
 export * from "./mcp-tools.js";
 export * from "./context.js";

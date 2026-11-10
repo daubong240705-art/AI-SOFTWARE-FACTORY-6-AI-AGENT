@@ -211,6 +211,7 @@ test("budgetStatus includes only tasks with usage or a budget, ordered by code",
   const project = await f.project();
   assert.deepEqual(budgetStatus(f.raw, project.projectId, clock(), config), {
     day: { date: "2026-11-08", used: 0, limit: 200, verdict: "ok", source: "default" }, tasks: [],
+    project: { used: 0, limit: null, verdict: "ok", source: "default" }, engagements: [],
   });
   const usedTask = await f.task(project.projectId, "BG-003");
   const budgetedTask = await f.task(project.projectId, "BG-001");
@@ -222,6 +223,7 @@ test("budgetStatus includes only tasks with usage or a budget, ordered by code",
   success(await f.post(budgetCommand(project.projectId, { scope: "task", scopeRef: budgetedTask, limitTokens: 50 })));
   assert.deepEqual(budgetStatus(f.raw, project.projectId, clock(), config), {
     day: { date: "2026-11-08", used: 160, limit: 200, verdict: "warn", source: "default" },
+    project: { used: 160, limit: null, verdict: "ok", source: "default" }, engagements: [],
     tasks: [
       { taskId: budgetedTask, code: "BG-001", used: 0, limit: 50, verdict: "ok", source: "explicit" },
       { taskId: usedTask, code: "BG-003", used: 80, limit: 100, verdict: "warn", source: "default" },

@@ -11,7 +11,7 @@ import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import { getPrimaryEngagement, getTeam, listSeats } from "../org/service.js";
 import type { RegistryPack } from "../org/registry.js";
 import { projectEngagements, teamQueue, teamViews } from "../org/views.js";
-import { budgetStatus, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "../policy/index.js";
+import { autonomyStatus, budgetStatus, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "../policy/index.js";
 import { getProject, listProjects } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
 import { getTask, listTasks } from "../work/service.js";
@@ -351,6 +351,12 @@ export function createRoutes(deps: {
           messages: messages.map(({ ordinal, ...message }) => ({ ordinal, message: messageSchema.parse(message) })), turns };
       },
     );
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/autonomy", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!getProject(deps.storage.raw, projectId))
+        return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      return { apiVersion: API_VERSION, ok: true, ...autonomyStatus(deps.storage.raw, projectId) };
+    });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/budget", { preHandler: guards.session }, async (request, reply) => {
       const parsed = idSchema.safeParse(request.params.projectId);
       if (!parsed.success) return failure(reply, 400, "validation", "Invalid project id.", "correct-input", newId);

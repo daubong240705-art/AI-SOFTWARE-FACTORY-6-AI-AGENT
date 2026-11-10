@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Database } from "better-sqlite3";
-import { requestCreateInputSchema, requestReplyInputSchema, type EntityRef, type RequestCreateInput, type RequestReplyInput } from "@factory/contracts";
+import { allows, requestCreateInputSchema, requestReplyInputSchema, type EntityRef, type RequestCreateInput, type RequestReplyInput } from "@factory/contracts";
 import type { Dispatcher } from "../dispatch/dispatcher.js";
 import { appendAttemptEvent } from "../dispatch/attempts.js";
 import { pickSeat } from "../dispatch/seats.js";
@@ -13,6 +13,7 @@ import { normalizeForSearch } from "../knowledge/text.js";
 import { assertActiveGrant, sanitizeAgentText } from "../mcp/security.js";
 import { findLeadSeat } from "../org/service.js";
 import { getTask } from "../work/service.js";
+import { autonomyLevel } from "../policy/autonomy.js";
 import { addWait, BLOCKING_MESSAGE, moveWaiters, releaseWaiters } from "./waits.js";
 export { releaseWaiters, expireRequests, WAIT_CEILING_MS, TRIAGE_TTL_MS } from "./waits.js";
 
@@ -139,6 +140,11 @@ export function createRequest(deps: RequestDeps, { grant, input }: { grant: Requ
     const parsed = requestCreateInputSchema.safeParse(input);
     if (!parsed.success) refuse("invalid tool input", "validation");
     const value = parsed.data;
+    const level = autonomyLevel(raw, grant.projectId, "project", grant.projectId).level;
+    if (value.kind === "produce" && !allows(level, "request-produce"))
+      refuse("autonomy level too low for produce requests");
+    if ((value.kind === "clarify" || value.kind === "consult") && !allows(level, "request-clarify-consult"))
+      refuse("autonomy level too low for clarify/consult requests");
     if (value.responseMode === "blocking" && value.kind === "notify") refuse("notify cannot block");
     targetTeam(raw, value.targetTeamId);
     const task = getTask(raw, grant.projectId, grant.taskId)!;

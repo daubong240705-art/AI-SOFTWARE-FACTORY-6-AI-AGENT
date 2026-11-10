@@ -29,7 +29,7 @@ import { createUpstream } from "./models/upstream.js";
 import { createModelProxy, createTokenRegistry, type TokenRegistry } from "./proxy/index.js";
 import type { ModelAccess } from "./dispatch/dispatcher.js";
 import { createOrgHandlers, loadPack, loadPackRegistry, ORG_COMMANDS } from "./org/index.js";
-import { budgetsSetHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
+import { budgetsSetHandler, setAutonomyHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
 import { createProjectsCreateHandler } from "./projects/service.js";
 import { openStorage, type Storage } from "./storage/database.js";
 import { tasksCreateHandler, tasksTransitionHandler } from "./work/service.js";
@@ -518,6 +518,7 @@ export async function startHost(options: {
       "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false }),
       "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,
+      "autonomy.set": setAutonomyHandler,
       "approvals.decide": withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: options.multiTeam === true })),
         ...createKnowledgeHandlers({ multiTeam: options.multiTeam ?? false }),
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
@@ -546,7 +547,7 @@ export async function startHost(options: {
       routes(app, guards);
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge });
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
-        apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set",
+        apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set",
           "dossier.refresh",
           ...WORKFLOW_COMMANDS,
           ...SCHEDULE_COMMANDS,

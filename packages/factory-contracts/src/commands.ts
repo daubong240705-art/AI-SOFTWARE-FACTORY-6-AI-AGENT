@@ -1,5 +1,6 @@
 import { monitorCreateSchema, monitorPatchSchema } from "./automation.js";
 import { ruleInputSchema, rulePatchSchema } from "./rules.js";
+import { autonomyLevelSchema } from "./autonomy.js";
 import { z } from "zod";
 import { scheduleInputSchema, schedulePatchSchema } from "./schedule.js";
 import { workflowKeySchema, workflowPatchSchema } from "./workflow.js";
@@ -35,6 +36,8 @@ const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
 const change = { expectedRevision: revisionSchema };
 // No actor, credentials, effective grant, status category or windowId supplied by the browser.
 export const commandSchema = z.discriminatedUnion("type", [
+  command("autonomy.set", z.strictObject({ subject: z.enum(["project", "team"]), subjectRef: idSchema,
+    level: autonomyLevelSchema, expectedRevision: revisionSchema.nullable() })),
   command("rules.create", ruleInputSchema.safeExtend({ ruleId: idSchema })),
   command("rules.update", z.strictObject({ ruleId: idSchema, ...change, patch: rulePatchSchema })),
   command("rules.pause", z.strictObject({ ruleId: idSchema, ...change })),
@@ -246,7 +249,7 @@ export const commandSchema = z.discriminatedUnion("type", [
     z.strictObject({
       budgetId: idSchema,
       expectedRevision: revisionSchema.nullable(),
-      scope: z.enum(["task", "day"]),
+      scope: z.enum(["task", "day", "project", "engagement"]),
       scopeRef: z.string().min(1).max(64),
       limitTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
       warnAtPercent: z.number().int().min(1).max(99),

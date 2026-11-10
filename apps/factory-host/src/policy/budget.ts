@@ -59,15 +59,21 @@ export function countedTokens(row: Omit<UsageRow, "recorded_at">): number {
 export function usedTokens(raw: Database, projectId: string, scope: Scope, ref: string, config: BudgetConfig): number {
   const rows = (scope === "task"
     ? raw.prepare("SELECT * FROM usage_records WHERE project_id = ? AND task_id = ?").all(projectId, ref)
+    : scope === "engagement"
+    ? raw.prepare(`SELECT u.* FROM usage_records u JOIN tasks t ON t.project_id = u.project_id AND t.id = u.task_id
+        WHERE u.project_id = ? AND t.engagement_id = ?`).all(projectId, ref)
     : raw.prepare("SELECT * FROM usage_records WHERE project_id = ?").all(projectId)) as UsageRow[];
-  return rows.reduce((sum, row) => sum + (scope === "task" || dayKey(new Date(row.recorded_at), config.utcOffsetMinutes) === ref
+  return rows.reduce((sum, row) => sum + (scope !== "day" || dayKey(new Date(row.recorded_at), config.utcOffsetMinutes) === ref
     ? countedTokens(row) : 0), 0);
 }
 
-export function effectiveBudget(raw: Database, projectId: string, scope: Scope, ref: string, config: BudgetConfig): EffectiveBudget {
+export function effectiveBudget(raw: Database, projectId: string, scope: "day" | "task", ref: string, config: BudgetConfig): EffectiveBudget;
+export function effectiveBudget(raw: Database, projectId: string, scope: Scope, ref: string, config: BudgetConfig): EffectiveBudget | null;
+export function effectiveBudget(raw: Database, projectId: string, scope: Scope, ref: string, config: BudgetConfig): EffectiveBudget | null {
   const row = raw.prepare("SELECT * FROM budgets WHERE project_id = ? AND scope = ? AND scope_ref = ?")
     .get(projectId, scope, ref) as BudgetRow | undefined;
   return row ? { limitTokens: row.limit_tokens, warnAtPercent: row.warn_at_percent, source: "explicit" }
+    : scope === "project" || scope === "engagement" ? null
     : { limitTokens: scope === "day" ? config.defaultDayTokens : config.defaultTaskTokens,
       warnAtPercent: config.warnAtPercent, source: "default" };
 }
@@ -79,11 +85,17 @@ export function checkAndReserve(raw: Database, input: {
   if (!Number.isSafeInteger(input.estimateTokens) || input.estimateTokens < 0)
     throw new Error("estimateTokens must be a nonnegative safe integer");
   const { projectId, taskId, now, config } = input;
-  const scopes: Array<{ scope: Scope; ref: string }> = [{ scope: "day", ref: dayKey(now, config.utcOffsetMinutes) }];
+  const scopes: Array<{ scope: Scope; ref: string }> = [
+    { scope: "day", ref: dayKey(now, config.utcOffsetMinutes) }, { scope: "project", ref: projectId },
+  ];
+  const task = taskId === null ? undefined : raw.prepare("SELECT engagement_id FROM tasks WHERE project_id = ? AND id = ?")
+    .get(projectId, taskId) as { engagement_id: string | null } | undefined;
+  if (task?.engagement_id) scopes.push({ scope: "engagement", ref: task.engagement_id });
   if (taskId !== null) scopes.push({ scope: "task", ref: taskId });
   const warnings: Array<{ scope: Scope; verdict: "warn" }> = [];
   for (const { scope, ref } of scopes) {
     const budget = effectiveBudget(raw, projectId, scope, ref, config);
+    if (budget === null) continue;
     const used = usedTokens(raw, projectId, scope, ref, config);
     const verdict = evaluateBudget(budget, used);
     if (verdict === "exceeded" || !canReserve(budget, used, input.estimateTokens))
@@ -96,8 +108,10 @@ export function checkAndReserve(raw: Database, input: {
 export function budgetStatus(raw: Database, projectId: string, now: Date, config: BudgetConfig): {
   day: { date: string; used: number; limit: number; verdict: BudgetVerdict; source: EffectiveBudget["source"] };
   tasks: Array<{ taskId: string; code: string; used: number; limit: number; verdict: BudgetVerdict; source: EffectiveBudget["source"] }>;
+  project: { used: number; limit: number | null; verdict: BudgetVerdict; source: EffectiveBudget["source"] };
+  engagements: Array<{ engagementId: string; used: number; limit: number; verdict: BudgetVerdict }>;
 } {
-  const status = (scope: Scope, ref: string) => {
+  const status = (scope: "day" | "task", ref: string) => {
     const budget = effectiveBudget(raw, projectId, scope, ref, config);
     const used = usedTokens(raw, projectId, scope, ref, config);
     return { used, limit: budget.limitTokens, verdict: evaluateBudget(budget, used), source: budget.source };
@@ -107,7 +121,18 @@ export function budgetStatus(raw: Database, projectId: string, now: Date, config
     (id IN (SELECT task_id FROM usage_records WHERE project_id = ?)
       OR id IN (SELECT scope_ref FROM budgets WHERE project_id = ? AND scope = ?)) ORDER BY code, id`)
     .all(projectId, projectId, projectId, "task") as { id: string; code: string }[];
+  const projectBudget = effectiveBudget(raw, projectId, "project", projectId, config);
+  const projectUsed = usedTokens(raw, projectId, "project", projectId, config);
+  const engagements = raw.prepare("SELECT * FROM budgets WHERE project_id = ? AND scope = 'engagement' ORDER BY scope_ref")
+    .all(projectId) as BudgetRow[];
   return { day: { date, ...status("day", date) },
+    project: { used: projectUsed, limit: projectBudget?.limitTokens ?? null,
+      verdict: projectBudget === null ? "ok" : evaluateBudget(projectBudget, projectUsed), source: projectBudget?.source ?? "default" },
+    engagements: engagements.map((row) => {
+      const used = usedTokens(raw, projectId, "engagement", row.scope_ref, config);
+      return { engagementId: row.scope_ref, used, limit: row.limit_tokens,
+        verdict: evaluateBudget({ limitTokens: row.limit_tokens, warnAtPercent: row.warn_at_percent }, used) };
+    }),
     tasks: tasks.map((task) => ({ taskId: task.id, code: task.code, ...status("task", task.id) })) };
 }
 
@@ -116,6 +141,8 @@ export const budgetsSetHandler: HandlerMap["budgets.set"] = ({ raw }, { projectI
     throw new CommandError("not-found", "project not found", "correct-input");
   if (payload.scope === "task" && !raw.prepare("SELECT id FROM tasks WHERE project_id = ? AND id = ?").get(projectId, payload.scopeRef))
     throw new CommandError("not-found", "task not found in project", "correct-input");
+  if (payload.scope === "engagement" && !raw.prepare("SELECT id FROM engagements WHERE project_id = ? AND id = ?").get(projectId, payload.scopeRef))
+    throw new CommandError("not-found", "engagement not found in project", "correct-input");
   const parsed = budgetSchema.safeParse({ id: payload.budgetId, projectId, scope: payload.scope,
     scopeRef: payload.scopeRef, limitTokens: payload.limitTokens, warnAtPercent: payload.warnAtPercent });
   if (!parsed.success) throw new CommandError("validation", "invalid budget", "correct-input");

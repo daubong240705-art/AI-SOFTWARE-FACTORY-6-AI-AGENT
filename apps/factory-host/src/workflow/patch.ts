@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { evaluateParamCondition, isTerminalWorkflowState, patchPolicyOf, workflowDefinitionSchema, workflowPatchSchema,
+import { allows, evaluateParamCondition, isTerminalWorkflowState, patchPolicyOf, workflowDefinitionSchema, workflowPatchSchema,
   type Condition, type WorkflowDefinition, type WorkflowPatchOp, type WorkflowPatchPolicy, type WorkflowStageState } from "@factory/contracts";
 import { publicApprovalText } from "../approvals/service.js";
 import { sanitizeAgentText } from "../mcp/security.js";
+import { autonomyLevel } from "../policy/autonomy.js";
 import { advanceWorkflow, type WorkflowEngineDeps } from "./engine.js";
 import { getWorkflowInstance } from "./service.js";
 import { validateWorkflowDefinition } from "./validate.js";
@@ -209,7 +210,8 @@ export function proposePatch(deps: WorkflowEngineDeps, input: {
     if (count.n >= 50) throw new PatchError("conflict", "patch limit reached");
     const definition = workflowDefinitionSchema.parse(JSON.parse(instance.definition_json) as unknown);
     const levels: WorkflowPatchPolicy[] = ["auto", "approval", "operator"];
-    const policy = levels[Math.max(...parsed.data.ops.map((op) => levels.indexOf(patchPolicyOf(op, definition))))]!;
+    let policy = levels[Math.max(...parsed.data.ops.map((op) => levels.indexOf(patchPolicyOf(op, definition))))]!;
+    if (policy === "auto" && !allows(autonomyLevel(raw, projectId, "project", projectId).level, "plan-patch-auto")) policy = "approval";
     const pending = input.proposedBy === "lead" && policy !== "auto";
     if (pending && (raw.prepare("SELECT COUNT(*) AS n FROM workflow_patches WHERE project_id = ? AND instance_id = ? AND state = 'pending'")
       .get(projectId, instanceId) as { n: number }).n >= 3) throw new PatchError("conflict", "pending patch limit reached");
