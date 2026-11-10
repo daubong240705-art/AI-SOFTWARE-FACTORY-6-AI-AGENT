@@ -1,4 +1,5 @@
 import { getMonitor, listMonitors, listMonitorEvents } from "../automation/monitors.js";
+import { getRule, listRules, listRuleFires } from "../automation/rules.js";
 import { pendingPatches } from "../workflow/patch.js";
 import { getSchedule, listSchedules, listOccurrences } from "../schedule/service.js";
 import { API_VERSION, contextPackSchema, conversationSchema, idSchema, messageSchema, projectSchema } from "@factory/contracts";
@@ -49,6 +50,17 @@ export function createRoutes(deps: {
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/rules", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!getProject(deps.storage.raw, projectId)) return failure(reply,404,"not-found","Project not found.","correct-input",newId);
+      return { apiVersion: API_VERSION, ok: true, items: listRules(deps.storage.raw, projectId) };
+    });
+    app.get<{ Params: { projectId: string; ruleId: string } }>("/projects/:projectId/rules/:ruleId/fires", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId, ruleId } = request.params;
+      if (!getProject(deps.storage.raw, projectId) || !getRule(deps.storage.raw, projectId, ruleId))
+        return failure(reply,404,"not-found","Rule not found.","correct-input",newId);
+      return { apiVersion: API_VERSION, ok: true, items: listRuleFires(deps.storage.raw, projectId, ruleId) };
+    });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/monitors", { preHandler: guards.session }, async (request, reply) => {
       const { projectId } = request.params;
       if (!getProject(deps.storage.raw, projectId)) return failure(reply,404,"not-found","Project not found.","correct-input",newId);
@@ -183,9 +195,12 @@ export function createRoutes(deps: {
       const stalledWorkflows = projects.flatMap((project) => (deps.storage.raw.prepare(`SELECT id AS instanceId,title,state_reason AS reason FROM workflow_instances
         WHERE project_id=? AND state='stalled' ORDER BY created_at,id`).all(project.id) as { instanceId: string; title: string; reason: string | null }[])
         .map((row) => ({ ...row,title: publicApprovalText(row.title),reason: row.reason === null ? null : publicApprovalText(row.reason) })));
-      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, patches, monitors, stalledWorkflows,
-        counts: { monitors: monitors.length, stalledWorkflows: stalledWorkflows.length, patches: patches.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
-          total: approvals.length + startGates.length + requests.length + patches.length + monitors.length + stalledWorkflows.length } };
+      const quarantinedRules = projects.flatMap((project) => (deps.storage.raw.prepare(`SELECT id AS ruleId,project_id AS projectId,name
+        FROM automation_rules WHERE project_id=? AND state='quarantined' ORDER BY created_at,id`).all(project.id) as { ruleId: string; projectId: string; name: string }[])
+        .map((row) => ({ ...row, name: publicApprovalText(row.name) })));
+      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, patches, monitors, stalledWorkflows, quarantinedRules,
+        counts: { quarantinedRules: quarantinedRules.length, monitors: monitors.length, stalledWorkflows: stalledWorkflows.length, patches: patches.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
+          total: approvals.length + startGates.length + requests.length + patches.length + monitors.length + stalledWorkflows.length + quarantinedRules.length } };
     };
     app.get("/inbox", { preHandler: guards.session }, async () => inbox());
     app.get<{ Params: { projectId: string }; Querystring: { state?: string; team?: string; limit?: string } }>(

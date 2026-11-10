@@ -564,3 +564,63 @@ stalled workflows appear in the global and project Inbox with additive counts.
 Read monitor summaries and recent edges through the project monitor and monitor
 events routes. Probes use no model and no outbound network.
 HTTP probes are unsupported; rules/actions belong to A2b and notifications to N1.
+# Rules (M5 A2b)
+
+Rules react to internal project event log transitions and start workflow instances through
+`workflows.create` and `workflows.start`. The Host evaluates them at startup and after
+monitors in its injected 60 second sweep. No rules means no evaluation work.
+
+Supported event fields:
+
+| Event | Fields |
+| --- | --- |
+| `task.status-changed` | `to`, `taskCode` |
+| `artifact.status-changed` | `to`, `artifactKind` |
+| `workflow.state-changed` | `to`, `workflowKey` |
+| `monitor.changed` | `from`, `to`, `monitorName`, `monitorKind` |
+
+Derived fields come from project-scoped database records. Conditions use `eq`, `ne`,
+or `in` (up to 10 string values), combined with nonempty `all`, `any`, and `not`,
+to a maximum depth of three. No code is evaluated.
+
+For example, a `rules.create` payload can start an installed `incident-review`
+definition when the monitor named `disk` trips:
+
+```json
+{
+  "ruleId": "019a0000-0000-7000-8000-000000000001",
+  "name": "Disk incident review",
+  "eventType": "monitor.changed",
+  "condition": { "all": [
+    { "field": "monitorName", "op": "eq", "value": "disk" },
+    { "field": "to", "op": "eq", "value": "tripped" }
+  ] },
+  "action": { "kind": "start-workflow", "definitionKey": "incident-review" },
+  "debounceSeconds": 300,
+  "maxFiresPerHour": 6
+}
+```
+
+Each project processes at most 200 ordered event rows per tick. A fire's unique
+project/rule/event-sequence key provides deduplication. The cursor, fire history,
+and workflow command receipts commit together. SHA-256-derived instance and command
+IDs make repeated evaluation deterministic. Bookkeeping emits no events.
+
+Policy order is deduplication, hop limit, active state, debounce, rate limit,
+and concurrency. Events outside rule-started workflows start at depth zero; events from a rule-started
+workflow (including its tasks and produced artifacts) add one hop. Depth three
+is allowed; depth four is skipped. Debounce excludes matches strictly before the
+configured interval expires (0–86400 seconds, default 0). The hourly window starts
+at the first successful fire and resets after 3600 seconds. Exceeding the configured
+1–60 starts per hour (default 6) quarantines the rule. A previous nonterminal workflow
+causes a concurrency skip. Three consecutive start failures also quarantine;
+a successful start resets the failure counter. `rules.resume` clears quarantine,
+the hourly window, and failures. Pause, update, resume, and delete require a revision.
+Names are unique per project, with at most 30 rules per project.
+
+Authenticated reads: `GET /projects/:projectId/rules` and
+`GET /projects/:projectId/rules/:ruleId/fires`. Action summaries show parameter
+names only. Global and project inboxes include quarantined rules and their count.
+
+Webhooks, network requests, LLM evaluation, actions other than starting a workflow,
+and cross-entity conditions are unsupported in this slice.

@@ -1,4 +1,6 @@
 import { statfs } from "node:fs/promises";
+import { tickRules, type RuleDeps } from "./automation/rules.js";
+import { createRuleHandlers, RULE_COMMANDS } from "./automation/ruleCommands.js";
 import { runWatchdog } from "./automation/watchdog.js";
 import { tickMonitors, type MonitorDeps } from "./automation/monitors.js";
 import { createMonitorHandlers, MONITOR_COMMANDS } from "./automation/monitorCommands.js";
@@ -258,6 +260,7 @@ export async function startHost(options: {
   let expiryTimer: unknown;
   let scheduleTimer: unknown;
   let monitorTick: Promise<void> | undefined;
+  let ruleDeps: RuleDeps | undefined;
   let knowledgeTimer: ReturnType<typeof setImmediate> | undefined;
   const interval = options.timers?.setInterval ?? ((callback: () => void, ms: number) => setInterval(callback, ms).unref());
   const clearExpiry = options.timers?.clearInterval ?? ((handle: unknown) => clearInterval(handle as ReturnType<typeof setInterval>));
@@ -343,6 +346,7 @@ export async function startHost(options: {
       catch { console.error("Workflow sweep failed"); }
       runWatchdog({ raw: approvalRaw, hub, clock }, clock());
       monitorTick ??= tickMonitors({ raw: approvalRaw, hub, stateDir, statfs: options.monitorStatfs ?? statfs }, clock())
+        .then(() => { if (ruleDeps) tickRules(ruleDeps, clock()); })
         .finally(() => { monitorTick = undefined; });
       if (options.multiTeam && dispatch) {
         try { expireRequests({ raw: approvalRaw, hub, dispatcher: dispatch, multiTeam: true, now: clock, newId: createIdGenerator(clock) }, clock()); }
@@ -498,10 +502,13 @@ export async function startHost(options: {
       ...(dispatch === null ? {} : { dispatcher: dispatch }) } });
     const workflowPipeline = createCommandPipeline({ storage, hub, clock, handlers: workflowHandlers });
     const scheduleDeps = { raw: storage.raw, hub, packs, pipeline: workflowPipeline };
+    ruleDeps = scheduleDeps;
+    tickRules(ruleDeps, clock());
     const sweepSchedules = (): void => tickSchedules(scheduleDeps, clock());
     sweepSchedules();
     scheduleTimer = interval(sweepSchedules, 30_000);
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
+      ...createRuleHandlers({ packs }),
       ...createMonitorHandlers(),
       ...createScheduleHandlers({ packs, pipeline: workflowPipeline }),
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
@@ -544,6 +551,7 @@ export async function startHost(options: {
           ...WORKFLOW_COMMANDS,
           ...SCHEDULE_COMMANDS,
           ...MONITOR_COMMANDS,
+          ...RULE_COMMANDS,
           ...(options.multiTeam ? [...ORG_COMMANDS, ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],

@@ -129,14 +129,14 @@ for (const operation of ["UPDATE ctr_messages SET text = 'changed'", "DELETE FRO
     const f = fixture(t); f.create(); refused(f, () => f.raw.exec(operation), "request messages are immutable");
   });
 test("fresh migration ledger reaches six", (t) => {
-  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map((r) => r.version), [1,2,3,4,5,6,7,8,9,10,11,12,13, 14]);
+  const f = fixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map((r) => r.version), [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]);
   assert.deepEqual(f.raw.pragma("foreign_key_check"), []);
 });
 test("migration six upgrades a five database without changing tasks", () => {
   const dir = mkdtempSync(join(tmpdir(), "ctr-migration-")); const storage = openStorage(":memory:");
   try {
     cpSync(migrationsDir, dir, { recursive: true }); rmSync(join(dir, "0006_ctr.sql")); rmSync(join(dir, "0007_ctr_waits.sql")); rmSync(join(dir, "0008_context_packs.sql")); rmSync(join(dir, "0009_pack_snapshots.sql")); rmSync(join(dir, "0010_workflows.sql")); rmSync(join(dir, "0011_workflow_tasks.sql")); rmSync(join(dir, "0012_workflow_patches.sql"));
-    rmSync(join(dir, "0013_schedules.sql")); rmSync(join(dir, "0014_automation.sql"));
+    rmSync(join(dir, "0013_schedules.sql")); rmSync(join(dir, "0014_automation.sql")); rmSync(join(dir, "0015_rules.sql"));
     storage.migrate({ migrationsDir: dir, backupDir: null }); storage.raw.prepare("INSERT INTO projects VALUES ('p',1,'Preserved','artifact','unused','active')").run();
     cpSync(join(migrationsDir, "0006_ctr.sql"), join(dir, "0006_ctr.sql"));
     cpSync(join(migrationsDir, "0007_ctr_waits.sql"), join(dir, "0007_ctr_waits.sql"));
@@ -146,8 +146,8 @@ test("migration six upgrades a five database without changing tasks", () => {
     cpSync(join(migrationsDir, "0011_workflow_tasks.sql"), join(dir, "0011_workflow_tasks.sql"));
     cpSync(join(migrationsDir, "0012_workflow_patches.sql"), join(dir, "0012_workflow_patches.sql"));
     cpSync(join(migrationsDir, "0013_schedules.sql"), join(dir, "0013_schedules.sql"));
-    cpSync(join(migrationsDir, "0014_automation.sql"), join(dir, "0014_automation.sql"));
+    cpSync(join(migrationsDir, "0014_automation.sql"), join(dir, "0014_automation.sql")); cpSync(join(migrationsDir, "0015_rules.sql"), join(dir, "0015_rules.sql"));
     const result = storage.migrate({ migrationsDir: dir, backupDir: join(dir, "backup") });
-    assert.deepEqual(result.applied, [6,7,8,9,10,11,12,13,14]); assert.equal(storage.raw.prepare("SELECT name FROM projects").get().name, "Preserved");
+    assert.deepEqual(result.applied, [6,7,8,9,10,11,12,13,14,15]); assert.equal(storage.raw.prepare("SELECT name FROM projects").get().name, "Preserved");
   } finally { storage.close(); rmSync(dir, { recursive: true, force: true }); }
 });

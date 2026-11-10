@@ -22,3 +22,4 @@ export * from "./workflow.js";
 export * from "./schedule.js";
 
 export * from "./automation.js";
+export * from "./rules.js";

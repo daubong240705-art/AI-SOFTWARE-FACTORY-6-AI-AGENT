@@ -59,7 +59,7 @@ test("inbox lists requests awaiting triage and counts are additive", async (t) =
   const f = fixture(t); const http = await api(t, f); const a = f.create();
   const inbox = (await http.read("/inbox")).json();
   assert.deepEqual(inbox.requests.map((item) => item.taskId), [a.requestId]);
-  assert.deepEqual(inbox.counts, { monitors: 0, stalledWorkflows: 0, patches: 0, approvals: 0, startGates: 0, requests: 1, total: 1 });
+  assert.deepEqual(inbox.counts, { quarantinedRules: 0, monitors: 0, stalledWorkflows: 0, patches: 0, approvals: 0, startGates: 0, requests: 1, total: 1 });
   assert.equal((await http.read(`/projects/${f.projectId}/inbox`)).json().requests.length, 1);
   f.triage(a.requestId, "decline");
   const after = (await http.read("/inbox")).json(); assert.equal(after.requests.length, 0); assert.equal(after.counts.total, 0);

@@ -37,4 +37,4 @@ for(const type of ["create","update","pause","resume","delete","run-now"])test(`
  const payload=type==='create'?{scheduleId:id,...input()}:type==='update'?{scheduleId:id,expectedRevision:1,patch:{name:"New"}}:{scheduleId:id,expectedRevision:1};
  assert.ok(commandSchema.safeParse({apiVersion:1,commandId:id,projectId:id,type:`schedules.${type}`,payload}).success);
 });
-test("schedule entity kind and command counts",()=>{assert.ok(entityKindSchema.options.includes("schedule"));assert.equal(FOUNDATION_COMMANDS.length,49);});
+test("schedule entity kind and command counts",()=>{assert.ok(entityKindSchema.options.includes("schedule"));assert.equal(FOUNDATION_COMMANDS.length,54);});
