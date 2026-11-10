@@ -84,10 +84,34 @@ function cronDue(row: ScheduleRow, first: number, now: Date): Date[] {
   return cron.previousRuns(50, new Date(Math.floor(now.getTime() / 1000) * 1000 + 1000))
     .filter((date) => date.getTime() >= first && date.getTime() <= now.getTime()).reverse();
 }
+/** Counts the outcome of each started run once: a failed run adds to run_failures, a completed run clears it, and three
+ * consecutive failed runs quarantine the schedule (doc 04 section 16.2). Cancelled or superseded runs change nothing. */
+export function reconcileScheduleRuns(raw: Database, now: Date): void {
+  // A failed stage stalls the instance ("stage failed: <key>") instead of failing it, so that stall is the failed run.
+  // Other stalls (no progress, exhausted rework) are not run failures: an Operator can resume them.
+  const runs = raw.prepare(`SELECT o.project_id, o.schedule_id, o.scheduled_for, o.trigger,
+      CASE WHEN w.state = 'stalled' THEN 'failed' ELSE w.state END AS run_state
+    FROM schedule_occurrences o JOIN workflow_instances w ON w.project_id = o.project_id AND w.id = o.instance_id
+    WHERE o.status = 'started' AND o.reconciled_at IS NULL AND (w.state IN ('completed','failed','cancelled','superseded')
+      OR (w.state = 'stalled' AND w.state_reason LIKE 'stage failed:%'))
+    ORDER BY o.fired_at, o.rowid LIMIT 200`).all() as
+    { project_id: string; schedule_id: string; scheduled_for: string; trigger: string; run_state: string }[];
+  for (const run of runs) raw.transaction(() => {
+    raw.prepare("UPDATE schedule_occurrences SET reconciled_at = ? WHERE project_id = ? AND schedule_id = ? AND scheduled_for = ? AND trigger = ?")
+      .run(now.toISOString(), run.project_id, run.schedule_id, run.scheduled_for, run.trigger);
+    if (run.run_state === "failed") raw.prepare("UPDATE schedules SET run_failures = MIN(10, run_failures + 1) WHERE project_id = ? AND id = ?")
+      .run(run.project_id, run.schedule_id);
+    else if (run.run_state === "completed") raw.prepare("UPDATE schedules SET run_failures = 0 WHERE project_id = ? AND id = ?")
+      .run(run.project_id, run.schedule_id);
+    raw.prepare("UPDATE schedules SET state = 'quarantined' WHERE project_id = ? AND id = ? AND state = 'active' AND run_failures >= 3")
+      .run(run.project_id, run.schedule_id);
+  })();
+}
 export function tickSchedules(deps: SchedulerDeps, now: Date): void {
   let reported = false, remaining = 100;
   const report = () => { if (!reported) { reported = true; console.error("Schedule tick failed"); } };
   try {
+    reconcileScheduleRuns(deps.raw, now);
     const schedules = deps.raw.prepare(`SELECT * FROM schedules WHERE state='active' AND next_run_at<=?
       ORDER BY next_run_at,id,project_id LIMIT 100`).all(now.toISOString()) as ScheduleRow[];
     for (const row of schedules) {

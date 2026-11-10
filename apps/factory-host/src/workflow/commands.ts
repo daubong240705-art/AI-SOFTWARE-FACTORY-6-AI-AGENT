@@ -31,6 +31,26 @@ function transition(ctx: HandlerContext, projectId: string, payload: { instanceI
   writeWorkflowState(ctx, row, target, reason ?? null, now);
   return { effects: [{ kind: "workflow-instance" as const, id: row.id, revision: row.revision + 1 }] };
 }
+/** Resuming an instance stalled on "rework limit reached" is the Operator's explicit decision to allow one more loop. */
+function grantReworkExtension(raw: HandlerContext["raw"], projectId: string, row: { id: string; definition_json: string }): void {
+  const blocked = raw.prepare("SELECT stage_key FROM workflow_stages WHERE project_id = ? AND instance_id = ? AND blocked_reason = ?")
+    .all(projectId, row.id, "rework limit reached") as { stage_key: string }[];
+  if (!blocked.length) return;
+  const definition = JSON.parse(row.definition_json) as { edges?: { type: string; from: string; to: string; maxLoops?: number }[] };
+  for (const source of blocked) {
+    for (const edge of (definition.edges ?? []).filter((e) => e.type === "rework" && e.from === source.stage_key)) {
+      const dest = raw.prepare("SELECT loop_count, extra_loops FROM workflow_stages WHERE project_id = ? AND instance_id = ? AND stage_key = ?")
+        .get(projectId, row.id, edge.to) as { loop_count: number; extra_loops: number } | undefined;
+      if (!dest || dest.loop_count < (edge.maxLoops ?? 0) + dest.extra_loops) continue;
+      // workflow_stages.loop_count is limited to 10 by the schema, so the total allowance can never exceed it.
+      if ((edge.maxLoops ?? 0) + dest.extra_loops >= 10) throw new CommandError("conflict", "rework extension limit reached", "correct-input");
+      raw.prepare("UPDATE workflow_stages SET extra_loops = extra_loops + 1 WHERE project_id = ? AND instance_id = ? AND stage_key = ?")
+        .run(projectId, row.id, edge.to);
+    }
+    raw.prepare("UPDATE workflow_stages SET state = 'done', blocked_reason = NULL WHERE project_id = ? AND instance_id = ? AND stage_key = ?")
+      .run(projectId, row.id, source.stage_key);
+  }
+}
 export function createWorkflowHandlers(deps: { packs: readonly RegistryPack[]; engine?: WorkflowEngineDeps }): Partial<HandlerMap> {
   const patchCommand = (ctx: HandlerContext, projectId: string, action: () => { instanceId: string }) => {
     if (ctx.actorId !== "operator") throw new CommandError("validation", "operator required", "correct-input");
@@ -95,6 +115,7 @@ export function createWorkflowHandlers(deps: { packs: readonly RegistryPack[]; e
     "workflows.resume": (ctx, { projectId, payload }) => {
       const row = getWorkflowInstance(ctx.raw, projectId, payload.instanceId);
       const result = transition(ctx, projectId, payload, "active", deps.engine && row?.state === "stalled" ? "stalled" : "paused");
+      if (deps.engine && row?.state === "stalled") grantReworkExtension(ctx.raw, projectId, row);
       if (deps.engine) advanceWorkflow(deps.engine, projectId, payload.instanceId);
       return result;
     },

@@ -64,6 +64,8 @@ export function createScheduleHandlers(deps: { packs: readonly RegistryPack[]; p
     "schedules.resume": (ctx, { projectId, payload }) => {
       const row = requireSchedule(ctx, projectId, payload.scheduleId, payload.expectedRevision);
       const input = validateSchedule(scheduleInput(row), deps.packs, ctx.clock(), false);
+      // Resume is the Operator's decision to forgive earlier failures, both failed starts and failed runs.
+      ctx.raw.prepare("UPDATE schedules SET run_failures=0 WHERE project_id=? AND id=?").run(projectId, row.id);
       return persist(ctx, row, input, "active", 0);
     },
     "schedules.delete": (ctx, { projectId, payload }) => {

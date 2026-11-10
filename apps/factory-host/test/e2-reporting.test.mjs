@@ -85,18 +85,38 @@ test("E2 R3a: three start failures quarantine a schedule, notify once per revisi
   assert.ok(f.events().some(e => e.payload.type === "entity.changed" && e.payload.entity.kind === "schedule"));
 });
 
-test("E2 R3b: failed runtime reports currently do not increment the schedule quarantine counter", scenario, async t => {
-  const f = reporting(t, { definitions: [oneStage("daily-report", "[fake:fail]")] }), schedule = f.schedule({ concurrency: "allow-parallel", parallelLimit: 3 });
-  for (let day = 8; day <= 10; day++) {
-    f.set(`2026-11-${day.toString().padStart(2, "0")}T00:00:00.000Z`); f.tickSchedules();
+for (const [label, outcomes] of [
+  ["three runtime failures", ["failed", "failed", "failed"]],
+  ["completion resets the failure streak", ["failed", "failed", "completed", "failed", "failed", "failed"]],
+]) test("E2 R3b: " + label + " quarantine at three consecutive failed runs and resume clears the counter", scenario, async t => {
+  const f = reporting(t, { definitions: [oneStage("daily-report", "Daily report"), oneStage("failed-report", "[fake:fail]")] });
+  const schedule = f.schedule({ concurrency: "allow-parallel", parallelLimit: 5 });
+  let failures = 0;
+  for (const [day, outcome] of outcomes.entries()) {
+    f.ok("schedules.update", { scheduleId: schedule, expectedRevision: scheduleRow(f, schedule).revision,
+      patch: { action: { definitionKey: outcome === "failed" ? "failed-report" : "daily-report", packKey: "software-team" } } });
+    f.set(new Date(Date.UTC(2026, 10, 8 + day)).toISOString()); f.tickSchedules();
     const id = f.occurrences(schedule).at(-1).instance_id;
-    await f.until(() => f.view(id).state === "stalled", "failed report stalls");
-    assert.equal(f.stageTask(id, "report").state, "failed");
+    if (outcome === "completed") { await f.complete(id); failures = 0; }
+    else {
+      await f.until(() => ["failed", "stalled"].includes(f.view(id).state), "runtime report failure");
+      assert.equal(f.stageTask(id, "review").state, "failed");
+      // A failed required stage stalls the instance; the schedule counts that stall as a failed run.
+      assert.equal(f.view(id).state, "stalled", "a failed report stalls the run");
+      failures++;
+    }
+    f.tickSchedules(); f.tickSchedules();
+    assert.equal(scheduleRow(f, schedule).run_failures, failures);
+    assert.equal(scheduleRow(f, schedule).consecutive_failures, 0);
+    assert.equal(scheduleRow(f, schedule).state, failures === 3 ? "quarantined" : "active");
+    assert.ok(f.occurrences(schedule).every(row => row.status === "started" && row.reconciled_at !== null));
   }
-  // KNOWN DEFECT: schedule failures count workflow command failures, never failed workflow runs.
-  assert.equal(scheduleRow(f, schedule).state, "active"); assert.equal(scheduleRow(f, schedule).consecutive_failures, 0);
-  assert.equal(f.occurrences(schedule).filter(r => r.status === "started").length, 3);
-  await f.notify(); assert.equal(f.rows().filter(n => n.entity_id === schedule).length, 0);
+  await f.notify(); await f.notify();
+  const notifications = f.rows().filter(n => n.entity_id === schedule);
+  assert.equal(notifications.length, 1); assert.equal(notifications[0].title, "Schedule quarantined: Daily report");
+  f.ok("schedules.resume", { scheduleId: schedule, expectedRevision: scheduleRow(f, schedule).revision });
+  assert.equal(scheduleRow(f, schedule).state, "active"); assert.equal(scheduleRow(f, schedule).run_failures, 0);
+  assert.equal(scheduleRow(f, schedule).consecutive_failures, 0);
 });
 
 test("E2 R3c: schedule quarantine collection ignores healthy schedules and isolates projects", scenario, async t => {

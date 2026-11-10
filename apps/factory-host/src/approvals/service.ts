@@ -159,6 +159,17 @@ export function requestTaskReview(deps: { raw: Database; now: () => Date; newId:
   })();
 }
 
+/** A review of a stage that is the source of a workflow rework edge carries the verdict for the downstream stage:
+ * requesting changes there completes the task (its report is the evidence) instead of re-running it. */
+function isReworkSource(raw: Database, projectId: string, taskId: string): boolean {
+  const link = raw.prepare(`SELECT l.stage_key, i.definition_json FROM workflow_stage_tasks l JOIN workflow_instances i
+    ON i.project_id = l.project_id AND i.id = l.instance_id WHERE l.project_id = ? AND l.task_id = ?`)
+    .get(projectId, taskId) as { stage_key: string; definition_json: string } | undefined;
+  if (!link) return false;
+  const definition = JSON.parse(link.definition_json) as { edges?: { type: string; from: string }[] };
+  return (definition.edges ?? []).some((edge) => edge.type === "rework" && edge.from === link.stage_key);
+}
+
 /** The optional dispatcher is supplied by host wiring; the command remains kind agnostic. */
 export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Command, { type: "approvals.decide" }>,
   deps?: { dispatcher: Dispatcher; multiTeam?: boolean }): HandlerResult {
@@ -233,9 +244,10 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
       .run(command.commandId, projectId, approval.id);
     effects.push(effect(approval.id, approval.revision + 2));
   } else if (task && deps) {
-    effects.push(...moveTaskAndAdvance(raw, task, payload.optionId === "accept" ? "done" : "active", deps));
+    const finished = payload.optionId === "accept" || isReworkSource(raw, projectId, task.id);
+    effects.push(...moveTaskAndAdvance(raw, task, finished ? "done" : "active", deps));
     let refs: ReturnType<typeof setTaskArtifactStatus>;
-    try { refs = setTaskArtifactStatus(raw, { projectId, taskId: task.id, to: payload.optionId === "accept" ? "approved" : "rejected", multiTeam: deps.multiTeam === true }); }
+    try { refs = setTaskArtifactStatus(raw, { projectId, taskId: task.id, to: finished ? "approved" : "rejected", multiTeam: deps.multiTeam === true }); }
     catch (error) {
       // The whole decision rolls back: accepting must not approve a document that lacks its summary (L1).
       if (error instanceof ArtifactLifecycleError) throw new CommandError("conflict", error.message, "correct-input");

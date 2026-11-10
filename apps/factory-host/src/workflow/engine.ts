@@ -16,7 +16,7 @@ import { registerWorkflowLifecycle } from "./lifecycle.js";
 
 export interface WorkflowEngineDeps { raw: Database; hub: EventHub; clock: () => Date; newId?: () => string; dispatcher?: Dispatcher }
 interface StageRow { stage_key: string; state: WorkflowStageState; optional: number; loop_count: number;
-  blocked_reason: string | null; engagement_id: string | null; extra_tasks: number; extra_titles: string }
+  blocked_reason: string | null; engagement_id: string | null; extra_tasks: number; extra_titles: string; extra_loops: number }
 interface Produced { artifact_id: string; version: number; kind: string; status: string; created_at: string }
 const busy = new WeakSet<Database>();
 const rank: Readonly<Record<string, number>> = { draft: 0, "in-review": 0, reviewed: 1, approved: 2, superseded: 2 };
@@ -185,7 +185,7 @@ export function advanceWorkflow(deps: WorkflowEngineDeps, projectId: string, ins
       const result = evaluate(edge.when!, edge.from);
       if (result === "unknown") { update(source, "blocked", "warning: condition fact unavailable"); continue; }
       if (result !== "true") continue;
-      if (dest.loop_count >= edge.maxLoops!) { update(source, "blocked", "rework limit reached"); target = "stalled"; reason = "rework limit reached"; break; }
+      if (dest.loop_count >= edge.maxLoops! + dest.extra_loops) { update(source, "blocked", "rework limit reached"); target = "stalled"; reason = "rework limit reached"; break; }
       raw.prepare("UPDATE workflow_stages SET loop_count = loop_count + 1 WHERE project_id = ? AND instance_id = ? AND stage_key = ?")
         .run(projectId, instanceId, dest.stage_key); dest.loop_count += 1;
       update(dest, "pending"); update(source, "pending");

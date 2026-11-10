@@ -777,7 +777,7 @@ have no consumer yet.
 
 ## Scenarios (M5 E2)
 
-`test/e2-{delivery,reporting,automation}.test.mjs` contains 20 deterministic
+`test/e2-{delivery,reporting,automation}.test.mjs` contains 21 deterministic
 scenarios. `e2-fixture.mjs` composes the E1a fixture with the real command
 pipeline, workflow engine, dispatcher, MCP artifact registration, approvals,
 Inbox reads, scheduler, rules and notifications. The runtime is always fake;
@@ -790,15 +790,15 @@ definition comes from the shipped software-team pack.
 |---|---|
 | D1 | `hasUI=false` excludes Design without a Task; approved architecture evidence unlocks development; staging delivery follows dependencies and finishes with an empty Inbox. |
 | D2 | Design and Architecture have concurrent live attempts; development waits for both approvals. |
-| D3a | Four real QA changes-requested decisions preserve reviews and restart QA; documents the missing development-rework integration. |
-| D3b | The engine's three development reworks preserve four iterations of Task/Attempt history; a fourth verdict stalls with `rework limit reached`, one Inbox item and one deduplicated notification; resume exposes the exhausted-edge limitation. Historical verdicts are explicitly seeded because D3a cannot produce them through commands. |
+| D3a | Real QA changes-requested decisions complete QA and approve its evidence, rework development three times with Task/Attempt history intact, then stall at the limit with one Inbox item and one notification. |
+| D3b | Operator resume grants one extra development loop after a real verdict stall; accepted QA then completes delivery. QA without an outgoing rework edge still restarts its task on request-changes. No verdict rows are seeded. |
 | D4 | Two production deliveries each require fresh Operator Go and a separate completion review; `STANDING_FORBIDDEN` rejects production standing approval and staging standing approval is accepted. |
 | D5 (three tests) | A real Lead attempt proposes `addStage migration`: default approval at project L3, automatic application with `auto` at L3, and downgrade to approval at L2. Operator decisions apply pending patches; migration then runs before development. |
 | D6 | Exhausted day budget returns proxy `429 budget_exceeded` without an upstream call and leaves running fake work intact. Exposes missing failure events, then supplies recorded transitions to verify five-failure team pause, dispatch blocking, Inbox/notification deduplication and Operator resume without counting old failures again. |
 | R1 | Cron `0 7 * * *` in Asia/Ho_Chi_Minh starts one report at 07:00, uses deterministic command IDs, deduplicates repeated ticks, and completes another report the next day. The software BA seat supplies `docs.requirements`. |
 | R2 | Restart at 09:00 after a 06:59 outage runs one catch-up report; a running predecessor records `previous still running`; a longer backlog coalesces three missed days into one run. |
 | R3a | Three start failures quarantine the schedule; an action notification uses the schedule/revision dedup key and is visible through the notification API. Quarantine stops firing, resume clears failures, and a later quarantine revision gets a new notification. |
-| R3b | Three runtime-failed reports demonstrate that failed runs currently do not quarantine their schedule. |
+| R3b (two tests) | Three consecutive terminal failed runs quarantine a schedule, completion resets the streak, and resume clears it. The real-runtime regressions currently expose the stalled-versus-failed source defect described below. |
 | R3c | Active/paused schedules create no quarantine notification; identical schedule IDs in different projects remain isolated. |
 | R4a | A real completed report and failed task expose missing runtime-failure counts in the digest, while completion, approval and token counts remain observable. |
 | R4b | Recorded day activity produces exactly one 18:00 digest with exact done/failed/decided/pending/token counts; fake push receives only title, level, urgency and Inbox link. |
@@ -820,25 +820,25 @@ definition comes from the shipped software-team pack.
   (`awaiting-go` / `tasks.release`), not a pre-execution Approval row. D4 verifies
   a distinct Go per run and a fresh review Approval after each fake deployment.
   This does not prove a pre-deployment Approval or a real deployment effect.
-- **KNOWN DEFECT (D3a):** `approvals.decide(request-changes)` restarts the QA
-  Task, while the workflow rework evaluator requires QA to be done with a
-  changes-requested verdict. Four real requests do not rework development or
-  reach the loop limit. D3b explicitly seeds immutable historical verdict rows
-  to test the engine portion without claiming the real decision chain works.
-- **KNOWN DEFECT (D3b):** `workflows.resume` changes an exhausted-rework
-  instance to active but leaves QA blocked by `rework limit reached`. There is
-  no resume decision/reset command to clear that edge, so this case cannot
-  continue to delivery. The timeout-only stall in A2 resumes successfully.
+- **FIXED after E2 (D3a):** A request-changes review on a rework source
+  completes the task and approves its evidence while retaining the
+  changes-requested verdict, allowing the destination stage to rework.
+- **FIXED after E2 (D3b):** Resume grants one additional loop to each exhausted
+  destination and clears the blocked source so delivery can continue.
 - **FIXED after E2 (D6, R4a):** Host-driven task transitions (a finished or
   failed attempt, and the multi-team task advance) used to emit only
   `entity.changed`, so the team breaker, the daily digest and rules on
   `task.status-changed` never saw real failures. The dispatcher now also emits
   `task.status-changed` with the new state; D6 and R4a assert the real chain.
-- **KNOWN DEFECT (R3b):** schedules reset their consecutive failure counter
-  after successful workflow creation/start and never reconcile failed workflow
-  runs. Three runtime-failed reports leave the schedule active; only three
-  command/start failures trigger the implemented quarantine and R3 notification.
+- **FIXED after E2 (R3b):** Each terminal started run is reconciled once;
+  three consecutive failed runs quarantine its schedule, completion resets the
+  counter, and Operator resume clears both start and run failures.
 
-E2's only source change adds quarantined schedules to `notify/tick.ts`, using
-normal-urgency action notifications keyed by schedule ID and revision. Other
-defects above are assertions of current behavior and are deliberately unfixed.
+The E2 fixes use additive migration 0020. Focused tests in
+`rework-verdict.test.mjs`, `rework-resume.test.mjs` and `schedule-runs.test.mjs`
+cover verdict, extension and reconciliation boundaries. Two **SOURCE DEFECT**
+regressions remain: runtime report failures stall their workflow instead of
+terminating it as failed, and the existing `loop_count <= 10` database check
+rejects extended rework beyond ten loops. These tests remain failing so the
+source limitations are visible; source and migrations are unchanged by this
+test-only follow-up.

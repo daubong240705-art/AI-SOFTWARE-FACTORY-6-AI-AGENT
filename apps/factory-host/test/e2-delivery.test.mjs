@@ -3,7 +3,6 @@ import { test } from "node:test";
 import { randomUUID } from "node:crypto";
 import { e2Fixture, scenario } from "./e2-fixture.mjs";
 import { createWorkflowPatchMcp } from "../dist/workflow/mcp.js";
-import { getApprovalView } from "../dist/approvals/service.js";
 import { tickTeamBreakers } from "../dist/automation/breakers.js";
 import { createModelProxy, createTokenRegistry } from "../dist/proxy/index.js";
 import { DEFAULT_BUDGET_CONFIG } from "../dist/policy/budget.js";
@@ -53,57 +52,67 @@ test("E2 D2: design and architecture run together; development waits for both ap
   assert.equal((await f.read("inbox")).counts.total, 0);
 });
 
-test("E2 D3a: real QA changes decisions currently restart QA rather than rework development", scenario, async t => {
+test("E2 D3a: real QA changes verdicts rework development three times and preserve history", scenario, async t => {
   const f = e2Fixture(t), id = f.create({ hasUI: false }); f.command("start", id);
-  await throughArchitecture(f, id); await f.finish(id, "development");
-  const decisions = [];
-  for (let i = 0; i < 4; i++) {
-    const qa = await f.review(id, "qa"); decisions.push(f.decide(qa.taskId, "request-changes"));
-    // KNOWN DEFECT: approvals.decide makes QA active, but the rework edge reads only done QA.
-    assert.equal(f.task(qa.taskId).state, "active");
-    assert.equal(f.stage(id, "development").loopCount, 0);
-    assert.equal(f.stage(id, "development").tasks.length, 1);
-    assert.notEqual(f.view(id).state, "stalled");
+  await throughArchitecture(f, id);
+  const decisions = [], history = [];
+  for (let loop = 0; loop < 4; loop++) {
+    await f.finish(id, "development");
+    const qa = await f.review(id, "qa"); history.push(qa);
+    decisions.push(f.decide(qa.taskId, "request-changes"));
+    assert.equal(f.task(qa.taskId).state, "done");
+    assert.ok(qa.outputs.every(ref => f.row(ref).status === "approved"));
+    assert.equal(f.stage(id, "development").loopCount, Math.min(loop + 1, 3));
+    assert.deepEqual(f.stage(id, "deploy").tasks, []);
+    if (loop < 3) {
+      assert.notEqual(f.stageTask(id, "development").id, f.stage(id, "development").tasks[1].taskId);
+      assert.match(f.stageTask(id, "development").brief, new RegExp("Rework " + (loop + 1) + " of 3"));
+    }
   }
   assert.equal(new Set(decisions).size, 4);
   assert.equal(f.raw.prepare("SELECT count(*) n FROM approvals WHERE state='changes-requested'").get().n, 4);
-  assert.deepEqual(f.stage(id, "deploy").tasks, []);
-  await f.finish(id, "qa"); await f.finish(id, "deploy");
-  assert.equal(f.view(id).state, "completed");
-  assert.equal((await f.read("inbox")).counts.total, 0);
+  assert.equal(f.stage(id, "development").tasks.length, 4); assert.equal(f.stage(id, "qa").tasks.length, 4);
+  assert.ok(history.every(qa => f.attempts(qa.taskId).length === 1 && f.task(qa.taskId).state === "done"));
+  assert.equal(f.raw.prepare("SELECT count(*) n FROM attempts").get().n, 11);
+  assert.equal(f.view(id).state, "stalled"); assert.equal(f.view(id).stalledReason, "rework limit reached");
+  const inbox = await f.read("inbox");
+  assert.equal(inbox.stalledWorkflows.filter(w => w.instanceId === id && w.reason === "rework limit reached").length, 1);
+  assert.equal(inbox.counts.total, 1);
+  await f.notify(); await f.notify(); assert.equal(f.rows().filter(n => n.entity_id === id).length, 1);
 });
 
-test("E2 D3b: bounded engine rework preserves history, stalls once, and exposes resume limitation", scenario, async t => {
-  const f = e2Fixture(t, { triggers: false }), id = f.create({ hasUI: false }); f.command("start", id);
+test("E2 D3b: real verdict stall resumes with one extra development loop and accepted QA completes delivery", scenario, async t => {
+  const f = e2Fixture(t), id = f.create({ hasUI: false }); f.command("start", id);
   await throughArchitecture(f, id);
   for (let loop = 0; loop < 4; loop++) {
-    await f.finish(id, "development"); const qa = await f.review(id, "qa");
-    const pending = f.raw.prepare("SELECT id FROM approvals WHERE task_id=? AND state='pending'").get(qa.taskId);
-    const a = getApprovalView(f.raw, f.projectId, pending.id);
-    f.workOk("approvals.decide", { approvalId: a.id, expectedRevision: a.revision, contextDigest: a.context.digest,
-      optionId: "accept", comment: "Engine rework fact fixture" });
-    // KNOWN DEFECT: D3a proves no command supplies done + changes-requested. Seed that
-    // historical fact explicitly, as workflow-e2e does, to exercise the existing engine.
-    f.raw.prepare(`INSERT INTO approvals (project_id,id,revision,kind,task_id,subject,summary,options_json,
-      impact_if_waiting,context_digest,approver,requested_at,expires_at,state,outcome_option_id,outcome_actor_id,decided_at)
-      SELECT project_id,?,1,kind,task_id,subject,summary,options_json,impact_if_waiting,context_digest,approver,
-      requested_at,expires_at,'changes-requested','request-changes','operator',decided_at FROM approvals WHERE id=?`).run(randomUUID(), a.id);
-    f.sweep();
-    if (loop < 3) {
-      assert.equal(f.stage(id, "development").loopCount, loop + 1); f.sweep();
-      assert.match(f.stageTask(id, "development").brief, new RegExp(`Rework ${loop + 1} of 3`));
-    }
+    await f.finish(id, "development"); const qa = await f.review(id, "qa"); f.decide(qa.taskId, "request-changes");
   }
-  assert.equal(f.view(id).state, "stalled"); assert.equal(f.view(id).stalledReason, "rework limit reached");
-  assert.equal(f.stage(id, "development").tasks.length, 4); assert.equal(f.stage(id, "qa").tasks.length, 4);
-  assert.equal(f.raw.prepare("SELECT count(*) n FROM attempts").get().n, 11);
-  assert.ok((await f.read("inbox")).stalledWorkflows.some(w => w.instanceId === id && w.reason === "rework limit reached"));
-  await f.notify(); await f.notify();
-  assert.equal(f.rows().filter(n => n.entity_id === id).length, 1);
-  f.command("resume", id); assert.equal(f.view(id).state, "active");
-  // KNOWN DEFECT: resume changes state but leaves the exhausted edge blocked; no decision/reset command exists.
-  f.sweep(); assert.equal(f.stage(id, "qa").blockedReason, "rework limit reached");
-  assert.equal(f.stage(id, "development").tasks.length, 4); assert.deepEqual(f.stage(id, "deploy").tasks, []);
+  assert.equal(f.view(id).state, "stalled");
+  const before = f.stage(id, "development").tasks.map(task => task.taskId);
+  f.command("resume", id); f.sweep();
+  assert.equal(f.raw.prepare("SELECT extra_loops FROM workflow_stages WHERE instance_id=? AND stage_key='development'").get(id).extra_loops, 1);
+  assert.equal(f.stage(id, "development").loopCount, 4);
+  assert.equal(f.stage(id, "development").tasks.length, 5);
+  assert.deepEqual(f.stage(id, "development").tasks.slice(1).map(task => task.taskId), before);
+  assert.equal(f.stage(id, "qa").blockedReason, null);
+  assert.deepEqual(f.stage(id, "deploy").tasks, []);
+  await f.finish(id, "development"); await f.finish(id, "qa"); await f.finish(id, "deploy");
+  assert.equal(f.view(id).state, "completed");
+  assert.equal(f.stage(id, "qa").tasks.length, 5);
+  assert.equal((await f.read("inbox")).counts.total, 0);
+
+  // A QA stage without an outgoing rework edge keeps the ordinary task-restart semantics.
+  const other = f.create({ hasUI: false });
+  const definition = JSON.parse(f.raw.prepare("SELECT definition_json FROM workflow_instances WHERE id=?").get(other).definition_json);
+  definition.edges = definition.edges.filter(edge => edge.type !== "rework");
+  f.raw.prepare("UPDATE workflow_instances SET definition_json=? WHERE id=?").run(JSON.stringify(definition), other);
+  f.command("start", other); await throughArchitecture(f, other); await f.finish(other, "development");
+  const qa = await f.review(other, "qa"); f.decide(qa.taskId, "request-changes");
+  assert.equal(f.task(qa.taskId).state, "active");
+  assert.equal(f.stage(other, "development").loopCount, 0);
+  await f.until(() => f.attempts(qa.taskId).length === 2, "QA restart");
+  assert.equal(f.stage(other, "qa").tasks.length, 1);
+  await f.complete(other);
 });
 
 test("E2 D4: two production deliveries each require Operator Go and a fresh review; production cannot be standing", scenario, async t => {
