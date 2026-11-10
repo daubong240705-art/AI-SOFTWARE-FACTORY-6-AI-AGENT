@@ -25,3 +25,4 @@ export * from "./schedule.js";
 export * from "./automation.js";
 export * from "./rules.js";
 export * from "./notifications.js";
+export * from "./standing.js";

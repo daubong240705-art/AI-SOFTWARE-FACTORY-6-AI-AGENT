@@ -1,5 +1,5 @@
 import type { Database } from "better-sqlite3";
-import { DIGEST_HOUR, REMINDER_FRACTIONS } from "@factory/contracts";
+import { DIGEST_HOUR, REMINDER_FRACTIONS, STANDING_EXPIRY_WARNING_DAYS } from "@factory/contracts";
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator } from "../ids.js";
 import { dayKey, DEFAULT_BUDGET_CONFIG, usedTokens } from "../policy/budget.js";
@@ -52,6 +52,16 @@ function collect(deps: NotificationDeps, projectId: string, now: Date, offset: n
     .all(projectId) as { id: string; revision: number; title: string; state_reason: string | null; last_progress_at: string | null }[];
   for (const row of workflows) add({ dedupKey: notificationKey("workflow", row.id, row.last_progress_at ?? row.revision, "stalled"), category: "action",
     urgency: "normal", title: `Workflow stalled: ${row.title}`, body: row.state_reason ?? "Workflow needs operator attention.", entity: { kind: "workflow-instance", id: row.id } });
+
+  const standing = raw.prepare("SELECT id,expires_at FROM standing_approvals WHERE project_id=? AND state='active' ORDER BY id")
+    .all(projectId) as { id: string; expires_at: string }[];
+  for (const row of standing) {
+    const remaining = Date.parse(row.expires_at) - now.getTime();
+    if (remaining > 0 && remaining <= STANDING_EXPIRY_WARNING_DAYS * 86_400_000)
+      add({ dedupKey: notificationKey("standing-approval", row.id, row.expires_at, "expiry-warning"), category: "important",
+        urgency: "normal", title: "Standing approval expires soon", body: "Review or replace the standing approval before it expires.",
+        entity: { kind: "standing-approval", id: row.id } });
+  }
 
   if (new Date(now.getTime() + offset * 60_000).getUTCHours() < DIGEST_HOUR) return;
   const date = dayKey(now, offset), key = notificationKey("project", date, "digest");

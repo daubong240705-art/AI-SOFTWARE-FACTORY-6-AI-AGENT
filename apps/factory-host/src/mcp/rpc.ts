@@ -23,6 +23,7 @@ export function createMcpHandler(deps: McpDeps, version = "0.1.0", options: { ma
 } {
   const tools = createMcpTools(deps, options);
   const definitions = toolDefinitions.filter((tool) => (deps.workflow !== undefined || tool.name !== "workflow.patch") && (deps.knowledge !== undefined || !tool.name.startsWith("knowledge."))
+    && (deps.standing !== undefined || tool.name !== "notify.send-internal")
     && (deps.skills !== undefined || tool.name !== "skill.get")
     && (deps.briefing !== undefined || tool.name !== "project.briefing")
     && (deps.requests !== undefined || !tool.name.startsWith("request.")));

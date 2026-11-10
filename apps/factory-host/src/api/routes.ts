@@ -2,6 +2,7 @@ import { getMonitor, listMonitors, listMonitorEvents } from "../automation/monit
 import { getRule, listRules, listRuleFires } from "../automation/rules.js";
 import { listTeamBreakers } from "../automation/breakers.js";
 import { listNotifications } from "../notify/service.js";
+import { listStandingApprovals } from "../standing/service.js";
 import type { RouteBreaker } from "../policy/breaker.js";
 import { pendingPatches } from "../workflow/patch.js";
 import { getSchedule, listSchedules, listOccurrences } from "../schedule/service.js";
@@ -54,6 +55,11 @@ export function createRoutes(deps: {
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/standing-approvals", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      return listStandingApprovals(deps.storage.raw, projectId, (deps.clock ?? systemClock)(), deps.budgetConfig?.utcOffsetMinutes);
+    });
     app.get<{ Params: { projectId: string }; Querystring: { state?: string } }>("/projects/:projectId/notifications",
       { preHandler: guards.session }, async (request, reply) => {
         const { projectId } = request.params;

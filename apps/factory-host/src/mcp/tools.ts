@@ -1,4 +1,4 @@
-import { workflowPatchInputSchema } from "@factory/contracts";
+import { workflowPatchInputSchema, notifySendInternalInputSchema } from "@factory/contracts";
 import { z } from "zod";
 import { artifactKindSchema, artifactRefSchema, decisionRequestInputSchema, knowledgeGetInputSchema, knowledgeSearchInputSchema, labelSchema, taskProgressInputSchema, requestCreateInputSchema, requestReplyInputSchema, requestGetInputSchema } from "@factory/contracts";
 import type { TokenGrant } from "../proxy/tokens.js";
@@ -34,6 +34,7 @@ export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
   return clean.data;
 }
 export interface McpDeps {
+  standing?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   workflow?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   external?: ExternalTools;
   toolPolicy?: (grant: TokenGrant) => { allows(name: string): boolean };
@@ -50,13 +51,14 @@ const result = (text: string, isError = false): ToolResult => ({ content: [{ typ
 
 const coreTools = new Set(["task.progress", "output.register", "decision.request", "skill.get"]);
 export function toolAllowed(deps: McpDeps, grant: TokenGrant, name: string): boolean {
-  if ((name.startsWith("ext.") || name === "workflow.patch") && deps.toolPolicy === undefined) return false;
+  if ((name.startsWith("ext.") || name === "workflow.patch" || name === "notify.send-internal") && deps.toolPolicy === undefined) return false;
   if (coreTools.has(name) || deps.toolPolicy === undefined) return true;
   try { return deps.toolPolicy(grant).allows(name); }
   catch { return false; }
 }
 
 export const toolDefinitions = [
+  { name: "notify.send-internal", description: "Send an internal project notification under standing approval. Never include secrets.", inputSchema: z.toJSONSchema(notifySendInternalInputSchema) },
   { name: "workflow.patch", description: "Propose a validated patch to this task's workflow plan.", inputSchema: z.toJSONSchema(workflowPatchInputSchema, { reused: "ref" }) },
   { name: "skill.get", description: "Read a skill from this team's pinned pack snapshot.", inputSchema: z.toJSONSchema(skillGetInputSchema) },
   { name: "project.briefing", description: "Read the project resume briefing and knowledge freshness.", inputSchema: z.toJSONSchema(z.strictObject({})) },
@@ -82,6 +84,7 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
     try {
       if (name.startsWith("ext.")) return deps.external?.call(grant, name, args) ?? result("tool is not available", true);
       if (!toolAllowed(deps, grant, name)) return result("tool is not available", true);
+      if (name === "notify.send-internal") return deps.standing?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "workflow.patch") return deps.workflow?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "skill.get") return deps.skills?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "project.briefing") return deps.briefing?.call(grant,name,args) ?? result("tool is not available",true);

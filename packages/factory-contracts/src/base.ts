@@ -43,6 +43,7 @@ export const entityKindSchema = z.enum([
   "monitor",
   "rule",
   "notification",
+  "standing-approval",
 ]);
 export const entityRefSchema = z.strictObject({
   kind: entityKindSchema,

@@ -1,4 +1,5 @@
 import { workflowPatchSchema } from "./workflow.js";
+import { notifySendInternalInputSchema } from "./standing.js";
 import { z } from "zod";
 import { idSchema, labelSchema, sha256Schema, textSchema, timestampSchema } from "./base.js";
 import { artifactKindSchema, artifactRefSchema, artifactStatusSchema } from "./knowledge.js";
@@ -153,6 +154,7 @@ export const MCP_TOOLS = {
   "request.reply": requestReplyInputSchema,
   "request.get": requestGetInputSchema,
   "workflow.patch": workflowPatchInputSchema,
+  "notify.send-internal": notifySendInternalInputSchema,
 } as const;
 export type McpToolName = keyof typeof MCP_TOOLS;
 export const MCP_TOOL_NAMES = Object.keys(MCP_TOOLS) as McpToolName[];

@@ -6,9 +6,9 @@ import { policyFixture } from "./policy-fixture.mjs";
 import { migrationsDir, temp } from "./org-fixture.mjs";
 import { openStorage } from "../dist/storage/database.js";
 
-test("fresh policy migration reaches 0018", t => {
+test("fresh policy migration reaches 0019", t => {
   const f = policyFixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map(r => r.version),
-    Array.from({ length: 18 }, (_, i) => i + 1));
+    Array.from({ length: 19 }, (_, i) => i + 1));
 });
 for (const table of ["budgets", "autonomy_settings"]) test(`${table} is STRICT`, t => {
   const f = policyFixture(t); assert.equal(f.raw.prepare("SELECT strict FROM pragma_table_list WHERE name=?").get(table).strict, 1);
@@ -64,10 +64,10 @@ test("upgrade from 0015 preserves every budget row unchanged and other schema", 
   raw.prepare("INSERT INTO budgets VALUES ('p','day-budget',2,'day','2026-11-10',12345,90)").run();
   raw.prepare("INSERT INTO budgets VALUES ('q','task-budget',1,'task','task-ref',999,50)").run();
   const before = raw.prepare("SELECT * FROM budgets ORDER BY project_id,id").all();
-  const schema = () => raw.prepare("SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' AND name NOT IN ('budgets','autonomy_settings','team_breakers','notifications','notification_deliveries','notifications_inbox') ORDER BY type,name").all();
+  const schema = () => raw.prepare("SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' AND name NOT IN ('budgets','autonomy_settings','team_breakers','notifications','notification_deliveries','notifications_inbox','standing_approvals','standing_approval_uses','standing_approval_uses_day') ORDER BY type,name").all();
   const otherSchema = schema(), ledger = raw.prepare("SELECT * FROM migration_ledger ORDER BY version").all();
   const result = storage.migrate({ migrationsDir, backupDir: join(root, "backups"), now: () => new Date("2026-11-10T00:00:00Z") });
-  assert.deepEqual(result.applied, [16, 17,18]); assert.ok(result.backup);
+  assert.deepEqual(result.applied, [16, 17,18,19]); assert.ok(result.backup);
   assert.deepEqual(raw.prepare("SELECT * FROM budgets ORDER BY project_id,id").all(), before);
   assert.deepEqual(schema(), otherSchema);
   assert.deepEqual(raw.prepare("SELECT * FROM migration_ledger WHERE version<=15 ORDER BY version").all(), ledger);

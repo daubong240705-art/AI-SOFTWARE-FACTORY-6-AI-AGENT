@@ -1,4 +1,5 @@
 import { statfs } from "node:fs/promises";
+import { createStandingApprovalHandlers, createStandingApprovalMcp, STANDING_COMMANDS } from "./standing/index.js";
 import { tickRules, type RuleDeps } from "./automation/rules.js";
 import { tickTeamBreakers } from "./automation/breakers.js";
 import { tickNotifications, createNotificationHandlers, NOTIFICATION_COMMANDS, type PushChannel } from "./notify/index.js";
@@ -409,6 +410,7 @@ export async function startHost(options: {
         ...(external === undefined ? {} : { external }),
         toolPolicy: createToolPolicy(raw),
         workflow: createWorkflowPatchMcp({ raw, hub, clock, dispatcher }),
+        standing: createStandingApprovalMcp({ raw, hub, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes }),
         skills: createSkillsMcp({ raw, now: clock }),
         ...(options.multiTeam ? { briefing: createBriefingMcp({ raw,store: artifacts.store,now: clock }) } : {}),
         ...(options.multiTeam ? { requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }) } : {}),
@@ -520,6 +522,7 @@ export async function startHost(options: {
     scheduleTimer = interval(sweepSchedules, 30_000);
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       ...createNotificationHandlers(),
+      ...createStandingApprovalHandlers(),
       ...createRuleHandlers({ packs }),
       ...createMonitorHandlers(),
       ...createScheduleHandlers({ packs, pipeline: workflowPipeline }),
@@ -567,6 +570,7 @@ export async function startHost(options: {
           ...MONITOR_COMMANDS,
           ...RULE_COMMANDS,
           ...NOTIFICATION_COMMANDS,
+          ...STANDING_COMMANDS,
           ...(options.multiTeam ? [...ORG_COMMANDS, ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],

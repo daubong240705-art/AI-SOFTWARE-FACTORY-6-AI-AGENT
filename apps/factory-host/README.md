@@ -732,5 +732,45 @@ Each attempt is fenced in a transaction before awaiting the channel outside the
 transaction. An ambiguous send interrupted by process termination remains fenced
 to avoid duplicate delivery; only a caught failure permits retry.
 
-Standing Approvals belong to N1b. Email and other channels, per-user preferences,
+Email and other channels, per-user preferences,
 and a concrete network push adapter are not implemented in this slice.
+
+## Standing approvals (M5 N1b)
+
+Standing approvals authorize repeated low-risk actions within a project or a
+specific team. Only `notify.send-internal`, `deploy.staging`, and
+`artifact.publish-to-project` are accepted. Production deployment, spending money,
+external publishing, and deleting data (`deploy.production`, `spend-money`,
+`publish-external`, `delete-data`) can never be standing. The always-Operator
+list still requires individual approval at every autonomy level: scope or criteria
+changes, opening gates, raising budgets, spending, external publishing,
+irreversible actions, scope/cost conflicts, and global knowledge.
+
+The Operator creates or revokes approvals with `standing-approvals.create` and
+`standing-approvals.revoke`. A project defaults to L3; the Operator must explicitly
+raise it to L4 using `autonomy.set` before any standing use is allowed. Revocation
+checks revisions and takes effect immediately for the next use. Expired approvals
+never authorize an action. Uses and daily limits are checked atomically; retries
+with the same use ID consume one allowance. Eligible approvals are selected by
+earliest expiry. An optional positive `maxTokensPerUse` caps tokens per use.
+
+AP-8 audit of lead-selected values: expiry must be in the future and at most
+**30 days** away; daily limit defaults to **5**, configurable from **1 to 50**;
+at most **20 active approvals** per project; expiry warnings begin **3 days**
+before expiry and deduplicate by approval and expiry. Daily counters use UTC plus
+the configured offset, default **420 minutes (UTC+7)**. Expired rows remain active
+until revoked and count toward the active cap. The token cap has no implicit value.
+
+The `notify.send-internal` MCP tool accepts only `title` and `body`. It is
+**default deny**, available only when wired and allowed by the seat's tools list,
+and **is not enabled in any pack**. Project and team identity come from the granted
+attempt. Each permitted use creates one sanitized important, normal-urgency
+notification; refusals create nothing and return only a generic message with an
+`autonomy`, `none`, `expired`, `limit`, or `tokens` reason. No tokens, secrets, or
+host paths belong in notification content. Warnings ride the existing notification
+tick; there is no new timer. Authenticated
+`GET /projects/:projectId/standing-approvals` returns the newest 100 approvals,
+today's used/remaining counts, and the project level/source, without individual uses.
+
+`deploy.staging` and `artifact.publish-to-project` are accepted action kinds but
+have no consumer yet.
