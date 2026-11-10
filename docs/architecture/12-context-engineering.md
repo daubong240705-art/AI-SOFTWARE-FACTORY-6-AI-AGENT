@@ -440,6 +440,25 @@ chọn model hoặc mức suy luận theo loại Task, và giữ Task nhỏ.
 |---|---|
 | CE-0b: đầu ra Task phụ thuộc thành input của Context Pack | **Xong** (commit e6b10e8) |
 | CE-0a: nhánh tích hợp `factory/integration` của Project (gộp khi review chấp nhận, Task mới bắt đầu từ đó, chặn khi gộp chờ hoặc xung đột, Operator retry/skip; migration 0021) | **Xong** (commit này); test git thật chỉ chạy trên Linux |
-| CE-D8: chạy lại baseline textstats để so sánh | Chưa |
+| CE-D8: chạy lại baseline textstats để so sánh | **Xong** (§13.7) |
 
 Ghi chú CE-0a: `skip` cho các Task phụ thuộc chạy tiếp mà **không có** công việc của Task bị bỏ qua. Nhánh tích hợp nằm trong clone của Project và chưa có effect nào đẩy nó lên remote.
+
+### 13.7 Baseline lần 2, sau CE-0a và CE-0b (11/11/2026)
+
+Cùng dự án, cùng model, cùng yêu cầu; Operator vẫn là tôi. **Đây là một lần chạy, không phải thí nghiệm có đối chứng**: Lead lập kế hoạch khác lần trước (4 Task thay vì 5, và TSK-001 làm vượt phạm vi gồm cả CLI, test, README).
+
+| Chỉ số | Lần 1 | Lần 2 |
+|---|---|---|
+| Task hoàn thành | 5/5 | 4/4 |
+| Lần yêu cầu sửa | 1 (README bịa đầu ra) | **0** |
+| Test của Task test, chạy ngay trong worktree của nó | 0/5 và 0/6 (đạt khi ghép tay) | **25/25 và 30/30** |
+| Lời gọi model | 125 | 61 |
+| Token vào | 2,24 triệu | 0,98 triệu |
+| Token ra | 91,5 nghìn | 60,5 nghìn |
+| Context Pack | 0 input | 2–3 input phụ thuộc mỗi Task (L0, 397–438 token) |
+| Gộp nhánh tích hợp | không có | 4/4 đã gộp, không xung đột |
+
+Điều đã được chứng minh: Task sau thấy code đã duyệt của Task trước, nên không phải đào git và không bịa. Điều **chưa** chứng minh: mức giảm token là do CE-0a/0b hay do kế hoạch khác;
+xung đột gộp chưa gặp ở lần chạy thật (đã có test với git thật). Hai Task chạy song song (TSK-002, TSK-003) gộp sạch vì sửa các file khác nhau.
+Quan sát thêm: tóm tắt Artifact của agent chỉ có L0 (không có L1), nên Context Pack chỉ mang tóm tắt ngắn của các đầu ra phụ thuộc; code đến qua workspace.
