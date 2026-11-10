@@ -392,6 +392,19 @@ Chi tiết: [06 §8, §13](06-implementation-roadmap.md). GitHub API 07/11/2026.
 | `microsoft/playwright` | Apache-2.0 | push 06/11/2026 | **Đề xuất áp dụng** (OSS-13): E2E UI; hệ Python cũ đã dùng |
 | `dubzzz/fast-check` | MIT | push 06/11/2026 | **Đề xuất áp dụng** (OSS-13): property test state machine |
 
+## 6E. Context Engineering (10/11/2026)
+
+Chi tiết: [12-context-engineering.md](12-context-engineering.md). **License và mức hoạt động chưa lấy qua GitHub API trong lần này**; cần kiểm trước khi chuyển bất kỳ mục nào sang "áp dụng".
+
+| Dự án / sản phẩm | Giải bài toán gì | Kết luận |
+|---|---|---|
+| Letta (memory blocks) | Khối nhớ có nhãn, luôn nằm trong context, có thể chia sẻ giữa agent ([docs](https://docs.letta.com/guides/agents/memory-blocks)) | **Chỉ học thiết kế**: ý "khối luôn có mặt" tương ứng mục Objective không bao giờ bị cắt (12 §6.3) |
+| LangGraph store | Bộ nhớ dài hạn theo namespace, key-value, tìm vector tùy chọn ([docs](https://docs.langchain.com/oss/python/langgraph/memory.md)) | **Chỉ học thiết kế**: V2 đã có tương đương (Artifact + `visibility` + `visibleToScope`); thêm framework sẽ tạo nguồn sự thật thứ hai |
+| mem0, Cognee, Graphiti (Zep) | Memory/graph cho agent | **Hoãn**: chưa có số đo cho thấy FTS5 + quan hệ SQLite thiếu (12 §6.6) |
+| sqlite-vec | Vector search trong SQLite | **Hoãn**: chỉ xét khi chỉ số CE-3 cho thấy recall của FTS5 thấp |
+
+Đề xuất **OSS-15** (chờ duyệt cùng CE-D1..D5): không đưa framework memory/context vào V2 ở giai đoạn này; tự mở rộng `buildContextPack`, `buildHandoff`, `task.progress`.
+
 ---
 
 ## 7. Dữ liệu 52 repo (GitHub API, 07/11/2026)
@@ -506,6 +519,7 @@ Số sao làm tròn để tham khảo, không phải tiêu chí chính. "NOASSER
 | 07/11/2026 | Quyết định | Người dùng chốt phương án giai đoạn 4: OSS-09, OSS-10 Đã duyệt |
 | 07/11/2026 | Đồng bộ giai đoạn 5–6 | Thêm §6B, §6C; OSS-11 (croner, cockatiel), OSS-12 (Fastify, better-sqlite3, Kysely, pino, OpenTelemetry) Đã duyệt |
 | 08/11/2026 | Mở rộng Pack (M3+) | Thêm §3 O11: khảo sát gateway MCP, MCP Registry, `allowed-tools`; OSS-14 đã duyệt (phương án A) |
+| 10/11/2026 | Context Engineering | Thêm §6E; OSS-15 đề xuất (không dùng framework memory), chờ duyệt |
 
 ---
 
