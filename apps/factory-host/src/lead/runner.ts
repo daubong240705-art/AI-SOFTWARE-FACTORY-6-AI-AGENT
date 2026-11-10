@@ -105,6 +105,16 @@ export function createLeadRunner(deps: {
       const result = await gateway.complete({ ...built.request, signal: controller.signal });
       calling = false;
       completed = result;
+      // Reasoning models spend output tokens before any visible text; a cut answer must not look like "no answer".
+      if (result.finishReason === "length") {
+        terminal(turn, "failed", "output-limit",
+          `The model ran out of output tokens (${config.maxOutputTokens}) before finishing its answer. `
+          + "Raise FACTORY_LEAD_MAX_OUTPUT_TOKENS on the Host, then send the message again.",
+          () => recordUsage(raw, { id: newId(), projectId: turn.projectId, taskId, attemptId: null,
+            conversationId: turn.conversationId, provider: result.provider, model: result.model, effort: config.effort,
+            usage: result.usage, estimatedTokens: built.estimateTokens, recordedAt: clock().toISOString() }));
+        return;
+      }
       const parsed = parseLeadOutput(result.text, intent);
       hub.transaction(() => {
         const now = clock().toISOString();

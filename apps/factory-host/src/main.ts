@@ -39,6 +39,12 @@ try {
     if (!process.env.FACTORY_LEAD_MODEL.trim()) throw new Error("FACTORY_LEAD_MODEL must be a non-empty string");
     lead.model = process.env.FACTORY_LEAD_MODEL;
   }
+  if (process.env.FACTORY_LEAD_MAX_OUTPUT_TOKENS !== undefined) {
+    const value = process.env.FACTORY_LEAD_MAX_OUTPUT_TOKENS;
+    if (!/^[0-9]+$/.test(value) || Number(value) < 256 || Number(value) > 131072)
+      throw new Error("FACTORY_LEAD_MAX_OUTPUT_TOKENS must be an integer from 256 to 131072");
+    lead.maxOutputTokens = Number(value);
+  }
   if (process.env.FACTORY_LEAD_EFFORT !== undefined) {
     const parsed = reasoningEffortSchema.safeParse(process.env.FACTORY_LEAD_EFFORT);
     if (!parsed.success) throw new Error("FACTORY_LEAD_EFFORT must be one of low, medium, high, xhigh");

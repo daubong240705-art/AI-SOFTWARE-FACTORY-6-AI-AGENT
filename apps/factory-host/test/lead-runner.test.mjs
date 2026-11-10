@@ -636,3 +636,45 @@ test("synthetic api key and bootstrap token never appear in failure messages, ev
   assert.ok(!persisted.includes(bootstrapToken));
   assert.equal(f.turn(id).errorKind, "auth");
 });
+
+test("an answer cut by the output limit fails the turn with a clear message and still records the spend", async (t) => {
+  const f = await fixture(t, { script: [{ text: "", usage: { inputTokens: 4566, cachedInputTokens: 0, outputTokens: 4096, reasoningOutputTokens: 4000 }, finishReason: "length" }] });
+  const id = await f.send({ intent: "delegate" });
+  await f.run();
+  const turn = f.turn(id);
+  assert.equal(turn.state, "failed");
+  assert.equal(turn.errorKind, "output-limit");
+  const system = f.messages().map((m) => m.message ?? m).find((m) => m.speaker === "system");
+  assert.match(system.text, /ran out of output tokens \(4096\)/);
+  assert.match(system.text, /FACTORY_LEAD_MAX_OUTPUT_TOKENS/);
+  assert.equal(f.messages().map((m) => m.message ?? m).some((m) => m.speaker === "agent"), false);
+  assert.equal(listTasks(f.raw, f.projectId).length, 0);
+  const [spent] = f.usages();
+  assert.equal(spent.output_tokens, 4096);
+  assert.equal(spent.input_tokens, 4566);
+});
+
+test("a normal stop still produces the Lead reply", async (t) => {
+  const f = await fixture(t, { script: [{ text: "A helpful reply", usage, finishReason: "stop" }] });
+  const id = await f.send();
+  await f.run();
+  assert.equal(f.turn(id).state, "done");
+});
+
+for (const policy of ["automatic", "hybrid"]) test(`a ${policy} plan task is stored as human-final until an automatic reviewer exists`, async (t) => {
+  const f = await fixture(t, { script: [{ text: output({ tasks: [task({ reviewPolicy: policy }), task({ title: "Test", requiredCapabilities: ["test.unit"], dependsOn: [0], reviewPolicy: policy })] }), usage }] });
+  await f.send({ intent: "delegate" });
+  await f.run();
+  const tasks = listTasks(f.raw, f.projectId);
+  assert.equal(tasks.length, 2);
+  assert.deepEqual(tasks.map((x) => x.reviewPolicy), ["human-final", "human-final"]);
+});
+
+test("the Lead protocol only offers the human-final review policy", async (t) => {
+  const f = await fixture(t);
+  await f.send();
+  await f.run();
+  const system = f.gateway.calls[0].system;
+  assert.match(system, /"reviewPolicy": "human-final"/);
+  assert.doesNotMatch(system, /automatic\|hybrid/);
+});

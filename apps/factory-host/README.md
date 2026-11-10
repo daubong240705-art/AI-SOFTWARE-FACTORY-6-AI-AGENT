@@ -84,6 +84,8 @@ FACTORY_STATE_DIR=$HOME/factory-v2/state FACTORY_PORT=8787 node $HOME/factory-v2
 - `src/lead/prompt.ts`: profile + protocol + context (project, team, tasks) as the system prompt; history without system messages, capped by count and characters; a conservative token estimate.
 - `src/lead/runner.ts`: one turn at a time, in order. Budget check before the call (a blocked turn never reaches the model), exactly one call and no retry, then reply + usage + tasks + turn state + events in one transaction. If the provider answered but the bookkeeping failed, the usage is still recorded. `recover()` marks turns interrupted by a restart as `unknown` and never calls the model. Failure messages are generic (kind only).
 - Env: `FACTORY_LEAD_MODEL` (default `gpt-6.1-sol`), `FACTORY_LEAD_EFFORT` (default `medium`).
+- `FACTORY_LEAD_MAX_OUTPUT_TOKENS` (256..131072, default 4096). Reasoning models (for example DeepSeek v4) spend output tokens on reasoning before any visible text: with 4096 a planning turn was cut off (E1b). A reply that stops with `finish_reason=length` now fails the turn as `output-limit` with a message naming this variable, and its spend is still recorded.
+- Plan tasks are always stored as `human-final`: no automatic reviewer exists yet, and an `automatic`/`hybrid` task would wait in review forever (E1b). The Lead protocol only offers `human-final`.
 
 ## Serving the UI
 

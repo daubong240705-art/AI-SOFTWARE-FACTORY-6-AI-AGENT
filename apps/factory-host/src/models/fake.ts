@@ -1,7 +1,7 @@
 import type { Usage } from "@factory/contracts";
 import { ModelError, type ModelErrorKind, type ModelGateway, type ModelRequest } from "./gateway.js";
 
-export type FakeStep = { text: string; usage?: Usage | null; delayMs?: number }
+export type FakeStep = { text: string; usage?: Usage | null; delayMs?: number; finishReason?: string }
   | { error: ModelErrorKind; delayMs?: number };
 
 function delay(ms: number, signal?: AbortSignal): Promise<void> {
@@ -29,7 +29,7 @@ export function createFakeGateway(script: FakeStep[]): ModelGateway & { readonly
       await delay(step.delayMs ?? 0, signal);
       if ("error" in step) throw new ModelError(step.error);
       return { text: step.text, usage: structuredClone(step.usage ?? null),
-        provider: "fake", model: input.model, finishReason: "stop" };
+        provider: "fake", model: input.model, finishReason: step.finishReason ?? "stop" };
     },
   };
 }

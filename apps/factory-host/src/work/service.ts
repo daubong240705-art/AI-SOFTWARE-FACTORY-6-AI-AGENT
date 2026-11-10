@@ -61,7 +61,8 @@ export function createProposedTasks(raw: Database, input: {
       owner_seat_id, origin_kind, state, disposition, placement, side_effect, review_policy, requires_go,
       required_capabilities_json, acceptance_json, inputs_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
       .run(projectId, id, 1, code, entry.title, entry.goal, entry.goal, null, engagementId, null,
-        "operator", "proposed", "active", entry.placement, entry.sideEffect, entry.reviewPolicy, 1,
+        // No automatic reviewer exists yet: an 'automatic' or 'hybrid' plan task would wait in review forever (E1b).
+        "operator", "proposed", "active", entry.placement, entry.sideEffect, "human-final", 1,
         JSON.stringify(entry.requiredCapabilities), JSON.stringify(entry.acceptance), JSON.stringify([]));
     for (const dependency of entry.dependsOn)
       raw.prepare("INSERT INTO task_dependencies (project_id, task_id, depends_on_task_id) VALUES (?, ?, ?)")
