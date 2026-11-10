@@ -6,6 +6,7 @@ import type { Clock } from "../ids.js";
 import { ModelError } from "../models/gateway.js";
 import { createResponseGuard, type Upstream } from "../models/upstream.js";
 import { checkAndReserve, recordUsage, type BudgetConfig } from "../policy/budget.js";
+import { createRouteBreaker, type RouteBreaker } from "../policy/breaker.js";
 import type { TokenGrant, TokenRegistry } from "./tokens.js";
 import { rpcError } from "../mcp/rpc.js";
 
@@ -56,6 +57,7 @@ export function createModelProxy(options: {
   approvedModels?: never; maxBodyBytes?: number; maxOutputTokens?: number; maxConcurrentPerAttempt?: number;
   maxRequestsPerAttempt?: number; requestTimeoutMs?: number; allowedHosts: string[];
   maxResponseBytes?: number; onError?: (error: Error) => void;
+  routeBreaker?: RouteBreaker;
   mcp?: { handle(grant: TokenGrant, body: unknown): { status: number; body?: unknown } | Promise<{ status: number; body?: unknown }> };
 }): { app: FastifyInstance; close(): Promise<void>; inflight(): number } {
   const { upstream, tokens, raw, budget, clock, newId, maxBodyBytes = 4_194_304, maxOutputTokens = 32_768,
@@ -65,6 +67,7 @@ export function createModelProxy(options: {
     if (!Number.isSafeInteger(value) || value < 1 || value > 2_147_483_647) throw new Error("Invalid proxy configuration");
   }
   const hosts = options.allowedHosts;
+  const routeBreaker = options.routeBreaker ?? createRouteBreaker({ clock });
   const grants = new WeakMap<FastifyRequest, { grant: TokenGrant; token: string }>();
   const active = new Map<AbortController, { projectId: string; attemptId: string; estimate: number }>();
   const totals = new Map<string, number>();
@@ -134,9 +137,15 @@ export function createModelProxy(options: {
     if (!parsed.success) return failure(reply, 400, "invalid_request");
     const { stream_options: _ignored, ...body } = parsed.data;
     if (!grant.allowedModels.includes(body.model)) return failure(reply, 403, "model_not_allowed");
+    const admission = routeBreaker.allow(body.model);
+    if (!admission.allowed) return failure(reply, 503, "route_circuit_open");
+    const abandonTrial = (): void => { if (admission.state === "half-open") routeBreaker.abandon(body.model); };
     const pending = [...active.values()];
     if (pending.filter((item) => item.attemptId === grant.attemptId).length >= maxConcurrentPerAttempt
-      || (totals.get(grant.attemptId) ?? 0) >= maxRequestsPerAttempt) return failure(reply, 429, "too_many_requests");
+      || (totals.get(grant.attemptId) ?? 0) >= maxRequestsPerAttempt) {
+      abandonTrial();
+      return failure(reply, 429, "too_many_requests");
+    }
     if (body.max_completion_tokens !== undefined) body.max_completion_tokens = Math.min(body.max_completion_tokens, maxOutputTokens);
     if (body.max_tokens !== undefined) body.max_tokens = Math.min(body.max_tokens, maxOutputTokens);
     if (body.max_tokens === undefined && body.max_completion_tokens === undefined) body.max_tokens = maxOutputTokens;
@@ -145,7 +154,10 @@ export function createModelProxy(options: {
     const estimate = Math.ceil((JSON.stringify(body.messages).length + (body.tools ? JSON.stringify(body.tools).length : 0)) / 3) + output;
     const reserved = pending.reduce((sum, item) => sum + (item.projectId === grant.projectId ? item.estimate : 0), 0);
     if (!checkAndReserve(raw, { projectId: grant.projectId, taskId: grant.taskId, now: clock(),
-      estimateTokens: estimate + reserved, config: budget }).ok) return failure(reply, 429, "budget_exceeded");
+      estimateTokens: estimate + reserved, config: budget }).ok) {
+      abandonTrial();
+      return failure(reply, 429, "budget_exceeded");
+    }
     const controller = new AbortController();
     active.set(controller, { projectId: grant.projectId, attemptId: grant.attemptId, estimate });
     totals.set(grant.attemptId, (totals.get(grant.attemptId) ?? 0) + 1);
@@ -153,8 +165,9 @@ export function createModelProxy(options: {
     let usage: Usage | null = null;
     let streaming = false;
     let rejectedUpstream = false;
+    let outcome: "ok" | "fail" | undefined;
     const abort = (): void => { controller.abort(); };
-    const timer = setTimeout(() => { timedOut = true; abort(); }, requestTimeoutMs);
+    const timer = setTimeout(() => { if (!controller.signal.aborted) { timedOut = true; abort(); } }, requestTimeoutMs);
     const unsubscribe = tokens.onRevoke(grant.attemptId, abort);
     request.raw.once("aborted", abort);
     const disconnected = (): void => { if (!reply.raw.writableFinished) abort(); };
@@ -170,6 +183,7 @@ export function createModelProxy(options: {
       if (!response.ok) {
         // A definitive HTTP rejection generated nothing: charging the estimate would let a retry loop drain the budget.
         rejectedUpstream = true;
+        if (response.status === 429 || response.status >= 500) outcome = "fail";
         void response.body?.cancel().catch(() => {});
         return failure(reply, response.status === 429 ? 429 : 502, response.status === 401 || response.status === 403
           ? "upstream_auth" : response.status === 429 ? "upstream_rate_limited" : "upstream_unavailable");
@@ -209,7 +223,7 @@ export function createModelProxy(options: {
           const chunk = await reader.read();
           if (chunk.done) { const tail = guard.finish(); scan(tail); scan(Buffer.from("\n")); await write(tail); break; }
           const safe = guard.push(chunk.value);
-          if (safe === null) { abort(); break; }
+          if (safe === null) throw new ModelError("bad-response");
           scan(safe); await write(safe);
         }
         reply.raw.end();
@@ -235,12 +249,19 @@ export function createModelProxy(options: {
         usage = extractUsage(json);
         reply.type("application/json").send(text);
       }
+      outcome = controller.signal.aborted ? timedOut ? "fail" : undefined : "ok";
     } catch (error) {
+      if (timedOut || !controller.signal.aborted && !(error instanceof ModelError && error.kind === "cancelled")) outcome = "fail";
       if (streaming) reply.raw.end();
       else if (!reply.raw.destroyed) failure(reply, timedOut || (error instanceof ModelError && error.kind === "timeout") ? 504 : 502,
         timedOut || (error instanceof ModelError && error.kind === "timeout") ? "upstream_timeout"
           : error instanceof ModelError && error.kind === "bad-response" ? "upstream_invalid" : "upstream_unavailable");
     } finally {
+      if (controller.signal.aborted && !timedOut) outcome = undefined;
+      // Calls admitted while closed cannot complete or release a later trial.
+      if (outcome && (admission.state === "half-open"
+        || routeBreaker.snapshot().find((row) => row.key === body.model)?.state === "closed")) routeBreaker.record(body.model, outcome);
+      else if (!outcome) abandonTrial();
       controller.abort();
       void reader?.cancel().catch(() => {});
       if (!reply.raw.writableFinished && !reply.raw.destroyed) await ended;

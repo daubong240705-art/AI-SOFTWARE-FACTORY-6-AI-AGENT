@@ -1,5 +1,7 @@
 import { statfs } from "node:fs/promises";
 import { tickRules, type RuleDeps } from "./automation/rules.js";
+import { tickTeamBreakers } from "./automation/breakers.js";
+import { createRouteBreaker } from "./policy/breaker.js";
 import { createRuleHandlers, RULE_COMMANDS } from "./automation/ruleCommands.js";
 import { runWatchdog } from "./automation/watchdog.js";
 import { tickMonitors, type MonitorDeps } from "./automation/monitors.js";
@@ -239,6 +241,7 @@ export async function startHost(options: {
   const pushRemotes = options.pushRemotes?.length
     ? parsePushRemotes(options.pushRemotes.map((remote) => `${remote.name}=${remote.url}`).join(",")) : null;
   const clock = options.clock ?? systemClock;
+  const routeBreaker = options.modelProxy ? createRouteBreaker({ clock }) : undefined;
   const mcpServers = options.mcpServers === undefined ? undefined : parseMcpServers(options.mcpServers);
   let external: ExternalTools | undefined;
   const budgetConfig = options.budgetConfig ?? { ...DEFAULT_BUDGET_CONFIG };
@@ -346,7 +349,10 @@ export async function startHost(options: {
       catch { console.error("Workflow sweep failed"); }
       runWatchdog({ raw: approvalRaw, hub, clock }, clock());
       monitorTick ??= tickMonitors({ raw: approvalRaw, hub, stateDir, statfs: options.monitorStatfs ?? statfs }, clock())
-        .then(() => { if (ruleDeps) tickRules(ruleDeps, clock()); })
+        .then(() => {
+          tickTeamBreakers({ raw: approvalRaw, hub }, clock());
+          if (ruleDeps) tickRules(ruleDeps, clock());
+        })
         .finally(() => { monitorTick = undefined; });
       if (options.multiTeam && dispatch) {
         try { expireRequests({ raw: approvalRaw, hub, dispatcher: dispatch, multiTeam: true, now: clock, newId: createIdGenerator(clock) }, clock()); }
@@ -426,6 +432,7 @@ export async function startHost(options: {
         },
       });
       modelProxy = createModelProxy({ upstream, tokens, raw, budget: budgetConfig, clock,
+        ...(routeBreaker === undefined ? {} : { routeBreaker }),
         newId: createIdGenerator(clock), allowedHosts, ...(mcp === undefined ? {} : { mcp }) });
       let listeningPort = 0;
       if (socketPath === undefined) listeningPort = await listenLoopback(modelProxy.app, configured.port);
@@ -530,6 +537,7 @@ export async function startHost(options: {
     const port = options.port === 0 ? await freeLoopbackPort() : options.port;
     const origins = originsFor(port);
     const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, artifacts, packs, backupStatus: () => backup?.status() ?? null,
+      ...(routeBreaker === undefined ? {} : { routeBreaker }),
       ...(external === undefined ? {} : { external }),
       ...(effects === null ? {} : { effects }),
       afterCommand: (type, result) => {

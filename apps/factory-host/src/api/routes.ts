@@ -1,5 +1,7 @@
 import { getMonitor, listMonitors, listMonitorEvents } from "../automation/monitors.js";
 import { getRule, listRules, listRuleFires } from "../automation/rules.js";
+import { listTeamBreakers } from "../automation/breakers.js";
+import type { RouteBreaker } from "../policy/breaker.js";
 import { pendingPatches } from "../workflow/patch.js";
 import { getSchedule, listSchedules, listOccurrences } from "../schedule/service.js";
 import { API_VERSION, contextPackSchema, conversationSchema, idSchema, messageSchema, projectSchema } from "@factory/contracts";
@@ -37,6 +39,7 @@ import { listWorkflowInstances, workflowInstanceView } from "../workflow/service
 
 export function createRoutes(deps: {
   external?: ExternalTools;
+  routeBreaker?: RouteBreaker;
   packs?: readonly RegistryPack[];
   storage: Storage; hub: EventHub; pipeline: ReturnType<typeof createCommandPipeline>;
   keepAliveMs?: number; maxStreams?: number; batchSize?: number;
@@ -50,6 +53,11 @@ export function createRoutes(deps: {
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/breakers", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!getProject(deps.storage.raw, projectId)) return failure(reply,404,"not-found","Project not found.","correct-input",newId);
+      return { teams: listTeamBreakers(deps.storage.raw, projectId), routes: deps.routeBreaker?.snapshot() ?? [] };
+    });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/rules", { preHandler: guards.session }, async (request, reply) => {
       const { projectId } = request.params;
       if (!getProject(deps.storage.raw, projectId)) return failure(reply,404,"not-found","Project not found.","correct-input",newId);
@@ -198,9 +206,13 @@ export function createRoutes(deps: {
       const quarantinedRules = projects.flatMap((project) => (deps.storage.raw.prepare(`SELECT id AS ruleId,project_id AS projectId,name
         FROM automation_rules WHERE project_id=? AND state='quarantined' ORDER BY created_at,id`).all(project.id) as { ruleId: string; projectId: string; name: string }[])
         .map((row) => ({ ...row, name: publicApprovalText(row.name) })));
-      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, patches, monitors, stalledWorkflows, quarantinedRules,
-        counts: { quarantinedRules: quarantinedRules.length, monitors: monitors.length, stalledWorkflows: stalledWorkflows.length, patches: patches.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
-          total: approvals.length + startGates.length + requests.length + patches.length + monitors.length + stalledWorkflows.length + quarantinedRules.length } };
+      const teamBreakers = projects.flatMap((project) => listTeamBreakers(deps.storage.raw, project.id)
+        .filter((row) => row.state === "open")
+        .map((row) => ({ ...row, projectId: project.id, title: "team paused by circuit breaker",
+          reason: row.reason === null ? null : publicApprovalText(row.reason) })));
+      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, patches, monitors, stalledWorkflows, quarantinedRules, teamBreakers,
+        counts: { ...(teamBreakers.length ? { teamBreakers: teamBreakers.length } : {}), quarantinedRules: quarantinedRules.length, monitors: monitors.length, stalledWorkflows: stalledWorkflows.length, patches: patches.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
+          total: approvals.length + startGates.length + requests.length + patches.length + monitors.length + stalledWorkflows.length + quarantinedRules.length + teamBreakers.length } };
     };
     app.get("/inbox", { preHandler: guards.session }, async () => inbox());
     app.get<{ Params: { projectId: string }; Querystring: { state?: string; team?: string; limit?: string } }>(

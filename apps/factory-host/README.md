@@ -665,5 +665,33 @@ require project L3 for produce and L2 for clarify/consult. Existing approval and
 operator patch policies retain their flow. Other action thresholds describe the
 contract for later enforcement.
 
-Organization monthly budgets await an organization entity. Chain budgets and
-circuit breakers belong to slice P3b.
+Organization monthly budgets await an organization entity. Chain budgets are not implemented.
+
+## Circuit breakers (M5 P3b)
+
+AP-8 audit: the lead selected **5 consecutive route failures**, or **strictly more
+than 50% failures in the last 20 recorded outcomes** (all 20 samples required),
+with a **5 minute cooldown**. A model route then admits one half-open trial;
+success closes it and clears history, failure restarts the cooldown. Concurrent
+trials are refused. Network errors, timeouts, HTTP 5xx and 429, and upstream stream
+errors count as failures; completed 2xx responses count as successes. Other 4xx
+and caller cancellations do not affect health. An unused trial is released.
+Refusals return HTTP 503 `route_circuit_open` before reserving budget or consuming
+a request allowance. Route health is in memory, bounded to 64 model IDs, evicting
+the oldest closed key. If all keys are unhealthy, new keys are refused.
+
+AP-8 audit: **5 distinct failed tasks within 60 minutes** pauses an active Team
+with an active engagement. The failure window uses `task.status-changed` events,
+not the current task state. The pause increments the team's revision and emits
+its usual entity change once. The Operator resumes with `teams.set-lifecycle`;
+the next sweep closes the breaker and excludes failures through that resume
+checkpoint so the team does not immediately trip again. Archived teams are ignored.
+The breaker never resumes teams. Team state persists in migration 0017.
+
+The startup and 60 second sweeps run the team breaker regardless of multi-team
+dispatch configuration. Authenticated `GET /projects/:projectId/breakers` returns
+team breaker rows and the proxy's route snapshot (empty when no proxy exists).
+Global and project inboxes include open team breakers and their reasons.
+
+Node and runtime breakers are not implemented here. Budget usage at 100% already
+stops calls through the existing hard budget limit.
