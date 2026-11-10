@@ -63,11 +63,7 @@ export const workflowAllowedPatchesSchema = z.strictObject({
   reorderStages: patchPolicy.default("approval"), removeRequiredStage: patchPolicy.default("operator"),
 }).refine((p) => p.removeRequiredStage !== "auto", "required stage removal cannot be automatic");
 const autonomyLevel = z.enum(["L0", "L1", "L2", "L3", "L4"]);
-export const workflowDefinitionSchema = z.strictObject({
-  key: workflowKeySchema, revision: z.number().int().min(1), title: labelSchema, domain: labelSchema.optional(),
-  parameters: z.array(parameter).max(20),
-  phases: z.array(labelSchema).min(1).max(12),
-  stages: z.array(z.strictObject({
+export const workflowStageSchema = z.strictObject({
     key: workflowKeySchema, phase: labelSchema, title: labelSchema,
     requiredCapabilities: z.array(z.string().regex(/^[a-z0-9][a-z0-9.-]{0,39}$/)).max(8),
     teamHint: labelSchema.optional(), optional: z.boolean().default(false),
@@ -77,7 +73,12 @@ export const workflowDefinitionSchema = z.strictObject({
     inputs: z.array(z.strictObject({ kind: z.union([artifactKindSchema, z.literal("brief")]), required: z.boolean() })).max(8),
     outputs: z.array(z.strictObject({ kind: artifactKindSchema, mustReach: z.enum(["draft", "reviewed", "approved"]) })).max(8),
     limits: z.strictObject({ maxTasks: z.number().int().min(1).max(50), budgetShare: z.number().min(0).max(1) }).optional(),
-  })).min(1).max(60),
+  });
+export const workflowDefinitionSchema = z.strictObject({
+  key: workflowKeySchema, revision: z.number().int().min(1), title: labelSchema, domain: labelSchema.optional(),
+  parameters: z.array(parameter).max(20),
+  phases: z.array(labelSchema).min(1).max(12),
+  stages: z.array(workflowStageSchema).min(1).max(60),
   edges: z.array(z.strictObject({ from: workflowKeySchema, to: workflowKeySchema,
     type: z.enum(["finish-to-start", "artifact-approved", "informs", "rework"]), artifact: artifactKindSchema.optional(),
     when: workflowConditionSchema.optional(), maxLoops: z.number().int().min(1).max(10).optional(),
@@ -150,3 +151,25 @@ export const canTransitionWorkflow = (from: WorkflowInstanceState, to: WorkflowI
 export const isTerminalWorkflowState = (state: WorkflowInstanceState): boolean => WORKFLOW_TRANSITIONS[state].length === 0;
 export const workflowStageStateSchema = z.enum(["pending", "ready", "active", "done", "skipped", "failed", "blocked"]);
 export type WorkflowStageState = z.infer<typeof workflowStageStateSchema>;
+
+export const workflowPatchOpSchema = z.discriminatedUnion("op", [
+  z.strictObject({ op: z.literal("addTaskWithinStage"), stage: workflowKeySchema, title: z.string().min(1).max(120) }),
+  z.strictObject({ op: z.literal("skipOptionalStage"), stage: workflowKeySchema }),
+  z.strictObject({ op: z.literal("splitStage"), stage: workflowKeySchema, into: z.array(z.strictObject({
+    key: workflowKeySchema, title: z.string().min(1).max(120),
+    requiredCapabilities: workflowStageSchema.shape.requiredCapabilities.optional(),
+  })).min(2).max(5) }),
+  z.strictObject({ op: z.literal("addStage"), stage: workflowStageSchema,
+    after: workflowKeySchema.optional(), before: workflowKeySchema.optional(),
+  }).refine((op) => op.after !== undefined || op.before !== undefined, "placement required"),
+  z.strictObject({ op: z.literal("reorderStages"), stage: workflowKeySchema, after: workflowKeySchema }),
+  z.strictObject({ op: z.literal("removeRequiredStage"), stage: workflowKeySchema }),
+]);
+export const workflowPatchSchema = z.strictObject({ ops: z.array(workflowPatchOpSchema).min(1).max(10), reason: z.string().min(1).max(500) });
+export type WorkflowPatchOp = z.infer<typeof workflowPatchOpSchema>;
+export type WorkflowPatch = z.infer<typeof workflowPatchSchema>;
+export type WorkflowPatchPolicy = "auto" | "approval" | "operator";
+/** Always pass the copied instance definition, never a template from the pack registry. */
+export function patchPolicyOf(op: WorkflowPatchOp, definition: Pick<WorkflowDefinition, "allowedPatches">): WorkflowPatchPolicy {
+  return definition.allowedPatches[op.op];
+}

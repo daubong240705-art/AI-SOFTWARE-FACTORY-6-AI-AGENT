@@ -371,6 +371,56 @@ dependencies and performs no execution. Resume atomically collapses
 paused → resuming → active into one revision. W1b adds freshness checks,
 Task generation, dependency evaluation, parallel joins, gates and bounded rework.
 
+### Plan Patch (M5 W2)
+
+The Lead proposes a patch; deterministic code validates its operations against the
+instance's copied definition and task history. Each patch contains 1–10 operations
+and a reason of 1–500 characters. The strictest policy in the patch wins.
+
+| Operation | Default policy | Conditions and refusal rules |
+| --- | --- | --- |
+| `addTaskWithinStage` | auto | Existing unfinished stage; total tasks must fit `limits.maxTasks` (default 1), with at most 20 extra tasks. Title is plain text, 1–120 characters. |
+| `skipOptionalStage` | auto | Optional stage in pending, ready or blocked state without task history. |
+| `splitStage` | auto | Pending or blocked stage without task history; 2–5 new unique stage keys, connected in sequence. Incoming edges and gates use the first stage; outputs, outgoing edges and parallel group membership use the last. |
+| `addStage` | approval | Full stage definition, with `after`, `before`, or both; referenced stages must exist. Both anchors replace their direct finish-to-start edge. Maximum 60 stages. |
+| `reorderStages` | approval | Pending stage without task history; move after an existing different stage. Artifact-approved and rework edges touching the stage prevent the move. |
+| `removeRequiredStage` | operator | Pending stage without task history; reconnect predecessors to successors and drop its gates and unused joins. Artifact-approved and rework edges prevent removal. |
+
+The instance's `allowedPatches` overrides defaults. The operator can apply all
+three policy levels; the Lead applies only `auto`. Lead proposals requiring
+`approval` or `operator` remain pending until the operator uses
+`workflows.decide-patch`. Approval revalidates against the current definition;
+an invalidated proposal becomes refused with `stale`. Rejection records the
+operator's sanitised comment. Terminal workflows cannot be patched. There are
+at most 50 audit rows and three pending patches per instance.
+
+`workflows.patch` takes `{ instanceId, expectedRevision, ops, reason }`.
+For example, `ops: [{ op: "addTaskWithinStage", stage: "development",
+title: "Verify migration evidence" }]` adds work when that stage's task limit
+permits it. To insert a stage, use `{ op: "addStage", stage: { key: "evidence",
+phase: "execution", title: "Check evidence", requiredCapabilities: ["docs.write"],
+inputs: [], outputs: [] }, after: "development", before: "qa" }`.
+Decide using `{ patchId, decision: "approve" }` or
+`{ patchId, decision: "reject", comment: "Use the existing review stage" }`.
+These commands use the normal command envelope and replay protection.
+
+The optional MCP tool `workflow.patch` takes only `{ ops, reason }`. It is
+default deny: the seat's pinned tool list must include `workflow.patch` or
+`workflow.*`; an omitted list grants no access. The active grant's task determines
+the instance, and calls are fenced by attempt, epoch and lease, with a limit of
+20 calls per attempt. Results contain only patch number, state and any fixed
+refusal; denied tools behave like unknown tools.
+
+Migration 0012 adds numbered audit rows and extra-task counters without rebuilding
+tables. Applying a patch atomically records the definition revision, stage edits,
+instance revision and change events, then advances the engine. Refusals leave the
+definition and stage state intact. Extra tasks are created once per iteration,
+and all must finish before the stage completes. Reasons never become task goals;
+only sanitised extra titles enter generated goals. History is retained.
+Authenticated workflow detail includes patch history and stage `extraTasks`;
+both inbox routes include pending patches, operation summary lines and additive
+`counts.patches`, included in `counts.total`.
+
 ## Pack v2: capabilities, tools and the template (V2a)
 
 Pack v2 adds optional fields to the existing manifest, with no migration or new

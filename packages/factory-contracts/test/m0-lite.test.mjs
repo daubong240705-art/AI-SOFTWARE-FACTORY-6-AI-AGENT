@@ -500,7 +500,7 @@ const proposed = (over = {}) => ({
 });
 
 test("the tool surface is the agreed M0-lite set", () => {
-  assert.deepEqual([...c.MCP_TOOL_NAMES].sort(), ["decision.request", "handoff.submit", "knowledge.get", "knowledge.search", "output.register", "project.briefing", "request.create", "request.get", "request.reply", "skill.get", "task.progress", "task.propose"]);
+  assert.deepEqual([...c.MCP_TOOL_NAMES].sort(), ["decision.request", "handoff.submit", "knowledge.get", "knowledge.search", "output.register", "project.briefing", "request.create", "request.get", "request.reply", "skill.get", "task.progress", "task.propose", "workflow.patch"]);
 });
 
 test("task.propose keeps the V1 plan rules: at most 10 tasks, dependencies point backwards", () => {
@@ -565,8 +565,8 @@ test("the original 14 commands remain and 6 are added without removing any", () 
   for (const t of ["artifacts.transition", "artifacts.share", "artifacts.clear-stale"]) assert.ok(c.FOUNDATION_COMMANDS.includes(t), t);
   assert.ok(c.FOUNDATION_COMMANDS.includes("dossier.refresh"));
   for (const t of ["workflows.create", "workflows.start", "workflows.pause", "workflows.resume", "workflows.cancel"]) assert.ok(c.FOUNDATION_COMMANDS.includes(t), t);
-  assert.equal(c.FOUNDATION_COMMANDS.length, 36);
-  assert.equal(new Set(c.FOUNDATION_COMMANDS).size, 36);
+  assert.equal(c.FOUNDATION_COMMANDS.length, 38);
+  assert.equal(new Set(c.FOUNDATION_COMMANDS).size, 38);
 });
 
 test("tasks.create applies the restrictive defaults and keeps the gate on", () => {

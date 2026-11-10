@@ -1,3 +1,4 @@
+import { pendingPatches } from "../workflow/patch.js";
 import { API_VERSION, contextPackSchema, conversationSchema, idSchema, messageSchema, projectSchema } from "@factory/contracts";
 import type { FastifyInstance } from "fastify";
 import type { createCommandPipeline, PipelineResult } from "../commands/pipeline.js";
@@ -149,9 +150,11 @@ export function createRoutes(deps: {
       const requests = projects.flatMap((project) => listRequests(deps.storage.raw, project.id)
         .filter((item) => ["submitted", "need-info"].includes(item.triageState) && item.taskState === "proposed")
         .map((item) => ({ ...item, ...(projectId === undefined ? { projectId: project.id, projectName: publicApprovalText(project.name) } : {}) })));
-      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests,
-        counts: { approvals: approvals.length, startGates: startGates.length, requests: requests.length,
-          total: approvals.length + startGates.length + requests.length } };
+      const patches = projects.flatMap((project) => pendingPatches({ raw: deps.storage.raw }, project.id)
+        .map((patch) => ({ ...patch, ...(projectId === undefined ? { projectName: publicApprovalText(project.name) } : {}) })));
+      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, patches,
+        counts: { patches: patches.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
+          total: approvals.length + startGates.length + requests.length + patches.length } };
     };
     app.get("/inbox", { preHandler: guards.session }, async () => inbox());
     app.get<{ Params: { projectId: string }; Querystring: { state?: string; team?: string; limit?: string } }>(

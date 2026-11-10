@@ -1,3 +1,4 @@
+import { proposePatch, decidePatch, PatchError } from "./patch.js";
 import { canTransitionWorkflow, evaluateParamCondition, isTerminalWorkflowState, workflowDefinitionSchema,
   type WorkflowInstanceState, type WorkflowValue } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
@@ -7,7 +8,7 @@ import { getWorkflowInstance } from "./service.js";
 import { validateWorkflowDefinition } from "./validate.js";
 import { advanceWorkflow, type WorkflowEngineDeps } from "./engine.js";
 
-export const WORKFLOW_COMMANDS = ["workflows.create", "workflows.start", "workflows.pause", "workflows.resume", "workflows.cancel", "workflows.assign-stage"] as const;
+export const WORKFLOW_COMMANDS = ["workflows.create", "workflows.start", "workflows.pause", "workflows.resume", "workflows.cancel", "workflows.assign-stage", "workflows.patch", "workflows.decide-patch"] as const;
 function requireProject(ctx: HandlerContext, projectId: string): void {
   if (!ctx.raw.prepare("SELECT id FROM projects WHERE id = ?").get(projectId))
     throw new CommandError("not-found", "project not found", "correct-input");
@@ -33,7 +34,26 @@ function transition(ctx: HandlerContext, projectId: string, payload: { instanceI
   return { effects: [{ kind: "workflow-instance" as const, id: row.id, revision: row.revision + 1 }] };
 }
 export function createWorkflowHandlers(deps: { packs: readonly RegistryPack[]; engine?: WorkflowEngineDeps }): Partial<HandlerMap> {
+  const patchCommand = (ctx: HandlerContext, projectId: string, action: () => { instanceId: string }) => {
+    if (ctx.actorId !== "operator") throw new CommandError("validation", "operator required", "correct-input");
+    try {
+      const record = action();
+      return { effects: [{ kind: "workflow-instance" as const, id: record.instanceId,
+        revision: getWorkflowInstance(ctx.raw, projectId, record.instanceId)!.revision }] };
+    } catch (error) {
+      if (!(error instanceof PatchError)) throw error;
+      throw new CommandError(error.code, error.message, error.code === "conflict" ? "refresh" : "correct-input");
+    }
+  };
   return {
+    "workflows.patch": (ctx, { projectId, payload }) => {
+      requireProject(ctx, projectId);
+      return patchCommand(ctx, projectId, () => proposePatch({ ...ctx, ...deps.engine }, { projectId, ...payload, proposedBy: "operator" }));
+    },
+    "workflows.decide-patch": (ctx, { projectId, payload }) => {
+      requireProject(ctx, projectId);
+      return patchCommand(ctx, projectId, () => decidePatch({ ...ctx, ...deps.engine }, { projectId, ...payload }));
+    },
     "workflows.create": (ctx, { projectId, payload }) => {
       requireProject(ctx, projectId);
       if (getWorkflowInstance(ctx.raw, projectId, payload.instanceId))

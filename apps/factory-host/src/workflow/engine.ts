@@ -15,7 +15,7 @@ import { registerWorkflowLifecycle } from "./lifecycle.js";
 
 export interface WorkflowEngineDeps { raw: Database; hub: EventHub; clock: () => Date; newId?: () => string; dispatcher?: Dispatcher }
 interface StageRow { stage_key: string; state: WorkflowStageState; optional: number; loop_count: number;
-  blocked_reason: string | null; engagement_id: string | null }
+  blocked_reason: string | null; engagement_id: string | null; extra_tasks: number; extra_titles: string }
 interface Produced { artifact_id: string; version: number; kind: string; status: string; created_at: string }
 const busy = new WeakSet<Database>();
 const rank: Readonly<Record<string, number>> = { draft: 0, "in-review": 0, reviewed: 1, approved: 2, superseded: 2 };
@@ -75,7 +75,7 @@ export function advanceWorkflow(deps: WorkflowEngineDeps, projectId: string, ins
     // Awaiting approval is a waiting projection. Wake only when the blocking approval/gate clears.
     const waiting = (): boolean => stages.some((stage) => currentTasks(stage.stage_key).some((task) => task.state === "awaiting-go"
       || Boolean(raw.prepare("SELECT 1 FROM approvals WHERE project_id = ? AND task_id = ? AND state = 'pending'").get(projectId, task.id))));
-    if (instance.state === "awaiting-approval" && waiting() && !stages.some((stage) => currentTasks(stage.stage_key).some((task) => task.state === "active"))) return [];
+    if (instance.state === "awaiting-approval" && !stages.some((s) => s.state === "active" && currentTasks(s.stage_key).length < 1 + s.extra_tasks) && waiting() && !stages.some((stage) => currentTasks(stage.stage_key).some((task) => task.state === "active"))) return [];
     let target: WorkflowInstanceState = instance.state === "awaiting-approval" ? "active" : instance.state;
     let reason: string | null = null;
     // (a) Refresh current work. Pending stages deliberately do not reuse historical tasks.
@@ -84,6 +84,7 @@ export function advanceWorkflow(deps: WorkflowEngineDeps, projectId: string, ins
       const tasks = currentTasks(stage.stage_key); if (!tasks.length) continue;
       if (tasks.some((task) => ["failed", "cancelled", "declined"].includes(task.state))) update(stage, "failed");
       else if (tasks.some((task) => !["done", "superseded"].includes(task.state))) update(stage, "active");
+      else if (tasks.length < 1 + stage.extra_tasks) update(stage, "active");
       else {
         const outputs = definition.stages.find((s) => s.key === stage.stage_key)!.outputs;
         const versions = produced(stage.stage_key);
@@ -119,9 +120,11 @@ export function advanceWorkflow(deps: WorkflowEngineDeps, projectId: string, ins
       if (spec.skipIf && evaluate(spec.skipIf, spec.key) === "true") { update(stage, "skipped"); continue; }
       update(stage, "ready");
     }
-    // (d) Exactly one generated task per iteration, created and moved through the normal task service.
+    // (d) Ensure all planned tasks exist in this iteration; historical links remain immutable.
     for (const spec of definition.stages) {
-      const stage = byKey.get(spec.key)!; if (stage.state !== "ready" || requiredFailed) continue;
+      const stage = byKey.get(spec.key)!; if (!["ready", "active"].includes(stage.state) || requiredFailed) continue;
+      const existing = stage.state === "active" ? currentTasks(spec.key) : [];
+      if (existing.length >= 1 + stage.extra_tasks) continue;
       const engagement = selectWorkflowEngagement(raw, projectId, spec, stage.engagement_id);
       if (!engagement) { update(stage, "blocked", `no team covers ${spec.requiredCapabilities.join(", ")}`); continue; }
       let unknownGate = false;
@@ -133,7 +136,11 @@ export function advanceWorkflow(deps: WorkflowEngineDeps, projectId: string, ins
         .get(projectId, instanceId, spec.key) as { n: number | null }).n ?? 0;
       const codes = raw.prepare("SELECT code FROM tasks WHERE project_id = ? AND code GLOB 'WF-*'").all(projectId) as { code: string }[];
       const next = codes.reduce((max, row) => Math.max(max, Number(row.code.slice(3)) || 0), 0) + 1;
+      const titles = JSON.parse(stage.extra_titles) as string[];
+      const currentIteration = stage.state === "active" ? Math.max(1, iteration) : iteration + 1;
+      for (let taskIndex = existing.length; taskIndex < 1 + stage.extra_tasks; taskIndex++) {
       const taskId = (deps.newId ?? randomUUID)();
+      const title = taskIndex === 0 ? spec.title : titles[taskIndex - 1] ?? "Additional task";
       const upstream = new Set<string>();
       const visit = (key: string): void => { for (const edge of definition.edges) if (edge.to === key && edge.type !== "rework" && !upstream.has(edge.from)) { upstream.add(edge.from); visit(edge.from); } };
       visit(spec.key);
@@ -141,7 +148,7 @@ export function advanceWorkflow(deps: WorkflowEngineDeps, projectId: string, ins
         .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.version - a.version || a.artifact_id.localeCompare(b.artifact_id));
       const inputs = spec.inputs.flatMap((input) => { const version = versions.find((v) => v.kind === input.kind);
         return version ? [{ artifactId: version.artifact_id, version: version.version }] : []; }).slice(0, 8);
-      const lines = [spec.title, `Phase: ${spec.phase}`, `Capabilities: ${spec.requiredCapabilities.join(", ")}`,
+      const lines = [title, `Phase: ${spec.phase}`, `Capabilities: ${spec.requiredCapabilities.join(", ")}`,
         ...spec.inputs.map((input) => `Input: ${input.kind} (${input.required ? "required" : "optional"})`),
         ...spec.outputs.map((output) => `Output: ${output.kind} (${output.mustReach})`),
         ...definition.parameters.map((p) => `${p.name}=${String(params[p.name])}`)];
@@ -155,18 +162,19 @@ export function advanceWorkflow(deps: WorkflowEngineDeps, projectId: string, ins
         if (feedback) lines.push(`Reviewer feedback:\n${publicApprovalText(feedback.comment).slice(0, 1000)}`);
       }
       tasksCreateHandler({ raw, hub, clock: deps.clock, newId: deps.newId ?? randomUUID, actorId: "operator" }, {
-        apiVersion: 1, commandId: taskId, projectId, type: "tasks.create", payload: { taskId, code: `WF-${String(next).padStart(3, "0")}`,
-          title: spec.title, goal: spec.title, brief: lines.join("\n"), parentTaskId: null, engagementId: engagement, ownerSeatId: null,
+        apiVersion: 1, commandId: taskId, projectId, type: "tasks.create", payload: { taskId, code: `WF-${String(next + taskIndex - existing.length).padStart(3, "0")}`,
+          title, goal: title, brief: lines.join("\n"), parentTaskId: null, engagementId: engagement, ownerSeatId: null,
           requiredCapabilities: spec.requiredCapabilities, placement: spec.placement,
           sideEffect: spec.sideEffect === "external" ? "external-irreversible" : spec.sideEffect === "code" ? "artifact" : spec.sideEffect ?? "none",
           reviewPolicy: "human-final",
           requiresGo: gates.some((gate) => gate.kind !== "review"), acceptance: spec.outputs.map((output) => `Register a ${output.kind} artifact and reach ${output.mustReach}`), inputs, dependsOn: [] } });
-      raw.prepare("INSERT INTO workflow_stage_tasks VALUES (?,?,?,?,?,?)").run(projectId, instanceId, spec.key, iteration + 1, taskId, now);
+      raw.prepare("INSERT INTO workflow_stage_tasks VALUES (?,?,?,?,?,?)").run(projectId, instanceId, spec.key, currentIteration, taskId, now);
       raw.prepare("UPDATE workflow_stages SET engagement_id = ? WHERE project_id = ? AND instance_id = ? AND stage_key = ?")
         .run(engagement, projectId, instanceId, spec.key); stage.engagement_id = engagement;
       moveTask(raw, projectId, taskId, "accepted"); moveTask(raw, projectId, taskId, "ready");
       if (gates.some((gate) => gate.kind !== "review")) moveTask(raw, projectId, taskId, "awaiting-go");
       update(stage, "active"); effects.push({ kind: "task", id: taskId, revision: getTask(raw, projectId, taskId)!.revision });
+      }
     }
     // (e) Rework resets both ends; old links, attempts and versions remain immutable history.
     for (const edge of definition.edges) {

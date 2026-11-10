@@ -1,3 +1,4 @@
+import { createWorkflowPatchMcp } from "./workflow/mcp.js";
 import { registerWorkflowEngine, sweepWorkflows } from "./workflow/engine.js";
 import { expireRequests } from "./requests/service.js";
 import type { FastifyInstance } from "fastify";
@@ -380,6 +381,7 @@ export async function startHost(options: {
       const mcp = dispatcher === null ? undefined : createMcpHandler({
         ...(external === undefined ? {} : { external }),
         toolPolicy: createToolPolicy(raw),
+        workflow: createWorkflowPatchMcp({ raw, hub, clock, dispatcher }),
         skills: createSkillsMcp({ raw, now: clock }),
         ...(options.multiTeam ? { briefing: createBriefingMcp({ raw,store: artifacts.store,now: clock }) } : {}),
         ...(options.multiTeam ? { requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }) } : {}),

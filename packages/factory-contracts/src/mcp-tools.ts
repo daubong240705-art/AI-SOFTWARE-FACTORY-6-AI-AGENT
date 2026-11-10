@@ -1,3 +1,4 @@
+import { workflowPatchSchema } from "./workflow.js";
 import { z } from "zod";
 import { idSchema, labelSchema, sha256Schema, textSchema, timestampSchema } from "./base.js";
 import { artifactKindSchema, artifactRefSchema, artifactStatusSchema } from "./knowledge.js";
@@ -137,6 +138,7 @@ export const projectBriefingInputSchema = z.strictObject({});
 export const skillGetInputSchema = z.strictObject({ name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/) });
 export type SkillGetInput = z.infer<typeof skillGetInputSchema>;
 
+export const workflowPatchInputSchema = workflowPatchSchema;
 export const MCP_TOOLS = {
   "skill.get": skillGetInputSchema,
   "project.briefing": projectBriefingInputSchema,
@@ -150,6 +152,7 @@ export const MCP_TOOLS = {
   "request.create": requestCreateInputSchema,
   "request.reply": requestReplyInputSchema,
   "request.get": requestGetInputSchema,
+  "workflow.patch": workflowPatchInputSchema,
 } as const;
 export type McpToolName = keyof typeof MCP_TOOLS;
 export const MCP_TOOL_NAMES = Object.keys(MCP_TOOLS) as McpToolName[];

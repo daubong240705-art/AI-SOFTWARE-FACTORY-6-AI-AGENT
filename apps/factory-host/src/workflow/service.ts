@@ -1,3 +1,4 @@
+import { listPatches } from "./patch.js";
 import type { Database } from "better-sqlite3";
 import { workflowDefinitionSchema, workflowStageStateSchema, type WorkflowInstanceState } from "@factory/contracts";
 
@@ -26,8 +27,8 @@ export function workflowInstanceView(raw: Database, projectId: string, id: strin
   const row = getWorkflowInstance(raw, projectId, id);
   if (!row) return undefined;
   const definition = workflowDefinitionSchema.parse(JSON.parse(row.definition_json) as unknown);
-  const stages = raw.prepare("SELECT stage_key AS key, phase, state, optional, loop_count AS loopCount, blocked_reason AS blockedReason, engagement_id AS engagementId FROM workflow_stages WHERE project_id = ? AND instance_id = ?")
-    .all(projectId, id) as { key: string; phase: string; state: string; optional: number; loopCount: number; blockedReason: string | null; engagementId: string | null }[];
+  const stages = raw.prepare("SELECT stage_key AS key, phase, state, optional, loop_count AS loopCount, blocked_reason AS blockedReason, engagement_id AS engagementId, extra_tasks AS extraTasks FROM workflow_stages WHERE project_id = ? AND instance_id = ?")
+    .all(projectId, id) as { key: string; phase: string; state: string; optional: number; loopCount: number; blockedReason: string | null; engagementId: string | null; extraTasks: number }[];
   const order = new Map(definition.stages.map((s, i) => [s.key, i]));
   return { ...summary(raw, row), stages: stages.sort((a, b) => (order.get(a.key) ?? 0) - (order.get(b.key) ?? 0))
     .map((s) => {
@@ -39,5 +40,5 @@ export function workflowInstanceView(raw: Database, projectId: string, id: strin
         tasks: tasks.map(({ taskId, code, state }) => ({ taskId, code, state })) };
     }), params: JSON.parse(row.params_json) as Record<string, unknown>,
     definitionRevision: row.definition_revision, packKey: row.pack_key, packVersion: row.pack_version,
-    definitionTitle: definition.title, phases: definition.phases };
+    definitionTitle: definition.title, phases: definition.phases, patches: listPatches({ raw }, projectId, id).map(({ id: patchId, number, proposedBy, policy, state, reason, refusal, createdAt, decidedAt, comment }) => ({ id: patchId, number, proposedBy, policy, state, reason, refusal, createdAt, decidedAt, comment })) };
 }
