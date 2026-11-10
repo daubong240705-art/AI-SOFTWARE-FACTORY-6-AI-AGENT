@@ -5,6 +5,31 @@ và chưa viết dòng code M4 nào. Nguồn: `docs/architecture/05-target-archi
 `06-implementation-roadmap.md` (M4). Các con số dưới đây là giá trị gợi ý đã ghi trong tài liệu
 kiến trúc, **chưa đo trên máy bạn**.
 
+## Trạng thái đã cấu hình (10/11/2026)
+
+Hai VM đã được tạo và cấu hình xong; phần còn lại của tài liệu giữ làm quy trình dựng lại.
+
+| Hạng mục | `factory-cp` | `factory-node-1` |
+|---|---|---|
+| Tệp VM | `D:\vm\ubun1\factory-cp.vmx` | `D:\vm\ubun2\factory-node-1.vmx` |
+| Địa chỉ tĩnh (VMnet8) | `192.168.187.10` | `192.168.187.11` |
+| CPU / RAM / đĩa gốc | 2 / ~3,5 GB / 28 GB | 4 / ~7,5 GB / 57 GB |
+| Hệ điều hành | Ubuntu Server **26.04.1** LTS (không phải 24.04) | như cột trái |
+| SSH từ laptop | `ssh factory-cp` | `ssh factory-node-1` |
+| Docker | không | Docker 29.1.3 (gói `docker.io` của Ubuntu) |
+
+- Địa chỉ tĩnh nằm **ngoài** dải DHCP của VMnet8 (`192.168.187.128–254`) để không bị cấp trùng. Gateway và DNS
+  `192.168.187.2`, dự phòng `1.1.1.1`.
+- Tên miền `*.lazy.local` được định tuyến tới DNS nội bộ `192.168.1.50` bằng
+  `/etc/systemd/resolved.conf.d/factory-lazy-local.conf`; `ai.lazy.local` phân giải ra `192.168.1.51` và TLS tin cậy
+  CA Caddy (không dùng `-k`). Khi laptop rời mạng nhà thì 9Router không tới được.
+- SSH chỉ dùng khóa `~/.ssh/factory_ed25519` (laptop), khóa host đã xác minh nằm trong `~/.ssh/known_hosts_factory`.
+  Tài khoản `lazy` có `sudo` không cần mật khẩu (`/etc/sudoers.d/90-lazy-factory`).
+- Công cụ: Node 22.23.4 và OpenCode 1.19.5 (bản ghim) trong `~/factory-v2`, đã chạy `preflight-linux.py` và
+  `verify-linux-runtime.py` đạt trên cả hai VM (chưa gọi model).
+- Snapshot `clean-base` tạo bằng `vmrun` sau khi mọi thứ trên đã xong.
+- Chưa làm (thuộc M4): enrollment token, node Windows, ảnh Docker worker, Litestream, khóa API 9Router.
+
 ## 0. Đích đến
 
 | Thành phần | Chạy ở đâu | Vai trò |
