@@ -1,4 +1,5 @@
 import { monitorCreateSchema, monitorPatchSchema } from "./automation.js";
+import { notificationIdPayloadSchema } from "./notifications.js";
 import { ruleInputSchema, rulePatchSchema } from "./rules.js";
 import { autonomyLevelSchema } from "./autonomy.js";
 import { z } from "zod";
@@ -36,6 +37,8 @@ const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
 const change = { expectedRevision: revisionSchema };
 // No actor, credentials, effective grant, status category or windowId supplied by the browser.
 export const commandSchema = z.discriminatedUnion("type", [
+  command("notifications.mark-read", notificationIdPayloadSchema),
+  command("notifications.dismiss", notificationIdPayloadSchema),
   command("autonomy.set", z.strictObject({ subject: z.enum(["project", "team"]), subjectRef: idSchema,
     level: autonomyLevelSchema, expectedRevision: revisionSchema.nullable() })),
   command("rules.create", ruleInputSchema.safeExtend({ ruleId: idSchema })),

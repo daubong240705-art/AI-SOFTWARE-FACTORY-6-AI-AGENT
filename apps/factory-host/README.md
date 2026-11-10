@@ -695,3 +695,42 @@ Global and project inboxes include open team breakers and their reasons.
 
 Node and runtime breakers are not implemented here. Budget usage at 100% already
 stops calls through the existing hard budget limit.
+
+## Notifications (M5 N1a)
+
+In-app notifications have three classes: `action` (operator attention), `important`
+(significant information), and `digest` (daily progress). Startup and the existing
+60 second sweep collect approvals, open team breakers, quarantined rules, non-ok
+monitors, and stalled workflows. The existing Inbox response keeps its shape.
+Authenticated `GET /projects/:projectId/notifications?state=unread|read|dismissed|all`
+defaults to unread, returns the newest 100 items and the total unread count.
+`notifications.mark-read` and `notifications.dismiss` are idempotent; dismissal is final.
+
+Deduplication uses a project-scoped canonical tuple of entity kind, entity ID,
+revision (or breaker opened time / workflow last progress time), and notification
+class. Repeated ticks produce one notification per blocker revision. Approval
+reminders have separate 50% and 90% keys per approval. The daily digest uses the
+project and local date. Titles and bodies use the Inbox sanitizer and are limited
+to 200 and 1000 characters.
+
+AP-8 audit: the lead selected reminder fractions **0.5 and 0.9**, digest hour
+**18:00**, quiet hours **22:00–07:00**, and local time **UTC + utcOffsetMinutes**
+(default **420 minutes, UTC+7**, from budget configuration). Approvals expiring
+within **24 hours**, including the boundary, and 90% reminders are urgent.
+Reminders stop after an approval leaves pending. The digest includes today's
+distinct done/failed tasks from transition history, decided approvals, pending
+approvals, and a plain token count with `cost: no price list`. It is created once
+per local day at or after 18:00, and skipped when there is no activity or pending work.
+
+The optional `startHost({ pushChannel })` interface sends only sanitized title,
+class, urgency, and the relative `/inbox` link. **No push channel is enabled** and
+no delivery rows are created without one. An ntfy adapter is a later optional
+step requiring the user's decision. Urgent actions bypass quiet hours; all other
+pushes, including digests, wait until 07:00. AP-8 retry defaults are **3 total
+attempts**, at least **300000 ms (5 minutes)** apart. Error text is never stored.
+Each attempt is fenced in a transaction before awaiting the channel outside the
+transaction. An ambiguous send interrupted by process termination remains fenced
+to avoid duplicate delivery; only a caught failure permits retry.
+
+Standing Approvals belong to N1b. Email and other channels, per-user preferences,
+and a concrete network push adapter are not implemented in this slice.

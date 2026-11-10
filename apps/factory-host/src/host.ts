@@ -1,6 +1,7 @@
 import { statfs } from "node:fs/promises";
 import { tickRules, type RuleDeps } from "./automation/rules.js";
 import { tickTeamBreakers } from "./automation/breakers.js";
+import { tickNotifications, createNotificationHandlers, NOTIFICATION_COMMANDS, type PushChannel } from "./notify/index.js";
 import { createRouteBreaker } from "./policy/breaker.js";
 import { createRuleHandlers, RULE_COMMANDS } from "./automation/ruleCommands.js";
 import { runWatchdog } from "./automation/watchdog.js";
@@ -199,6 +200,7 @@ async function freeLoopbackPort(): Promise<number> {
 }
 
 export async function startHost(options: {
+  pushChannel?: PushChannel;
   mcpServers?: McpServersConfig;
   multiTeam?: boolean; packsDir?: string;
   contentDir?: string;
@@ -349,9 +351,11 @@ export async function startHost(options: {
       catch { console.error("Workflow sweep failed"); }
       runWatchdog({ raw: approvalRaw, hub, clock }, clock());
       monitorTick ??= tickMonitors({ raw: approvalRaw, hub, stateDir, statfs: options.monitorStatfs ?? statfs }, clock())
-        .then(() => {
+        .then(async () => {
           tickTeamBreakers({ raw: approvalRaw, hub }, clock());
           if (ruleDeps) tickRules(ruleDeps, clock());
+          await tickNotifications({ raw: approvalRaw, hub, utcOffsetMinutes: budgetConfig.utcOffsetMinutes,
+            ...(options.pushChannel === undefined ? {} : { pushChannel: options.pushChannel }) }, clock());
         })
         .finally(() => { monitorTick = undefined; });
       if (options.multiTeam && dispatch) {
@@ -515,6 +519,7 @@ export async function startHost(options: {
     sweepSchedules();
     scheduleTimer = interval(sweepSchedules, 30_000);
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
+      ...createNotificationHandlers(),
       ...createRuleHandlers({ packs }),
       ...createMonitorHandlers(),
       ...createScheduleHandlers({ packs, pipeline: workflowPipeline }),
@@ -561,6 +566,7 @@ export async function startHost(options: {
           ...SCHEDULE_COMMANDS,
           ...MONITOR_COMMANDS,
           ...RULE_COMMANDS,
+          ...NOTIFICATION_COMMANDS,
           ...(options.multiTeam ? [...ORG_COMMANDS, ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],

@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { randomUUID } from "node:crypto";
+import { notifyApi } from "./notify-fixture.mjs";
+
+test("notifications route requires session", async t => { const f = await notifyApi(t); assert.equal((await f.anonymous(f.root)).statusCode, 401); });
+test("notifications route unknown project is 404", async t => { const f = await notifyApi(t); assert.equal((await f.get(`/projects/${randomUUID()}/notifications`)).statusCode, 404); });
+test("notifications route defaults to unread", async t => { const f = await notifyApi(t), a = f.notify(), b = f.notify(); f.command("mark-read", b); const r = await f.get(f.root); assert.equal(r.statusCode, 200); assert.deepEqual(r.json().items.map(x => x.id), [a]); assert.equal(r.json().unread, 1); });
+for (const state of ["unread", "read", "dismissed", "all"]) test(`notifications route filter ${state}`, async t => { const f = await notifyApi(t); f.notify(); f.command("mark-read", f.notify()); f.command("dismiss", f.notify()); const body = (await f.get(`${f.root}?state=${state}`)).json(); assert.equal(body.items.length, state === "all" ? 3 : 1); assert.equal(body.unread, 1); if (state !== "all") assert.equal(body.items[0].state, state); });
+for (const query of ["?state=bad", "?state=", "?limit=2", "?state=all&extra=1"]) test(`notifications rejects query ${query}`, async t => { const f = await notifyApi(t); assert.equal((await f.get(f.root + query)).statusCode, 400); });
+test("notifications route provides exact public view fields", async t => { const f = await notifyApi(t); const id = f.notify(); const item = (await f.get(f.root)).json().items[0]; assert.deepEqual(Object.keys(item).sort(), ["body", "category", "createdAt", "entityId", "entityKind", "id", "readAt", "state", "title", "urgency"]); assert.equal(item.id, id); assert.equal(item.entityId, null); assert.equal(item.readAt, null); });
+test("notifications route max 100 sorted newest first with stable ties", async t => { const f = await notifyApi(t); for (let i = 0; i < 105; i++) f.notify({ title: `Item ${i}` }); const result = (await f.get(f.root)).json(); assert.equal(result.items.length, 100); assert.equal(result.items[0].title, "Item 104"); assert.equal(result.items[99].title, "Item 5"); assert.equal(result.unread, 105); });
+test("notifications route does not expose other project's records", async t => { const f = await notifyApi(t), other = f.project(); f.notify(); assert.deepEqual((await f.get(`/projects/${other}/notifications?state=all`)).json(), { items: [], unread: 0 }); });
+test("notifications leave existing Inbox response unchanged", async t => { const f = await notifyApi(t), url = `/projects/${f.projectId}/inbox`; const before = (await f.get(url)).json(); f.notify(); assert.deepEqual((await f.get(url)).json(), before); });

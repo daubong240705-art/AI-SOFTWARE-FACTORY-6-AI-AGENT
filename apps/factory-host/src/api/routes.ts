@@ -1,6 +1,7 @@
 import { getMonitor, listMonitors, listMonitorEvents } from "../automation/monitors.js";
 import { getRule, listRules, listRuleFires } from "../automation/rules.js";
 import { listTeamBreakers } from "../automation/breakers.js";
+import { listNotifications } from "../notify/service.js";
 import type { RouteBreaker } from "../policy/breaker.js";
 import { pendingPatches } from "../workflow/patch.js";
 import { getSchedule, listSchedules, listOccurrences } from "../schedule/service.js";
@@ -53,6 +54,14 @@ export function createRoutes(deps: {
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
+    app.get<{ Params: { projectId: string }; Querystring: { state?: string } }>("/projects/:projectId/notifications",
+      { preHandler: guards.session }, async (request, reply) => {
+        const { projectId } = request.params;
+        if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+        const query = z.strictObject({ state: z.enum(["unread", "read", "dismissed", "all"]).default("unread") }).safeParse(request.query);
+        if (!query.success) return failure(reply, 400, "validation", "Invalid notification filters.", "correct-input", newId);
+        return listNotifications(deps.storage.raw, projectId, query.data.state);
+      });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/breakers", { preHandler: guards.session }, async (request, reply) => {
       const { projectId } = request.params;
       if (!getProject(deps.storage.raw, projectId)) return failure(reply,404,"not-found","Project not found.","correct-input",newId);
