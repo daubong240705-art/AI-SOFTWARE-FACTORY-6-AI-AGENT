@@ -17,7 +17,7 @@ export function taskColumn(task: Task): BoardColumn {
     default: return 'closed';
   }
 }
-export function Board({ store, onOpen }: { store: Store; onOpen: (taskId: string) => void }) {
+export function Board({ store, onOpen, tasks: visibleTasks }: { store: Store; onOpen: (taskId: string) => void; tasks?: Task[] }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
   const [closed, setClosed] = useState(false);
@@ -25,7 +25,7 @@ export function Board({ store, onOpen }: { store: Store; onOpen: (taskId: string
   const number = (v: number) => new Intl.NumberFormat(i18n.locale).format(v);
   return <div className="board" aria-label={t('workUi.board')}>
     {boardColumns.map(column => {
-      const tasks = state.tasks.filter(task => (decisions.has(task.id) ? 'attention' : taskColumn(task)) === column).sort((a, b) => a.code.localeCompare(b.code));
+      const tasks = (visibleTasks ?? state.tasks).filter(task => (decisions.has(task.id) ? 'attention' : taskColumn(task)) === column).sort((a, b) => a.code.localeCompare(b.code));
       const count = <span>{number(tasks.length)} {plural(t, i18n.locale, tasks.length, 'workUi.count')}</span>;
       return <section className="board-column stack" key={column} aria-label={t(`workUi.columns.${column}`)}>
         <h3>{column === 'closed' ? <button type="button" aria-expanded={closed} onClick={() => setClosed(!closed)}>{t('workUi.columns.closed')} {count}</button> : <>{t(`workUi.columns.${column}`)} {count}</>}</h3>
@@ -34,14 +34,11 @@ export function Board({ store, onOpen }: { store: Store; onOpen: (taskId: string
           const live = attempt && isLiveAttempt(attempt.state) ? attempt : null;
           const display = deriveDisplayStatus({ ...task, liveAttempt: live?.state ?? null });
           const owner = state.team?.seats.find(seat => seat.id === task.ownerSeatId)?.name;
-          return <li key={task.id}><button type="button" className="board-card card stack" onClick={() => onOpen(task.id)}>
+          return <li key={task.id}><button type="button" data-task-id={task.id} className="board-card card stack" onClick={() => onOpen(task.id)}>
             <span className="task-code">{task.code}</span><strong>{task.title}</strong>
-            {decisions.has(task.id) && <Badge>{t('inboxUi.needsDecision')}</Badge>}
-            <Badge className={`status-${display.status}`}>{t(`taskUi.display.${display.status}`)}</Badge>
-            <span>{t('taskUi.owner')}: {owner ?? t('taskUi.dash')}</span>
-            {task.state === 'active' && live && <span className="live-attempt">{t('workUi.live')}: {t(`workUi.states.${live.state}`)}</span>}
-            <span className="capability-chips">{task.holds.map((hold, index) => <Badge key={index}>{t(`workUi.holdKinds.${hold.kind}`)}</Badge>)}</span>
-            <span>{number(task.dependsOn.length)} {plural(t, i18n.locale, task.dependsOn.length, 'workUi.dependencyCount')}</span>
+            {decisions.has(task.id) && <Badge className="project-needs-decision">{t('inboxUi.needsDecision')}</Badge>}
+            <span className={`project-status project-status-${display.status}`}>{t(`taskUi.display.${display.status}`)}</span>
+            {owner && <span className="muted">{owner}</span>}
           </button></li>;
         })}</ul> : <p className="muted">{t('workUi.empty')}</p>)}
       </section>;

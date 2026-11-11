@@ -1,4 +1,5 @@
 import { TaskContext } from './TaskContext';
+import { DockedPane } from './DockedPane';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { deriveDisplayStatus, isLiveAttempt, type Command, type Task } from '@factory/contracts';
 import { runsCancel, tasksRelease, tasksRetry } from '../api/commands';
@@ -18,7 +19,7 @@ import { PushSection } from './PushSection';
 const tabs = ['request', 'progress', 'results', 'actions'] as const;
 type Action = 'start' | 'stop' | 'retry';
 const stoppable = new Set(['queued', 'leased', 'preparing', 'running', 'waiting-input']);
-export function TaskDetail({ store, taskId, onClose, initialTab = 'request' }: { store: Store; taskId: string; onClose: () => void; initialTab?: typeof tabs[number] }) {
+export function TaskDetail({ store, taskId, onClose, initialTab = 'request', inline = false, fallbackFocus }: { store: Store; taskId: string; onClose: () => void; initialTab?: typeof tabs[number]; inline?: boolean; fallbackFocus?: () => HTMLElement | null }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
   const [active, setActive] = useState<number>(tabs.indexOf(initialTab));
@@ -40,12 +41,12 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request' }: {
   const display = deriveDisplayStatus({ ...task, liveAttempt: live && isLiveAttempt(live.state) ? live.state : null });
   const date = (value: string | null) => value ? new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : t('taskUi.dash');
   if (decision) return <DecisionDialog store={store} approvalId={decision} onClose={() => setDecision(null)} />;
-  return <Dialog labelledBy={`${id}-title`} onClose={onClose} className="task-detail-backdrop">
+  const content = <>
     <div className="task-detail stack">
-      <header className="stack"><Button onClick={onClose}>{t('workUi.close')}</Button><span className="task-code">{task.code}</span><h2 id={`${id}-title`}>{task.title}</h2>
+      <header className="stack"><Button onClick={onClose}><span className={inline ? 'project-pane-close' : undefined}>{t('workUi.close')}</span>{inline && <><span className="project-pane-back">{t('projectUi.backToBoard')}</span> <kbd>Esc</kbd></>}</Button><span className="task-code">{task.code}</span><h2 id={`${id}-title`}>{task.title}</h2>
         <div className="task-meta"><Badge className={`status-${display.status}`}>{t(`taskUi.display.${display.status}`)}</Badge><span>{t('workUi.lifecycle')}: {t(`taskUi.lifecycle.${task.state}`)}</span><span>{t('taskUi.owner')}: {state.team?.seats.find(seat => seat.id === task.ownerSeatId)?.name ?? t('taskUi.dash')}</span></div>
       </header>
-      <div className="project-tabs" role="tablist" aria-label={t('workUi.sections')}>{tabs.map((tab, index) => <button type="button" key={tab} ref={node => { buttons.current[index] = node; }} role="tab" id={`${id}-${tab}`} aria-controls={`${id}-panel`} aria-selected={active === index} tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={event => navigate(event, index)}>{t(`workUi.${tab}`)}</button>)}</div>
+      <div className="project-tabs" role="tablist" aria-label={t('workUi.sections')}>{tabs.map((tab, index) => <button type="button" key={tab} ref={node => { buttons.current[index] = node; }} role="tab" id={`${id}-${tab}`} aria-controls={`${id}-panel`} aria-selected={active === index} tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={event => navigate(event, index)}>{t(inline && tab === 'request' ? 'projectUi.context' : `workUi.${tab}`)}</button>)}</div>
       {detail?.loading && <p role="status">{t('viewStates.loading')}</p>}
       {detail?.error && <><ErrorNotice error={detail.error} /><Button onClick={() => { void store.loadTaskDetail(taskId); }}>{t('errors.retry')}</Button></>}
       <div className="stack" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tabs[active]}`} tabIndex={0}>
@@ -76,7 +77,9 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request' }: {
         <div hidden={active !== 3}><TaskActions store={store} task={task} attempt={live} /></div>
       </div>
     </div>
-  </Dialog>;
+  </>;
+  return inline ? <DockedPane label={t('projectUi.taskDetails')} className="project-task-pane" onClose={onClose} {...(fallbackFocus ? { fallbackFocus } : {})}>{content}</DockedPane>
+    : <Dialog labelledBy={`${id}-title`} onClose={onClose} className="task-detail-backdrop">{content}</Dialog>;
 }
 
 export function Results({ store, task, detail, attempt }: { store: Store; task: Task; detail: TaskDetailState; attempt: Attempt | undefined }) {

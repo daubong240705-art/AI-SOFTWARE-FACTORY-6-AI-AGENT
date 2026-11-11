@@ -21,8 +21,10 @@ test.describe.serial('real Host and built Factory UI', () => {
   test.afterAll(async () => { await context?.close(); });
 
   async function chat() {
-    await page.getByRole('tab', { name: 'Chat', exact: true }).click();
-    await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible();
+    // The agent chat is a docked pane that is closed by default; open it only when it is closed.
+    const message = page.getByRole('textbox', { name: 'Message', exact: true });
+    if (!(await message.isVisible())) await page.getByRole('button', { name: 'Ask Lead', exact: true }).click();
+    await expect(message).toBeVisible();
   }
   async function send(text: string, expected = reply) {
     const log = page.getByRole('log', { name: 'Conversation messages' });
@@ -36,9 +38,11 @@ test.describe.serial('real Host and built Factory UI', () => {
     await chat();
     await page.getByRole('radio', { name: 'Delegate: let the Lead propose tasks', exact: true }).check();
     await send('PLAN-PLEASE: please plan', planReply);
-    await page.getByRole('tab', { name: /^Tasks/ }).click();
+    await page.getByRole('tab', { name: 'Board', exact: true }).click();
     // The Board is the default view; the older list/filter flows below use the List view.
     await page.getByRole('group', { name: 'Task views', exact: true }).getByRole('button', { name: 'List', exact: true }).click();
+    // The Board tab stays mounted between plans, so a filter chosen earlier would hide the new proposal.
+    await page.getByLabel('Status filter', { exact: true }).selectOption('all');
   }
 
   test('a: anonymous sign-in exposes no project data and rejects a wrong token', async () => {
@@ -82,6 +86,8 @@ test.describe.serial('real Host and built Factory UI', () => {
     await expect(dialog).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'E2E Project', exact: true })).toBeVisible();
     await expect(page.getByRole('navigation').getByRole('button', { name: /^E2E Project/ })).toHaveAttribute('aria-current', 'page');
+    await tabTo(page, page.getByRole('button', { name: 'Ask Lead', exact: true }));
+    await page.keyboard.press('Enter');
     await tabTo(page, page.getByRole('button', { name: 'Start chat with Lead', exact: true }));
     await page.keyboard.press('Enter');
     const message = page.getByRole('textbox', { name: 'Message', exact: true });
@@ -119,19 +125,19 @@ test.describe.serial('real Host and built Factory UI', () => {
   });
 
   test('d/l: Team lists seven seats, the Lead badge, and light/dark screenshots', async () => {
-    await page.getByRole('tab', { name: 'Team', exact: true }).click();
-    const panel = page.getByRole('tabpanel', { name: 'Team', exact: true });
-    await expect(panel.getByRole('listitem')).toHaveCount(7);
+    await page.getByRole('navigation').getByRole('button', { name: 'Team', exact: true }).click();
+    const panel = page.getByRole('main');
+    // The global Team screen lists the seats of the team; the Lead is the seat that talks with the operator.
     for (const seat of ['Lead', 'PM', 'BA', 'FE', 'BE', 'DevOps', 'Test']) {
-      await expect(panel.getByRole('heading', { name: seat, exact: true })).toBeVisible();
+      await expect(panel.getByRole('heading', { name: new RegExp(`^${seat} \\|`) })).toBeVisible();
     }
-    const lead = panel.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Lead', exact: true }) });
-    await expect(lead.getByText('Lead', { exact: true })).toHaveCount(2);
+    await expect(panel.getByRole('heading', { name: /^Lead \| Technical lead/ })).toHaveCount(1);
     await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
     await shot(page, 'project-team-light');
     await (await preference(page, 'Theme')).selectOption({ label: 'Dark' });
     await shot(page, 'project-team-dark');
     await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
+    await page.getByRole('navigation').getByRole('button', { name: /^E2E Project/ }).click();
   });
 
   test('e: discussion replies stream without navigation and expose working status', async () => {
@@ -165,7 +171,7 @@ test.describe.serial('real Host and built Factory UI', () => {
 
   test('e/l: delegation proposes a task, screenshots it, and Accept transitions it', async () => {
     await plan();
-    await expect(page.getByRole('tab', { name: 'Tasks 1 proposed', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Board', exact: true })).toHaveAttribute('aria-selected', 'true');
     const task = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
     await expect(task.getByText('Proposed', { exact: true })).toBeVisible();
     await shot(page, 'tasks-proposed-light');
@@ -174,7 +180,7 @@ test.describe.serial('real Host and built Factory UI', () => {
     await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
     await task.getByRole('button', { name: 'Accept', exact: true }).click();
     await expect(task.getByText('Accepted', { exact: true })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Tasks', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Board', exact: true })).toHaveAttribute('aria-selected', 'true');
     await page.getByLabel('Status filter', { exact: true }).selectOption({ label: 'Accepted' });
     await expect(task).toHaveCount(1);
   });
@@ -202,6 +208,7 @@ test.describe.serial('real Host and built Factory UI', () => {
     expect((await recovered).status()).toBe(200);
     await expect(page.getByRole('navigation').getByRole('button', { name: 'Overview', exact: true })).toBeVisible();
     await expect(page.getByRole('navigation').getByRole('button', { name: /^E2E Project/ })).toHaveAttribute('aria-current', 'page');
+    await chat(); // the docked chat is closed after a reload
     await expect(page.getByRole('log').getByText(xss, { exact: true })).toBeVisible();
     await expect(page.getByRole('log').getByText('hello', { exact: true })).toHaveCount(2);
     await send('after reload');
@@ -216,13 +223,14 @@ test.describe.serial('real Host and built Factory UI', () => {
     await shot(page, 'chat-budget-dark');
     await (await preference(page, 'Language')).selectOption({ label: 'Tiếng Việt' });
     await expect(page.getByRole('navigation').getByRole('button', { name: 'Tổng quan', exact: true })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Trò chuyện', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Bảng việc', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'E2E Project', exact: true })).toBeVisible();
     await expect(page.getByRole('log').getByText('after reload', { exact: true })).toBeVisible();
     await page.reload();
     await expect(page.getByRole('navigation').getByRole('button', { name: 'Tổng quan', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
     expect(await page.evaluate(() => document.documentElement.lang)).toBe('vi');
+    await page.getByRole('button', { name: 'Hỏi Lead', exact: true }).click(); // the docked chat is closed after a reload
     await expect(page.getByRole('log').getByText('after reload', { exact: true })).toBeVisible();
     await expect(page.getByRole('meter', { name: 'NGÂN SÁCH TOKEN', exact: true })).toBeVisible();
     await shot(page, 'chat-budget-vietnamese');

@@ -31,7 +31,7 @@ async function shell() {
   const fixture = await authenticated(); render(<App store={fixture.store} />);
   const toggle = screen.queryByRole('button', { name: 'Toggle projects' }); if (toggle) fireEvent.click(toggle);
   fireEvent.click(await screen.findByRole('button', { name: /^Project$/ }));
-  await screen.findByRole('tab', { name: 'Chat' }); return fixture;
+  await screen.findByRole('tab', { name: 'Overview' }); return fixture;
 }
 function tokenInput() { return screen.getByLabelText('Bootstrap token') as HTMLInputElement; }
 function submitToken(value = 'fixture-bootstrap-secret') {
@@ -128,7 +128,7 @@ it('shell lists projects and selection invokes selectProject with aria-current',
 it('landing remains Overview with one project', async () => { const { store } = await authenticated(); render(<AppShell store={store} />); await screen.findByRole('button', { name: /^Project$/ }); expect(store.getState().selectedProjectId).toBeNull(); expect(screen.getByRole('heading', { name: 'Hello' })).toBeTruthy(); });
 it('existing selection is retained with one project', async () => {
   const { store } = await authenticated(); await store.selectProject(id); const select = vi.spyOn(store, 'selectProject');
-  history.replaceState(null, '', `#/project/${id}`); render(<AppShell store={store} />); await screen.findByRole('tab', { name: 'Chat' }); expect(select).not.toHaveBeenCalled();
+  history.replaceState(null, '', `#/project/${id}`); render(<AppShell store={store} />); await screen.findByRole('tab', { name: 'Overview' }); expect(select).not.toHaveBeenCalled();
 });
 it('multiple projects require an explicit selection', async () => {
   const { store, api } = await authenticated(); api.listProjects.mockResolvedValue({ ...envelope, projects: [project, { ...project, id: otherId, name: 'Second' }] });
@@ -245,22 +245,22 @@ it('successful create closes, reloads projects and selects new project', async (
   expect(api.listProjects).toHaveBeenCalledTimes(2); expect(select).toHaveBeenCalledWith(api.sendCommand.mock.calls[0]?.[0].projectId); expect(screen.getByRole('heading', { name: 'New project' })).toBeTruthy();
 });
 it('tabs expose correct roles, selection and screen cards', async () => {
-  await shell(); expect(screen.getByRole('tablist', { name: 'Project views' })).toBeTruthy(); const chat = screen.getByRole('tab', { name: 'Chat' });
+  await shell(); expect(screen.getByRole('tablist', { name: 'Project views' })).toBeTruthy(); const chat = screen.getByRole('tab', { name: 'Overview' });
   expect(chat.getAttribute('aria-selected')).toBe('true'); expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(chat.id);
-  expect(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Start chat with Lead' })).toBeTruthy(); fireEvent.click(screen.getByRole('tab', { name: 'Tasks' }));
-  expect(screen.getByRole('tab', { name: 'Tasks' }).getAttribute('aria-selected')).toBe('true'); expect(within(screen.getByRole('tabpanel')).getByRole('heading', { name: 'Tasks' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Ask Lead' })); expect(within(screen.getByRole('region', { name: 'Agent chat' })).getByRole('button', { name: 'Start chat with Lead' })).toBeTruthy(); fireEvent.click(screen.getByRole('button', { name: /Close chat/ })); fireEvent.click(screen.getByRole('tab', { name: 'Board' }));
+  expect(screen.getByRole('tab', { name: 'Board' }).getAttribute('aria-selected')).toBe('true'); expect(within(screen.getByRole('tabpanel')).getByRole('group', { name: 'Task views' })).toBeTruthy();
 });
 it('arrow keys move tab focus and selection with wrapping', async () => {
-  await shell(); const chat = screen.getByRole('tab', { name: 'Chat' }); chat.focus(); fireEvent.keyDown(chat, { key: 'ArrowLeft' });
-  const inboxTab = screen.getByRole('tab', { name: 'Dossier' }); expect(document.activeElement).toBe(inboxTab); expect(inboxTab.getAttribute('aria-selected')).toBe('true');
+  await shell(); const chat = screen.getByRole('tab', { name: 'Overview' }); chat.focus(); fireEvent.keyDown(chat, { key: 'ArrowLeft' });
+  const inboxTab = screen.getByRole('tab', { name: 'Knowledge' }); expect(document.activeElement).toBe(inboxTab); expect(inboxTab.getAttribute('aria-selected')).toBe('true');
   fireEvent.keyDown(inboxTab, { key: 'ArrowRight' }); expect(document.activeElement).toBe(chat); expect(chat.getAttribute('aria-selected')).toBe('true');
 });
 it('Home and End navigate tabs and inactive tabs are outside tab order', async () => {
-  await shell(); const chat = screen.getByRole('tab', { name: 'Chat' }); fireEvent.keyDown(chat, { key: 'End' }); expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Dossier' }));
+  await shell(); const chat = screen.getByRole('tab', { name: 'Overview' }); fireEvent.keyDown(chat, { key: 'End' }); expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Knowledge' }));
   expect(chat.tabIndex).toBe(-1); fireEvent.keyDown(document.activeElement!, { key: 'Home' }); expect(document.activeElement).toBe(chat); expect(chat.tabIndex).toBe(0);
 });
-it('Team tab shows team name, engagement and seats with Lead badge', async () => {
-  await shell(); fireEvent.click(screen.getByRole('tab', { name: 'Team' })); const panel = screen.getByRole('tabpanel');
+it('Team panel shows team name, engagement and seats with Lead badge', async () => {
+  const { store } = await authenticated(); await store.selectProject(id); const { container: panel } = render(<TeamPanel store={store} />);
   expect(within(panel).getByRole('heading', { name: 'Team' })).toBeTruthy();
   for (const label of ['Engagement', 'Priority', 'Max concurrent', 'State', 'Active', 'Role', 'Runtime', 'Slots', 'claude-code']) expect(within(panel).getByText(label)).toBeTruthy();
   expect(panel.querySelector('.badge.lead')?.textContent).toBe('Lead'); expect(within(panel).getByRole('heading', { name: 'Lead' })).toBeTruthy();

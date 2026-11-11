@@ -6,6 +6,7 @@ import type { Store } from '../state/store';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { ErrorNotice } from '../components/ErrorNotice';
+import { ProjectBudget } from './ProjectBudget';
 
 type Draft = { text: string; intent: 'discuss' | 'delegate' };
 // Drafts are memory-only and scoped to a store/session's conversation, never browser storage.
@@ -17,7 +18,7 @@ function conversationDrafts(store: Store) {
 }
 const emptyDraft = (): Draft => ({ text: '', intent: 'discuss' });
 
-export function ProjectChat({ store, projectId }: { store: Store; projectId: string }) {
+export function ProjectChat({ store, projectId, showBudget = true }: { store: Store; projectId: string; showBudget?: boolean }) {
   const t = useT();
   const state = store.useStoreSelector((value) => value);
   const lead = state.team?.seats.find((seat) => seat.isLead);
@@ -36,7 +37,7 @@ export function ProjectChat({ store, projectId }: { store: Store; projectId: str
       } else if (store.getState().pending[created.commandId]?.error?.code === 'conflict') await store.loadConversations();
     } finally { inFlight.current = false; setBusy(false); }
   }
-  if (conversation) return <ConversationChat key={`${projectId}:${conversation.id}`} store={store} projectId={projectId} conversation={conversation} />;
+  if (conversation) return <ConversationChat key={`${projectId}:${conversation.id}`} store={store} projectId={projectId} conversation={conversation} showBudget={showBudget} />;
   return <Card>
     <h2>{t('tabs.chat')}</h2><p>{t('empty.conversations')}</p>
     {state.errors.conversations && <ErrorNotice error={state.errors.conversations} />}
@@ -52,7 +53,7 @@ export function ProjectChat({ store, projectId }: { store: Store; projectId: str
   </Card>;
 }
 
-function ConversationChat({ store, projectId, conversation }: { store: Store; projectId: string; conversation: Conversation }) {
+function ConversationChat({ store, projectId, conversation, showBudget }: { store: Store; projectId: string; conversation: Conversation; showBudget: boolean }) {
   const t = useT();
   const state = store.useStoreSelector((value) => value);
   const id = useId();
@@ -71,7 +72,6 @@ function ConversationChat({ store, projectId, conversation }: { store: Store; pr
   // Host turn IDs identify the originating user message. Never use an older turn's status.
   const turn = lastUser && state.turns[conversation.id]?.find((item) => item.id === lastUser.message.id);
   const pending = attempt ? state.pending[attempt.command.commandId] : undefined;
-  const day = state.budget?.day;
   const number = new Intl.NumberFormat(i18n.locale);
   const date = new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' });
   const tooLong = draft.text.length > 32_000;
@@ -109,13 +109,8 @@ function ConversationChat({ store, projectId, conversation }: { store: Store; pr
   }
   return <Card className="project-chat">
     <header className="chat-heading"><h2>{conversation.title}</h2>
-      {day ? <div className={`budget budget-${day.verdict}`}>
-        <span>{t('chatUi.budget')}</span>
-        <meter aria-label={t('chatUi.budget')} min={0} max={day.limit} value={Math.min(day.used, day.limit)} aria-valuemin={0} aria-valuemax={day.limit} aria-valuenow={Math.min(day.used, day.limit)} aria-valuetext={`${number.format(day.used)} / ${number.format(day.limit)} ${t('chatUi.tokens')}`} />
-        <span>{number.format(day.used)} / {number.format(day.limit)} {t('chatUi.tokens')}</span><strong>{t(`chatUi.verdict.${day.verdict}`)}</strong>
-      </div> : <p className="muted">{t('chatUi.budgetLoading')}</p>}
     </header>
-    {state.errors.budget && <ErrorNotice error={state.errors.budget} />}
+    {showBudget && <ProjectBudget store={store} />}
     {state.errors[`messages:${conversation.id}`] && <ErrorNotice error={state.errors[`messages:${conversation.id}`]!} />}
     <div ref={log} className="chat-log stack" role="log" aria-live="polite" aria-label={t('chatUi.messages')} tabIndex={0} onScroll={() => {
       const node = log.current;

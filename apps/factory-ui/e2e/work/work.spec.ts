@@ -29,7 +29,7 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
   test.afterAll(async () => { await page.context().close(); });
 
   async function createTask(title: string, goal: string) {
-    await page.getByRole('tab', { name: /^Tasks/ }).click();
+    await page.getByRole('tab', { name: 'Board', exact: true }).click();
     await page.getByRole('group', { name: 'Task views', exact: true }).getByRole('button', { name: 'List', exact: true }).click();
     // The form stays open after a task was created: only open it when it is closed.
     if (!(await page.getByLabel('Title', { exact: true }).isVisible())) await page.getByRole('button', { name: 'New task', exact: true }).click();
@@ -52,15 +52,15 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
   const announcement = () => page.locator('[data-attention-announcement]');
   async function backToProject() {
     await nav().getByRole('button', { name: /^Demo project/ }).click();
-    await page.getByRole('tab', { name: 'Tasks', exact: true }).click();
+    await page.getByRole('tab', { name: 'Board', exact: true }).click();
   }
   async function backToProjectVi() {
     await nav().getByRole('button', { name: /^Demo project/ }).click();
-    await page.getByRole('tab', { name: /^Công việc/ }).click();
+    await page.getByRole('tab', { name: 'Bảng việc', exact: true }).click();
   }
   async function openTask(title: string) {
     await page.getByRole('button', { name: new RegExp(title) }).first().click();
-    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Task details', exact: true })).toBeVisible();
   }
 
   test('sign in and import the git clone as a project', async () => {
@@ -100,11 +100,11 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await expect(page.getByText("AGENT-NOTES.md").first()).toBeVisible();
     await expect(page.getByText("Written by the agent inside the sandbox.").first()).toBeVisible();
     await shot(page, "05-results-diff");
-    await page.getByRole("button", { name: "Close task", exact: true }).click();
+    await page.getByRole("button", { name: /^Close task/ }).click();
   });
 
   test("the Knowledge tab finds the registered deliverable (prefix search, accents ignored) and reads it", async () => {
-    await page.getByRole("tab", { name: /^Knowledge/ }).click();
+    await page.getByRole("tab", { name: "Knowledge", exact: true }).click();
     await expect(page.getByText("Agent notes").first()).toBeVisible({ timeout: 20_000 });
     await shot(page, "05b-knowledge-all");
     const search = page.getByRole("searchbox").or(page.getByRole("textbox", { name: "Search documents" })).first();
@@ -122,18 +122,18 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await expect(dialog.getByText("Written by the agent inside the sandbox.")).toBeVisible({ timeout: 20_000 });
     await shot(page, "05d-knowledge-detail");
     await page.keyboard.press("Escape");
-    await page.getByRole("tab", { name: "Tasks", exact: true }).click();
+    await page.getByRole("tab", { name: "Board", exact: true }).click();
   });
 
   test("Dossier, Resume briefing, empty Requests and the Teams screen work on the real Host", async () => {
-    await page.getByRole("tab", { name: "Dossier", exact: true }).click();
+    await page.getByRole("tab", { name: "Knowledge", exact: true }).click();
     await page.getByRole("button", { name: "Refresh dossier" }).first().click();
     await expect(page.getByText("# Project Dossier").or(page.getByText("Project Dossier").first())).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Current", { exact: true }).first()).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText("Resume briefing").first()).toBeVisible();
     await shot(page, "05e-dossier-briefing");
-    await page.getByRole("tab", { name: "Requests", exact: true }).click();
-    await expect(page.getByText("Nothing here yet.").first()).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("tab", { name: "Overview", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Requests", exact: true })).toHaveCount(0); // the section exists only when there is a request
     await nav().getByRole("button", { name: "Team", exact: true }).click();
     await expect(page.getByText("Multi-team management is unavailable on this Host.").or(page.getByText("Create team from pack")).first()).toBeVisible({ timeout: 20_000 });
     await shot(page, "05f-teams");
@@ -172,7 +172,7 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await shot(page, "09-pushed");
     expect(remoteBranches().filter((name) => name.startsWith("factory/"))).toHaveLength(1);
     expect(remoteBranches().filter((name) => !name.startsWith("factory/"))).toEqual([]);
-    await page.getByRole("button", { name: "Close task", exact: true }).click();
+    await page.getByRole("button", { name: /^Close task/ }).click();
   });
 
   test("the agent asks a business question, the attempt parks, the answer resumes the work", async () => {
@@ -182,7 +182,7 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await page.getByRole("tab", { name: "Actions", exact: true }).click();
     await page.getByRole("button", { name: "Start", exact: true }).click();
     await page.getByRole("group", { name: "Confirm task action", exact: true }).getByRole("button").first().click();
-    await page.getByRole("button", { name: "Close task", exact: true }).click();
+    await page.getByRole("button", { name: /^Close task/ }).click();
     // The agent asks; the question reaches Needs attention while the attempt is parked.
     await attentionButton().click();
     const list = page.getByRole("list", { name: "Attention items" });
@@ -205,7 +205,7 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await expect(page.getByRole("button", { name: /Attempt 2/ })).toBeVisible({ timeout: 90_000 });
     await expect(page.getByText(/Lifecycle: In review/)).toBeVisible({ timeout: 90_000 });
     await shot(page, "12-after-answer");
-    await page.getByRole("button", { name: "Close task", exact: true }).click();
+    await page.getByRole("button", { name: /^Close task/ }).click();
   });
 
   test("Vietnamese, dark theme and a phone-sized screen keep the screens usable", async () => {

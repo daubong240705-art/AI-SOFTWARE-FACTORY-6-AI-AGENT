@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { Dialog } from '../components/Dialog';
@@ -31,7 +31,8 @@ function useCompact() {
 
 export function AppShell({ store }: { store: Store }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
-  const { view, navigate } = useNavigation();
+  const { view, tab, navigate } = useNavigation();
+  const [chatProject, setChatProject] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -81,11 +82,11 @@ export function AppShell({ store }: { store: Store }) {
       {compact && <button type="button" aria-label={t('shell.toggleProjects')} aria-expanded={expanded} aria-controls="factory-navigation" onClick={() => setExpanded(!expanded)}><Icon name="menu" /></button>}
       {state.selectedProjectId && state.stream !== 'open' && <p role="status" className="stream-notice"><span className={`stream-dot stream-${state.stream}`} aria-hidden="true" />{t(streamLabel)}</p>}
     </header>
-    <main ref={main} id="factory-main" className={`content${view === 'needs-attention' ? ' attention-content' : ''}`} tabIndex={-1} aria-label={pageName} inert={compact && expanded}>
-      {view === 'overview' ? <Overview store={store} onProject={id => go(`project:${id}`)} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} />
+    <main ref={main} id="factory-main" className={`content${view === 'needs-attention' ? ' attention-content' : view.startsWith('project:') ? ' project-content' : ''}`} tabIndex={-1} aria-label={pageName} inert={compact && expanded}>
+      {view === 'overview' ? <Overview store={store} onProject={id => { setChatProject(id); go(`project:${id}`); }} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} />
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} />
-        : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} />
+        : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} tab={tab} onTabChange={next => navigate(view, next)} openChat={chatProject === selected.id} onChatOpened={() => setChatProject(null)} />
         : <p role="status">{t('viewStates.loading')}</p>}
     </main>
     {compact && expanded && <Dialog labelledBy="navigation-title" onClose={() => setExpanded(false)} className="navigation-overlay"><h2 id="navigation-title" className="sr-only">{t('nav.main')}</h2>{navigation}</Dialog>}

@@ -28,7 +28,7 @@ it.each<[string, string | RegExp, string]>([
 ])('loads %s as the announced page and preserves it after remount', async (hash, name, pageName) => {
   const { store, unmount } = await shell(hash);
   await waitFor(() => current(name));
-  if (hash.includes('/project/')) await screen.findByRole('tab', { name: 'Chat' });
+  if (hash.includes('/project/')) await screen.findByRole('tab', { name: 'Overview' });
   expect(screen.getByRole('main', { name: pageName })).toBeTruthy();
   expect(screen.getAllByRole('status').some(node => node.textContent === pageName)).toBe(true);
   const selectedHash = hash === '#/attention' ? attentionHash(`approval:${review.id}`) : hash;
@@ -46,7 +46,7 @@ it.each(['', '#/unknown', '#/project/', '#/project/%', '#/project/%20', '#/proje
 it('sidebar selection updates the hash and uses the existing project selection action', async () => {
   const { store } = await shell(); const select = vi.spyOn(store, 'selectProject');
   fireEvent.click(screen.getByRole('button', { name: 'Second project' }));
-  await screen.findByRole('tab', { name: 'Chat' }); current('Second project');
+  await screen.findByRole('tab', { name: 'Overview' }); current('Second project');
   expect(location.hash).toBe(`#/project/${otherId}`); expect(select).toHaveBeenCalledExactlyOnceWith(otherId);
   fireEvent.click(screen.getByRole('button', { name: /^Needs attention,/ }));
   current(/^Needs attention,/); expect(location.hash).toBe(attentionHash(`approval:${review.id}`));

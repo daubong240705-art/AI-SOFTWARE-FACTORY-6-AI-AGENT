@@ -8,12 +8,13 @@ import { Card } from '../components/Card';
 import { Field } from '../components/Field';
 import { useT } from '../i18n';
 import { AreaState, Select, useM3Command } from './M3Shared';
+import { TeamPanel } from './TeamPanel';
 export function Teams({ store }: { store: Store }) {
   const t = useT(); const state = store.useStoreSelector(s => s); const [pack, setPack] = useState('');
   useEffect(() => store.watchM3('teams', store.loadTeams), [store]);
   const command = useM3Command(store, store.loadTeams); const projectId = state.selectedProjectId;
   const selected = state.m3.packs.find(p => `${p.key}@${p.version}` === pack);
-  return <section className="stack"><h1>{t('m3.teams')}</h1>{state.m3.disabled ? <p role="status">{t('m3.disabled')}</p> : <><AreaState store={store} area="teams" empty={!state.m3.teams.length} />{!projectId && <p>{t('m3.selectProject')}</p>}<form onSubmit={e => { e.preventDefault(); if (selected && projectId && !command.busy) void command.run(teamsCreateFromPack({ projectId, teamId: crypto.randomUUID(), packKey: selected.key, packVersion: selected.version })); }}><Select label={t('m3.pack')} value={pack} onChange={setPack} options={[['',t('m3.choose')], ...state.m3.packs.map(p => [`${p.key}@${p.version}`,`${p.name} ${p.version}`] as [string,string])]} /><Button type="submit" disabled={!selected || !projectId || command.busy}>{t('m3.createTeam')}</Button></form>{command.notice}</>}{state.m3.teams.map(team => <TeamCard key={team.id} store={store} team={team} />)}</section>;
+  return <section className="stack"><h1>{t('m3.teams')}</h1>{state.m3.disabled ? <><p role="status">{t('m3.disabled')}</p><TeamPanel store={store} /></> : <><AreaState store={store} area="teams" empty={!state.m3.teams.length} />{!projectId && <p>{t('m3.selectProject')}</p>}<form onSubmit={e => { e.preventDefault(); if (selected && projectId && !command.busy) void command.run(teamsCreateFromPack({ projectId, teamId: crypto.randomUUID(), packKey: selected.key, packVersion: selected.version })); }}><Select label={t('m3.pack')} value={pack} onChange={setPack} options={[['',t('m3.choose')], ...state.m3.packs.map(p => [`${p.key}@${p.version}`,`${p.name} ${p.version}`] as [string,string])]} /><Button type="submit" disabled={!selected || !projectId || command.busy}>{t('m3.createTeam')}</Button></form>{command.notice}</>}{state.m3.teams.map(team => <TeamCard key={team.id} store={store} team={team} />)}</section>;
 }
 function TeamCard({ store, team }: { store: Store; team: OrgTeam }) {
   const t = useT(); const state = store.useStoreSelector(s => s); const projectId = state.selectedProjectId;

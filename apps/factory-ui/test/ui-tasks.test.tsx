@@ -83,18 +83,26 @@ it('All filter restores every task', async () => { await tasks([makeTask(), make
 it('distinguishes an empty project from an empty filter result', async () => {
   const { api, store } = await tasks([]); expect(screen.getByText('No tasks yet.')).toBeTruthy(); api.listTasks.mockResolvedValue({ ...envelope, items: [makeTask()] }); await act(async () => { await store.loadTasks(); }); fireEvent.change(screen.getByLabelText('Status filter'), { target: { value: 'done' } }); expect(screen.getByText('No tasks match this filter.')).toBeTruthy();
 });
-it.each([0, 1, 2])('shows correct header and tab wording for %s proposed tasks', async (count) => {
+it.each([0, 1, 2])('shows proposed count %s only in the board column', async count => {
   const items = Array.from({ length: count }, (_, index) => makeTask({ id: index ? otherId : id, code: `TSK-00${index + 1}` }));
   const { store, unmount } = await tasks(items);
-  expect(screen.getByText(`${count} proposed ${count === 1 ? 'task' : 'tasks'} awaiting your review`)).toBeTruthy();
   unmount(); render(<ProjectView store={store} project={projectSchema.parse(project)} />);
-  const tab = screen.getByRole('tab', { name: count ? `Tasks ${count} proposed` : 'Tasks' });
-  expect(tab.querySelector('.badge')?.textContent ?? null).toBe(count ? `${count} proposed` : null);
+  const tab = screen.getByRole('tab', { name: 'Board' }); fireEvent.click(tab);
+  fireEvent.click(screen.getByRole('group', { name: 'Task views' }).querySelector('button')!);
+  expect(tab.querySelector('.badge')).toBeNull();
+  expect(within(screen.getByRole('region', { name: 'Proposed' })).getByRole('heading').textContent).toBe(`Proposed ${count} ${count === 1 ? 'task' : 'tasks'}`);
+  expect(screen.queryByRole('heading', { name: 'Tasks' })).toBeNull();
+  expect(screen.queryByText(/awaiting your review/)).toBeNull();
 });
-it('shows the proposed count in the Tasks tab with accessible text', async () => {
-  const { store, unmount } = await tasks([makeTask(), makeTask({ id: otherId, code: 'TSK-002' }), makeTask({ id: crypto.randomUUID(), code: 'TSK-003' })]); unmount(); render(<ProjectView store={store} project={projectSchema.parse(project)} />); expect(screen.getByRole('tab', { name: 'Tasks 3 proposed' })).toBeTruthy();
+it('keeps the Board tab label stable while proposed task counts change', async () => {
+  const { store, unmount } = await tasks([makeTask(), makeTask({ id: otherId, code: 'TSK-002' }), makeTask({ id: crypto.randomUUID(), code: 'TSK-003' })]);
+  unmount(); render(<ProjectView store={store} project={projectSchema.parse(project)} />);
+  expect(screen.getByRole('tab', { name: 'Board' }).querySelector('.badge')).toBeNull();
 });
-it('does not display a zero count badge on the tab', async () => { const { store, unmount } = await tasks([]); unmount(); render(<ProjectView store={store} project={projectSchema.parse(project)} />); expect(screen.getByRole('tab', { name: 'Tasks' }).querySelector('.badge')).toBeNull(); });
+it('does not display a zero count badge on the tab', async () => {
+  const { store, unmount } = await tasks([]); unmount(); render(<ProjectView store={store} project={projectSchema.parse(project)} />);
+  expect(screen.getByRole('tab', { name: 'Board' }).querySelector('.badge')).toBeNull();
+});
 it('opens and closes New task as a disclosure without losing text', async () => {
   await tasks(); const button = screen.getByRole('button', { name: 'New task' }); expect(button.getAttribute('aria-expanded')).toBe('false'); newTask(); fill(); expect(button.getAttribute('aria-expanded')).toBe('true'); newTask(); expect(screen.queryByLabelText('Title')).toBeNull(); newTask(); expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('My task');
 });

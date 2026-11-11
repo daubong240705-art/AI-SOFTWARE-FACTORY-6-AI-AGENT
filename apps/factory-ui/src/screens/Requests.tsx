@@ -10,11 +10,12 @@ import { useT } from '../i18n';
 import { ActionHints } from './attention/ActionHints';
 import { AreaState, Select, useM3Command } from './M3Shared';
 
-export function Requests({ store }: { store: Store }) {
+export function Requests({ store, hideEmpty = false }: { store: Store; hideEmpty?: boolean }) {
   const t = useT(); const state = store.useStoreSelector(s => s); const [filter, setFilter] = useState(''); const [team, setTeam] = useState(''); const [selected, setSelected] = useState<string | null>(null);
   useEffect(() => store.watchM3('requests', () => store.loadRequests({ ...(filter ? { state: filter } : {}), ...(team ? { team } : {}) })), [store, filter, team]);
   useEffect(() => { void store.loadTeams(); }, [store]);
-  return <section className="stack"><h2>{t('m3.requests')}</h2><div className="task-actions"><Select label={t('m3.state')} value={filter} onChange={setFilter} options={[['', t('m3.all')], ...requestStates.map(v => [v, t(`m3.values.${v}`)] as [string,string])]} /><Select label={t('m3.team')} value={team} onChange={setTeam} options={[['', t('m3.all')], ...state.m3.teams.map(v => [v.id, v.name] as [string,string])]} /></div>
+  if (hideEmpty && !state.m3.requests.length && !filter && !team) return null;
+  return <section className="stack" aria-label={t('m3.requests')}><h2>{t('m3.requests')}</h2><div className="task-actions"><Select label={t('m3.state')} value={filter} onChange={setFilter} options={[['', t('m3.all')], ...requestStates.map(v => [v, t(`m3.values.${v}`)] as [string,string])]} /><Select label={t('m3.team')} value={team} onChange={setTeam} options={[['', t('m3.all')], ...state.m3.teams.map(v => [v.id, v.name] as [string,string])]} /></div>
     <AreaState store={store} area="requests" empty={!state.m3.requests.length} /><ul className="task-list stack">{[...state.m3.requests].sort((a,b) => Date.parse(b.createdAt)-Date.parse(a.createdAt)).map(item => <li key={item.taskId}><Card><Button onClick={() => setSelected(item.taskId)}>{item.code} {item.subject}</Button><p>{item.kind} | {t(`m3.values.${item.taskState}`)} | <Badge>{t(`m3.values.${item.triageState}`)}</Badge> | {item.targetTeamName}</p><p>{t('m3.hop')}: {item.hop} | {t('m3.rounds')}: {item.rounds} | {t('m3.waiting')}: {item.waiting}</p><time dateTime={item.createdAt}>{item.createdAt}</time></Card></li>)}</ul>{selected && <RequestPanel key={selected} store={store} taskId={selected} onClose={() => setSelected(null)} />}</section>;
 }
 export function RequestPanel({ store, taskId, onClose, inline = false, onSuccess }: { store: Store; taskId: string; onClose: () => void; inline?: boolean; onSuccess?: () => void }) {

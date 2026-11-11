@@ -32,18 +32,18 @@ async function browse(rows: KnowledgeItem[] = [item]) {
 async function open() {
   const value = await browse(); const opener = screen.getByRole('button', { name: /Knowledge document/ }); opener.focus(); fireEvent.click(opener); await act(flush); return { ...value, opener };
 }
-it('fifth tab is Knowledge and has a linked panel', async () => {
+it('third tab is Knowledge and has a linked panel', async () => {
   const { store } = await setup(); render(<ProjectView store={store} project={projectSchema.parse(project)} />);
-  expect(screen.getAllByRole('tab')).toHaveLength(7); const tab = screen.getByRole('tab', { name: 'Knowledge' }); fireEvent.click(tab); await act(flush); expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(tab.id); expect(screen.getByRole('search')).toBeTruthy();
+  expect(screen.getAllByRole('tab')).toHaveLength(3); const tab = screen.getByRole('tab', { name: 'Knowledge' }); fireEvent.click(tab); await act(flush); expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(tab.id); expect(screen.getByRole('search')).toBeTruthy();
 });
-it('tab keyboard wraps left and right over seven tabs', async () => {
+it('tab keyboard wraps left and right over three tabs', async () => {
   const { store } = await setup(); render(<ProjectView store={store} project={projectSchema.parse(project)} />);
-  const first = screen.getByRole('tab', { name: 'Chat' }); fireEvent.keyDown(first, { key: 'ArrowLeft' }); await act(flush);
-  const last = screen.getByRole('tab', { name: 'Dossier' }); expect(document.activeElement).toBe(last); expect(last.tabIndex).toBe(0); expect(first.tabIndex).toBe(-1);
+  const first = screen.getByRole('tab', { name: 'Overview' }); fireEvent.keyDown(first, { key: 'ArrowLeft' }); await act(flush);
+  const last = screen.getByRole('tab', { name: 'Knowledge' }); expect(document.activeElement).toBe(last); expect(last.tabIndex).toBe(0); expect(first.tabIndex).toBe(-1);
   fireEvent.keyDown(last, { key: 'ArrowRight' }); expect(document.activeElement).toBe(first); expect(first.getAttribute('aria-selected')).toBe('true');
 });
-it('Home and End keep seven-tab keyboard navigation correct', async () => {
-  const { store } = await setup(); render(<ProjectView store={store} project={projectSchema.parse(project)} />); const chat = screen.getByRole('tab', { name: 'Chat' }); fireEvent.keyDown(chat, { key: 'End' }); await act(flush); expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Dossier' })); fireEvent.keyDown(document.activeElement!, { key: 'Home' }); expect(document.activeElement).toBe(chat);
+it('Home and End keep three-tab keyboard navigation correct', async () => {
+  const { store } = await setup(); render(<ProjectView store={store} project={projectSchema.parse(project)} />); const chat = screen.getByRole('tab', { name: 'Overview' }); fireEvent.keyDown(chat, { key: 'End' }); await act(flush); expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Knowledge' })); fireEvent.keyDown(document.activeElement!, { key: 'Home' }); expect(document.activeElement).toBe(chat);
 });
 it('browse heading, count, kinds, status, visibility and version counts are visible', async () => {
   await browse(); expect(screen.getByRole('heading', { name: 'All documents' })).toBeTruthy(); expect(screen.getByText('1 document shown')).toBeTruthy(); const row = screen.getByRole('button', { name: /Knowledge document/ }); expect(row.textContent).toContain('Research report'); expect(row.textContent).toContain('Approved'); expect(row.textContent).toContain('Project'); expect(row.textContent).toContain('v 2'); expect(row.textContent).toContain('2 versions');
