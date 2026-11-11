@@ -94,6 +94,13 @@ export const extra: Translated<typeof en> = {
   },
   m3: m3Vi,
   knowledgeUi: {
+    extraction: {
+      done: 'Đã trích xuất', donePages: 'Đã trích xuất {count} trang', extracting: 'Đang trích xuất…', failed: 'Không trích xuất được', disabled: 'Chưa bật bộ trích xuất',
+      retryError: 'Chưa thể trích xuất lại. Vui lòng thử lại.', retryConflict: 'Hiện không thể trích xuất lại. Hãy tải lại tài liệu.',
+      reasons: { 'not-text': 'File không có văn bản để trích xuất', 'worker-unavailable': 'Bộ trích xuất chưa sẵn sàng', 'worker-disabled': 'Bộ trích xuất chưa được bật', timeout: 'Hết thời gian xử lý', corrupt: 'File hỏng hoặc không đọc được', encrypted: 'File được mã hóa', unsupported: 'Định dạng chưa hỗ trợ', 'too-large': 'File quá lớn để trích xuất', 'invalid-result': 'Không đọc được kết quả trích xuất', failed: 'Không trích xuất được văn bản từ file này' },
+      textTab: 'Văn bản agent đọc', outlineTab: 'Mục lục', agentReadHelp: 'Agent không đọc cả file: nó xem mục lục rồi chỉ đọc đúng trang hoặc mục cần.', pageMarker: 'Trang {page}', pageShort: 'Trang {page}', noOutline: 'Chưa có mục lục.', loadMore: 'Tải thêm', loadingText: 'Đang tải văn bản',
+      converter: 'Trích xuất bởi {converter}', detailsError: 'Không tải được chi tiết trích xuất.', textError: 'Không tải được văn bản đã trích xuất.', readStart: 'Đọc từ đầu',
+    },
     upload: 'Tải lên', uploadNewVersion: 'Tải phiên bản mới', uploading: 'Đang tải lên…', uploaded: 'Đã tải lên', file: 'File', title: 'Tiêu đề', cancel: 'Hủy',
     drop: 'Thả file để tải lên', origin: 'Nguồn tài liệu', origins: { all: 'Tất cả', agent: 'Do agent tạo', upload: 'Tải lên' }, agent: 'Agent',
     uploadHelp: 'Tối đa 25 MB. PDF, Word, Excel, PowerPoint, CSV, Markdown, văn bản, JSON, ảnh PNG/JPG/WebP/GIF, SVG (chỉ tải xuống).',

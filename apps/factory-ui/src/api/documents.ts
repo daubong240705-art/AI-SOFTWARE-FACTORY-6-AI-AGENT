@@ -11,3 +11,26 @@ export const mediaTypeForFile = (name: string): string | undefined => documentMe
 export function validateDocument(file: File): 'size' | 'type' | null {
   return file.size > MAX_UPLOAD_BYTES ? 'size' : !file.size || !mediaTypeForFile(file.name) ? 'type' : null;
 }
+import { successResponseSchema, textSchema, usageSchema } from '@factory/contracts';
+
+const envelope = successResponseSchema.pick({ ok: true, apiVersion: true });
+const object = envelope.omit({ ok: true, apiVersion: true });
+const count = usageSchema.shape.inputTokens;
+const statuses = ['pending', 'running', 'done', 'failed', 'skipped'] as const;
+export const extractionSummarySchema = object.extend({
+  status: textSchema.refine(value => statuses.includes(value as typeof statuses[number])).transform(value => value as typeof statuses[number]),
+  pages: count.nullable(),
+}).loose();
+const extractionSchema = extractionSummarySchema.extend({
+  chars: count.nullable(),
+  outline: object.extend({ level: count.min(1).max(6), title: textSchema.min(0).max(200), page: count.positive().nullable(), offset: count }).loose().array().max(500),
+  converter: textSchema.min(0), errorCode: textSchema.nullable(), updatedAt: textSchema,
+});
+export const extractionModels = {
+  detail: envelope.extend({ extraction: extractionSchema }).loose(),
+  text: envelope.extend({ text: textSchema.min(0).max(20000), from: count, next: count.nullable(), total: count }).loose(),
+};
+export type ExtractionSummary = Pick<ReturnType<typeof extractionSummarySchema.parse>, 'status' | 'pages'>;
+export type Extraction = ReturnType<typeof extractionSchema.parse>;
+export type ExtractionText = Pick<ReturnType<typeof extractionModels.text.parse>, 'text' | 'from' | 'next' | 'total'>;
+

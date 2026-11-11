@@ -9,6 +9,7 @@ import { emptyM5, type M5State } from './m5';
 import { emptySettings, type SettingsState } from './settings';
 import { notifyCommandSuccess } from './toasts';
 import { emptyActivity, type ActivityState } from './activity';
+import { createExtractionPolling } from './extractionPolling';
 
 export type DocumentUploadState = { busy: boolean; progress: number; error: { status: number; code: string } | null };
 export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean; upload: DocumentUploadState };
@@ -52,7 +53,7 @@ export function createStore(options: StoreOptions = {}) {
   let state: StoreState = { session: 'unknown', projects: [], selectedProjectId: null, ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, errors: {}, loading: {}, pending: {} };
   const listeners = new Set<() => void>();
   const submittedCommands = new Set<string>();
-  const update = (patch: Partial<StoreState>) => { state = { ...state, ...patch }; listeners.forEach((listener) => listener()); };
+  const update = (patch: Partial<StoreState>) => { state = { ...state, ...patch }; listeners.forEach((listener) => listener()); extractionPolling.sync(); };
   let generation = 0;
   let authGeneration = 0;
   let stream: { close(): void } | undefined;
@@ -89,6 +90,7 @@ export function createStore(options: StoreOptions = {}) {
     for (const job of jobs.values()) if (job.timer !== undefined) timer.clearTimeout(job.timer);
     jobs.clear(); openM3.clear(); openM5.clear();
     openTasks.clear(); openTaskCounts.clear(); contentCache.clear(); openKnowledge.clear(); knowledgeOpen = false; knowledgeRevision++;
+    extractionPolling.stop();
   };
   const anonymous = () => {
     authGeneration++;
@@ -220,7 +222,17 @@ export function createStore(options: StoreOptions = {}) {
     jobs.delete('knowledge');
     if (state.session === 'authenticated') update({ knowledge: { ...state.knowledge, loading: { ...state.knowledge.loading, knowledge: false } }, loading: { ...state.loading, knowledge: false } });
   }
-  function readKnowledge(more = false, debounce = false) {
+  const extractionPolling = createExtractionPolling({ timer,
+    pending: () => state.session === 'authenticated' && [
+      ...(knowledgeOpen ? state.knowledge.query ? state.knowledge.results : state.knowledge.list : []),
+      ...[...openKnowledge].flatMap(id => state.knowledge.detail[id]?.versions ?? []),
+    ].some(version => version.extraction?.status === 'pending' || version.extraction?.status === 'running'),
+    refresh: async () => { await Promise.all([
+      ...(knowledgeOpen ? [readKnowledge(false, false, true)] : []),
+      ...[...openKnowledge].map(id => loadKnowledgeDetail(id)),
+    ]); },
+  });
+  function readKnowledge(more = false, debounce = false, preservePages = false) {
     const id = state.selectedProjectId; const revision = knowledgeRevision;
     if (!id || state.session !== 'authenticated') return Promise.resolve();
     const { query, filters } = state.knowledge;
@@ -229,6 +241,19 @@ export function createStore(options: StoreOptions = {}) {
     return enqueue('knowledge', generation, async () => {
       if (debounce && !knowledgeOpen) return {};
       const page = { ...filters, offset, limit: Math.min(50, 500 - offset) };
+      if (preservePages) {
+        const length = Math.max(50, query ? state.knowledge.results.length : state.knowledge.list.length);
+        const results: KnowledgeResult[] = []; const list: KnowledgeItem[] = [];
+        let received = 0;
+        for (let start = 0; start < length; start += 50) {
+          if (revision !== knowledgeRevision || !knowledgeOpen || (typeof document !== 'undefined' && document.hidden)) return {};
+          if (query) { const data = await api.searchKnowledge(id, { ...page, query, offset: start }); results.push(...data.results); received = data.results.length; }
+          else { const data = await api.listDocuments(id, { ...page, offset: start }); list.push(...data.items); received = data.items.length; }
+          if (received < 50) break;
+        }
+        const count = query ? results.length : list.length;
+        return knowledgePatch({ ...(query ? { results } : { list }), hasMore: received === 50 && count < 500 });
+      }
       if (query) {
         const result = await api.searchKnowledge(id, { ...page, query });
         return knowledgePatch({ results: [...(more ? state.knowledge.results : []), ...result.results].slice(0, 500), hasMore: result.results.length === page.limit && offset + result.results.length < 500 });
@@ -251,6 +276,16 @@ export function createStore(options: StoreOptions = {}) {
       const result = await api.getKnowledgeArtifact(id, artifactId);
       return knowledgePatch({ detail: { [artifactId]: result.artifact } });
     }, debounce, () => openKnowledge.has(artifactId));
+  }
+  async function retryExtraction(artifactId: string, version: number) {
+    const id = state.selectedProjectId; const scope = generation;
+    if (!id || state.session !== 'authenticated') return;
+    try { await api.retryExtraction(id, artifactId, version); }
+    catch (error) { if (active(scope) && error instanceof ApiClientError && error.status === 401) anonymous(); throw error; }
+    if (active(scope)) await Promise.all([
+      ...(knowledgeOpen ? [readKnowledge(false, false, true)] : []),
+      ...(openKnowledge.has(artifactId) ? [loadKnowledgeDetail(artifactId)] : []),
+    ]);
   }
   async function uploadDocument(file: File, meta: DocumentUploadMeta) {
     const id = state.selectedProjectId; const scope = generation;
@@ -578,15 +613,18 @@ export function createStore(options: StoreOptions = {}) {
     watchM3: (area: string, read: () => Promise<void>) => { openM3.set(area, read); void read(); return () => { openM3.delete(area); }; },
     searchKnowledge, loadKnowledgeList: (filters: KnowledgeFilters = {}) => searchKnowledge('', filters),
     loadKnowledgeMore: () => readKnowledge(true), cancelKnowledgeSearch,
-    openKnowledgeList: () => { knowledgeOpen = true; },
-    closeKnowledgeList: () => { knowledgeOpen = false; cancelKnowledgeSearch(); },
-    openKnowledgeArtifact: (id: string) => { openKnowledge.add(id); return loadKnowledgeDetail(id); },
-    closeKnowledgeArtifact: (id: string) => { openKnowledge.delete(id); },
+    openKnowledgeList: () => { knowledgeOpen = true; extractionPolling.sync(); },
+    closeKnowledgeList: () => { knowledgeOpen = false; cancelKnowledgeSearch(); extractionPolling.sync(); },
+    openKnowledgeArtifact: (id: string) => { openKnowledge.add(id); extractionPolling.sync(); return loadKnowledgeDetail(id); },
+    closeKnowledgeArtifact: (id: string) => { openKnowledge.delete(id); extractionPolling.sync(); },
     knowledgeTimer: timer,
     uploadDocument,
     resetDocumentUpload: () => { if (!state.knowledge.upload.busy) update(knowledgePatch({ upload: emptyUpload() })); },
     rawDocumentUrl: api.rawDocumentUrl,
     fetchRawDocument: api.fetchRawDocument,
+    getExtraction: api.getExtraction,
+    getExtractionText: api.getExtractionText,
+    retryExtraction,
     loadConversations: () => loadArea('conversations'),
     loadTasks: () => loadArea('tasks'),
     loadBudget: () => loadArea('budget'),

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type DragEvent } from 'react';
-import { Upload } from 'lucide-react';
+import { ChevronDown, Upload } from 'lucide-react';
 import type { KnowledgeFilters } from '@/api/readModels';
 import { Page } from '@/components/Page';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorNotice } from '@/components/ErrorNotice';
@@ -52,12 +53,12 @@ export function ProjectKnowledge({ store, projectId }: { store: Store; projectId
     onDrop={event => { if (!hasFiles(event)) return; event.preventDefault(); dragDepth.current = 0; setDragging(false); const file = event.dataTransfer.files[0]; if (file) openUpload(file); }}>
     <header className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl font-semibold tracking-tight">{t('projectUi.knowledge')}</h2><Button onClick={() => openUpload()}><Upload className="size-4" />{t('knowledgeUi.upload')}</Button></header>
     <DocumentToolbar query={query} filters={filters} onQuery={value => { store.cancelKnowledgeSearch(); setQuery(value); }} onFilters={value => { store.cancelKnowledgeSearch(); setFilters(value); }} onClear={() => { store.cancelKnowledgeSearch(); setQuery(''); setFilters({}); }} />
-    <section aria-label={t('knowledgeUi.pinned')}><DossierPanel store={store} /></section>
+    <Collapsible asChild><section aria-label={t('knowledgeUi.pinned')}><CollapsibleTrigger className="group flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"><ChevronDown aria-hidden="true" className="size-4 transition-transform group-data-[state=closed]:-rotate-90" />{t('knowledgeUi.pinned')}</CollapsibleTrigger><CollapsibleContent className="pt-3"><DossierPanel store={store} /></CollapsibleContent></section></Collapsible>
     <div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="font-display text-xl font-semibold">{t(searching ? 'knowledgeUi.results' : 'knowledgeUi.allDocuments')}</h3><p role="status" className="text-xs text-muted-foreground">{number(rows.length)} {plural(t, i18n.locale, rows.length, 'knowledgeUi.count')}</p></div>
     {loading && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3">{[0, 1, 2].map(key => <Skeleton key={key} className="h-24 rounded-xl" />)}</div>}
     {knowledge.errors.knowledge && <div className="space-y-3"><ErrorNotice error={knowledge.errors.knowledge} /><Button variant="outline" onClick={() => { void store.searchKnowledge(query, filters); }}>{t('errors.retry')}</Button></div>}
     {!loading && !knowledge.errors.knowledge && !rows.length && <Card className="rounded-xl border-border py-0 shadow-none"><Empty><EmptyHeader><EmptyDescription>{t(searching ? 'knowledgeUi.noMatches' : 'knowledgeUi.empty')}</EmptyDescription></EmptyHeader></Empty></Card>}
-    {!!rows.length && <DocumentList rows={rows} onSelect={setSelected} />}
+    {!!rows.length && <DocumentList store={store} rows={rows} onSelect={setSelected} />}
     {knowledge.hasMore && <Button variant="outline" disabled={!!loading} onClick={() => { void store.loadKnowledgeMore(); }}>{t('knowledgeUi.more')}</Button>}
     {selected && <KnowledgeArtifact key={selected} store={store} artifactId={selected} onClose={() => setSelected(null)} />}
     {upload && <UploadDialog store={store} initialFile={upload.file} onClose={() => setUpload(null)} onUploaded={id => { setUpload(null); setSelected(id); }} />}

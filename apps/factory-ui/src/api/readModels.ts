@@ -1,4 +1,5 @@
 import { requestItemSchema, type RequestItem } from './m3Models';
+import { extractionSummarySchema, type ExtractionSummary } from './documents';
 import { API_VERSION, approvalSchema, artifactKindSchema, artifactStatusSchema, type Approval, type AttemptState } from '@factory/contracts';
 
 type Reader<T> = (value: unknown) => T;
@@ -49,7 +50,8 @@ export const knowledgeKinds = artifactKindSchema.options;
 export const knowledgeStatuses = artifactStatusSchema.options;
 export const knowledgeVisibilities = ['team-draft', 'project', 'shared'] as const;
 const knowledgeArray = <T,>(read: Reader<T>): Reader<T[]> => v => Array.isArray(v) && v.length <= 200 ? v.map(read) : invalid();
-const documentFields = { origin: defaulted(enumeration(['agent', 'upload'] as const), 'agent'), fileName: defaulted(nullable(string(500)), null), mediaType: defaulted(string(128, 1), 'text/plain'), sizeBytes: defaulted(integer(), 0) };
+const extraction: Reader<ExtractionSummary | null> = v => v == null ? null : extractionSummarySchema.parse(v);
+const documentFields = { extraction, origin: defaulted(enumeration(['agent', 'upload'] as const), 'agent'), fileName: defaulted(nullable(string(500)), null), mediaType: defaulted(string(128, 1), 'text/plain'), sizeBytes: defaulted(integer(), 0) };
 const knowledgeFields = { ...documentFields, artifactId: identifier, version: integer(1), kind: enumeration(knowledgeKinds), title: string(500, 1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), projectId: identifier };
 const knowledgeResult = object({ ...knowledgeFields, snippet: string(1000), rank: (v: unknown): number => typeof v === 'number' && Number.isFinite(v) ? v : invalid() });
 const knowledgeItem = object({ ...knowledgeFields, createdAt: timestamp, versionCount: defaulted(integer(1), 1) });

@@ -1,7 +1,7 @@
 import { m3Models } from './m3Models';
 import { settingsReadModels } from './settingsModels';
 import { activityReadModel } from './activityModels';
-import { mediaTypeForFile } from './documents';
+import { extractionModels, mediaTypeForFile } from './documents';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
@@ -92,6 +92,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     return parsed.data;
   }
   const projectPath = (id: string) => `/projects/${encodeURIComponent(id)}`;
+  const extractionPath = (id: string, artifactId: string, version: number) => `${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(version)}/extraction`;
   const knowledgeQuery = (options: KnowledgePage, query?: string) => {
     const params = new URLSearchParams();
     if (query !== undefined) params.set('q', query);
@@ -140,6 +141,9 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     listDocuments: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     getKnowledgeArtifact: (id: string, artifactId: string) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact),
+    getExtraction: (id: string, artifactId: string, version: number) => request(extractionPath(id, artifactId, version), extractionModels.detail),
+    getExtractionText: (id: string, artifactId: string, version: number, from = 0, limit = 8000) => request(`${extractionPath(id, artifactId, version)}/text?${new URLSearchParams({ from: String(from), limit: String(Math.min(20000, limit)) })}`, extractionModels.text),
+    retryExtraction: (id: string, artifactId: string, version: number) => request(`${extractionPath(id, artifactId, version)}/retry`, ok, {}),
     rawDocumentUrl: (id: string, artifactId: string, version: number, options: { download?: boolean } = {}) => `${base}${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(version)}/raw${options.download ? '?download=1' : ''}`,
     fetchRawDocument: async (id: string, artifactId: string, version: number) => {
       let response: Response;
