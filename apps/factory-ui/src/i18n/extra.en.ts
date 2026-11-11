@@ -1,5 +1,20 @@
 export const extra = {
+  workflowGraph: {
+    states: { proposed: 'Ready to start', suspended: 'Suspended' },
+    diagram: 'Diagram', views: 'Workflow view', create: 'Create workflow', preview: 'Workflow preview', unavailable: 'Diagram data is unavailable. Use the list view to see stages and tasks.',
+    stageDetails: 'Stage details', phase: 'Phase', capabilities: 'Required capabilities', inputs: 'Inputs', outputs: 'Outputs', required: 'required', mustReach: 'must reach',
+    brief: 'Brief', gateBefore: 'Gate before this stage', tasks: 'Tasks', parallel: 'Parallel', gateTooltip: 'Approval gate: approver {approver}', rework: '≤ {count} loops', approvedArtifact: '{kind} approved',
+    joins: { all: 'all', any: 'any', unknown: 'unspecified' },
+    gates: { 'execution-gate': 'Execution gate', 'irreversible-action': 'Irreversible action', review: 'Review', unknown: 'Gate' },
+    approvers: { operator: 'Operator', 'project-lead': 'Project lead', unknown: 'Unspecified' },
+    start: 'Start', pause: 'Pause', resume: 'Resume', cancel: 'Cancel workflow', reason: 'Reason (required)', confirm: 'Confirm', back: 'Go back', cancelExplanation: 'Cancel this workflow? Enter a reason to confirm.',
+    assign: 'Assign to team…', autoAssign: 'Choose automatically', save: 'Save', definition: 'Workflow definition', noDefinitions: 'No workflow definitions are available for the teams engaged in this project.',
+    title: 'Title (optional)', createSubmit: 'Create', dismiss: 'Cancel', parameters: 'Parameters', invalidParameters: 'Check the parameter values and their limits.',
+    createDescription: 'Choose a workflow definition, preview its stages, and set its parameters.', chooseDefinition: 'Choose a definition', previewUnavailable: 'No diagram is available for this definition.',
+    revisionUnavailable: 'Refresh to load the workflow revision before making changes.',
+  },
   toastUi: {
+    workflowCreated: 'Workflow created', workflowStarted: 'Workflow started', workflowPaused: 'Paused', workflowResumed: 'Resumed', workflowCancelled: 'Workflow cancelled', stageAssigned: 'Stage assigned',
     approved: 'Approved', changesRequested: 'Changes requested', taskCreated: 'Task created', started: 'Started',
     projectCreated: 'Project created', saved: 'Saved', answered: 'Answered',
   },

@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -10,13 +10,13 @@ import { cn } from '@/lib/utils';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 
-const states = ['draft', 'active', 'awaiting-approval', 'paused', 'resuming', 'completed', 'failed', 'cancelled', 'superseded', 'stalled', 'unknown', 'pending', 'ready', 'done', 'blocked', 'skipped', 'enabled', 'quarantined', 'ok', 'tripped', 'open', 'half-open'] as const;
+const states = ['draft', 'proposed', 'active', 'awaiting-approval', 'paused', 'suspended', 'resuming', 'completed', 'failed', 'cancelled', 'superseded', 'stalled', 'unknown', 'pending', 'ready', 'done', 'blocked', 'skipped', 'enabled', 'quarantined', 'ok', 'tripped', 'open', 'half-open'] as const;
 export function m5Dot(value: string) {
   return value === 'awaiting-approval' ? 'bg-need' : ['active', 'resuming'].includes(value) ? 'bg-run' : ['completed', 'done', 'ok', 'enabled'].includes(value) ? 'bg-ok' : ['quarantined', 'tripped', 'open', 'half-open', 'stalled', 'failed', 'blocked'].includes(value) ? 'bg-info' : 'bg-muted-foreground';
 }
 export function M5Status({ value }: { value: string }) {
   const t = useT(); const known = states.find(state => state === value) ?? 'unknown';
-  return <Badge variant="outline" className={cn('gap-1.5 border-border font-normal text-muted-foreground', ['quarantined', 'tripped', 'open', 'half-open', 'stalled', 'failed', 'blocked'].includes(known) && 'text-info')}><span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', m5Dot(known))} />{t(`m5Ui.states.${known}`)}</Badge>;
+  return <Badge variant="outline" className={cn('gap-1.5 border-border font-normal text-muted-foreground', ['quarantined', 'tripped', 'open', 'half-open', 'stalled', 'failed', 'blocked'].includes(known) && 'text-info')}><span aria-hidden className={cn('size-1.5 shrink-0 rounded-full', m5Dot(known))} />{t(['proposed', 'suspended'].includes(known) ? `workflowGraph.states.${known}` : `m5Ui.states.${known}`)}</Badge>;
 }
 export function TechnicalDetails({ identifier, children }: { identifier?: string; children?: ReactNode }) {
   const t = useT();

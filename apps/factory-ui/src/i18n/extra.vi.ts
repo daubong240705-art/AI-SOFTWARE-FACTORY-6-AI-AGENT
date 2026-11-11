@@ -2,7 +2,22 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  workflowGraph: {
+    states: { proposed: 'Sẵn sàng bắt đầu', suspended: 'Tạm ngưng' },
+    diagram: 'Sơ đồ', views: 'Chế độ xem quy trình', create: 'Tạo quy trình', preview: 'Xem trước quy trình', unavailable: 'Chưa có dữ liệu sơ đồ. Chuyển sang Danh sách để xem các giai đoạn và công việc.',
+    stageDetails: 'Chi tiết giai đoạn', phase: 'Pha', capabilities: 'Cần năng lực', inputs: 'Đầu vào', outputs: 'Đầu ra', required: 'bắt buộc', mustReach: 'cần đạt',
+    brief: 'Bản mô tả', gateBefore: 'Cổng trước giai đoạn', tasks: 'Công việc', parallel: 'Song song', gateTooltip: 'Cổng duyệt: người duyệt {approver}', rework: '≤ {count} vòng', approvedArtifact: '{kind} được duyệt',
+    joins: { all: 'tất cả', any: 'bất kỳ', unknown: 'chưa xác định' },
+    gates: { 'execution-gate': 'Cổng bắt đầu', 'irreversible-action': 'Hành động không thể hoàn tác', review: 'Xét duyệt', unknown: 'Cổng duyệt' },
+    approvers: { operator: 'Người vận hành', 'project-lead': 'Trưởng dự án', unknown: 'Chưa xác định' },
+    start: 'Bắt đầu', pause: 'Tạm dừng', resume: 'Tiếp tục', cancel: 'Hủy quy trình', reason: 'Lý do (bắt buộc)', confirm: 'Xác nhận', back: 'Quay lại', cancelExplanation: 'Hủy quy trình này? Nhập lý do để xác nhận.',
+    assign: 'Giao cho đội…', autoAssign: 'Tự động chọn', save: 'Lưu', definition: 'Định nghĩa quy trình', noDefinitions: 'Chưa có định nghĩa quy trình từ các đội đang tham gia dự án.',
+    title: 'Tiêu đề (không bắt buộc)', createSubmit: 'Tạo', dismiss: 'Hủy', parameters: 'Tham số', invalidParameters: 'Kiểm tra giá trị tham số và các giới hạn.',
+    createDescription: 'Chọn định nghĩa quy trình, xem trước các giai đoạn và thiết lập tham số.', chooseDefinition: 'Chọn định nghĩa', previewUnavailable: 'Chưa có sơ đồ cho định nghĩa này.',
+    revisionUnavailable: 'Làm mới để tải phiên bản quy trình trước khi thay đổi.',
+  },
   toastUi: {
+    workflowCreated: 'Đã tạo quy trình', workflowStarted: 'Đã bắt đầu quy trình', workflowPaused: 'Đã tạm dừng', workflowResumed: 'Đã tiếp tục', workflowCancelled: 'Đã hủy quy trình', stageAssigned: 'Đã giao giai đoạn',
     approved: 'Đã duyệt', changesRequested: 'Đã yêu cầu sửa', taskCreated: 'Đã tạo công việc', started: 'Đã bắt đầu',
     projectCreated: 'Đã tạo dự án', saved: 'Đã lưu', answered: 'Đã trả lời',
   },

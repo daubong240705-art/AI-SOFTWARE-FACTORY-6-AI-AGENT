@@ -80,7 +80,7 @@ export const readModels = { attempts: envelope(object({ attempts: array(attempt)
   knowledgeSearch: envelope(object({ results: knowledgeArray(knowledgeResult) })), knowledgeList: envelope(object({ items: knowledgeArray(knowledgeItem) })), knowledgeArtifact: envelope(object({ artifact: knowledgeArtifact })) };
 
 export { m5ReadModels } from './m5Models';
-export type { WorkflowInstance, WorkflowDetail, WorkflowStage, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './m5Models';
+export type { WorkflowInstance, WorkflowDetail, WorkflowStage, WorkflowGraph, WorkflowDefinition, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './m5Models';
 export type Effect = ReturnType<typeof effect>;
 export type Attempt = ReturnType<typeof attempt>;
 export type AttemptEvent = ReturnType<typeof event>;

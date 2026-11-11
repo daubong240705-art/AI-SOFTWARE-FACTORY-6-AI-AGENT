@@ -192,6 +192,7 @@ export function createStore(options: StoreOptions = {}) {
     });
   }
   const loadWorkflow = (instanceId: string) => readM5(`workflow:${instanceId}`, async id => ({ workflowDetails: { [instanceId]: (await api.getWorkflow(id, instanceId)).instance } }));
+  const loadWorkflowDefinitions = () => readM5('workflow-definitions', async id => ({ workflowDefinitions: (await api.getWorkflowDefinitions(id)).items }));
   async function loadWorkflows() {
     const scope = generation;
     await readM5('workflows', async id => ({ workflows: (await api.listWorkflows(id)).instances }));
@@ -537,7 +538,7 @@ export function createStore(options: StoreOptions = {}) {
       anonymous();
     },
     loadProjects: () => loadProjects(),
-    loadWorkflows, loadWorkflow, loadAutomation, loadSchedules, loadRules, loadMonitors, loadBreakers,
+    loadWorkflows, loadWorkflow, loadWorkflowDefinitions, loadAutomation, loadSchedules, loadRules, loadMonitors, loadBreakers,
     loadScheduleOccurrences, loadRuleFires, loadMonitorEvents,
     loadAutonomy, loadStandingApprovals, loadSettings,
     watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },

@@ -8,7 +8,7 @@ import { commandSchema, successResponseSchema, failureResponseSchema, projectSch
 import { readModels, m5ReadModels, type KnowledgePage } from './readModels';
 export type { KnowledgeResult, KnowledgeItem, KnowledgeArtifact, KnowledgeFilters, KnowledgePage } from './readModels';
 export type { Attempt, AttemptEvent, AttemptPatch, TaskArtifact, ArtifactContent, Inbox, Effect } from './readModels';
-export type { WorkflowInstance, WorkflowDetail, WorkflowStage, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './readModels';
+export type { WorkflowInstance, WorkflowDetail, WorkflowStage, WorkflowGraph, WorkflowDefinition, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './readModels';
 
 // Extend exported strict contract objects to validate the Host's HTTP envelopes without
 // importing their private schema-library dependency into this package.
@@ -136,6 +136,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listTaskApprovals: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/approvals`, readModels.approvals),
     listWorkflows: (id: string) => request(`${projectPath(id)}/workflows`, m5ReadModels.workflows),
     getWorkflow: (id: string, instanceId: string) => request(`${projectPath(id)}/workflows/${encodeURIComponent(instanceId)}`, m5ReadModels.workflow),
+    getWorkflowDefinitions: (id: string) => request(`${projectPath(id)}/workflow-definitions`, m5ReadModels.workflowDefinitions),
     listSchedules: (id: string) => request(`${projectPath(id)}/schedules`, m5ReadModels.schedules),
     listRules: (id: string) => request(`${projectPath(id)}/rules`, m5ReadModels.rules),
     listMonitors: (id: string) => request(`${projectPath(id)}/monitors`, m5ReadModels.monitors),

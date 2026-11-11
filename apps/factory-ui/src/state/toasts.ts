@@ -13,6 +13,12 @@ function successKey(command: Command, approvalKind?: Approval['kind']) {
       return 'toastUi.answered';
     }
     case 'tasks.create': return 'toastUi.taskCreated';
+    case 'workflows.create': return 'toastUi.workflowCreated';
+    case 'workflows.start': return 'toastUi.workflowStarted';
+    case 'workflows.pause': return 'toastUi.workflowPaused';
+    case 'workflows.resume': return 'toastUi.workflowResumed';
+    case 'workflows.cancel': return 'toastUi.workflowCancelled';
+    case 'workflows.assign-stage': return 'toastUi.stageAssigned';
     // Starting uses the Execution Gate release command; transition to active is a retry.
     case 'tasks.release': return 'toastUi.started';
     case 'tasks.transition': return command.payload.to === 'accepted' ? 'toastUi.approved' : undefined;

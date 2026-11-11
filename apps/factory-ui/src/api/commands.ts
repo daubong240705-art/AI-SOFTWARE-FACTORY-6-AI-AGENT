@@ -34,6 +34,12 @@ export function approvalsDecide({ projectId, ...payload }: Of<'approvals.decide'
 export function workflowsDecidePatch({ projectId, ...payload }: Of<'workflows.decide-patch'>['payload'] & { projectId: string }) {
   return build('workflows.decide-patch', projectId, payload);
 }
+export function workflowsCreate({ projectId, ...payload }: Of<'workflows.create'>['payload'] & { projectId: string }) { return build('workflows.create', projectId, payload); }
+export function workflowsStart({ projectId, ...payload }: Of<'workflows.start'>['payload'] & { projectId: string }) { return build('workflows.start', projectId, payload); }
+export function workflowsPause({ projectId, ...payload }: Of<'workflows.pause'>['payload'] & { projectId: string }) { return build('workflows.pause', projectId, payload); }
+export function workflowsResume({ projectId, ...payload }: Of<'workflows.resume'>['payload'] & { projectId: string }) { return build('workflows.resume', projectId, payload); }
+export function workflowsCancel({ projectId, ...payload }: Of<'workflows.cancel'>['payload'] & { projectId: string }) { return build('workflows.cancel', projectId, payload); }
+export function workflowsAssignStage({ projectId, ...payload }: Of<'workflows.assign-stage'>['payload'] & { projectId: string }) { return build('workflows.assign-stage', projectId, payload); }
 export function tasksCreate({ projectId, code, title, goal, brief = goal, acceptance, requiredCapabilities = [] }: {
   projectId: string; code: string; title: string; goal: string; brief?: string;
   acceptance: string[]; requiredCapabilities?: string[];
