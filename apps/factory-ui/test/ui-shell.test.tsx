@@ -29,6 +29,8 @@ async function anonymous() { const fixture = setup(); await fixture.store.signOu
 async function authenticated() { const fixture = setup(); await fixture.store.boot(); return fixture; }
 async function shell() {
   const fixture = await authenticated(); render(<App store={fixture.store} />);
+  const toggle = screen.queryByRole('button', { name: 'Toggle projects' }); if (toggle) fireEvent.click(toggle);
+  fireEvent.click(await screen.findByRole('button', { name: /^Project$/ }));
   await screen.findByRole('tab', { name: 'Chat' }); return fixture;
 }
 function tokenInput() { return screen.getByLabelText('Bootstrap token') as HTMLInputElement; }
@@ -113,7 +115,7 @@ it('sign-in stores no token in browser preferences or URL', async () => {
   expect(localStorage.getItem(PREFERENCES_KEY)).not.toContain('fixture-bootstrap-secret'); expect(location.href).not.toContain('fixture-bootstrap-secret');
 });
 it('shell has named projects navigation, banner and main landmarks', async () => {
-  await shell(); expect(screen.getByRole('banner')).toBeTruthy(); expect(screen.getByRole('navigation', { name: 'Projects' })).toBeTruthy(); expect(screen.getByRole('main')).toBeTruthy();
+  await shell(); expect(screen.getByRole('banner')).toBeTruthy(); expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeTruthy(); expect(screen.getByRole('main')).toBeTruthy();
 });
 it('shell loads projects on mount', async () => { const { api } = await shell(); expect(api.listProjects).toHaveBeenCalledOnce(); });
 it('shell lists projects and selection invokes selectProject with aria-current', async () => {
@@ -123,15 +125,15 @@ it('shell lists projects and selection invokes selectProject with aria-current',
   await waitFor(() => expect(button.getAttribute('aria-current')).toBe('page')); expect(select).toHaveBeenCalledExactlyOnceWith(otherId);
   expect(screen.getByRole('button', { name: 'Project' }).getAttribute('aria-current')).toBeNull();
 });
-it('one project is selected automatically', async () => { const { store } = await shell(); expect(store.getState().selectedProjectId).toBe(id); });
+it('landing remains Overview with one project', async () => { const { store } = await authenticated(); render(<AppShell store={store} />); await screen.findByRole('button', { name: /^Project$/ }); expect(store.getState().selectedProjectId).toBeNull(); expect(screen.getByRole('heading', { name: 'Hello' })).toBeTruthy(); });
 it('existing selection is retained with one project', async () => {
   const { store } = await authenticated(); await store.selectProject(id); const select = vi.spyOn(store, 'selectProject');
-  render(<AppShell store={store} />); await screen.findByRole('tab', { name: 'Chat' }); expect(select).not.toHaveBeenCalled();
+  history.replaceState(null, '', `#/project/${id}`); render(<AppShell store={store} />); await screen.findByRole('tab', { name: 'Chat' }); expect(select).not.toHaveBeenCalled();
 });
 it('multiple projects require an explicit selection', async () => {
   const { store, api } = await authenticated(); api.listProjects.mockResolvedValue({ ...envelope, projects: [project, { ...project, id: otherId, name: 'Second' }] });
   render(<AppShell store={store} />); await screen.findByRole('button', { name: 'Second' });
-  expect(store.getState().selectedProjectId).toBeNull(); expect(screen.getByText('Select a project or create one to get started.')).toBeTruthy();
+  expect(store.getState().selectedProjectId).toBeNull(); expect(screen.getByRole('form', { name: 'Ask or delegate to Lead' })).toBeTruthy();
 });
 it('empty project list shows a useful empty state', async () => {
   const { store, api } = await authenticated(); api.listProjects.mockResolvedValue({ ...envelope, projects: [] }); render(<AppShell store={store} />);
@@ -144,21 +146,21 @@ it('project list shows loading state', async () => {
 it('project list errors offer retry', async () => {
   const { store, api } = await authenticated(); api.listProjects.mockRejectedValueOnce(commandError()); render(<AppShell store={store} />);
   await screen.findByRole('alert'); fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  await screen.findByRole('tab', { name: 'Chat' }); expect(api.listProjects).toHaveBeenCalledTimes(2);
+  await screen.findByRole('button', { name: /^Project$/ }); expect(api.listProjects).toHaveBeenCalledTimes(2);
 });
 it.each([['open', 'Live'], ['reconnecting', 'Reconnecting'], ['connecting', 'Reconnecting'], ['closed', 'Offline']] as const)('stream %s renders %s only for selected project', async (status, label) => {
   const { connections } = await shell(); act(() => connections[0]?.onStatus?.(status, { lastEventId: null, invalidMessages: 0 }));
-  const nav = screen.getByRole('navigation'); expect(within(nav).getAllByText(label)).toHaveLength(1);
+  const nav = screen.getByRole('navigation'); expect(within(nav).getByRole('img', { name: label })).toBeTruthy(); expect(within(nav).queryByText(label)).toBeNull(); expect(within(screen.getByRole('banner')).queryByText(label) !== null).toBe(status !== 'open');
 });
 it('sign out invokes store and returns to sign-in', async () => {
-  const { store, api } = await shell(); const signOut = vi.spyOn(store, 'signOut'); fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+  const { store, api } = await shell(); const signOut = vi.spyOn(store, 'signOut'); fireEvent.click(screen.getByRole('button', { name: 'Settings' })); fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
   await screen.findByLabelText('Bootstrap token'); expect(signOut).toHaveBeenCalledOnce(); expect(api.logout).toHaveBeenCalledOnce();
 });
 it('compact sidebar toggles aria-expanded and navigation visibility', async () => {
   const media = Object.assign(new EventTarget(), { matches: true }); vi.stubGlobal('matchMedia', vi.fn(() => media));
   await shell(); const toggle = screen.getByRole('button', { name: 'Toggle projects' }); expect(toggle.getAttribute('aria-expanded')).toBe('false');
   expect(screen.queryByRole('navigation')).toBeNull(); fireEvent.click(toggle); expect(toggle.getAttribute('aria-expanded')).toBe('true');
-  expect(screen.getByRole('navigation', { name: 'Projects' })).toBeTruthy(); fireEvent.click(toggle); expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeTruthy(); fireEvent.click(toggle); expect(toggle.getAttribute('aria-expanded')).toBe('false');
 });
 it('sidebar responds to matchMedia viewport changes', async () => {
   const media = Object.assign(new EventTarget(), { matches: false }); vi.stubGlobal('matchMedia', vi.fn(() => media)); await shell();
@@ -166,18 +168,18 @@ it('sidebar responds to matchMedia viewport changes', async () => {
   act(() => { media.matches = true; media.dispatchEvent(new Event('change')); }); expect(screen.getByRole('button', { name: 'Toggle projects' })).toBeTruthy();
 });
 it.each(['light', 'dark', 'system'] as const)('theme control persists %s and updates data-theme', async (theme) => {
-  await shell(); fireEvent.change(screen.getByLabelText('Theme'), { target: { value: theme } }); expect(getPreferences().theme).toBe(theme);
+  await shell(); fireEvent.click(screen.getByRole('button', { name: 'Settings' })); fireEvent.change(screen.getByLabelText('Theme'), { target: { value: theme } }); expect(getPreferences().theme).toBe(theme);
   expect(document.documentElement.dataset.theme).toBe(theme === 'system' ? 'light' : theme);
   expect(JSON.parse(localStorage.getItem(PREFERENCES_KEY)!)).toMatchObject({ theme });
 });
 it('language switches labels, html lang and stored preference to Vietnamese and back', async () => {
-  await shell(); fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'vi' } });
+  await shell(); fireEvent.click(screen.getByRole('button', { name: 'Settings' })); fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'vi' } });
   expect(document.documentElement.lang).toBe('vi'); expect(getPreferences().locale).toBe('vi'); expect(screen.getByRole('button', { name: 'Đăng xuất' })).toBeTruthy();
   fireEvent.change(screen.getByLabelText('Ngôn ngữ'), { target: { value: 'en' } }); expect(document.documentElement.lang).toBe('en'); expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
 });
 it('user project names are never translated', async () => {
   const { store, api } = setup(); api.listProjects.mockResolvedValue({ ...envelope, projects: [{ ...project, name: 'global.projects' }] });
-  render(<App store={store} />); await screen.findByRole('heading', { name: 'global.projects' }); act(() => i18n.setLocale('vi'));
+  render(<App store={store} />); fireEvent.click(await screen.findByRole('button', { name: 'global.projects' })); await screen.findByRole('heading', { name: 'global.projects' }); act(() => i18n.setLocale('vi'));
   expect(screen.getByRole('heading', { name: 'global.projects' })).toBeTruthy();
 });
 it('create dialog is labelled, modal and focuses the first field', async () => {

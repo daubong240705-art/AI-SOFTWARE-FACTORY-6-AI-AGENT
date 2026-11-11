@@ -22,7 +22,7 @@ function invalidFields(error: unknown): ValidationErrors {
   return Object.keys(errors).length ? errors : { name: 'validation.projectName' };
 }
 
-export function CreateProject({ store, onClose }: { store: Store; onClose: () => void }) {
+export function CreateProject({ store, onClose, onCreated }: { store: Store; onClose: () => void; onCreated?: (id: string) => void }) {
   const t = useT();
   const titleId = useId();
   const [name, setName] = useState('');
@@ -40,7 +40,7 @@ export function CreateProject({ store, onClose }: { store: Store; onClose: () =>
       const result = await (retry ? store.retry(created.commandId) : store.send(created));
       if (result && store.getState().session === 'authenticated') {
         await store.loadProjects();
-        if (store.getState().session === 'authenticated') { void store.selectProject(created.projectId); onClose(); }
+        if (store.getState().session === 'authenticated') { if (onCreated) onCreated(created.projectId); else void store.selectProject(created.projectId); onClose(); }
       }
     } finally { inFlight.current = false; setBusy(false); }
   }

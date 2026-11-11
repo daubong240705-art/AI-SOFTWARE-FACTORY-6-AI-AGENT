@@ -16,13 +16,23 @@ export function relativeTime(value: string, now = Date.now()): string {
   const [size, unit] = Math.abs(seconds) >= 86400 ? [86400, 'day'] as const : Math.abs(seconds) >= 3600 ? [3600, 'hour'] as const : Math.abs(seconds) >= 60 ? [60, 'minute'] as const : [1, 'second'] as const;
   return new Intl.RelativeTimeFormat(i18n.locale, { numeric: 'always', style: 'short' }).format(Math.round(seconds / size), unit);
 }
-type Selection = { kind: 'approval' | 'task' | 'request'; id: string };
-export function Inbox({ store, global = false, onClose }: { store: Store; global?: boolean; onClose?: () => void }) {
+export type InboxSelection = { kind: 'approval' | 'task' | 'request'; id: string };
+type Selection = InboxSelection;
+export function Inbox({ store, global = false, onClose, initialSelection }: { store: Store; global?: boolean; onClose?: () => void; initialSelection?: (InboxSelection & { projectId: string }) | undefined }) {
   const t = useT(); const id = useId();
   const state = store.useStoreSelector(value => value);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => { void (global ? store.loadGlobalInbox() : store.loadInbox()); }, [store, global]);
+  useEffect(() => {
+    if (!initialSelection) return;
+    let active = true;
+    void (async () => {
+      if (store.getState().selectedProjectId !== initialSelection.projectId) await store.selectProject(initialSelection.projectId);
+      if (active && store.getState().session === 'authenticated' && store.getState().selectedProjectId === initialSelection.projectId) setSelection(initialSelection);
+    })();
+    return () => { active = false; };
+  }, [store, initialSelection?.projectId, initialSelection?.id, initialSelection?.kind]);
   const inbox = global ? state.globalInbox : state.inbox;
   async function open(projectId: string, selected: Selection) {
     if (busy) return; setBusy(true);

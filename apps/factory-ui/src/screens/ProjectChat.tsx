@@ -20,11 +20,11 @@ const emptyDraft = (): Draft => ({ text: '', intent: 'discuss' });
 export function ProjectChat({ store, projectId }: { store: Store; projectId: string }) {
   const t = useT();
   const state = store.useStoreSelector((value) => value);
-  const conversation = state.conversations[0];
+  const lead = state.team?.seats.find((seat) => seat.isLead);
+  const conversation = state.conversations.find(item => item.agentId === lead?.id && item.workItemId === null) ?? state.conversations[0];
   const [command, setCommand] = useState<Command | null>(null);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
-  const lead = state.team?.seats.find((seat) => seat.isLead);
   const pending = command ? state.pending[command.commandId] : undefined;
   async function execute(created: Command, retry = false) {
     if (inFlight.current) return;

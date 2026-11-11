@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
-import { hostInfo, shot, signIn, tabTo } from './helpers';
+import { englishLight, hostInfo, preference, shot, signIn, tabTo } from './helpers';
 
 const reply = 'Hello from the fake Lead.';
 const planReply = 'I propose a README task for your review.';
@@ -15,6 +15,7 @@ test.describe.serial('real Host and built Factory UI', () => {
   test.beforeAll(async ({ browser }) => {
     context = await browser.newContext({ baseURL: 'http://127.0.0.1:8791',
       viewport: { width: 1280, height: 800 }, colorScheme: 'light' });
+    await context.addInitScript(englishLight);
     page = await context.newPage();
   });
   test.afterAll(async () => { await context?.close(); });
@@ -91,6 +92,7 @@ test.describe.serial('real Host and built Factory UI', () => {
     await expect(page.getByRole('log').getByText(reply, { exact: true })).toBeVisible();
 
     const fresh = await browser.newContext({ baseURL: 'http://127.0.0.1:8791' });
+    await fresh.addInitScript(englishLight);
     try {
       const anonymous = await fresh.newPage();
       await anonymous.goto('/');
@@ -125,11 +127,11 @@ test.describe.serial('real Host and built Factory UI', () => {
     }
     const lead = panel.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Lead', exact: true }) });
     await expect(lead.getByText('Lead', { exact: true })).toHaveCount(2);
-    await page.getByLabel('Theme', { exact: true }).selectOption({ label: 'Light' });
+    await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
     await shot(page, 'project-team-light');
-    await page.getByLabel('Theme', { exact: true }).selectOption({ label: 'Dark' });
+    await (await preference(page, 'Theme')).selectOption({ label: 'Dark' });
     await shot(page, 'project-team-dark');
-    await page.getByLabel('Theme', { exact: true }).selectOption({ label: 'Light' });
+    await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
   });
 
   test('e: discussion replies stream without navigation and expose working status', async () => {
@@ -167,9 +169,9 @@ test.describe.serial('real Host and built Factory UI', () => {
     const task = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
     await expect(task.getByText('Proposed', { exact: true })).toBeVisible();
     await shot(page, 'tasks-proposed-light');
-    await page.getByLabel('Theme', { exact: true }).selectOption({ label: 'Dark' });
+    await (await preference(page, 'Theme')).selectOption({ label: 'Dark' });
     await shot(page, 'tasks-proposed-dark');
-    await page.getByLabel('Theme', { exact: true }).selectOption({ label: 'Light' });
+    await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
     await task.getByRole('button', { name: 'Accept', exact: true }).click();
     await expect(task.getByText('Accepted', { exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Tasks', exact: true })).toBeVisible();
@@ -198,7 +200,7 @@ test.describe.serial('real Host and built Factory UI', () => {
     const recovered = page.waitForResponse((response) => new URL(response.url()).pathname === '/auth/session');
     await page.reload();
     expect((await recovered).status()).toBe(200);
-    await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation').getByRole('button', { name: 'Overview', exact: true })).toBeVisible();
     await expect(page.getByRole('navigation').getByRole('button', { name: /^E2E Project/ })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByRole('log').getByText(xss, { exact: true })).toBeVisible();
     await expect(page.getByRole('log').getByText('hello', { exact: true })).toHaveCount(2);
@@ -209,23 +211,23 @@ test.describe.serial('real Host and built Factory UI', () => {
     await expect(page.getByRole('meter', { name: 'TOKEN BUDGET', exact: true })).toBeVisible();
     await expect(page.getByRole('meter')).toHaveAttribute('aria-valuenow', /[1-9][0-9]*/);
     await shot(page, 'chat-budget-light');
-    await page.getByLabel('Theme', { exact: true }).selectOption({ label: 'Dark' });
+    await (await preference(page, 'Theme')).selectOption({ label: 'Dark' });
     expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
     await shot(page, 'chat-budget-dark');
-    await page.getByLabel('Language', { exact: true }).selectOption({ label: 'Tiếng Việt' });
-    await expect(page.getByRole('button', { name: 'Đăng xuất', exact: true })).toBeVisible();
+    await (await preference(page, 'Language')).selectOption({ label: 'Tiếng Việt' });
+    await expect(page.getByRole('navigation').getByRole('button', { name: 'Tổng quan', exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Trò chuyện', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'E2E Project', exact: true })).toBeVisible();
     await expect(page.getByRole('log').getByText('after reload', { exact: true })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Đăng xuất', exact: true })).toBeVisible();
+    await expect(page.getByRole('navigation').getByRole('button', { name: 'Tổng quan', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
     expect(await page.evaluate(() => document.documentElement.lang)).toBe('vi');
     await expect(page.getByRole('log').getByText('after reload', { exact: true })).toBeVisible();
     await expect(page.getByRole('meter', { name: 'NGÂN SÁCH TOKEN', exact: true })).toBeVisible();
     await shot(page, 'chat-budget-vietnamese');
-    await page.getByLabel('Ngôn ngữ', { exact: true }).selectOption({ label: 'English' });
-    await page.getByLabel('Theme', { exact: true }).selectOption({ label: 'Light' });
+    await (await preference(page, 'Ngôn ngữ')).selectOption({ label: 'English' });
+    await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
   });
 
   test('i/l: mobile sidebar is labelled, collapsed and toggleable, with no document overflow', async () => {
@@ -237,6 +239,10 @@ test.describe.serial('real Host and built Factory UI', () => {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       for (const viewport of [{ width: 390, height: 844 }, { width: 320, height: 640 }]) {
         await page.setViewportSize(viewport);
+        await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.getByRole('navigation')).toBeVisible();
+        await page.getByRole('navigation').getByRole('button', { name: 'Settings', exact: true }).click();
         for (const label of ['Theme', 'Language']) {
           const select = page.getByRole('combobox', { name: label, exact: true });
           await expect(select).toBeVisible();
@@ -244,17 +250,16 @@ test.describe.serial('real Host and built Factory UI', () => {
         }
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
         await shot(page, viewport.width === 390 ? 'mobile-light' : 'mobile-narrow-light');
+        await page.keyboard.press('Escape');
+        await page.keyboard.press('Escape');
+        await expect(page.getByRole('navigation')).toHaveCount(0);
+        await expect(toggle).toHaveAttribute('aria-expanded', 'false');
       }
-      await page.setViewportSize({ width: 390, height: 844 });
-      await toggle.click();
-      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-      await expect(page.getByRole('navigation')).toBeVisible();
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-      await toggle.click();
     } finally { await page.setViewportSize({ width: 1280, height: 800 }); }
   });
 
   test('g: sign-out removes protected content and revokes API access', async () => {
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
     await expect(page.getByRole('navigation')).toHaveCount(0);

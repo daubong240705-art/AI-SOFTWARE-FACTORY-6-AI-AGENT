@@ -13,7 +13,8 @@ export function plural(t: (key: string) => string, locale: string, count: number
 export type Theme = 'light' | 'dark' | 'system';
 export const PREFERENCES_KEY = 'factory-ui.preferences.v1';
 type Preferences = { locale: Locale; theme: Theme };
-let memory: Preferences = { locale: 'en', theme: 'system' };
+const defaults: Preferences = { locale: 'vi', theme: 'dark' };
+let memory: Preferences = { ...defaults };
 let memoryOnly = false;
 export function getPreferences(): Preferences {
   if (memoryOnly) return { ...memory };
@@ -22,7 +23,7 @@ export function getPreferences(): Preferences {
     if (typeof parsed === 'object' && parsed !== null && 'locale' in parsed && 'theme' in parsed &&
       (parsed.locale === 'en' || parsed.locale === 'vi') && ['light', 'dark', 'system'].includes(String(parsed.theme))) {
       memory = { locale: parsed.locale, theme: parsed.theme as Theme };
-    }
+    } else memory = { ...defaults };
   } catch { memoryOnly = true; }
   return { ...memory };
 }
@@ -44,7 +45,7 @@ function flatten(value: unknown, prefix = '', result: Record<string, string> = {
 }
 const dictionaries = { en: { ...flatten(en), ...flatten(extraEn) }, vi: { ...flatten(vi), ...flatten(extraVi) } };
 const warned = new Set<string>();
-export function createI18n(initialLocale: Locale = 'en') {
+export function createI18n(initialLocale: Locale = 'vi') {
   let locale = initialLocale;
   const listeners = new Set<() => void>();
   const t = (key: string) => {
@@ -55,7 +56,7 @@ export function createI18n(initialLocale: Locale = 'en') {
   };
   const i18n = {
     get locale() { return locale; }, t,
-    setLocale(next: Locale) { if (next === locale) return; locale = next; save({ locale }); listeners.forEach((listener) => listener()); },
+    setLocale(next: Locale) { save({ locale: next }); if (next === locale) return; locale = next; listeners.forEach((listener) => listener()); },
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     useT() { useSyncExternalStore(i18n.subscribe, () => locale, () => initialLocale); return t; },
   };

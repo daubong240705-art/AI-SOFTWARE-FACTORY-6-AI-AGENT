@@ -9,6 +9,19 @@ export async function hostInfo(): Promise<{ port: number; token: string }> {
   return { port: raw.port, token: raw.token };
 }
 
+// The app defaults to Vietnamese and the dark theme. The existing scenarios were written for English and the light theme:
+// store that preference only when the page has none, so the scenarios that change and reload it still work.
+export const englishLight = () => {
+  if (!localStorage.getItem('factory-ui.preferences.v1')) localStorage.setItem('factory-ui.preferences.v1', JSON.stringify({ locale: 'en', theme: 'light' }));
+};
+
+// Theme and language live in the Settings popover of the sidebar: open it only when the field is not already visible.
+export async function preference(page: Page, label: string): Promise<Locator> {
+  const field = page.getByRole('combobox', { name: label, exact: true });
+  if (!(await field.isVisible())) await page.getByRole('button', { name: /^(Settings|Cài đặt)$/ }).click();
+  return field;
+}
+
 export async function tabTo(page: Page, target: Locator): Promise<void> {
   for (let attempt = 0; attempt < 24; attempt++) {
     if (await target.evaluate((element) => element === document.activeElement)) break;
@@ -32,7 +45,7 @@ export async function signIn(page: Page, keyboard = false): Promise<void> {
     await field.fill(token);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   }
-  await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation').getByRole('button', { name: 'Overview', exact: true })).toBeVisible();
 }
 
 export async function shot(page: Page, name: string): Promise<void> {

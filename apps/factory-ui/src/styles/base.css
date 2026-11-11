@@ -1,5 +1,7 @@
+@import './palette.css';
 * { box-sizing: border-box; }
-:root { color-scheme: light; }
+:root { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
 [data-theme="dark"] { color-scheme: dark; }
 body { margin: 0; background: var(--color-canvas); color: var(--color-text); font: var(--type-body-size) / var(--type-body-line-height) var(--font-body); }
 button, input, textarea, select { font: inherit; color: inherit; }
@@ -11,4 +13,4 @@ button:hover:enabled { background: var(--color-raised); }
 button.primary { background: var(--color-primary-fill); color: var(--color-on-primary); border-color: transparent; }
 textarea { resize: vertical; }
 pre, code { font-family: var(--font-mono); }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

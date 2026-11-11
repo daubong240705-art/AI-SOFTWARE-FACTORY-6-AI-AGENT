@@ -2,6 +2,8 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  nav: { main: 'Điều hướng chính', overview: 'Tổng quan', attention: 'Cần xử lý', team: 'Đội', settings: 'Cài đặt', preferences: 'Tùy chọn', collapse: 'Thu gọn', expand: 'Mở rộng thanh bên', close: 'Đóng điều hướng', addProject: 'Dự án mới', skip: 'Đến nội dung' },
+  overview: { greeting: 'Xin chào', waiting: '{count} việc đang chờ bạn', composer: 'Giao việc hoặc hỏi Lead', message: 'Nội dung gửi Lead', placeholder: 'Hỏi hoặc mô tả việc cần làm…', project: 'Dự án', ask: 'Hỏi', delegate: 'Giao việc', toSend: 'để gửi', caughtUp: 'Bạn đã xử lý xong mọi việc.', viewAll: 'Xem tất cả', conversationUnavailable: 'Cuộc trò chuyện chưa sẵn sàng. Hãy thử lại.' },
   m3: m3Vi,
   knowledgeUi: {
     tab: 'Tri thức', search: 'Tìm tài liệu', kind: 'Loại tài liệu', status: 'Trạng thái tài liệu', allKinds: 'Tất cả loại', allStatuses: 'Tất cả trạng thái',
