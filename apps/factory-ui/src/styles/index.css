@@ -33,7 +33,7 @@
   --color-accent-foreground: var(--text);
   --color-destructive: var(--need);
   --color-border: var(--line);
-  --color-input: var(--control-line);
+  --color-input: color-mix(in srgb, var(--control-line) 62%, var(--bg));
   --color-ring: var(--info);
   --color-need: var(--need);
   --color-need-foreground: var(--on-need);
@@ -55,3 +55,7 @@
 }
 
 :root { --radius: 10px; }
+
+@layer base {
+  * { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--muted) 45%, transparent) transparent; }
+}
