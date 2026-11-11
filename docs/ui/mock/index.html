@@ -4,31 +4,48 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Factory · bản mock giao diện</title>
+<!-- Phông (đều OFL, có đủ dấu tiếng Việt). Bản thật sẽ tự lưu cùng ứng dụng, không tải từ Internet. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
 :root{
   --bg:#1e1e20; --surface:#262629; --raised:#2e2e32; --line:#3a3a40;
   --text:#ededef; --muted:#a0a0a8; --need:#ff6b5e; --run:#f0a53a; --ok:#4cc38a; --info:#6ea8fe;
+  /* màu nhận diện dự án: chỉ dùng tông lạnh, không trùng màu trạng thái */
+  --p-tx:#56c7c2; --p-cr:#9d8cff; --p-ld:#d58ac9;
   --radius:10px; --side:248px;
-  font-family: "Inter","Segoe UI",system-ui,-apple-system,sans-serif; font-size:15px; line-height:1.5; color:var(--text);
+  --ui:"Be Vietnam Pro","Segoe UI",system-ui,sans-serif;
+  --display:"Bricolage Grotesque","Be Vietnam Pro","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  font-family:var(--ui); font-size:15px; line-height:1.55; color:var(--text);
+  font-feature-settings:"tnum" 1,"cv11" 1;
 }
 *{box-sizing:border-box} html,body{height:100%} body{margin:0;background:var(--bg);overflow:hidden}
 button,input,textarea,select{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--info);outline-offset:2px}
-.mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:13px}
+.mono{font-family:var(--mono);font-size:13px;font-variant-ligatures:none}
+h1,h2,.hd,.brand{font-family:var(--display)}
 .app{display:grid;grid-template-columns:var(--side) 1fr;grid-template-rows:56px 1fr;height:100vh}
 .app.collapsed{--side:64px}
 /* sidebar */
 .side{grid-row:1/3;background:#19191b;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 10px;gap:4px;overflow:hidden}
-.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 14px;font-weight:650;font-size:17px}
-.brand i{width:26px;height:26px;border-radius:8px;background:var(--text);flex:none}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 8px 14px;font-weight:700;font-size:19px;letter-spacing:-.01em}
+.brand i{width:28px;height:28px;border-radius:9px;background:var(--text);flex:none;display:grid;place-items:center;
+  font:700 17px/1 var(--display);color:#151517;font-style:normal}
+.brand i::before{content:"F"}
 .nav{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:var(--muted);background:none;border:0;text-align:left;cursor:pointer;width:100%}
 .nav:hover{background:var(--surface);color:var(--text)}
+.nav{position:relative}
 .nav[aria-current=page]{background:var(--raised);color:var(--text)}
+.nav[aria-current=page]::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--text)}
 .nav .badge{margin-left:auto;background:var(--need);color:#1b0b09;border-radius:99px;font-size:12px;font-weight:650;padding:0 8px;min-width:22px;text-align:center}
 .nav svg{flex:none}
 .group{margin:16px 10px 4px;font-size:12px;color:var(--muted);letter-spacing:.04em}
 .proj .dot{margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--need)}
-.proj .code{width:26px;height:22px;border-radius:6px;background:var(--raised);font-size:11px;font-weight:650;display:grid;place-items:center;color:var(--text)}
+.proj .code{width:28px;height:24px;border-radius:7px;font:600 11px/1 var(--mono);display:grid;place-items:center;
+  color:var(--c,var(--text));background:color-mix(in srgb,var(--c,#888) 16%,transparent);border:1px solid color-mix(in srgb,var(--c,#888) 38%,transparent)}
+.proj[data-p=tx]{--c:var(--p-tx)} .proj[data-p=cr]{--c:var(--p-cr)} .proj[data-p=ld]{--c:var(--p-ld)}
+.av{--c:var(--muted)} .av[data-p=tx]{--c:var(--p-tx)} .av[data-p=cr]{--c:var(--p-cr)} .av[data-p=ld]{--c:var(--p-ld)}
 .spacer{flex:1}
 .collapsed .label,.collapsed .group,.collapsed .badge,.collapsed .dot{display:none}
 /* top */
@@ -44,18 +61,24 @@ button,input,textarea,select{font:inherit;color:inherit}
 .grow{flex:1}
 /* main */
 .main{overflow:auto;padding:28px 32px 40px}
-h1{margin:0 0 4px;font-size:30px;letter-spacing:-.01em;line-height:1.2}
-.sub{color:var(--muted);margin:0 0 22px}
+h1{margin:0 0 6px;font-size:38px;font-weight:700;letter-spacing:-.025em;line-height:1.1;font-variation-settings:"opsz" 72}
+h1 em{font-style:normal;color:var(--p-tx)}
+.sub{color:var(--muted);margin:0 0 24px;font-size:16px}
 .home{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius)}
-.composer{padding:16px}
-.composer textarea{width:100%;min-height:92px;resize:vertical;background:none;border:0;outline:0;font-size:16px}
+.composer{padding:18px 18px 16px;transition:border-color .15s,box-shadow .15s}
+.composer:focus-within{border-color:color-mix(in srgb,var(--info) 70%,var(--line));box-shadow:0 0 0 4px color-mix(in srgb,var(--info) 16%,transparent)}
+.composer textarea{width:100%;min-height:104px;resize:vertical;background:none;border:0;outline:0;font-size:17px;line-height:1.6}
+.composer textarea::placeholder{color:#7c7c85}
 .composer .row{display:flex;align-items:center;gap:10px;border-top:1px solid var(--line);padding-top:12px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .seg button{border:0;background:none;padding:6px 12px;cursor:pointer;color:var(--muted)}
 .seg button[aria-pressed=true]{background:var(--raised);color:var(--text)}
 select{background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
-.hd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:600}
+.hd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);font-weight:600;font-size:17px;letter-spacing:-.005em}
+/* điểm nhấn duy nhất của khung "Cần xử lý": vạch màu nóng bên trái */
+.needs{position:relative;overflow:hidden}
+.needs::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--need)}
 .hd .count{background:var(--need);color:#1b0b09;border-radius:99px;font-size:12px;padding:0 8px}
 .feed{margin-top:20px}
 .filters{display:flex;gap:8px;padding:12px 18px;border-bottom:1px solid var(--line)}
@@ -63,16 +86,26 @@ select{background:var(--raised);border:1px solid var(--line);border-radius:8px;p
 .chip[aria-pressed=true]{background:var(--raised);color:var(--text)}
 .day{padding:12px 18px 4px;font-size:12px;color:var(--muted);letter-spacing:.04em}
 .item{display:grid;grid-template-columns:28px 1fr auto;gap:12px;padding:12px 18px;border-top:1px solid var(--line)}
-.av{width:28px;height:28px;border-radius:8px;background:var(--raised);display:grid;place-items:center;font-size:12px;font-weight:650}
+.av{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font:600 11px/1 var(--mono);color:var(--c);
+  background:color-mix(in srgb,var(--c) 15%,transparent);border:1px solid color-mix(in srgb,var(--c) 34%,transparent)}
+.item b{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--text);margin-right:2px}
 .item .meta{color:var(--muted);font-size:14px;text-align:right;white-space:nowrap}
 .item p{margin:2px 0 0;color:var(--muted);font-size:14px}
 .st{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--muted)}
 .st::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
 .st.need{color:var(--need)} .st.need::before{background:var(--need)}
-.st.run::before{background:var(--run)} .st.ok::before{background:var(--ok)} .st.info::before{background:var(--info)}
+.st.run::before{background:var(--run);animation:pulse 1.8s ease-out infinite}
+.st.ok::before{background:var(--ok)} .st.info::before{background:var(--info)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--run) 55%,transparent)}100%{box-shadow:0 0 0 7px transparent}}
+/* một lần khi mở trang: các việc cần xử lý trượt vào lần lượt */
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.needs .wait{animation:rise .45s cubic-bezier(.2,.7,.2,1) both}
+.needs .wait:nth-of-type(2){animation-delay:.08s}.needs .wait:nth-of-type(3){animation-delay:.16s}
 .wait{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:12px 18px;border-top:1px solid var(--line);cursor:pointer;background:none;border-left:0;border-right:0;border-bottom:0;width:100%;text-align:left}
 .wait:hover{background:var(--raised)}
 .wait b{font-weight:600}
+.wait small{font-family:var(--mono);font-size:12.5px}
+.row small{font-family:var(--mono);font-size:12.5px}
 .wait small{color:var(--muted)}
 .more{display:block;padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);background:none;border-left:0;border-right:0;border-bottom:0;width:100%;text-align:left;cursor:pointer}
 /* review */
@@ -84,15 +117,21 @@ select{background:var(--raised);border:1px solid var(--line);border-radius:8px;p
 .row .t{font-weight:600} .row small{color:var(--muted)}
 .detail{display:flex;flex-direction:column;min-width:0}
 .dh{padding:18px 28px 0}
-.dh h2{margin:0;font-size:24px;line-height:1.25}
+.dh h2{margin:2px 0 0;font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.2;font-variation-settings:"opsz" 48}
+.list h2{font-size:22px;font-weight:700;letter-spacing:-.015em}
 .tabs{display:flex;gap:4px;margin-top:14px;border-bottom:1px solid var(--line)}
 .tab{border:0;background:none;padding:8px 14px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
 .tab[aria-selected=true]{color:var(--text);border-bottom-color:var(--text)}
 .body{flex:1;overflow:auto;padding:20px 28px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
 .files{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 .diff{background:#19191b;border:1px solid var(--line);border-radius:var(--radius);overflow:auto;padding:8px 0}
-.diff div{padding:0 16px;white-space:pre;font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:13.5px;line-height:1.65}
-.diff .a{background:rgba(76,195,138,.12);color:#9be0bf} .diff .h{color:var(--muted)}
+/* số dòng + vạch xanh cho dòng thêm: điểm nhấn của nội dung chính */
+.diff{counter-reset:ln;font-variant-ligatures:none}
+.item .st{margin:0 4px}
+.diff div{position:relative;padding:0 16px 0 62px;white-space:pre;font-family:var(--mono);font-size:13.5px;line-height:1.7}
+.diff div::before{counter-increment:ln;content:counter(ln);position:absolute;left:0;width:44px;text-align:right;color:#6b6b74;font-size:12px}
+.diff .a{background:rgba(76,195,138,.10);color:#a6e6c7;box-shadow:inset 3px 0 0 var(--ok)}
+.diff .h{color:var(--muted);background:#202023}
 .crit{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .crit li{display:flex;gap:10px}
 .crit li::before{content:"✓";color:var(--ok);font-weight:700}
@@ -120,9 +159,9 @@ details{margin-top:6px} summary{cursor:pointer;color:var(--muted);font-size:14px
     <button class="nav" data-go="inbox"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 13h5l1 3h6l1-3h5M5 5h14l2 8v6H3v-6z"/></svg><span class="label">Cần xử lý</span><span class="badge">3</span></button>
     <button class="nav" data-go="team"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-6 7-6s7 2 7 6M17 4a4 4 0 010 8M22 21c0-3-2-5-4-5.5"/></svg><span class="label">Đội</span></button>
     <div class="group">DỰ ÁN</div>
-    <button class="nav proj"><span class="code">TX</span><span class="label">textstats</span><span class="dot" title="Có việc chờ bạn"></span></button>
-    <button class="nav proj"><span class="code">CR</span><span class="label">Cardroom</span><span class="dot"></span></button>
-    <button class="nav proj"><span class="code">LD</span><span class="label">Ledger</span></button>
+    <button class="nav proj" data-p="tx"><span class="code">TX</span><span class="label">textstats</span><span class="dot" title="Có việc chờ bạn"></span></button>
+    <button class="nav proj" data-p="cr"><span class="code">CR</span><span class="label">Cardroom</span><span class="dot"></span></button>
+    <button class="nav proj" data-p="ld"><span class="code">LD</span><span class="label">Ledger</span></button>
     <div class="spacer"></div>
     <button class="nav"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg><span class="label">Cài đặt</span></button>
     <button class="nav" id="collapse"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg><span class="label">Thu gọn</span></button>
@@ -138,7 +177,7 @@ details{margin-top:6px} summary{cursor:pointer;color:var(--muted);font-size:14px
 </div>
 
 <template id="t-home">
-  <h1>Chào buổi chiều, Alex</h1>
+  <h1>Chào buổi chiều, <em>Alex</em></h1>
   <p class="sub">3 việc đang chờ bạn.</p>
   <div class="home">
     <div>
@@ -158,15 +197,15 @@ details{margin-top:6px} summary{cursor:pointer;color:var(--muted);font-size:14px
         <div class="hd">Hoạt động <span class="grow"></span><button class="btn ghost">Đánh dấu đã xem</button></div>
         <div class="filters" role="group" aria-label="Lọc"><button class="chip" aria-pressed="true">Tất cả</button><button class="chip" aria-pressed="false">Dự án</button><button class="chip" aria-pressed="false">Loại</button><button class="chip" aria-pressed="false">Ai</button></div>
         <div class="day">HÔM NAY</div>
-        <div class="item"><span class="av">TX</span><div><b>TSK-003</b> Viết unit test cho thư viện đã xong lần chạy<p>Agent báo 25 test đạt. Đang chờ bạn duyệt.</p></div><span class="meta">3 phút</span></div>
-        <div class="item"><span class="av">TX</span><div><b>TSK-002</b> Viết CLI chuyển <span class="st run">Đang chạy</span> → <span class="st need">Chờ duyệt</span></div><span class="meta">12 phút</span></div>
-        <div class="item"><span class="av">CR</span><div><b>CR-209</b> Sửa cuộn ngang ở thanh bên: <span class="st need">Chờ duyệt</span> → <span class="st ok">Xong</span></div><span class="meta">40 phút</span></div>
-        <div class="item"><span class="av">TX</span><div>Gộp <b>TSK-001</b> vào nhánh tích hợp thành công</div><span class="meta">1 giờ</span></div>
-        <div class="item"><span class="av">LD</span><div>Báo cáo ngày của Ledger đã tạo<p>Có 2 việc xong, 1 việc bị chặn.</p></div><span class="meta">6 giờ</span></div>
+        <div class="item"><span class="av" data-p="tx">TX</span><div><b>TSK-003</b> Viết unit test cho thư viện đã xong lần chạy<p>Agent báo 25 test đạt. Đang chờ bạn duyệt.</p></div><span class="meta">3 phút</span></div>
+        <div class="item"><span class="av" data-p="tx">TX</span><div><b>TSK-002</b> Viết CLI chuyển <span class="st run">Đang chạy</span> → <span class="st need">Chờ duyệt</span></div><span class="meta">12 phút</span></div>
+        <div class="item"><span class="av" data-p="cr">CR</span><div><b>CR-209</b> Sửa cuộn ngang ở thanh bên: <span class="st need">Chờ duyệt</span> → <span class="st ok">Xong</span></div><span class="meta">40 phút</span></div>
+        <div class="item"><span class="av" data-p="tx">TX</span><div>Gộp <b>TSK-001</b> vào nhánh tích hợp thành công</div><span class="meta">1 giờ</span></div>
+        <div class="item"><span class="av" data-p="ld">LD</span><div>Báo cáo ngày của Ledger đã tạo<p>Có 2 việc xong, 1 việc bị chặn.</p></div><span class="meta">6 giờ</span></div>
       </section>
     </div>
 
-    <aside class="card" aria-label="Cần xử lý">
+    <aside class="card needs" aria-label="Cần xử lý">
       <div class="hd">Cần xử lý <span class="count">3</span><span class="grow"></span></div>
       <button class="wait" data-go="inbox"><b>Duyệt: Viết unit test cho thư viện</b><span class="st need">3 phút</span><small>TSK-003 · textstats</small><span></span></button>
       <button class="wait" data-go="inbox"><b>Hỏi: định dạng của ghi chú?</b><span class="st need">1 giờ</span><small>CR-216 · Cardroom</small><span></span></button>

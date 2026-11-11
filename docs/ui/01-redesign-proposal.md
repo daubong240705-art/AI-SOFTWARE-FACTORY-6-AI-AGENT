@@ -90,7 +90,8 @@ Mặc định nền tối như ảnh, giữ cơ chế chủ đề hiện có. M�
 | **Cần bạn** | `#FF6B5E` | Duy nhất cho thứ cần quyết định (huy hiệu, chấm, nút Duyệt cần chú ý) |
 | Đang chạy / Xong / Thông tin | `#F0A53A` / `#4CC38A` / `#6EA8FE` | Chỉ báo trạng thái, không dùng làm nền lớn |
 
-- Chữ: một họ sans có dấu tiếng Việt đầy đủ, cỡ nội dung 15–16 px, độ dài dòng dưới 80 ký tự; chữ đơn cách cho mã việc, mã nhánh, số.
+- **Chữ (đã chọn sau khi xem mock):** Be Vietnam Pro cho nội dung (thiết kế riêng cho tiếng Việt), Bricolage Grotesque cho tiêu đề (chỗ cá tính duy nhất về chữ), JetBrains Mono cho mã việc, mã nhánh, diff. Cả ba theo giấy phép OFL và có đủ dấu tiếng Việt. Bản thật tự lưu phông cùng ứng dụng, không tải từ Internet; việc thêm tệp phông cần bạn duyệt như một thành phần mới.
+- **Điểm nhấn (mỗi cái có lý do):** màu nhận diện cho từng dự án (tông lạnh: lục lam, tím, hồng, không trùng màu trạng thái); vạch đỏ cam bên trái khung "Cần xử lý"; chấm "Đang chạy" nhấp nháy nhẹ (chuyển động duy nhất liên tục, chỉ cho việc đang chạy); các việc cần xử lý trượt vào một lần khi mở trang; diff có số dòng và vạch xanh cho dòng thêm; ô nhập có vòng sáng khi đang gõ; tên người dùng trong lời chào có màu.
 - Nút chính: nền sáng trên nền tối (như ảnh), một nút chính mỗi vùng.
 - Chuyển động: chỉ phản hồi thao tác (mở khung, di chuyển thẻ), có hỗ trợ giảm chuyển động.
 - Chất lượng tối thiểu: hiển thị tốt đến màn hình điện thoại, focus nhìn rõ, tương phản WCAG AA, điều khiển bằng bàn phím (xem `ecc-frontend-a11y`, `ecc-accessibility`).
