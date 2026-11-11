@@ -427,7 +427,7 @@ Chi tiết: [13-team-workflow-documents.md](13-team-workflow-documents.md). Phi�
 | Apache Tika | máy chủ Java | Apache-2.0 | Trích xuất định dạng rộng | **Không chọn**: thêm JVM, bố cục yếu |
 | Pandoc, PyMuPDF | | GPL-2.0, AGPL-3.0 | Chuyển đổi, đọc PDF | **Loại** khỏi đường xử lý mặc định: giấy phép sao chép bắt buộc |
 
-Đề xuất **OSS-16** (chờ duyệt cùng 13 §7): `@dagrejs/dagre` cho sơ đồ; bộ xem trước `pdfjs-dist`, `mammoth`, `exceljs`, `papaparse`, `react-markdown`/`remark-gfm`/`rehype-sanitize`, `shiki`; MarkItDown làm bộ chuyển đổi doc-worker trong venv ghim hash. Docling và OCRmyPDF chờ D3.
+Đề xuất **OSS-16** (**Đã duyệt 12/11/2026** cùng 13 §7): `@dagrejs/dagre` cho sơ đồ; bộ xem trước `pdfjs-dist`, `mammoth`, `exceljs`, `papaparse`, `react-markdown`/`remark-gfm`/`rehype-sanitize`, `shiki`; MarkItDown làm bộ chuyển đổi doc-worker trong venv ghim hash. Docling và OCRmyPDF chờ D3.
 
 ---
 
@@ -544,7 +544,7 @@ Số sao làm tròn để tham khảo, không phải tiêu chí chính. "NOASSER
 | 07/11/2026 | Đồng bộ giai đoạn 5–6 | Thêm §6B, §6C; OSS-11 (croner, cockatiel), OSS-12 (Fastify, better-sqlite3, Kysely, pino, OpenTelemetry) Đã duyệt |
 | 08/11/2026 | Mở rộng Pack (M3+) | Thêm §3 O11: khảo sát gateway MCP, MCP Registry, `allowed-tools`; OSS-14 đã duyệt (phương án A) |
 | 10/11/2026 | Context Engineering | Thêm §6E; OSS-15 đề xuất (không dùng framework memory), chờ duyệt |
-| 12/11/2026 | Đội, Quy trình, Tài liệu | Thêm §6F; OSS-16 đề xuất (dagre, bộ xem trước, MarkItDown), chờ duyệt |
+| 12/11/2026 | Đội, Quy trình, Tài liệu | Thêm §6F; OSS-16 (dagre, bộ xem trước, MarkItDown) Đã duyệt cùng 13 §7 |
 
 ---
 

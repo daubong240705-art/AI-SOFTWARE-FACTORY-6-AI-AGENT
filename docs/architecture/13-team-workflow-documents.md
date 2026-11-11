@@ -2,7 +2,7 @@
 
 | Mục | Nội dung |
 |---|---|
-| Trạng thái | **Draft 12/11/2026**, chờ người dùng duyệt các quyết định ở §7 |
+| Trạng thái | **Đã duyệt 12/11/2026**: người dùng đồng ý toàn bộ T1–T3, W1–W3, D1–D8 ở §7 |
 | Đề bài | Người dùng (11–12/11/2026): trang Đội khó hiểu, muốn kiểu "ai đang làm gì" như ảnh mẫu; trang Quy trình muốn sơ đồ kiểu n8n; trang Tri thức thành thư viện tài liệu chứa cả doc/pdf/file sinh ra, có xem trước, và có bộ công cụ xử lý tài liệu để giảm tải cho agent |
 | Phạm vi | `apps/factory-host`, `packages/factory-contracts`, `apps/factory-ui`. Không đụng V1 |
 | Không làm | Chưa viết mã, chưa migration, chưa cài thư viện. Tài liệu này chỉ để chốt phương án |
@@ -365,7 +365,7 @@ Phần Host luôn có test (vitest Host, chạy cả Windows và WSL). Phần UI
 | Tài liệu D2 | 3–4 | worker, MCP, venv |
 | Quy trình V2 | 2 | |
 
-## 7. Quyết định cần duyệt
+## 7. Quyết định (đã duyệt 12/11/2026: "đồng ý tất cả")
 
 | # | Câu hỏi | Đề xuất |
 |---|---|---|
