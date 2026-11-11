@@ -312,3 +312,51 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
   .project-board-toolbar .task-filter { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) { .project-dock, .project-status::before { animation: none; transition: none; } }
+
+/* U-E1: Read-only workflow master-detail and automation lists. */
+.m5-screen { min-width: 0; padding: var(--space-xl); overflow-wrap: anywhere; }
+.m5-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); margin-bottom: var(--space-lg); }
+.m5-toolbar h2 { margin: 0; font-family: var(--display); }
+.m5-screen ul { list-style: none; margin: 0; padding: 0; }
+.m5-empty, .m5-screen time { color: var(--muted); }
+.workflow-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-xl); align-items: start; }
+.workflow-layout.has-selection { grid-template-columns: minmax(0, 28fr) minmax(0, 72fr); }
+.m5-list, .m5-detail { min-width: 0; }
+.m5-row { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-sm); width: 100%; padding: var(--space-md); border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; text-align: left; }
+.m5-row:hover:enabled { background: var(--surface); }
+.m5-row[aria-current="true"] { background: var(--raised); box-shadow: inset var(--space-xs) 0 var(--info); }
+.m5-row > * { max-width: 100%; }
+.m5-row > span, .m5-row time { font-size: var(--type-meta-size); }
+.m5-detail { border-left: 1px solid var(--line); padding-left: var(--space-xl); }
+.m5-status { display: inline-flex; align-items: center; gap: var(--space-sm); color: var(--muted); font-size: var(--type-meta-size); }
+.m5-status::before { content: ''; flex: none; width: var(--space-sm); height: var(--space-sm); border-radius: 50%; background: var(--muted); }
+.m5-status-info::before { background: var(--info); }
+.m5-status-run::before { background: var(--run); }
+.m5-status-ok::before { background: var(--ok); }
+.m5-status-need::before { background: var(--need); }
+.workflow-stages { margin: 0 0 var(--space-lg); padding-left: var(--space-lg); }
+.workflow-stages > li { padding: var(--space-md) 0; border-bottom: 1px solid var(--line); }
+.workflow-stages > li > strong, .workflow-stages > li > span { display: block; margin-bottom: var(--space-sm); }
+.workflow-stages > li > .m5-status { display: inline-flex; }
+.m5-task-links { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.m5-task-code { max-width: 100%; font-family: var(--mono); }
+.m5-screen details { margin-top: var(--space-sm); font-size: var(--type-meta-size); color: var(--muted); }
+.m5-screen summary { cursor: pointer; }
+.m5-screen dd { margin: 0 0 var(--space-sm); }
+.automation-screen { display: flex; flex-direction: column; gap: var(--space-xl); }
+.automation-screen .m5-toolbar { margin-bottom: 0; }
+.automation-screen section { min-width: 0; }
+.automation-screen h3 { margin: 0 0 var(--space-md); font-family: var(--display); }
+.automation-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm) var(--space-lg); padding: var(--space-md) 0; border-bottom: 1px solid var(--line); }
+.automation-row > strong { flex: 1 1 30%; min-width: 0; }
+.automation-row > span, .automation-row > time { font-size: var(--type-meta-size); }
+.automation-row > details { flex-basis: 100%; }
+@media (max-width: 900px) {
+  .workflow-layout.has-selection { grid-template-columns: minmax(0, 1fr); }
+  .m5-detail { border-left: 0; border-top: 1px solid var(--line); padding: var(--space-lg) 0 0; }
+}
+@media (max-width: 600px) {
+  .m5-screen { padding: var(--space-md); }
+  .automation-row > strong { flex-basis: 100%; }
+  .automation-row > * { min-width: 0; max-width: 100%; }
+}

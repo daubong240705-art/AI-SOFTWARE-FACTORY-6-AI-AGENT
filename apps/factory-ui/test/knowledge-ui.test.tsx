@@ -32,11 +32,11 @@ async function browse(rows: KnowledgeItem[] = [item]) {
 async function open() {
   const value = await browse(); const opener = screen.getByRole('button', { name: /Knowledge document/ }); opener.focus(); fireEvent.click(opener); await act(flush); return { ...value, opener };
 }
-it('third tab is Knowledge and has a linked panel', async () => {
+it('fifth tab is Knowledge and has a linked panel', async () => {
   const { store } = await setup(); render(<ProjectView store={store} project={projectSchema.parse(project)} />);
-  expect(screen.getAllByRole('tab')).toHaveLength(3); const tab = screen.getByRole('tab', { name: 'Knowledge' }); fireEvent.click(tab); await act(flush); expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(tab.id); expect(screen.getByRole('search')).toBeTruthy();
+  expect(screen.getAllByRole('tab')).toHaveLength(5); const tab = screen.getByRole('tab', { name: 'Knowledge' }); fireEvent.click(tab); await act(flush); expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(tab.id); expect(screen.getByRole('search')).toBeTruthy();
 });
-it('tab keyboard wraps left and right over three tabs', async () => {
+it('tab keyboard wraps left and right over five tabs', async () => {
   const { store } = await setup(); render(<ProjectView store={store} project={projectSchema.parse(project)} />);
   const first = screen.getByRole('tab', { name: 'Overview' }); fireEvent.keyDown(first, { key: 'ArrowLeft' }); await act(flush);
   const last = screen.getByRole('tab', { name: 'Knowledge' }); expect(document.activeElement).toBe(last); expect(last.tabIndex).toBe(0); expect(first.tabIndex).toBe(-1);

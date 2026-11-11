@@ -134,6 +134,16 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await shot(page, "05e-dossier-briefing");
     await page.getByRole("tab", { name: "Overview", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Requests", exact: true })).toHaveCount(0); // the section exists only when there is a request
+    // M5 read models parse the real Host responses: the tabs load without an error notice.
+    await page.getByRole("tab", { name: "Workflow", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Workflow", exact: true })).toBeVisible();
+    await expect(page.getByText("No workflow instances yet.").or(page.getByRole("list", { name: "Workflow instances" }))).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await shot(page, "05g-workflow");
+    await page.getByRole("tab", { name: "Automation", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Schedules", exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await shot(page, "05h-automation");
     await nav().getByRole("button", { name: "Team", exact: true }).click();
     await expect(page.getByText("Multi-team management is unavailable on this Host.").or(page.getByText("Create team from pack")).first()).toBeVisible({ timeout: 20_000 });
     await shot(page, "05f-teams");

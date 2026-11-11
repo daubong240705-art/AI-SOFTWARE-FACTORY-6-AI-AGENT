@@ -15,6 +15,10 @@ export const approval: Approval = { id, projectId: id, revision: 1, kind: 'quest
 
 export function setupUI(options: Pick<StoreOptions, 'timer' | 'debounceMs'> = {}) {
   const api = {
+    listWorkflows: vi.fn().mockResolvedValue({ instances: [] }), getWorkflow: vi.fn(),
+    listSchedules: vi.fn().mockResolvedValue({ ...envelope, items: [] }), listRules: vi.fn().mockResolvedValue({ ...envelope, items: [] }),
+    listMonitors: vi.fn().mockResolvedValue({ ...envelope, items: [] }), listBreakers: vi.fn().mockResolvedValue({ routes: [], teams: [] }),
+    listScheduleOccurrences: vi.fn().mockResolvedValue({ ...envelope, items: [] }), listRuleFires: vi.fn().mockResolvedValue({ ...envelope, items: [] }), listMonitorEvents: vi.fn().mockResolvedValue({ ...envelope, items: [] }),
     listTeams: vi.fn().mockResolvedValue({ teams: [] }), listPacks: vi.fn().mockResolvedValue({ packs: [] }), getTeamQueue: vi.fn().mockResolvedValue({ items: [] }),
     listRequests: vi.fn().mockResolvedValue({ ...envelope, items: [] }), getRequest: vi.fn(), getDossier: vi.fn().mockResolvedValue({ ...envelope, dossier: null }), getBriefing: vi.fn(), getTaskContext: vi.fn().mockResolvedValue({ ...envelope, packs: [] }),
     csrfToken: null,

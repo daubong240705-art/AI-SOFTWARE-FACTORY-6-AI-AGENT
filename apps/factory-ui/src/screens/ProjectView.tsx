@@ -8,10 +8,12 @@ import { ProjectChat } from './ProjectChat';
 import { ProjectTasks } from './ProjectTasks';
 import { ProjectOverview } from './ProjectOverview';
 import { ProjectKnowledge } from './ProjectKnowledge';
+import { ProjectWorkflow } from './ProjectWorkflow';
+import { ProjectAutomation } from './ProjectAutomation';
 import { DossierPanel } from './Dossier';
 import { useNavigation, type ProjectTab } from './shell/navigation';
 
-const tabs = ['overview', 'board', 'knowledge'] as const;
+const tabs = ['overview', 'board', 'workflow', 'automation', 'knowledge'] as const;
 export function ProjectView({ store, project, tab, onTabChange, openChat = false, onChatOpened }: {
   store: Store; project: Project; tab?: ProjectTab; onTabChange?: (tab: ProjectTab) => void; openChat?: boolean; onChatOpened?: () => void;
 }) {
@@ -50,6 +52,8 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
       <div className="project-tab-content" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${active}`} tabIndex={0}>
         {active === 'overview' && <ProjectOverview store={store} onOpenTask={openTask} />}
         {active === 'board' && <ProjectTasks store={store} projectId={project.id} selectedTask={selected} onOpenTask={openTask} onCloseTask={() => setSelected(null)} newTaskOpen={creating} newTaskId={`${id}-new-task`} />}
+        {active === 'workflow' && <ProjectWorkflow key={project.id} store={store} projectId={project.id} onOpenTask={openTask} />}
+        {active === 'automation' && <ProjectAutomation key={project.id} store={store} projectId={project.id} />}
         {active === 'knowledge' && <div className="project-knowledge stack"><section className="stack" aria-labelledby={`${id}-documents`}><h2 id={`${id}-documents`}>{t('projectUi.documents')}</h2><ProjectKnowledge store={store} projectId={project.id} /></section><DossierPanel store={store} /></div>}
       </div>
       {chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock" onClose={() => setChat(false)} fallbackFocus={() => ask.current}>

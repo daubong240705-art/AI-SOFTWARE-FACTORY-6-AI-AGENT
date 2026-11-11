@@ -5,6 +5,7 @@ import { ApiClientError, createApiClient, type ApiClient, type ArtifactContent, 
 import { openProjectEvents, type ProjectEventsOptions, type StreamStatus } from '../api/events';
 import type { Inbox, Effect } from '../api/client';
 import type { KnowledgeArtifact, KnowledgeFilters, KnowledgeItem, KnowledgeResult } from '../api/client';
+import { emptyM5, type M5State } from './m5';
 
 export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean };
 const emptyKnowledge = (): KnowledgeState => ({ query: '', filters: {}, results: [], list: [], detail: {}, loading: {}, errors: {}, hasMore: false });
@@ -17,6 +18,7 @@ const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], requests: [], 
 export type M3State = { teams: OrgTeam[]; packs: Awaited<ReturnType<ApiClient['listPacks']>>['packs']; queues: Record<string, Awaited<ReturnType<ApiClient['getTeamQueue']>>['items']>; disabled: boolean; requestTargets: RequestItem[]; requests: RequestItem[]; requestDetails: Record<string, RequestDetail>; dossier: Dossier | null; briefing: Briefing | null; contexts: Record<string, TaskContext[]> };
 const emptyM3 = (): M3State => ({ teams: [], packs: [], queues: {}, disabled: false, requestTargets: [], requests: [], requestDetails: {}, dossier: null, briefing: null, contexts: {} });
 export type StoreState = {
+  m5: M5State;
   m3: M3State;
   session: 'unknown' | 'anonymous' | 'authenticated'; projects: Project[]; selectedProjectId: string | null;
   team: TeamResponse | null; tasks: Task[]; conversations: Conversation[];
@@ -34,7 +36,7 @@ export type StoreOptions = {
   openEvents?: (options: ProjectEventsOptions) => { close(): void };
   timer?: { setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 };
-const projectState = () => ({ m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
+const projectState = () => ({ m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
@@ -50,6 +52,7 @@ export function createStore(options: StoreOptions = {}) {
   type Job = { run: () => Promise<void>; promise?: Promise<void>; dirty: boolean; timer?: unknown };
   const jobs = new Map<string, Job>();
   const openM3 = new Map<string, () => Promise<void>>();
+  const openM5 = new Map<string, () => Promise<void>>();
   const openTasks = new Set<string>();
   const openKnowledge = new Set<string>();
   let knowledgeOpen = false;
@@ -76,7 +79,7 @@ export function createStore(options: StoreOptions = {}) {
     generation++;
     stream?.close(); stream = undefined;
     for (const job of jobs.values()) if (job.timer !== undefined) timer.clearTimeout(job.timer);
-    jobs.clear(); openM3.clear();
+    jobs.clear(); openM3.clear(); openM5.clear();
     openTasks.clear(); openTaskCounts.clear(); contentCache.clear(); openKnowledge.clear(); knowledgeOpen = false; knowledgeRevision++;
   };
   const anonymous = () => {
@@ -157,6 +160,31 @@ export function createStore(options: StoreOptions = {}) {
   const loadBriefing = (since?: string) => readM3('briefing', async id => { const result = await api.getBriefing(id, since); return { briefing: result }; });
   const loadContext = (taskId: string) => readM3(`context:${taskId}`, async id => ({ contexts: { ...state.m3.contexts, [taskId]: (await api.getTaskContext(id, taskId)).packs } }));
   const loadProjects = (debounce = false) => enqueue('projects', generation, async () => ({ projects: (await api.listProjects()).projects }), debounce);
+  function readM5(area: string, work: (id: string) => Promise<Partial<M5State>>) {
+    const id = state.selectedProjectId;
+    if (!id || state.session !== 'authenticated') return Promise.resolve();
+    return enqueue(area, generation, async () => {
+      const patch = await work(id);
+      return { get m5() { return { ...state.m5, ...patch,
+        workflowDetails: { ...state.m5.workflowDetails, ...patch.workflowDetails },
+        occurrences: { ...state.m5.occurrences, ...patch.occurrences }, fires: { ...state.m5.fires, ...patch.fires }, monitorEvents: { ...state.m5.monitorEvents, ...patch.monitorEvents },
+      }; } };
+    });
+  }
+  const loadWorkflow = (instanceId: string) => readM5(`workflow:${instanceId}`, async id => ({ workflowDetails: { [instanceId]: (await api.getWorkflow(id, instanceId)).instance } }));
+  async function loadWorkflows() {
+    const scope = generation;
+    await readM5('workflows', async id => ({ workflows: (await api.listWorkflows(id)).instances }));
+    if (active(scope) && !state.errors.workflows) await Promise.all(state.m5.workflows.map(item => loadWorkflow(item.id)));
+  }
+  const loadSchedules = () => readM5('schedules', async id => ({ schedules: (await api.listSchedules(id)).items }));
+  const loadRules = () => readM5('rules', async id => ({ rules: (await api.listRules(id)).items }));
+  const loadMonitors = () => readM5('monitors', async id => ({ monitors: (await api.listMonitors(id)).items }));
+  const loadBreakers = () => readM5('breakers', async id => ({ breakers: await api.listBreakers(id) }));
+  const loadAutomation = async () => { await Promise.all([loadSchedules(), loadRules(), loadMonitors(), loadBreakers()]); };
+  const loadScheduleOccurrences = (scheduleId: string) => readM5(`occurrences:${scheduleId}`, async id => ({ occurrences: { [scheduleId]: (await api.listScheduleOccurrences(id, scheduleId)).items } }));
+  const loadRuleFires = (ruleId: string) => readM5(`fires:${ruleId}`, async id => ({ fires: { [ruleId]: (await api.listRuleFires(id, ruleId)).items } }));
+  const loadMonitorEvents = (monitorId: string) => readM5(`monitor-events:${monitorId}`, async id => ({ monitorEvents: { [monitorId]: (await api.listMonitorEvents(id, monitorId)).items } }));
   function knowledgePatch(patch: Partial<KnowledgeState>): Partial<StoreState> {
     // Resolve at publication so list and detail responses completing together merge.
     return { get knowledge() { return { ...state.knowledge, ...patch, detail: { ...state.knowledge.detail, ...patch.detail } }; } };
@@ -369,6 +397,7 @@ export function createStore(options: StoreOptions = {}) {
     });
   }
   async function refresh() {
+    for (const read of openM5.values()) void read();
     for (const read of openM3.values()) void read();
     if (knowledgeOpen) void readKnowledge();
     for (const id of openKnowledge) void loadKnowledgeDetail(id);
@@ -391,6 +420,14 @@ export function createStore(options: StoreOptions = {}) {
   function applyEvent(event: FactoryEvent) {
     if (event.projectId !== state.selectedProjectId) return;
     const payload = event.payload;
+    if (['entity.changed', 'workflow.state-changed', 'monitor.changed', 'task.status-changed', 'artifact.status-changed'].includes(payload.type)) {
+      for (const [area, read] of openM5) {
+        const key = `refresh:${area}`;
+        const previous = jobs.get(key); if (previous?.timer !== undefined) timer.clearTimeout(previous.timer);
+        const job: Job = { run: read, dirty: false }; jobs.set(key, job);
+        job.timer = timer.setTimeout(() => { if (openM5.has(area)) void read(); }, options.debounceMs ?? 150);
+      }
+    }
     if (payload.type === 'entity.changed' || payload.type === 'artifact.status-changed' || payload.type === 'task.status-changed') {
       for (const [area, read] of openM3) {
         const key = `refresh:${area}`;
@@ -460,6 +497,9 @@ export function createStore(options: StoreOptions = {}) {
       anonymous();
     },
     loadProjects: () => loadProjects(),
+    loadWorkflows, loadWorkflow, loadAutomation, loadSchedules, loadRules, loadMonitors, loadBreakers,
+    loadScheduleOccurrences, loadRuleFires, loadMonitorEvents,
+    watchM5: (area: 'workflows' | 'automation', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
     loadTeams, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
     watchM3: (area: string, read: () => Promise<void>) => { openM3.set(area, read); void read(); return () => { openM3.delete(area); }; },

@@ -2,9 +2,10 @@ import { m3Models } from './m3Models';
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
-import { readModels, type KnowledgePage } from './readModels';
+import { readModels, m5ReadModels, type KnowledgePage } from './readModels';
 export type { KnowledgeResult, KnowledgeItem, KnowledgeArtifact, KnowledgeFilters, KnowledgePage } from './readModels';
 export type { Attempt, AttemptEvent, AttemptPatch, TaskArtifact, ArtifactContent, Inbox, Effect } from './readModels';
+export type { WorkflowInstance, WorkflowDetail, WorkflowStage, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './readModels';
 
 // Extend exported strict contract objects to validate the Host's HTTP envelopes without
 // importing their private schema-library dependency into this package.
@@ -129,6 +130,15 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     getKnowledgeArtifact: (id: string, artifactId: string) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact),
     listTaskApprovals: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/approvals`, readModels.approvals),
+    listWorkflows: (id: string) => request(`${projectPath(id)}/workflows`, m5ReadModels.workflows),
+    getWorkflow: (id: string, instanceId: string) => request(`${projectPath(id)}/workflows/${encodeURIComponent(instanceId)}`, m5ReadModels.workflow),
+    listSchedules: (id: string) => request(`${projectPath(id)}/schedules`, m5ReadModels.schedules),
+    listRules: (id: string) => request(`${projectPath(id)}/rules`, m5ReadModels.rules),
+    listMonitors: (id: string) => request(`${projectPath(id)}/monitors`, m5ReadModels.monitors),
+    listBreakers: (id: string) => request(`${projectPath(id)}/breakers`, m5ReadModels.breakers),
+    listScheduleOccurrences: (id: string, scheduleId: string) => request(`${projectPath(id)}/schedules/${encodeURIComponent(scheduleId)}/occurrences`, m5ReadModels.occurrences),
+    listRuleFires: (id: string, ruleId: string) => request(`${projectPath(id)}/rules/${encodeURIComponent(ruleId)}/fires`, m5ReadModels.fires),
+    listMonitorEvents: (id: string, monitorId: string) => request(`${projectPath(id)}/monitors/${encodeURIComponent(monitorId)}/events`, m5ReadModels.monitorEvents),
     async getInbox(id: string) {
       const inbox = await request(`${projectPath(id)}/inbox`, readModels.inbox);
       return { ...inbox, startGates: inbox.startGates.map(item => ({ ...item, projectId: id })), requests: (inbox.requests ?? []).map(item => ({ ...item, projectId: id })), stalledWorkflows: (inbox.stalledWorkflows ?? []).map(item => ({ ...item, projectId: id })) };

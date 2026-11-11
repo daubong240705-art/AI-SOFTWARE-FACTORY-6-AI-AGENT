@@ -15,6 +15,8 @@ afterEach(() => { cleanup(); stores.splice(0).forEach(store => store.dispose());
 const tabs = [
   ['overview', 'Overview', `#/project/${id}`],
   ['board', 'Board', `#/project/${id}/board`],
+  ['workflow', 'Workflow', `#/project/${id}/workflow`],
+  ['automation', 'Automation', `#/project/${id}/automation`],
   ['knowledge', 'Knowledge', `#/project/${id}/knowledge`],
 ] as const;
 
@@ -31,7 +33,7 @@ async function shell(hash = `#/project/${id}`) {
 function selected(name: string) {
   const list = within(screen.getByRole('tablist', { name: 'Project views' }));
   const buttons = list.getAllByRole('tab');
-  expect(buttons.map(button => button.textContent)).toEqual(['Overview', 'Board', 'Knowledge']);
+  expect(buttons.map(button => button.textContent)).toEqual(['Overview', 'Board', 'Workflow', 'Automation', 'Knowledge']);
   expect(list.getAllByRole('tab', { selected: true })).toEqual([list.getByRole('tab', { name })]);
   for (const button of buttons) expect(button.tabIndex).toBe(button.textContent === name ? 0 : -1);
   const active = list.getByRole('tab', { name });
@@ -56,7 +58,7 @@ it('builds Overview without a suffix and accepts the explicit overview alias', (
 it.each([
   ['a/b c', 'a%2Fb%20c'], ['project?#%', 'project%3F%23%25'],
   ['%2F', '%252F'], ['dự án', 'd%E1%BB%B1%20%C3%A1n'], ['a\\b', 'a%5Cb'],
-])('round trips the encoded project id %s on all three tabs', (projectId, encoded) => {
+])('round trips the encoded project id %s on all five tabs', (projectId, encoded) => {
   for (const [tab] of tabs) {
     const hash = `#/project/${encoded}${tab === 'overview' ? '' : `/${tab}`}`;
     expect(viewHash(`project:${projectId}`, tab)).toBe(hash);
@@ -77,7 +79,7 @@ it.each([
   expect(viewHash(parseHash(hash), projectTab(hash))).toBe('#/overview');
 });
 
-it.each(tabs)('restores exactly three wired tabs at %s on load and remount', async (_tab, name, hash) => {
+it.each(tabs)('restores exactly five wired tabs at %s on load and remount', async (_tab, name, hash) => {
   const { store, unmount } = await shell(hash);
   selected(name); expect(location.hash).toBe(hash);
   unmount(); render(<AppShell store={store} />);
@@ -85,14 +87,15 @@ it.each(tabs)('restores exactly three wired tabs at %s on load and remount', asy
   await act(async () => {});
 });
 
-it('supports roving focus, wrapping arrows, Home and End across three tabs', async () => {
+it('supports roving focus, wrapping arrows, Home and End across five tabs', async () => {
   await shell();
   selected('Overview').focus();
   const moves: Array<[string, string, ProjectTab]> = [
-    ['ArrowRight', 'Board', 'board'], ['ArrowRight', 'Knowledge', 'knowledge'],
+    ['ArrowRight', 'Board', 'board'], ['ArrowRight', 'Workflow', 'workflow'],
+    ['ArrowRight', 'Automation', 'automation'], ['ArrowRight', 'Knowledge', 'knowledge'],
     ['ArrowRight', 'Overview', 'overview'], ['ArrowLeft', 'Knowledge', 'knowledge'],
     ['Home', 'Overview', 'overview'], ['End', 'Knowledge', 'knowledge'],
-    ['ArrowLeft', 'Board', 'board'],
+    ['ArrowLeft', 'Automation', 'automation'], ['ArrowLeft', 'Workflow', 'workflow'], ['ArrowLeft', 'Board', 'board'],
   ];
   for (const [key, name, tab] of moves) {
     fireEvent.keyDown(document.activeElement!, { key });

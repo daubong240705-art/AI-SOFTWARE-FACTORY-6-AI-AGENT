@@ -11,6 +11,10 @@ const stores: Store[] = [];
 afterEach(() => { stores.forEach((store) => store.dispose()); stores.length = 0; vi.useRealTimers(); });
 function setup() {
   const api = {
+    listWorkflows: vi.fn().mockResolvedValue({ instances: [] }), getWorkflow: vi.fn(),
+    listSchedules: vi.fn().mockResolvedValue({ ...envelope, items: [] }), listRules: vi.fn().mockResolvedValue({ ...envelope, items: [] }),
+    listMonitors: vi.fn().mockResolvedValue({ ...envelope, items: [] }), listBreakers: vi.fn().mockResolvedValue({ routes: [], teams: [] }),
+    listScheduleOccurrences: vi.fn().mockResolvedValue({ ...envelope, items: [] }), listRuleFires: vi.fn().mockResolvedValue({ ...envelope, items: [] }), listMonitorEvents: vi.fn().mockResolvedValue({ ...envelope, items: [] }),
     listTeams: vi.fn().mockResolvedValue({ teams: [] }), listPacks: vi.fn().mockResolvedValue({ packs: [] }), getTeamQueue: vi.fn().mockResolvedValue({ items: [] }),
     listRequests: vi.fn().mockResolvedValue({ ...envelope, items: [] }), getRequest: vi.fn(), getDossier: vi.fn().mockResolvedValue({ ...envelope, dossier: null }), getBriefing: vi.fn(), getTaskContext: vi.fn().mockResolvedValue({ ...envelope, packs: [] }),
     csrfToken: null,
