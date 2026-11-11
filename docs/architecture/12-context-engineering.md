@@ -440,7 +440,7 @@ chọn model hoặc mức suy luận theo loại Task, và giữ Task nhỏ.
 |---|---|
 | CE-0b: đầu ra Task phụ thuộc thành input của Context Pack | **Xong** (commit e6b10e8) |
 | CE-0a: nhánh tích hợp `factory/integration` của Project (gộp khi review chấp nhận, Task mới bắt đầu từ đó, chặn khi gộp chờ hoặc xung đột, Operator retry/skip; migration 0021) | **Xong** (commit này); test git thật chỉ chạy trên Linux |
-| CE-D8: chạy lại baseline textstats để so sánh | **Xong** (§13.7) |
+| CE-D8: chạy lại baseline textstats để so sánh | **Xong** (§13.7 một lần; §13.8 A/B có đối chứng 3 + 3 lần) |
 
 Ghi chú CE-0a: `skip` cho các Task phụ thuộc chạy tiếp mà **không có** công việc của Task bị bỏ qua. Nhánh tích hợp nằm trong clone của Project và chưa có effect nào đẩy nó lên remote.
 
@@ -462,3 +462,30 @@ Cùng dự án, cùng model, cùng yêu cầu; Operator vẫn là tôi. **Đây 
 Điều đã được chứng minh: Task sau thấy code đã duyệt của Task trước, nên không phải đào git và không bịa. Điều **chưa** chứng minh: mức giảm token là do CE-0a/0b hay do kế hoạch khác;
 xung đột gộp chưa gặp ở lần chạy thật (đã có test với git thật). Hai Task chạy song song (TSK-002, TSK-003) gộp sạch vì sửa các file khác nhau.
 Quan sát thêm: tóm tắt Artifact của agent chỉ có L0 (không có L1), nên Context Pack chỉ mang tóm tắt ngắn của các đầu ra phụ thuộc; code đến qua workspace.
+
+### 13.8 A/B có đối chứng: bản cũ và bản mới, 3 lần mỗi bên (11/11/2026)
+
+**Thiết kế.** Cùng dự án, cùng model (`ds/deepseek-v4-pro`), **cùng kế hoạch cố định 5 Task** (bỏ qua Lead để loại biến thể kế hoạch) với phụ thuộc T1 → T2, T1 → T3, T2 → T4, {T1,T2} → T5.
+Mọi review được **tự động chấp nhận** (không có yếu tố con người). Bản cũ là commit `30454dd` (trước CE-0a/0b); bản mới là `c2d3ff6`. Chạy xen kẽ new-1, old-1, new-2, old-2, new-3, old-3.
+
+| Chỉ số (trung bình 3 lần) | Bản cũ | Bản mới | Tỉ lệ |
+|---|---|---|---|
+| Task hoàn thành | 5/5 ×3 | 5/5 ×3 | — |
+| Lời gọi model | 130,7 (125, 148, 119) | **55,7** (52, 59, 56) | 2,3 lần ít hơn |
+| Token vào | 2,26 triệu | **0,79 triệu** | 2,9 lần ít hơn |
+| Token ra | 104,8 nghìn | **15,3 nghìn** | 6,8 lần ít hơn |
+| Thời gian chạy | 12,5 phút | **2,2 phút** | 5,7 lần nhanh hơn |
+| Task phụ thuộc thấy file của Task trước trong worktree của nó | **0/12** | **12/12** | — |
+| Test của TSK-003, TSK-004 chạy riêng trong worktree của nó | 0 pass (lỗi/không chạy) ở cả 6 | pass hết (18–34 test mỗi Task) | — |
+| Bước git để tự tìm code của Task trước (mỗi Task phụ thuộc) | 5–12 | 0–2 | — |
+| Context Pack: số input phụ thuộc | 0 | 2–4 mỗi Task phụ thuộc | — |
+| Gộp nhánh tích hợp | không có | 15/15 sạch | — |
+| Kiểm tra tích hợp (gộp tất cả nhánh rồi chạy test) | pass 30, 20, 16 | pass 28, 34, 23; 0 lỗi | tương đương |
+
+**Điều rút ra**
+- Chất lượng cuối **tương đương** (cả hai bên đều cho bộ test tích hợp chạy đạt). Khác biệt nằm ở **chi phí và khả năng kiểm chứng từng Task**: bản cũ khiến mỗi Task phụ thuộc tự viết lại phần code của Task trước
+  (token ra gấp khoảng 7 lần) và test của nó không thể chạy riêng, nên người review không xác minh được.
+- Mức giảm token vào/ra và thời gian được giải thích bởi cơ chế đã sửa, vì kế hoạch đã cố định. Tuy vậy, đây là **3 lần mỗi bên, một dự án nhỏ, một model**; chưa nói được gì về dự án lớn, model khác hay nhiều Team.
+- Bản cũ gặp thêm một lần agent hỏi câu quyết định (old-2) khiến runner đầu tiên lỗi; đã chạy lại và giữ cả hai dòng.
+- Hạn chế: review tự động chấp nhận nên không đo được chất lượng review; tóm tắt của agent vẫn chỉ có L0.
+- Chi phí tiền vẫn **chưa có giá** (chỉ có số token).
