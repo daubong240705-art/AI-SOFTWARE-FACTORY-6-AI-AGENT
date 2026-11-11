@@ -1,5 +1,18 @@
 export const extra = {
   global: { projects: 'Projects' },
+  reviewUi: {
+    result: 'Result', activity: 'Activity', context: 'Context', documents: 'Handoff documents',
+    history: 'Previous attempts', noChanges: 'This attempt did not change any files.',
+    view: 'View', hide: 'Hide', showLess: 'Show less', changes: 'Changes', summary: 'Summary',
+    document: 'Document', attempt: 'Attempt', note: 'Note', recommended: 'Recommended',
+    test: 'Tests', integration: 'Merge into integration branch', notReported: 'Not reported',
+    changeCount: '{files} files, +{added} -{removed}', patchHash: 'Changes hash',
+    noDocuments: 'No handoff documents for this attempt.', noCriteria: 'No acceptance criteria provided.',
+    contentUnavailable: 'Text preview is unavailable for this document type.',
+    waiting: 'If you wait: {impact}', record: 'Record', branch: 'Branch', failures: 'Failures',
+    checkReported: 'Reported by the agent', noSummary: 'No summary was provided for this attempt.',
+    noHistory: 'No previous attempts.', recordNumber: 'Record number', verified: 'Verified', unverified: 'Not verified',
+  },
   viewStates: { loading: 'Loading…' },
   attention: {"empty": "All caught up.", "list": "Attention items", "detail": "Item details", "move": "move", "approve": "Approve", "answer": "Answer", "requestChanges": "Request changes", "requestChangesConfirm": "Confirm request changes", "reject": "Reject", "open": "Open", "technicalDetails": "Technical details", "identifier": "ID", "instance": "Workflow", "digest": "Context digest", "revision": "Revision", "facts": "Review facts", "checks": "Automatic checks", "noChecks": "No check outcome reported.", "integration": "Integration branch", "release": "Release", "taskUnavailable": "Task unavailable. Refresh to try again.", "selected": "Selected", "kinds": {"review": "Review", "question": "Question", "start-gate": "Start gate", "request": "Request", "plan-patch": "Plan patch", "stalled-workflow": "Stalled workflow", "team-breaker": "Team paused by breaker", "integration-conflict": "Integration conflict", "quarantined-rule": "Quarantined rule", "monitor": "Monitor not healthy"}},
   nav: { main: 'Main navigation', overview: 'Overview', attention: 'Needs attention', team: 'Team', settings: 'Settings', preferences: 'Preferences', collapse: 'Collapse', expand: 'Expand sidebar', close: 'Close navigation', addProject: 'New project', skip: 'Skip to content' },

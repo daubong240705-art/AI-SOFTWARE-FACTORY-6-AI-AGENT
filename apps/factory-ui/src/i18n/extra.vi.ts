@@ -3,6 +3,19 @@ import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
   global: { projects: 'Dự án' },
+  reviewUi: {
+    result: 'Kết quả', activity: 'Hoạt động', context: 'Bối cảnh', documents: 'Tài liệu bàn giao',
+    history: 'Các lần chạy trước', noChanges: 'Lần chạy này không thay đổi file nào.',
+    view: 'Xem', hide: 'Ẩn', showLess: 'Thu gọn', changes: 'Thay đổi', summary: 'Tóm tắt',
+    document: 'Tài liệu', attempt: 'Lần chạy', note: 'Ghi chú', recommended: 'Khuyến nghị',
+    test: 'Test', integration: 'Gộp vào nhánh tích hợp', notReported: 'Chưa có thông tin',
+    changeCount: '{files} file, +{added} -{removed}', patchHash: 'Mã băm thay đổi',
+    noDocuments: 'Lần chạy này chưa có tài liệu bàn giao.', noCriteria: 'Chưa có tiêu chí nghiệm thu.',
+    contentUnavailable: 'Chưa hỗ trợ xem văn bản cho loại tài liệu này.',
+    waiting: 'Nếu chờ: {impact}', record: 'Bản ghi', branch: 'Nhánh', failures: 'Số lần lỗi',
+    checkReported: 'Agent đã báo cáo', noSummary: 'Lần chạy này chưa có tóm tắt.',
+    noHistory: 'Chưa có lần chạy trước.', recordNumber: 'Số bản ghi', verified: 'Đã kiểm chứng', unverified: 'Chưa kiểm chứng',
+  },
   viewStates: { loading: 'Đang tải…' },
   attention: {
     empty: 'Bạn đã xử lý xong mọi việc.', list: 'Các mục cần xử lý', detail: 'Chi tiết mục', move: 'di chuyển',

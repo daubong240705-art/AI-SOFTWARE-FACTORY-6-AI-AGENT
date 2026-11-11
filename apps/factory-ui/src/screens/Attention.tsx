@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button } from '../components/Button';
+import { CheckCheck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
@@ -9,6 +14,7 @@ import { attentionItems, type AttentionItem } from './shell/attention';
 import { relativeTime } from './Inbox';
 import { ProjectTile } from './shell/ProjectTile';
 import { GatePanel, PatchPanel, ReadOnlyPanel } from './attention/Details';
+import { attentionTitle } from './attention/presentation';
 
 export function attentionHash(key?: string): string { return key ? `#/attention/${encodeURIComponent(key)}` : '#/attention'; }
 function hashKey(): string | undefined {
@@ -89,19 +95,21 @@ export function Attention({ store }: { store: Store }) {
   }
   const name = (row: AttentionItem) => row.projectName ?? state.projects.find(project => project.id === row.projectId)?.name ?? t('overview.project');
   if (state.session !== 'authenticated') return null;
-  return <div className="attention-screen">
-    <section className="attention-list" aria-labelledby="attention-list-title"><h1 id="attention-list-title">{t('nav.attention')}</h1>
-      {state.loading.globalInbox && <p role="status">{t('viewStates.loading')}</p>}
+  return <div className="grid h-full min-h-0 grid-cols-1 overflow-auto bg-background text-foreground md:grid-cols-[340px_minmax(0,1fr)] md:overflow-hidden">
+    <section className="min-h-0 overflow-auto border-b border-border md:border-r md:border-b-0" aria-labelledby="attention-list-title">
+      <header className="flex items-center gap-3 px-5 py-5"><h1 id="attention-list-title" className="font-display text-xl font-semibold tracking-tight">{t('nav.attention')}</h1><Badge variant="secondary" className="tabular-nums">{rows.length}</Badge></header>
+      {state.loading.globalInbox && <div role="status" className="space-y-3 px-5 pb-4"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-5 w-4/5" /><Skeleton className="h-4 w-3/5" /></div>}
       {state.errors.globalInbox && <><ErrorNotice error={state.errors.globalInbox} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></>}
-      {!rows.length && !state.loading.globalInbox && !state.errors.globalInbox && <p className="attention-empty">{t('attention.empty')} <a href="#/overview">{t('nav.overview')}</a></p>}
-      <ul ref={list} aria-label={t('attention.list')}>{rows.map(row => {
+      {!rows.length && !state.loading.globalInbox && !state.errors.globalInbox && <Empty className="px-5 py-12 md:p-5"><EmptyHeader><EmptyMedia variant="icon"><CheckCheck /></EmptyMedia><EmptyDescription>{t('attention.empty')}</EmptyDescription></EmptyHeader><Button asChild variant="outline"><a href="#/overview">{t('nav.overview')}</a></Button></Empty>}
+      <ul ref={list} aria-label={t('attention.list')} className="m-0 list-none p-0">{rows.map(row => {
         const code = row.code ?? state.tasks.find(task => task.projectId === row.projectId && task.id === state.globalInbox.approvals.find(approval => `approval:${approval.id}` === row.key)?.taskId)?.code;
-        return <li key={row.key}><button type="button" aria-current={selected?.key === row.key ? 'true' : undefined} className="attention-item" onClick={() => select(row)}>
-          <strong>{t(`attention.kinds.${row.kind}`)}: {row.title}</strong><span className="attention-project"><ProjectTile id={row.projectId} name={name(row)} /><span>{name(row)}</span>{code && <span>{code}</span>}{!row.since.startsWith('9999') && <time dateTime={row.since}>{relativeTime(row.since)}</time>}</span>
-        </button></li>;
+        return <li key={row.key}><Button type="button" variant="ghost" aria-current={selected?.key === row.key ? 'true' : undefined} aria-selected={selected?.key === row.key} className={cn('h-auto w-full flex-col items-stretch gap-2 rounded-none border-t border-l-2 border-t-border border-l-transparent px-5 py-3 text-left whitespace-normal hover:bg-card', selected?.key === row.key && 'border-l-need bg-secondary hover:bg-secondary')} onClick={() => select(row)}>
+          <span className="flex items-start gap-3"><strong className="min-w-0 flex-1 text-sm leading-relaxed font-semibold break-words">{attentionTitle(row.title)}</strong>{row.actionable && <span aria-label={t('inboxUi.needsDecision')} className="mt-2 size-1.5 shrink-0 rounded-full bg-need" />}</span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal text-muted-foreground"><ProjectTile id={row.projectId} name={name(row)} className="h-5 w-6" /><span>{name(row)}</span>{code && <span className="font-mono">{code}</span>}{!row.since.startsWith('9999') && <time dateTime={row.since} className="ml-auto">{relativeTime(row.since)}</time>}</span>
+        </Button></li>;
       })}</ul>
     </section>
-    <section ref={pane} tabIndex={-1} className="attention-detail" aria-label={t('attention.detail')}>
+    <section ref={pane} tabIndex={-1} className="flex min-h-0 min-w-0 flex-col overflow-auto outline-none" aria-label={t('attention.detail')}>
       {selected && (readyProject === selected.projectId && state.selectedProjectId === selected.projectId
         ? <AttentionDetail key={selected.key} store={store} row={selected} onSuccess={decided} /> : <p role="status">{t('viewStates.loading')}</p>)}
     </section>
