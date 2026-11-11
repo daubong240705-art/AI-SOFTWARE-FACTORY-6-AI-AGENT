@@ -28,7 +28,7 @@ function useCompact() {
 
 export function AppShell({ store }: { store: Store }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
-  const { view, tab, navigate } = useNavigation();
+  const { view, tab, teamTab, navigate } = useNavigation();
   const [chatProject, setChatProject] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -60,7 +60,7 @@ export function AppShell({ store }: { store: Store }) {
       <Reveal key={view} className="h-full min-h-0">
       {view === 'overview' ? <Overview store={store} onProject={id => { setChatProject(id); go(`project:${id}`); }} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} focusComposer={focusComposer} onTask={openTask} />
         : view === 'needs-attention' ? <Attention store={store} />
-        : view === 'team' ? <Teams store={store} />
+        : view === 'team' ? <Teams store={store} tab={teamTab} onTabChange={next => navigate('team', 'overview', next)} onTask={openTask} />
         : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} tab={tab} onTabChange={next => navigate(view, next)} openChat={chatProject === selected.id} onChatOpened={() => setChatProject(null)} initialTaskId={initialTask?.projectId === selected.id ? initialTask.taskId : undefined} />
         : <p role="status">{t('viewStates.loading')}</p>}
       </Reveal>

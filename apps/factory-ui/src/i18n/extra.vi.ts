@@ -23,6 +23,18 @@ export const extra: Translated<typeof en> = {
     teamsDescription: 'Quản lý đội, vị trí và năng lực thực hiện trong các dự án.', createFromPack: 'Tạo đội từ gói',
     engagements: 'Dự án tham gia', running: 'Đang chạy', teamActions: 'Thao tác với đội',
   },
+  activityUi: {
+    moreRuns: '+{count} nữa',
+    doing: 'Đang làm gì',
+    title: 'Đội', description: 'Ai đang làm gì, ai đang chờ bạn.', updated: 'Cập nhật', justNow: 'vừa xong',
+    secondsAgo: '{count} giây trước', minutesAgo: '{count} phút trước', refresh: 'Làm mới', onlyMine: 'Chỉ việc cần tôi',
+    machines: 'Máy chạy', slots: '{used}/{total} slot', heartbeat: 'nhịp {count} giây trước', noHeartbeat: 'chưa có nhịp',
+    agents: '{count} agent', active: 'Đang hoạt động', config: 'Cấu hình', noTeams: 'Chưa có đội nào. Mở tab Cấu hình để tạo đội từ gói.', noNeeds: 'Không có việc nào cần bạn.',
+    working: 'Đang chạy {count}', waiting: 'Chờ bạn {count}', problem: 'Có vấn đề {count}', queued: 'Xếp hàng {count}', idle: 'Rảnh {count}',
+    status: { waiting: 'Chờ bạn', problem: 'Có vấn đề', working: 'Đang chạy', queued: 'Xếp hàng', done: 'Vừa xong', idle: 'Rảnh' },
+    noWork: 'Không có việc', queuedWork: '{count} việc đang chờ', finished: 'Xong {code} {time}', answer: 'Trả lời', waitingFor: 'Đang chờ bạn trả lời {code}',
+    attempt: { 'lease-expired': 'Mất kết nối', unknown: 'Không rõ kết quả', reconciling: 'Đang đối soát', failed: 'Lần chạy thất bại' },
+  },
   reviewUi: {
     result: 'Kết quả', activity: 'Hoạt động', context: 'Bối cảnh', documents: 'Tài liệu bàn giao',
     history: 'Các lần chạy trước', noChanges: 'Lần chạy này không thay đổi file nào.',

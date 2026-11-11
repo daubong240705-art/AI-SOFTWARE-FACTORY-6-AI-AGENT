@@ -1,5 +1,6 @@
 import { m3Models } from './m3Models';
 import { settingsReadModels } from './settingsModels';
+import { activityReadModel } from './activityModels';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
@@ -96,6 +97,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     return params.size ? `?${params}` : '';
   };
   return {
+    getOrgActivity: () => request('/org/activity', activityReadModel),
     listTeams: () => request('/teams', m3Models.teams),
     listPacks: () => request('/packs', m3Models.packs),
     getTeamQueue: (id: string) => request(`/teams/${encodeURIComponent(id)}/queue`, m3Models.queue),

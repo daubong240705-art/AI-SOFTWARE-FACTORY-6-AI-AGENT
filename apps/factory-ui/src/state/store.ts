@@ -8,6 +8,7 @@ import type { KnowledgeArtifact, KnowledgeFilters, KnowledgeItem, KnowledgeResul
 import { emptyM5, type M5State } from './m5';
 import { emptySettings, type SettingsState } from './settings';
 import { notifyCommandSuccess } from './toasts';
+import { emptyActivity, type ActivityState } from './activity';
 
 export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean };
 const emptyKnowledge = (): KnowledgeState => ({ query: '', filters: {}, results: [], list: [], detail: {}, loading: {}, errors: {}, hasMore: false });
@@ -20,6 +21,7 @@ const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], requests: [], 
 export type M3State = { teams: OrgTeam[]; packs: Awaited<ReturnType<ApiClient['listPacks']>>['packs']; queues: Record<string, Awaited<ReturnType<ApiClient['getTeamQueue']>>['items']>; disabled: boolean; requestTargets: RequestItem[]; requests: RequestItem[]; requestDetails: Record<string, RequestDetail>; dossier: Dossier | null; briefing: Briefing | null; contexts: Record<string, TaskContext[]> };
 const emptyM3 = (): M3State => ({ teams: [], packs: [], queues: {}, disabled: false, requestTargets: [], requests: [], requestDetails: {}, dossier: null, briefing: null, contexts: {} });
 export type StoreState = {
+  activity: ActivityState;
   settings: SettingsState;
   m5: M5State;
   m3: M3State;
@@ -39,7 +41,7 @@ export type StoreOptions = {
   openEvents?: (options: ProjectEventsOptions) => { close(): void };
   timer?: { setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 };
-const projectState = () => ({ settings: emptySettings(), m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
+const projectState = () => ({ activity: emptyActivity(), settings: emptySettings(), m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
@@ -157,6 +159,8 @@ export function createStore(options: StoreOptions = {}) {
     }, false, () => m3Revisions.get(area) === revision);
   }
   const loadTeams = () => readM3('teams', async () => { const [teams, packs] = await Promise.all([api.listTeams(), api.listPacks()]); return { teams: teams.teams, packs: packs.packs }; });
+  const loadActivity = () => state.session !== 'authenticated' ? Promise.resolve()
+    : enqueue('activity', generation, async () => ({ activity: await api.getOrgActivity() }));
   const loadQueue = (teamId: string) => readM3(`queue:${teamId}`, async () => ({ queues: { ...state.m3.queues, [teamId]: (await api.getTeamQueue(teamId)).items } }));
   const loadRequests = (filters: { state?: string; team?: string } = {}) => readM3('requests', async id => ({ requests: (await api.listRequests(id, filters)).items }));
   const loadRequestTargets = () => readM3('request-targets', async id => ({ requestTargets: (await api.listRequests(id)).items }));
@@ -435,6 +439,13 @@ export function createStore(options: StoreOptions = {}) {
   }
   function applyEvent(event: FactoryEvent) {
     if (event.projectId !== state.selectedProjectId) return;
+    const activityRead = openM3.get('activity');
+    if (activityRead) {
+      const key = 'refresh:activity';
+      const previous = jobs.get(key); if (previous?.timer !== undefined) timer.clearTimeout(previous.timer);
+      const job: Job = { run: activityRead, dirty: false }; jobs.set(key, job);
+      job.timer = timer.setTimeout(() => { if (openM3.has('activity')) void activityRead(); }, 1000);
+    }
     const payload = event.payload;
     if (['entity.changed', 'workflow.state-changed', 'monitor.changed', 'task.status-changed', 'artifact.status-changed'].includes(payload.type)) {
       for (const [area, read] of openM5) {
@@ -446,6 +457,7 @@ export function createStore(options: StoreOptions = {}) {
     }
     if (payload.type === 'entity.changed' || payload.type === 'artifact.status-changed' || payload.type === 'task.status-changed') {
       for (const [area, read] of openM3) {
+        if (area === 'activity') continue;
         const key = `refresh:${area}`;
         const previous = jobs.get(key); if (previous?.timer !== undefined) timer.clearTimeout(previous.timer);
         const job: Job = { run: read, dirty: false }; jobs.set(key, job);
@@ -531,6 +543,16 @@ export function createStore(options: StoreOptions = {}) {
     watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
     loadTeams, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
+    loadActivity,
+    watchActivity: () => {
+      openM3.set('activity', loadActivity); void loadActivity();
+      return () => {
+        openM3.delete('activity');
+        const job = jobs.get('refresh:activity');
+        if (job?.timer !== undefined) timer.clearTimeout(job.timer);
+        jobs.delete('refresh:activity');
+      };
+    },
     watchM3: (area: string, read: () => Promise<void>) => { openM3.set(area, read); void read(); return () => { openM3.delete(area); }; },
     searchKnowledge, loadKnowledgeList: (filters: KnowledgeFilters = {}) => searchKnowledge('', filters),
     loadKnowledgeMore: () => readKnowledge(true), cancelKnowledgeSearch,

@@ -20,6 +20,18 @@ export const extra = {
     teamsDescription: 'Manage your teams, seats and project capacity.', createFromPack: 'Create team from pack',
     engagements: 'Project engagements', running: 'Running', teamActions: 'Team actions',
   },
+  activityUi: {
+    moreRuns: '+{count} more',
+    doing: 'Who is doing what',
+    title: 'Team', description: 'Who is doing what, and who is waiting for you.', updated: 'Updated', justNow: 'just now',
+    secondsAgo: '{count} seconds ago', minutesAgo: '{count} minutes ago', refresh: 'Refresh', onlyMine: 'Only work needing me',
+    machines: 'Machines', slots: '{used}/{total} slots', heartbeat: 'heartbeat {count} seconds ago', noHeartbeat: 'no heartbeat',
+    agents: '{count} agents', active: 'Active', config: 'Configuration', noTeams: 'No teams yet. Open Configuration to create a team from a pack.', noNeeds: 'No work needs your attention.',
+    working: 'Working {count}', waiting: 'Waiting for you {count}', problem: 'Problems {count}', queued: 'Queued {count}', idle: 'Idle {count}',
+    status: { waiting: 'Waiting for you', problem: 'Has a problem', working: 'Working', queued: 'Queued', done: 'Just finished', idle: 'Idle' },
+    noWork: 'No work', queuedWork: '{count} queued tasks', finished: 'Finished {code} {time}', answer: 'Answer', waitingFor: 'Waiting for your answer: {code}',
+    attempt: { 'lease-expired': 'Disconnected', unknown: 'Unknown result', reconciling: 'Reconciling', failed: 'Run failed' },
+  },
   reviewUi: {
     result: 'Result', activity: 'Activity', context: 'Context', documents: 'Handoff documents',
     history: 'Previous attempts', noChanges: 'This attempt did not change any files.',
