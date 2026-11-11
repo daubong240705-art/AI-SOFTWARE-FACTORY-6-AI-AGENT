@@ -129,8 +129,23 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     getKnowledgeArtifact: (id: string, artifactId: string) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact),
     listTaskApprovals: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/approvals`, readModels.approvals),
-    getInbox: (id: string) => request(`${projectPath(id)}/inbox`, readModels.inbox),
-    getGlobalInbox: () => request('/inbox', readModels.globalInbox),
+    async getInbox(id: string) {
+      const inbox = await request(`${projectPath(id)}/inbox`, readModels.inbox);
+      return { ...inbox, startGates: inbox.startGates.map(item => ({ ...item, projectId: id })), requests: (inbox.requests ?? []).map(item => ({ ...item, projectId: id })), stalledWorkflows: (inbox.stalledWorkflows ?? []).map(item => ({ ...item, projectId: id })) };
+    },
+    async getGlobalInbox() {
+      const inbox = await request('/inbox', readModels.globalInbox);
+      // Older Hosts omit the project on global stalled-workflow rows. Resolve ownership
+      // using scoped inboxes, without guessing or dropping rows from the global count.
+      if (!(inbox.stalledWorkflows ?? []).some(item => !item.projectId)) return inbox;
+      const owners = await request('/projects', projects);
+      const scoped = await Promise.all(owners.projects.map(async project => ({ project, inbox: await request(`${projectPath(project.id)}/inbox`, readModels.inbox) })));
+      return { ...inbox, stalledWorkflows: (inbox.stalledWorkflows ?? []).map(item => {
+        const owner = scoped.find(entry => entry.inbox.stalledWorkflows?.some(row => row.instanceId === item.instanceId));
+        if (!owner) throw new ApiClientError('bad-response');
+        return { ...item, projectId: owner.project.id, projectName: owner.project.name };
+      }) };
+    },
     getApproval: (id: string, approvalId: string) => request(`${projectPath(id)}/approvals/${encodeURIComponent(approvalId)}`, readModels.approval),
     getEffectRemotes: () => request('/effects/remotes', readModels.remotes),
     listAttemptEffects: (id: string, attemptId: string) => request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/effects`, readModels.effects),

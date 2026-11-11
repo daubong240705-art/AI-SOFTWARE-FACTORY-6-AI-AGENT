@@ -5,7 +5,7 @@ export function viewHash(view: View): string {
   return view.startsWith('project:') ? `#/project/${encodeURIComponent(view.slice(8))}` : view === 'needs-attention' ? '#/attention' : `#/${view}`;
 }
 export function parseHash(hash: string): View {
-  if (hash === '#/attention') return 'needs-attention';
+  if (hash === '#/attention' || hash.startsWith('#/attention/')) return 'needs-attention';
   if (hash === '#/team') return 'team';
   const project = /^#\/project\/([^/]+)$/.exec(hash);
   if (project?.[1]) {
@@ -18,7 +18,7 @@ export function useNavigation() {
   useEffect(() => {
     const sync = () => {
       const next = parseHash(location.hash);
-      if (location.hash !== viewHash(next)) history.replaceState(null, '', viewHash(next));
+      if (location.hash !== viewHash(next) && !(next === 'needs-attention' && /^#\/attention\/[^/]+$/.test(location.hash))) history.replaceState(null, '', viewHash(next));
       setView(next);
     };
     sync(); window.addEventListener('hashchange', sync); window.addEventListener('popstate', sync);

@@ -2,6 +2,19 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  attention: {
+    empty: 'Bạn đã xử lý xong mọi việc.', list: 'Các mục cần xử lý', detail: 'Chi tiết mục', move: 'di chuyển',
+    approve: 'Duyệt', answer: 'Trả lời', requestChanges: 'Yêu cầu sửa', requestChangesConfirm: 'Xác nhận yêu cầu sửa',
+    reject: 'Từ chối', open: 'Mở', technicalDetails: 'Chi tiết kỹ thuật', identifier: 'Mã định danh', instance: 'Quy trình',
+    digest: 'Mã băm ngữ cảnh', revision: 'Bản sửa đổi', facts: 'Thông tin xét duyệt', checks: 'Kiểm tra tự động',
+    noChecks: 'Chưa có kết quả kiểm tra.', integration: 'Nhánh tích hợp', release: 'Cho phép chạy',
+    taskUnavailable: 'Không tải được công việc. Hãy làm mới để thử lại.', selected: 'Đã chọn',
+    kinds: {
+      review: 'Xét duyệt', question: 'Câu hỏi', 'start-gate': 'Chờ cho phép chạy', request: 'Yêu cầu', 'plan-patch': 'Sửa kế hoạch',
+      'stalled-workflow': 'Quy trình bị kẹt', 'team-breaker': 'Đội tạm dừng do ngắt mạch',
+      'integration-conflict': 'Xung đột tích hợp', 'quarantined-rule': 'Quy tắc bị cách ly', monitor: 'Chỉ số bất thường',
+    },
+  },
   nav: { main: 'Điều hướng chính', overview: 'Tổng quan', attention: 'Cần xử lý', team: 'Đội', settings: 'Cài đặt', preferences: 'Tùy chọn', collapse: 'Thu gọn', expand: 'Mở rộng thanh bên', close: 'Đóng điều hướng', addProject: 'Dự án mới', skip: 'Đến nội dung' },
   overview: { greeting: 'Xin chào', waiting: '{count} việc đang chờ bạn', composer: 'Giao việc hoặc hỏi Lead', message: 'Nội dung gửi Lead', placeholder: 'Hỏi hoặc mô tả việc cần làm…', project: 'Dự án', ask: 'Hỏi', delegate: 'Giao việc', toSend: 'để gửi', caughtUp: 'Bạn đã xử lý xong mọi việc.', viewAll: 'Xem tất cả', conversationUnavailable: 'Cuộc trò chuyện chưa sẵn sàng. Hãy thử lại.' },
   m3: m3Vi,

@@ -4,6 +4,8 @@ import { envelope, failure, id, otherId, response } from './fixtures';
 import { review, inbox, globalInbox, effect } from './inbox-fixtures';
 
 type Route = { name: string; invoke: (api: ApiClient) => Promise<unknown>; body: Record<string, unknown>; field: string; path: string; post?: object };
+const emptyExtras = { requests: [], patches: [], monitors: [], stalledWorkflows: [], quarantinedRules: [], teamBreakers: [], integrationConflicts: [] };
+const expectedBody = (route: Route) => route.name.endsWith('inbox') ? { ...route.body, ...emptyExtras } : route.body;
 const routes: Route[] = [
   { name: 'project inbox', invoke: api => api.getInbox(id), body: { ...envelope, ...inbox }, field: 'approvals', path: `/projects/${id}/inbox` },
   { name: 'global inbox', invoke: api => api.getGlobalInbox(), body: { ...envelope, ...globalInbox }, field: 'startGates', path: '/inbox' },
@@ -16,12 +18,12 @@ const routes: Route[] = [
 for (const route of routes) {
   it(`${route.name}: validates and routes with cookies and no-store`, async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response(route.body));
-    await expect(route.invoke(createApiClient({ fetchImpl }))).resolves.toEqual(route.body);
+    await expect(route.invoke(createApiClient({ fetchImpl }))).resolves.toEqual(expectedBody(route));
     expect(fetchImpl).toHaveBeenCalledWith(route.path, expect.objectContaining({ method: route.post ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', ...(route.post ? { body: JSON.stringify(route.post) } : {}) }));
   });
   it(`${route.name}: rejects a missing required field`, async () => { const body = { ...route.body }; delete body[route.field]; await expect(route.invoke(createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response(body)) }))).rejects.toMatchObject({ kind: 'bad-response' }); });
   it(`${route.name}: rejects a wrong field type`, async () => { await expect(route.invoke(createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response({ ...route.body, [route.field]: 42 })) }))).rejects.toMatchObject({ kind: 'bad-response' }); });
-  it(`${route.name}: discards unknown envelope fields`, async () => { await expect(route.invoke(createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response({ ...route.body, extra: 'PRIVATE' })) }))).resolves.toEqual(route.body); });
+  it(`${route.name}: discards unknown envelope fields`, async () => { await expect(route.invoke(createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response({ ...route.body, extra: 'PRIVATE' })) }))).resolves.toEqual(expectedBody(route)); });
   it(`${route.name}: rejects a wrong API version`, async () => { await expect(route.invoke(createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response({ ...route.body, apiVersion: 2 })) }))).rejects.toMatchObject({ kind: 'bad-response' }); });
   it(`${route.name}: reports 401 and calls unauthorized observer`, async () => { const onUnauthorized = vi.fn(); await expect(route.invoke(createApiClient({ onUnauthorized, fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response({}, 401)) }))).rejects.toMatchObject({ status: 401 }); expect(onUnauthorized).toHaveBeenCalledOnce(); });
   it(`${route.name}: hides server error text`, async () => { const result: unknown = await route.invoke(createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response({ ...failure, error: { ...failure.error, message: 'SERVER_SECRET' } }, 409)) })).catch((error: unknown) => error); expect(result).toMatchObject({ code: 'conflict' }); expect(String(result)).not.toContain('SERVER_SECRET'); });

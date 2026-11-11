@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { expect, test, type Page } from '@playwright/test';
+import { englishLight, preference } from '../helpers';
 
 // Real Host in WSL (see playwright.work.config.ts / e2e/work-host.mjs). The model is a scripted local fake; everything
 // else is real: Host, SQLite, git clone + worktree, bubblewrap sandbox, OpenCode, proxy, MCP, approvals, push.
@@ -21,7 +22,9 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
   let page: Page;
   test.beforeAll(async ({ browser }) => {
     expect(token, 'E2E_WORK_TOKEN must be set').not.toBe('');
-    page = await (await browser.newContext()).newPage();
+    const context = await browser.newContext();
+    await context.addInitScript(englishLight);
+    page = await context.newPage();
   });
   test.afterAll(async () => { await page.context().close(); });
 
@@ -44,6 +47,17 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await row.getByRole('button', { name: 'Accept', exact: true }).click();
     await page.getByRole('group', { name: 'Task views', exact: true }).getByRole('button', { name: 'Board', exact: true }).click();
   }
+  const nav = () => page.getByRole('navigation');
+  const attentionButton = () => nav().getByRole('button', { name: /^Needs attention/ });
+  const announcement = () => page.locator('[data-attention-announcement]');
+  async function backToProject() {
+    await nav().getByRole('button', { name: /^Demo project/ }).click();
+    await page.getByRole('tab', { name: 'Tasks', exact: true }).click();
+  }
+  async function backToProjectVi() {
+    await nav().getByRole('button', { name: /^Demo project/ }).click();
+    await page.getByRole('tab', { name: /^Công việc/ }).click();
+  }
   async function openTask(title: string) {
     await page.getByRole('button', { name: new RegExp(title) }).first().click();
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -53,8 +67,8 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await page.goto('/');
     await page.getByLabel('Bootstrap token', { exact: true }).fill(token);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
-    await page.getByRole('navigation').getByRole('button', { name: 'Create project', exact: true }).click();
+    await expect(nav().getByRole('button', { name: 'Overview', exact: true })).toBeVisible();
+    await nav().getByRole('button', { name: 'Create project', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Create project', exact: true });
     await dialog.getByLabel('Project name', { exact: true }).fill('Demo project');
     await dialog.getByRole('radio', { name: 'Git project (existing clone)', exact: true }).check();
@@ -120,28 +134,27 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await shot(page, "05e-dossier-briefing");
     await page.getByRole("tab", { name: "Requests", exact: true }).click();
     await expect(page.getByText("Nothing here yet.").first()).toBeVisible({ timeout: 20_000 });
-    await page.getByRole("button", { name: "Teams", exact: true }).click();
+    await nav().getByRole("button", { name: "Team", exact: true }).click();
     await expect(page.getByText("Multi-team management is unavailable on this Host.").or(page.getByText("Create team from pack")).first()).toBeVisible({ timeout: 20_000 });
     await shot(page, "05f-teams");
-    await page.getByRole("button", { name: /^Demo project/ }).click();
-    await page.getByRole("tab", { name: "Tasks", exact: true }).click();
+    await backToProject();
   });
-  test("the Inbox badge leads to the review; accepting finishes the task", async () => {
-    const inbox = page.getByRole("button", { name: /^Inbox/ }).first();
-    await expect(inbox).toBeVisible();
-    await inbox.click();
-    const list = page.getByRole("dialog");
+  test("the Needs attention badge leads to the review; accepting finishes the task", async () => {
+    await expect(attentionButton()).toBeVisible();
+    await attentionButton().click();
+    const list = page.getByRole("list", { name: "Attention items" });
     await expect(list.getByText("Write the agent notes").first()).toBeVisible();
-    await shot(page, "06-inbox");
-    await list.getByRole("button", { name: "Review", exact: true }).first().click();
-    const decision = page.getByRole("dialog").last();
-    await expect(decision.getByText("Accept").first()).toBeVisible();
+    const detail = page.getByRole("region", { name: "Item details" });
+    await expect(detail.getByRole("button", { name: "Approve", exact: true })).toBeVisible({ timeout: 20_000 });
+    await shot(page, "06-attention");
+    await detail.getByRole("button", { name: "Approve", exact: true }).click();
+    const confirm = detail.getByRole("group", { name: "Confirm task action", exact: true });
+    await expect(confirm).toBeVisible();
     await shot(page, "07-decision");
-    await decision.getByRole("radio", { name: /Accept/ }).check();
-    await decision.getByRole("button", { name: "Decide", exact: true }).click();
-    await decision.getByRole("group", { name: "Confirm task action", exact: true }).getByRole("button").first().click();
-    await expect(page.getByText("Decision recorded.").first()).toBeVisible({ timeout: 20_000 });
-    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click(); // the Inbox list stays open after a decision
+    await confirm.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(announcement()).toContainText("Decision recorded.", { timeout: 20_000 });
+    await expect(list.getByText("Write the agent notes")).toHaveCount(0);
+    await backToProject();
   });
 
   test("the accepted branch can be pushed to the configured remote, and only that branch", async () => {
@@ -170,21 +183,22 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await page.getByRole("button", { name: "Start", exact: true }).click();
     await page.getByRole("group", { name: "Confirm task action", exact: true }).getByRole("button").first().click();
     await page.getByRole("button", { name: "Close task", exact: true }).click();
-    // The agent asks; the question reaches the Inbox while the attempt is parked.
-    await page.getByRole("button", { name: /^Inbox/ }).first().click();
-    const list = page.getByRole("dialog");
-    await expect(list.getByText("Which format should the notes use?").first()).toBeVisible({ timeout: 90_000 });
-    await shot(page, "10-question-inbox");
-    await list.getByRole("button", { name: "Answer", exact: true }).first().click();
-    const decision = page.getByRole("dialog").last();
+    // The agent asks; the question reaches Needs attention while the attempt is parked.
+    await attentionButton().click();
+    const list = page.getByRole("list", { name: "Attention items" });
+    const question = list.getByRole("button", { name: /Which format should the notes use?/ }).first();
+    await expect(question).toBeVisible({ timeout: 90_000 });
+    await question.click();
+    const decision = page.getByRole("region", { name: "Item details" });
+    await shot(page, "10-question-attention");
     await expect(decision.getByText("Recommended").first()).toBeVisible();
     await shot(page, "11-question");
     await decision.getByRole("radio", { name: /Short/ }).check();
     await decision.getByLabel("Comment").fill("Keep it short please.");
-    await decision.getByRole("button", { name: "Decide", exact: true }).click();
-    await decision.getByRole("group", { name: "Confirm task action", exact: true }).getByRole("button").first().click();
-    await expect(page.getByText("Decision recorded.").first()).toBeVisible({ timeout: 20_000 });
-    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click(); // the Inbox list stays open after a decision
+    await decision.getByRole("button", { name: "Answer", exact: true }).click();
+    await decision.getByRole("group", { name: "Confirm task action", exact: true }).getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(announcement()).toContainText("Decision recorded.", { timeout: 20_000 });
+    await backToProject();
     // A new attempt starts with the decision in its handoff and finishes in review.
     await openTask("Write notes after a question");
     await page.getByRole("tab", { name: "Progress", exact: true }).click();
@@ -195,13 +209,14 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
   });
 
   test("Vietnamese, dark theme and a phone-sized screen keep the screens usable", async () => {
-    await page.getByLabel("Language", { exact: true }).selectOption({ label: "Tiếng Việt" });
-    await page.getByLabel(/Giao diện|Theme/).selectOption({ index: 1 });
+    await (await preference(page, "Theme")).selectOption({ label: "Dark" });
+    await (await preference(page, "Language")).selectOption({ label: "Tiếng Việt" });
+    await page.keyboard.press("Escape");
     await page.getByRole("button", { name: /Write notes after a question/ }).first().waitFor();
     await shot(page, "13-vietnamese-dark-board");
-    await page.getByRole("button", { name: /^Inbox|Hộp thư/ }).first().click();
-    await shot(page, "14-vietnamese-dark-inbox");
-    await page.keyboard.press("Escape");
+    await nav().getByRole("button", { name: /^Cần xử lý/ }).click();
+    await shot(page, "14-vietnamese-dark-attention");
+    await backToProjectVi();
     await page.setViewportSize({ width: 390, height: 800 });
     await page.getByRole("button", { name: /Write notes after a question/ }).first().click();
     await shot(page, "15-mobile-detail");

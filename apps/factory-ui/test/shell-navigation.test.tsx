@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { AppShell } from '../src/screens/AppShell';
+import { attentionHash } from '../src/screens/Attention';
 import { parseHash, viewHash, type View } from '../src/screens/shell/navigation';
 import type { Store } from '../src/state/store';
 import { id, otherId } from './fixtures';
@@ -30,8 +31,10 @@ it.each<[string, string | RegExp, string]>([
   if (hash.includes('/project/')) await screen.findByRole('tab', { name: 'Chat' });
   expect(screen.getByRole('main', { name: pageName })).toBeTruthy();
   expect(screen.getAllByRole('status').some(node => node.textContent === pageName)).toBe(true);
+  const selectedHash = hash === '#/attention' ? attentionHash(`approval:${review.id}`) : hash;
+  expect(location.hash).toBe(selectedHash);
   unmount(); render(<AppShell store={store} />);
-  await waitFor(() => current(name)); expect(location.hash).toBe(hash);
+  await waitFor(() => current(name)); expect(location.hash).toBe(selectedHash);
 });
 
 it.each(['', '#/unknown', '#/project/', '#/project/%', '#/project/%20', '#/project/a/b'])('normalizes unknown or malformed hash %j to Overview', async hash => {
@@ -46,7 +49,7 @@ it('sidebar selection updates the hash and uses the existing project selection a
   await screen.findByRole('tab', { name: 'Chat' }); current('Second project');
   expect(location.hash).toBe(`#/project/${otherId}`); expect(select).toHaveBeenCalledExactlyOnceWith(otherId);
   fireEvent.click(screen.getByRole('button', { name: /^Needs attention,/ }));
-  current(/^Needs attention,/); expect(location.hash).toBe('#/attention');
+  current(/^Needs attention,/); expect(location.hash).toBe(attentionHash(`approval:${review.id}`));
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole('main'));
 });
@@ -76,8 +79,8 @@ it('Overview attention rows open the attention page with that approval selected'
   const { api } = await shell(); api.getApproval.mockResolvedValue({ approval: review });
   const card = screen.getByRole('complementary', { name: 'Needs attention' });
   fireEvent.click(within(card).getByRole('button', { name: /Review patch/ }));
-  await screen.findByRole('radiogroup'); current(/^Needs attention,/);
-  expect(location.hash).toBe('#/attention'); expect(api.getApproval).toHaveBeenCalledWith(id, review.id);
+  await screen.findByRole('button', { name: 'Approve' }); current(/^Needs attention,/);
+  expect(location.hash).toBe(attentionHash(`approval:${review.id}`)); expect(api.getApproval).toHaveBeenCalledWith(id, review.id);
 });
 
 it.each<View>(['overview', 'needs-attention', 'team', 'project:a/b c'])('round trips typed view %s through a URL-safe hash', view => {

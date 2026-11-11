@@ -13,7 +13,7 @@ export type StoreError = { kind: string; message: string; correlationId?: string
 export type PendingCommand = { command: Command; status: 'pending' | 'failed'; error?: StoreError };
 export type TaskDetailState = { loading: boolean; error?: StoreError | undefined; attempts: Attempt[]; events: Record<string, AttemptEvent[]>; artifacts: TaskArtifact[]; approvals: Approval[]; patches: Record<string, AttemptPatch | null>; effects: Record<string, Effect[]> };
 const emptyDetail = (): TaskDetailState => ({ loading: false, attempts: [], events: {}, artifacts: [], approvals: [], patches: {}, effects: {} });
-const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], counts: { approvals: 0, startGates: 0, total: 0 } });
+const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], requests: [], patches: [], monitors: [], stalledWorkflows: [], quarantinedRules: [], teamBreakers: [], integrationConflicts: [], counts: { approvals: 0, startGates: 0, total: 0 } });
 export type M3State = { teams: OrgTeam[]; packs: Awaited<ReturnType<ApiClient['listPacks']>>['packs']; queues: Record<string, Awaited<ReturnType<ApiClient['getTeamQueue']>>['items']>; disabled: boolean; requestTargets: RequestItem[]; requests: RequestItem[]; requestDetails: Record<string, RequestDetail>; dossier: Dossier | null; briefing: Briefing | null; contexts: Record<string, TaskContext[]> };
 const emptyM3 = (): M3State => ({ teams: [], packs: [], queues: {}, disabled: false, requestTargets: [], requests: [], requestDetails: {}, dossier: null, briefing: null, contexts: {} });
 export type StoreState = {

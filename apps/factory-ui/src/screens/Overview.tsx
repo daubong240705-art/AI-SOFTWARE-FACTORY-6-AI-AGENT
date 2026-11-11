@@ -60,7 +60,7 @@ export function Overview({ store, onProject, onAttention, onCreate, operatorName
   const items = attentionItems(state.globalInbox).slice(0, 5);
   return <div className="overview">
     <h1>{t('overview.greeting')}{operatorName && <>, <em>{operatorName}</em></>}</h1>
-    {state.globalInbox.counts.total > 0 && <p className="overview-sub">{t('overview.waiting').replace('{count}', new Intl.NumberFormat(i18n.locale).format(state.globalInbox.counts.total))}</p>}
+    {attentionItems(state.globalInbox).length > 0 && <p className="overview-sub">{t('overview.waiting').replace('{count}', new Intl.NumberFormat(i18n.locale).format(attentionItems(state.globalInbox).length))}</p>}
     <div className="overview-grid">
       {state.projects.length ? <form className="overview-composer" aria-label={t('overview.composer')} onSubmit={event => { event.preventDefault(); void submit(); }}>
         <label className="sr-only" htmlFor={`${id}-text`}>{t('overview.message')}</label>
@@ -90,7 +90,7 @@ export function Overview({ store, onProject, onAttention, onCreate, operatorName
         {items.map(item => {
           const name = item.projectName ?? state.projects.find(project => project.id === item.projectId)?.name ?? t('overview.project');
           return <button type="button" className="attention-row" key={item.key} onClick={() => onAttention(item)}>
-            <strong>{item.title}</strong>{item.at && <time dateTime={item.at}>{relativeTime(item.at)}</time>}
+            <strong>{item.title}</strong>{!item.since.startsWith('9999') && <time dateTime={item.since}>{relativeTime(item.since)}</time>}
             <span className="attention-project"><ProjectTile id={item.projectId} name={name} /><span>{name}</span></span>
           </button>;
         })}

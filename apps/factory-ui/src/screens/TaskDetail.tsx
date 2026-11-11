@@ -79,7 +79,7 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request' }: {
   </Dialog>;
 }
 
-function Results({ store, task, detail, attempt }: { store: Store; task: Task; detail: TaskDetailState; attempt: Attempt | undefined }) {
+export function Results({ store, task, detail, attempt }: { store: Store; task: Task; detail: TaskDetailState; attempt: Attempt | undefined }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
   const [patchId, setPatchId] = useState<string | null>(null);
@@ -131,7 +131,7 @@ function PatchResult({ task, attempt, patch }: { task: Task; attempt: Attempt; p
     <DiffView patch={patch.patch} />
   </>;
 }
-function TaskActions({ store, task, attempt }: { store: Store; task: Task; attempt: Attempt | undefined }) {
+export function TaskActions({ store, task, attempt, attention = false, onSuccess }: { store: Store; task: Task; attempt: Attempt | undefined; attention?: boolean; onSuccess?: () => void }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
   const [confirm, setConfirm] = useState<Action | null>(null);
@@ -150,7 +150,7 @@ function TaskActions({ store, task, attempt }: { store: Store; task: Task; attem
       const result = await (retry ? store.retry(created.commandId) : store.send(created));
       if (store.getState().session !== 'authenticated') return;
       if (result || store.getState().pending[created.commandId]?.error?.code === 'conflict') await Promise.all([store.loadTasks(), store.loadTaskDetail(task.id)]);
-      if (result) setCommand(null);
+      if (result) { setCommand(null); await Promise.all([store.loadInbox(), store.loadGlobalInbox()]); onSuccess?.(); }
     } finally { inFlight.current = false; setBusy(false); }
   }
   function run(action: Action) {
@@ -163,7 +163,7 @@ function TaskActions({ store, task, attempt }: { store: Store; task: Task; attem
     setCommand(created); setLastAction(action); void execute(created);
   }
   return <>
-    <div className="task-actions">{available.map(action => <Button key={action} disabled={disabled} onClick={() => setConfirm(action)}>{t(`workUi.${action}`)}</Button>)}</div>
+    <div className="task-actions">{available.map(action => <Button key={action} className={attention && action === 'start' ? 'attention-approve' : ''} data-attention-primary={attention && action === 'start' ? 'true' : undefined} disabled={disabled} onClick={() => setConfirm(action)}>{t(attention && action === 'start' ? 'attention.release' : `workUi.${action}`)}</Button>)}</div>
     {confirm && <div role="group" aria-label={t('taskUi.confirmation')} className="confirmation-row"><p>{t(`workUi.explanation.${confirm}`)}</p><Button disabled={busy || state.session !== 'authenticated'} onClick={() => run(confirm)}>{t('workUi.confirm')}</Button><Button disabled={busy} onClick={() => setConfirm(null)}>{t('workUi.back')}</Button></div>}
     {pending?.error && <ErrorNotice error={pending.error} />}
     {pending?.status === 'failed' && command && <Button disabled={busy || state.session !== 'authenticated' || (conflict && (!lastAction || !available.includes(lastAction)))} onClick={() => { if (conflict && lastAction) setConfirm(lastAction); else void execute(command, true); }}>{t(conflict ? 'workUi.fresh' : 'errors.retry')}</Button>}

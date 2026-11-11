@@ -218,3 +218,41 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 @media (max-width: 600px) { .content { padding: 20px 16px; } .overview h1 { font-size: 32px; } .overview-composer-actions { gap: 8px; } .composer-shortcut { flex-basis: auto; } .overview-grid { gap: 20px; } .navigation-overlay { padding: 0; } .navigation-overlay > .dialog { width: 280px; max-width: calc(100vw - 40px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* U-B: Needs attention, master-detail. The list is narrow, the detail takes the rest; the action bar stays at the bottom. */
+.content.attention-content { padding: 0; overflow: hidden; }
+.attention-screen { display: grid; grid-template-columns: 340px minmax(0, 1fr); height: 100%; min-height: 0; }
+.attention-list { min-height: 0; overflow: auto; border-right: 1px solid var(--line); padding: 24px 0; }
+.attention-list h1 { margin: 0 20px 16px; font: 600 24px / 32px var(--display); }
+.attention-list > p { margin: 0 20px 12px; }
+.attention-list ul { list-style: none; margin: 0; padding: 0; }
+.attention-item { position: relative; width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 12px 20px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; text-align: left; color: var(--text); }
+.attention-item:hover { background: var(--surface); }
+.attention-item[aria-current="true"] { background: var(--raised); }
+.attention-item[aria-current="true"]::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--need); }
+.attention-item strong { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.attention-item .attention-project { flex-wrap: wrap; gap: 4px 10px; }
+.attention-empty { color: var(--muted); }
+.attention-detail { min-width: 0; min-height: 0; overflow: auto; padding: 28px 40px 0; display: flex; flex-direction: column; }
+.attention-detail:focus { outline: none; }
+.attention-detail > * { flex: 1 0 auto; }
+.attention-decision, .attention-panel { display: flex; flex-direction: column; flex: 1 0 auto; }
+.attention-decision h2, .attention-panel h2 { font: 600 24px / 32px var(--display); }
+.attention-result-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 32px; align-items: start; }
+.attention-facts { position: sticky; top: 0; padding-left: 24px; border-left: 1px solid var(--line); }
+.attention-facts h3 { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+.attention-criteria { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.attention-actions { position: sticky; bottom: 0; margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 0 18px; background: var(--bg); border-top: 1px solid var(--line); }
+.attention-approve { background: var(--need); border-color: transparent; color: var(--on-need); font-weight: 600; }
+.attention-approve:hover:enabled { background: color-mix(in srgb, var(--need) 88%, var(--text)); }
+.attention-hints { margin-left: auto; color: var(--muted); font-size: 12px; }
+.attention-actions .confirmation-row { flex: 1 1 100%; }
+@media (max-width: 1179px) {
+  .content.attention-content { overflow: auto; }
+  .attention-screen { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .attention-list { max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  .attention-detail { padding: 20px 16px 0; overflow: visible; }
+  .attention-result-grid { grid-template-columns: minmax(0, 1fr); }
+  .attention-facts { position: static; padding-left: 0; border-left: 0; }
+  .attention-hints { display: none; }
+}

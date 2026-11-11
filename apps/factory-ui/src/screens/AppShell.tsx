@@ -6,13 +6,14 @@ import { Button } from '../components/Button';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { ProjectView } from './ProjectView';
 import { CreateProject } from './CreateProject';
-import { Inbox, inboxCount } from './Inbox';
+import { inboxCount } from './Inbox';
+import { Attention, attentionHash } from './Attention';
 import { Teams } from './Teams';
 import { Overview } from './Overview';
 import { Icon } from './shell/Icon';
 import { ProjectTile } from './shell/ProjectTile';
 import { Settings } from './shell/Settings';
-import { attentionItems, type AttentionItem } from './shell/attention';
+import { attentionItems } from './shell/attention';
 import { useNavigation, type View } from './shell/navigation';
 
 const compactQuery = '(max-width: 1179px)';
@@ -32,7 +33,6 @@ export function AppShell({ store }: { store: Store }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
   const { view, navigate } = useNavigation();
   const [creating, setCreating] = useState(false);
-  const [attention, setAttention] = useState<AttentionItem | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const compact = useCompact(); const main = useRef<HTMLElement>(null);
@@ -48,12 +48,12 @@ export function AppShell({ store }: { store: Store }) {
   const selected = state.projects.find(project => view === `project:${project.id}`);
   const items = attentionItems(state.globalInbox);
   const streamLabel = state.stream === 'open' ? 'shell.live' : state.stream === 'closed' ? 'shell.offline' : 'shell.reconnecting';
-  function go(next: View) { setAttention(null); navigate(next); setExpanded(false); }
+  function go(next: View) { navigate(next); setExpanded(false); }
   function create() { setExpanded(false); setCreating(true); }
   const navigation = <nav id="factory-navigation" className="sidebar" aria-label={t('nav.main')}>
     <div className="brand"><span className="brand-mark" aria-hidden="true">F</span><span className="nav-label">{t('shell.product')}</span></div>
     <button type="button" className="shell-nav" aria-label={t('nav.overview')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => go('overview')}><Icon name="overview" /><span className="nav-label">{t('nav.overview')}</span></button>
-    <button type="button" className="shell-nav" aria-label={`${t('nav.attention')}, ${inboxCount(t, state.globalInbox.counts.total)}`} aria-current={view === 'needs-attention' ? 'page' : undefined} onClick={() => go('needs-attention')}><Icon name="attention" /><span className="nav-label">{t('nav.attention')}</span>{state.globalInbox.counts.total > 0 && <span className="attention-badge badge">{state.globalInbox.counts.total}</span>}</button>
+    <button type="button" className="shell-nav" aria-label={`${t('nav.attention')}, ${inboxCount(t, items.length)}`} aria-current={view === 'needs-attention' ? 'page' : undefined} onClick={() => go('needs-attention')}><Icon name="attention" /><span className="nav-label">{t('nav.attention')}</span>{items.length > 0 && <span className="attention-badge badge">{items.length}</span>}</button>
     <button type="button" className="shell-nav" aria-label={t('nav.team')} aria-current={view === 'team' ? 'page' : undefined} onClick={() => go('team')}><Icon name="team" /><span className="nav-label">{t('nav.team')}</span></button>
     <h2 className="project-group nav-label">{t('global.projects')}</h2>
     <div className="sidebar-projects">
@@ -81,9 +81,9 @@ export function AppShell({ store }: { store: Store }) {
       {compact && <button type="button" aria-label={t('shell.toggleProjects')} aria-expanded={expanded} aria-controls="factory-navigation" onClick={() => setExpanded(!expanded)}><Icon name="menu" /></button>}
       {state.selectedProjectId && state.stream !== 'open' && <p role="status" className="stream-notice"><span className={`stream-dot stream-${state.stream}`} aria-hidden="true" />{t(streamLabel)}</p>}
     </header>
-    <main ref={main} id="factory-main" className="content" tabIndex={-1} aria-label={pageName} inert={compact && expanded}>
-      {view === 'overview' ? <Overview store={store} onProject={id => go(`project:${id}`)} onCreate={create} onAttention={item => { setAttention(item ?? null); navigate('needs-attention'); }} />
-        : view === 'needs-attention' ? <><h1>{t('nav.attention')}</h1><Inbox store={store} global initialSelection={attention ? { projectId: attention.projectId, ...attention.selection } : undefined} /></>
+    <main ref={main} id="factory-main" className={`content${view === 'needs-attention' ? ' attention-content' : ''}`} tabIndex={-1} aria-label={pageName} inert={compact && expanded}>
+      {view === 'overview' ? <Overview store={store} onProject={id => go(`project:${id}`)} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} />
+        : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} />
         : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} />
         : <p role="status">{t('viewStates.loading')}</p>}

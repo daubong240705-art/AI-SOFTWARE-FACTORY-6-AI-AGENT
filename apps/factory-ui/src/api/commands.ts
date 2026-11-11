@@ -31,6 +31,9 @@ export function tasksRetry({ projectId, taskId, expectedRevision }: { projectId:
 export function approvalsDecide({ projectId, ...payload }: Of<'approvals.decide'>['payload'] & { projectId: string }) {
   return build('approvals.decide', projectId, payload);
 }
+export function workflowsDecidePatch({ projectId, ...payload }: Of<'workflows.decide-patch'>['payload'] & { projectId: string }) {
+  return build('workflows.decide-patch', projectId, payload);
+}
 export function tasksCreate({ projectId, code, title, goal, brief = goal, acceptance, requiredCapabilities = [] }: {
   projectId: string; code: string; title: string; goal: string; brief?: string;
   acceptance: string[]; requiredCapabilities?: string[];

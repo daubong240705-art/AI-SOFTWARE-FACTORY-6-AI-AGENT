@@ -12,13 +12,13 @@ export function AreaState({ store, area, empty = false }: { store: Store; area: 
 export function Select({ label, value, onChange, options, required = false }: { label: string; value: string; onChange: (v: string) => void; options: Array<[string, string]>; required?: boolean }) {
   return <label className="field">{label}<select required={required} value={value} onChange={e => onChange(e.target.value)}>{options.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select></label>;
 }
-export function useM3Command(store: Store, refresh: () => Promise<void>) {
+export function useM3Command(store: Store, refresh: () => Promise<void>, onSuccess?: (command: Command) => void) {
   const [command, setCommand] = useState<Command | null>(null); const [busy, setBusy] = useState(false); const lock = useRef(false);
   const state = store.useStoreSelector(s => s); const t = useT();
   async function execute(created: Command) {
     if (lock.current || store.getState().session !== 'authenticated') return;
     lock.current = true; setBusy(true); setCommand(created);
-    try { const response = await store.send(created); if (response) { setCommand(null); await refresh(); } else if (store.getState().pending[created.commandId]?.error?.code === 'conflict') await refresh(); }
+    try { const response = await store.send(created); if (response) { setCommand(null); await refresh(); onSuccess?.(created); } else if (store.getState().pending[created.commandId]?.error?.code === 'conflict') await refresh(); }
     finally { lock.current = false; setBusy(false); }
   }
   const error = command ? state.pending[command.commandId]?.error : undefined;

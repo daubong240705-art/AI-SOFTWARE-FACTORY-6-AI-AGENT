@@ -18,7 +18,7 @@ npm run e2e:work                    # e2e Host trong WSL (cần deploy Host: scr
 | Hash | Màn |
 |---|---|
 | `#/overview` (mặc định) | Tổng quan: ô nhập, danh sách "Cần xử lý" tối đa 5 dòng |
-| `#/attention` | Cần xử lý |
+| `#/attention`, `#/attention/<khóa dòng>` | Cần xử lý (danh sách trái, chi tiết phải) |
 | `#/team` | Đội |
 | `#/project/<id>` | Dự án (các tab hiện có; sẽ gom lại ở U-C đến U-F) |
 
@@ -37,7 +37,7 @@ Tiếng Việt và nền tối, trừ khi người dùng đã lưu lựa chọn 
 | Lát | Nội dung | Trạng thái |
 |---|---|---|
 | U-A | Khung mới, token, điều hướng hash, Tổng quan | Xong (commit `cba3805`) |
-| U-B | Cần xử lý: một danh sách, màn duyệt chia đôi, phím tắt J/K/A/R | Đang làm |
+| U-B | Cần xử lý: một danh sách, màn duyệt chia đôi, phím tắt J/K/A/R | Xong |
 | U-C | Bảng việc, khung chi tiết Task, khung chat agent | Chưa |
 | U-D | Đội (có chỗ cho Máy của M4) | Chưa |
 | U-E | Quy trình, Tự động (lịch, rule, monitor), thông báo | Chưa |
