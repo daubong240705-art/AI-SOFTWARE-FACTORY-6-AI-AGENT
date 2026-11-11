@@ -5,6 +5,16 @@ function build<T extends Command['type']>(type: T, projectId: string, payload: O
   return commandSchema.parse({ apiVersion: API_VERSION, commandId: crypto.randomUUID(), projectId, type, payload }) as Of<T>;
 }
 
+export function autonomySet({ projectId, ...payload }: Of<'autonomy.set'>['payload'] & { projectId: string }) {
+  return build('autonomy.set', projectId, payload);
+}
+export function standingApprovalsCreate({ projectId, ...payload }: Omit<Of<'standing-approvals.create'>['payload'], 'standingId'> & { projectId: string }) {
+  return build('standing-approvals.create', projectId, { standingId: crypto.randomUUID(), ...payload });
+}
+export function standingApprovalsRevoke({ projectId, ...payload }: Of<'standing-approvals.revoke'>['payload'] & { projectId: string }) {
+  return build('standing-approvals.revoke', projectId, payload);
+}
+
 export function projectsCreate({ name, root, kind = 'directory' }: { name: string; root: string; kind?: 'directory' | 'git' }) {
   return build('projects.create', crypto.randomUUID(), { name, workspace: { kind, root } });
 }

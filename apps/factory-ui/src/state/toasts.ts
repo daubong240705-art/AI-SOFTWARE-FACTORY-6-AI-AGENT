@@ -4,6 +4,9 @@ import { i18n } from '../i18n';
 
 function successKey(command: Command, approvalKind?: Approval['kind']) {
   switch (command.type) {
+    case 'autonomy.set': return 'settingsWrite.autonomySaved';
+    case 'standing-approvals.create': return 'settingsWrite.approvalCreated';
+    case 'standing-approvals.revoke': return 'settingsWrite.approvalRevoked';
     case 'schedules.create':
     case 'rules.create':
     case 'monitors.create': return 'automationWrite.created';

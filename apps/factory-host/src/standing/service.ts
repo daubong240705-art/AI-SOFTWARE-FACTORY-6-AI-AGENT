@@ -86,7 +86,7 @@ export function listStandingApprovals(raw: Database, projectId: string, now: Dat
     WHERE u.project_id=s.project_id AND u.standing_id=s.id AND u.local_day=?) AS used_today
     FROM standing_approvals s WHERE s.project_id=? ORDER BY s.created_at DESC,s.rowid DESC LIMIT 100`)
     .all(dayKey(now, utcOffsetMinutes), projectId) as (StandingRow & { used_today: number })[];
-  return { items: rows.map((row) => ({ id: row.id, actionKind: row.action_kind,
+  return { items: rows.map((row) => ({ id: row.id, revision: row.revision, actionKind: row.action_kind,
     scope: { kind: row.scope_kind, ref: row.scope_ref }, limitPerDay: row.limit_per_day, maxTokensPerUse: row.max_tokens_per_use,
     state: row.state, createdAt: row.created_at, expiresAt: row.expires_at, revokedAt: row.revoked_at,
     usedToday: row.used_today, remainingToday: Math.max(0, row.limit_per_day - row.used_today) })),

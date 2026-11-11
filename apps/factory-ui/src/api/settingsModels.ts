@@ -8,16 +8,17 @@ const date = text.refine(value => /^\d{4}-\d{2}-\d{2}T/.test(value) && Number.is
 const enumeration = <T extends string>(values: readonly T[]) => text.transform(value => values.find(item => item === value) ?? 'unknown').catch('unknown');
 const level = count.transform(value => value <= 4 ? value : 'unknown' as const).catch('unknown');
 const source = enumeration(['explicit', 'default'] as const);
-const autonomyTeam = object.extend({ teamId: idSchema, level, source, effectiveLevel: level }).strip();
+const revision = count.int().positive().nullable().optional().catch(null).transform(value => value ?? null);
+const autonomyTeam = object.extend({ teamId: idSchema, level, source, effectiveLevel: level, revision }).strip();
 const autonomy = object.extend({
-  project: object.extend({ level, source, revision: count.nullable().optional().transform(value => value ?? null) }).strip(),
+  project: object.extend({ level, source, revision }).strip(),
   teams: autonomyTeam.nullable().catch(null).array().optional().default([]).transform(items => items.filter(item => item !== null)),
   defaults: object.extend({ project: level, team: level }).strip(),
 }).strip();
 const actionKind = enumeration(['notify.send-internal', 'deploy.staging', 'artifact.publish-to-project'] as const);
 const state = enumeration(['active', 'revoked', 'expired'] as const);
 const approval = object.extend({
-  id: idSchema, actionKind, scope: object.extend({ kind: enumeration(['project', 'team'] as const), ref: text.min(1) }).strip(),
+  id: idSchema, revision, actionKind, scope: object.extend({ kind: enumeration(['project', 'team'] as const), ref: text.min(1) }).strip(),
   limitPerDay: count, maxTokensPerUse: count.nullable(), state, createdAt: date, expiresAt: date, revokedAt: date.nullable(),
   usedToday: count, remainingToday: count,
 }).strip();

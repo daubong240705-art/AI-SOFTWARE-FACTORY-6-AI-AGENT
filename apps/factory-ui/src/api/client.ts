@@ -1,5 +1,6 @@
 import { m3Models } from './m3Models';
 import { automationErrorKey } from './automationErrors';
+import { settingsErrorKey } from './settingsErrors';
 import { settingsReadModels } from './settingsModels';
 import { activityReadModel } from './activityModels';
 import { extractionModels, mediaTypeForFile } from './documents';
@@ -59,7 +60,7 @@ export class ApiClientError extends Error {
     this.nextAction = error?.nextAction;
     this.correlationId = error?.correlationId;
     this.currentRevision = error?.currentRevision;
-    this.detailKey = includeHostMessage && error ? automationErrorKey(error.message) : undefined;
+    this.detailKey = includeHostMessage && error ? settingsErrorKey(error.message) ?? automationErrorKey(error.message) : undefined;
   }
 }
 export class DocumentUploadError extends ApiClientError {
@@ -71,7 +72,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
 } = {}) {
   let csrfToken: string | null = null;
   const base = baseUrl.replace(/\/$/, '');
-  async function request<T>(path: string, schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } }, body?: unknown, automationDetails = false): Promise<T> {
+  async function request<T>(path: string, schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } }, body?: unknown, commandDetails = false): Promise<T> {
     const headers: Record<string, string> = {};
     if (body !== undefined) {
       headers['content-type'] = 'application/json';
@@ -89,9 +90,9 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     let raw: unknown;
     try { raw = await response.json(); } catch { throw new ApiClientError('bad-response', response.status); }
     const failure = failureResponseSchema.safeParse(raw);
-    if (failure.success) throw new ApiClientError('api', response.status, failure.data.error, automationDetails);
-    // Automation rejections can arrive inside a valid receipt, including HTTP 409.
-    if (automationDetails) {
+    if (failure.success) throw new ApiClientError('api', response.status, failure.data.error, commandDetails);
+    // Command rejections can arrive inside a valid receipt, including HTTP 409.
+    if (commandDetails) {
       const receipt = successResponseSchema.safeParse(raw);
       if (receipt.success && receipt.data.receipt.error) throw new ApiClientError('api', response.status, receipt.data.receipt.error, true);
     }
@@ -240,7 +241,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     sendCommand: (command: Command) => {
       // Validate without replacing/mutating the caller's object or generating a new identity.
       if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');
-      return request('/commands', successResponseSchema, command, /^(schedules|rules|monitors)\./.test(command.type));
+      return request('/commands', successResponseSchema, command, /^(schedules|rules|monitors|autonomy|standing-approvals)\./.test(command.type));
     },
   };
 }

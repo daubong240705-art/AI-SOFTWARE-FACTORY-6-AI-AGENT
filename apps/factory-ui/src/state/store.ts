@@ -12,6 +12,7 @@ import { emptyActivity, type ActivityState } from './activity';
 import { createExtractionPolling } from './extractionPolling';
 import { toast } from 'sonner';
 import { i18n } from '../i18n';
+import { settingsPendingKey, type SettingsCommand } from './settingsCommands';
 
 type AutomationCommand = Extract<Command, { type: `schedules.${string}` | `rules.${string}` | `monitors.${string}` }>;
 
@@ -592,7 +593,13 @@ export function createStore(options: StoreOptions = {}) {
     const payload = command.payload;
     const id = command.type.endsWith('.create') ? 'new'
       : 'scheduleId' in payload ? payload.scheduleId : 'ruleId' in payload ? payload.ruleId : payload.monitorId;
-    const key = `automation:${area}:${id}`, scope = generation;
+    return sendCollectionCommand(command, `automation:${area}:${id}`, ({ schedules: loadSchedules, rules: loadRules, monitors: loadMonitors })[area], 'automationWrite.conflict');
+  }
+  function sendSettings(command: SettingsCommand) {
+    return sendCollectionCommand(command, settingsPendingKey(command), loadSettings, 'settingsWrite.conflict');
+  }
+  async function sendCollectionCommand(command: Command, key: string, reload: () => Promise<void>, conflictKey: string) {
+    const scope = generation;
     if (state.loading[key] || state.session !== 'authenticated' || command.projectId !== state.selectedProjectId) return;
     update({ loading: { ...state.loading, [key]: true }, errors: { ...state.errors, [key]: undefined } });
     try {
@@ -601,9 +608,9 @@ export function createStore(options: StoreOptions = {}) {
       const error = state.pending[command.commandId]?.error;
       if (error) update({ errors: { ...state.errors, [key]: error } });
       if (response || error?.code === 'conflict') {
-        await ({ schedules: loadSchedules, rules: loadRules, monitors: loadMonitors })[area]();
+        await reload();
         if (!active(scope)) return;
-        if (error?.code === 'conflict') toast.info(i18n.t('automationWrite.conflict'));
+        if (error?.code === 'conflict') toast.info(i18n.t(conflictKey));
       }
       return response;
     } finally {
@@ -623,7 +630,7 @@ export function createStore(options: StoreOptions = {}) {
     loadProjects: () => loadProjects(),
     loadWorkflows, loadWorkflow, loadWorkflowDefinitions, loadAutomation, loadSchedules, loadRules, loadMonitors, loadBreakers,
     loadScheduleOccurrences, loadRuleFires, loadMonitorEvents, sendAutomation,
-    loadAutonomy, loadStandingApprovals, loadSettings,
+    loadAutonomy, loadStandingApprovals, loadSettings, sendSettings,
     watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
     loadTeams, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
