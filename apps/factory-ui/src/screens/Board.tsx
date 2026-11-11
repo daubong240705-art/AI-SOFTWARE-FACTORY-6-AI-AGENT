@@ -1,3 +1,5 @@
+import { AnimatePresence } from 'motion/react';
+import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useState } from 'react';
 import type { Task } from '@factory/contracts';
 import { ChevronDown } from 'lucide-react';
@@ -37,7 +39,7 @@ export function Board({ store, onOpen, tasks: visibleTasks, selectedTask }: {
   const tasks = visibleTasks ?? state.tasks;
   const inColumn = (column: BoardColumn) => tasks.filter(task => (decisions.has(task.id) ? 'attention' : taskColumn(task)) === column).sort((a, b) => a.code.localeCompare(b.code));
   function cards(items: Task[]) {
-    return items.length ? <ul className="m-0 grid list-none gap-3 p-0">{items.map(task => <li key={task.id} className="min-w-0">
+    return <><Stagger className="m-0 grid list-none gap-3 p-0"><AnimatePresence initial={false}>{items.map((task, index) => <StaggerItem key={task.id} index={index} collapse className="min-w-0">
       <Card className={cn('gap-0 rounded-xl border-border p-0 shadow-none transition-colors hover:bg-secondary', selectedTask === task.id && 'ring-1 ring-ring')}>
         <Button type="button" variant="ghost" data-task-id={task.id} aria-pressed={selectedTask === task.id} onClick={() => onOpen(task.id)} className="h-auto w-full min-w-0 flex-col items-stretch gap-3 rounded-xl border-0 bg-transparent p-4 text-left font-normal whitespace-normal hover:bg-secondary">
           <span className="flex items-center justify-between gap-2"><span className="font-mono text-xs text-muted-foreground">{task.code}</span><TaskStatus task={task} state={state} dotOnly /></span>
@@ -46,7 +48,7 @@ export function Board({ store, onOpen, tasks: visibleTasks, selectedTask }: {
           {decisions.has(task.id) && <DecisionBadge />}
         </Button>
       </Card>
-    </li>)}</ul> : <div className="grid min-h-28 place-items-center rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">{t('ux4.empty')}</div>;
+    </StaggerItem>)}</AnimatePresence></Stagger>{!items.length && <div className="grid min-h-28 place-items-center rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">{t('ux4.empty')}</div>}</>;
   }
   const closedTasks = inColumn('closed');
   return <div className="min-w-0 max-w-full space-y-4" aria-label={t('workUi.board')}>

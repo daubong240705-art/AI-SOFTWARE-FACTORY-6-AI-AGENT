@@ -29,13 +29,13 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
     if (tasks.some(task => { const attempt = state.liveAttempts[task.id]; return deriveDisplayStatus({ ...task, liveAttempt: attempt && isLiveAttempt(attempt.state) ? attempt.state : null }).status === 'running'; })) return 'run';
     return null;
   }
-  return <nav id="factory-navigation" className="row-span-full flex h-full min-h-0 min-w-0 flex-col gap-1 border-r border-border bg-sidebar px-2.5 py-3.5" aria-label={t('nav.main')}>
+  return <nav id="factory-navigation" className="row-span-full flex h-full min-h-0 min-w-0 flex-col gap-1 border-r border-border bg-sidebar px-2.5 py-3.5 transition-[width] duration-200 motion-reduce:transition-none" aria-label={t('nav.main')}>
     <div className={cn('flex shrink-0 items-center gap-2.5 px-2 pt-1 pb-3.5 font-display text-[19px] font-bold', collapsed && 'justify-center px-0')}>
       <span className="grid size-7 shrink-0 place-items-center rounded-[9px] bg-primary text-[17px] text-primary-foreground" aria-hidden="true">F</span>
-      <span className={labelClass}>{t('shell.product')}</span>
+      <span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('shell.product')}</span>
     </div>
-    <NavButton collapsed={collapsed} aria-label={t('nav.overview')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => onNavigate('overview')}><House /><span className={labelClass}>{t('nav.overview')}</span></NavButton>
-    <NavButton collapsed={collapsed} aria-label={`${t('nav.attention')}, ${inboxCount(t, items.length)}`} aria-current={view === 'needs-attention' ? 'page' : undefined} onClick={() => onNavigate('needs-attention')}><Inbox /><span className={labelClass}>{t('nav.attention')}</span>{items.length > 0 && !collapsed && <Badge className="ml-auto min-w-[22px] border-0 bg-need py-0 text-need-foreground">{items.length}</Badge>}</NavButton>
+    <NavButton collapsed={collapsed} aria-label={t('nav.overview')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => onNavigate('overview')}><House /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.overview')}</span></NavButton>
+    <NavButton collapsed={collapsed} aria-label={`${t('nav.attention')}, ${inboxCount(t, items.length)}`} aria-current={view === 'needs-attention' ? 'page' : undefined} onClick={() => onNavigate('needs-attention')}><Inbox /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.attention')}</span>{items.length > 0 && !collapsed && <Badge key={items.length} className="ml-auto min-w-[22px] animate-[pop_300ms_ease-out] motion-reduce:animate-none border-0 bg-need py-0 text-need-foreground">{items.length}</Badge>}</NavButton>
     <NavButton collapsed={collapsed} aria-label={t('nav.team')} aria-current={view === 'team' ? 'page' : undefined} onClick={() => onNavigate('team')}><Users /><span className={labelClass}>{t('nav.team')}</span></NavButton>
     <div className={cn('mt-4 flex h-8 shrink-0 items-center justify-between px-2.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase', collapsed && 'justify-center px-0')}>
       <span className={collapsed ? 'sr-only' : ''}>{t('global.projects')}</span>

@@ -1,4 +1,5 @@
-﻿import { useEffect, useId, useState } from 'react';
+import { Stagger, StaggerItem } from '@/components/motion/Stagger';
+import { useEffect, useId, useState } from 'react';
 import { RefreshCw, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,15 +29,15 @@ export function ProjectWorkflow({ store, projectId, onOpenTask }: { store: Store
     <div className={cn('grid min-w-0 items-start gap-6', selectedItem && 'lg:grid-cols-[minmax(240px,1fr)_minmax(0,2fr)]')}>
       <Card role="region" aria-label={t('workflowUi.list')} className="gap-0 overflow-hidden border-border py-0 shadow-none">
         <M5ReadState store={store} area="workflows" retry={store.loadWorkflows} empty={!state.m5.workflows.length} emptyKey="workflowUi.empty" />
-        <ul className="divide-y divide-border">{state.m5.workflows.map(item => {
+        <Stagger className="divide-y divide-border">{state.m5.workflows.map((item, index) => {
           const info = state.m5.workflowDetails[item.id]; const current = info?.stages.filter(stage => stage.state === 'active');
           const loop = info?.stages.find(stage => stage.loopCount !== undefined); const at = info?.lastProgressAt ?? item.createdAt;
-          return <li key={item.id}><Button type="button" variant="ghost" className={cn('h-auto w-full flex-col items-start gap-3 rounded-none p-5 text-left whitespace-normal', selected === item.id && 'bg-secondary')} aria-current={selected === item.id} aria-controls={`${id}-detail`} onClick={() => { setSelected(item.id); if (!info) void store.loadWorkflow(item.id); }}>
+          return <StaggerItem key={item.id} index={index}><Button type="button" variant="ghost" className={cn('h-auto w-full flex-col items-start gap-3 rounded-none p-5 text-left whitespace-normal', selected === item.id && 'bg-secondary')} aria-current={selected === item.id} aria-controls={`${id}-detail`} onClick={() => { setSelected(item.id); if (!info) void store.loadWorkflow(item.id); }}>
             <span className="flex w-full flex-wrap items-center justify-between gap-2"><span className="font-medium break-words">{item.title}</span><M5Status value={item.state} /></span>
             {!!current?.length && <span className="text-xs font-normal text-muted-foreground">{t('workflowUi.currentStage')}: {current.map(stage => stage.key).join(', ')}</span>}
             <span className="flex flex-wrap items-center gap-3">{loop && <LoopChip stage={loop} />}<time className="text-xs font-normal text-muted-foreground" dateTime={at}>{relativeTime(at)}</time></span>
-          </Button></li>;
-        })}</ul>
+          </Button></StaggerItem>;
+        })}</Stagger>
       </Card>
       {selectedItem && <Card role="region" id={`${id}-detail`} aria-label={t('workflowUi.detail')} className="min-w-0 gap-0 border-border py-0 shadow-none">
         <CardHeader className="flex flex-row items-center justify-between border-b border-border px-5 py-4"><h2 className="font-display text-xl font-semibold break-words">{selectedItem.title}</h2><Button type="button" variant="ghost" size="icon-sm" aria-label={t('m5Ui.close')} onClick={() => setSelected(null)}><X /></Button></CardHeader>

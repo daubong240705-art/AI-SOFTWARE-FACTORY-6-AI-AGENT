@@ -1,4 +1,8 @@
 export const extra = {
+  toastUi: {
+    approved: 'Approved', changesRequested: 'Changes requested', taskCreated: 'Task created', started: 'Started',
+    projectCreated: 'Project created', saved: 'Saved', answered: 'Answered',
+  },
   ux5: {
     createTitle: 'New project', createDescription: 'A project brings together a workspace, tasks, and agent teams.',
     directory: 'Directory', git: 'Git project', directoryDescription: 'An empty directory created by the Host', gitDescription: 'Use an existing Git clone',

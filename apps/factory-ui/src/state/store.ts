@@ -7,6 +7,7 @@ import type { Inbox, Effect } from '../api/client';
 import type { KnowledgeArtifact, KnowledgeFilters, KnowledgeItem, KnowledgeResult } from '../api/client';
 import { emptyM5, type M5State } from './m5';
 import { emptySettings, type SettingsState } from './settings';
+import { notifyCommandSuccess } from './toasts';
 
 export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean };
 const emptyKnowledge = (): KnowledgeState => ({ query: '', filters: {}, results: [], list: [], detail: {}, loading: {}, errors: {}, hasMore: false });
@@ -46,6 +47,7 @@ const errorDetails = (error: unknown): StoreError => error instanceof ApiClientE
 export function createStore(options: StoreOptions = {}) {
   let state: StoreState = { session: 'unknown', projects: [], selectedProjectId: null, ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, errors: {}, loading: {}, pending: {} };
   const listeners = new Set<() => void>();
+  const submittedCommands = new Set<string>();
   const update = (patch: Partial<StoreState>) => { state = { ...state, ...patch }; listeners.forEach((listener) => listener()); };
   let generation = 0;
   let authGeneration = 0;
@@ -86,6 +88,7 @@ export function createStore(options: StoreOptions = {}) {
   };
   const anonymous = () => {
     authGeneration++;
+    submittedCommands.clear();
     unwatchInbox(); remotesPromise = undefined;
     stop();
     update({ session: 'anonymous', selectedProjectId: null, projects: [], ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, loading: {}, errors: {}, pending: {} });
@@ -485,10 +488,22 @@ export function createStore(options: StoreOptions = {}) {
   async function send(command: Command) {
     if (state.pending[command.commandId]?.status === 'pending') return;
     const scope = generation;
+    // Retried command identities stay quiet, even if their original receipt was lost.
+    const firstSubmission = !submittedCommands.has(command.commandId);
+    submittedCommands.add(command.commandId);
+    const approvalKind = command.type === 'approvals.decide'
+      ? (state.approvals[command.payload.approvalId]
+        ?? state.inbox.approvals.find(item => item.id === command.payload.approvalId)
+        ?? state.globalInbox.approvals.find(item => item.id === command.payload.approvalId))?.kind
+      : undefined;
     update({ pending: { ...state.pending, [command.commandId]: { command, status: 'pending' } }, errors: { ...state.errors, command: undefined } });
     try {
       const response = await api.sendCommand(command);
-      if (active(scope)) { const pending = { ...state.pending }; delete pending[command.commandId]; update({ pending }); void loadGlobalInbox(); void loadInbox(); return response; }
+      if (active(scope)) {
+        const pending = { ...state.pending }; delete pending[command.commandId]; update({ pending });
+        if (firstSubmission && active(scope) && (response.receipt.state === 'accepted' || response.receipt.state === 'completed')) notifyCommandSuccess(command, approvalKind);
+        void loadGlobalInbox(); void loadInbox(); return response;
+      }
       return undefined;
     } catch (error) {
       if (active(scope)) {
@@ -551,7 +566,7 @@ export function createStore(options: StoreOptions = {}) {
     loadTaskDetail: (taskId: string) => loadTaskDetail(taskId), loadAttemptEvents, loadPatch, loadArtifactContent,
     retry: (commandId: string) => { const pending = state.pending[commandId]; return pending?.status === 'failed' ? send(pending.command) : Promise.resolve(undefined); },
     applyEvent,
-    dispose: () => { authGeneration++; unwatchInbox(); stop(); listeners.clear(); },
+    dispose: () => { authGeneration++; unwatchInbox(); stop(); listeners.clear(); submittedCommands.clear(); },
     useStoreSelector<T>(selector: (state: StoreState) => T): T {
       // Subscribe to the stable state object so selectors may safely return new objects.
       return selector(useSyncExternalStore(store.subscribe, store.getState, store.getState));

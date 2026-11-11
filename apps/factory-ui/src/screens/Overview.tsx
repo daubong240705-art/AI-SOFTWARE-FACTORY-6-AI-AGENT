@@ -1,4 +1,6 @@
-﻿import { useId, useRef, useState } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Stagger, StaggerItem } from '@/components/motion/Stagger';
+import { useId, useRef, useState } from 'react';
 import type { Command } from '@factory/contracts';
 import { useEffect } from 'react';
 import { chatSend, conversationsCreate } from '../api/commands';
@@ -105,19 +107,19 @@ export function Overview({ store, onProject, onAttention, onCreate, operatorName
       </div>
       <Card className="gap-0 overflow-hidden rounded-xl border-border border-l-2 border-l-need py-0 shadow-none" aria-labelledby={`${id}-needs`}>
         <CardHeader className="flex flex-row items-center justify-between gap-3 p-5 pb-3"><h2 id={`${id}-needs`} className="font-display text-lg font-semibold">{t('nav.attention')}</h2><Badge className="border-0 bg-need text-need-foreground">{items.length}</Badge></CardHeader>
-        {state.loading.globalInbox && <p role="status">{t('viewStates.loading')}</p>}
+        {state.loading.globalInbox && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3 px-5 pb-4"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-5 w-4/5" /><Skeleton className="h-4 w-3/5" /></div>}
         {state.errors.globalInbox && <><ErrorNotice error={state.errors.globalInbox} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></>}
         {!items.length && !state.loading.globalInbox && !state.errors.globalInbox && <Empty className="border-0 px-5 py-10"><EmptyHeader><EmptyMedia variant="icon"><CheckCircle2 aria-hidden="true" /></EmptyMedia><EmptyDescription>{t('overview.caughtUp')}</EmptyDescription></EmptyHeader></Empty>}
-        {items.map(item => {
+        <Stagger className="m-0 list-none p-0">{items.map((item, index) => {
           const name = item.projectName ?? state.projects.find(project => project.id === item.projectId)?.name ?? t('overview.project');
-          return <Button type="button" variant="ghost" className="h-auto w-full items-start justify-start gap-3 rounded-none border-0 border-t border-border px-5 py-3 text-left whitespace-normal hover:bg-secondary" key={item.key} onClick={() => onAttention(item)}>
+          return <StaggerItem key={item.key} index={index}><Button type="button" variant="ghost" className="h-auto w-full items-start justify-start gap-3 rounded-none border-0 border-t border-border px-5 py-3 text-left whitespace-normal hover:bg-secondary" onClick={() => onAttention(item)}>
             <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-need" />
             <span className="grid min-w-0 flex-1 gap-2">
               <span className="flex flex-wrap items-start gap-x-3 gap-y-1"><strong className="min-w-[8rem] flex-1 line-clamp-2 text-sm font-medium [overflow-wrap:anywhere]">{item.title}</strong>{!item.since.startsWith('9999') && <time dateTime={item.since} className="ml-auto shrink-0 whitespace-nowrap text-xs font-normal text-muted-foreground">{relativeTime(item.since)}</time>}</span>
               <span className="flex min-w-0 items-center gap-2 text-xs font-normal text-muted-foreground"><ProjectTile id={item.projectId} name={name} className="size-6 rounded-md" /><span className="truncate">{name}</span>{item.code && <span className="shrink-0 font-mono">{item.code}</span>}</span>
             </span>
-          </Button>;
-        })}
+          </Button></StaggerItem>;
+        })}</Stagger>
         <CardFooter className="p-3"><Button variant="ghost" className="h-9 w-full border-0 px-3 text-sm text-muted-foreground" onClick={() => onAttention()}>{t('overview.viewAll')}<ChevronRight className="size-4" /></Button></CardFooter>
       </Card>
     </div>

@@ -11,6 +11,7 @@ import { useNavigation, type View } from './shell/navigation';
 import { Sidebar } from './shell/Sidebar';
 import { TopBar } from './shell/TopBar';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Reveal } from '@/components/motion/Reveal';
 
 const compactQuery = '(max-width: 1179px)';
 function useCompact() {
@@ -56,11 +57,13 @@ export function AppShell({ store }: { store: Store }) {
     <TooltipProvider>{!compact && navigation}<TopBar store={store} compact={compact} expanded={expanded} onToggle={() => setExpanded(value => !value)} onNewTask={newTask} onProject={id => go(`project:${id}`)} onTask={openTask} />
     {compact && expanded && <Dialog labelledBy="navigation-title" onClose={() => setExpanded(false)} className="navigation-overlay"><h2 id="navigation-title" className="sr-only">{t('nav.main')}</h2>{navigation}</Dialog>}
     <main ref={main} id="factory-main" className={`content p-0${view === 'needs-attention' ? ' attention-content' : view.startsWith('project:') ? ' project-content' : ''}`} tabIndex={-1} aria-label={pageName} inert={compact && expanded}>
+      <Reveal key={view} className="h-full min-h-0">
       {view === 'overview' ? <Overview store={store} onProject={id => { setChatProject(id); go(`project:${id}`); }} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} focusComposer={focusComposer} onTask={openTask} />
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} />
         : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} tab={tab} onTabChange={next => navigate(view, next)} openChat={chatProject === selected.id} onChatOpened={() => setChatProject(null)} initialTaskId={initialTask?.projectId === selected.id ? initialTask.taskId : undefined} />
         : <p role="status">{t('viewStates.loading')}</p>}
+      </Reveal>
     </main>
     {creating && <CreateProject store={store} onClose={() => setCreating(false)} onCreated={id => go(`project:${id}`)} />}
     <p role="status" className="sr-only" aria-live="polite">{pageName}</p>

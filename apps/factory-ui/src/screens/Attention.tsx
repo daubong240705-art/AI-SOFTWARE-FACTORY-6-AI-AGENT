@@ -1,3 +1,6 @@
+import { Crossfade } from '@/components/motion/Crossfade';
+import { AnimatePresence } from 'motion/react';
+import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -101,17 +104,17 @@ export function Attention({ store }: { store: Store }) {
       {state.loading.globalInbox && <div role="status" className="space-y-3 px-6 pb-4"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-5 w-4/5" /><Skeleton className="h-4 w-3/5" /></div>}
       {state.errors.globalInbox && <><ErrorNotice error={state.errors.globalInbox} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></>}
       {!rows.length && !state.loading.globalInbox && !state.errors.globalInbox && <Empty className="p-6"><EmptyHeader><EmptyMedia variant="icon"><CheckCheck /></EmptyMedia><EmptyDescription>{t('attention.empty')}</EmptyDescription></EmptyHeader><Button asChild variant="outline"><a href="#/overview">{t('nav.overview')}</a></Button></Empty>}
-      <ul ref={list} aria-label={t('attention.list')} className="m-0 list-none p-0">{rows.map(row => {
+      <Stagger ref={list} aria-label={t('attention.list')} className="m-0 list-none p-0"><AnimatePresence initial={false}>{rows.map((row, index) => {
         const code = row.code ?? state.tasks.find(task => task.projectId === row.projectId && task.id === state.globalInbox.approvals.find(approval => `approval:${approval.id}` === row.key)?.taskId)?.code;
-        return <li key={row.key}><Button type="button" variant="ghost" aria-current={selected?.key === row.key ? 'true' : undefined} aria-selected={selected?.key === row.key} className={cn('h-auto w-full flex-col items-stretch gap-2 rounded-none border-t border-l-2 border-t-border border-l-transparent px-6 py-3 text-left whitespace-normal hover:bg-card', selected?.key === row.key && 'border-l-need bg-secondary hover:bg-secondary')} onClick={() => select(row)}>
+        return <StaggerItem key={row.key} index={index} collapse><Button type="button" variant="ghost" aria-current={selected?.key === row.key ? 'true' : undefined} aria-selected={selected?.key === row.key} className={cn('h-auto w-full flex-col items-stretch gap-2 rounded-none border-t border-l-2 border-t-border border-l-transparent px-6 py-3 text-left whitespace-normal hover:bg-card', selected?.key === row.key && 'border-l-need bg-secondary hover:bg-secondary')} onClick={() => select(row)}>
           <span className="flex items-start gap-3"><strong className="min-w-0 flex-1 text-sm leading-relaxed font-semibold break-words">{attentionTitle(row.title)}</strong>{row.actionable && <span aria-label={t('inboxUi.needsDecision')} className="mt-2 size-1.5 shrink-0 rounded-full bg-need" />}</span>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal text-muted-foreground"><ProjectTile id={row.projectId} name={name(row)} className="h-5 w-6" /><span>{name(row)}</span>{code && <span className="font-mono">{code}</span>}{!row.since.startsWith('9999') && <time dateTime={row.since} className="ml-auto">{relativeTime(row.since)}</time>}</span>
-        </Button></li>;
-      })}</ul>
+        </Button></StaggerItem>;
+      })}</AnimatePresence></Stagger>
     </section>
     <section ref={pane} tabIndex={-1} className="flex min-h-0 min-w-0 flex-col overflow-auto outline-none" aria-label={t('attention.detail')}>
       {selected && (readyProject === selected.projectId && state.selectedProjectId === selected.projectId
-        ? <AttentionDetail key={selected.key} store={store} row={selected} onSuccess={decided} /> : <p role="status">{t('viewStates.loading')}</p>)}
+        ? <Crossfade contentKey={selected.key}><AttentionDetail store={store} row={selected} onSuccess={decided} /></Crossfade> : <p role="status">{t('viewStates.loading')}</p>)}
     </section>
     <p className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-attention-announcement>{completed ? `${t('inboxUi.decided')} ` : ''}{selected ? `${t('attention.selected')}: ${selected.title}` : t('attention.empty')}</p>
   </div>;

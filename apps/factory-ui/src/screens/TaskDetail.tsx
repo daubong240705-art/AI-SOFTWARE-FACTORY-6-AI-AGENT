@@ -1,4 +1,4 @@
-﻿import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { isLiveAttempt } from '@factory/contracts';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -63,6 +63,6 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request', inl
       </TabsContent>
     </Tabs>
   </div>;
-  return inline ? <DockedPane label={t('projectUi.taskDetails')} className="project-task-pane bg-background p-6" onClose={onClose} {...(fallbackFocus ? { fallbackFocus } : {})}>{content}</DockedPane>
+  return inline ? <DockedPane label={t('projectUi.taskDetails')} className="project-task-pane h-full bg-background p-6" onClose={onClose} {...(fallbackFocus ? { fallbackFocus } : {})}>{content}</DockedPane>
     : <Dialog labelledBy={`${id}-title`} onClose={onClose} className="task-detail-backdrop">{content}</Dialog>;
 }

@@ -1,3 +1,4 @@
+import { StaggerItem } from '@/components/motion/Stagger';
 import { useId } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,8 @@ import type { OrgTeam } from '../../api/m3Models';
 import { useT } from '../../i18n';
 import type { useM3Command } from '../M3Shared';
 
-export function SeatRow({ seat, projectId, readOnly, command }: {
+export function SeatRow({ seat, projectId, readOnly, command, index }: {
+  index: number;
   seat: OrgTeam['seats'][number];
   projectId: string | null;
   readOnly: boolean;
@@ -19,7 +21,7 @@ export function SeatRow({ seat, projectId, readOnly, command }: {
   const disabled = command.busy || !projectId;
 
   return (
-    <li className="grid min-w-0 gap-3 py-4 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+    <StaggerItem index={index} className="grid min-w-0 gap-3 py-4 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
       <div className="min-w-0 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <h4 className="text-sm font-medium [overflow-wrap:anywhere]">{seat.name}</h4>
@@ -58,6 +60,6 @@ export function SeatRow({ seat, projectId, readOnly, command }: {
           </div>
         </form>
       )}
-    </li>
+    </StaggerItem>
   );
 }

@@ -1,3 +1,4 @@
+import { Stagger } from '@/components/motion/Stagger';
 import { useEffect, useId } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
@@ -43,11 +44,11 @@ export function TeamCard({ store, team }: { store: Store; team: OrgTeam }) {
         <section className="space-y-3" aria-labelledby={`${id}-seats`}>
           <h3 id={`${id}-seats`} className="font-display text-base font-semibold">{t('team.seats')}</h3>
           {team.seats.length ? (
-            <ul className="m-0 list-none divide-y divide-border p-0">
-              {team.seats.map((seat) => (
-                <SeatRow key={`${seat.id}:${seat.revision}`} seat={seat} projectId={state.selectedProjectId} readOnly={readOnly} command={command} />
+            <Stagger className="m-0 list-none divide-y divide-border p-0">
+              {team.seats.map((seat, index) => (
+                <SeatRow index={index} key={`${seat.id}:${seat.revision}`} seat={seat} projectId={state.selectedProjectId} readOnly={readOnly} command={command} />
               ))}
-            </ul>
+            </Stagger>
           ) : <p className="text-sm text-muted-foreground">{t('team.emptySeats')}</p>}
         </section>
         <Separator />

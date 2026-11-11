@@ -2,6 +2,10 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  toastUi: {
+    approved: 'Đã duyệt', changesRequested: 'Đã yêu cầu sửa', taskCreated: 'Đã tạo công việc', started: 'Đã bắt đầu',
+    projectCreated: 'Đã tạo dự án', saved: 'Đã lưu', answered: 'Đã trả lời',
+  },
   ux5: {
     createTitle: 'Dự án mới', createDescription: 'Một dự án gồm thư mục làm việc, các việc và đội agent.',
     directory: 'Thư mục', git: 'Dự án Git', directoryDescription: 'Thư mục trống do Host tạo', gitDescription: 'Dùng bản sao Git có sẵn',

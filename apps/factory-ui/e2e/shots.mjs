@@ -9,10 +9,12 @@ if (!base || !token) { console.error('usage: node e2e/shots.mjs <baseUrl> <token
 mkdirSync(out, { recursive: true });
 const [locale, theme] = mode === 'en-light' ? ['en', 'light'] : ['vi', 'dark'];
 const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: process.env.MOTION ? 'no-preference' : 'reduce' });
 await context.addInitScript(([l, t]) => { if (!localStorage.getItem('factory-ui.preferences.v1')) localStorage.setItem('factory-ui.preferences.v1', JSON.stringify({ locale: l, theme: t })); }, [locale, theme]);
 const page = await context.newPage();
-const shot = async (name, full = false) => { await page.waitForTimeout(350); await page.screenshot({ path: `${out}/${mode}-${name}.png`, fullPage: full }); console.log('shot', name); };
+page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+page.on('console', (m) => { if (m.type() === 'error') console.log('CONSOLE', m.text().slice(0, 200)); });
+const shot = async (name, full = false) => { await page.waitForTimeout(process.env.MOTION ? 900 : 350); await page.screenshot({ path: `${out}/${mode}-${name}.png`, fullPage: full }); console.log('shot', name); };
 const go = async (hash) => { await page.evaluate((h) => { location.hash = h; }, hash); await page.waitForTimeout(500); };
 
 await page.goto(base);
