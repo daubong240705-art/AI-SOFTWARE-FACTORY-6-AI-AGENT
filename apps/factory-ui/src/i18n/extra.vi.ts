@@ -23,7 +23,7 @@ export const extra: Translated<typeof en> = {
     result: 'Kết quả', activity: 'Hoạt động', context: 'Bối cảnh', documents: 'Tài liệu bàn giao',
     history: 'Các lần chạy trước', noChanges: 'Lần chạy này không thay đổi file nào.',
     view: 'Xem', hide: 'Ẩn', showLess: 'Thu gọn', changes: 'Thay đổi', summary: 'Tóm tắt',
-    document: 'Tài liệu', attempt: 'Lần chạy', note: 'Ghi chú', recommended: 'Khuyến nghị',
+    document: 'Tài liệu', attempt: 'Lần chạy', note: 'Ghi chú', addNote: 'Thêm ghi chú', recommended: 'Khuyến nghị',
     test: 'Test', integration: 'Gộp vào nhánh tích hợp', notReported: 'Chưa có thông tin',
     changeCount: '{files} file, +{added} -{removed}', patchHash: 'Mã băm thay đổi',
     noDocuments: 'Lần chạy này chưa có tài liệu bàn giao.', noCriteria: 'Chưa có tiêu chí nghiệm thu.',
@@ -54,7 +54,7 @@ export const extra: Translated<typeof en> = {
     caughtUp: 'Bạn đã xử lý xong mọi việc.', viewAll: 'Xem tất cả', conversationUnavailable: 'Cuộc trò chuyện chưa sẵn sàng. Hãy thử lại.',
     activity: 'Hoạt động', activityFilters: 'Lọc hoạt động theo dự án', allProjects: 'Tất cả', today: 'Hôm nay', yesterday: 'Hôm qua',
     activityEmpty: 'Chưa có hoạt động để hiển thị.', activityScope: 'Đang hiển thị công việc của dự án được chọn: {project}.',
-    activitySelectProject: 'Mở một dự án để xem hoạt động công việc.', undated: 'Chưa có ngày cập nhật',
+    activitySelectProject: 'Mở một dự án để xem hoạt động công việc.', undated: 'KHÁC',
   },
   m3: m3Vi,
   knowledgeUi: {

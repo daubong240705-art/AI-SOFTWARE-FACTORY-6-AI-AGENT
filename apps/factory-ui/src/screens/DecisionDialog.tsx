@@ -1,8 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Approval, Command } from '@factory/contracts';
+import { MessageSquarePlus } from 'lucide-react';
 import { approvalsDecide } from '../api/commands';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,6 +30,7 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
   const [ready, setReady] = useState(false);
   const [optionId, setOptionId] = useState('');
   const [comment, setComment] = useState('');
+  const [noteOpen, setNoteOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [changed, setChanged] = useState(false);
   const [command, setCommand] = useState<Command | null>(null);
@@ -36,6 +39,7 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
   const [, tick] = useState(0);
   const inFlight = useRef(false);
   const commentInput = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { if (noteOpen && optionId === 'request-changes') commentInput.current?.focus(); }, [noteOpen, optionId]);
   const projectId = state.selectedProjectId;
   useEffect(() => { let current = true; setReady(false); void store.loadApproval(approvalId).then(() => { if (current) setReady(true); }); return () => { current = false; }; }, [store, approvalId, projectId]);
   const approval = ready && !state.errors[`approval:${approvalId}`] ? state.approvals[approvalId] : undefined;
@@ -91,11 +95,14 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
         {!editable && !expired && <p className="text-sm text-muted-foreground">{t(`inboxUi.states.${approval.state}`)}</p>}
         {approval.outcome && <Card className="gap-2 border-border p-4 shadow-none"><h3 className="text-sm font-semibold">{t('inboxUi.outcome')}</h3><p className="text-sm">{readableText(approval.options.find(item => item.id === approval.outcome?.optionId)?.label ?? '')}</p><p className="text-sm text-muted-foreground">{readableText(approval.outcome.comment)}</p></Card>}
         {editable && <>
-          {!review && <DecisionOptions approval={approval} id={id} value={optionId} onChange={setOptionId} disabled={busy || confirm || !!command} />}
-          <div className="space-y-2"><Label htmlFor={`${id}-comment`}>{t('reviewUi.note')}{approval.kind === 'review' && optionId === 'request-changes' ? ` (${t('inboxUi.required')})` : ''}</Label>
-            <Textarea ref={commentInput} id={`${id}-comment`} rows={3} maxLength={32000} value={comment} required={approval.kind === 'review' && optionId === 'request-changes'} disabled={busy || confirm || !!command} onChange={event => setComment(event.target.value)} aria-describedby={`${id}-counter`} className="min-h-24 resize-y border-border bg-card" />
+          {!review && <DecisionOptions approval={approval} id={id} value={optionId} onChange={value => { setOptionId(value); if (approval.kind === 'review' && value === 'request-changes') setNoteOpen(true); }} disabled={busy || confirm || !!command} />}
+          <Collapsible open={approval.kind !== 'review' || noteOpen || optionId === 'request-changes'} onOpenChange={setNoteOpen}>
+            {approval.kind === 'review' && <CollapsibleTrigger asChild><Button type="button" variant="ghost" size="sm" disabled={busy || confirm || !!command || optionId === 'request-changes'} className="gap-2 text-muted-foreground"><MessageSquarePlus aria-hidden="true" />{t('reviewUi.addNote')}</Button></CollapsibleTrigger>}
+            <CollapsibleContent className="space-y-2 data-[state=open]:pt-2"><Label htmlFor={`${id}-comment`}>{t('reviewUi.note')}{approval.kind === 'review' && optionId === 'request-changes' ? ` (${t('inboxUi.required')})` : ''}</Label>
+            <Textarea ref={commentInput} id={`${id}-comment`} name="comment" rows={3} maxLength={32000} value={comment} required={approval.kind === 'review' && optionId === 'request-changes'} disabled={busy || confirm || !!command} onChange={event => setComment(event.target.value)} aria-describedby={`${id}-counter`} className="min-h-24 resize-y border-border bg-background px-3 py-2" />
             <p id={`${id}-counter`} className="text-right text-xs text-muted-foreground">{new Intl.NumberFormat(i18n.locale).format(comment.length)} / {new Intl.NumberFormat(i18n.locale).format(32000)} {t('inboxUi.characters')}</p>
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
         </>}
         {!review && <>
           <p className="text-xs leading-relaxed text-muted-foreground">{t('reviewUi.waiting').replace('{impact}', readableText(approval.impactIfWaiting))}</p>
@@ -106,7 +113,7 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
         if (review) { const accept = approval.options.find(item => item.id === 'accept' || item.id === 'approve'); if (!accept) return; setOptionId(accept.id); }
         else if (!valid) return;
         setConfirm(true);
-      }} onChanges={() => { setOptionId('request-changes'); commentInput.current?.focus(); }} onConfirmChanges={() => setConfirm(true)} onExecute={() => { void execute(); }} onBack={() => setConfirm(false)} onRetry={() => { void execute(true); }} />}
+      }} onChanges={() => { setOptionId('request-changes'); setNoteOpen(true); commentInput.current?.focus(); }} onConfirmChanges={() => setConfirm(true)} onExecute={() => { void execute(); }} onBack={() => setConfirm(false)} onRetry={() => { void execute(true); }} />}
     </>}
   </>;
   return inline ? <section className="flex min-h-full flex-col" aria-labelledby={`${id}-title`}>{content}</section> : <Dialog labelledBy={`${id}-title`} onClose={() => { if (!inFlight.current) onClose(); }}>{content}</Dialog>;

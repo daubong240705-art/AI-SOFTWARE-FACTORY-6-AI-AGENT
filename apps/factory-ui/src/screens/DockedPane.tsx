@@ -9,7 +9,7 @@ export function DockedPane({ children, label, onClose, className = '', id, fallb
   useLayoutEffect(() => {
     const opener = document.activeElement;
     const node = pane.current;
-    (node?.querySelector<HTMLElement>('button') ?? node)?.focus();
+    node?.focus();
     const keydown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || document.querySelector('[role="dialog"]')) return;
       event.preventDefault(); event.stopPropagation(); close.current();

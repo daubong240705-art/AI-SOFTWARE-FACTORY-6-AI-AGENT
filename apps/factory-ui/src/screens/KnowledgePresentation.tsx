@@ -2,6 +2,11 @@ import { BookOpen, Code2, Database, FileText, GitBranch, Image, ListChecks, Sear
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useT } from '../i18n';
+import { artifactTitle } from './artifactPresentation';
+
+export function KnowledgeTitle({ title }: { title: string }) {
+  return <>{artifactTitle(title)}</>;
+}
 
 export function KnowledgeKindIcon({ kind }: { kind: string }) {
   const Icon = kind === 'research-report' ? Search : kind === 'adr' ? GitBranch : kind === 'data-model' || kind === 'dataset' ? Database : kind === 'api-contract' || kind === 'code-ref' ? Code2 : kind === 'design-asset' || kind === 'media' || kind === 'ui-spec' ? Image : kind === 'plan' || kind === 'requirements' ? ListChecks : kind === 'dossier' ? BookOpen : FileText;

@@ -44,10 +44,9 @@ export function ActivityFeed({ store, onCreate, onTask }: {
         <h3 className="px-5 pt-3 pb-1 font-sans text-xs font-normal tracking-wide text-muted-foreground uppercase">{group.label}</h3>
         <ul className="m-0 list-none p-0">{group.rows.map(({ task, time }) => {
           const project = state.projects.find(item => item.id === task.projectId);
-          return <li key={task.id}><Button variant="ghost" className="grid h-auto w-full grid-cols-[30px_minmax(0,1fr)_auto] items-start gap-3 rounded-none border-0 border-t border-border bg-transparent px-5 py-3 text-left font-normal whitespace-normal hover:bg-secondary" onClick={() => onTask(task.projectId, task.id)}>
+          return <li key={task.id}><Button variant="ghost" className="grid h-auto w-full grid-cols-[30px_minmax(0,1fr)] items-start gap-3 rounded-none border-0 border-t border-border bg-transparent px-5 py-3 text-left font-normal whitespace-normal hover:bg-secondary" onClick={() => onTask(task.projectId, task.id)}>
             <ProjectTile id={task.projectId} name={project?.name ?? t('overview.project')} className="size-[30px] rounded-lg" />
-            <span className="min-w-0"><span className="text-sm leading-relaxed [overflow-wrap:anywhere]"><span className="mr-2 font-mono text-xs font-medium">{task.code}</span>{task.title}</span><span className="mt-1 block"><TaskStatus task={task} state={state} /></span></span>
-            {time && <time dateTime={time} className="pt-0.5 text-xs whitespace-nowrap text-muted-foreground">{relativeTime(time)}</time>}
+            <span className="flex min-w-0 flex-col gap-3"><span className="flex min-w-0 items-baseline gap-3 text-sm leading-relaxed"><span className="shrink-0 font-mono text-xs font-medium">{task.code}</span><span className="min-w-0 flex-1 truncate">{task.title}</span>{time && <time dateTime={time} className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">{relativeTime(time)}</time>}</span><TaskStatus task={task} state={state} /></span>
           </Button></li>;
         })}</ul>
       </section>)}

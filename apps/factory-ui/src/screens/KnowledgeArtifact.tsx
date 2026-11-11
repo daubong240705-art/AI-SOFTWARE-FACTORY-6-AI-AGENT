@@ -9,7 +9,7 @@ import { ErrorNotice } from '../components/ErrorNotice';
 import { i18n, useT } from '../i18n';
 import type { Store } from '../state/store';
 import { relativeTime } from './Inbox';
-import { KnowledgeKindIcon, KnowledgeStatus, KnowledgeText } from './KnowledgePresentation';
+import { KnowledgeKindIcon, KnowledgeStatus, KnowledgeText, KnowledgeTitle } from './KnowledgePresentation';
 
 export function KnowledgeArtifact({ store, artifactId, onClose }: { store: Store; artifactId: string; onClose: () => void }) {
   const t = useT();
@@ -22,7 +22,7 @@ export function KnowledgeArtifact({ store, artifactId, onClose }: { store: Store
   const latest = artifact?.versions[0];
   const number = (value: number) => new Intl.NumberFormat(i18n.locale).format(value);
   return <Sheet open onOpenChange={open => { if (!open) onClose(); }}><SheetContent side="right" showCloseButton={false} aria-labelledby={`${id}-title`} aria-describedby={undefined} className="w-full gap-0 overflow-y-auto border-border bg-card sm:max-w-2xl">
-    <SheetHeader className="sticky top-0 z-10 flex-row items-start justify-between gap-4 border-b border-border bg-card p-5"><div className="min-w-0 space-y-3"><SheetTitle id={`${id}-title`} className="font-display text-2xl leading-tight [overflow-wrap:anywhere]">{artifact?.title ?? t('knowledgeUi.detail')}</SheetTitle>{artifact && <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary"><KnowledgeKindIcon kind={artifact.kind} />{t(`knowledgeUi.kinds.${artifact.kind}`)}</Badge>{latest && <><KnowledgeStatus status={latest.status} /><Badge variant="outline">{t(`knowledgeUi.visibility.${latest.visibility}`)}</Badge></>}</div>}</div><Button variant="ghost" size="icon" onClick={onClose} aria-label={t('knowledgeUi.close')}><X className="size-4" /></Button></SheetHeader>
+    <SheetHeader className="sticky top-0 z-10 flex-row items-start justify-between gap-4 border-b border-border bg-card p-5"><div className="min-w-0 space-y-3"><SheetTitle id={`${id}-title`} className="font-display text-2xl leading-tight [overflow-wrap:anywhere]"><KnowledgeTitle title={artifact?.title ?? t('knowledgeUi.detail')} /></SheetTitle>{artifact && <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary"><KnowledgeKindIcon kind={artifact.kind} />{t(`knowledgeUi.kinds.${artifact.kind}`)}</Badge>{latest && <><KnowledgeStatus status={latest.status} /><Badge variant="outline">{t(`knowledgeUi.visibility.${latest.visibility}`)}</Badge></>}</div>}</div><Button variant="ghost" size="icon" onClick={onClose} aria-label={t('knowledgeUi.close')}><X className="size-4" /></Button></SheetHeader>
     <div className="mx-auto w-full max-w-2xl space-y-6 p-5">
       {state.knowledge.loading[area] && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3"><Skeleton className="h-5 w-2/3" /><Skeleton className="h-32" /></div>}
       {state.knowledge.errors[area] && <div className="space-y-3"><ErrorNotice error={state.knowledge.errors[area]} /><Button variant="outline" onClick={() => { void store.openKnowledgeArtifact(artifactId); }}>{t('errors.retry')}</Button></div>}
@@ -44,7 +44,7 @@ export function KnowledgeArtifact({ store, artifactId, onClose }: { store: Store
             {content && <><KnowledgeText text={content.text.slice(0, 20000)} code={/^text\/x-diff(?:;|$)/i.test(version.mediaType)} />{content.text.length > 20000 && <p className="text-xs text-muted-foreground">{t('knowledgeUi.truncated').replace('{count}', number(20000))}</p>}</>}
           </Card></li>;
         })}</ul>
-        <section className="space-y-4 border-t border-border pt-5"><h3 className="font-display text-lg font-semibold">{t('knowledgeUi.provenance')}</h3>{(['inputs', 'dependants'] as const).map(relation => <div key={relation} className="space-y-2"><h4 className="text-sm font-medium">{t(`knowledgeUi.${relation}`)}</h4>{!artifact[relation].length && <p className="text-sm text-muted-foreground">{t('knowledgeUi.noRefs')}</p>}<ul className="space-y-2 text-sm text-muted-foreground">{artifact[relation].map(ref => <li key={`${ref.artifactId}:${ref.version}`} className="[overflow-wrap:anywhere]">{ref.title} · <span className="font-mono">{t('knowledgeUi.version')} {number(ref.version)}</span></li>)}</ul></div>)}</section>
+        <section className="space-y-4 border-t border-border pt-5"><h3 className="font-display text-lg font-semibold">{t('knowledgeUi.provenance')}</h3>{(['inputs', 'dependants'] as const).map(relation => <div key={relation} className="space-y-2"><h4 className="text-sm font-medium">{t(`knowledgeUi.${relation}`)}</h4>{!artifact[relation].length && <p className="text-sm text-muted-foreground">{t('knowledgeUi.noRefs')}</p>}<ul className="space-y-2 text-sm text-muted-foreground">{artifact[relation].map(ref => <li key={`${ref.artifactId}:${ref.version}`} className="[overflow-wrap:anywhere]"><KnowledgeTitle title={ref.title} /> · <span className="font-mono">{t('knowledgeUi.version')} {number(ref.version)}</span></li>)}</ul></div>)}</section>
       </>}
     </div>
   </SheetContent></Sheet>;
