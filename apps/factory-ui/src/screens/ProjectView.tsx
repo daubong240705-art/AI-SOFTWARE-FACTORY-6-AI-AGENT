@@ -52,7 +52,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
   }
   function openTask(taskId: string) { setChat(false); setSelected(taskId); select('board'); }
   return <div className="project-view flex h-full min-h-0 flex-col">
-    <Page className="min-w-0 flex-none px-6 pt-4 pb-0"><header role="generic" className="flex h-14 items-center overflow-x-auto rounded-xl border border-border bg-card px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <Page className="min-w-0 flex-none pt-4 pb-0"><header role="generic" className="flex h-14 items-center overflow-x-auto rounded-xl border border-border bg-card px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <ProjectTile id={project.id} name={project.name} className="size-8" />
       <h1 className="m-0 ml-2.5 hidden max-w-48 shrink-0 truncate font-sans text-base leading-normal font-medium sm:block" title={project.name}>{project.name}</h1>
       <Separator orientation="vertical" className="mx-3 shrink-0 data-[orientation=vertical]:h-6" />

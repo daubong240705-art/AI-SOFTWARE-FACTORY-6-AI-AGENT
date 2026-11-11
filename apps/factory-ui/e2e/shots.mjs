@@ -9,7 +9,7 @@ if (!base || !token) { console.error('usage: node e2e/shots.mjs <baseUrl> <token
 mkdirSync(out, { recursive: true });
 const [locale, theme] = mode === 'en-light' ? ['en', 'light'] : ['vi', 'dark'];
 const browser = await chromium.launch();
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: process.env.MOTION ? 'no-preference' : 'reduce' });
+const context = await browser.newContext({ viewport: { width: Number(process.env.WIDTH ?? 1440), height: Number(process.env.HEIGHT ?? 900) }, reducedMotion: process.env.MOTION ? 'no-preference' : 'reduce' });
 await context.addInitScript(([l, t]) => { if (!localStorage.getItem('factory-ui.preferences.v1')) localStorage.setItem('factory-ui.preferences.v1', JSON.stringify({ locale: l, theme: t })); }, [locale, theme]);
 const page = await context.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR', e.message));

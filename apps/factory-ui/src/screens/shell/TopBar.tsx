@@ -25,9 +25,9 @@ export function TopBar({ store, compact, expanded, onToggle, onNewTask, onProjec
   }, []);
   const streamLabel = state.stream === 'closed' ? 'shell.offline' : 'shell.reconnecting';
   return <>
-    <header className="col-start-2 flex min-w-0 items-center gap-3 border-b border-border bg-background px-6 max-[1179px]:col-start-1 max-sm:gap-2 max-sm:px-4">
+    <header className="col-start-2 flex min-w-0 items-center gap-3 border-b border-border bg-background px-8 2xl:px-12 max-[1179px]:col-start-1 max-sm:gap-2 max-sm:px-4">
       {compact && <Button variant="ghost" size="icon" aria-label={t('shell.toggleProjects')} aria-expanded={expanded} aria-controls="factory-navigation" onClick={onToggle}><Menu /></Button>}
-      <div className="relative min-w-0 flex-1 sm:max-w-[560px]">
+      <div className="relative min-w-0 flex-1 sm:max-w-[min(56vw,960px)]">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input ref={search} readOnly aria-label={t('shell.searchTasks')} aria-haspopup="dialog" aria-expanded={open} placeholder={t('shell.searchPlaceholder')} className="h-9 cursor-text border-border bg-transparent pr-14 pl-9 shadow-none dark:bg-transparent max-sm:pr-2" onClick={() => setOpen(true)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(true); } }} />
         <Kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 border border-border bg-transparent font-mono max-sm:hidden">Ctrl K</Kbd>
