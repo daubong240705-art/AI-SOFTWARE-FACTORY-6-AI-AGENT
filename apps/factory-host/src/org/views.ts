@@ -12,11 +12,14 @@ export function projectEngagements(raw: Database, projectId: string) {
       state: string; revision: number; createdAt: string }[];
 }
 
-export function teamViews(raw: Database) {
-  const teams = raw.prepare(`SELECT id, name, charter, pack_key AS packKey, pack_version AS packVersion, lifecycle, revision
+export function listTeams(raw: Database) {
+  return raw.prepare(`SELECT id, name, charter, pack_key AS packKey, pack_version AS packVersion, lifecycle, revision
     FROM teams ORDER BY name, id`).all() as { id: string; name: string; charter: string; packKey: string | null;
       packVersion: string | null; lifecycle: string; revision: number }[];
-  return teams.map((team) => {
+}
+
+export function teamViews(raw: Database) {
+  return listTeams(raw).map((team) => {
     const engagements = raw.prepare(`SELECT e.project_id AS projectId, p.name AS projectName, e.id AS engagementId,
       e.priority, e.max_concurrent AS maxConcurrent, e.state, e.revision FROM engagements e JOIN projects p ON p.id = e.project_id
       WHERE e.team_id = ? ORDER BY e.priority DESC, e.created_at, e.id`).all(team.id) as {

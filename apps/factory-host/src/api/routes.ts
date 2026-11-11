@@ -40,6 +40,7 @@ import { getRequest, listRequests, RequestError } from "../requests/service.js";
 import { registerDossierRoutes } from "../dossier/routes.js";
 import type { ExternalTools } from "../mcp-external/index.js";
 import { listWorkflowInstances, workflowInstanceView } from "../workflow/service.js";
+import { orgActivity } from "../org/activity.js";
 
 export function createRoutes(deps: {
   external?: ExternalTools;
@@ -155,6 +156,9 @@ export function createRoutes(deps: {
           ...(produces === undefined ? {} : { produces }), ...(workflows === undefined ? {} : { workflows }) })),
     }));
     app.get("/teams", { preHandler: guards.session }, async () => ({ teams: teamViews(deps.storage.raw) }));
+    app.get("/org/activity", { preHandler: guards.session }, async () => ({
+      apiVersion: API_VERSION, ok: true, ...orgActivity(deps.storage.raw, (deps.clock ?? systemClock)()),
+    }));
     app.get<{ Params: { teamId: string } }>("/teams/:teamId/queue", { preHandler: guards.session }, async (request, reply) => {
       const parsed = idSchema.safeParse(request.params.teamId);
       if (!parsed.success) return failure(reply, 400, "validation", "Invalid team id.", "correct-input", newId);

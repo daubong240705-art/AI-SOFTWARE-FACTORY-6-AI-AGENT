@@ -28,8 +28,10 @@ export function deterministicUuid(value: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-export function listSeats(raw: Database, teamId: string): Seat[] {
-  return (raw.prepare("SELECT * FROM seats WHERE team_id = ? ORDER BY is_lead DESC, name, id").all(teamId) as SeatRow[]).map(seatFromRow);
+export function listSeats(raw: Database, teamId?: string, limit = -1): Seat[] {
+  return (raw.prepare(`SELECT * FROM seats ${teamId === undefined ? "" : "WHERE team_id = ?"}
+    ORDER BY team_id, is_lead DESC, name, id LIMIT ?`)
+    .all(...(teamId === undefined ? [] : [teamId]), limit) as SeatRow[]).map(seatFromRow);
 }
 
 export function ensureTeamFromPack(raw: Database, pack: LoadedPack, deps: Deps): { teamId: string; created: boolean; seatIds: string[] } {

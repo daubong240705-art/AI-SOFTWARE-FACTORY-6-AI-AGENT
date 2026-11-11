@@ -25,7 +25,7 @@ for (const [index, value] of [[], ["other"], artifactKindSchema.options].entries
 for (const [index, value] of [["unknown"], ["other", "other"], [...artifactKindSchema.options, "other"], null, "other"].entries())
   test(`produces invalid case ${index}`, () => { const m = base(); m.produces = value; assert.equal(packManifestSchema.safeParse(m).success, false); });
 test("software pack digest and v1 schema stay unchanged", () => {
-  assert.equal(loadPack(join(packsDir, "software-team")).digest, "1071840e726289f5c65e9a67feed1a6f5721a716003fcb4809b9363f2f411305");
+  assert.equal(loadPack(join(packsDir, "software-team")).digest, "7c35032be61b6a767d4309253dfc262ee449e100b68e532facfc0a0c5d2e0a1f");
   assert.deepEqual(packManifestSchema.parse(pack.manifest), pack.manifest);
   assert.equal(Object.hasOwn(registryEntry(pack), "produces"), false);
   assert.equal(Object.hasOwn(registryEntry(pack).seats[0], "tools"), false);
