@@ -116,3 +116,19 @@ describe('team response tolerates additive Host fields', () => {
     await expect(broken.getTeam(id)).rejects.toMatchObject({ kind: 'bad-response' });
   });
 });
+
+describe('budget read model against the M5 Host', () => {
+  const m5 = { ...budget, project: { used: 12, limit: null, verdict: 'ok', source: 'default' },
+    engagements: [{ engagementId: id, used: 5, limit: 100, verdict: 'warn' }] };
+  const read = (body: unknown) => createApiClient({ fetchImpl: vi.fn(async () => response({ ...envelope, budget: body })) as never }).getBudget(id);
+  it('accepts the project and engagement budgets the Host now sends (null project limit means no limit)', async () => {
+    const result = await read(m5); expect(result.budget.project).toEqual({ used: 12, limit: null, verdict: 'ok', source: 'default' });
+    expect(result.budget.engagements?.[0]?.verdict).toBe('warn');
+  });
+  it('still accepts an older Host without those fields', async () => { expect((await read(budget)).budget.project).toBeUndefined(); });
+  it('still rejects unknown extra keys and malformed new fields', async () => {
+    await expect(read({ ...m5, surprise: 1 })).rejects.toBeInstanceOf(ApiClientError);
+    await expect(read({ ...m5, project: { ...m5.project, limit: 0 } })).rejects.toBeInstanceOf(ApiClientError);
+    await expect(read({ ...m5, engagements: [{ ...m5.engagements[0], verdict: 'bad' }] })).rejects.toBeInstanceOf(ApiClientError);
+  });
+});

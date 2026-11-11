@@ -26,6 +26,9 @@ const budgetFields = { used: count, limit: count.positive(),
 const budget = ok.extend({ budget: object.extend({
   day: object.extend({ date: budgetSchema.shape.scopeRef.refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value), ...budgetFields }),
   tasks: object.extend({ taskId: idSchema, code: taskSchema.shape.code, ...budgetFields }).array(),
+  // Added by the Host in M5 (P3a): project-wide and per-engagement budgets. Optional so older Hosts still parse.
+  project: object.extend({ used: count, limit: count.positive().nullable(), verdict: budgetFields.verdict, source: budgetFields.source }).optional(),
+  engagements: object.extend({ engagementId: idSchema, used: count, limit: count.positive(), verdict: budgetFields.verdict }).array().optional(),
 }) });
 
 export type ApiClientErrorKind = 'network' | 'bad-response' | 'api';
