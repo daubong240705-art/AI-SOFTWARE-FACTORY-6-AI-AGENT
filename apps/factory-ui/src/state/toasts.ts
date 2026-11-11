@@ -4,6 +4,22 @@ import { i18n } from '../i18n';
 
 function successKey(command: Command, approvalKind?: Approval['kind']) {
   switch (command.type) {
+    case 'schedules.create':
+    case 'rules.create':
+    case 'monitors.create': return 'automationWrite.created';
+    case 'schedules.update':
+    case 'rules.update':
+    case 'monitors.update': return 'automationWrite.saved';
+    case 'schedules.pause':
+    case 'rules.pause':
+    case 'monitors.pause': return 'automationWrite.paused';
+    case 'schedules.resume':
+    case 'rules.resume':
+    case 'monitors.resume': return 'automationWrite.resumed';
+    case 'schedules.delete':
+    case 'rules.delete':
+    case 'monitors.delete': return 'automationWrite.deleted';
+    case 'schedules.run-now': return 'automationWrite.runRequested';
     case 'approvals.decide': {
       if (approvalKind === 'question') return 'toastUi.answered';
       const { optionId } = command.payload;

@@ -280,22 +280,12 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 .m5-screen details { margin-top: var(--space-sm); font-size: var(--type-meta-size); color: var(--muted); }
 .m5-screen summary { cursor: pointer; }
 .m5-screen dd { margin: 0 0 var(--space-sm); }
-.automation-screen { display: flex; flex-direction: column; gap: var(--space-xl); }
-.automation-screen .m5-toolbar { margin-bottom: 0; }
-.automation-screen section { min-width: 0; }
-.automation-screen h3 { margin: 0 0 var(--space-md); font-family: var(--display); }
-.automation-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm) var(--space-lg); padding: var(--space-md) 0; border-bottom: 1px solid var(--line); }
-.automation-row > strong { flex: 1 1 30%; min-width: 0; }
-.automation-row > span, .automation-row > time { font-size: var(--type-meta-size); }
-.automation-row > details { flex-basis: 100%; }
 @media (max-width: 900px) {
   .workflow-layout.has-selection { grid-template-columns: minmax(0, 1fr); }
   .m5-detail { border-left: 0; border-top: 1px solid var(--line); padding: var(--space-lg) 0 0; }
 }
 @media (max-width: 600px) {
   .m5-screen { padding: var(--space-md); }
-  .automation-row > strong { flex-basis: 100%; }
-  .automation-row > * { min-width: 0; max-width: 100%; }
 }
 /* U-G1 Settings */
 .settings-screen { display: flex; flex-direction: column; gap: var(--space-xl); }

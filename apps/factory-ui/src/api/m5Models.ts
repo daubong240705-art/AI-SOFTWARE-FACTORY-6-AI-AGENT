@@ -1,4 +1,5 @@
-import { successResponseSchema, textSchema, idSchema, usageSchema, seatSchema, workflowDefinitionSchema } from '@factory/contracts';
+import { successResponseSchema, textSchema, idSchema, usageSchema, seatSchema, workflowDefinitionSchema,
+  scheduleActionSchema, ruleConditionSchema, monitorCreateSchema } from '@factory/contracts';
 
 // Reuse the contract's Zod primitives without adding a schema-library dependency.
 const o = successResponseSchema.pick({ ok: true, apiVersion: true }).omit({ ok: true, apiVersion: true });
@@ -57,13 +58,23 @@ const workflowDefinition = o.extend({ key: s.min(1), packKey: s.optional().defau
   title: s, domain: s.nullable().optional().default(null), parameters: workflowParameter.nullable().catch(null).array().optional().default([]).transform(items => items.filter(item => item !== null)),
   phases: s.array().optional().default([]), graph: workflowGraph.optional().default({ stages: [], edges: [], joins: [], gates: [] }), }).strip();
 const schedule = o.extend({ id: idSchema, name: s.min(1), kind: en(['cron', 'once', 'interval'] as const), expr: s,
+  revision: n.positive().optional().catch(undefined),
+  action: o.extend({ definitionKey: s, packKey: s.nullable().optional(), autoStart: seatSchema.shape.isLead.optional(),
+    params: scheduleActionSchema.shape.params, title: scheduleActionSchema.shape.title,
+    paramKeys: s.array().optional().default([]) }).strip().optional().catch(undefined),
   timezone: s.optional(), state: automationState, enabled: seatSchema.shape.isLead.optional(),
   nextRunAt: maybeDate, lastRunAt: maybeDate, lastStatus: s.nullable().optional(),
 }).strip();
 const rule = o.extend({ id: idSchema, name: s.min(1), eventType: s.min(1), state: automationState,
+  revision: n.positive().optional().catch(undefined), condition: ruleConditionSchema.optional().catch(undefined),
+  action: o.extend({ definitionKey: s, packKey: s.nullable().optional(), params: scheduleActionSchema.shape.params,
+    title: scheduleActionSchema.shape.title, paramKeys: s.array().optional().default([]) }).strip().optional().catch(undefined),
   firesInWindow: n.optional(), lastFiredAt: maybeDate,
 }).strip();
 const monitor = o.extend({ id: idSchema, name: s.min(1), state: en(['active', 'paused', 'unknown'] as const).catch('unknown'),
+  revision: n.positive().optional().catch(undefined), kind: monitorCreateSchema.shape.kind.optional().catch(undefined),
+  params: monitorCreateSchema.shape.params.optional().catch(undefined), comparator: monitorCreateSchema.shape.comparator.catch(undefined),
+  threshold: number.min(0).optional().catch(undefined),
   status: en(['ok', 'tripped', 'unknown'] as const).catch('unknown'), lastCheckedAt: maybeDate,
 }).strip();
 const routeBreaker = o.extend({ key: s.min(1), state: en(['closed', 'open', 'half-open'] as const), openedAt: maybeDate }).strip();

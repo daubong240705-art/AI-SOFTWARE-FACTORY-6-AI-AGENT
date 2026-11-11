@@ -10,13 +10,17 @@ import { emptySettings, type SettingsState } from './settings';
 import { notifyCommandSuccess } from './toasts';
 import { emptyActivity, type ActivityState } from './activity';
 import { createExtractionPolling } from './extractionPolling';
+import { toast } from 'sonner';
+import { i18n } from '../i18n';
+
+type AutomationCommand = Extract<Command, { type: `schedules.${string}` | `rules.${string}` | `monitors.${string}` }>;
 
 export type DocumentUploadState = { busy: boolean; progress: number; error: { status: number; code: string } | null };
 export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean; upload: DocumentUploadState };
 const emptyUpload = (): DocumentUploadState => ({ busy: false, progress: 0, error: null });
 const emptyKnowledge = (): KnowledgeState => ({ query: '', filters: {}, results: [], list: [], detail: {}, loading: {}, errors: {}, hasMore: false, upload: emptyUpload() });
 
-export type StoreError = { kind: string; message: string; correlationId?: string; code?: string };
+export type StoreError = { kind: string; message: string; correlationId?: string; code?: string; detailKey?: string };
 export type PendingCommand = { command: Command; status: 'pending' | 'failed'; error?: StoreError };
 export type TaskDetailState = { loading: boolean; error?: StoreError | undefined; attempts: Attempt[]; events: Record<string, AttemptEvent[]>; artifacts: TaskArtifact[]; approvals: Approval[]; patches: Record<string, AttemptPatch | null>; effects: Record<string, Effect[]> };
 const emptyDetail = (): TaskDetailState => ({ loading: false, attempts: [], events: {}, artifacts: [], approvals: [], patches: {}, effects: {} });
@@ -46,7 +50,7 @@ export type StoreOptions = {
 };
 const projectState = () => ({ activity: emptyActivity(), settings: emptySettings(), m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
-  ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}) }
+  ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}), ...(error.detailKey ? { detailKey: error.detailKey } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
 
 export function createStore(options: StoreOptions = {}) {
@@ -583,6 +587,29 @@ export function createStore(options: StoreOptions = {}) {
       return undefined;
     }
   }
+  async function sendAutomation(command: AutomationCommand) {
+    const area = command.type.split('.')[0] as 'schedules' | 'rules' | 'monitors';
+    const payload = command.payload;
+    const id = command.type.endsWith('.create') ? 'new'
+      : 'scheduleId' in payload ? payload.scheduleId : 'ruleId' in payload ? payload.ruleId : payload.monitorId;
+    const key = `automation:${area}:${id}`, scope = generation;
+    if (state.loading[key] || state.session !== 'authenticated' || command.projectId !== state.selectedProjectId) return;
+    update({ loading: { ...state.loading, [key]: true }, errors: { ...state.errors, [key]: undefined } });
+    try {
+      const response = await send(command);
+      if (!active(scope)) return;
+      const error = state.pending[command.commandId]?.error;
+      if (error) update({ errors: { ...state.errors, [key]: error } });
+      if (response || error?.code === 'conflict') {
+        await ({ schedules: loadSchedules, rules: loadRules, monitors: loadMonitors })[area]();
+        if (!active(scope)) return;
+        if (error?.code === 'conflict') toast.info(i18n.t('automationWrite.conflict'));
+      }
+      return response;
+    } finally {
+      if (active(scope)) update({ loading: { ...state.loading, [key]: false } });
+    }
+  }
   const store = {
     getState: () => state,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
@@ -595,7 +622,7 @@ export function createStore(options: StoreOptions = {}) {
     },
     loadProjects: () => loadProjects(),
     loadWorkflows, loadWorkflow, loadWorkflowDefinitions, loadAutomation, loadSchedules, loadRules, loadMonitors, loadBreakers,
-    loadScheduleOccurrences, loadRuleFires, loadMonitorEvents,
+    loadScheduleOccurrences, loadRuleFires, loadMonitorEvents, sendAutomation,
     loadAutonomy, loadStandingApprovals, loadSettings,
     watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
