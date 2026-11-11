@@ -9,6 +9,10 @@ export const revisionSchema = z
   .positive()
   .max(Number.MAX_SAFE_INTEGER);
 export const timestampSchema = z.iso.datetime();
+export const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+// IDs are lowercase UUIDs; new entities should use UUIDv7 (time-ordered) which the same schema accepts.
+export const isUuidV7 = (value: string): boolean => /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value);
+export const uuidV7Schema = idSchema.refine(isUuidV7, "Expected a UUIDv7");
 export const labelSchema = z.string().trim().min(1).max(160);
 export const textSchema = z.string().min(1).max(32_000);
 export const entityKindSchema = z.enum([
@@ -23,6 +27,23 @@ export const entityKindSchema = z.enum([
   "review",
   "output",
   "preferences",
+  // Added in contracts 0.2.0 (M0-lite). Additive: existing kinds are unchanged.
+  "team",
+  "seat",
+  "engagement",
+  "task",
+  "attempt",
+  "approval",
+  "artifact-version",
+  "effect",
+  "budget",
+  "node",
+  "workflow-instance",
+  "schedule",
+  "monitor",
+  "rule",
+  "notification",
+  "standing-approval",
 ]);
 export const entityRefSchema = z.strictObject({
   kind: entityKindSchema,

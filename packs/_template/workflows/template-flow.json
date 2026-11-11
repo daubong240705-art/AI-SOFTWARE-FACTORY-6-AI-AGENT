@@ -1,0 +1,41 @@
+{
+  "key": "template-flow",
+  "revision": 1,
+  "title": "Template Flow",
+  "parameters": [],
+  "phases": [
+    "delivery"
+  ],
+  "stages": [
+    {
+      "key": "author",
+      "phase": "delivery",
+      "title": "author",
+      "requiredCapabilities": [
+        "delivery.document"
+      ],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "key": "review",
+      "phase": "delivery",
+      "title": "review",
+      "requiredCapabilities": [
+        "delivery.document"
+      ],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "edges": [
+    {
+      "from": "author",
+      "to": "review",
+      "type": "finish-to-start"
+    }
+  ],
+  "joins": [],
+  "gates": [],
+  "allowedPatches": {}
+}

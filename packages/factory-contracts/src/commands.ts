@@ -1,4 +1,11 @@
+import { monitorCreateSchema, monitorPatchSchema } from "./automation.js";
+import { notificationIdPayloadSchema } from "./notifications.js";
+import { standingCreateSchema, standingRevokeSchema } from "./standing.js";
+import { ruleInputSchema, rulePatchSchema } from "./rules.js";
+import { autonomyLevelSchema } from "./autonomy.js";
 import { z } from "zod";
+import { scheduleInputSchema, schedulePatchSchema } from "./schedule.js";
+import { workflowKeySchema, workflowPatchSchema } from "./workflow.js";
 import {
   API_VERSION,
   idSchema,
@@ -7,7 +14,18 @@ import {
   textSchema,
   versionedRefSchema,
   linuxPathSchema,
+  sha256Schema,
 } from "./base.js";
+import { artifactRefSchema, artifactStatusSchema } from "./knowledge.js";
+import { capabilityIdSchema } from "./nodes.js";
+import {
+  DEFAULT_PLACEMENT,
+  DEFAULT_SIDE_EFFECT,
+  placementSchema,
+  reviewPolicySchema,
+  sideEffectSchema,
+  taskStateSchema,
+} from "./work.js";
 
 const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
   z.strictObject({
@@ -20,6 +38,40 @@ const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
 const change = { expectedRevision: revisionSchema };
 // No actor, credentials, effective grant, status category or windowId supplied by the browser.
 export const commandSchema = z.discriminatedUnion("type", [
+  command("integration.retry", z.strictObject({ taskId: idSchema })),
+  command("integration.skip", z.strictObject({ taskId: idSchema })),
+  command("standing-approvals.create", standingCreateSchema),
+  command("standing-approvals.revoke", standingRevokeSchema),
+  command("notifications.mark-read", notificationIdPayloadSchema),
+  command("notifications.dismiss", notificationIdPayloadSchema),
+  command("autonomy.set", z.strictObject({ subject: z.enum(["project", "team"]), subjectRef: idSchema,
+    level: autonomyLevelSchema, expectedRevision: revisionSchema.nullable() })),
+  command("rules.create", ruleInputSchema.safeExtend({ ruleId: idSchema })),
+  command("rules.update", z.strictObject({ ruleId: idSchema, ...change, patch: rulePatchSchema })),
+  command("rules.pause", z.strictObject({ ruleId: idSchema, ...change })),
+  command("rules.resume", z.strictObject({ ruleId: idSchema, ...change })),
+  command("rules.delete", z.strictObject({ ruleId: idSchema, ...change })),
+  command("monitors.create", monitorCreateSchema.safeExtend({ monitorId: idSchema })),
+  command("monitors.update", z.strictObject({ monitorId: idSchema, ...change, patch: monitorPatchSchema })),
+  command("monitors.pause", z.strictObject({ monitorId: idSchema, ...change })),
+  command("monitors.resume", z.strictObject({ monitorId: idSchema, ...change })),
+  command("monitors.delete", z.strictObject({ monitorId: idSchema, ...change })),
+  command("schedules.create", scheduleInputSchema.safeExtend({ scheduleId: idSchema })),
+  command("schedules.update", z.strictObject({ scheduleId: idSchema, ...change, patch: schedulePatchSchema })),
+  command("schedules.pause", z.strictObject({ scheduleId: idSchema, ...change })),
+  command("schedules.resume", z.strictObject({ scheduleId: idSchema, ...change })),
+  command("schedules.delete", z.strictObject({ scheduleId: idSchema, ...change })),
+  command("schedules.run-now", z.strictObject({ scheduleId: idSchema, ...change })),
+  command("workflows.patch", z.strictObject({ instanceId: idSchema, ...change, ...workflowPatchSchema.shape })),
+  command("workflows.decide-patch", z.strictObject({ patchId: idSchema, decision: z.enum(["approve", "reject"]), comment: z.string().max(500).optional() })),
+  command("workflows.create", z.strictObject({ instanceId: idSchema, definitionKey: workflowKeySchema,
+    packKey: workflowKeySchema.optional(), params: z.record(z.string(), z.union([z.boolean(), z.string().max(500), z.number().finite()])).optional(),
+    title: labelSchema.optional() })),
+  command("workflows.assign-stage", z.strictObject({ instanceId: idSchema, ...change, stageKey: workflowKeySchema, engagementId: idSchema.nullable() })),
+  command("workflows.start", z.strictObject({ instanceId: idSchema, ...change })),
+  command("workflows.pause", z.strictObject({ instanceId: idSchema, ...change, reason: z.string().min(1).max(500) })),
+  command("workflows.resume", z.strictObject({ instanceId: idSchema, ...change })),
+  command("workflows.cancel", z.strictObject({ instanceId: idSchema, ...change, reason: z.string().min(1).max(500) })),
   command(
     "projects.create",
     z.strictObject({
@@ -135,6 +187,101 @@ export const commandSchema = z.discriminatedUnion("type", [
       evidenceIds: z.array(idSchema).max(100),
     }),
   ),
+  // ---- Added in contracts 0.2.0 (M0-lite). Additive: the commands above are unchanged. -----------
+  command(
+    "engagements.create",
+    z.strictObject({
+      engagementId: idSchema,
+      teamId: idSchema,
+      priority: z.number().int().min(0).max(100),
+      maxConcurrent: z.number().int().min(1).max(32),
+    }),
+  ),
+  command("teams.create-from-pack", z.strictObject({
+    teamId: idSchema, packKey: labelSchema, packVersion: labelSchema,
+  })),
+  command("teams.set-lifecycle", z.strictObject({
+    ...change, teamId: idSchema, lifecycle: z.enum(["active", "paused", "archived"]),
+  })),
+  command("engagements.update", z.strictObject({
+    ...change, engagementId: idSchema,
+    priority: z.number().int().min(0).max(100).optional(),
+    maxConcurrent: z.number().int().min(1).max(32).optional(),
+    state: z.enum(["active", "paused", "ended"]).optional(),
+  })),
+  // Seats remain elastic; dedicated node assignment arrives in M4.
+  command("seats.update", z.strictObject({
+    ...change, seatId: idSchema, slots: z.number().int().min(1).max(8).optional(),
+  })),
+  command(
+    "tasks.create",
+    z.strictObject({
+      taskId: idSchema,
+      code: z.string().regex(/^[A-Z]{2,6}-\d{3,6}$/),
+      title: labelSchema,
+      goal: z.string().min(1).max(500),
+      brief: textSchema,
+      parentTaskId: idSchema.nullable(),
+      engagementId: idSchema.nullable(),
+      ownerSeatId: idSchema.nullable(),
+      requiredCapabilities: z.array(capabilityIdSchema).max(30),
+      // E-06: when omitted the most restrictive classification applies.
+      placement: placementSchema.default(DEFAULT_PLACEMENT),
+      sideEffect: sideEffectSchema.default(DEFAULT_SIDE_EFFECT),
+      reviewPolicy: reviewPolicySchema.default("human-final"),
+      requiresGo: z.boolean().default(true), // C-04: the Execution Gate is on unless turned off
+      acceptance: z.array(z.string().min(1).max(500)).max(30),
+      inputs: z.array(artifactRefSchema).max(100),
+      dependsOn: z.array(idSchema).max(50),
+    }),
+  ),
+  command(
+    "tasks.transition",
+    z.strictObject({ ...change, taskId: idSchema, to: taskStateSchema }),
+  ),
+  // Releases a task waiting at the Execution Gate. The browser never states who it is.
+  command("tasks.release", z.strictObject({ ...change, taskId: idSchema })),
+  command(
+    "approvals.decide",
+    z.strictObject({
+      ...change,
+      approvalId: idSchema,
+      // Digest the person saw. If the context changed meanwhile the Host rejects with a conflict.
+      contextDigest: sha256Schema,
+      optionId: labelSchema,
+      comment: z.string().max(32_000),
+    }),
+  ),
+  command(
+    "budgets.set",
+    z.strictObject({
+      budgetId: idSchema,
+      expectedRevision: revisionSchema.nullable(),
+      scope: z.enum(["task", "day", "project", "engagement"]),
+      scopeRef: z.string().min(1).max(64),
+      limitTokens: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+      warnAtPercent: z.number().int().min(1).max(99),
+    }),
+  ),
+  command("artifacts.transition", z.strictObject({
+    artifactId: idSchema, version: revisionSchema, to: artifactStatusSchema, comment: z.string().max(4_000),
+  })),
+  command("dossier.refresh", z.strictObject({})),
+  command("artifacts.share", z.strictObject({
+    artifactId: idSchema, version: revisionSchema, visibility: z.enum(["team-draft", "project", "shared"]),
+  })),
+  command("artifacts.clear-stale", z.strictObject({
+    artifactId: idSchema, version: revisionSchema, becauseArtifactId: idSchema, becauseVersion: revisionSchema,
+  })),
+  command("requests.triage", z.strictObject({
+    requestTaskId: idSchema,
+    decision: z.enum(["accept", "need-info", "decline", "redirect", "merge"]),
+    reason: z.string().min(1).max(1000),
+    ownerSeatId: idSchema.optional(),
+    redirectTeamId: idSchema.optional(),
+    mergeIntoTaskId: idSchema.optional(),
+  })),
+  command("requests.message", z.strictObject({ requestTaskId: idSchema, text: z.string().min(1).max(2000) })),
 ]);
 export type Command = z.infer<typeof commandSchema>;
 export type CommandType = Command["type"];

@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { copyFileSync,mkdirSync,readdirSync } from "node:fs";
+import { join } from "node:path";
+import { automationFixture } from "./automation-fixture.mjs";
+import { temp,migrationsDir } from "./org-fixture.mjs";
+import { openStorage } from "../dist/storage/database.js";
+test("automation fresh ledger reaches fourteen",t=>{const f=automationFixture(t);assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map(r=>r.version),Array.from({length:21},(_,i)=>i+1));});
+for(const table of ["monitors","monitor_events"])test(`automation strict table ${table}`,t=>{const f=automationFixture(t);assert.equal(f.raw.prepare("SELECT strict FROM pragma_table_list WHERE name=?").get(table).strict,1);});
+test("automation progress column nullable",t=>{const f=automationFixture(t),id=f.stalled();assert.equal(f.raw.prepare("SELECT last_progress_at FROM workflow_instances WHERE id=?").get(id).last_progress_at,null);assert.equal(f.raw.prepare("SELECT \"notnull\" AS required FROM pragma_table_info('workflow_instances') WHERE name='last_progress_at'").get().required,0);});
+for(const [column,value] of [["revision",0],["kind","http"],["params_json","invalid"],["comparator","gte"],["threshold",-1],["trip_after",0],["trip_after",11],["recover_after",0],["recover_after",11],["interval_seconds",59],["interval_seconds",86401],["state","disabled"],["status","failed"],["trip_after",1.5]])test(`automation SQL rejects ${column} ${value}`,t=>{const f=automationFixture(t),id=f.create();assert.throws(()=>f.raw.prepare(`UPDATE monitors SET ${column}=? WHERE id=?`).run(value,id));});
+test("automation event composite foreign key",t=>{const f=automationFixture(t),id=f.create(),other=f.project();assert.throws(()=>f.raw.prepare("INSERT INTO monitor_events VALUES (?,?,1,'unknown','ok',0,?)").run(other,id,f.clock().toISOString()));assert.deepEqual(f.raw.pragma("foreign_key_check"),[]);});
+test("automation due index exists",t=>{const f=automationFixture(t);assert.deepEqual(f.raw.pragma("index_info(monitors_due)").map(r=>r.name),["state","next_check_at"]);});
+test("automation upgrade preserves thirteen data",t=>{const root=temp(t),dir=join(root,"migrations");mkdirSync(dir);for(const name of readdirSync(migrationsDir).filter(n=>n.endsWith('.sql')&&Number(n.slice(0,4))<14))copyFileSync(join(migrationsDir,name),join(dir,name));const storage=openStorage(":memory:");t.after(()=>storage.close());storage.migrate({migrationsDir:dir,backupDir:null});storage.raw.prepare("INSERT INTO projects VALUES ('p',1,'Preserved','artifact','unused','active')").run();assert.deepEqual(storage.migrate({migrationsDir,backupDir:join(root,"backups")}).applied,[14,15,16,17,18,19,20,21]);assert.equal(storage.raw.prepare("SELECT name FROM projects WHERE id='p'").get().name,"Preserved");});

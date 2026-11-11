@@ -352,6 +352,14 @@ Thẩm quyền là **cấu hình theo Organization/Project**, không hardcode. A
 
 ### 5.1 Task State Machine
 
+> **Cập nhật 07/11/2026 (ADR-T04, 05 §8.2, 07 AR-M4): sơ đồ và bảng dưới đây đã được thay thế ở các điểm sau.**
+> - Task lifecycle **chỉ gồm trạng thái nghiệp vụ**: `Draft · Proposed · Accepted · Ready · AwaitingGo · Active · InReview · Done · Failed · Cancelled · Declined · Superseded`, cộng *holds* (điều kiện chờ) và *disposition* (`active/parked/archived`).
+> - Các trạng thái `Queued`, `InProgress`, `Waiting`, `Interrupted`, `Paused` **không còn là trạng thái của Task**: `Queued/Running/Interrupted/...` thuộc **Attempt** (03 §12.2); `Paused` là `disposition: parked`; `Waiting` chỉ còn là trạng thái **hiển thị** (04 §8.1), không lưu.
+> - `Active` nghĩa là Task đang có (hoặc sắp có) một Attempt sống; mọi chi tiết thực thi đọc từ Attempt.
+> - Yêu cầu giữa các Team (CTR) **là một Task** có `origin = cross-team`, `requestKind`, `requesterTaskId` (AP-R8); triage là chuyển Proposed → Accepted/Declined. Mục 5.3 (state machine CTR riêng) chỉ còn giá trị tham khảo về hành vi.
+>
+> Khi bản sơ đồ cũ mâu thuẫn với ghi chú này, ghi chú này đúng.
+
 Thiết kế giữ nguyên nguyên tắc V2: **trạng thái nghiệp vụ** (category/status của workflow) tách khỏi **trạng thái thực thi** (run attempt) và **lý do chờ** (holds) là điều kiện trực giao, không phải thêm cột.
 
 ```mermaid
@@ -844,6 +852,8 @@ Kết quả nghiên cứu thị trường, so sánh công cụ, giá cả có th
 ## 14. Quyết định, nguồn gốc dữ liệu và tính nhất quán
 
 ### 14.1 Decision Request và Decision Record
+
+> **Cập nhật 07/11/2026 (05 I5, 07 AR-M4):** Decision Request **không còn là cơ chế riêng**: nó là một **Approval** loại `decision` (04 §10). **Decision Record** là kết quả bền vững của một Approval đã được quyết; **Review** là verdict trên một Artifact Version và chỉ hiện ra qua Approval khi policy yêu cầu người duyệt.
 
 V2 đã có `decisionSchema` (`pending/answered/superseded`), tương ứng **Decision Request** (câu hỏi gửi người quyết định). Đề xuất thêm **Decision Record** là kết quả bền vững, dạng ADR, áp dụng cho mọi cấp (Operator, Project Lead, Team Lead).
 

@@ -1,0 +1,7 @@
+import type { KnowledgeArtifact, KnowledgeItem, KnowledgeResult } from '../src/api/client';
+import { id, otherId } from './fixtures';
+
+export const item: KnowledgeItem = { artifactId: id, version: 2, kind: 'research-report', title: 'Knowledge document', status: 'approved', visibility: 'project', abstractL0: 'Short summary', projectId: id, mediaType: 'text/markdown', sizeBytes: 42, createdAt: '2026-11-08T00:00:00.000Z', versionCount: 2 };
+export const result: KnowledgeResult = { artifactId: item.artifactId, version: item.version, kind: item.kind, title: item.title, status: item.status, visibility: item.visibility, abstractL0: item.abstractL0, projectId: id, snippet: 'Matching words', rank: -0.42 };
+export const version: KnowledgeArtifact['versions'][number] = { version: 2, status: 'approved', visibility: 'project', mediaType: 'text/markdown', sizeBytes: 42, abstractL0: item.abstractL0, abstractL1: 'Detailed summary text', producedByAttemptId: otherId, supersedesVersion: 1, createdAt: item.createdAt };
+export const document: KnowledgeArtifact = { artifactId: id, kind: item.kind, title: item.title, versions: [version, { ...version, version: 1, status: 'superseded', visibility: 'team-draft', supersedesVersion: null, abstractL1: null, producedByAttemptId: null }], inputs: [{ artifactId: otherId, version: 3, title: 'Source document' }], dependants: [{ artifactId: otherId, version: 4, title: 'Dependent document' }] };

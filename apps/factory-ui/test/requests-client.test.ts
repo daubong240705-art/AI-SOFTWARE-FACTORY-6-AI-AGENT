@@ -1,0 +1,15 @@
+import { it, expect, vi } from 'vitest';
+import { createApiClient } from '../src/api/client';
+import { requestsTriage, requestsMessage } from '../src/api/commands';
+import { requestItem, requestDetail } from './m3-fixtures';
+import { id, envelope, response } from './fixtures';
+const client = (value: unknown) => createApiClient({ fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(response(value)) });
+it('accepts request rows and additive fields', async () => { const data = await client({ ...envelope, items: [{ ...requestItem, extra: true }], extra: true }).listRequests(id); expect(data.items[0]?.subject).toBe(requestItem.subject); });
+it('accepts detail and additive thread fields', async () => { expect((await client({ ...envelope, request: { ...requestDetail, extra: 1, thread: [{ ...requestDetail.thread[0], extra: true }] } }).getRequest(id,id)).request.thread[0]?.text).toContain('<img'); });
+it.each(Object.keys(requestItem))('rejects malformed row field %s', async key => { await expect(client({ ...envelope, items: [{ ...requestItem, [key]: {} }] }).listRequests(id)).rejects.toMatchObject({ kind: 'bad-response' }); });
+it.each(Object.keys(requestDetail))('rejects malformed detail field %s', async key => { await expect(client({ ...envelope, request: { ...requestDetail, [key]: {} } }).getRequest(id,id)).rejects.toMatchObject({ kind: 'bad-response' }); });
+it.each(['author','text','at','seq'])('rejects malformed thread %s', async key => { await expect(client({ ...envelope, request: { ...requestDetail, thread: [{ ...requestDetail.thread[0], [key]: {} }] } }).getRequest(id,id)).rejects.toMatchObject({ kind: 'bad-response' }); });
+it('encodes request routes and filters', async () => { const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response({ ...envelope, items: [] })); await createApiClient({ fetchImpl }).listRequests('p/?', { state: 'need-info', team: id }); expect(String(fetchImpl.mock.calls[0]?.[0])).toBe(`/projects/p%2F%3F/requests?limit=100&state=need-info&team=${id}`); });
+it.each(['accept','need-info','decline','redirect','merge'] as const)('builds triage %s with a fresh identity', decision => { const command = requestsTriage({ projectId:id,requestTaskId:id,decision,reason:'Reviewed' }); expect(command.payload).toMatchObject({ decision, reason:'Reviewed', requestTaskId:id }); expect(command.commandId).not.toBe(requestsTriage({ projectId:id,requestTaskId:id,decision,reason:'Reviewed' }).commandId); });
+it.each(['', 'x'.repeat(1001)])('rejects invalid reason length %#', reason => { expect(() => requestsTriage({ projectId:id,requestTaskId:id,decision:'accept',reason })).toThrow(); });
+it('builds operator message', () => { expect(requestsMessage({ projectId:id,requestTaskId:id,text:'Note' }).payload).toEqual({ requestTaskId:id,text:'Note' }); });

@@ -1,0 +1,231 @@
+{
+  "key": "software-delivery",
+  "revision": 1,
+  "title": "Software Delivery",
+  "domain": "software",
+  "parameters": [
+    {
+      "name": "hasUI",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "deployTarget",
+      "type": "enum",
+      "values": [
+        "none",
+        "staging",
+        "production"
+      ],
+      "default": "staging"
+    }
+  ],
+  "phases": [
+    "discovery",
+    "analysis",
+    "ready",
+    "execution",
+    "delivered"
+  ],
+  "stages": [
+    {
+      "key": "research",
+      "phase": "discovery",
+      "title": "research",
+      "requiredCapabilities": [
+        "research.synthesis"
+      ],
+      "inputs": [
+        {
+          "kind": "brief",
+          "required": true
+        }
+      ],
+      "outputs": [
+        {
+          "kind": "research-report",
+          "mustReach": "approved"
+        }
+      ],
+      "optional": true,
+      "skipIf": {
+        "fact": "project.hasApprovedArtifact",
+        "kind": "research-report",
+        "op": "eq",
+        "value": true
+      },
+      "sideEffect": "artifact"
+    },
+    {
+      "key": "ba",
+      "phase": "analysis",
+      "title": "ba",
+      "requiredCapabilities": [
+        "docs.requirements"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "kind": "requirements",
+          "mustReach": "approved"
+        }
+      ]
+    },
+    {
+      "key": "design",
+      "phase": "analysis",
+      "title": "design",
+      "requiredCapabilities": [
+        "ui.web"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "kind": "ui-spec",
+          "mustReach": "approved"
+        }
+      ],
+      "optional": true,
+      "includeIf": {
+        "param": "hasUI",
+        "op": "eq",
+        "value": true
+      },
+      "parallelGroup": "analysis-specialists"
+    },
+    {
+      "key": "architecture",
+      "phase": "ready",
+      "title": "architecture",
+      "requiredCapabilities": [
+        "plan.product"
+      ],
+      "inputs": [],
+      "outputs": [
+        {
+          "kind": "data-model",
+          "mustReach": "approved"
+        }
+      ],
+      "parallelGroup": "analysis-specialists"
+    },
+    {
+      "key": "development",
+      "phase": "execution",
+      "title": "development",
+      "requiredCapabilities": [
+        "backend.api"
+      ],
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code"
+    },
+    {
+      "key": "qa",
+      "phase": "execution",
+      "title": "qa",
+      "requiredCapabilities": [
+        "test.unit"
+      ],
+      "inputs": [],
+      "outputs": []
+    },
+    {
+      "key": "deploy",
+      "phase": "delivered",
+      "title": "deploy",
+      "requiredCapabilities": [
+        "ops.deploy"
+      ],
+      "inputs": [],
+      "outputs": [],
+      "optional": true,
+      "includeIf": {
+        "param": "deployTarget",
+        "op": "ne",
+        "value": "none"
+      },
+      "sideEffect": "external"
+    }
+  ],
+  "edges": [
+    {
+      "from": "research",
+      "to": "ba",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "ba",
+      "to": "design",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "ba",
+      "to": "architecture",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "design",
+      "to": "development",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "architecture",
+      "to": "development",
+      "type": "artifact-approved",
+      "artifact": "data-model"
+    },
+    {
+      "from": "development",
+      "to": "qa",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "qa",
+      "to": "deploy",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "qa",
+      "to": "development",
+      "type": "rework",
+      "when": {
+        "fact": "review.verdict",
+        "op": "eq",
+        "value": "changes-requested"
+      },
+      "maxLoops": 3
+    }
+  ],
+  "joins": [
+    {
+      "group": "analysis-specialists",
+      "policy": "all"
+    }
+  ],
+  "gates": [
+    {
+      "before": "development",
+      "kind": "execution-gate",
+      "approver": "operator"
+    },
+    {
+      "before": "deploy",
+      "kind": "irreversible-action",
+      "approver": "operator",
+      "when": {
+        "param": "deployTarget",
+        "op": "eq",
+        "value": "production"
+      }
+    }
+  ],
+  "allowedPatches": {},
+  "autonomy": {
+    "default": "L2"
+  },
+  "timeouts": {
+    "stallAfterMinutes": 1440,
+    "maxDurationMinutes": 43200
+  }
+}

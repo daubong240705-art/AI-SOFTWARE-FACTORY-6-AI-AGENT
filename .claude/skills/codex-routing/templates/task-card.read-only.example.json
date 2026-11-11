@@ -1,0 +1,20 @@
+{
+  "id": "example-explain-validate-plan",
+  "title": "Explain validatePlan in team.ts",
+  "declaredClass": "simple",
+  "expectedFiles": 1,
+  "contextSize": "small",
+  "riskFlags": [],
+  "priorities": { "quality": 3, "speed": 3, "cost": 3 },
+  "sandbox": "read-only",
+  "workdir": ".",
+  "prompt": "Read apps/windows-worker/shared/team.ts. Explain what validatePlan checks and where the 10-task limit is enforced. Do not modify any file. Quote real identifiers only.",
+  "acceptance": {
+    "criteria": [
+      "Names the rules that really exist in the file, not guesses",
+      "No file was modified"
+    ],
+    "scope": { "allowedPrefixes": [] },
+    "identifiers": { "file": "apps/windows-worker/shared/team.ts", "minRatio": 0.7, "minCount": 3 }
+  }
+}

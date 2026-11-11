@@ -19,3 +19,6 @@ dist/
 
 # Generated UI screenshots stay local. Keep source/design assets trackable.
 /docs/**/*.png
+
+# Leftovers of interrupted test runs
+apps/factory-host/test/.org-fixture-*/

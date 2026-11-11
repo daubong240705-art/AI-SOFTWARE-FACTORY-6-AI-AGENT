@@ -1,0 +1,105 @@
+{
+  "key": "architecture-team",
+  "version": "1.0.0",
+  "name": "Architecture Team",
+  "description": "Turns clarified requirements into reviewable technical plans and explicit design decisions. Delivers adr, data-model, api-contract, and plan artifacts with risks and acceptance criteria.",
+  "seats": [
+    {
+      "name": "Lead",
+      "role": "Architecture lead",
+      "profile": "profiles/lead.md",
+      "runtime": "api-agent",
+      "slots": 1,
+      "isLead": true,
+      "capabilities": [
+        "architecture.adr",
+        "architecture.data-model",
+        "architecture.api",
+        "review.architecture"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    },
+    {
+      "name": "Architect",
+      "role": "System architect",
+      "profile": "profiles/architect.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": [
+        "architecture.adr"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    },
+    {
+      "name": "Data Designer",
+      "role": "Data model designer",
+      "profile": "profiles/data-designer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": [
+        "architecture.data-model"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    },
+    {
+      "name": "API Designer",
+      "role": "API contract designer",
+      "profile": "profiles/api-designer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": [
+        "architecture.api"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    },
+    {
+      "name": "Architecture Reviewer",
+      "role": "Independent architecture reviewer",
+      "profile": "profiles/architecture-reviewer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": [
+        "review.architecture"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.get",
+        "request.reply",
+        "project.briefing"
+      ]
+    }
+  ],
+  "skills": [
+    "skills/spec-driven-planning",
+    "skills/write-adr",
+    "skills/data-model-design",
+    "skills/api-contract-design",
+    "skills/architecture-review"
+  ],
+  "produces": [
+    "adr",
+    "data-model",
+    "api-contract",
+    "plan"
+  ]
+}

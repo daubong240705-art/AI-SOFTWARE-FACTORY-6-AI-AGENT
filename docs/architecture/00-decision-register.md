@@ -151,12 +151,59 @@ Nguồn: [06](06-implementation-roadmap.md).
 
 | ID | Đề xuất | Trạng thái |
 |---|---|---|
-| RM-01 (AP-1) | Đổi thứ tự theo lớp năng lực: R0 → M0 → M1 → M2 (MVP) → M3 Multi-Team/Knowledge → M4 Distributed → M5 Workflow/Automation → M6 Hardening → M7 Đa lĩnh vực → M8 Import V1; M2b khi cần 24/7. Thay thứ tự 05 §13 | Đề xuất chọn |
-| RM-02 | MVP dùng hằng ngày = R0 → M2, theo checklist parity 06 §5.2 | Đề xuất chọn |
-| RM-03 (AP-4) | Mã nguồn Project trong MVP: clone vào filesystem WSL, trả kết quả bằng branch | Đề xuất chọn |
-| RM-04 | Nâng cấp kiểu strangler: không sửa V1, V1 Protection Guard ở mọi milestone, V1 chạy song song tới M8 | Đề xuất chọn |
-| RM-05 | Milestone bắt đầu lập trình: R0 + M0 | Đề xuất chọn |
-| OSS-13 | Playwright, fast-check | Đề xuất chọn |
+| RM-01 (AP-1) | Đổi thứ tự theo lớp năng lực: R0 → M0 → M1 → M2 (MVP) → M3 Multi-Team/Knowledge → M4 Distributed → M5 Workflow/Automation → M6 Hardening → M7 Đa lĩnh vực → M8 Import V1; M2b khi cần 24/7. Thay thứ tự 05 §13 | **Đã duyệt** (07/11/2026) |
+| RM-02 | MVP dùng hằng ngày = **MVP-lite** (07 §8: R0 → M0-lite → M1 → M2-lite), theo checklist parity 06 §5.2 | **Đã duyệt** (07/11/2026) |
+| RM-03 (AP-4) | Mã nguồn Project trong MVP: clone vào filesystem WSL, trả kết quả bằng branch | **Đã duyệt** (07/11/2026) |
+| RM-04 | Nâng cấp kiểu strangler: không sửa V1, V1 Protection Guard ở mọi milestone, V1 chạy song song tới M8 | **Đã duyệt** (07/11/2026) |
+| RM-05 | Milestone bắt đầu lập trình: **R0 + M0-lite** (07 §9) | **Đã duyệt** (07/11/2026) |
+| OSS-13 | Playwright, fast-check | **Đã duyệt** (07/11/2026) |
+
+---
+
+## 3E. Điều chỉnh sau Architecture Review (tài liệu 07)
+
+Nguồn: [07](07-architecture-review.md). Người dùng duyệt toàn bộ khuyến nghị ngày 07/11/2026. Khi mâu thuẫn với tài liệu 05/06, mục này được ưu tiên.
+
+| ID | Quyết định đã duyệt | Giải quyết | Mốc |
+|---|---|---|---|
+| AP-R1 | **Cô lập agent từ MVP**: CLI agent chạy dưới user Linux riêng `factory-agent` (nhóm `factory`), không đọc được thư mục state/config của Host; workspace là thư mục duy nhất được cấp (`/srv/factory/workspaces`); key 9Router chỉ ở model proxy của Host, agent nhận token tạm; dùng sandbox-runtime (OSS-04) nếu kịp | AR-C1 (Critical) | M2 |
+| AP-R2 | **M0-lite**: chỉ chốt thực thể M1–M2 cần + điểm mở rộng (`kind`, `origin`, trường tùy chọn); thực thể khác thêm theo milestone bằng phiên bản contracts tăng dần | AR-H1 | M0 |
+| AP-R3 | **MVP-lite** (07 §8), 20–32 ngày công có điều kiện | AR-H2 | M1–M2 |
+| AP-R4 | Cơ chế an toàn đi cùng chức năng gây rủi ro: ngân sách Task/ngày + sổ usage ở M1; Effect Executor tối thiểu (đẩy branch, Effect Record) ở M2; hop limit + ngân sách chuỗi gốc cùng milestone với yêu cầu giữa Team | AR-H3, AR-M9 | M1–M3 |
+| AP-R5 | Sao lưu định kỳ từ M1 (SQLite `.backup`/`VACUUM INTO` + kho file → `D:\factory-backup`, mỗi giờ và khi tắt); diễn tập khôi phục là tiêu chí nghiệm thu M2; Litestream ở M6 | AR-H4 | M1–M2 |
+| AP-R6 | M2 dùng adapter native OpenCode (từ V1); ACP khi thêm Codex/Claude | AR-H5 | M2, M4 |
+| AP-R7 | Lead (API agent) có tool chỉ-đọc workspace do node cung cấp | AR-H6 | M1 |
+| AP-R8 | Hợp nhất CTR vào Task (`origin`, `requestKind`, `requesterTaskId`); clarify/consult là tin nhắn trong thread | AR-M1 | M0, M3 |
+| AP-R9 | Agent Instance ngầm định (slot) tới khi có Seat dedicated | AR-M2 | M0 |
+| AP-R10 | Chỉ giữ 5 abstraction ban đầu: `RuntimeAdapter`, `SandboxProvider`, `ModelGateway`, `Clock`, Repository (Kysely); các abstraction khác tạo khi có hiện thực thứ hai | AR-M3 | M1 |
+| AP-R11 | Cập nhật tài liệu 01, 02 theo ADR-T04 và thuật ngữ Workflow Instance | AR-M4 | Trước M1 (đã làm 07/11/2026) |
+| AP-R12 | Execution Gate ở MVP: Task do Lead tạo ở trạng thái `AwaitingGo` khi bật gate, Operator bấm "Bắt đầu" | AR-M5 | M2 |
+| AP-R13 | Lỗi tool MCP trả lỗi có cấu trúc; attempt chuyển Failed/Interrupted, agent không tự diễn giải | AR-M6 | M2 |
+| AP-R14 | Node dừng ngay khi gia hạn lease thất bại/bị từ chối; so cả đồng hồ thực sau suspend | AR-M7 | M4 |
+| AP-R15 | Node Windows (WinSW) chạy bằng tài khoản người dùng | AR-M8 | M4 |
+| AP-R16 | Khóa working copy theo Artifact (một người giữ, có hạn) | AR-M10 | M3 |
+| AP-11 | Chưa dùng đăng nhập Claude/Codex cá nhân cho tự động hóa; chỉ API key qua 9Router, cho tới khi kiểm điều khoản từng nhà cung cấp | R15 | Liên tục |
+| PoC | Kết quả PoC model routing (nhánh `poc/model-routing`): chính sách bậc theo loại Task là nền cho module `model-router` sau này; chưa tích hợp | — | Sau M1 |
+
+---
+
+## 3F. Quyết định khi kết thúc M0-lite (07/11/2026)
+
+Nguồn: contracts 0.2.0 (commit `b9f541b`, nhánh `feature/m0-contracts-v2`).
+
+| ID | Quyết định | Trạng thái | Mốc |
+|---|---|---|---|
+| AP-3 | **Mô hình dữ liệu M0-lite được duyệt** (`taskSchema`/`attemptSchema` thay `workItemSchema`/`runSchema`; SQL tham chiếu 002). Được phép bắt đầu M1 | Đã duyệt | M1 |
+| PD-1 | **Dự án thật đầu tiên** để thử tương đương: `E:\GIT\BTL-LTM` (Java 21, Gradle 8.14.3; test: `gradlew test`). Remote `origin` là repo của người khác (`ZEADYONE`): **Effect Executor không được cấu hình push tới remote này**, chỉ branch cục bộ hoặc remote do người dùng chỉ định | Đã duyệt, có điều kiện | M1–M2 |
+| PD-2 | Ngân sách token là ngân sách **cho model chạy trong ứng dụng** (agent của nền tảng), không phải chi phí phát triển. Mặc định: `gpt-6.1-sol` medium; 200.000 token/Task; 1.000.000 token/ngày; cảnh báo 80%. **Chỉnh được bất cứ lúc nào** qua `budgets.set` (dữ liệu, không phải mã) | Đã duyệt | M1–M2 |
+| PD-5 | **Chuyển model khi chi phí thực tế quá lớn**: hệ thống được chuyển sang model của DeepSeek (`ds/*`) và Antigravity (`ag/*`) qua 9Router, và **tự quyết định** model trong tập này theo loại Task. Ràng buộc đi kèm: (a) chỉ dùng ba nhóm đã duyệt (mặc định, `ds/*`, `ag/*`); (b) ngân sách cứng vẫn chặn khi `exceeded`; (c) mỗi lần tự chuyển phải ghi lại (Task, model cũ, model mới, lý do) trong sổ usage; (d) Task rủi ro cao (Critical) không tự hạ xuống model rẻ; (e) vẫn chỉ API key qua 9Router (AP-11); (f) tên model cụ thể lấy từ danh mục 9Router thật khi làm `model-router`, không đoán trước | Đã duyệt | M2 |
+| PD-3 | Giao diện **mặc định tiếng Anh**; tiếng Việt bổ sung sau. Mọi chuỗi giao diện đi qua một lớp thông điệp (i18n) ngay từ đầu | Đã duyệt | M2 |
+| PD-4 | **Không chạy song song** V1 và bản mới. So sánh tương đương bằng lịch sử V1 và bộ test của dự án thử | Đã duyệt | M2 |
+| ENV-1 | Môi trường người dùng đã chuẩn bị, đã kiểm tra: user `factory-agent` (nhóm `factory`), `/srv/factory/workspaces` (setgid, nhóm `factory`), bubblewrap 0.9.0, `D:\factory-backup`. **Chưa có**: JDK 21 trong WSL (cần để `factory-agent` chạy `gradlew test` của BTL-LTM); `.wslconfig` (tùy chọn) | Đã kiểm | M1 |
+| PD-8 | **Bỏ qua dùng thử M1, bắt đầu M2** (người dùng, 07/11/2026). JDK 21 đã cài trong WSL. Kế hoạch lát cắt: [09](09-m2-slice-plan.md) | Đã duyệt | M2 |
+| PD-9 | **Sao lưu do lead quyết định**: mỗi giờ và khi tắt, `VACUUM INTO` + `integrity_check`, giữ 48 bản giờ và 14 bản ngày, mặc định `/mnt/d/factory-backup`, diễn tập khôi phục là test | Đã duyệt (người dùng giao quyền) | S1 |
+| PD-6 | **Fastify 5.12.7 được duyệt** làm web framework của Host (MIT). Chỉ một dependency web: không dùng plugin cookie/CSRF/CORS; cookie, phiên, CSRF viết tay bằng `node:crypto` và có test. `zod` 4.6.7 khai báo trực tiếp ở Host (cùng phiên bản contracts đã ghim) | Đã duyệt | M1 |
+| PD-7 | **Phát triển bằng Codex qua Skill `codex-routing`**: lead (Claude) viết đặc tả, giao việc, review diff, tự chạy test và đột biến rồi mới commit. Người dùng cho phép chạy tự động theo kế hoạch, dừng khi cần xác nhận. Việc gắn cờ Critical vẫn phải có phê duyệt rõ ràng của người dùng cho từng lần gọi | Đã duyệt | Liên tục |
 
 ---
 
@@ -189,3 +236,9 @@ Dùng checklist ở [oss-options §2.5](oss-options.md).
 | 07/11/2026 | Người dùng chốt phương án giai đoạn 4: E-01..E-14, OSS-09, OSS-10 **Đã duyệt**; ghi chú làm rõ vào D-07 |
 | 07/11/2026 | Đồng bộ: thêm W-01..W-18 (§3B), ADR-T01..T14 (§3C), OSS-11, OSS-12; sửa E-01, E-02, E-14 theo VMware trên laptop (05 §21) |
 | 07/11/2026 | Giai đoạn 7 (tài liệu 06): thêm RM-01..RM-05, OSS-13 ở trạng thái Đề xuất chọn |
+| 07/11/2026 | Người dùng duyệt toàn bộ khuyến nghị của Architecture Review (07): RM-01..RM-05, OSS-13 **Đã duyệt**; thêm §3E (AP-R1..R16, AP-11); RM-02 và RM-05 đổi sang MVP-lite và R0 + M0-lite |
+| 07/11/2026 | Kết thúc M0-lite: thêm §3F (AP-3 Đã duyệt, PD-1..PD-4, ENV-1); PD-2 còn chờ xác nhận |
+| 07/11/2026 | Người dùng duyệt PD-2 (mức chỉnh được) và thêm PD-5 (chuyển sang model DeepSeek/Antigravity khi chi phí lớn, hệ thống tự quyết định trong tập đã duyệt); bắt đầu M1 |
+| 07/11/2026 | Duyệt Fastify (PD-6) và phát triển tự động bằng Codex (PD-7); hoàn tất mô-đun events và lớp bảo mật API của M1 |
+| 07/11/2026 | M1 hoàn tất về kỹ thuật (Host, Lead chat, UI, e2e); chờ người dùng dùng thử 2–3 ngày theo roadmap. Runbook: [docs/factory-v2-m1-runbook.md](../factory-v2-m1-runbook.md) |
+| 07/11/2026 | Push nhánh `feature/m0-contracts-v2` lên GitHub `origin`; bỏ qua dùng thử M1 và bắt đầu M2 (PD-8, PD-9); thêm tài liệu 09 |

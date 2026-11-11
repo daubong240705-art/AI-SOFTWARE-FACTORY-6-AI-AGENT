@@ -1,0 +1,37 @@
+{
+  "milestone": "R0",
+  "recordedAt": "2026-11-07",
+  "baselineCommit": "49402d5",
+  "node": "v22.20.0",
+  "v1": {
+    "package": "asf-windows-worker@1.3.0-alpha.8",
+    "typecheck": "pass (tsc --noEmit)",
+    "tests": {
+      "tests": 267,
+      "pass": 267,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "durationMs": 36786
+    },
+    "build": "not run: electron-vite build overwrites apps/windows-worker/out used by npm start",
+    "repoChangesCausedByTests": 0
+  },
+  "contracts": {
+    "package": "@factory/contracts@0.1.0",
+    "tests": {
+      "tests": 15,
+      "pass": 15,
+      "fail": 0
+    }
+  },
+  "protectionGuard": {
+    "script": "scripts/factory-v2/verify-v1-protection.mjs",
+    "unitTests": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0
+    },
+    "result": "ok"
+  }
+}

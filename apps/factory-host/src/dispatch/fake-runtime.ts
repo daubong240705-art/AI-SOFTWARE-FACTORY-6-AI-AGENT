@@ -1,0 +1,152 @@
+import type { AttemptContext, RuntimeAdapter, RuntimeEvent, RuntimeSession } from "./runtime.js";
+import type { AttemptRef } from "./types.js";
+import fs from "node:fs";
+import { join } from "node:path";
+import { assertInside } from "../workspace/index.js";
+
+export interface FakeTimers {
+  setTimeout(callback: () => void, ms: number): unknown;
+  clearTimeout(handle: unknown): void;
+}
+export interface FakeRuntime extends RuntimeAdapter {
+  readonly kind: "fake";
+  readonly started: AttemptContext[];
+  readonly stopped: AttemptRef[];
+  readonly ended: AttemptRef[];
+}
+
+export function createFakeRuntime(options: { stepMs?: number; timers?: FakeTimers } = {}): FakeRuntime {
+  const stepMs = options.stepMs ?? 5;
+  if (!Number.isFinite(stepMs) || stepMs < 0) throw new Error("stepMs must be finite and non-negative");
+  const timers: FakeTimers = options.timers ?? {
+    setTimeout: (callback, ms) => setTimeout(callback, ms),
+    clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+  };
+  const started: AttemptContext[] = [];
+  const stopped: AttemptRef[] = [];
+  const executionsEnded: AttemptRef[] = [];
+  return {
+    kind: "fake", started, stopped, ended: executionsEnded,
+    async start(context): Promise<RuntimeSession> {
+      started.push(context);
+      const goal = context.task.goal;
+      if (goal.includes("[fake:crash]")) { executionsEnded.push({ ...context.ref }); throw new Error("Fake crash"); }
+      const queue: RuntimeEvent[] = [];
+      const readers: Array<(result: IteratorResult<RuntimeEvent>) => void> = [];
+      let cancelled = false;
+      let ended = false;
+      let cancelWait: (() => void) | undefined;
+      let stopPromise: Promise<void> | undefined;
+      const modelController = new AbortController();
+      const emit = (event: RuntimeEvent): void => {
+        if (cancelled) return;
+        const reader = readers.shift();
+        if (reader) reader({ done: false, value: event });
+        else queue.push(event);
+      };
+      const wait = (ms?: number): Promise<void> => new Promise((resolve) => {
+        if (cancelled) { resolve(); return; }
+        let handle: unknown;
+        const finish = (): void => {
+          if (handle !== undefined) timers.clearTimeout(handle);
+          cancelWait = undefined;
+          resolve();
+        };
+        cancelWait = finish;
+        if (ms !== undefined) handle = timers.setTimeout(finish, ms);
+      });
+      const onAbort = (): void => { void stop(); };
+      const execution = Promise.resolve().then(async () => {
+        try {
+          if (cancelled) return;
+          if (context.model && goal.includes("[fake:model]")) {
+            const model = context.model.models[0];
+            if (!model) throw new Error("Model request failed");
+            const response = await fetch(`${context.model.baseUrl}/chat/completions`, {
+              method: "POST", signal: modelController.signal,
+              headers: { "content-type": "application/json", authorization: `Bearer ${context.model.token}` },
+              body: JSON.stringify({ model, messages: [{ role: "user", content: "Describe the next step." }], max_tokens: 16 }),
+            });
+            if (!response.ok) throw new Error("Model request failed");
+            const data = await response.json() as { choices?: { message?: { content?: unknown } }[] };
+            const answer = data.choices?.[0]?.message?.content;
+            if (typeof answer !== "string" || answer.includes(context.model.token)) throw new Error("Model request failed");
+            emit({ type: "progress", message: answer.slice(0, 80) });
+          }
+          if (context.workspace && goal.includes("[fake:edit]")) {
+            const root = context.workspace.path;
+            if (!/^[A-Z]{2,6}-\d{3,6}$/.test(context.task.code)) throw new Error("Invalid fake task code");
+            fs.writeFileSync(assertInside(root, join(root, `FAKE-${context.task.code}.md`)),
+              `edited by the fake runtime, epoch ${context.ref.epoch}`);
+            const readme = assertInside(root, join(root, "README.md"));
+            if (fs.existsSync(readme)) fs.appendFileSync(assertInside(root, readme), `\nedited by the fake runtime, epoch ${context.ref.epoch}\n`);
+          }
+          if (context.model && goal.includes("[fake:ask]")) {
+            const url = new URL(context.model.baseUrl);
+            url.pathname = "/mcp";
+            const response = await fetch(url, { method: "POST", signal: modelController.signal,
+              headers: { "content-type": "application/json", authorization: `Bearer ${context.model.token}` },
+              body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "decision.request", arguments: {
+                subject: "Choose the scope", summary: "Which scope should this work deliver?",
+                options: [{ id: "small", label: "Small scope", consequence: "Deliver the essential work." },
+                  { id: "full", label: "Full scope", consequence: "Deliver all requested work." }],
+                recommendation: "small", impactIfWaiting: "The work waits for your decision.",
+              } } }),
+            });
+            if (!response.ok) throw new Error("Decision request failed");
+            const data = await response.json() as { result?: { isError?: boolean }; error?: unknown };
+            if (!data.result || data.result.isError || data.error) throw new Error("Decision request failed");
+            await wait(); return;
+          }
+          if (goal.includes("[fake:silent]")) { await wait(); return; }
+          emit({ type: "progress", message: "Starting" });
+          if (goal.includes("[fake:hang]")) { await wait(); return; }
+          const script: RuntimeEvent[] = goal.includes("[fake:fail]")
+            ? [{ type: "failed", kind: "runtime", message: "Fake failure" }]
+            : [{ type: "progress", message: "Working", percent: 50 },
+              { type: "evidence", name: "fake-check", detail: "passed" },
+              { type: "completed", summary: `Fake work done for ${context.task.code}` }];
+          for (const event of script) {
+            await wait(stepMs * (goal.includes("[fake:slow]") ? 10 : 1));
+            if (cancelled) return;
+            emit(event);
+          }
+        } catch {
+          emit({ type: "failed", kind: "runtime", message: "runtime failed" });
+        } finally {
+          executionsEnded.push({ ...context.ref });
+          ended = true;
+          context.signal.removeEventListener("abort", onAbort);
+          for (const reader of readers.splice(0)) reader({ done: true, value: undefined });
+        }
+      });
+      function stop(): Promise<void> {
+        if (stopPromise === undefined) {
+          stopped.push({ ...context.ref });
+          cancelled = true;
+          modelController.abort();
+          queue.length = 0;
+          cancelWait?.();
+          stopPromise = execution.then(() => undefined);
+        }
+        return stopPromise;
+      }
+      const iterator: AsyncIterableIterator<RuntimeEvent> = {
+        [Symbol.asyncIterator]() { return this; },
+        next(): Promise<IteratorResult<RuntimeEvent>> {
+          const event = queue.shift();
+          if (event !== undefined) return Promise.resolve({ done: false, value: event });
+          if (ended) return Promise.resolve({ done: true, value: undefined });
+          return new Promise((resolve) => { readers.push(resolve); });
+        },
+        async return(): Promise<IteratorResult<RuntimeEvent>> {
+          await stop();
+          return { done: true, value: undefined };
+        },
+      };
+      context.signal.addEventListener("abort", onAbort, { once: true });
+      if (context.signal.aborted) onAbort();
+      return { events: () => iterator, stop };
+    },
+  };
+}

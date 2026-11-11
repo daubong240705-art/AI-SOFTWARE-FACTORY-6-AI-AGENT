@@ -1,0 +1,21 @@
+{
+  "id": "example-implement-module",
+  "title": "Implement a small module with tests in apps/factory-host",
+  "declaredClass": "medium",
+  "expectedFiles": 3,
+  "contextSize": "small",
+  "riskFlags": [],
+  "priorities": { "quality": 3, "speed": 3, "cost": 3 },
+  "sandbox": "workspace-write",
+  "workdir": "apps/factory-host",
+  "prompt": "Read src/storage/database.ts for the code style. Then implement <what> in src/<module>/, with node:test tests in test/<module>.test.mjs. The exact behaviour is: <numbered spec>. Do not change files outside src/<module>/ and test/. Run `npm test` and make it pass.",
+  "acceptance": {
+    "criteria": [
+      "<each required behaviour, one per line, testable>",
+      "npm test passes in apps/factory-host",
+      "No dependency added, no file outside the scope changed"
+    ],
+    "scope": { "allowedPrefixes": ["apps/factory-host/src/<module>/", "apps/factory-host/test/"] },
+    "commands": [{ "id": "host-tests", "cwd": "apps/factory-host", "npm": ["test"], "minTests": 5 }]
+  }
+}

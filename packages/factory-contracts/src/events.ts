@@ -1,3 +1,5 @@
+import { monitorStatusSchema } from "./automation.js";
+import { workflowInstanceStateSchema } from "./workflow.js";
 import { z } from "zod";
 import {
   API_VERSION,
@@ -12,6 +14,12 @@ import { messageSchema, runSchema } from "./models.js";
 import type { Cursor } from "./base.js";
 
 const eventPayloadSchema = z.discriminatedUnion("type", [
+  z.strictObject({ type: z.literal("monitor.changed"), monitorId: idSchema, from: monitorStatusSchema, to: monitorStatusSchema }),
+  z.strictObject({ type: z.literal("workflow.state-changed"), instanceId: idSchema, to: workflowInstanceStateSchema }),
+  z.strictObject({ type: z.literal("artifact.status-changed"), artifactId: idSchema,
+    version: z.number().int().positive(), to: z.enum(["draft","in-review","reviewed","approved","superseded","rejected","withdrawn"]) }),
+  z.strictObject({ type: z.literal("task.status-changed"), taskId: idSchema,
+    to: z.enum(["draft","proposed","accepted","ready","awaiting-go","active","in-review","done","failed","cancelled","declined","superseded"]) }),
   z.strictObject({
     type: z.literal("entity.changed"),
     entity: entityRefSchema,

@@ -52,7 +52,8 @@
 | **OSS-10** | **WinSW** chạy node agent như Windows service (§6A) | **Đã duyệt** 07/11/2026 |
 | **OSS-11** | **croner**, **cockatiel**; `dagre`, `ntfy` tùy chọn (§6B) | **Đã duyệt** 07/11/2026 |
 | **OSS-12** | **Fastify**, **better-sqlite3**, **Kysely**, **pino**, **OpenTelemetry**; loại MinIO, AutoGen (§6C) | **Đã duyệt** 07/11/2026 |
-| **OSS-13** | **Playwright** (E2E UI), **fast-check** (property test) (§6D) | Đề xuất chọn |
+| **OSS-13** | **Playwright** (E2E UI), **fast-check** (property test) (§6D) | **Đã duyệt** 07/11/2026 |
+| **OSS-14** | Pack v2 và tool ngoài: **tự xây lớp khai báo mỏng** (năng lực, tool, MCP server do operator đăng ký), dùng từ vựng A2A/Agent Skills; hoãn gateway (§3 O11) | **Đã duyệt** 08/11/2026 (phương án A) |
 
 ---
 
@@ -211,6 +212,7 @@ Quyết định cũ của Factory V2 là "học Paperclip, không nhập company
 | Quyết định liên quan | 02 C-07 |
 | Hoãn | `asg017/sqlite-vec` (Apache-2.0, push 05/2026) nếu đo thấy tra cứu theo từ khóa thất bại thường xuyên. Orama (Apache-2.0) và MiniSearch (MIT) không cần vì đã có FTS5 trong DB |
 | Rủi ro | FTS5 xử lý tiếng Việt có dấu/không dấu cần tokenizer phù hợp (ví dụ `unicode61 remove_diacritics`); cần thử với nội dung thật |
+| **Đã thử 08/11/2026** | better-sqlite3 có SQLite 3.53.4 kèm FTS5. `unicode61 remove_diacritics 2` thô tìm được "thiet ke" → "thiết kế" nhưng **không** tìm được "dang nhap" → "đăng nhập" và "dac ta" → "đặc tả" (chữ `đ` không phân rã dấu). Thêm bước chuẩn hóa riêng (NFD bỏ dấu, đ→d) ở cả lúc lập chỉ mục và lúc truy vấn thì cả bốn truy vấn đạt. Không cần dependency mới. Chi tiết: 10-m3-slice-plan.md |
 
 ### O8 · Durable execution: giữ coordinator tự xây
 
@@ -232,6 +234,20 @@ Quyết định cũ của Factory V2 là "học Paperclip, không nhập company
 | Khuyến nghị | Trace theo OpenTelemetry (Apache-2.0) và GenAI semantic conventions, cộng bảng usage tự quản trong DB |
 | Quyết định liên quan | 02 §10.3 (chỉ số token, re-ask, pack hit rate) |
 | Hoãn | `langfuse/langfuse` (core MIT, có phần enterprise): tự host cần Postgres, ClickHouse, Redis và S3, quá nặng cho quy mô cá nhân |
+
+### O11 · Pack v2 và tool bên ngoài: khai báo năng lực, gắn MCP server (khảo sát 08/11/2026)
+
+| Mục | Nội dung |
+|---|---|
+| Nhu cầu | Mục tiêu 'linh hoạt giữa các loại agent, dễ mở rộng': một đội mới (ví dụ marketing) cần khai báo **năng lực** của seat và **tool** được phép dùng (kể cả tool do MCP server bên ngoài cung cấp) ngay trong Pack, không sửa code lõi |
+| Phương án A (đề xuất) | **Tự xây lớp khai báo mỏng, dùng định dạng mở có sẵn làm từ vựng**: manifest Pack v2 thêm `capabilities` cho seat (căn theo AgentSkill của A2A, OSS-06), `tools` (danh sách tool được phép theo tên, gồm tool Host và tool của MCP server được khai báo), `allowed-tools` trong SKILL.md theo chuẩn Agent Skills (trường **thử nghiệm**, mỗi client xử lý khác nhau, nên Host coi là gợi ý và vẫn tự kiểm theo `tools` của seat). Máy chủ MCP ngoài do **operator** đăng ký trong cấu hình Host (không phải Pack), Pack chỉ tham chiếu theo tên; Host là client MCP, chạy server trong sandbox hoặc qua proxy có allowlist, ghi vết mọi lần gọi |
+| Phương án B | Đặt một **MCP gateway** mã nguồn mở giữa agent và các server: Docker MCP Gateway (MIT, bật/tắt từng tool theo profile), Bifrost (Apache-2.0, allowlist theo khóa ảo), Gate22 (aipotheosis-labs), SentinelGate, Enkrypt MCP Gateway, IBM ContextForge, MetaMCP. Lợi: có sẵn lọc tool, quản lý thông tin xác thực. Hại: thêm một dịch vụ phải chạy và bảo trì, một số giấy phép chưa xác nhận, nặng cho quy mô một operator; Host vẫn cần tự kiểm quyền theo seat |
+| Phương án C | Chỉ dùng **MCP Registry** chính thức (`modelcontextprotocol/registry`, định dạng `server.json`) làm nguồn **tìm** server: là danh mục metadata ở trạng thái preview, không lưu mã, chưa đủ để thi hành quyền; dùng sau như nguồn nhập cấu hình |
+| Thư viện client MCP | `@modelcontextprotocol/sdk` (đã duyệt ở OSS-03 cho phía server). Kết quả tìm kiếm cho thấy dòng v2 tách thành `@modelcontextprotocol/server` và `@modelcontextprotocol/client`, giấy phép ghi Apache-2.0 cho đóng góp mới và MIT cho mã cũ; **phải đối chiếu LICENSE và phiên bản ghim trước khi thêm dependency** |
+| Quyết định liên quan | 01 §8.2 (Team Pack: Roles, Tool requirements, Policies), D-10 (taxonomy năng lực), OSS-02/03/05/06 |
+| Rủi ro | Tool ngoài mở đường cho tiêm lệnh qua kết quả tool (coi mọi kết quả là dữ liệu, không phải chỉ thị), rò thông tin xác thực (secret chỉ ở Host, không vào prompt hay Pack), mở rộng bề mặt tấn công (cần allowlist, giới hạn tốc độ, timeout, ghi vết, bước duyệt khi đăng ký server) |
+| Chưa kiểm chứng | Giấy phép và hành vi của MetaMCP, ContextForge, Gate22, SentinelGate; phiên bản MCP SDK v2 hiện hành; mức hỗ trợ `allowed-tools` của OpenCode |
+| Đề xuất | **OSS-14**: chọn phương án A; B và C hoãn |
 
 ---
 
@@ -376,6 +392,19 @@ Chi tiết: [06 §8, §13](06-implementation-roadmap.md). GitHub API 07/11/2026.
 | `microsoft/playwright` | Apache-2.0 | push 06/11/2026 | **Đề xuất áp dụng** (OSS-13): E2E UI; hệ Python cũ đã dùng |
 | `dubzzz/fast-check` | MIT | push 06/11/2026 | **Đề xuất áp dụng** (OSS-13): property test state machine |
 
+## 6E. Context Engineering (10/11/2026)
+
+Chi tiết: [12-context-engineering.md](12-context-engineering.md). **License và mức hoạt động chưa lấy qua GitHub API trong lần này**; cần kiểm trước khi chuyển bất kỳ mục nào sang "áp dụng".
+
+| Dự án / sản phẩm | Giải bài toán gì | Kết luận |
+|---|---|---|
+| Letta (memory blocks) | Khối nhớ có nhãn, luôn nằm trong context, có thể chia sẻ giữa agent ([docs](https://docs.letta.com/guides/agents/memory-blocks)) | **Chỉ học thiết kế**: ý "khối luôn có mặt" tương ứng mục Objective không bao giờ bị cắt (12 §6.3) |
+| LangGraph store | Bộ nhớ dài hạn theo namespace, key-value, tìm vector tùy chọn ([docs](https://docs.langchain.com/oss/python/langgraph/memory.md)) | **Chỉ học thiết kế**: V2 đã có tương đương (Artifact + `visibility` + `visibleToScope`); thêm framework sẽ tạo nguồn sự thật thứ hai |
+| mem0, Cognee, Graphiti (Zep) | Memory/graph cho agent | **Hoãn**: chưa có số đo cho thấy FTS5 + quan hệ SQLite thiếu (12 §6.6) |
+| sqlite-vec | Vector search trong SQLite | **Hoãn**: chỉ xét khi chỉ số CE-3 cho thấy recall của FTS5 thấp |
+
+Đề xuất **OSS-15** (chờ duyệt cùng CE-D1..D5): không đưa framework memory/context vào V2 ở giai đoạn này; tự mở rộng `buildContextPack`, `buildHandoff`, `task.progress`.
+
 ---
 
 ## 7. Dữ liệu 52 repo (GitHub API, 07/11/2026)
@@ -489,6 +518,8 @@ Số sao làm tròn để tham khảo, không phải tiêu chí chính. "NOASSER
 | 07/11/2026 | Giai đoạn 4 (thực thi phân tán) | Thêm §6A, §7A: 21 repo; OSS-09 Litestream, OSS-10 WinSW; bổ sung metadata 4 repo còn thiếu |
 | 07/11/2026 | Quyết định | Người dùng chốt phương án giai đoạn 4: OSS-09, OSS-10 Đã duyệt |
 | 07/11/2026 | Đồng bộ giai đoạn 5–6 | Thêm §6B, §6C; OSS-11 (croner, cockatiel), OSS-12 (Fastify, better-sqlite3, Kysely, pino, OpenTelemetry) Đã duyệt |
+| 08/11/2026 | Mở rộng Pack (M3+) | Thêm §3 O11: khảo sát gateway MCP, MCP Registry, `allowed-tools`; OSS-14 đã duyệt (phương án A) |
+| 10/11/2026 | Context Engineering | Thêm §6E; OSS-15 đề xuất (không dùng framework memory), chờ duyệt |
 
 ---
 

@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "description": "Routing policy for the codex-routing skill. Only models listed here may be used. Data, not code: edit here, never in router.mjs. Changing models, efforts, providers or limits is a human decision.",
+  "provider": {
+    "id": "9router",
+    "name": "9Router",
+    "baseUrl": "https://ai.lazy.local/v1",
+    "wireApi": "responses",
+    "envKey": "NINE_ROUTER_API_KEY"
+  },
+  "models": {
+    "gpt-6-luna": {
+      "status": "listed",
+      "efforts": [
+        "low"
+      ],
+      "note": "Probed in the PoC: one successful read-only call via the bare name. Simple class, effort low, read-only tasks only."
+    },
+    "gpt-6.1-sol": {
+      "status": "verified",
+      "efforts": [
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "note": "Used in Codex history through 9router (medium 7, high 3, xhigh 1 threads)."
+    },
+    "gpt-6-sol": {
+      "status": "verified",
+      "efforts": [
+        "medium",
+        "high"
+      ],
+      "fallbackOnly": true,
+      "note": "Used in Codex history. Only chosen when the primary model is unavailable."
+    }
+  },
+  "forbiddenEfforts": [
+    "max",
+    "ultra"
+  ],
+  "allowedSandboxes": [
+    "read-only",
+    "workspace-write"
+  ],
+  "riskFlags": [
+    "security",
+    "secrets",
+    "data",
+    "migration",
+    "public-api",
+    "destructive",
+    "external-effect",
+    "architecture-decision"
+  ],
+  "classes": {
+    "simple": {
+      "ladder": [
+        {
+          "model": "gpt-6-luna",
+          "effort": "low"
+        },
+        {
+          "model": "gpt-6.1-sol",
+          "effort": "medium"
+        }
+      ]
+    },
+    "medium": {
+      "ladder": [
+        {
+          "model": "gpt-6.1-sol",
+          "effort": "medium"
+        },
+        {
+          "model": "gpt-6.1-sol",
+          "effort": "high"
+        }
+      ]
+    },
+    "complex": {
+      "ladder": [
+        {
+          "model": "gpt-6.1-sol",
+          "effort": "high"
+        },
+        {
+          "model": "gpt-6.1-sol",
+          "effort": "xhigh"
+        }
+      ]
+    },
+    "critical": {
+      "requiresApproval": true,
+      "ladder": [
+        {
+          "model": "gpt-6.1-sol",
+          "effort": "xhigh"
+        }
+      ]
+    }
+  },
+  "fallbacks": {
+    "gpt-6.1-sol": "gpt-6-sol"
+  },
+  "limits": {
+    "maxCallsPerDay": 40,
+    "maxCallsPerTask": 2,
+    "maxRetriesPerTask": 1,
+    "timeoutSeconds": 900
+  },
+  "classification": {
+    "simple": {
+      "maxFiles": 2,
+      "maxContext": "small"
+    },
+    "medium": {
+      "maxFiles": 10,
+      "maxContext": "medium"
+    }
+  },
+  "alwaysForbiddenPrefixes": [
+    "apps/windows-worker/",
+    "apps/api/",
+    "apps/dashboard/",
+    "plan/",
+    "docs/",
+    "schema/",
+    "research/",
+    ".git/",
+    ".claude/",
+    ".env"
+  ]
+}
