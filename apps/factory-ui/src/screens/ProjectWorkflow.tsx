@@ -10,6 +10,7 @@ import { relativeTime } from './Inbox';
 import { M5ReadState, M5Status, m5Dot, TechnicalDetails } from './M5Shared';
 import type { Store } from '../state/store';
 import type { WorkflowStage } from '../api/m5Models';
+import { Page } from '../components/Page';
 
 function LoopChip({ stage }: { stage: WorkflowStage }) {
   const t = useT();
@@ -22,7 +23,7 @@ export function ProjectWorkflow({ store, projectId, onOpenTask }: { store: Store
   useEffect(() => store.watchM5('workflows', store.loadWorkflows), [store, projectId]);
   const selectedItem = state.m5.workflows.find(item => item.id === selected);
   const detail = selectedItem ? state.m5.workflowDetails[selectedItem.id] : undefined;
-  return <div className="min-w-0 space-y-6 p-6 max-sm:p-4">
+  return <Page className="min-w-0 space-y-6">
     <header className="flex flex-wrap items-center justify-between gap-4"><div className="space-y-1"><h2 className="font-display text-2xl font-semibold">{t('workflowUi.title')}</h2><p className="text-sm text-muted-foreground">{t('ux5.workflowDescription')}</p></div><Button type="button" variant="ghost" disabled={state.loading.workflows} onClick={() => void store.loadWorkflows()}><RefreshCw />{t('m5Ui.refresh')}</Button></header>
     <div className={cn('grid min-w-0 items-start gap-6', selectedItem && 'lg:grid-cols-[minmax(240px,1fr)_minmax(0,2fr)]')}>
       <Card role="region" aria-label={t('workflowUi.list')} className="gap-0 overflow-hidden border-border py-0 shadow-none">
@@ -49,5 +50,5 @@ export function ProjectWorkflow({ store, projectId, onOpenTask }: { store: Store
         </CardContent>
       </Card>}
     </div>
-  </div>;
+  </Page>;
 }

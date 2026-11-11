@@ -34,7 +34,7 @@ export function ProjectTasks({ store, projectId, selectedTask, onOpenTask, onClo
   function close() { if (onCloseTask) onCloseTask(); else setSelected(null); }
   function fallbackFocus() { return Array.from(board.current?.querySelectorAll<HTMLButtonElement>('[data-task-id]') ?? []).find(node => node.dataset.taskId === selected) ?? null; }
   return <div className={cn('project-tasks relative grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] overflow-hidden', selected && 'has-task-pane min-[1180px]:grid-cols-[minmax(0,32fr)_minmax(0,68fr)]')}>
-    <div className="project-board-area min-h-0 min-w-0 space-y-5 overflow-x-hidden overflow-y-auto p-6 max-sm:p-4" ref={board}>
+    <div className="project-board-area min-h-0 min-w-0 space-y-5 overflow-x-hidden overflow-y-auto p-6" ref={board}>
       {state.errors.tasks && <ErrorNotice error={state.errors.tasks} />}
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
         <ToggleGroup type="single" variant="outline" value={view} onValueChange={value => { if (value === 'board' || value === 'list') { setView(value); viewChoices.set(store, value); } }} role="group" aria-label={t('workUi.views')}>{(['board', 'list'] as const).map(value => <ToggleGroupItem type="button" key={value} value={value} aria-pressed={view === value}>{t(`workUi.${value}`)}</ToggleGroupItem>)}</ToggleGroup>

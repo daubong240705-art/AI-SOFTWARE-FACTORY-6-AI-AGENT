@@ -74,7 +74,7 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
   if (results && approval?.taskId) return <TaskDetail store={store} taskId={approval.taskId} initialTab="results" onClose={() => setResults(false)} />;
   const review = inline && approval?.kind === 'review';
   const content = <>
-    <header className="px-6 pt-5 pb-4">
+    <header className="p-6">
       {!inline && <Button variant="ghost" className="mb-3" disabled={busy} onClick={onClose}>{t('inboxUi.close')}</Button>}
       {task && <p className="mb-1 font-mono text-xs text-muted-foreground">{task.code} · {state.projects.find(project => project.id === projectId)?.name ?? t('overview.project')}</p>}
       <h2 id={`${id}-title`} className="font-display text-2xl leading-tight font-semibold tracking-tight">{approval ? review && task ? attentionTitle(task.title) : attentionTitle(approval.subject) : t('inboxUi.decision')}</h2>

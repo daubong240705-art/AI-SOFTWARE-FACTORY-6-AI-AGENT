@@ -105,7 +105,8 @@ export const extra: Translated<typeof en> = {
     messages: 'Tin nhắn hội thoại', speakers: { user: 'Bạn', agent: 'Trưởng nhóm', system: 'Hệ thống' },
     jump: 'Đến tin nhắn mới nhất', working: 'Trưởng nhóm đang xử lý…', resend: 'Bạn có thể gửi lại tin nhắn.', blocked: 'Đã đạt giới hạn ngân sách hôm nay.',
     message: 'Tin nhắn', characters: 'ký tự', tooLong: 'Tin nhắn không được vượt quá 32.000 ký tự.',
-    intent: 'Mục đích', discuss: 'Thảo luận', delegate: 'Giao việc: để trưởng nhóm đề xuất công việc',
+    intent: 'Mục đích', discuss: 'Thảo luận', delegate: 'Giao việc',
+    discussHelp: 'Trao đổi ý tưởng với trưởng nhóm.', delegateHelp: 'Trưởng nhóm sẽ đề xuất công việc để bạn xét duyệt.',
     intentHelp: 'Thảo luận ý tưởng hoặc giao việc để trưởng nhóm đề xuất công việc cho bạn xét duyệt.', send: 'Gửi',
   },
   taskUi: {

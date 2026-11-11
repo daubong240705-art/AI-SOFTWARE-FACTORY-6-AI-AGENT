@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { Project } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MessageSquare, Plus } from 'lucide-react';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { DockedPane } from './DockedPane';
@@ -14,6 +15,7 @@ import { ProjectAutomation } from './ProjectAutomation';
 import { ProjectSettings } from './ProjectSettings';
 import { DossierPanel } from './Dossier';
 import { useNavigation, type ProjectTab } from './shell/navigation';
+import { Page } from '../components/Page';
 
 const tabs = ['overview', 'board', 'workflow', 'automation', 'knowledge', 'settings'] as const;
 export function ProjectView({ store, project, tab, onTabChange, openChat = false, onChatOpened, initialTaskId }: {
@@ -42,17 +44,17 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
   }
   function openTask(taskId: string) { setChat(false); setSelected(taskId); select('board'); }
   return <div className="project-view flex h-full min-h-0 flex-col">
-    <header role="generic" className="flex-none px-6 pt-6 max-sm:px-4">
+    <Page className="flex-none pb-0"><header role="generic">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-4"><h1 className="m-0 min-w-0 font-display text-2xl font-semibold tracking-tight">{project.name}</h1><div className="flex flex-wrap items-center gap-2">
-        {active === 'board' && <Button aria-expanded={creating} aria-controls={`${id}-new-task`} onClick={() => setCreating(!creating)}>{t('taskUi.new')}</Button>}
-        <Button ref={ask} variant="outline" aria-expanded={chat} aria-controls={`${id}-chat`} onClick={() => { setSelected(null); setChat(!chat); }}>{t('projectUi.askLead')}</Button>
+        {active === 'board' && <Button variant="default" className="h-9 border-0" aria-expanded={creating} aria-controls={`${id}-new-task`} onClick={() => setCreating(!creating)}><Plus aria-hidden="true" />{t('taskUi.new')}</Button>}
+        <Button ref={ask} variant="outline" className="h-9" aria-expanded={chat} aria-controls={`${id}-chat`} onClick={() => { setSelected(null); setChat(!chat); }}><MessageSquare aria-hidden="true" />{t('projectUi.askLead')}</Button>
       </div></div>
       <Tabs value={active} onValueChange={value => select(value as ProjectTab)} className="gap-0">
-        <TabsList variant="line" aria-label={t('shell.projectTabs')} className="w-full justify-start gap-1 overflow-x-auto rounded-none border-b border-border p-0">
-          {tabs.map((value, index) => <TabsTrigger key={value} ref={node => { buttons.current[index] = node; }} value={value} id={`${id}-${value}`} aria-controls={`${id}-panel`} onClick={() => select(value)} onKeyDown={event => navigate(event, index)} className="flex-none rounded-none px-3.5 py-2 text-sm">{t(`projectUi.${value}`)}</TabsTrigger>)}
+        <TabsList variant="line" aria-label={t('shell.projectTabs')} className="w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border p-0">
+          {tabs.map((value, index) => <TabsTrigger key={value} ref={node => { buttons.current[index] = node; }} value={value} id={`${id}-${value}`} aria-controls={`${id}-panel`} onClick={() => select(value)} onKeyDown={event => navigate(event, index)} className="flex-none rounded-none px-3 py-2 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground after:!bottom-[-1px]">{t(`projectUi.${value}`)}</TabsTrigger>)}
         </TabsList>
       </Tabs>
-    </header>
+    </header></Page>
     <div className={`project-body${chat ? ' has-chat' : ''}`}>
       <div className="project-tab-content" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${active}`} tabIndex={0}>
         {active === 'overview' && <ProjectOverview store={store} onOpenTask={openTask} />}
@@ -60,11 +62,10 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         {active === 'workflow' && <ProjectWorkflow key={project.id} store={store} projectId={project.id} onOpenTask={openTask} />}
         {active === 'automation' && <ProjectAutomation key={project.id} store={store} projectId={project.id} />}
         {active === 'settings' && <ProjectSettings key={project.id} store={store} projectId={project.id} />}
-        {active === 'knowledge' && <div className="space-y-6 px-6 pt-4 pb-8"><section className="space-y-5" aria-labelledby={`${id}-documents`}><h2 id={`${id}-documents`} className="font-display text-2xl font-semibold">{t('projectUi.documents')}</h2><ProjectKnowledge store={store} projectId={project.id} /></section><DossierPanel store={store} /></div>}
+        {active === 'knowledge' && <Page className="space-y-6"><ProjectKnowledge store={store} projectId={project.id} /><DossierPanel store={store} /></Page>}
       </div>
-      {chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock" onClose={() => setChat(false)} fallbackFocus={() => ask.current}>
-        <header className="project-dock-header"><h2>{t('projectUi.askLead')}</h2><Button onClick={() => { setChat(false); ask.current?.focus(); }}>{t('projectUi.closeChat')} <kbd>Esc</kbd></Button></header>
-        <ProjectChat store={store} projectId={project.id} showBudget={active !== 'overview'} />
+      {chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock p-0" onClose={() => setChat(false)} fallbackFocus={() => ask.current}>
+        <ProjectChat store={store} projectId={project.id} showBudget={active !== 'overview'} onClose={() => { setChat(false); ask.current?.focus(); }} />
       </DockedPane>}
     </div>
   </div>;

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Kbd } from '@/components/ui/kbd';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog } from '../components/Dialog';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { useT } from '../i18n';
@@ -40,14 +41,14 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request', inl
   const content = <div className="min-w-0 space-y-5">
     <header className="space-y-3">
       <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 flex-wrap items-center gap-3"><span className="font-mono text-xs text-muted-foreground">{task.code}</span><TaskStatus task={task} state={state} /></div>
-        <Button type="button" variant="ghost" size="sm" aria-label={t('workUi.close')} className="shrink-0 gap-2 text-muted-foreground" onClick={onClose}><X className="size-4" aria-hidden="true" /><span className="sr-only">{t('workUi.close')}</span><Kbd>Esc</Kbd></Button>
+        <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={t('workUi.close')} className="shrink-0 border-0 bg-transparent text-muted-foreground" onClick={onClose}><X className="size-4" aria-hidden="true" /></Button></TooltipTrigger><TooltipContent>{t('workUi.close')} <Kbd>Esc</Kbd></TooltipContent></Tooltip>
       </div>
       <h2 id={`${id}-title`} className="font-display text-xl leading-snug font-semibold [overflow-wrap:anywhere]">{task.title}</h2>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground"><span>{t('workUi.lifecycle')}: {t(`taskUi.lifecycle.${task.state}`)}</span><span className="inline-flex items-center gap-2">{t('taskUi.owner')}: <SeatChip name={state.team?.seats.find(seat => seat.id === task.ownerSeatId)?.name} /></span></div>
     </header>
     <Tabs value={active} onValueChange={value => setActive(value as Tab)} className="min-w-0 gap-5">
-      <TabsList variant="line" aria-label={t('workUi.sections')} className="w-full justify-start overflow-x-auto rounded-none border-b border-border p-0">
-        {tabs.map(tab => <TabsTrigger value={tab} key={tab} id={`${id}-${tab}`} aria-controls={`${id}-panel`} className="flex-none rounded-none px-3 py-2">{t(tab === 'request' ? 'ux4.overview' : tab === 'context' ? 'projectUi.context' : `workUi.${tab}`)}</TabsTrigger>)}
+      <TabsList variant="line" aria-label={t('workUi.sections')} className="w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border p-0">
+        {tabs.map(tab => <TabsTrigger value={tab} key={tab} id={`${id}-${tab}`} aria-controls={`${id}-panel`} className="flex-none rounded-none px-3 py-2 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground after:!bottom-[-1px]">{t(tab === 'request' ? 'ux4.overview' : tab === 'context' ? 'projectUi.context' : `workUi.${tab}`)}</TabsTrigger>)}
       </TabsList>
       {detail?.loading && <p role="status" className="text-sm text-muted-foreground">{t('viewStates.loading')}</p>}
       {detail?.error && <><ErrorNotice error={detail.error} /><Button type="button" variant="outline" size="sm" className="self-start" onClick={() => { void store.loadTaskDetail(taskId); }}>{t('errors.retry')}</Button></>}
@@ -62,6 +63,6 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request', inl
       </TabsContent>
     </Tabs>
   </div>;
-  return inline ? <DockedPane label={t('projectUi.taskDetails')} className="project-task-pane bg-background p-6 max-sm:p-4" onClose={onClose} {...(fallbackFocus ? { fallbackFocus } : {})}>{content}</DockedPane>
+  return inline ? <DockedPane label={t('projectUi.taskDetails')} className="project-task-pane bg-background p-6" onClose={onClose} {...(fallbackFocus ? { fallbackFocus } : {})}>{content}</DockedPane>
     : <Dialog labelledBy={`${id}-title`} onClose={onClose} className="task-detail-backdrop">{content}</Dialog>;
 }

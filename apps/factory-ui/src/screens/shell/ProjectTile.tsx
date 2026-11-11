@@ -12,7 +12,7 @@ export function ProjectTile({ id, name, className }: { id: string; name: string;
   for (const character of id) hash = (Math.imul(hash, 31) + character.charCodeAt(0)) >>> 0;
   const words = name.trim().split(/\s+/);
   const code = (words.length > 1 ? `${words[0]?.[0] ?? ''}${words[1]?.[0] ?? ''}` : name.slice(0, 2)).toLocaleUpperCase();
-  return <Avatar aria-hidden="true" className={cn('h-6 w-7 shrink-0 rounded-[7px] border font-mono', projectColors[hash % projectColors.length], className)}>
+  return <Avatar aria-hidden="true" className={cn('size-7 shrink-0 rounded-md border font-mono', projectColors[hash % projectColors.length], className)}>
     <AvatarFallback className="rounded-none bg-transparent font-mono text-[11px] font-semibold text-inherit">{code}</AvatarFallback>
   </Avatar>;
 }

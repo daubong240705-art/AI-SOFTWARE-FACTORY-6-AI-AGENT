@@ -90,7 +90,8 @@ export const extra = {
     messages: 'Conversation messages', speakers: { user: 'You', agent: 'Lead', system: 'System' },
     jump: 'Jump to latest', working: 'Lead is working on it…', resend: 'You can send your message again.', blocked: 'Budget limit reached for today.',
     message: 'Message', characters: 'characters', tooLong: 'Messages must be 32,000 characters or fewer.',
-    intent: 'Intent', discuss: 'Discuss', delegate: 'Delegate: let the Lead propose tasks',
+    intent: 'Intent', discuss: 'Discuss', delegate: 'Delegate',
+    discussHelp: 'Discuss an idea with the Lead.', delegateHelp: 'The Lead will propose tasks for your review.',
     intentHelp: 'Discuss ideas, or delegate so the Lead can propose tasks for your review.', send: 'Send',
   },
   taskUi: {

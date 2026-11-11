@@ -7,6 +7,7 @@ import { useT } from '../i18n';
 import { relativeTime } from './Inbox';
 import { M5ReadState, M5Status, TechnicalDetails } from './M5Shared';
 import type { Store } from '../state/store';
+import { Page } from '../components/Page';
 
 const triggers: Record<string, string> = { 'task.status-changed': 'task', 'artifact.status-changed': 'artifact', 'workflow.state-changed': 'workflow', 'monitor.changed': 'monitor' };
 const outcomes = ['started', 'skipped', 'failed', 'done'] as const;
@@ -22,7 +23,7 @@ export function ProjectAutomation({ store, projectId }: { store: Store; projectI
   const { schedules, rules, monitors, breakers } = state.m5;
   const routes = breakers.routes.filter(item => item.state !== 'closed'); const teams = breakers.teams.filter(item => item.state !== 'closed');
   const busy = ['schedules', 'rules', 'monitors', 'breakers'].some(area => state.loading[area]);
-  return <div className="min-w-0 space-y-6 p-6 max-sm:p-4">
+  return <Page className="min-w-0 space-y-6">
     <header className="flex flex-wrap items-center justify-between gap-4"><div className="space-y-1"><h2 className="font-display text-2xl font-semibold">{t('projectUi.automation')}</h2><p className="text-sm text-muted-foreground">{t('ux5.automationDescription')}</p></div><Button type="button" variant="ghost" disabled={busy} onClick={() => void store.loadAutomation()}><RefreshCw />{t('m5Ui.refresh')}</Button></header>
     <Section id={`${id}-schedules`} title={t('automationUi.schedules')} count={schedules.length}>
       <M5ReadState store={store} area="schedules" retry={store.loadSchedules} empty={!schedules.length} emptyKey="automationUi.emptySchedules" />
@@ -42,5 +43,5 @@ export function ProjectAutomation({ store, projectId }: { store: Store; projectI
       <M5ReadState store={store} area="breakers" retry={store.loadBreakers} empty={!routes.length && !teams.length} emptyKey="ux5.emptyBreakers" />
       <ul className="divide-y divide-border">{routes.map(item => <Row key={item.key} name={item.key} status={item.state} detail={t('automationUi.breakers')} time={item.openedAt} technical={<TechnicalDetails identifier={item.key} />} />)}{teams.map(item => <Row key={item.teamId} name={state.m3.teams.find(team => team.id === item.teamId)?.name ?? (state.team?.team.id === item.teamId ? state.team.team.name : t('automationUi.teamBreaker'))} status={item.state} detail={t('automationUi.teamBreaker')} time={item.openedAt} technical={<TechnicalDetails identifier={item.teamId} />} />)}</ul>
     </Section>
-  </div>;
+  </Page>;
 }

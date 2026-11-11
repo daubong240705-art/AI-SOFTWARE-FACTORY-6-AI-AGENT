@@ -9,6 +9,7 @@ import type { Store } from '../../state/store';
 import { AreaState, useM3Command } from '../M3Shared';
 import { TeamPanel } from '../TeamPanel';
 import { TeamCard } from './TeamCard';
+import { Page } from '../../components/Page';
 
 export function TeamsPage({ store }: { store: Store }) {
   const t = useT();
@@ -21,7 +22,7 @@ export function TeamsPage({ store }: { store: Store }) {
   const selected = state.m3.packs.find((item) => `${item.key}@${item.version}` === pack);
 
   return (
-    <section className="min-w-0 space-y-6 p-6 max-sm:p-4">
+    <Page className="min-w-0 space-y-6">
       <header className="space-y-1">
         <h1 className="font-display text-2xl font-semibold tracking-tight">{t('ux4.teamsTitle')}</h1>
         <p className="text-sm text-muted-foreground">{t('ux4.teamsDescription')}</p>
@@ -75,6 +76,6 @@ export function TeamsPage({ store }: { store: Store }) {
       <div className="grid min-w-0 gap-5">
         {state.m3.teams.map((team) => <TeamCard key={team.id} store={store} team={team} />)}
       </div>
-    </section>
+    </Page>
   );
 }

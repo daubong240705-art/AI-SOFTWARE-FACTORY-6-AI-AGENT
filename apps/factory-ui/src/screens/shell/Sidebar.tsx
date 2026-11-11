@@ -1,7 +1,9 @@
-import { ChevronLeft, ChevronRight, House, Inbox, Plus, Users, X } from 'lucide-react';
+import { deriveDisplayStatus, isLiveAttempt } from '@factory/contracts';
+import { House, Inbox, PanelLeftClose, PanelLeftOpen, Plus, Users, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ErrorNotice } from '@/components/ErrorNotice';
 import { cn } from '@/lib/utils';
 import { useT } from '../../i18n';
@@ -19,9 +21,14 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
 }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
   const items = attentionItems(state.globalInbox);
-  const streamLabel = state.stream === 'open' ? 'shell.live' : state.stream === 'closed' ? 'shell.offline' : 'shell.reconnecting';
   const labelClass = collapsed ? 'hidden' : 'min-w-0 truncate';
-  const CollapseIcon = compact ? X : collapsed ? ChevronRight : ChevronLeft;
+  const CollapseIcon = compact ? X : collapsed ? PanelLeftOpen : PanelLeftClose;
+  function projectStatus(projectId: string) {
+    const tasks = state.selectedProjectId === projectId ? state.tasks : [];
+    if (items.some(item => item.projectId === projectId) || tasks.some(task => task.holds.some(hold => hold.needsAction) || deriveDisplayStatus({ ...task, liveAttempt: null }).status === 'approval-required')) return 'need';
+    if (tasks.some(task => { const attempt = state.liveAttempts[task.id]; return deriveDisplayStatus({ ...task, liveAttempt: attempt && isLiveAttempt(attempt.state) ? attempt.state : null }).status === 'running'; })) return 'run';
+    return null;
+  }
   return <nav id="factory-navigation" className="row-span-full flex h-full min-h-0 min-w-0 flex-col gap-1 border-r border-border bg-sidebar px-2.5 py-3.5" aria-label={t('nav.main')}>
     <div className={cn('flex shrink-0 items-center gap-2.5 px-2 pt-1 pb-3.5 font-display text-[19px] font-bold', collapsed && 'justify-center px-0')}>
       <span className="grid size-7 shrink-0 place-items-center rounded-[9px] bg-primary text-[17px] text-primary-foreground" aria-hidden="true">F</span>
@@ -30,7 +37,10 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
     <NavButton collapsed={collapsed} aria-label={t('nav.overview')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => onNavigate('overview')}><House /><span className={labelClass}>{t('nav.overview')}</span></NavButton>
     <NavButton collapsed={collapsed} aria-label={`${t('nav.attention')}, ${inboxCount(t, items.length)}`} aria-current={view === 'needs-attention' ? 'page' : undefined} onClick={() => onNavigate('needs-attention')}><Inbox /><span className={labelClass}>{t('nav.attention')}</span>{items.length > 0 && !collapsed && <Badge className="ml-auto min-w-[22px] border-0 bg-need py-0 text-need-foreground">{items.length}</Badge>}</NavButton>
     <NavButton collapsed={collapsed} aria-label={t('nav.team')} aria-current={view === 'team' ? 'page' : undefined} onClick={() => onNavigate('team')}><Users /><span className={labelClass}>{t('nav.team')}</span></NavButton>
-    <h2 className={cn('mx-2.5 mt-4 mb-1 shrink-0 font-sans text-xs font-normal tracking-wide text-muted-foreground uppercase', collapsed && 'sr-only')}>{t('global.projects')}</h2>
+    <div className={cn('mt-4 flex h-8 shrink-0 items-center justify-between px-2.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase', collapsed && 'justify-center px-0')}>
+      <span className={collapsed ? 'sr-only' : ''}>{t('global.projects')}</span>
+      <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" className="border-0 bg-transparent" aria-label={t('nav.addProject')} onClick={onCreate}><Plus /></Button></TooltipTrigger><TooltipContent side="right">{t('nav.addProject')}</TooltipContent></Tooltip>
+    </div>
     <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block">
       <div className="py-1">
       {state.loading.projects && <p role="status" className="px-2 text-xs text-muted-foreground">{t('viewStates.loading')}</p>}
@@ -38,16 +48,14 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
       <ul className="m-0 flex list-none flex-col gap-1 p-0">{state.projects.map(project => <li key={project.id} className="h-10 w-full shrink-0">
         <NavButton collapsed={collapsed} aria-label={project.name} title={project.name} aria-current={view === `project:${project.id}` ? 'page' : undefined} onClick={() => onNavigate(`project:${project.id}`)}>
           <ProjectTile id={project.id} name={project.name} /><span className={labelClass}>{project.name}</span>
-          {items.some(item => item.projectId === project.id) && <span className={cn('ml-auto size-2 shrink-0 rounded-full bg-need', collapsed && 'absolute top-1 right-0.5')} role="img" aria-label={t('inboxUi.needsDecision')} title={t('inboxUi.needsDecision')} />}
-          {state.selectedProjectId === project.id && <span className={cn('ml-auto size-[5px] shrink-0 rounded-full', state.stream === 'open' ? 'bg-ok' : state.stream === 'closed' ? 'bg-muted-foreground' : 'bg-run', collapsed && 'absolute right-0.5 bottom-1')} role="img" aria-label={t(streamLabel)} title={t(streamLabel)} />}
+          {projectStatus(project.id) && <span className={cn('ml-auto size-2 shrink-0 rounded-full', projectStatus(project.id) === 'need' ? 'bg-need' : 'bg-run', collapsed && 'absolute top-1 right-0.5')} role="img" aria-label={t(projectStatus(project.id) === 'need' ? 'inboxUi.needsDecision' : 'taskUi.display.running')} title={t(projectStatus(project.id) === 'need' ? 'inboxUi.needsDecision' : 'taskUi.display.running')} />}
         </NavButton>
       </li>)}</ul>
-      <NavButton collapsed={collapsed} aria-label={t('projects.create')} onClick={onCreate}><Plus /><span className={labelClass}>{t('nav.addProject')}</span></NavButton>
       </div>
     </ScrollArea>
-    <footer className="mt-auto shrink-0 space-y-1 pt-3">
-      <Settings store={store} collapsed={collapsed} />
-      <NavButton collapsed={collapsed} aria-label={t(compact ? 'nav.close' : collapsed ? 'nav.expand' : 'nav.collapse')} aria-expanded={compact ? expanded : !collapsed} onClick={onCollapse}><CollapseIcon /><span className={labelClass}>{t(compact ? 'nav.close' : collapsed ? 'nav.expand' : 'nav.collapse')}</span></NavButton>
+    <footer className="mt-auto flex shrink-0 items-center gap-1 border-t border-border pt-3">
+      <div className={cn('min-w-0 flex-1', collapsed && '[&_[data-slot=button]]:px-0')}><Settings store={store} collapsed={collapsed} /></div>
+      <NavButton collapsed={collapsed} className={cn('w-10 justify-center px-0', collapsed && 'w-6')} aria-label={t(compact ? 'nav.close' : collapsed ? 'nav.expand' : 'nav.collapse')} aria-expanded={compact ? expanded : !collapsed} onClick={onCollapse}><CollapseIcon /></NavButton>
     </footer>
   </nav>;
 }
