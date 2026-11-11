@@ -6,6 +6,7 @@ import { openProjectEvents, type ProjectEventsOptions, type StreamStatus } from 
 import type { Inbox, Effect } from '../api/client';
 import type { KnowledgeArtifact, KnowledgeFilters, KnowledgeItem, KnowledgeResult } from '../api/client';
 import { emptyM5, type M5State } from './m5';
+import { emptySettings, type SettingsState } from './settings';
 
 export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean };
 const emptyKnowledge = (): KnowledgeState => ({ query: '', filters: {}, results: [], list: [], detail: {}, loading: {}, errors: {}, hasMore: false });
@@ -18,6 +19,7 @@ const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], requests: [], 
 export type M3State = { teams: OrgTeam[]; packs: Awaited<ReturnType<ApiClient['listPacks']>>['packs']; queues: Record<string, Awaited<ReturnType<ApiClient['getTeamQueue']>>['items']>; disabled: boolean; requestTargets: RequestItem[]; requests: RequestItem[]; requestDetails: Record<string, RequestDetail>; dossier: Dossier | null; briefing: Briefing | null; contexts: Record<string, TaskContext[]> };
 const emptyM3 = (): M3State => ({ teams: [], packs: [], queues: {}, disabled: false, requestTargets: [], requests: [], requestDetails: {}, dossier: null, briefing: null, contexts: {} });
 export type StoreState = {
+  settings: SettingsState;
   m5: M5State;
   m3: M3State;
   session: 'unknown' | 'anonymous' | 'authenticated'; projects: Project[]; selectedProjectId: string | null;
@@ -36,7 +38,7 @@ export type StoreOptions = {
   openEvents?: (options: ProjectEventsOptions) => { close(): void };
   timer?: { setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 };
-const projectState = () => ({ m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
+const projectState = () => ({ settings: emptySettings(), m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
@@ -160,6 +162,17 @@ export function createStore(options: StoreOptions = {}) {
   const loadBriefing = (since?: string) => readM3('briefing', async id => { const result = await api.getBriefing(id, since); return { briefing: result }; });
   const loadContext = (taskId: string) => readM3(`context:${taskId}`, async id => ({ contexts: { ...state.m3.contexts, [taskId]: (await api.getTaskContext(id, taskId)).packs } }));
   const loadProjects = (debounce = false) => enqueue('projects', generation, async () => ({ projects: (await api.listProjects()).projects }), debounce);
+  function readSettings(area: string, work: (id: string) => Promise<Partial<SettingsState>>) {
+    const id = state.selectedProjectId;
+    if (!id || state.session !== 'authenticated') return Promise.resolve();
+    return enqueue(area, generation, async () => {
+      const patch = await work(id);
+      return { get settings() { return { ...state.settings, ...patch }; } };
+    });
+  }
+  const loadAutonomy = () => readSettings('autonomy', async id => ({ autonomy: await api.getAutonomy(id) }));
+  const loadStandingApprovals = () => readSettings('standingApprovals', async id => ({ standingApprovals: await api.listStandingApprovals(id) }));
+  const loadSettings = async () => { await Promise.all([loadAutonomy(), loadStandingApprovals()]); };
   function readM5(area: string, work: (id: string) => Promise<Partial<M5State>>) {
     const id = state.selectedProjectId;
     if (!id || state.session !== 'authenticated') return Promise.resolve();
@@ -499,7 +512,8 @@ export function createStore(options: StoreOptions = {}) {
     loadProjects: () => loadProjects(),
     loadWorkflows, loadWorkflow, loadAutomation, loadSchedules, loadRules, loadMonitors, loadBreakers,
     loadScheduleOccurrences, loadRuleFires, loadMonitorEvents,
-    watchM5: (area: 'workflows' | 'automation', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
+    loadAutonomy, loadStandingApprovals, loadSettings,
+    watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
     loadTeams, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
     watchM3: (area: string, read: () => Promise<void>) => { openM3.set(area, read); void read(); return () => { openM3.delete(area); }; },

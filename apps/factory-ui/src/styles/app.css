@@ -360,3 +360,29 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
   .automation-row > strong { flex-basis: 100%; }
   .automation-row > * { min-width: 0; max-width: 100%; }
 }
+/* U-G1 Settings */
+.settings-screen { display: flex; flex-direction: column; gap: var(--space-xl); }
+.settings-screen section { min-width: 0; }
+.settings-screen section > h3 { margin: 0 0 var(--space-md); font-family: var(--display); }
+.settings-budget-row, .settings-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-sm) var(--space-lg); padding: var(--space-md) 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.settings-budget-row > strong, .settings-row > strong { flex: 1 1 10rem; min-width: 0; }
+.settings-budget-row meter { flex: 1 1 12rem; min-width: 8rem; width: 100%; accent-color: var(--ok); }
+.settings-budget-row > span, .settings-row > span, .settings-row > time { font-size: var(--type-meta-size); overflow-wrap: anywhere; }
+.settings-verdict { color: var(--muted); }
+.settings-verdict-warn { color: var(--run); }
+.settings-verdict-exceeded { color: var(--info); }
+.settings-list { margin: 0; padding: 0; list-style: none; }
+.settings-list details { flex-basis: 100%; }
+.settings-level { margin: 0; font-size: var(--type-body-size); }
+.settings-level strong { display: block; font-family: var(--display); font-size: var(--type-title-size); }
+.settings-source { color: var(--muted); font-size: var(--type-meta-size); }
+.settings-table-wrap { max-width: 100%; overflow-x: auto; }
+.settings-table { width: 100%; border-collapse: collapse; font-size: var(--type-meta-size); }
+.settings-table caption { padding: var(--space-md) 0; text-align: left; font-weight: 600; }
+.settings-table th, .settings-table td { padding: var(--space-sm); border-bottom: 1px solid var(--line); text-align: left; overflow-wrap: anywhere; }
+.settings-screen code { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .settings-screen { padding: var(--space-md); }
+  .settings-budget-row > *, .settings-row > * { max-width: 100%; }
+  .settings-budget-row meter { flex-basis: 100%; }
+}

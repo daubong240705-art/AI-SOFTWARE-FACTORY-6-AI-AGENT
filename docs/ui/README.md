@@ -20,7 +20,7 @@ npm run e2e:work                    # e2e Host trong WSL (cần deploy Host: scr
 | `#/overview` (mặc định) | Tổng quan: ô nhập, danh sách "Cần xử lý" tối đa 5 dòng |
 | `#/attention`, `#/attention/<khóa dòng>` | Cần xử lý (danh sách trái, chi tiết phải) |
 | `#/team` | Đội |
-| `#/project/<id>`, `/board`, `/workflow`, `/automation`, `/knowledge` | Dự án: Tổng quan, Bảng việc, Quy trình, Tự động, Tri thức (Mã nguồn sẽ thêm ở U-F) |
+| `#/project/<id>`, `/board`, `/workflow`, `/automation`, `/knowledge`, `/settings` | Dự án: Tổng quan, Bảng việc, Quy trình, Tự động, Tri thức, Cài đặt (Mã nguồn sẽ thêm ở U-F) |
 
 Hash lạ rơi về `#/overview`. Tải lại trang và nút Back/Forward hoạt động.
 
@@ -42,7 +42,7 @@ Tiếng Việt và nền tối, trừ khi người dùng đã lưu lựa chọn 
 | U-D | Đội (có chỗ cho Máy của M4) | Chưa |
 | U-E | Quy trình, Tự động (lịch, rule, monitor), thông báo | E1 xong: hai tab chỉ đọc (Quy trình, Tự động); thông báo chưa làm |
 | U-F | Tri thức, Mã nguồn (nhánh tích hợp) | Chưa |
-| U-G | Cài đặt: ngân sách, mức tự chủ, Standing Approval | Chưa |
+| U-G | Cài đặt: ngân sách, mức tự chủ, Standing Approval | G1 xong: tab Cài đặt chỉ đọc; sửa mức tự chủ và tạo/thu hồi Standing Approval chưa làm |
 
 ## Chưa làm trong U-A (cố ý)
 

@@ -11,6 +11,8 @@ const stores: Store[] = [];
 afterEach(() => { stores.forEach((store) => store.dispose()); stores.length = 0; vi.useRealTimers(); });
 function setup() {
   const api = {
+    getAutonomy: vi.fn().mockResolvedValue({ ...envelope, project: { level: 3, source: 'default', revision: null }, teams: [], defaults: { project: 3, team: 2 } }),
+    listStandingApprovals: vi.fn().mockResolvedValue({ items: [], level: { level: 3, source: 'default' } }),
     listWorkflows: vi.fn().mockResolvedValue({ instances: [] }), getWorkflow: vi.fn(),
     listSchedules: vi.fn().mockResolvedValue({ ...envelope, items: [] }), listRules: vi.fn().mockResolvedValue({ ...envelope, items: [] }),
     listMonitors: vi.fn().mockResolvedValue({ ...envelope, items: [] }), listBreakers: vi.fn().mockResolvedValue({ routes: [], teams: [] }),

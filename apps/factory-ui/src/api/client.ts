@@ -1,4 +1,6 @@
 import { m3Models } from './m3Models';
+import { settingsReadModels } from './settingsModels';
+export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
@@ -169,6 +171,8 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
       return request(`${projectPath(id)}/conversations/${encodeURIComponent(cid)}/messages${query.size ? `?${query}` : ''}`, messages);
     },
     getBudget: (id: string) => request(`${projectPath(id)}/budget`, budget),
+    getAutonomy: (id: string) => request(`${projectPath(id)}/autonomy`, settingsReadModels.autonomy),
+    listStandingApprovals: (id: string) => request(`${projectPath(id)}/standing-approvals`, settingsReadModels.standingApprovals),
     sendCommand: (command: Command) => {
       // Validate without replacing/mutating the caller's object or generating a new identity.
       if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');

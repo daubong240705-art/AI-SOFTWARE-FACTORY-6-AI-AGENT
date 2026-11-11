@@ -41,9 +41,9 @@ describe('M5 read models', () => {
 });
 
 describe('project tabs', () => {
-  it('lists five tabs and the hash selects Workflow and Automation', async () => {
+  it('lists six tabs and the hash selects Workflow and Automation', async () => {
     await page('workflow');
-    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Overview', 'Board', 'Workflow', 'Automation', 'Knowledge']);
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Overview', 'Board', 'Workflow', 'Automation', 'Knowledge', 'Settings']);
     expect(screen.getByRole('tab', { name: 'Workflow' }).getAttribute('aria-selected')).toBe('true');
     cleanup(); stores.splice(0).forEach(store => store.dispose());
     await page('automation');

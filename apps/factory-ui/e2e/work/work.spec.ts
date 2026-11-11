@@ -144,6 +144,11 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     await expect(page.getByRole("heading", { name: "Schedules", exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("alert")).toHaveCount(0);
     await shot(page, "05h-automation");
+    await page.getByRole("tab", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Autonomy", exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Standing approvals", exact: true })).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await shot(page, "05i-settings");
     await nav().getByRole("button", { name: "Team", exact: true }).click();
     await expect(page.getByText("Multi-team management is unavailable on this Host.").or(page.getByText("Create team from pack")).first()).toBeVisible({ timeout: 20_000 });
     await shot(page, "05f-teams");

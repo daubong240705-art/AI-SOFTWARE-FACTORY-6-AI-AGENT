@@ -34,16 +34,16 @@ async function open() {
 }
 it('fifth tab is Knowledge and has a linked panel', async () => {
   const { store } = await setup(); render(<ProjectView store={store} project={projectSchema.parse(project)} />);
-  expect(screen.getAllByRole('tab')).toHaveLength(5); const tab = screen.getByRole('tab', { name: 'Knowledge' }); fireEvent.click(tab); await act(flush); expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(tab.id); expect(screen.getByRole('search')).toBeTruthy();
+  expect(screen.getAllByRole('tab')).toHaveLength(6); const tab = screen.getByRole('tab', { name: 'Knowledge' }); fireEvent.click(tab); await act(flush); expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe(tab.id); expect(screen.getByRole('search')).toBeTruthy();
 });
-it('tab keyboard wraps left and right over five tabs', async () => {
+it('tab keyboard wraps left and right over six tabs', async () => {
   const { store } = await setup(); render(<ProjectView store={store} project={projectSchema.parse(project)} />);
   const first = screen.getByRole('tab', { name: 'Overview' }); fireEvent.keyDown(first, { key: 'ArrowLeft' }); await act(flush);
-  const last = screen.getByRole('tab', { name: 'Knowledge' }); expect(document.activeElement).toBe(last); expect(last.tabIndex).toBe(0); expect(first.tabIndex).toBe(-1);
+  const last = screen.getByRole('tab', { name: 'Settings' }); expect(document.activeElement).toBe(last); expect(last.tabIndex).toBe(0); expect(first.tabIndex).toBe(-1);
   fireEvent.keyDown(last, { key: 'ArrowRight' }); expect(document.activeElement).toBe(first); expect(first.getAttribute('aria-selected')).toBe('true');
 });
-it('Home and End keep three-tab keyboard navigation correct', async () => {
-  const { store } = await setup(); render(<ProjectView store={store} project={projectSchema.parse(project)} />); const chat = screen.getByRole('tab', { name: 'Overview' }); fireEvent.keyDown(chat, { key: 'End' }); await act(flush); expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Knowledge' })); fireEvent.keyDown(document.activeElement!, { key: 'Home' }); expect(document.activeElement).toBe(chat);
+it('Home and End keep six-tab keyboard navigation correct', async () => {
+  const { store } = await setup(); render(<ProjectView store={store} project={projectSchema.parse(project)} />); const chat = screen.getByRole('tab', { name: 'Overview' }); fireEvent.keyDown(chat, { key: 'End' }); await act(flush); expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Settings' })); fireEvent.keyDown(document.activeElement!, { key: 'Home' }); expect(document.activeElement).toBe(chat);
 });
 it('browse heading, count, kinds, status, visibility and version counts are visible', async () => {
   await browse(); expect(screen.getByRole('heading', { name: 'All documents' })).toBeTruthy(); expect(screen.getByText('1 document shown')).toBeTruthy(); const row = screen.getByRole('button', { name: /Knowledge document/ }); expect(row.textContent).toContain('Research report'); expect(row.textContent).toContain('Approved'); expect(row.textContent).toContain('Project'); expect(row.textContent).toContain('v 2'); expect(row.textContent).toContain('2 versions');

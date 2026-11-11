@@ -252,11 +252,11 @@ it('tabs expose correct roles, selection and screen cards', async () => {
 });
 it('arrow keys move tab focus and selection with wrapping', async () => {
   await shell(); const chat = screen.getByRole('tab', { name: 'Overview' }); chat.focus(); fireEvent.keyDown(chat, { key: 'ArrowLeft' });
-  const inboxTab = screen.getByRole('tab', { name: 'Knowledge' }); expect(document.activeElement).toBe(inboxTab); expect(inboxTab.getAttribute('aria-selected')).toBe('true');
+  const inboxTab = screen.getByRole('tab', { name: 'Settings' }); expect(document.activeElement).toBe(inboxTab); expect(inboxTab.getAttribute('aria-selected')).toBe('true');
   fireEvent.keyDown(inboxTab, { key: 'ArrowRight' }); expect(document.activeElement).toBe(chat); expect(chat.getAttribute('aria-selected')).toBe('true');
 });
 it('Home and End navigate tabs and inactive tabs are outside tab order', async () => {
-  await shell(); const chat = screen.getByRole('tab', { name: 'Overview' }); fireEvent.keyDown(chat, { key: 'End' }); expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Knowledge' }));
+  await shell(); const chat = screen.getByRole('tab', { name: 'Overview' }); fireEvent.keyDown(chat, { key: 'End' }); expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Settings' }));
   expect(chat.tabIndex).toBe(-1); fireEvent.keyDown(document.activeElement!, { key: 'Home' }); expect(document.activeElement).toBe(chat); expect(chat.tabIndex).toBe(0);
 });
 it('Team panel shows team name, engagement and seats with Lead badge', async () => {
