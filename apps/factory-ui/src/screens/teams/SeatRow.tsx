@@ -56,7 +56,7 @@ export function SeatRow({ seat, projectId, readOnly, command, index }: {
           <Label htmlFor={`${id}-slots`} className="text-xs text-muted-foreground">{t('team.slots')}</Label>
           <div className="flex items-center gap-2">
             <Input id={`${id}-slots`} name="slots" type="number" min={1} max={8} required defaultValue={seat.slots} disabled={disabled} className="w-20" aria-label={`${t('team.slots')} ${seat.name}`} />
-            <Button type="submit" size="sm" variant="outline" disabled={disabled}>{t('m3.save')}</Button>
+            <Button type="submit" variant="outline" disabled={disabled}>{t('m3.save')}</Button>
           </div>
         </form>
       )}

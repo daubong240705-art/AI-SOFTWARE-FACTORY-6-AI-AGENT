@@ -27,12 +27,12 @@ const EMPTY_VALUE = '__select_empty__';
 export function Select({ id, value, onValueChange, options, placeholder, disabled, required, name, 'aria-label': ariaLabel, className, autoFocus }: SelectProps) {
   const container = useContext(PortalContainerContext);
   const internalValue = value === '' && options.some(option => option.value === '') ? EMPTY_VALUE : value;
-  return <UiSelect value={internalValue} onValueChange={next => onValueChange(next === EMPTY_VALUE ? '' : next)} disabled={disabled ?? false} required={required ?? false} {...(name === undefined ? {} : { name })}>
+  return <div className="relative w-full min-w-0"><UiSelect value={internalValue} onValueChange={next => onValueChange(next === EMPTY_VALUE ? '' : next)} disabled={disabled ?? false} required={required ?? false} {...(name === undefined ? {} : { name })}>
     <SelectTrigger id={id} aria-label={ariaLabel} autoFocus={autoFocus ?? false} className={cn('w-full', className)}>
       <SelectValue placeholder={placeholder} />
     </SelectTrigger>
     <SelectContent position="popper" sideOffset={6} collisionPadding={12} container={container} onKeyDown={event => { if (event.key === 'Escape') event.stopPropagation(); }}>
       {options.map(option => <SelectItem key={option.value === '' ? EMPTY_VALUE : option.value} value={option.value === '' ? EMPTY_VALUE : option.value} disabled={option.disabled ?? false}>{option.label}</SelectItem>)}
     </SelectContent>
-  </UiSelect>;
+  </UiSelect></div>;
 }

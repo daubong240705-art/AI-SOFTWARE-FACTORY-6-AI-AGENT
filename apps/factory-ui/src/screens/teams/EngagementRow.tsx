@@ -54,14 +54,14 @@ export function EngagementRow({ engagement, readOnly, command }: {
           </div>
           <div className="space-y-2">
             <Label htmlFor={`${id}-state`} className="text-xs text-muted-foreground">{t('m3.state')}</Label>
-            <Select name="state" value={status} onValueChange={(value) => setStatus(value as typeof status)} disabled={command.busy}>
+            <div className="relative"><Select name="state" value={status} onValueChange={(value) => setStatus(value as typeof status)} disabled={command.busy}>
               <SelectTrigger id={`${id}-state`} className="w-36"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {(['active', 'paused', 'ended'] as const).map((value) => <SelectItem key={value} value={value}>{t(`m3.values.${value}`)}</SelectItem>)}
               </SelectContent>
-            </Select>
+            </Select></div>
           </div>
-          <Button type="submit" size="sm" variant="outline" disabled={command.busy}>{t('m3.save')}</Button>
+          <Button type="submit" variant="outline" disabled={command.busy}>{t('m3.save')}</Button>
         </form>
       )}
     </li>
