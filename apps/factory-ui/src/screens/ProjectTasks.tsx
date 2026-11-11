@@ -37,7 +37,9 @@ export function ProjectTasks({ store, projectId, selectedTask, onOpenTask, onClo
     <div className="project-board-area min-h-0 min-w-0 space-y-5 overflow-x-hidden overflow-y-auto p-6" ref={board}>
       {state.errors.tasks && <ErrorNotice error={state.errors.tasks} />}
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <ToggleGroup type="single" variant="outline" value={view} onValueChange={value => { if (value === 'board' || value === 'list') { setView(value); viewChoices.set(store, value); } }} role="group" aria-label={t('workUi.views')}>{(['board', 'list'] as const).map(value => <ToggleGroupItem type="button" key={value} value={value} aria-pressed={view === value}>{t(`workUi.${value}`)}</ToggleGroupItem>)}</ToggleGroup>
+        <ToggleGroup type="single" variant="outline" spacing={2} value={view} onValueChange={value => { if (value === 'board' || value === 'list') { setView(value); viewChoices.set(store, value); } }} role="group" aria-label={t('workUi.views')} className="flex-wrap gap-2 rounded-none bg-transparent p-0 shadow-none">
+          {(['board', 'list'] as const).map(value => <ToggleGroupItem type="button" key={value} value={value} aria-pressed={view === value} className="h-9 rounded-lg border border-border bg-transparent px-4 text-sm font-medium text-muted-foreground shadow-none hover:bg-secondary/50 hover:text-foreground data-[state=on]:border-foreground/25 data-[state=on]:bg-secondary data-[state=on]:text-foreground">{t(`workUi.${value}`)}</ToggleGroupItem>)}
+        </ToggleGroup>
         <div className="flex min-w-0 items-center gap-3"><Label htmlFor={id} className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">{t('taskUi.filter')}</Label><Select id={id} className="w-36 min-w-0" value={filter} onValueChange={next => setFilter(next as Filter)} options={filters.map(value => ({ value, label: t(`taskUi.filters.${value}`) }))} /></div>
       </div>
       <NewTask store={store} projectId={projectId} {...(newTaskOpen === undefined ? {} : { open: newTaskOpen })} {...(newTaskId === undefined ? {} : { formId: newTaskId })} />

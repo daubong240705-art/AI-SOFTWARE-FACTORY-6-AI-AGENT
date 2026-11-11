@@ -35,8 +35,8 @@ export function ReviewResult({ store, taskId, approval }: { store: Store; taskId
   const eventError = attempt ? state.errors[`attempt-events:${taskId}:${attempt.id}`] : undefined;
   return <Tabs defaultValue="result" className="min-w-0 flex-1 gap-0">
     <div className="px-6">
-      <TabsList variant="line" aria-label={t('workUi.sections')} className="h-10 gap-0 overflow-x-auto p-0">
-        {(['result', 'activity', 'context'] as const).map(tab => <TabsTrigger key={tab} value={tab} className="rounded-none px-3 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground after:!bottom-[-1px]">{t(`reviewUi.${tab}`)}</TabsTrigger>)}
+      <TabsList variant="pills" aria-label={t('workUi.sections')} className="max-w-full">
+        {(['result', 'activity', 'context'] as const).map(tab => <TabsTrigger key={tab} value={tab}>{t(`reviewUi.${tab}`)}</TabsTrigger>)}
       </TabsList>
     </div>
     {error && <div className="px-6 pt-5"><ErrorNotice error={error} /><Button variant="outline" onClick={() => { void store.loadTaskDetail(taskId); }}>{t('errors.retry')}</Button></div>}

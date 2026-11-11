@@ -47,8 +47,8 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request', inl
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground"><span>{t('workUi.lifecycle')}: {t(`taskUi.lifecycle.${task.state}`)}</span><span className="inline-flex items-center gap-2">{t('taskUi.owner')}: <SeatChip name={state.team?.seats.find(seat => seat.id === task.ownerSeatId)?.name} /></span></div>
     </header>
     <Tabs value={active} onValueChange={value => setActive(value as Tab)} className="min-w-0 gap-5">
-      <TabsList variant="line" aria-label={t('workUi.sections')} className="w-full justify-start gap-0 overflow-x-auto rounded-none border-b border-border p-0">
-        {tabs.map(tab => <TabsTrigger value={tab} key={tab} id={`${id}-${tab}`} aria-controls={`${id}-panel`} className="flex-none rounded-none px-3 py-2 text-sm font-medium text-muted-foreground data-[state=active]:text-foreground after:!bottom-[-1px]">{t(tab === 'request' ? 'ux4.overview' : tab === 'context' ? 'projectUi.context' : `workUi.${tab}`)}</TabsTrigger>)}
+      <TabsList variant="pills" aria-label={t('workUi.sections')} className="max-w-full">
+        {tabs.map(tab => <TabsTrigger value={tab} key={tab} id={`${id}-${tab}`} aria-controls={`${id}-panel`}>{t(tab === 'request' ? 'ux4.overview' : tab === 'context' ? 'projectUi.context' : `workUi.${tab}`)}</TabsTrigger>)}
       </TabsList>
       {detail?.loading && <p role="status" className="text-sm text-muted-foreground">{t('viewStates.loading')}</p>}
       {detail?.error && <><ErrorNotice error={detail.error} /><Button type="button" variant="outline" size="sm" className="self-start" onClick={() => { void store.loadTaskDetail(taskId); }}>{t('errors.retry')}</Button></>}

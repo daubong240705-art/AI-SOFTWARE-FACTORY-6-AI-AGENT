@@ -36,6 +36,7 @@
   --color-input: color-mix(in srgb, var(--control-line) 62%, var(--bg));
   --color-ring: var(--info);
   --color-need: var(--need);
+  --color-tab-accent: var(--need);
   --color-need-foreground: var(--on-need);
   --color-run: var(--run);
   --color-ok: var(--ok);
