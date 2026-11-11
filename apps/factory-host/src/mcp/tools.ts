@@ -4,12 +4,13 @@ import { artifactKindSchema, artifactRefSchema, decisionRequestInputSchema, know
 import type { TokenGrant } from "../proxy/tokens.js";
 import { McpToolError, sanitizeAgentText } from "./security.js";
 import { cleanArtifactSummary } from "../artifacts/summary.js";
+import { isAllowedMediaType } from "../artifacts/media.js";
 import { skillGetInputSchema } from "@factory/contracts";
 import type { ExternalTools } from "../mcp-external/index.js";
 
 export const agentOutputInputSchema = z.strictObject({
   title: labelSchema, kind: artifactKindSchema,
-  mediaType: z.enum(["text/markdown", "text/plain", "application/json"]), path: z.string().min(1).max(4096),
+  mediaType: z.string().refine(isAllowedMediaType), path: z.string().min(1).max(4096),
   abstractL0: z.string().min(1).max(400), abstractL1: z.string().max(6000).optional(),
   inputs: z.array(artifactRefSchema).max(100).default([]),
 });

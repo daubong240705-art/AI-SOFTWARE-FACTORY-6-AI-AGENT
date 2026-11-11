@@ -34,7 +34,7 @@ const forbiddenMessage = "Request forbidden.";
 const hash = (value: string): Buffer => createHash("sha256").update(value).digest();
 
 function securityHeaders(reply: FastifyReply): void {
-  reply.header("Cache-Control", "no-store");
+  reply.header("Cache-Control", reply.getHeader("Cache-Control") === "private, no-store" ? "private, no-store" : "no-store");
   reply.header("X-Content-Type-Options", "nosniff");
   reply.header("Referrer-Policy", "no-referrer");
   reply.header("Cross-Origin-Resource-Policy", "same-origin");
@@ -55,7 +55,10 @@ export function createApiServer(options: ApiServerOptions): FastifyInstance {
       return failure(reply, 405, "unsupported", "Method not allowed.", "correct-input", newId);
     if (request.method === "POST") {
       const contentType = request.headers["content-type"];
-      if (typeof contentType !== "string" || !jsonContentType.test(contentType.trim()))
+      const documentUpload = request.routeOptions.url === "/projects/:projectId/documents";
+      if (documentUpload && (typeof contentType !== "string" || !/^application\/octet-stream(?:\s*;.*)?$/i.test(contentType.trim())))
+        return failure(reply, 415, "validation", "Content-Type must be application/octet-stream.", "correct-input", newId);
+      if (!documentUpload && (typeof contentType !== "string" || !jsonContentType.test(contentType.trim())))
         return failure(reply, 415, "validation", "Content-Type must be application/json.", "correct-input", newId);
     }
     return undefined;

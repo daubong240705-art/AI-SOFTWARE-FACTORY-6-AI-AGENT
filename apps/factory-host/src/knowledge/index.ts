@@ -8,11 +8,13 @@ import { isVersionStale, versionStale } from "./lifecycle.js";
 export { visibleToScope, type KnowledgeScope } from "./permissions.js";
 export interface KnowledgeQuery {
   query: string; kinds?: readonly string[] | undefined; statuses?: readonly string[] | undefined;
+  origins?: readonly ("agent" | "upload")[] | undefined;
   latestOnly?: boolean | undefined; limit?: number | undefined; offset?: number | undefined;
 }
 export interface KnowledgeResult {
   artifactId: string; version: number; kind: string; title: string; status: ArtifactStatus;
   visibility: "team-draft" | "project" | "shared"; abstractL0: string; snippet: string; rank: number; projectId: string; stale: boolean;
+  origin: "agent" | "upload"; fileName: string | null; mediaType: string; sizeBytes: number;
 }
 export interface KnowledgeGetInput { artifactId: string; version?: number | undefined; level?: "l0" | "l1" | "l2" | undefined }
 export interface KnowledgeDocument extends Omit<KnowledgeResult, "rank" | "snippet"> {
@@ -21,12 +23,12 @@ export interface KnowledgeDocument extends Omit<KnowledgeResult, "rank" | "snipp
 export class KnowledgeError extends Error {
   constructor(readonly reason: "not found" | "content is not readable as text" | "search is temporarily unavailable") { super(reason); }
 }
-const readable = new Set(["text/markdown", "text/plain", "application/json"]);
+const readable = new Set(["text/markdown", "text/plain", "text/csv", "application/json", "image/svg+xml"]);
 const summaryColumns = `v.project_id AS projectId, v.artifact_id AS artifactId, v.version, v.kind, v.title, v.status,
   CASE v.visibility WHEN 'organization' THEN 'shared' ELSE v.visibility END AS visibility,
-  v.abstract_l0 AS abstractL0`;
+  v.abstract_l0 AS abstractL0, v.origin, v.file_name AS fileName, v.media_type AS mediaType, v.size_bytes AS sizeBytes`;
 type StoredVersion = Omit<KnowledgeResult, "rank" | "snippet" | "stale"> & {
-  abstractL1: string | null; contentHash: string; mediaType: string; sizeBytes: number;
+  abstractL1: string | null; contentHash: string;
 };
 
 /** Decode all bytes strictly, then truncate at a UTF-8 boundary without introducing replacement characters. */
@@ -38,9 +40,9 @@ function textBytes(bytes: Buffer, limit: number): string {
     try { return decoder.decode(bytes.subarray(0, end)); } catch { end--; }
   }
 }
-function filters(query: { kinds?: readonly string[] | undefined; statuses?: readonly string[] | undefined }): SqlPredicate {
+function filters(query: Pick<KnowledgeQuery, "kinds" | "statuses" | "origins">): SqlPredicate {
   const parts: string[] = []; const params: string[] = [];
-  for (const [column, values] of [["v.kind", query.kinds], ["v.status", query.statuses]] as const) {
+  for (const [column, values] of [["v.kind", query.kinds], ["v.status", query.statuses], ["v.origin", query.origins]] as const) {
     if (values === undefined) continue;
     parts.push(values.length ? `${column} IN (${values.map(() => "?").join(",")})` : "0");
     params.push(...values);
@@ -133,7 +135,7 @@ export function createKnowledgeIndex({ raw, store }: { raw: Database; store: Con
         truncated = bytes.length > 32 * 1024;
       } catch { throw new KnowledgeError("not found"); }
     }
-    return { ...summary, text, level, truncated, stale: isVersionStale(raw, row) };
+    return { ...summary, mediaType, text, level, truncated, stale: isVersionStale(raw, row) };
   };
   const rebuild = async () => {
     raw.transaction(() => { raw.prepare("DELETE FROM knowledge_index").run(); raw.prepare("DELETE FROM knowledge_indexed").run(); })();

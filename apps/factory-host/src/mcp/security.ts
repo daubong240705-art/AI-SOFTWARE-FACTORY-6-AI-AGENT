@@ -24,9 +24,8 @@ export function sanitizeAgentText(text: string): string {
 }
 
 /** Check every component before opening. Linux directory descriptors anchor traversal across renames. */
-export function readWorkspaceOutput(grant: TokenGrant, path: string): Buffer {
+export function readWorkspaceOutput(grant: TokenGrant, path: string, limit = 8 * 1024 * 1024): Buffer {
   const descriptors: number[] = [];
-  const limit = 8 * 1024 * 1024;
   try {
     const parts = path.split("/");
     if (!grant.workspacePath || !path || path.length > 4096 || /[\\\0:]/.test(path)

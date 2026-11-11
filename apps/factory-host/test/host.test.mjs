@@ -103,7 +103,7 @@ test("host backfills existing artifact versions when upgrading from schema three
   const host = await launch(t, stateDir);
   const deadline = Date.now() + 5000;
   while (host.knowledge.stats().missing && Date.now() < deadline) await new Promise((done) => setImmediate(done));
-  assert.equal(host.storage.raw.prepare("SELECT MAX(version) AS version FROM migration_ledger").get().version, 21);
+  assert.equal(host.storage.raw.prepare("SELECT MAX(version) AS version FROM migration_ledger").get().version, 22);
   assert.equal(host.knowledge.stats().missing, 0);
   for (const query of ["thiet ke", "searchablebodymarker"]) {
     const rows = host.knowledge.search({ projectId, teamId: null, viewer: "operator" }, query);
@@ -405,17 +405,17 @@ test("pending migration backs up the existing database before applying the new f
   await first.close();
   const customMigrations = join(dir, "migrations");
   cpSync(migrationsDir, customMigrations, { recursive: true });
-  writeFileSync(join(customMigrations, "0022_marker.sql"), "CREATE TABLE migration_marker (id INTEGER PRIMARY KEY) STRICT;\n");
+  writeFileSync(join(customMigrations, "0023_marker.sql"), "CREATE TABLE migration_marker (id INTEGER PRIMARY KEY) STRICT;\n");
   const backupDir = join(dir, "saved-backups");
   const second = await launch(t, stateDir, { migrationsDir: customMigrations, backupDir });
-  assert.deepEqual(second.storage.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }, { version: 14 }, { version: 15 }, { version: 16 }, { version: 17 }, { version: 18 }, { version: 19 }, { version: 20 }, { version: 21 }, { version: 22 }]);
+  assert.deepEqual(second.storage.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }, { version: 14 }, { version: 15 }, { version: 16 }, { version: 17 }, { version: 18 }, { version: 19 }, { version: 20 }, { version: 21 }, { version: 22 }, { version: 23 }]);
   const backups = readdirSync(backupDir);
   assert.equal(backups.length, 1);
-  assert.match(backups[0], /^pre-migration-0022-.*\.db$/);
+  assert.match(backups[0], /^pre-migration-0023-.*\.db$/);
   const backup = new Database(join(backupDir, backups[0]), { readonly: true });
   try {
     assert.equal(backup.prepare("SELECT id FROM projects WHERE id = ?").get(c.projectId).id, c.projectId);
-    assert.deepEqual(backup.prepare("SELECT version FROM migration_ledger").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }, { version: 14 }, { version: 15 }, { version: 16 }, { version: 17 }, { version: 18 }, { version: 19 }, { version: 20 }, { version: 21 }]);
+    assert.deepEqual(backup.prepare("SELECT version FROM migration_ledger").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }, { version: 14 }, { version: 15 }, { version: 16 }, { version: 17 }, { version: 18 }, { version: 19 }, { version: 20 }, { version: 21 }, { version: 22 }]);
     assert.equal(backup.prepare("SELECT name FROM sqlite_master WHERE name = ?").get("migration_marker"), undefined);
   } finally { backup.close(); }
 });
@@ -457,10 +457,10 @@ test("migration failure closes storage and allows a corrected restart", async (t
   const stateDir = join(dir, "state");
   const customMigrations = join(dir, "migrations");
   cpSync(migrationsDir, customMigrations, { recursive: true });
-  writeFileSync(join(customMigrations, "0022_broken.sql"), "invalid SQL;");
+  writeFileSync(join(customMigrations, "0023_broken.sql"), "invalid SQL;");
   let calls = 0;
   await assert.rejects(startHost({ stateDir, port: 0, migrationsDir: customMigrations,
-    onBootstrapToken() { calls++; } }), /migration 22 .* failed/);
+    onBootstrapToken() { calls++; } }), /migration 23 .* failed/);
   assert.equal(calls, 0);
   const next = await launch(t, stateDir);
   assert.equal(next.storage.raw.open, true);
@@ -515,14 +515,14 @@ test("parseEnv defaults are an absolute home state directory and port 8787", () 
     worktreesRoot: join(homedir(), 'factory-v2', 'worktrees'),
   }, periodicBackup: {
     dir: existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(stateDir, "backups", "periodic"), intervalMs: 3_600_000,
-  } });
+  }, documents: { maxBytes: 26_214_400, quotaBytes: 2_147_483_648 } });
 });
 
 test("parseEnv accepts state, backup, and integer port overrides", () => {
   assert.deepEqual(parseEnv({ FACTORY_STATE_DIR: "/state", FACTORY_PORT: "12345", FACTORY_BACKUP_DIR: "/backup",
     FACTORY_MIGRATION_BACKUP_DIR: "/migration", FACTORY_BACKUP_INTERVAL_MINUTES: "30" }),
     { stateDir: "/state", port: 12345, multiTeam: false, pushRemotes: null, dispatch: { nodeSlots: 2 }, workspace: parseEnv({}).workspace,
-      backupDir: "/migration", periodicBackup: { dir: "/backup", intervalMs: 1_800_000 } });
+      backupDir: "/migration", periodicBackup: { dir: "/backup", intervalMs: 1_800_000 }, documents: { maxBytes: 26_214_400, quotaBytes: 2_147_483_648 } });
   assert.equal(parseEnv({ FACTORY_PORT: "1" }).port, 1);
   assert.equal(parseEnv({ FACTORY_PORT: "65535" }).port, 65535);
 });

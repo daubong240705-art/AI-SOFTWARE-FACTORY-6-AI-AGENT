@@ -6,7 +6,7 @@ import { openStorage } from "../dist/storage/database.js";
 import { integrationFixture } from "./integration-fixture.mjs";
 import { temp, migrationsDir } from "./org-fixture.mjs";
 
-test("integration migration ledger reaches exactly 0021", t => { const f = integrationFixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map(x => x.version), Array.from({ length: 21 }, (_, i) => i + 1)); });
+test("integration migration ledger reaches exactly 0022", t => { const f = integrationFixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map(x => x.version), Array.from({ length:22 }, (_, i) => i + 1)); });
 test("integration table is STRICT", t => { const f = integrationFixture(t); assert.equal(f.raw.prepare("SELECT strict FROM pragma_table_list WHERE name='integration_merges'").get().strict, 1); });
 test("integration queue lookup index has the specified columns", t => { const f = integrationFixture(t); assert.deepEqual(f.raw.pragma("index_info(integration_merges_pending)").map(x => x.name), ["project_id", "state", "created_at"]); });
 test("integration defaults and null fields", t => { const f = integrationFixture(t), id = f.merge(), row = f.row(id); assert.equal(row.attempts, 0); assert.equal(row.merge_sha, null); assert.equal(row.resolved_at, null); assert.equal(row.error_kind, null); });
@@ -22,8 +22,9 @@ test("0021 adds only the integration table and index and preserves schema and da
   const storage = openStorage(":memory:"); t.after(() => storage.close()); storage.migrate({ migrationsDir: old, backupDir: null }); const raw = storage.raw;
   raw.exec("INSERT INTO projects VALUES ('preserved',1,'Preserved','artifact','synthetic','active')");
   const schema = raw.prepare("SELECT type,name,rootpage,sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY name").all(), ledger = raw.prepare("SELECT * FROM migration_ledger ORDER BY version").all(), projects = raw.prepare("SELECT * FROM projects").all();
-  assert.deepEqual(storage.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [21]);
+  copyFileSync(join(migrationsDir, "0021_integration.sql"), join(old, "0021_integration.sql"));
+  assert.deepEqual(storage.migrate({ migrationsDir: old, backupDir: join(root, "backups") }).applied, [21]);
   for (const row of schema) assert.deepEqual(raw.prepare("SELECT type,name,rootpage,sql FROM sqlite_master WHERE name=?").get(row.name), row);
   assert.deepEqual(raw.prepare("SELECT * FROM migration_ledger WHERE version<=20 ORDER BY version").all(), ledger); assert.deepEqual(raw.prepare("SELECT * FROM projects").all(), projects);
-  assert.deepEqual(storage.migrate({ migrationsDir, backupDir: null }).applied, []);
+  assert.deepEqual(storage.migrate({ migrationsDir: old, backupDir: null }).applied, []);
 });

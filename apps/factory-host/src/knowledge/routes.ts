@@ -8,6 +8,8 @@ import { createIdGenerator } from "../ids.js";
 import { sanitizeAgentText } from "../mcp/security.js";
 import { getKnowledgeArtifact, listKnowledgeArtifacts, type KnowledgeIndex } from "./index.js";
 import { listStale } from "./lifecycle.js";
+import type { ContentStore } from "../artifacts/content-store.js";
+import { registerRawRoute } from "./raw.js";
 
 function parseQuery(query: Record<string, unknown>, search: boolean) {
   const list = (value: unknown): unknown => value === undefined ? undefined
@@ -17,22 +19,26 @@ function parseQuery(query: Record<string, unknown>, search: boolean) {
   return z.strictObject({
     query: search ? z.string().min(1).max(200) : z.undefined(),
     kinds: z.array(artifactKindSchema).max(13).optional(), statuses: z.array(artifactStatusSchema).max(7).optional(),
+    origin: z.array(z.enum(["agent", "upload"])).max(2).optional(),
     limit: z.number().int().min(1).max(50), offset: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
-  }).safeParse({ query: search ? query.q : undefined, kinds: list(query.kind), statuses: list(query.status),
+  }).safeParse({ query: search ? query.q : undefined, kinds: list(query.kind), statuses: list(query.status), origin: list(query.origin),
     limit: integer(query.limit, 10), offset: integer(query.offset, 0) });
 }
 
 /** Public metadata never includes store identities, filesystem locations, or control characters. */
-function publicMetadata(value: unknown): unknown {
+export function publicMetadata(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(publicMetadata);
   if (value === null || typeof value !== "object") return value;
   return Object.fromEntries(Object.entries(value).map(([key, field]) => [key,
-    ["title", "abstractL0", "abstractL1", "snippet"].includes(key) && typeof field === "string"
+    ["title", "abstractL0", "abstractL1", "snippet", "fileName"].includes(key) && typeof field === "string"
       ? sanitizeAgentText(field) : publicMetadata(field)]));
 }
 
-export function registerKnowledgeRoutes(app: FastifyInstance, guards: ApiGuards, deps: { raw: Database; knowledge: KnowledgeIndex }): void {
+export function registerKnowledgeRoutes(app: FastifyInstance, guards: ApiGuards, deps: {
+  raw: Database; knowledge: KnowledgeIndex; store?: ContentStore;
+}): void {
   const newId = createIdGenerator();
+  registerRawRoute(app, guards, deps);
   const exists = (id: string): boolean => Boolean(deps.raw.prepare("SELECT 1 FROM projects WHERE id = ?").get(id));
   app.get<{ Params: { projectId: string } }>(
     "/projects/:projectId/knowledge/stale", { preHandler: guards.session }, async (request, reply) => {
@@ -48,8 +54,8 @@ export function registerKnowledgeRoutes(app: FastifyInstance, guards: ApiGuards,
       if (!parsed.success || parsed.data.query === undefined)
         return failure(reply, 400, "validation", "Invalid knowledge query.", "correct-input", newId);
       try {
-        const { query, kinds, statuses, limit, offset } = parsed.data;
-        const results = deps.knowledge.search({ projectId, teamId: null, viewer: "operator" }, { query, kinds, statuses, limit, offset },
+        const { query, kinds, statuses, origin, limit, offset } = parsed.data;
+        const results = deps.knowledge.search({ projectId, teamId: null, viewer: "operator" }, { query, kinds, statuses, origins: origin, limit, offset },
           { maxLimit: 50, projectOnly: true });
         return { apiVersion: API_VERSION, ok: true, results: publicMetadata(results) };
       } catch { return failure(reply, 503, "runtime-unavailable", "Search is temporarily unavailable.", "wait", newId); }
@@ -60,9 +66,9 @@ export function registerKnowledgeRoutes(app: FastifyInstance, guards: ApiGuards,
       if (!exists(projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
       const parsed = parseQuery(request.query, false);
       if (!parsed.success) return failure(reply, 400, "validation", "Invalid knowledge query.", "correct-input", newId);
-      const { kinds, statuses, limit, offset } = parsed.data;
+      const { kinds, statuses, origin, limit, offset } = parsed.data;
       return { apiVersion: API_VERSION, ok: true, items: publicMetadata(listKnowledgeArtifacts(deps.raw,
-        { projectId, teamId: null, viewer: "operator" }, { kinds, statuses, limit, offset })) };
+        { projectId, teamId: null, viewer: "operator" }, { kinds, statuses, origins: origin, limit, offset })) };
     });
   app.get<{ Params: { projectId: string; artifactId: string } }>(
     "/projects/:projectId/knowledge/artifacts/:artifactId", { preHandler: guards.session }, async (request, reply) => {
