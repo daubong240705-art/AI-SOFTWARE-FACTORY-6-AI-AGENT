@@ -1,5 +1,10 @@
 export const extra = {
   workflowGraph: {
+    live: {
+      awaitingGo: 'Waiting for your permission to start', awaitingReview: 'Waiting for result review', awaitingAssignment: 'Waiting for assignment',
+      running: { one: 'Running {count} task', other: 'Running {count} tasks' }, waiting: 'Waiting for you {count}',
+      section: 'Working now', started: 'Started {time}', startedUnknown: 'Start time unavailable', openTask: 'Open task', reply: 'Reply',
+    },
     states: { proposed: 'Ready to start', suspended: 'Suspended' },
     diagram: 'Diagram', views: 'Workflow view', create: 'Create workflow', preview: 'Workflow preview', unavailable: 'Diagram data is unavailable. Use the list view to see stages and tasks.',
     stageDetails: 'Stage details', clickForDetails: 'Click for details', phase: 'Phase', capabilities: 'Required capabilities', inputs: 'Inputs', outputs: 'Outputs', required: 'required', mustReach: 'must reach',

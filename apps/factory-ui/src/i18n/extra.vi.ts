@@ -3,6 +3,11 @@ import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
   workflowGraph: {
+    live: {
+      awaitingGo: 'Chờ bạn cho phép bắt đầu', awaitingReview: 'Chờ duyệt kết quả', awaitingAssignment: 'Chờ giao việc',
+      running: { one: 'Đang chạy {count} việc', other: 'Đang chạy {count} việc' }, waiting: 'Chờ bạn {count}',
+      section: 'Đang làm', started: 'Bắt đầu {time}', startedUnknown: 'Chưa có thời điểm bắt đầu', openTask: 'Mở việc', reply: 'Trả lời',
+    },
     states: { proposed: 'Sẵn sàng bắt đầu', suspended: 'Tạm ngưng' },
     diagram: 'Sơ đồ', views: 'Chế độ xem quy trình', create: 'Tạo quy trình', preview: 'Xem trước quy trình', unavailable: 'Chưa có dữ liệu sơ đồ. Chuyển sang Danh sách để xem các giai đoạn và công việc.',
     stageDetails: 'Chi tiết giai đoạn', clickForDetails: 'Bấm để xem chi tiết', phase: 'Pha', capabilities: 'Cần năng lực', inputs: 'Đầu vào', outputs: 'Đầu ra', required: 'bắt buộc', mustReach: 'cần đạt',

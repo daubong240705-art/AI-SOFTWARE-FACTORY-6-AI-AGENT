@@ -7,9 +7,11 @@ import { useT } from '@/i18n';
 import { M5Status } from '../M5Shared';
 import { LoopChip } from './LoopChip';
 import type { StageDefinition } from './graphTypes';
+import type { LiveRuns } from './useLiveRuns';
+import { StageLivePanel } from './StageLivePanel';
 
-export function StagePanel({ definition, stage, detail, onOpenTask, assignment }: {
-  definition: StageDefinition; stage: WorkflowStage; detail: WorkflowDetail;
+export function StagePanel({ definition, stage, detail, liveRuns, onOpenTask, assignment }: {
+  definition: StageDefinition; stage: WorkflowStage; detail: WorkflowDetail; liveRuns: LiveRuns;
   onOpenTask?: ((taskId: string) => void) | undefined; assignment?: ReactNode;
 }) {
   const t = useT();
@@ -18,6 +20,7 @@ export function StagePanel({ definition, stage, detail, onOpenTask, assignment }
   const kindLabel = (kind: string) => kind === 'brief' ? t('workflowGraph.brief') : t(`knowledgeUi.kinds.${kind}`);
   return <div role="region" aria-label={t('workflowGraph.stageDetails')} className="w-full min-w-0">
     <div className="space-y-5 p-4 text-sm">
+      <StageLivePanel stage={stage} liveRuns={liveRuns} onOpenTask={onOpenTask} />
       <div className="flex flex-wrap gap-2"><M5Status value={stage.state} /><LoopChip stage={stage} maxLoops={maxLoops} /></div>
       <dl className="space-y-1"><dt className="text-xs text-muted-foreground">{t('workflowGraph.phase')}</dt><dd>{definition.phase || stage.phase || '—'}</dd></dl>
       {!!definition.requiredCapabilities.length && <section className="space-y-2"><h4 className="text-xs text-muted-foreground">{t('workflowGraph.capabilities')}</h4><div className="flex flex-wrap gap-1.5">{definition.requiredCapabilities.map(capability => <Badge key={capability} variant="secondary" className="font-normal">{capability}</Badge>)}</div></section>}

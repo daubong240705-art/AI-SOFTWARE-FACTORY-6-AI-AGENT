@@ -1,5 +1,5 @@
 import { i18n } from '@/i18n';
-import type { ActivityStatus } from '@/api/activityModels';
+import type { ActivityRun, ActivityStatus } from '@/api/activityModels';
 
 export const dotClass: Record<ActivityStatus, string> = {
   waiting: 'bg-need', problem: 'bg-info', working: 'bg-run motion-safe:animate-pulse',
@@ -9,6 +9,9 @@ export const pillClass: Record<ActivityStatus, string> = {
   waiting: 'bg-need/10 text-need', problem: 'bg-info/10 text-info', working: 'bg-run/10 text-run',
   queued: 'bg-secondary text-muted-foreground', done: 'bg-ok/10 text-ok', idle: 'bg-secondary text-muted-foreground',
 };
+export function activityAttemptLabel(state: ActivityRun['attemptState']) {
+  return i18n.t(['lease-expired', 'unknown', 'reconciling', 'failed'].includes(state) ? `activityUi.attempt.${state}` : `workUi.states.${state}`);
+}
 export function activityTime(value: string, now: number) {
   const seconds = Math.max(0, Math.floor((now - Date.parse(value)) / 1000));
   if (seconds < 5) return i18n.t('activityUi.justNow');

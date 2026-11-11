@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,7 @@ import { useT } from '@/i18n';
 import { useM3Command } from '../M3Shared';
 import { M5Status } from '../M5Shared';
 
-export function InstanceControls({ store, projectId, instance }: { store: Store; projectId: string; instance: WorkflowDetail }) {
+export function InstanceControls({ store, projectId, instance, liveChip }: { store: Store; projectId: string; instance: WorkflowDetail; liveChip?: ReactNode }) {
   const t = useT(); const id = useId(); const session = store.useStoreSelector(state => state.session);
   const [pauseOpen, setPauseOpen] = useState(false); const [cancelOpen, setCancelOpen] = useState(false);
   const [pauseReason, setPauseReason] = useState(''); const [cancelReason, setCancelReason] = useState('');
@@ -30,6 +30,7 @@ export function InstanceControls({ store, projectId, instance }: { store: Store;
   return <div className="flex min-w-0 flex-wrap items-center gap-2">
     <div role="group" aria-label={t('workflowUi.detail')} className="flex flex-wrap items-center gap-2">
       <M5Status value={instance.state} />
+      {liveChip}
       {canStart && <Button type="button" size="sm" disabled={disabled} onClick={() => run('start')}><Play />{t('workflowGraph.start')}</Button>}
       {canPause && <Popover open={pauseOpen} onOpenChange={open => { setPauseOpen(open); if (open) setCancelOpen(false); }}><PopoverTrigger asChild><Button type="button" variant="outline" size="sm" disabled={disabled}><Pause />{t('workflowGraph.pause')}</Button></PopoverTrigger><PopoverContent align="start" className="w-80 space-y-3 border-border bg-card">
         <form className="space-y-3" onSubmit={event => { event.preventDefault(); run('pause'); }}><Label htmlFor={`${id}-pause`}>{t('workflowGraph.reason')}</Label><Textarea id={`${id}-pause`} required maxLength={500} rows={3} value={pauseReason} disabled={command.busy} onChange={event => setPauseReason(event.target.value)} /><Button type="submit" size="sm" disabled={disabled || !pauseReason.trim()}>{t('workflowGraph.confirm')}</Button></form>
