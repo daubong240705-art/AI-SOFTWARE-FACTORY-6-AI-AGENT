@@ -1,16 +1,18 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import type { Command } from '@factory/contracts';
 import type { Store } from '../state/store';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Button } from '../components/Button';
 import { useT } from '../i18n';
+import { Select as ThemedSelect } from '../components/Select';
 
 export function AreaState({ store, area, empty = false }: { store: Store; area: string; empty?: boolean }) {
   const t = useT(); const state = store.useStoreSelector(s => s);
   return <>{state.loading[area] && <p role="status">{t('viewStates.loading')}</p>}{state.errors[area] && <ErrorNotice error={state.errors[area]!} />}{empty && !state.loading[area] && !state.errors[area] && <p>{t('m3.empty')}</p>}</>;
 }
 export function Select({ label, value, onChange, options, required = false }: { label: string; value: string; onChange: (v: string) => void; options: Array<[string, string]>; required?: boolean }) {
-  return <label className="field">{label}<select required={required} value={value} onChange={e => onChange(e.target.value)}>{options.map(([id, text]) => <option key={id} value={id}>{text}</option>)}</select></label>;
+  const id = useId();
+  return <div className="field"><label htmlFor={id}>{label}</label><ThemedSelect id={id} value={value} onValueChange={onChange} required={required} options={options.map(([optionValue, optionLabel]) => ({ value: optionValue, label: optionLabel }))} /></div>;
 }
 export function useM3Command(store: Store, refresh: () => Promise<void>, onSuccess?: (command: Command) => void) {
   const [command, setCommand] = useState<Command | null>(null); const [busy, setBusy] = useState(false); const lock = useRef(false);

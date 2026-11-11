@@ -13,6 +13,7 @@ export default defineConfig({
     baseURL: process.env.E2E_WORK_URL ?? 'http://127.0.0.1:8812',
     viewport: { width: 1280, height: 900 },
     colorScheme: 'light',
+    reducedMotion: 'reduce',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

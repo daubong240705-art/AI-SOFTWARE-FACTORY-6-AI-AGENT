@@ -67,7 +67,7 @@ button, input, select { min-width: 0; }
 .status-completed { color: var(--color-success); background: var(--color-success-surface); }
 .confirmation-row { padding: var(--space-md); background: var(--color-warning-surface); border-radius: var(--radius-control); }
 .task-filter { max-width: var(--size-chat); }
-.task-filter select { min-height: var(--size-control); }
+.task-filter .select-trigger { min-height: var(--size-control); }
 .project-tabs .badge { margin-left: var(--space-xs); }
 [hidden] { display: none !important; }
 .project-view, .project-view [role="tabpanel"], .task-detail, .task-detail > *, .diff, .diff-file { min-width: 0; max-width: 100%; }
@@ -115,7 +115,7 @@ button, input, select { min-width: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 .knowledge, .knowledge-row, .knowledge-detail-backdrop .dialog { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .knowledge-filters { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
-.knowledge-filters input, .knowledge-filters select { width: 100%; min-width: 0; }
+.knowledge-filters input, .knowledge-filters .select-trigger { width: 100%; min-width: 0; }
 .knowledge-row { width: 100%; text-align: start; color: var(--color-text); background: var(--color-surface); cursor: pointer; font: inherit; }
 .knowledge-row .task-meta { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
 .knowledge-row:focus-visible, .knowledge-filters :focus-visible { outline: 2px solid var(--color-focus); outline-offset: var(--space-xs); }
@@ -133,7 +133,7 @@ button, input, select { min-width: 0; }
 .decision-option strong { display: inline-block; border: 1px solid var(--color-border); border-radius: var(--radius-control); padding: var(--space-xs); }
 .dialog fieldset { min-width: 0; border: 1px solid var(--color-border); padding: var(--space-md); }
 .dialog fieldset > label { display: block; padding: var(--space-xs); }
-.push-section select { width: 100%; min-width: 0; }
+.push-section .select-trigger { width: 100%; min-width: 0; }
 .decision-option:focus-within { outline: 2px solid var(--color-focus); outline-offset: var(--space-xs); }
 @media (max-width: 600px) {
   .dialog-backdrop { padding: 0; }
@@ -168,7 +168,7 @@ button, input, select { min-width: 0; }
 .sidebar-footer { margin-top: auto; padding-top: 12px; }
 .sidebar-settings { position: relative; }
 .settings-popover { position: absolute; bottom: 100%; left: 0; z-index: var(--layer-menu); width: 228px; max-width: calc(100vw - 32px); padding: 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); box-shadow: 0 8px 24px var(--shadow); }
-.settings-popover select { width: 100%; }
+.settings-popover .select-trigger { width: 100%; }
 .sidebar-collapsed .nav-label, .sidebar-collapsed .attention-badge { display: none; }
 .sidebar-collapsed .shell-nav { justify-content: center; padding: 8px 4px; }
 .sidebar-collapsed .project-link .waiting-dot { position: absolute; right: 2px; top: 5px; }
@@ -193,7 +193,7 @@ button, input, select { min-width: 0; }
 .overview-composer textarea:focus-visible { outline-offset: 2px; }
 .overview-composer-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; border-top: 1px solid var(--line); padding-top: 12px; }
 .overview-composer-actions label { font-size: 13px; color: var(--muted); }
-.overview-composer-actions select { max-width: 180px; background: var(--raised); border-color: var(--line); }
+.overview-composer-actions .select-trigger { max-width: 180px; background: var(--color-raised); border-color: var(--color-border); }
 .intent-segment { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .intent-segment button { border: 0; border-radius: 0; padding: 6px 12px; background: none; color: var(--muted); }
 .intent-segment button[aria-pressed="true"] { background: var(--raised); color: var(--text); }

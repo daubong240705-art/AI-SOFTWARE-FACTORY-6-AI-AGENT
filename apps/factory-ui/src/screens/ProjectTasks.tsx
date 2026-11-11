@@ -9,6 +9,7 @@ import { Board } from './Board';
 import { NewTask } from './NewTask';
 import { TaskRow } from './TaskRow';
 import { TaskDetail } from './TaskDetail';
+import { Select } from '../components/Select';
 
 const viewChoices = new WeakMap<Store, 'board' | 'list'>();
 const filters = ['all', 'proposed', 'accepted', 'done', 'closed'] as const;
@@ -34,7 +35,7 @@ export function ProjectTasks({ store, projectId, selectedTask, onOpenTask, onClo
       {state.errors.tasks && <ErrorNotice error={state.errors.tasks} />}
       <div className="project-board-toolbar">
         <div className="task-actions" role="group" aria-label={t('workUi.views')}>{(['board', 'list'] as const).map(value => <Button key={value} aria-pressed={view === value} onClick={() => { setView(value); viewChoices.set(store, value); }}>{t(`workUi.${value}`)}</Button>)}</div>
-        <div className="field task-filter"><label htmlFor={id}>{t('taskUi.filter')}</label><select id={id} value={filter} onChange={event => setFilter(event.target.value as Filter)}>{filters.map(value => <option key={value} value={value}>{t(`taskUi.filters.${value}`)}</option>)}</select></div>
+        <div className="field task-filter"><label htmlFor={id}>{t('taskUi.filter')}</label><Select id={id} value={filter} onValueChange={next => setFilter(next as Filter)} options={filters.map(value => ({ value, label: t(`taskUi.filters.${value}`) }))} /></div>
       </div>
       <NewTask store={store} projectId={projectId} {...(newTaskOpen === undefined ? {} : { open: newTaskOpen })} {...(newTaskId === undefined ? {} : { formId: newTaskId })} />
       {state.loading.tasks && !state.tasks.length ? <p role="status">{t('viewStates.loading')}</p> : view === 'board' ? <Board store={store} tasks={tasks} onOpen={open} /> : tasks.length ? <ul className="task-list stack">{tasks.map(task => <li key={task.id}><TaskRow store={store} projectId={projectId} task={task} /></li>)}</ul> : <Card><p>{t(state.tasks.length ? 'taskUi.noMatches' : 'tasks.empty')}</p></Card>}

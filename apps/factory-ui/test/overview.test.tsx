@@ -1,3 +1,4 @@
+import { chooseOption } from './select-helpers';
 ﻿import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { Command } from '@factory/contracts';
@@ -75,7 +76,7 @@ it.each([['Ask', 'discuss'], ['Delegate', 'delegate']] as const)('%s maps to %s 
 
 it('project selection changes the command project and preserves the default Delegate intent', async () => {
   const { store, api, onProject } = await overview(); const selectProject = vi.spyOn(store, 'selectProject');
-  fireEvent.change(screen.getByRole('combobox', { name: 'Project' }), { target: { value: otherId } });
+  await chooseOption('Project', 'Second project');
   write(); fireEvent.click(sendButton());
   await waitFor(() => expect(onProject).toHaveBeenCalledExactlyOnceWith(otherId));
   expect(selectProject).toHaveBeenCalledExactlyOnceWith(otherId);

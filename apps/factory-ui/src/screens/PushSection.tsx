@@ -5,6 +5,7 @@ import { Button } from '../components/Button';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
+import { Select } from '../components/Select';
 
 export function workspaceBranch(events: AttemptEvent[]): string | null {
   for (const event of [...events].reverse()) {
@@ -41,7 +42,7 @@ export function PushSection({ store, task, attempt }: { store: Store; task: Task
   }
   if (!state.remotes?.length || task.state !== 'done' || !attempt || !branch) return null;
   return <section className="stack push-section"><h3>{t('inboxUi.push')}</h3>
-    <label htmlFor={id}>{t('inboxUi.remote')}</label><select id={id} value={selected} disabled={busy || confirm} onChange={event => setRemote(event.target.value)}>{state.remotes.map(name => <option key={name} value={name}>{name}</option>)}</select>
+    <div className="field"><label htmlFor={id}>{t('inboxUi.remote')}</label><Select id={id} value={selected} disabled={busy || confirm} onValueChange={setRemote} options={state.remotes.map(name => ({ value: name, label: name }))} /></div>
     <p className="plain-text">{branch}</p>
     {!blocking && !confirm && <Button disabled={busy || !effectsReady} onClick={() => setConfirm(true)}>{t('inboxUi.push')}</Button>}
     {confirm && <div role="group" aria-label={t('taskUi.confirmation')} className="confirmation-row"><p>{t('inboxUi.pushConfirm').replace('{branch}', branch).replace('{name}', selected)}</p><Button disabled={busy} onClick={() => { void execute(); }}>{t('workUi.confirm')}</Button><Button disabled={busy} onClick={() => setConfirm(false)}>{t('workUi.back')}</Button></div>}

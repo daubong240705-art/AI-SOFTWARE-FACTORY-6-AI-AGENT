@@ -12,6 +12,7 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:8791',
     viewport: { width: 1280, height: 800 },
     colorScheme: 'light',
+    reducedMotion: 'reduce',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

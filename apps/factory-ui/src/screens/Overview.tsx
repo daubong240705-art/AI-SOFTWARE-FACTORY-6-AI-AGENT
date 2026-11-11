@@ -8,6 +8,7 @@ import type { Store } from '../state/store';
 import { relativeTime } from './Inbox';
 import { attentionItems, type AttentionItem } from './shell/attention';
 import { ProjectTile } from './shell/ProjectTile';
+import { Select } from '../components/Select';
 
 type Intent = 'discuss' | 'delegate';
 // Keep command identities across retries, including unknown transport outcomes.
@@ -69,9 +70,7 @@ export function Overview({ store, onProject, onAttention, onCreate, operatorName
           onKeyDown={event => { if (event.ctrlKey && event.key === 'Enter' && !event.nativeEvent.isComposing && !composing.current && event.keyCode !== 229) { event.preventDefault(); void submit(); } }} />
         {tooLong && <p id={`${id}-limit`} className="field-error" role="alert">{t('chatUi.tooLong')}</p>}
         <div className="overview-composer-actions">
-          <label htmlFor={`${id}-project`}>{t('overview.project')}</label><select id={`${id}-project`} value={projectId} disabled={busy} onChange={event => { setChosen(event.target.value); attempt.current = null; }}>
-            {state.projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
-          </select>
+          <div className="field"><label htmlFor={`${id}-project`}>{t('overview.project')}</label><Select id={`${id}-project`} value={projectId} disabled={busy} onValueChange={next => { setChosen(next); attempt.current = null; }} options={state.projects.map(project => ({ value: project.id, label: project.name }))} /></div>
           <div role="group" aria-label={t('chatUi.intent')} className="intent-segment">
             <button type="button" aria-pressed={intent === 'discuss'} disabled={busy} onClick={() => { setIntent('discuss'); attempt.current = null; }}>{t('overview.ask')}</button>
             <button type="button" aria-pressed={intent === 'delegate'} disabled={busy} onClick={() => { setIntent('delegate'); attempt.current = null; }}>{t('overview.delegate')}</button>

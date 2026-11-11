@@ -55,3 +55,9 @@ export async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: fileURLToPath(new URL(`${name}.png`, directory)), fullPage: true,
     animations: 'disabled', style: '*, *::before, *::after { transition: none !important; animation: none !important; }' });
 }
+
+// The themed Select is not a native <select>: open the combobox and click the option by its exact name.
+export async function chooseOption(page: Page, field: Locator, option: string): Promise<void> {
+  await field.click();
+  await page.getByRole('option', { name: option, exact: true }).click();
+}

@@ -1,3 +1,4 @@
+import { chooseOption } from './select-helpers';
 import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -168,14 +169,14 @@ it('sidebar responds to matchMedia viewport changes', async () => {
   act(() => { media.matches = true; media.dispatchEvent(new Event('change')); }); expect(screen.getByRole('button', { name: 'Toggle projects' })).toBeTruthy();
 });
 it.each(['light', 'dark', 'system'] as const)('theme control persists %s and updates data-theme', async (theme) => {
-  await shell(); fireEvent.click(screen.getByRole('button', { name: 'Settings' })); fireEvent.change(screen.getByLabelText('Theme'), { target: { value: theme } }); expect(getPreferences().theme).toBe(theme);
+  await shell(); fireEvent.click(screen.getByRole('button', { name: 'Settings' })); await chooseOption('Theme', theme === 'light' ? 'Light' : theme === 'dark' ? 'Dark' : 'System'); expect(getPreferences().theme).toBe(theme);
   expect(document.documentElement.dataset.theme).toBe(theme === 'system' ? 'light' : theme);
   expect(JSON.parse(localStorage.getItem(PREFERENCES_KEY)!)).toMatchObject({ theme });
 });
 it('language switches labels, html lang and stored preference to Vietnamese and back', async () => {
-  await shell(); fireEvent.click(screen.getByRole('button', { name: 'Settings' })); fireEvent.change(screen.getByLabelText('Language'), { target: { value: 'vi' } });
+  await shell(); fireEvent.click(screen.getByRole('button', { name: 'Settings' })); await chooseOption('Language', /Vi.t/);
   expect(document.documentElement.lang).toBe('vi'); expect(getPreferences().locale).toBe('vi'); expect(screen.getByRole('button', { name: 'Đăng xuất' })).toBeTruthy();
-  fireEvent.change(screen.getByLabelText('Ngôn ngữ'), { target: { value: 'en' } }); expect(document.documentElement.lang).toBe('en'); expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
+  await chooseOption(/ng.n ng./i, 'English'); expect(document.documentElement.lang).toBe('en'); expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
 });
 it('user project names are never translated', async () => {
   const { store, api } = setup(); api.listProjects.mockResolvedValue({ ...envelope, projects: [{ ...project, name: 'global.projects' }] });

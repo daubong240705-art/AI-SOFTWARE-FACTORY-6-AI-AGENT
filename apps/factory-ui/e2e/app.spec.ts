@@ -1,5 +1,5 @@
 import { test, expect, type BrowserContext, type Page } from '@playwright/test';
-import { englishLight, hostInfo, preference, shot, signIn, tabTo } from './helpers';
+import { chooseOption, englishLight, hostInfo, preference, shot, signIn, tabTo } from './helpers';
 
 const reply = 'Hello from the fake Lead.';
 const planReply = 'I propose a README task for your review.';
@@ -42,7 +42,7 @@ test.describe.serial('real Host and built Factory UI', () => {
     // The Board is the default view; the older list/filter flows below use the List view.
     await page.getByRole('group', { name: 'Task views', exact: true }).getByRole('button', { name: 'List', exact: true }).click();
     // The Board tab stays mounted between plans, so a filter chosen earlier would hide the new proposal.
-    await page.getByLabel('Status filter', { exact: true }).selectOption('all');
+    await chooseOption(page, page.getByRole('combobox', { name: 'Status filter', exact: true }), 'All');
   }
 
   test('a: anonymous sign-in exposes no project data and rejects a wrong token', async () => {
@@ -132,11 +132,11 @@ test.describe.serial('real Host and built Factory UI', () => {
       await expect(panel.getByRole('heading', { name: new RegExp(`^${seat} \\|`) })).toBeVisible();
     }
     await expect(panel.getByRole('heading', { name: /^Lead \| Technical lead/ })).toHaveCount(1);
-    await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
+    await chooseOption(page, await preference(page, 'Theme'), 'Light');
     await shot(page, 'project-team-light');
-    await (await preference(page, 'Theme')).selectOption({ label: 'Dark' });
+    await chooseOption(page, await preference(page, 'Theme'), 'Dark');
     await shot(page, 'project-team-dark');
-    await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
+    await chooseOption(page, await preference(page, 'Theme'), 'Light');
     await page.getByRole('navigation').getByRole('button', { name: /^E2E Project/ }).click();
   });
 
@@ -175,13 +175,13 @@ test.describe.serial('real Host and built Factory UI', () => {
     const task = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
     await expect(task.getByText('Proposed', { exact: true })).toBeVisible();
     await shot(page, 'tasks-proposed-light');
-    await (await preference(page, 'Theme')).selectOption({ label: 'Dark' });
+    await chooseOption(page, await preference(page, 'Theme'), 'Dark');
     await shot(page, 'tasks-proposed-dark');
-    await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
+    await chooseOption(page, await preference(page, 'Theme'), 'Light');
     await task.getByRole('button', { name: 'Accept', exact: true }).click();
     await expect(task.getByText('Accepted', { exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Board', exact: true })).toHaveAttribute('aria-selected', 'true');
-    await page.getByLabel('Status filter', { exact: true }).selectOption({ label: 'Accepted' });
+    await chooseOption(page, page.getByRole('combobox', { name: 'Status filter', exact: true }), 'Accepted');
     await expect(task).toHaveCount(1);
   });
 
@@ -218,10 +218,10 @@ test.describe.serial('real Host and built Factory UI', () => {
     await expect(page.getByRole('meter', { name: 'TOKEN BUDGET', exact: true })).toBeVisible();
     await expect(page.getByRole('meter')).toHaveAttribute('aria-valuenow', /[1-9][0-9]*/);
     await shot(page, 'chat-budget-light');
-    await (await preference(page, 'Theme')).selectOption({ label: 'Dark' });
+    await chooseOption(page, await preference(page, 'Theme'), 'Dark');
     expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('dark');
     await shot(page, 'chat-budget-dark');
-    await (await preference(page, 'Language')).selectOption({ label: 'Tiếng Việt' });
+    await chooseOption(page, await preference(page, 'Language'), 'Tiếng Việt');
     await expect(page.getByRole('navigation').getByRole('button', { name: 'Tổng quan', exact: true })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Bảng việc', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'E2E Project', exact: true })).toBeVisible();
@@ -234,8 +234,8 @@ test.describe.serial('real Host and built Factory UI', () => {
     await expect(page.getByRole('log').getByText('after reload', { exact: true })).toBeVisible();
     await expect(page.getByRole('meter', { name: 'NGÂN SÁCH TOKEN', exact: true })).toBeVisible();
     await shot(page, 'chat-budget-vietnamese');
-    await (await preference(page, 'Ngôn ngữ')).selectOption({ label: 'English' });
-    await (await preference(page, 'Theme')).selectOption({ label: 'Light' });
+    await chooseOption(page, await preference(page, 'Ngôn ngữ'), 'English');
+    await chooseOption(page, await preference(page, 'Theme'), 'Light');
   });
 
   test('i/l: mobile sidebar is labelled, collapsed and toggleable, with no document overflow', async () => {

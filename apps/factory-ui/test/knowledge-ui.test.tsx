@@ -1,3 +1,5 @@
+import { chooseOption } from './select-helpers';
+import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -68,11 +70,18 @@ it('unmount cancels the pending search timer', async () => {
   vi.useFakeTimers(); const { store, api } = await setup(); const view = render(<ProjectKnowledge store={store} projectId={id} />); await act(flush); fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'q' } }); view.unmount(); await vi.advanceTimersByTimeAsync(300); expect(api.searchKnowledge).not.toHaveBeenCalled();
 });
 it('kind and status selects send filters', async () => {
-  const { api } = await browse(); fireEvent.change(screen.getByLabelText('Document kind'), { target: { value: 'adr' } }); await act(flush); fireEvent.change(screen.getByLabelText('Document status'), { target: { value: 'approved' } }); await act(flush);
+  const { api } = await browse(); await chooseOption('Document kind', 'Architecture decision'); await act(flush); await chooseOption('Document status', 'Approved'); await act(flush);
   expect(api.listKnowledgeArtifacts).toHaveBeenLastCalledWith(id, { kinds: ['adr'], statuses: ['approved'], limit: 50, offset: 0 });
 });
 it('filter choices cover every contract enum', async () => {
-  await browse(); expect(within(screen.getByLabelText('Document kind')).getAllByRole('option')).toHaveLength(knowledgeKinds.length + 1); expect(within(screen.getByLabelText('Document status')).getAllByRole('option')).toHaveLength(knowledgeStatuses.length + 1);
+  await browse(); const user = userEvent.setup();
+  await user.click(screen.getByRole('combobox', { name: 'Document kind' }));
+  expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(knowledgeKinds.length + 1);
+  for (const kind of knowledgeKinds) expect(screen.getByRole('option', { name: en.knowledgeUi.kinds[kind] })).toBeTruthy();
+  await user.keyboard('{Escape}');
+  await user.click(screen.getByRole('combobox', { name: 'Document status' }));
+  expect(within(screen.getByRole('listbox')).getAllByRole('option')).toHaveLength(knowledgeStatuses.length + 1);
+  for (const status of knowledgeStatuses) expect(screen.getByRole('option', { name: en.knowledgeUi.statuses[status] })).toBeTruthy();
 });
 it.each(knowledgeStatuses)('row shows non-colour status %s', async status => { await browse([{ ...item, status }]); expect(screen.getByRole('button', { name: /Knowledge document/ }).textContent).toContain(en.knowledgeUi.statuses[status]); });
 it.each(knowledgeVisibilities)('row shows visibility %s', async visibility => { await browse([{ ...item, visibility }]); expect(screen.getByRole('button', { name: /Knowledge document/ }).textContent).toContain(en.knowledgeUi.visibility[visibility]); });
@@ -81,7 +90,7 @@ it('server title and summary render as plain text in browse rows', async () => {
 });
 it('search title, abstract and snippet stay plain text', async () => {
   vi.useFakeTimers(); const { store, api } = await setup(); api.searchKnowledge.mockResolvedValue({ ...envelope, results: [{ ...result, title: '<b>title</b>', abstractL0: '<svg onload=alert(1)>', snippet: '<img src=x>' }] }); render(<ProjectKnowledge store={store} projectId={id} />); await act(flush); fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'q' } }); await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-  for (const text of ['<b>title</b>', '<svg onload=alert(1)>', '<img src=x>']) expect(screen.getByText(text)).toBeTruthy(); expect(document.querySelector('b, svg, img')).toBeNull();
+  for (const text of ['<b>title</b>', '<svg onload=alert(1)>', '<img src=x>']) expect(screen.getByText(text)).toBeTruthy(); expect(screen.getByRole('list').querySelector('b, svg, img')).toBeNull();
 });
 it('empty browse has a friendly message', async () => { await browse([]); expect(screen.getByText('No documents yet.')).toBeTruthy(); });
 it('empty search explains accent insensitive search', async () => {

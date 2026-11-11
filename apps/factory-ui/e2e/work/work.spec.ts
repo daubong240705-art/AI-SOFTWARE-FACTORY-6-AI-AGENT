@@ -2,7 +2,7 @@ import { mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { expect, test, type Page } from '@playwright/test';
-import { englishLight, preference } from '../helpers';
+import { chooseOption, englishLight, preference } from '../helpers';
 
 // Real Host in WSL (see playwright.work.config.ts / e2e/work-host.mjs). The model is a scripted local fake; everything
 // else is real: Host, SQLite, git clone + worktree, bubblewrap sandbox, OpenCode, proxy, MCP, approvals, push.
@@ -176,8 +176,8 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
     expect(remoteBranches()).toEqual([]);
     await page.getByRole("button", { name: /Write the agent notes/ }).first().click();
     await page.getByRole("tab", { name: "Results", exact: true }).click();
-    await expect(page.getByLabel("Remote name", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("Remote name", { exact: true })).toHaveValue("backup");
+    await expect(page.getByRole("combobox", { name: "Remote name", exact: true })).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Remote name", exact: true })).toHaveText("backup");
     await page.getByRole("button", { name: "Push", exact: true }).click();
     const confirm = page.getByRole("group", { name: "Confirm task action", exact: true });
     await expect(confirm).toContainText("never forces and never touches main");
@@ -224,8 +224,8 @@ test.describe.serial('daily loop with a real Host, sandbox and OpenCode', () => 
   });
 
   test("Vietnamese, dark theme and a phone-sized screen keep the screens usable", async () => {
-    await (await preference(page, "Theme")).selectOption({ label: "Dark" });
-    await (await preference(page, "Language")).selectOption({ label: "Tiếng Việt" });
+    await chooseOption(page, await preference(page, "Theme"), "Dark");
+    await chooseOption(page, await preference(page, "Language"), "Tiếng Việt");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: /Write notes after a question/ }).first().waitFor();
     await shot(page, "13-vietnamese-dark-board");

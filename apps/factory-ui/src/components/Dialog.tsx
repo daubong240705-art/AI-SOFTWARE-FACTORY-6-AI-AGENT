@@ -1,14 +1,14 @@
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { PortalContainerContext } from './Select';
 
 const focusable = 'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])';
 
 export function Dialog({ labelledBy, onClose, children, className = '' }: { labelledBy: string; onClose: () => void; children: ReactNode; className?: string }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const [panel, setPanel] = useState<HTMLDivElement | null>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useLayoutEffect(() => {
     const opener = document.activeElement;
-    const panel = ref.current;
     if (!panel) return;
     // Walk in document order, including when a selector engine groups selector-list results.
     const controls = () => Array.from(panel.querySelectorAll<HTMLElement>('*')).filter((node) => node.matches(focusable) && node.tabIndex >= 0 && !node.hidden && !node.closest('[hidden]'));
@@ -35,6 +35,6 @@ export function Dialog({ labelledBy, onClose, children, className = '' }: { labe
       document.body.style.overflow = previousOverflow;
       if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
     };
-  }, []);
-  return <div className={`dialog-backdrop ${className}`}><div ref={ref} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1} className="dialog card stack">{children}</div></div>;
+  }, [panel]);
+  return <div className={`dialog-backdrop ${className}`}><PortalContainerContext.Provider value={panel}><div ref={setPanel} role="dialog" aria-modal="true" aria-labelledby={labelledBy} tabIndex={-1} className="dialog card stack">{children}</div></PortalContainerContext.Provider></div>;
 }

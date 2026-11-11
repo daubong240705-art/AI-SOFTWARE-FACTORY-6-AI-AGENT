@@ -8,6 +8,7 @@ import { Field } from '../components/Field';
 import { i18n, plural, useT } from '../i18n';
 import type { Store } from '../state/store';
 import { KnowledgeArtifact } from './KnowledgeArtifact';
+import { Select } from '../components/Select';
 
 export function ProjectKnowledge({ store, projectId }: { store: Store; projectId: string }) {
   const t = useT();
@@ -39,8 +40,8 @@ export function ProjectKnowledge({ store, projectId }: { store: Store; projectId
   return <div className="knowledge stack">
     <form role="search" aria-label={t('knowledgeUi.search')} className="knowledge-filters" onSubmit={event => event.preventDefault()}>
       <Field type="search" label={t('knowledgeUi.search')} maxLength={200} value={query} onChange={event => { store.cancelKnowledgeSearch(); setQuery(event.target.value); }} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setQuery(''); } }} />
-      <div className="field"><label htmlFor={`${id}-kind`}>{t('knowledgeUi.kind')}</label><select id={`${id}-kind`} value={kind} onChange={event => setKind(event.target.value as typeof kind)}><option value="">{t('knowledgeUi.allKinds')}</option>{knowledgeKinds.map(value => <option key={value} value={value}>{t(`knowledgeUi.kinds.${value}`)}</option>)}</select></div>
-      <div className="field"><label htmlFor={`${id}-status`}>{t('knowledgeUi.status')}</label><select id={`${id}-status`} value={status} onChange={event => setStatus(event.target.value as typeof status)}><option value="">{t('knowledgeUi.allStatuses')}</option>{knowledgeStatuses.map(value => <option key={value} value={value}>{t(`knowledgeUi.statuses.${value}`)}</option>)}</select></div>
+      <div className="field"><label htmlFor={`${id}-kind`}>{t('knowledgeUi.kind')}</label><Select id={`${id}-kind`} value={kind} onValueChange={next => setKind(next as typeof kind)} options={[{ value: '', label: t('knowledgeUi.allKinds') }, ...knowledgeKinds.map(value => ({ value, label: t(`knowledgeUi.kinds.${value}`) }))]} /></div>
+      <div className="field"><label htmlFor={`${id}-status`}>{t('knowledgeUi.status')}</label><Select id={`${id}-status`} value={status} onValueChange={next => setStatus(next as typeof status)} options={[{ value: '', label: t('knowledgeUi.allStatuses') }, ...knowledgeStatuses.map(value => ({ value, label: t(`knowledgeUi.statuses.${value}`) }))]} /></div>
     </form>
     <h2>{t(searching ? 'knowledgeUi.results' : 'knowledgeUi.allDocuments')}</h2>
     <p role="status">{number(rows.length)} {plural(t, i18n.locale, rows.length, 'knowledgeUi.count')}</p>

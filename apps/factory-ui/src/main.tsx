@@ -5,6 +5,7 @@ import { applyTheme, getPreferences, i18n } from './i18n';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/app.css';
+import './styles/select.css';
 
 applyTheme(getPreferences().theme);
 const updateLanguage = () => { document.documentElement.lang = i18n.locale; };
