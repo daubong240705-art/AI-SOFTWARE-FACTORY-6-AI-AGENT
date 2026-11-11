@@ -1,4 +1,13 @@
 export const extra = {
+  ux5: {
+    createTitle: 'New project', createDescription: 'A project brings together a workspace, tasks, and agent teams.',
+    directory: 'Directory', git: 'Git project', directoryDescription: 'An empty directory created by the Host', gitDescription: 'Use an existing Git clone',
+    directoryPathHint: 'An absolute path in the Host’s WSL/Linux, for example /srv/factory/workspaces/my-project. Do not use a Windows drive (E:\\ or /mnt/).',
+    gitPathHint: 'Path to an existing Git clone in the Host’s WSL/Linux.', pathWarning: 'This looks like a Windows or /mnt/ path. Use a path in the Host’s WSL/Linux. The Host will validate it.',
+    workflowDescription: 'Follow each workflow and the tasks in its stages.', automationDescription: 'Schedules, rules, health checks, and circuit breakers.',
+    emptyBreakers: 'No open circuit breakers.', checked: 'Last checked', clearFilters: 'Clear filters', dossier: 'Project summary', briefing: 'New since your last visit',
+    levelNumber: 'Level {level} / 4', defaultSource: 'Default', explicitSource: 'Set manually', noProjectLimit: 'No project budget limit', loop: 'Loop {current}/{total}',
+  },
   global: { projects: 'Projects' },
   ux4: {
     empty: 'Empty', updated: 'Updated', overview: 'Overview', cancel: 'Cancel',

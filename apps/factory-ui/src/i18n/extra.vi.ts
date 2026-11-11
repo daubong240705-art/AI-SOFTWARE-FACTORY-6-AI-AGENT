@@ -2,6 +2,15 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  ux5: {
+    createTitle: 'Dự án mới', createDescription: 'Một dự án gồm thư mục làm việc, các việc và đội agent.',
+    directory: 'Thư mục', git: 'Dự án Git', directoryDescription: 'Thư mục trống do Host tạo', gitDescription: 'Dùng bản sao Git có sẵn',
+    directoryPathHint: 'Đường dẫn tuyệt đối trong WSL/Linux của Host, ví dụ /srv/factory/workspaces/my-project. Không dùng ổ Windows (E:\\ hoặc /mnt/).',
+    gitPathHint: 'Đường dẫn tới bản sao Git đã có, trong WSL/Linux của Host.', pathWarning: 'Đây có vẻ là đường dẫn Windows hoặc /mnt/. Hãy dùng đường dẫn trong WSL/Linux của Host. Host sẽ kiểm tra đường dẫn này.',
+    workflowDescription: 'Theo dõi từng quy trình và công việc trong mỗi giai đoạn.', automationDescription: 'Lịch chạy, quy tắc, giám sát và cầu dao của dự án.',
+    emptyBreakers: 'Không có cầu dao đang mở.', checked: 'Kiểm tra gần nhất', clearFilters: 'Xóa lọc', dossier: 'Tóm tắt dự án', briefing: 'Việc mới từ lần xem trước',
+    levelNumber: 'Mức {level} / 4', defaultSource: 'Mặc định', explicitSource: 'Đặt thủ công', noProjectLimit: 'Không giới hạn dự án', loop: 'Vòng {current}/{total}',
+  },
   global: { projects: 'Dự án' },
   ux4: {
     empty: 'Trống', updated: 'Cập nhật', overview: 'Tổng quan', cancel: 'Hủy',

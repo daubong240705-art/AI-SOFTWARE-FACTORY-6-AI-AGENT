@@ -1,27 +1,40 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
-import type { Command, Conversation } from '@factory/contracts';
-import { chatSend, conversationsCreate } from '../api/commands';
+﻿import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
+import type { Command, Conversation, Task, TaskState } from '@factory/contracts';
+import { ArrowUp, Check, X } from 'lucide-react';
+import { chatSend, conversationsCreate, tasksTransition } from '../api/commands';
 import { i18n, useT } from '../i18n';
 import type { Store } from '../state/store';
-import { Button } from '../components/Button';
-import { Card } from '../components/Card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { ErrorNotice } from '../components/ErrorNotice';
-import { ProjectBudget } from './ProjectBudget';
+import { Kbd, KbdGroup } from '@/components/ui/kbd';
+import { Progress } from '@/components/ui/progress';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 type Draft = { text: string; intent: 'discuss' | 'delegate' };
-// Drafts are memory-only and scoped to a store/session's conversation, never browser storage.
 const drafts = new WeakMap<Store, Map<string, Draft>>();
-function conversationDrafts(store: Store) {
-  let entries = drafts.get(store);
-  if (!entries) { entries = new Map(); drafts.set(store, entries); }
-  return entries;
-}
+function conversationDrafts(store: Store) { let entries = drafts.get(store); if (!entries) { entries = new Map(); drafts.set(store, entries); } return entries; }
 const emptyDraft = (): Draft => ({ text: '', intent: 'discuss' });
+
+function BudgetLine({ store }: { store: Store }) {
+  const t = useT();
+  const budget = store.useStoreSelector(value => value.budget);
+  const day = budget?.day;
+  if (!day) return null;
+  const percent = Math.min(100, day.limit > 0 ? day.used / day.limit * 100 : 0);
+  const color = day.verdict === 'exceeded' ? '[&_[data-slot=progress-indicator]]:bg-need' : day.verdict === 'warn' ? '[&_[data-slot=progress-indicator]]:bg-run' : '[&_[data-slot=progress-indicator]]:bg-ok';
+  const number = new Intl.NumberFormat(i18n.locale);
+  return <div className="space-y-1 border-b border-border px-5 pb-3"><div className="flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground"><span>{t('chatUi.budget')}</span><span className="tabular-nums">{number.format(day.used)} / {number.format(day.limit)} {t('chatUi.tokens')}</span></div><Progress value={percent} aria-label={t('chatUi.budget')} className={`h-1 ${color}`} /></div>;
+}
 
 export function ProjectChat({ store, projectId, showBudget = true }: { store: Store; projectId: string; showBudget?: boolean }) {
   const t = useT();
-  const state = store.useStoreSelector((value) => value);
-  const lead = state.team?.seats.find((seat) => seat.isLead);
+  const state = store.useStoreSelector(value => value);
+  const lead = state.team?.seats.find(seat => seat.isLead);
   const conversation = state.conversations.find(item => item.agentId === lead?.id && item.workItemId === null) ?? state.conversations[0];
   const [command, setCommand] = useState<Command | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,30 +45,34 @@ export function ProjectChat({ store, projectId, showBudget = true }: { store: St
     inFlight.current = true; setBusy(true);
     try {
       const result = await (retry ? store.retry(created.commandId) : store.send(created));
-      if (result && store.getState().session === 'authenticated') {
-        await store.loadConversations(); setCommand(null);
-      } else if (store.getState().pending[created.commandId]?.error?.code === 'conflict') await store.loadConversations();
+      if (result && store.getState().session === 'authenticated') { await store.loadConversations(); setCommand(null); }
+      else if (store.getState().pending[created.commandId]?.error?.code === 'conflict') await store.loadConversations();
     } finally { inFlight.current = false; setBusy(false); }
   }
   if (conversation) return <ConversationChat key={`${projectId}:${conversation.id}`} store={store} projectId={projectId} conversation={conversation} showBudget={showBudget} />;
-  return <Card>
-    <h2>{t('tabs.chat')}</h2><p>{t('empty.conversations')}</p>
-    {state.errors.conversations && <ErrorNotice error={state.errors.conversations} />}
-    {state.errors.team && <ErrorNotice error={state.errors.team} />}
-    {state.team && !lead && <p role="alert" className="error-notice">{t('chatUi.noLead')}</p>}
-    {pending?.error && <ErrorNotice error={pending.error} />}
-    {pending?.status === 'failed' && command ? <Button disabled={busy || state.session !== 'authenticated'} onClick={() => { void execute(command, true); }}>{t('errors.retry')}</Button>
-      : <Button variant="accent" disabled={!state.team || !lead || busy || state.session !== 'authenticated'} onClick={() => {
-        if (!lead || inFlight.current) return;
-        const created = conversationsCreate({ projectId, seatId: lead.id, title: 'Lead' });
-        setCommand(created); void execute(created);
-      }}>{t('chatUi.start')}</Button>}
-  </Card>;
+  return <Card className="rounded-xl border-border p-5 shadow-none"><h2 className="font-display text-xl font-semibold">{t('tabs.chat')}</h2><p className="text-sm text-muted-foreground">{t('empty.conversations')}</p>{state.errors.conversations && <ErrorNotice error={state.errors.conversations} />}{state.errors.team && <ErrorNotice error={state.errors.team} />}{state.team && !lead && <p role="alert" className="text-sm text-need">{t('chatUi.noLead')}</p>}{pending?.error && <ErrorNotice error={pending.error} />}{pending?.status === 'failed' && command ? <Button variant="outline" disabled={busy || state.session !== 'authenticated'} onClick={() => { void execute(command, true); }}>{t('errors.retry')}</Button> : <Button disabled={!state.team || !lead || busy || state.session !== 'authenticated'} onClick={() => { if (!lead || inFlight.current) return; const created = conversationsCreate({ projectId, seatId: lead.id, title: 'Lead' }); setCommand(created); void execute(created); }}>{t('chatUi.start')}</Button>}</Card>;
+}
+
+function ProposalCard({ store, projectId, task }: { store: Store; projectId: string; task: Task }) {
+  const t = useT();
+  const state = store.useStoreSelector(value => value);
+  const [command, setCommand] = useState<Command | null>(null);
+  const busy = !!command && !state.pending[command.commandId]?.error;
+  const actions: Array<{ to: TaskState; label: string; icon: typeof Check }> = [{ to: 'accepted', label: t('taskUi.actions.accepted'), icon: Check }, { to: 'declined', label: t('taskUi.actions.declined'), icon: X }];
+  async function transition(to: TaskState) {
+    if (busy || state.session !== 'authenticated') return;
+    const created = tasksTransition({ projectId, taskId: task.id, expectedRevision: task.revision, to });
+    setCommand(created);
+    const result = await store.send(created);
+    if (result) { await store.loadTasks(); setCommand(null); }
+  }
+  const error = command ? state.pending[command.commandId]?.error : undefined;
+  return <Card className="gap-3 rounded-lg border-border bg-secondary/50 p-4 shadow-none"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="font-mono text-xs text-muted-foreground">{task.code}</p><h3 className="font-medium [overflow-wrap:anywhere]">{task.title}</h3></div><Badge variant="outline" className="text-info"><span className="mr-1.5 size-1.5 rounded-full bg-current" />{t('taskUi.lifecycle.proposed')}</Badge></div><p className="line-clamp-2 text-sm text-muted-foreground">{task.goal}</p><div className="flex flex-wrap gap-2">{actions.map(({ to, label, icon: Icon }) => <Button key={to} type="button" variant={to === 'accepted' ? 'default' : 'outline'} size="sm" disabled={busy} onClick={() => { void transition(to); }}><Icon className="size-3.5" />{label}</Button>)}</div>{error && <><ErrorNotice error={error} /><Button variant="outline" size="sm" disabled={busy} onClick={() => { void transition('accepted'); }}>{t('errors.retry')}</Button></>}</Card>;
 }
 
 function ConversationChat({ store, projectId, conversation, showBudget }: { store: Store; projectId: string; conversation: Conversation; showBudget: boolean }) {
   const t = useT();
-  const state = store.useStoreSelector((value) => value);
+  const state = store.useStoreSelector(value => value);
   const id = useId();
   const draftKey = `${projectId}:${conversation.id}`;
   const entries = conversationDrafts(store);
@@ -68,37 +85,25 @@ function ConversationChat({ store, projectId, conversation, showBudget }: { stor
   const nearBottom = useRef(true);
   const [jump, setJump] = useState(false);
   const messages = state.messages[conversation.id];
-  const lastUser = messages?.findLast((item) => item.message.speaker === 'user');
-  // Host turn IDs identify the originating user message. Never use an older turn's status.
-  const turn = lastUser && state.turns[conversation.id]?.find((item) => item.id === lastUser.message.id);
+  const lastUser = messages?.findLast(item => item.message.speaker === 'user');
+  const turn = lastUser && state.turns[conversation.id]?.find(item => item.id === lastUser.message.id);
   const pending = attempt ? state.pending[attempt.command.commandId] : undefined;
   const number = new Intl.NumberFormat(i18n.locale);
   const date = new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' });
   const tooLong = draft.text.length > 32_000;
   const disabled = !draft.text.trim() || tooLong || busy || state.session !== 'authenticated';
-
+  const proposed = state.tasks.filter(task => task.state === 'proposed').slice(0, 3);
   useEffect(() => { void store.loadMessages(conversation.id); }, [store, conversation.id]);
-  function latest() {
-    const node = log.current;
-    if (node) node.scrollTop = node.scrollHeight;
-    nearBottom.current = true; setJump(false);
-  }
-  useLayoutEffect(() => {
-    if (nearBottom.current) latest();
-    else if (messages?.length) setJump(true);
-  }, [messages]);
+  function latest() { const node = log.current; if (node) node.scrollTop = node.scrollHeight; nearBottom.current = true; setJump(false); }
+  useLayoutEffect(() => { if (nearBottom.current) latest(); else if (messages?.length) setJump(true); }, [messages]);
   function changeDraft(next: Draft) { entries.set(draftKey, next); setDraft(next); }
   async function execute(created: NonNullable<typeof attempt>, retry = false) {
     if (inFlight.current) return;
     inFlight.current = true; setBusy(true);
     try {
       const result = await (retry ? store.retry(created.command.commandId) : store.send(created.command));
-      if (result && store.getState().session === 'authenticated') {
-        // Preserve any newer edits made while a send/retry was in flight.
-        if (entries.get(draftKey) === created.draft) changeDraft(emptyDraft());
-        setAttempt(null);
-        await Promise.all([store.loadMessages(conversation.id), store.loadBudget()]);
-      } else if (store.getState().pending[created.command.commandId]?.error?.code === 'conflict') await store.loadConversations();
+      if (result && store.getState().session === 'authenticated') { if (entries.get(draftKey) === created.draft) changeDraft(emptyDraft()); setAttempt(null); await Promise.all([store.loadMessages(conversation.id), store.loadBudget()]); }
+      else if (store.getState().pending[created.command.commandId]?.error?.code === 'conflict') await store.loadConversations();
     } finally { inFlight.current = false; setBusy(false); }
   }
   function submit(event?: FormEvent) {
@@ -107,43 +112,23 @@ function ConversationChat({ store, projectId, conversation, showBudget }: { stor
     const created = { command: chatSend({ projectId, conversationId: conversation.id, conversationRevision: conversation.revision, text: draft.text, intent: draft.intent }), draft };
     setAttempt(created); void execute(created);
   }
-  return <Card className="project-chat">
-    <header className="chat-heading"><h2>{conversation.title}</h2>
-    </header>
-    {showBudget && <ProjectBudget store={store} />}
-    {state.errors[`messages:${conversation.id}`] && <ErrorNotice error={state.errors[`messages:${conversation.id}`]!} />}
-    <div ref={log} className="chat-log stack" role="log" aria-live="polite" aria-label={t('chatUi.messages')} tabIndex={0} onScroll={() => {
-      const node = log.current;
-      if (!node) return;
-      nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 64;
-      if (nearBottom.current) setJump(false);
-    }}>
-      {!messages?.length && <p className="muted">{t('empty.messages')}</p>}
-      {messages?.map(({ message }) => <article key={message.id} className={`chat-bubble speaker-${message.speaker}`}>
-        <div className="message-meta"><strong>{t(`chatUi.speakers.${message.speaker}`)}</strong><time dateTime={message.createdAt}>{date.format(new Date(message.createdAt))}</time></div>
-        <p className="plain-text">{message.text}</p>
-      </article>)}
+  return <Card className="project-chat gap-0 overflow-hidden rounded-xl border-border py-0 shadow-none">
+    <header className="flex items-center gap-3 border-b border-border px-5 py-4"><Avatar size="sm" className="bg-secondary"><AvatarFallback className="bg-secondary text-foreground">L</AvatarFallback></Avatar><div className="min-w-0"><h2 className="font-display text-lg font-semibold">{conversation.title || t('projectUi.askLead')}</h2><p className="text-xs text-muted-foreground">{t('chatUi.speakers.agent')}</p></div></header>
+    {showBudget && <BudgetLine store={store} />}
+    {state.errors[`messages:${conversation.id}`] && <div className="p-5 pb-0"><ErrorNotice error={state.errors[`messages:${conversation.id}`]!} /></div>}
+    <div ref={log} className="flex max-h-[min(42rem,55vh)] min-h-48 flex-col gap-4 overflow-y-auto px-5 py-4" role="log" aria-live="polite" aria-label={t('chatUi.messages')} tabIndex={0} onScroll={() => { const node = log.current; if (!node) return; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 64; if (nearBottom.current) setJump(false); }}>
+      {!messages?.length && <p className="text-center text-sm text-muted-foreground">{t('empty.messages')}</p>}
+      {messages?.map(({ message }) => message.speaker === 'system' ? <p key={message.id} className="text-center text-xs text-muted-foreground">{message.text}</p> : <article key={message.id} className={`flex max-w-[90%] items-start gap-2 ${message.speaker === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}><Avatar size="sm" className={message.speaker === 'user' ? 'bg-primary' : 'bg-secondary'}><AvatarFallback className={message.speaker === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground'}>{message.speaker === 'user' ? 'You' : 'L'}</AvatarFallback></Avatar><div className={message.speaker === 'user' ? 'space-y-1 text-right' : 'space-y-1'}><div className={`rounded-xl px-4 py-3 text-sm leading-6 ${message.speaker === 'user' ? 'bg-secondary' : 'bg-transparent'}`}><p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p></div><time dateTime={message.createdAt} className="text-[11px] text-muted-foreground">{date.format(new Date(message.createdAt))}</time></div></article>)}
+      {proposed.length > 0 && <div className="space-y-3">{proposed.map(task => <ProposalCard key={task.id} store={store} projectId={projectId} task={task} />)}</div>}
     </div>
-    {jump && <Button onClick={latest}>{t('chatUi.jump')}</Button>}
-    {turn && turn.state !== 'done' && <p role="status">{t(turn.state === 'queued' || turn.state === 'running' ? 'chatUi.working' : turn.state === 'budget-blocked' ? 'chatUi.blocked' : 'chatUi.resend')}</p>}
-    <form className="composer stack" onSubmit={submit}>
-      <div className="field"><label htmlFor={`${id}-message`}>{t('chatUi.message')}</label>
-        <textarea id={`${id}-message`} rows={3} value={draft.text} aria-invalid={tooLong || undefined} aria-describedby={`${id}-count${tooLong ? ` ${id}-limit` : ''}`} onChange={(event) => changeDraft({ ...draft, text: event.target.value })}
-          onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}
-          onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && !composing.current && event.keyCode !== 229) { event.preventDefault(); submit(); } }} />
-        <span id={`${id}-count`} className={tooLong ? 'field-error' : 'muted'}>{number.format(draft.text.length)} / {number.format(32_000)} {t('chatUi.characters')}</span>
-        {tooLong && <p id={`${id}-limit`} className="field-error">{t('chatUi.tooLong')}</p>}
-      </div>
-      <fieldset className="intent-control"><legend>{t('chatUi.intent')}</legend>
-        <label htmlFor={`${id}-discuss`}><input id={`${id}-discuss`} type="radio" name={`${id}-intent`} checked={draft.intent === 'discuss'} onChange={() => changeDraft({ ...draft, intent: 'discuss' })} />{t('chatUi.discuss')}</label>
-        <label htmlFor={`${id}-delegate`}><input id={`${id}-delegate`} type="radio" name={`${id}-intent`} checked={draft.intent === 'delegate'} aria-describedby={`${id}-explanation`} onChange={() => changeDraft({ ...draft, intent: 'delegate' })} />{t('chatUi.delegate')}</label>
-        <p id={`${id}-explanation`} className="muted">{t('chatUi.intentHelp')}</p>
-      </fieldset>
-      {pending?.error && <ErrorNotice error={pending.error} />}
-      <div className="composer-actions">
-        {pending?.status === 'failed' && attempt && <Button disabled={busy || state.session !== 'authenticated'} onClick={() => { void execute(attempt, true); }}>{t('errors.retry')}</Button>}
-        <Button variant="accent" type="submit" disabled={disabled}>{t('chatUi.send')}</Button>
-      </div>
+    {jump && <div className="px-5 pb-2"><Button variant="outline" size="sm" onClick={latest}>{t('chatUi.jump')}</Button></div>}
+    {turn && turn.state !== 'done' && <p role="status" className="flex items-center gap-2 px-5 pb-2 text-sm text-muted-foreground"><Spinner />{t(turn.state === 'queued' || turn.state === 'running' ? 'chatUi.working' : turn.state === 'budget-blocked' ? 'chatUi.blocked' : 'chatUi.resend')}</p>}
+    <form className="space-y-3 border-t border-border p-5" onSubmit={submit}>
+      <label htmlFor={`${id}-message`} className="sr-only">{t('chatUi.message')}</label><Textarea id={`${id}-message`} rows={3} maxLength={32_001} value={draft.text} aria-invalid={tooLong || undefined} aria-describedby={`${id}-count${tooLong ? ` ${id}-limit` : ''}`} placeholder={t('chatUi.message')} className="max-h-52 min-h-16 resize-none" onChange={event => changeDraft({ ...draft, text: event.target.value })} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => { if (event.key === 'Enter' && event.ctrlKey && !event.nativeEvent.isComposing && !composing.current && event.keyCode !== 229) { event.preventDefault(); submit(); } }} />
+      <div className="flex flex-wrap items-center gap-3"><ToggleGroup type="single" value={draft.intent} disabled={busy} onValueChange={value => { if (value === 'discuss' || value === 'delegate') changeDraft({ ...draft, intent: value }); }} aria-label={t('chatUi.intent')} spacing={0} className="rounded-md border border-border"><ToggleGroupItem value="discuss" className="h-8 rounded-md border-0 px-3 text-xs font-normal data-[state=on]:bg-secondary">{t('chatUi.discuss')}</ToggleGroupItem><ToggleGroupItem value="delegate" className="h-8 rounded-md border-0 px-3 text-xs font-normal data-[state=on]:bg-secondary">{t('chatUi.delegate')}</ToggleGroupItem></ToggleGroup><span id={`${id}-shortcut`} className="ml-auto text-xs text-muted-foreground"><KbdGroup><Kbd>Ctrl</Kbd><Kbd>Enter</Kbd></KbdGroup></span><Button type="submit" size="icon" disabled={disabled} aria-label={t('chatUi.send')}><ArrowUp className="size-4" /></Button></div>
+      <div className="flex justify-between gap-3 text-xs"><span id={`${id}-count`} className={tooLong ? 'text-destructive' : 'text-muted-foreground'}>{number.format(draft.text.length)} / {number.format(32_000)} {t('chatUi.characters')}</span><span className="text-muted-foreground">{t('chatUi.intentHelp')}</span></div>
+      {tooLong && <p id={`${id}-limit`} role="alert" className="text-sm text-destructive">{t('chatUi.tooLong')}</p>}{pending?.error && <ErrorNotice error={pending.error} />}<div className="flex justify-end">{pending?.status === 'failed' && attempt && <Button type="button" variant="outline" disabled={busy || state.session !== 'authenticated'} onClick={() => { void execute(attempt, true); }}>{t('errors.retry')}</Button>}</div>
     </form>
   </Card>;
 }
+

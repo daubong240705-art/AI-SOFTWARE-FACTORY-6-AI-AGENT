@@ -60,7 +60,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         {active === 'workflow' && <ProjectWorkflow key={project.id} store={store} projectId={project.id} onOpenTask={openTask} />}
         {active === 'automation' && <ProjectAutomation key={project.id} store={store} projectId={project.id} />}
         {active === 'settings' && <ProjectSettings key={project.id} store={store} projectId={project.id} />}
-        {active === 'knowledge' && <div className="project-knowledge stack"><section className="stack" aria-labelledby={`${id}-documents`}><h2 id={`${id}-documents`}>{t('projectUi.documents')}</h2><ProjectKnowledge store={store} projectId={project.id} /></section><DossierPanel store={store} /></div>}
+        {active === 'knowledge' && <div className="space-y-6 px-6 pt-4 pb-8"><section className="space-y-5" aria-labelledby={`${id}-documents`}><h2 id={`${id}-documents`} className="font-display text-2xl font-semibold">{t('projectUi.documents')}</h2><ProjectKnowledge store={store} projectId={project.id} /></section><DossierPanel store={store} /></div>}
       </div>
       {chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock" onClose={() => setChat(false)} fallbackFocus={() => ask.current}>
         <header className="project-dock-header"><h2>{t('projectUi.askLead')}</h2><Button onClick={() => { setChat(false); ask.current?.focus(); }}>{t('projectUi.closeChat')} <kbd>Esc</kbd></Button></header>
