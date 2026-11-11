@@ -76,7 +76,8 @@
     "skills/research-brief",
     "skills/source-evaluation",
     "skills/report-writing",
-    "skills/comparative-analysis"
+    "skills/comparative-analysis",
+    "skills/team-coordination"
   ],
   "produces": [
     "research-report"

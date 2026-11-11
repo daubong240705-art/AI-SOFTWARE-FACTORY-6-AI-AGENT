@@ -19,17 +19,17 @@ const expected = {
   "research-team": {
     name: "Research Team",
     seats: [["Lead", 1], ["Researcher", 2], ["Analyst", 1], ["Fact Checker", 1]],
-    skills: { "research-brief": "research-report", "source-evaluation": "research-report", "report-writing": "research-report", "comparative-analysis": "research-report" },
+    skills: { "research-brief": "research-report", "source-evaluation": "research-report", "report-writing": "research-report", "comparative-analysis": "research-report", "team-coordination": "research-report" },
   },
   "architecture-team": {
     name: "Architecture Team",
     seats: [["Lead", 1], ["Architect", 1], ["Data Designer", 1], ["API Designer", 1], ["Architecture Reviewer", 1]],
-    skills: { "spec-driven-planning": "plan", "write-adr": "adr", "data-model-design": "data-model", "api-contract-design": "api-contract", "architecture-review": "plan" },
+    skills: { "spec-driven-planning": "plan", "write-adr": "adr", "data-model-design": "data-model", "api-contract-design": "api-contract", "architecture-review": "plan", "team-coordination": "plan" },
   },
   "design-team": {
     name: "Design Team",
     seats: [["Lead", 1], ["UX Designer", 1], ["UI Designer", 1], ["Design Reviewer", 1]],
-    skills: { "ux-flow": "ui-spec", "ui-spec": "ui-spec", "accessibility-review": "ui-spec", "design-tokens": "ui-spec" },
+    skills: { "ux-flow": "ui-spec", "ui-spec": "ui-spec", "accessibility-review": "ui-spec", "design-tokens": "ui-spec", "team-coordination": "ui-spec" },
   },
 };
 const keys = [...Object.keys(expected), "software-team"].sort();

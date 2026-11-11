@@ -76,7 +76,8 @@
     "skills/ux-flow",
     "skills/ui-spec",
     "skills/accessibility-review",
-    "skills/design-tokens"
+    "skills/design-tokens",
+    "skills/team-coordination"
   ],
   "produces": [
     "ui-spec"
