@@ -15,3 +15,4 @@ design/factory-v2/assets/Inter-LICENSE.txt -text
 design/factory-v2/assets/*.woff2 binary
 # Team packs are pinned by content digest: their bytes must be identical on every platform.
 packs/** text eol=lf
+scripts/factory-v2/doc-worker/* text eol=lf
