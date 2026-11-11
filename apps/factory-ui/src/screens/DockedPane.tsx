@@ -21,6 +21,6 @@ export function DockedPane({ children, label, onClose, className = '', id, fallb
       else fallback.current?.()?.focus();
     };
   }, []);
-  return <section ref={pane} id={id} role="region" aria-label={label} tabIndex={-1} className={`project-dock ${className}`}>{children}</section>;
+  return <section ref={pane} id={id} role="region" aria-label={label} tabIndex={-1} className={`project-dock min-h-0 min-w-0 overflow-x-hidden overflow-y-auto border-border outline-none ${className}`}>{children}</section>;
 }
 

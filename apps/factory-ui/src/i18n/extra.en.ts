@@ -1,5 +1,12 @@
 export const extra = {
   global: { projects: 'Projects' },
+  ux4: {
+    empty: 'Empty', updated: 'Updated', overview: 'Overview', cancel: 'Cancel',
+    titleHint: 'Give the task a short, specific name.', goalHint: 'Describe the outcome you want.',
+    criteriaHint: 'One verifiable criterion per line.', teamsTitle: 'Team',
+    teamsDescription: 'Manage your teams, seats and project capacity.', createFromPack: 'Create team from pack',
+    engagements: 'Project engagements', running: 'Running', teamActions: 'Team actions',
+  },
   reviewUi: {
     result: 'Result', activity: 'Activity', context: 'Context', documents: 'Handoff documents',
     history: 'Previous attempts', noChanges: 'This attempt did not change any files.',

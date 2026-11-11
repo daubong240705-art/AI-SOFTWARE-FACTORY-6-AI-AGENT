@@ -1,8 +1,14 @@
 import { useState } from 'react';
-import { deriveDisplayStatus, isLiveAttempt, type Task } from '@factory/contracts';
-import { Badge } from '../components/Badge';
-import { i18n, plural, useT } from '../i18n';
+import type { Task } from '@factory/contracts';
+import { ChevronDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { i18n, useT } from '../i18n';
 import type { Store } from '../state/store';
+import { DecisionBadge, SeatChip, TaskTime } from './TaskPresentation';
+import { TaskStatus } from './shell/TaskStatus';
 
 export const boardColumns = ['proposed', 'ready', 'running', 'review', 'done', 'attention', 'closed'] as const;
 export type BoardColumn = typeof boardColumns[number];
@@ -17,31 +23,47 @@ export function taskColumn(task: Task): BoardColumn {
     default: return 'closed';
   }
 }
-export function Board({ store, onOpen, tasks: visibleTasks }: { store: Store; onOpen: (taskId: string) => void; tasks?: Task[] }) {
-  const t = useT();
-  const state = store.useStoreSelector(value => value);
+const borders: Record<BoardColumn, string> = {
+  proposed: 'border-t-muted-foreground/40', ready: 'border-t-info', running: 'border-t-run',
+  review: 'border-t-info', done: 'border-t-ok', attention: 'border-t-need', closed: 'border-t-muted-foreground/40',
+};
+
+export function Board({ store, onOpen, tasks: visibleTasks, selectedTask }: {
+  store: Store; onOpen: (taskId: string) => void; tasks?: Task[]; selectedTask?: string | null;
+}) {
+  const t = useT(); const state = store.useStoreSelector(value => value);
   const [closed, setClosed] = useState(false);
   const decisions = new Set(state.inbox.approvals.map(item => item.taskId));
-  const number = (v: number) => new Intl.NumberFormat(i18n.locale).format(v);
-  return <div className="board" aria-label={t('workUi.board')}>
-    {boardColumns.map(column => {
-      const tasks = (visibleTasks ?? state.tasks).filter(task => (decisions.has(task.id) ? 'attention' : taskColumn(task)) === column).sort((a, b) => a.code.localeCompare(b.code));
-      const count = <span>{number(tasks.length)} {plural(t, i18n.locale, tasks.length, 'workUi.count')}</span>;
-      return <section className="board-column stack" key={column} aria-label={t(`workUi.columns.${column}`)}>
-        <h3>{column === 'closed' ? <button type="button" aria-expanded={closed} onClick={() => setClosed(!closed)}>{t('workUi.columns.closed')} {count}</button> : <>{t(`workUi.columns.${column}`)} {count}</>}</h3>
-        {(column !== 'closed' || closed) && (tasks.length ? <ul className="task-list stack">{tasks.map(task => {
-          const attempt = state.details[task.id]?.attempts.find(a => isLiveAttempt(a.state)) ?? state.liveAttempts[task.id];
-          const live = attempt && isLiveAttempt(attempt.state) ? attempt : null;
-          const display = deriveDisplayStatus({ ...task, liveAttempt: live?.state ?? null });
-          const owner = state.team?.seats.find(seat => seat.id === task.ownerSeatId)?.name;
-          return <li key={task.id}><button type="button" data-task-id={task.id} className="board-card card stack" onClick={() => onOpen(task.id)}>
-            <span className="task-code">{task.code}</span><strong>{task.title}</strong>
-            {decisions.has(task.id) && <Badge className="project-needs-decision">{t('inboxUi.needsDecision')}</Badge>}
-            <span className={`project-status project-status-${display.status}`}>{t(`taskUi.display.${display.status}`)}</span>
-            {owner && <span className="muted">{owner}</span>}
-          </button></li>;
-        })}</ul> : <p className="muted">{t('workUi.empty')}</p>)}
-      </section>;
-    })}
+  const tasks = visibleTasks ?? state.tasks;
+  const inColumn = (column: BoardColumn) => tasks.filter(task => (decisions.has(task.id) ? 'attention' : taskColumn(task)) === column).sort((a, b) => a.code.localeCompare(b.code));
+  function cards(items: Task[]) {
+    return items.length ? <ul className="m-0 grid list-none gap-3 p-0">{items.map(task => <li key={task.id} className="min-w-0">
+      <Card className={cn('gap-0 rounded-xl border-border p-0 shadow-none transition-colors hover:bg-secondary', selectedTask === task.id && 'ring-1 ring-ring')}>
+        <Button type="button" variant="ghost" data-task-id={task.id} aria-pressed={selectedTask === task.id} onClick={() => onOpen(task.id)} className="h-auto w-full min-w-0 flex-col items-stretch gap-3 rounded-xl border-0 bg-transparent p-4 text-left font-normal whitespace-normal hover:bg-secondary">
+          <span className="flex items-center justify-between gap-2"><span className="font-mono text-xs text-muted-foreground">{task.code}</span><TaskStatus task={task} state={state} dotOnly /></span>
+          <strong className="line-clamp-2 text-sm leading-relaxed font-medium [overflow-wrap:anywhere]">{task.title}</strong>
+          <span className="flex items-center justify-between gap-2"><SeatChip name={state.team?.seats.find(seat => seat.id === task.ownerSeatId)?.name} /><TaskTime task={task} state={state} /></span>
+          {decisions.has(task.id) && <DecisionBadge />}
+        </Button>
+      </Card>
+    </li>)}</ul> : <div className="grid min-h-28 place-items-center rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">{t('ux4.empty')}</div>;
+  }
+  const closedTasks = inColumn('closed');
+  return <div className="min-w-0 max-w-full space-y-4" aria-label={t('workUi.board')}>
+    <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain pb-3 [scrollbar-color:var(--line)_transparent] [scrollbar-width:thin]">
+      <div className="grid grid-flow-col auto-cols-[minmax(196px,1fr)] items-start gap-3 p-1">
+        {boardColumns.filter(column => column !== 'closed').map(column => {
+          const items = inColumn(column);
+          return <section key={column} aria-label={t(`workUi.columns.${column}`)} className={cn('min-w-0 space-y-4 rounded-lg border-t-2 bg-muted/20 p-3', borders[column])}>
+            <header className="flex min-w-0 items-center justify-between gap-3"><h3 className="text-sm font-medium">{t(`workUi.columns.${column}`)}</h3><Badge variant="secondary" className="tabular-nums">{new Intl.NumberFormat(i18n.locale).format(items.length)}</Badge></header>
+            {cards(items)}
+          </section>;
+        })}
+      </div>
+    </div>
+    <section aria-label={t('workUi.columns.closed')} className="space-y-3">
+      <Button type="button" variant="ghost" size="sm" className="gap-2 text-muted-foreground" aria-expanded={closed} onClick={() => setClosed(!closed)}><ChevronDown className={cn('size-3.5 transition-transform', closed && 'rotate-180')} />{t('workUi.columns.closed')}<Badge variant="secondary">{new Intl.NumberFormat(i18n.locale).format(closedTasks.length)}</Badge></Button>
+      {closed && <div className="max-w-sm p-1">{cards(closedTasks)}</div>}
+    </section>
   </div>;
 }

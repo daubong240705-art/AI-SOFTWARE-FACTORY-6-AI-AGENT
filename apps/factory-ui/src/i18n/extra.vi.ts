@@ -3,6 +3,13 @@ import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
   global: { projects: 'Dự án' },
+  ux4: {
+    empty: 'Trống', updated: 'Cập nhật', overview: 'Tổng quan', cancel: 'Hủy',
+    titleHint: 'Đặt tên ngắn gọn, cụ thể cho công việc.', goalHint: 'Mô tả kết quả bạn muốn đạt được.',
+    criteriaHint: 'Mỗi dòng một tiêu chí, kiểm chứng được.', teamsTitle: 'Đội',
+    teamsDescription: 'Quản lý đội, vị trí và năng lực thực hiện trong các dự án.', createFromPack: 'Tạo đội từ gói',
+    engagements: 'Dự án tham gia', running: 'Đang chạy', teamActions: 'Thao tác với đội',
+  },
   reviewUi: {
     result: 'Kết quả', activity: 'Hoạt động', context: 'Bối cảnh', documents: 'Tài liệu bàn giao',
     history: 'Các lần chạy trước', noChanges: 'Lần chạy này không thay đổi file nào.',
