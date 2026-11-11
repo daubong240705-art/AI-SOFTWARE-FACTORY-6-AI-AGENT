@@ -3,6 +3,7 @@ import { i18n, useT } from './i18n';
 import { defaultStore, type Store } from './state/store';
 import { SignIn } from './screens/SignIn';
 import { AppShell } from './screens/AppShell';
+import { Toaster } from '@/components/ui/sonner';
 
 export function App({ store = defaultStore }: { store?: Store }) {
   const t = useT();
@@ -11,7 +12,7 @@ export function App({ store = defaultStore }: { store?: Store }) {
   useEffect(() => { if (booted.current !== store) { booted.current = store; void store.boot(); } }, [store]);
   useEffect(() => { document.documentElement.lang = i18n.locale; }, [t, i18n.locale]);
   if (session === 'unknown') return <main className="signin"><p role="status">{t('viewStates.loading')}</p></main>;
-  return session === 'anonymous' ? <SignIn store={store} /> : <AppShell store={store} />;
+  return session === 'anonymous' ? <SignIn store={store} /> : <><AppShell store={store} /><Toaster /></>;
 }
 
 export default App;

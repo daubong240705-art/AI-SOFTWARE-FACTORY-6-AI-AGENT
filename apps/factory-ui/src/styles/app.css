@@ -144,7 +144,6 @@ button, input, select { min-width: 0; }
 /* Application shell and Overview follow the approved operator-tool mock. */
 .app { height: 100dvh; display: grid; grid-template-columns: var(--size-sidebar) minmax(0, 1fr); grid-template-rows: 56px minmax(0, 1fr); }
 .sidebar-collapsed { grid-template-columns: var(--size-sidebar-collapsed) minmax(0, 1fr); }
-.sidebar { grid-row: 1 / -1; display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 14px 10px; gap: 4px; background: var(--sidebar-bg); border-right: 1px solid var(--line); }
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; font: 700 19px / 28px var(--display); }
 .brand-mark { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--text); color: var(--on-primary); font-size: 17px; }
 .shell-nav { position: relative; display: flex; align-items: center; width: 100%; gap: 10px; min-height: 40px; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); text-align: left; }
@@ -154,10 +153,6 @@ button, input, select { min-width: 0; }
 .shell-nav[aria-current="page"]::before { content: ''; position: absolute; left: -10px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--text); }
 .shell-nav .nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attention-badge.badge { margin-left: auto; min-width: 22px; justify-content: center; border: 0; border-radius: 99px; background: var(--need); color: var(--on-need); font-weight: 600; }
-.project-group { margin: 16px 10px 4px; color: var(--muted); font: 400 12px / 20px var(--ui); }
-.sidebar-projects { overflow-y: auto; overflow-x: hidden; min-height: 0; padding: 3px 0; }
-.project-list { display: grid; gap: 4px; }
-.project-tile { width: 28px; height: 24px; flex: none; border-radius: 7px; display: inline-grid; place-items: center; font: 600 11px / 1 var(--mono); color: var(--project-hue); border: 1px solid color-mix(in srgb, var(--project-hue) 38%, transparent); background: color-mix(in srgb, var(--project-hue) 16%, transparent); }
 .waiting-dot, .stream-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex: none; }
 .waiting-dot { margin-left: auto; background: var(--need); }
 .stream-dot { background: var(--muted); width: 5px; height: 5px; }

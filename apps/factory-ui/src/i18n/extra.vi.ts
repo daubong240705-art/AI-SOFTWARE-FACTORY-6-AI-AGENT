@@ -2,6 +2,8 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  global: { projects: 'Dự án' },
+  viewStates: { loading: 'Đang tải…' },
   attention: {
     empty: 'Bạn đã xử lý xong mọi việc.', list: 'Các mục cần xử lý', detail: 'Chi tiết mục', move: 'di chuyển',
     approve: 'Duyệt', answer: 'Trả lời', requestChanges: 'Yêu cầu sửa', requestChangesConfirm: 'Xác nhận yêu cầu sửa',
@@ -16,7 +18,15 @@ export const extra: Translated<typeof en> = {
     },
   },
   nav: { main: 'Điều hướng chính', overview: 'Tổng quan', attention: 'Cần xử lý', team: 'Đội', settings: 'Cài đặt', preferences: 'Tùy chọn', collapse: 'Thu gọn', expand: 'Mở rộng thanh bên', close: 'Đóng điều hướng', addProject: 'Dự án mới', skip: 'Đến nội dung' },
-  overview: { greeting: 'Xin chào', waiting: '{count} việc đang chờ bạn', composer: 'Giao việc hoặc hỏi Lead', message: 'Nội dung gửi Lead', placeholder: 'Hỏi hoặc mô tả việc cần làm…', project: 'Dự án', ask: 'Hỏi', delegate: 'Giao việc', toSend: 'để gửi', caughtUp: 'Bạn đã xử lý xong mọi việc.', viewAll: 'Xem tất cả', conversationUnavailable: 'Cuộc trò chuyện chưa sẵn sàng. Hãy thử lại.' },
+  overview: {
+    greeting: 'Xin chào', greetingStart: 'Chào', morning: 'buổi sáng', afternoon: 'buổi chiều', evening: 'buổi tối',
+    waiting: '{count} việc đang chờ bạn.', composer: 'Giao việc hoặc hỏi Lead', message: 'Nội dung gửi Lead',
+    placeholder: 'Hỏi hoặc mô tả việc cần làm…', project: 'Dự án', ask: 'Hỏi', delegate: 'Giao việc', toSend: 'để gửi',
+    caughtUp: 'Bạn đã xử lý xong mọi việc.', viewAll: 'Xem tất cả', conversationUnavailable: 'Cuộc trò chuyện chưa sẵn sàng. Hãy thử lại.',
+    activity: 'Hoạt động', activityFilters: 'Lọc hoạt động theo dự án', allProjects: 'Tất cả', today: 'Hôm nay', yesterday: 'Hôm qua',
+    activityEmpty: 'Chưa có hoạt động để hiển thị.', activityScope: 'Đang hiển thị công việc của dự án được chọn: {project}.',
+    activitySelectProject: 'Mở một dự án để xem hoạt động công việc.', undated: 'Chưa có ngày cập nhật',
+  },
   m3: m3Vi,
   knowledgeUi: {
     tab: 'Tri thức', search: 'Tìm tài liệu', kind: 'Loại tài liệu', status: 'Trạng thái tài liệu', allKinds: 'Tất cả loại', allStatuses: 'Tất cả trạng thái',
@@ -91,9 +101,9 @@ export const extra: Translated<typeof en> = {
   tasks: { plan: 'Kế hoạch', proposed: 'Công việc đề xuất', accept: 'Chấp nhận công việc', decline: 'Từ chối công việc', empty: 'Chưa có công việc.' },
   errors: { title: 'Không tải được dữ liệu', retry: 'Thử lại', correlationId: 'Mã tham chiếu', network: 'Không thể kết nối Host.' },
   empty: { conversations: 'Chưa có hội thoại.', messages: 'Chưa có tin nhắn.', team: 'Chưa có đội ngũ.' },
-  shell: { product: 'Factory', theme: 'Giao diện', light: 'Sáng', dark: 'Tối', system: 'Hệ thống', language: 'Ngôn ngữ', english: 'English', vietnamese: 'Tiếng Việt', toggleProjects: 'Ẩn hoặc hiện dự án', live: 'Trực tiếp', reconnecting: 'Đang kết nối lại', offline: 'Ngoại tuyến', welcome: 'Dự án của bạn', chooseProject: 'Chọn hoặc tạo dự án để bắt đầu.', comingSoon: 'Sẽ có ở bước tiếp theo', projectTabs: 'Các chế độ xem dự án' },
+  shell: { product: 'Factory', theme: 'Giao diện', light: 'Sáng', dark: 'Tối', system: 'Hệ thống', language: 'Ngôn ngữ', english: 'English', vietnamese: 'Tiếng Việt', toggleProjects: 'Ẩn hoặc hiện dự án', live: 'Trực tiếp', reconnecting: 'Đang kết nối lại', offline: 'Ngoại tuyến', welcome: 'Dự án của bạn', chooseProject: 'Chọn hoặc tạo dự án để bắt đầu.', comingSoon: 'Sẽ có ở bước tiếp theo', projectTabs: 'Các chế độ xem dự án', searchPlaceholder: 'Tìm việc theo mã hoặc từ khóa', newTask: 'Việc mới', searchTasks: 'Tìm việc', searchDescription: 'Tìm công việc trong dự án được chọn hoặc mở một dự án.', noSearchResults: 'Không có công việc hoặc dự án phù hợp.', projectTasks: 'Công việc của dự án được chọn' },
   tabs: { chat: 'Trò chuyện', tasks: 'Công việc', team: 'Đội ngũ' },
-  projectUi: { overview: 'Tổng quan', board: 'Bảng việc', workflow: 'Quy trình', automation: 'Tự động', knowledge: 'Tri thức', settings: 'Cài đặt', askLead: 'Hỏi Lead', closeChat: 'Đóng trò chuyện', chat: 'Trò chuyện với agent', taskDetails: 'Chi tiết công việc', backToBoard: 'Quay lại bảng việc', context: 'Bối cảnh', documents: 'Tài liệu', running: 'Đang chạy', review: 'Đang duyệt', waiting: 'Chờ cho phép', done: 'Hoàn tất', activeTasks: 'Công việc hiện tại', noActiveTasks: 'Không có công việc đang chạy hoặc chờ bạn.' },
+  projectUi: { overview: 'Tổng quan', board: 'Bảng việc', workflow: 'Quy trình', automation: 'Tự động', knowledge: 'Tri thức', settings: 'Cài đặt', askLead: 'Hỏi Lead', closeChat: 'Đóng trò chuyện', chat: 'Trò chuyện với agent', taskDetails: 'Chi tiết công việc', backToBoard: 'Quay lại bảng việc', context: 'Bối cảnh', documents: 'Tài liệu', running: 'Đang chạy', review: 'Đang duyệt', waiting: 'Chờ cho phép', done: 'Hoàn tất', activeTasks: 'Công việc hiện tại', noActiveTasks: 'Không có công việc đang chạy hoặc chờ bạn.', budgetTitle: 'Ngân sách token' },
   settingsUi: {
     budget: 'Ngân sách', day: 'Hôm nay', project: 'Dự án', tokens: 'token', engagement: 'Phiên tham gia của đội',
     budgetUnavailable: 'Chưa có thông tin ngân sách.', projectBudgetUnavailable: 'Chưa có ngân sách dự án.',
