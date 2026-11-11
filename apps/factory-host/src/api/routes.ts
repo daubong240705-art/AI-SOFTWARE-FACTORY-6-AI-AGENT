@@ -40,6 +40,7 @@ import { getRequest, listRequests, RequestError } from "../requests/service.js";
 import { registerDossierRoutes } from "../dossier/routes.js";
 import type { ExternalTools } from "../mcp-external/index.js";
 import { listWorkflowInstances, workflowInstanceView } from "../workflow/service.js";
+import { listWorkflowDefinitions } from "../workflow/definitions.js";
 import { orgActivity } from "../org/activity.js";
 
 export function createRoutes(deps: {
@@ -113,6 +114,11 @@ export function createRoutes(deps: {
       if (!getProject(deps.storage.raw, projectId) || !getSchedule(deps.storage.raw, projectId, scheduleId))
         return failure(reply, 404, "not-found", "Schedule not found.", "correct-input", newId);
       return { apiVersion: API_VERSION, ok: true, items: listOccurrences(deps.storage.raw, projectId, scheduleId) };
+    });
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/workflow-definitions", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      return { apiVersion: API_VERSION, ok: true, items: listWorkflowDefinitions(deps.storage.raw, projectId, deps.packs ?? []) };
     });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/workflows", { preHandler: guards.session }, async (request, reply) => {
       const { projectId } = request.params;
