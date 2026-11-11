@@ -1,59 +1,66 @@
-import { Stagger, StaggerItem } from '@/components/motion/Stagger';
-import { useEffect, useId, useState } from 'react';
-import { Search } from 'lucide-react';
-import { knowledgeKinds, knowledgeStatuses, type KnowledgeFilters } from '../api/readModels';
+import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { Upload } from 'lucide-react';
+import type { KnowledgeFilters } from '@/api/readModels';
+import { Page } from '@/components/Page';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
-import { Input } from '@/components/ui/input';
-import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '@/components/ui/item';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ErrorNotice } from '../components/ErrorNotice';
-import { Select } from '../components/Select';
-import { i18n, plural, useT } from '../i18n';
-import type { Store } from '../state/store';
+import { ErrorNotice } from '@/components/ErrorNotice';
+import { i18n, plural, useT } from '@/i18n';
+import type { Store } from '@/state/store';
 import { KnowledgeArtifact } from './KnowledgeArtifact';
-import { KnowledgeKindIcon, KnowledgeStatus, KnowledgeTitle } from './KnowledgePresentation';
+import { DossierPanel } from './Dossier';
+import { DocumentToolbar } from './documents/DocumentToolbar';
+import { UploadDialog } from './documents/UploadDialog';
+import { DocumentList } from './documents/DocumentList';
 
 export function ProjectKnowledge({ store, projectId }: { store: Store; projectId: string }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
   const knowledge = state.knowledge;
   const [query, setQuery] = useState(knowledge.query);
-  const [kind, setKind] = useState<NonNullable<KnowledgeFilters['kinds']>[number] | ''>(knowledge.filters.kinds?.[0] ?? '');
-  const [status, setStatus] = useState<NonNullable<KnowledgeFilters['statuses']>[number] | ''>(knowledge.filters.statuses?.[0] ?? '');
+  const [filters, setFilters] = useState<KnowledgeFilters>(knowledge.filters);
   const [selected, setSelected] = useState<string | null>(null);
-  const id = useId();
-  const filters = (): KnowledgeFilters => ({ ...(kind ? { kinds: [kind] } : {}), ...(status ? { statuses: [status] } : {}) });
+  const [upload, setUpload] = useState<{ file: File | null } | null>(null);
+  const [dragging, setDragging] = useState(false); const dragDepth = useRef(0);
   useEffect(() => { store.openKnowledgeList(); return () => store.closeKnowledgeList(); }, [store, projectId]);
   useEffect(() => {
     if (state.session !== 'authenticated') return;
     store.cancelKnowledgeSearch();
-    const run = () => { void store.searchKnowledge(query, { ...(kind ? { kinds: [kind] } : {}), ...(status ? { statuses: [status] } : {}) }); };
+    const run = () => { void store.searchKnowledge(query, filters); };
     if (!query.trim()) { run(); return; }
     const handle = store.knowledgeTimer.setTimeout(run, 300);
     return () => store.knowledgeTimer.clearTimeout(handle);
-  }, [store, projectId, query, kind, status, state.session]);
+  }, [store, projectId, query, filters, state.session]);
+  useEffect(() => {
+    const clear = () => { dragDepth.current = 0; setDragging(false); };
+    window.addEventListener('dragend', clear); window.addEventListener('blur', clear);
+    return () => { window.removeEventListener('dragend', clear); window.removeEventListener('blur', clear); };
+  }, []);
   if (state.session !== 'authenticated') return null;
   const searching = !!query.trim();
   const rows = searching ? knowledge.results : knowledge.list;
   const loading = knowledge.loading.knowledge || query.trim() !== knowledge.query;
   const number = (value: number) => new Intl.NumberFormat(i18n.locale).format(value);
-  return <div className="space-y-5">
-    <Card className="rounded-xl border-border p-5 shadow-none"><form role="search" aria-label={t('knowledgeUi.search')} className="grid items-end gap-4 lg:grid-cols-[minmax(12rem,1fr)_12rem_12rem_auto]" onSubmit={event => event.preventDefault()}>
-      <div className="space-y-2"><Label htmlFor={`${id}-search`}>{t('knowledgeUi.search')}</Label><div className="relative"><Search aria-hidden="true" className="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground" /><Input id={`${id}-search`} type="search" className="pl-9" maxLength={200} value={query} onChange={event => { store.cancelKnowledgeSearch(); setQuery(event.target.value); }} onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setQuery(''); } }} /></div></div>
-      <div className="space-y-2"><Label htmlFor={`${id}-kind`}>{t('knowledgeUi.kind')}</Label><Select id={`${id}-kind`} value={kind} onValueChange={next => setKind(next as typeof kind)} options={[{ value: '', label: t('knowledgeUi.allKinds') }, ...knowledgeKinds.map(value => ({ value, label: t(`knowledgeUi.kinds.${value}`) }))]} /></div>
-      <div className="space-y-2"><Label htmlFor={`${id}-status`}>{t('knowledgeUi.status')}</Label><Select id={`${id}-status`} value={status} onValueChange={next => setStatus(next as typeof status)} options={[{ value: '', label: t('knowledgeUi.allStatuses') }, ...knowledgeStatuses.map(value => ({ value, label: t(`knowledgeUi.statuses.${value}`) }))]} /></div>
-      <Button type="button" variant="ghost" disabled={!query && !kind && !status} onClick={() => { store.cancelKnowledgeSearch(); setQuery(''); setKind(''); setStatus(''); }}>{t('ux5.clearFilters')}</Button>
-    </form></Card>
+  const openUpload = (file: File | null = null) => { store.resetDocumentUpload(); setUpload({ file }); };
+  const hasFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');
+  return <Page className="relative min-h-full space-y-6 px-6 2xl:px-6"
+    onDragEnter={event => { if (hasFiles(event)) { event.preventDefault(); dragDepth.current++; setDragging(true); } }}
+    onDragOver={event => { if (hasFiles(event)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; } }}
+    onDragLeave={event => { if (hasFiles(event) && --dragDepth.current <= 0) { dragDepth.current = 0; setDragging(false); } }}
+    onDrop={event => { if (!hasFiles(event)) return; event.preventDefault(); dragDepth.current = 0; setDragging(false); const file = event.dataTransfer.files[0]; if (file) openUpload(file); }}>
+    <header className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl font-semibold tracking-tight">{t('projectUi.knowledge')}</h2><Button onClick={() => openUpload()}><Upload className="size-4" />{t('knowledgeUi.upload')}</Button></header>
+    <DocumentToolbar query={query} filters={filters} onQuery={value => { store.cancelKnowledgeSearch(); setQuery(value); }} onFilters={value => { store.cancelKnowledgeSearch(); setFilters(value); }} onClear={() => { store.cancelKnowledgeSearch(); setQuery(''); setFilters({}); }} />
+    <section aria-label={t('knowledgeUi.pinned')}><DossierPanel store={store} /></section>
     <div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="font-display text-xl font-semibold">{t(searching ? 'knowledgeUi.results' : 'knowledgeUi.allDocuments')}</h3><p role="status" className="text-xs text-muted-foreground">{number(rows.length)} {plural(t, i18n.locale, rows.length, 'knowledgeUi.count')}</p></div>
     {loading && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3">{[0, 1, 2].map(key => <Skeleton key={key} className="h-24 rounded-xl" />)}</div>}
-    {knowledge.errors.knowledge && <div className="space-y-3"><ErrorNotice error={knowledge.errors.knowledge} /><Button variant="outline" onClick={() => { void store.searchKnowledge(query, filters()); }}>{t('errors.retry')}</Button></div>}
+    {knowledge.errors.knowledge && <div className="space-y-3"><ErrorNotice error={knowledge.errors.knowledge} /><Button variant="outline" onClick={() => { void store.searchKnowledge(query, filters); }}>{t('errors.retry')}</Button></div>}
     {!loading && !knowledge.errors.knowledge && !rows.length && <Card className="rounded-xl border-border py-0 shadow-none"><Empty><EmptyHeader><EmptyDescription>{t(searching ? 'knowledgeUi.noMatches' : 'knowledgeUi.empty')}</EmptyDescription></EmptyHeader></Empty></Card>}
-    {!!rows.length && <Card className="gap-0 overflow-hidden rounded-xl border-border py-0 shadow-none"><Stagger className="m-0 list-none divide-y divide-border p-0">{rows.map((row, index) => <StaggerItem key={row.artifactId} index={index}><Item asChild className="w-full flex-nowrap items-start rounded-none text-left hover:bg-secondary"><button type="button" onClick={() => setSelected(row.artifactId)}><ItemMedia variant="icon" className="rounded-lg text-muted-foreground"><KnowledgeKindIcon kind={row.kind} /></ItemMedia><ItemContent className="min-w-0 gap-2"><ItemTitle className="w-full flex-wrap [overflow-wrap:anywhere]"><KnowledgeTitle title={row.title} /><KnowledgeStatus status={row.status} /></ItemTitle><ItemDescription className="line-clamp-1 text-left">{'snippet' in row && row.snippet.trim() ? row.snippet : row.abstractL0}</ItemDescription><span className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span>{t(`knowledgeUi.kinds.${row.kind}`)}</span><span>{state.projects.find(project => project.id === row.projectId)?.name ?? t('overview.project')}</span></span></ItemContent></button></Item></StaggerItem>)}</Stagger></Card>}
+    {!!rows.length && <DocumentList rows={rows} onSelect={setSelected} />}
     {knowledge.hasMore && <Button variant="outline" disabled={!!loading} onClick={() => { void store.loadKnowledgeMore(); }}>{t('knowledgeUi.more')}</Button>}
     {selected && <KnowledgeArtifact key={selected} store={store} artifactId={selected} onClose={() => setSelected(null)} />}
-  </div>;
+    {upload && <UploadDialog store={store} initialFile={upload.file} onClose={() => setUpload(null)} onUploaded={id => { setUpload(null); setSelected(id); }} />}
+    {dragging && <div role="status" className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/95 p-6"><div className="flex flex-col items-center gap-4"><Upload aria-hidden="true" className="size-10 text-muted-foreground" /><p className="font-display text-2xl font-semibold">{t('knowledgeUi.drop')}</p></div></div>}
+  </Page>;
 }
-

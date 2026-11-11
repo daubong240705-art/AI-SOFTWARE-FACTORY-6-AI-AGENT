@@ -1,17 +1,19 @@
 import type { OrgTeam, RequestItem, RequestDetail, Dossier, Briefing, TaskContext } from '../api/m3Models';
 import { useSyncExternalStore } from 'react';
 import type { Approval, Command, Conversation, FactoryEvent, Project, Task } from '@factory/contracts';
-import { ApiClientError, createApiClient, type ApiClient, type ArtifactContent, type Attempt, type AttemptEvent, type AttemptPatch, type TaskArtifact, type BudgetResponse, type MessagesResponse, type TeamResponse } from '../api/client';
+import { ApiClientError, DocumentUploadError, createApiClient, type ApiClient, type ArtifactContent, type Attempt, type AttemptEvent, type AttemptPatch, type TaskArtifact, type BudgetResponse, type MessagesResponse, type TeamResponse } from '../api/client';
 import { openProjectEvents, type ProjectEventsOptions, type StreamStatus } from '../api/events';
 import type { Inbox, Effect } from '../api/client';
-import type { KnowledgeArtifact, KnowledgeFilters, KnowledgeItem, KnowledgeResult } from '../api/client';
+import type { DocumentUploadMeta, KnowledgeArtifact, KnowledgeFilters, KnowledgeItem, KnowledgeResult } from '../api/client';
 import { emptyM5, type M5State } from './m5';
 import { emptySettings, type SettingsState } from './settings';
 import { notifyCommandSuccess } from './toasts';
 import { emptyActivity, type ActivityState } from './activity';
 
-export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean };
-const emptyKnowledge = (): KnowledgeState => ({ query: '', filters: {}, results: [], list: [], detail: {}, loading: {}, errors: {}, hasMore: false });
+export type DocumentUploadState = { busy: boolean; progress: number; error: { status: number; code: string } | null };
+export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean; upload: DocumentUploadState };
+const emptyUpload = (): DocumentUploadState => ({ busy: false, progress: 0, error: null });
+const emptyKnowledge = (): KnowledgeState => ({ query: '', filters: {}, results: [], list: [], detail: {}, loading: {}, errors: {}, hasMore: false, upload: emptyUpload() });
 
 export type StoreError = { kind: string; message: string; correlationId?: string; code?: string };
 export type PendingCommand = { command: Command; status: 'pending' | 'failed'; error?: StoreError };
@@ -231,14 +233,14 @@ export function createStore(options: StoreOptions = {}) {
         const result = await api.searchKnowledge(id, { ...page, query });
         return knowledgePatch({ results: [...(more ? state.knowledge.results : []), ...result.results].slice(0, 500), hasMore: result.results.length === page.limit && offset + result.results.length < 500 });
       }
-      const result = await api.listKnowledgeArtifacts(id, page);
+      const result = await api.listDocuments(id, page);
       return knowledgePatch({ list: [...(more ? state.knowledge.list : []), ...result.items].slice(0, 500), hasMore: result.items.length === page.limit && offset + result.items.length < 500 });
     }, debounce, () => revision === knowledgeRevision);
   }
   function searchKnowledge(query: string, filters: KnowledgeFilters = {}) {
     if (!state.selectedProjectId || state.session !== 'authenticated') return Promise.resolve();
     cancelKnowledgeSearch();
-    update({ knowledge: { ...state.knowledge, query: query.trim(), filters: { ...(filters.kinds ? { kinds: [...filters.kinds] } : {}), ...(filters.statuses ? { statuses: [...filters.statuses] } : {}) }, results: [], list: [], hasMore: false } });
+    update({ knowledge: { ...state.knowledge, query: query.trim(), filters: { ...(filters.kinds ? { kinds: [...filters.kinds] } : {}), ...(filters.statuses ? { statuses: [...filters.statuses] } : {}), ...(filters.origins ? { origins: [...filters.origins] } : {}) }, results: [], list: [], hasMore: false } });
     return readKnowledge();
   }
   function loadKnowledgeDetail(artifactId: string, debounce = false) {
@@ -249,6 +251,25 @@ export function createStore(options: StoreOptions = {}) {
       const result = await api.getKnowledgeArtifact(id, artifactId);
       return knowledgePatch({ detail: { [artifactId]: result.artifact } });
     }, debounce, () => openKnowledge.has(artifactId));
+  }
+  async function uploadDocument(file: File, meta: DocumentUploadMeta) {
+    const id = state.selectedProjectId; const scope = generation;
+    if (!id || state.session !== 'authenticated' || state.knowledge.upload.busy) return;
+    const publish = (upload: DocumentUploadState) => { if (active(scope)) update(knowledgePatch({ upload })); };
+    publish({ busy: true, progress: 0, error: null });
+    try {
+      const artifact = await api.uploadDocument(id, file, meta, progress => publish({ busy: true, progress, error: null }));
+      if (!active(scope)) return;
+      publish({ busy: false, progress: 100, error: null });
+      void readKnowledge();
+      if (openKnowledge.has(artifact.artifactId)) void loadKnowledgeDetail(artifact.artifactId);
+      return artifact;
+    } catch (error) {
+      if (active(scope)) {
+        if (error instanceof ApiClientError && error.status === 401) { anonymous(); return; }
+        publish({ busy: false, progress: 0, error: { status: error instanceof ApiClientError ? error.status ?? 0 : 0, code: error instanceof DocumentUploadError ? error.reason : error instanceof ApiClientError ? error.code ?? error.kind : 'unexpected' } });
+      }
+    }
   }
   function loadInbox(debounce = false) {
     const id = state.selectedProjectId;
@@ -562,6 +583,10 @@ export function createStore(options: StoreOptions = {}) {
     openKnowledgeArtifact: (id: string) => { openKnowledge.add(id); return loadKnowledgeDetail(id); },
     closeKnowledgeArtifact: (id: string) => { openKnowledge.delete(id); },
     knowledgeTimer: timer,
+    uploadDocument,
+    resetDocumentUpload: () => { if (!state.knowledge.upload.busy) update(knowledgePatch({ upload: emptyUpload() })); },
+    rawDocumentUrl: api.rawDocumentUrl,
+    fetchRawDocument: api.fetchRawDocument,
     loadConversations: () => loadArea('conversations'),
     loadTasks: () => loadArea('tasks'),
     loadBudget: () => loadArea('budget'),

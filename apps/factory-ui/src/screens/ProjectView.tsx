@@ -15,7 +15,6 @@ import { ProjectKnowledge } from './ProjectKnowledge';
 import { ProjectWorkflow } from './ProjectWorkflow';
 import { ProjectAutomation } from './ProjectAutomation';
 import { ProjectSettings } from './ProjectSettings';
-import { DossierPanel } from './Dossier';
 import { useNavigation, type ProjectTab } from './shell/navigation';
 import { Page } from '../components/Page';
 import { ProjectTile } from './shell/ProjectTile';
@@ -81,7 +80,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         {active === 'workflow' && <ProjectWorkflow key={project.id} store={store} projectId={project.id} onOpenTask={openTask} />}
         {active === 'automation' && <ProjectAutomation key={project.id} store={store} projectId={project.id} />}
         {active === 'settings' && <ProjectSettings key={project.id} store={store} projectId={project.id} />}
-        {active === 'knowledge' && <Page className="space-y-6"><ProjectKnowledge store={store} projectId={project.id} /><DossierPanel store={store} /></Page>}
+        {active === 'knowledge' && <ProjectKnowledge key={project.id} store={store} projectId={project.id} />}
         </Reveal>
       </div>
       <PanelPresence className="project-chat-dock min-h-0 min-w-0" fallbackFocus={() => ask.current} onExitComplete={chatExited}>{chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock h-full p-0" onClose={() => setChat(false)} fallbackFocus={() => ask.current}>

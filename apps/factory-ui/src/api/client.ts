@@ -1,12 +1,14 @@
 import { m3Models } from './m3Models';
 import { settingsReadModels } from './settingsModels';
 import { activityReadModel } from './activityModels';
+import { mediaTypeForFile } from './documents';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
 import { readModels, m5ReadModels, type KnowledgePage } from './readModels';
 export type { KnowledgeResult, KnowledgeItem, KnowledgeArtifact, KnowledgeFilters, KnowledgePage } from './readModels';
+export type DocumentUploadMeta = { kind: NonNullable<KnowledgePage['kinds']>[number]; title?: string; artifactId?: string };
 export type { Attempt, AttemptEvent, AttemptPatch, TaskArtifact, ArtifactContent, Inbox, Effect } from './readModels';
 export type { WorkflowInstance, WorkflowDetail, WorkflowStage, WorkflowGraph, WorkflowDefinition, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './readModels';
 
@@ -57,6 +59,9 @@ export class ApiClientError extends Error {
     this.currentRevision = error?.currentRevision;
   }
 }
+export class DocumentUploadError extends ApiClientError {
+  constructor(readonly reason: 'quota' | 'version', status: number, error: ApiError) { super('api', status, error); }
+}
 
 export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, onUnauthorized }: {
   baseUrl?: string; fetchImpl?: typeof fetch; onUnauthorized?: () => void;
@@ -92,6 +97,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     if (query !== undefined) params.set('q', query);
     for (const kind of options.kinds ?? []) params.append('kind', kind);
     for (const status of options.statuses ?? []) params.append('status', status);
+    for (const origin of options.origins ?? []) params.append('origin', origin);
     if (options.limit !== undefined) params.set('limit', String(options.limit));
     if (options.offset !== undefined) params.set('offset', String(options.offset));
     return params.size ? `?${params}` : '';
@@ -132,7 +138,50 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     getArtifactContent: (id: string, artifactId: string, version: number) => request(`${projectPath(id)}/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(version)}/content`, readModels.content),
     searchKnowledge: (id: string, options: KnowledgePage & { query: string }) => request(`${projectPath(id)}/knowledge/search${knowledgeQuery(options, options.query)}`, readModels.knowledgeSearch),
     listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
+    listDocuments: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     getKnowledgeArtifact: (id: string, artifactId: string) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact),
+    rawDocumentUrl: (id: string, artifactId: string, version: number, options: { download?: boolean } = {}) => `${base}${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(version)}/raw${options.download ? '?download=1' : ''}`,
+    fetchRawDocument: async (id: string, artifactId: string, version: number) => {
+      let response: Response;
+      try { response = await fetchImpl(`${base}${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(version)}/raw`, { credentials: 'same-origin', cache: 'no-store' }); }
+      catch { throw new ApiClientError('network'); }
+      if (!response.ok) {
+        try { const raw: unknown = await response.json(); const failure = failureResponseSchema.safeParse(raw); if (failure.success) throw new ApiClientError('api', response.status, failure.data.error); }
+        catch (error) { if (error instanceof ApiClientError) throw error; }
+        throw new ApiClientError('bad-response', response.status);
+      }
+      return response.arrayBuffer();
+    },
+    uploadDocument: (id: string, file: File, meta: DocumentUploadMeta, onProgress?: (progress: number) => void) => new Promise<import('./readModels').KnowledgeItem>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const params = new URLSearchParams({ filename: file.name, kind: String(meta.kind) });
+      params.set('mediaType', mediaTypeForFile(file.name) ?? file.type);
+      if (meta.title) params.set('title', meta.title);
+      if (meta.artifactId) params.set('artifactId', meta.artifactId);
+      xhr.open('POST', `${base}${projectPath(id)}/documents?${params}`);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader('content-type', 'application/octet-stream');
+      if (csrfToken) xhr.setRequestHeader('x-csrf-token', csrfToken);
+      xhr.upload.onprogress = event => { if (event.lengthComputable) onProgress?.(event.loaded / event.total * 100); };
+      xhr.timeout = 120_000;
+      xhr.ontimeout = () => reject(new ApiClientError('network'));
+      xhr.onerror = () => reject(new ApiClientError('network'));
+      xhr.onabort = () => reject(new ApiClientError('network'));
+      xhr.onload = () => {
+        let raw: unknown;
+        try { raw = JSON.parse(xhr.responseText); } catch { reject(new ApiClientError('bad-response', xhr.status)); return; }
+        const failure = failureResponseSchema.safeParse(raw);
+        if (failure.success) {
+          if (xhr.status === 409) reject(new DocumentUploadError(failure.data.error.message === 'Document quota exceeded.' ? 'quota' : 'version', xhr.status, failure.data.error));
+          else reject(new ApiClientError('api', xhr.status, failure.data.error));
+          return;
+        }
+        const parsed = readModels.uploadedArtifact.safeParse(raw);
+        if (!parsed.success || xhr.status < 200 || xhr.status >= 300) { reject(new ApiClientError('bad-response', xhr.status)); return; }
+        resolve(parsed.data.artifact);
+      };
+      xhr.send(file);
+    }),
     listTaskApprovals: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/approvals`, readModels.approvals),
     listWorkflows: (id: string) => request(`${projectPath(id)}/workflows`, m5ReadModels.workflows),
     getWorkflow: (id: string, instanceId: string) => request(`${projectPath(id)}/workflows/${encodeURIComponent(instanceId)}`, m5ReadModels.workflow),
