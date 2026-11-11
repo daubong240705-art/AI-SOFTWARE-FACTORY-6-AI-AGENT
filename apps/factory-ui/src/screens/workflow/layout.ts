@@ -44,21 +44,25 @@ export function layoutWorkflow(graph: WorkflowGraph, stages: WorkflowStage[] = [
   const top = Math.min(0, ...nodes.map(node => node.position.y)) - 80;
   const bottom = Math.max(92, ...nodes.map(node => node.position.y + (node.height ?? 92))) + 64;
   const backgrounds: WorkflowNode[] = [];
-  phaseKeys.forEach((phase, index) => {
-    const members = stageNodes.filter(node => node.data.definition.phase === phase);
-    if (!members.length) return;
-    const x = Math.min(...members.map(node => node.position.x)) - 20;
-    const right = Math.max(...members.map(node => node.position.x + 220)) + 20;
-    backgrounds.push({ id: `phase:${index}`, type: 'band', position: { x, y: top }, width: right - x, height: bottom - top,
-      style: { width: right - x, height: bottom - top }, data: { label: phase }, zIndex: -2, selectable: false, focusable: false, draggable: false });
+  const W = 204; const H = 88; const edge = 20;
+  const spans = phaseKeys.map(phase => { const members = nodes.filter(node => node.type === 'stage' ? node.data.definition.phase === phase : false);
+    return members.length ? { phase, left: Math.min(...members.map(node => node.position.x)), right: Math.max(...members.map(node => node.position.x + W)) } : null; })
+    .filter((span): span is { phase: string; left: number; right: number } => span !== null).sort((a, b) => a.left - b.left);
+  spans.forEach((span, index) => {
+    const previous = spans[index - 1]; const next = spans[index + 1];
+    // Bands meet halfway through the gap between two phases (gates sit in that gap), so they never overlap.
+    const left = previous ? (previous.right + span.left) / 2 + 3 : span.left - edge;
+    const right = next ? (span.right + next.left) / 2 - 3 : span.right + edge;
+    backgrounds.push({ id: `phase:${index}`, type: 'band', position: { x: left, y: top }, width: right - left, height: bottom - top,
+      style: { width: right - left, height: bottom - top }, data: { label: span.phase }, zIndex: -2, selectable: false, focusable: false, draggable: false });
   });
   const groups = [...new Set(definitions.map(stage => stage.parallelGroup).filter(group => group !== null))];
   groups.forEach(group => {
     const members = stageNodes.filter(node => node.data.definition.parallelGroup === group);
     const x = Math.min(...members.map(node => node.position.x)) - 12;
     const y = Math.min(...members.map(node => node.position.y)) - 36;
-    const width = Math.max(...members.map(node => node.position.x + 220)) - x + 12;
-    const height = Math.max(...members.map(node => node.position.y + 92)) - y + 16;
+    const width = Math.max(...members.map(node => node.position.x + W)) - x + 12;
+    const height = Math.max(...members.map(node => node.position.y + H)) - y + 16;
     const join = graph.joins.find(item => item.group === group);
     backgrounds.push({ id: `parallel:${group}`, type: 'parallel', position: { x, y }, width, height, style: { width, height },
       data: { label: group, policy: join?.policy ?? 'unknown', quorum: join?.n ?? null }, zIndex: -1, selectable: false, focusable: false, draggable: false });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { WorkflowDetail } from '@/api/m5Models';
 import { Empty, EmptyDescription } from '@/components/ui/empty';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useT } from '@/i18n';
 import { LazyWorkflowGraph } from './LazyWorkflowGraph';
 import { StagePanel } from './StagePanel';
@@ -14,8 +15,14 @@ export function WorkflowDiagram({ store, projectId, detail, onOpenTask }: { stor
   if (!detail.graph?.stages.length) return <Empty className="min-h-[480px] rounded-xl border border-border bg-card"><EmptyDescription>{t('workflowGraph.unavailable')}</EmptyDescription></Empty>;
   const definition = detail.graph.stages.find(stage => stage.key === selected);
   const stage = definition ? stageState(definition.key, detail.stages) : null;
-  return <div className="flex min-w-0 flex-col gap-4 lg:flex-row">
-    <div className="h-[calc(100vh-17rem)] min-h-[480px] min-w-0 flex-1 overflow-hidden rounded-xl border border-border bg-card" role="region" aria-label={t('workflowGraph.diagram')}><LazyWorkflowGraph graph={detail.graph} stages={detail.stages} phases={detail.phases} selectedStage={selected} onSelectStage={setSelected} /></div>
-    {definition && stage && <StagePanel definition={definition} stage={stage} detail={detail} onClose={() => setSelected(null)} onOpenTask={onOpenTask} assignment={['pending', 'blocked'].includes(stage.state) ? <StageAssignment key={`${stage.key}:${stage.engagementId ?? ''}`} store={store} projectId={projectId} detail={detail} stage={stage} /> : null} />}
+  return <div className="min-w-0">
+    <div className="h-[calc(100vh-12.5rem)] min-h-[440px] min-w-0 overflow-hidden rounded-xl border border-border bg-card" role="region" aria-label={t('workflowGraph.diagram')}><LazyWorkflowGraph graph={detail.graph} stages={detail.stages} phases={detail.phases} selectedStage={selected} onSelectStage={setSelected} /></div>
+    <Sheet open={!!(definition && stage)} onOpenChange={open => { if (!open) setSelected(null); }} modal={false}>
+      <SheetContent side="right" className="w-full gap-0 overflow-y-auto border-border sm:max-w-[400px]" onOpenAutoFocus={event => event.preventDefault()}
+        onInteractOutside={event => { if ((event.target as HTMLElement | null)?.closest('.react-flow')) event.preventDefault(); }}>
+        <SheetHeader className="border-b border-border p-4"><SheetTitle className="font-display text-lg break-words">{definition?.title || definition?.key}</SheetTitle><SheetDescription className="sr-only">{t('workflowGraph.stageDetails')}</SheetDescription></SheetHeader>
+        {definition && stage && <StagePanel definition={definition} stage={stage} detail={detail} onOpenTask={onOpenTask} assignment={['pending', 'blocked'].includes(stage.state) ? <StageAssignment key={`${stage.key}:${stage.engagementId ?? ''}`} store={store} projectId={projectId} detail={detail} stage={stage} /> : null} />}
+      </SheetContent>
+    </Sheet>
   </div>;
 }

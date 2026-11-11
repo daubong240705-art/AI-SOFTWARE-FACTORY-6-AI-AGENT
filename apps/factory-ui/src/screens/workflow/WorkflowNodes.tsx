@@ -10,8 +10,9 @@ import { LoopChip } from './LoopChip';
 import { phaseBorders, type StageData, type GateData, type BandData } from './graphTypes';
 
 export function StageNode({ data, selected }: NodeProps<Node<StageData>>) {
+  const t = useT();
   const { definition, stage, phaseIndex, maxLoops } = data;
-  return <Card title={stage.blockedReason ?? definition.title} className={cn('relative h-[92px] w-[220px] gap-1.5 rounded-xl border-border border-l-[3px] px-3 py-2.5 shadow-none', phaseBorders[phaseIndex % 4],
+  const card = <Card className={cn('relative h-[88px] w-[204px] gap-1.5 rounded-xl border-border border-l-[3px] px-3 py-2.5 shadow-none', phaseBorders[phaseIndex % 4],
     definition.optional && 'border-dashed', stage.state === 'skipped' && 'opacity-60', stage.state === 'active' && 'ring-2 ring-run/40', selected && 'outline-2 outline-offset-4 outline-info', ['blocked', 'failed'].includes(stage.state) && 'border-info')}>
     <Handle type="target" position={Position.Left} className="!size-1.5 !border-border !bg-muted-foreground" />
     {stage.state === 'active' && <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-run/20 motion-safe:animate-pulse" />}
@@ -20,6 +21,15 @@ export function StageNode({ data, selected }: NodeProps<Node<StageData>>) {
     <div className="flex gap-1 overflow-hidden">{stage.tasks.slice(0, 3).map(task => <Badge key={task.taskId} variant="secondary" className="max-w-16 truncate rounded px-1 font-mono text-[10px] font-normal">{task.code}</Badge>)}{stage.tasks.length > 3 && <span className="text-[10px] text-muted-foreground">+{stage.tasks.length - 3}</span>}</div>
     <Handle type="source" position={Position.Right} className="!size-1.5 !border-border !bg-muted-foreground" />
   </Card>;
+  return <Tooltip delayDuration={250}><TooltipTrigger asChild>{card}</TooltipTrigger>
+    <TooltipContent side="top" sideOffset={8} className="max-w-72 space-y-1.5 border border-border bg-popover p-3 text-left text-popover-foreground shadow-md">
+      <p className="text-sm font-medium break-words">{definition.title || definition.key}</p>
+      <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><span>{definition.phase || stage.phase}</span><span aria-hidden>·</span><span>{t(`m5Ui.states.${stage.state}`)}</span>{maxLoops ? <span>{stage.iteration ?? 1}/{maxLoops}</span> : null}</p>
+      {!!definition.requiredCapabilities.length && <p className="text-xs break-words">{definition.requiredCapabilities.join(', ')}</p>}
+      {!!stage.tasks.length && <p className="font-mono text-xs break-words">{stage.tasks.map(task => task.code).join(', ')}</p>}
+      {stage.blockedReason && <p className="text-xs break-words text-info">{stage.blockedReason}</p>}
+      <p className="text-[11px] text-muted-foreground">{t('workflowGraph.clickForDetails')}</p>
+    </TooltipContent></Tooltip>;
 }
 
 export function GateNode({ data }: NodeProps<Node<GateData>>) {

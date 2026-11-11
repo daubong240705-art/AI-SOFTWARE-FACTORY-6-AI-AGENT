@@ -2,7 +2,7 @@ export const extra = {
   workflowGraph: {
     states: { proposed: 'Ready to start', suspended: 'Suspended' },
     diagram: 'Diagram', views: 'Workflow view', create: 'Create workflow', preview: 'Workflow preview', unavailable: 'Diagram data is unavailable. Use the list view to see stages and tasks.',
-    stageDetails: 'Stage details', phase: 'Phase', capabilities: 'Required capabilities', inputs: 'Inputs', outputs: 'Outputs', required: 'required', mustReach: 'must reach',
+    stageDetails: 'Stage details', clickForDetails: 'Click for details', phase: 'Phase', capabilities: 'Required capabilities', inputs: 'Inputs', outputs: 'Outputs', required: 'required', mustReach: 'must reach',
     brief: 'Brief', gateBefore: 'Gate before this stage', tasks: 'Tasks', parallel: 'Parallel', gateTooltip: 'Approval gate: approver {approver}', rework: '≤ {count} loops', approvedArtifact: '{kind} approved',
     joins: { all: 'all', any: 'any', unknown: 'unspecified' },
     gates: { 'execution-gate': 'Execution gate', 'irreversible-action': 'Irreversible action', review: 'Review', unknown: 'Gate' },

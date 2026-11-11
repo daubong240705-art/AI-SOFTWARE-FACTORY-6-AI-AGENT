@@ -5,7 +5,7 @@ export const extra: Translated<typeof en> = {
   workflowGraph: {
     states: { proposed: 'Sẵn sàng bắt đầu', suspended: 'Tạm ngưng' },
     diagram: 'Sơ đồ', views: 'Chế độ xem quy trình', create: 'Tạo quy trình', preview: 'Xem trước quy trình', unavailable: 'Chưa có dữ liệu sơ đồ. Chuyển sang Danh sách để xem các giai đoạn và công việc.',
-    stageDetails: 'Chi tiết giai đoạn', phase: 'Pha', capabilities: 'Cần năng lực', inputs: 'Đầu vào', outputs: 'Đầu ra', required: 'bắt buộc', mustReach: 'cần đạt',
+    stageDetails: 'Chi tiết giai đoạn', clickForDetails: 'Bấm để xem chi tiết', phase: 'Pha', capabilities: 'Cần năng lực', inputs: 'Đầu vào', outputs: 'Đầu ra', required: 'bắt buộc', mustReach: 'cần đạt',
     brief: 'Bản mô tả', gateBefore: 'Cổng trước giai đoạn', tasks: 'Công việc', parallel: 'Song song', gateTooltip: 'Cổng duyệt: người duyệt {approver}', rework: '≤ {count} vòng', approvedArtifact: '{kind} được duyệt',
     joins: { all: 'tất cả', any: 'bất kỳ', unknown: 'chưa xác định' },
     gates: { 'execution-gate': 'Cổng bắt đầu', 'irreversible-action': 'Hành động không thể hoàn tác', review: 'Xét duyệt', unknown: 'Cổng duyệt' },

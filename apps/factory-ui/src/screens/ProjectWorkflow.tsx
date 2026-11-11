@@ -19,25 +19,25 @@ export function ProjectWorkflow({ store, projectId, onOpenTask }: { store: Store
   useEffect(() => store.watchM5('workflows', store.loadWorkflows), [store, projectId]);
   const instances = state.m5.workflows; const instance = instances.find(item => item.id === selected) ?? instances[0]; const detail = instance ? state.m5.workflowDetails[instance.id] : undefined;
   const create = <Button type="button" disabled={state.session !== 'authenticated'} onClick={() => setCreateOpen(true)}><Plus />{t('workflowGraph.create')}</Button>;
-  return <Page className="min-w-0 space-y-6">
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <div className="space-y-1"><h2 className="font-display text-3xl font-semibold">{t('workflowUi.title')}</h2><p className="text-sm text-muted-foreground">{t('ux5.workflowDescription')}</p></div>
-      <div className="flex flex-wrap items-center gap-3">
+  return <Page className="min-w-0 space-y-3 py-4">
+    <header className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2">
+      {view === 'diagram' && instance ? <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3"><InstanceChooser instances={instances} selected={instance.id} onSelect={setSelected} />{detail && <InstanceControls key={detail.id} store={store} projectId={projectId} instance={detail} />}</div>
+        : <h2 className="min-w-0 flex-1 font-display text-xl font-semibold">{t('workflowUi.title')}</h2>}
+      <div className="ml-auto flex items-center gap-2">
         <ToggleGroup type="single" value={view} onValueChange={value => { if (value) setView(value); }} variant="outline" size="sm" aria-label={t('workflowGraph.views')} className="rounded-full">
           <ToggleGroupItem value="diagram" className="!rounded-l-full">{t('workflowGraph.diagram')}</ToggleGroupItem>
           <ToggleGroupItem value="list" className="!rounded-r-full">{t('workUi.list')}</ToggleGroupItem>
         </ToggleGroup>
-        <Button type="button" variant="ghost" disabled={state.loading.workflows} onClick={() => void store.loadWorkflows()}><RefreshCw />{t('m5Ui.refresh')}</Button>
+        <Button type="button" variant="outline" size="icon" aria-label={t('m5Ui.refresh')} title={t('m5Ui.refresh')} disabled={state.loading.workflows} onClick={() => void store.loadWorkflows()}><RefreshCw /></Button>
         {create}
       </div>
     </header>
     {view === 'list' ? <WorkflowList store={store} onOpenTask={onOpenTask} /> : <>
       <M5ReadState store={store} area="workflows" retry={store.loadWorkflows} />
       {!instances.length && !state.loading.workflows && !state.errors.workflows && <Empty className="min-h-[480px] rounded-xl border border-border bg-card"><EmptyDescription>{t('workflowUi.empty')}</EmptyDescription>{create}</Empty>}
-      {instance && <div className="space-y-4">
-        <InstanceChooser instances={instances} selected={instance.id} onSelect={setSelected} />
+      {instance && <div className="space-y-3">
         <M5ReadState store={store} area={`workflow:${instance.id}`} retry={() => store.loadWorkflow(instance.id)} />
-        {detail && <><InstanceControls key={detail.id} store={store} projectId={projectId} instance={detail} /><WorkflowDiagram key={detail.id} store={store} projectId={projectId} detail={detail} onOpenTask={onOpenTask} /></>}
+        {detail && <WorkflowDiagram key={detail.id} store={store} projectId={projectId} detail={detail} onOpenTask={onOpenTask} />}
       </div>}
     </>}
     {createOpen && <CreateWorkflow key={projectId} store={store} projectId={projectId} onClose={() => setCreateOpen(false)}

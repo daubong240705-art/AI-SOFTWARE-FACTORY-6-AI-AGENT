@@ -22,7 +22,7 @@ export default function WorkflowGraph({ graph, stages = noStages, phases = noPha
     const data = edge.data;
     const kind = data?.type;
     const label = kind === 'rework' ? t('workflowGraph.rework').replace('{count}', String(data?.maxLoops ?? '?'))
-      : kind === 'artifact-approved' && typeof data?.artifact === 'string' ? t('workflowGraph.approvedArtifact').replace('{kind}', t(`knowledgeUi.kinds.${data.artifact}`)) : undefined;
+      : undefined;
     return { ...edge, ...(label === undefined ? {} : { label }), labelStyle: { fill: 'var(--muted)', fontSize: 11 }, labelBgStyle: { fill: 'var(--surface)' },
       ...(kind === 'informs' ? {} : { markerEnd: { type: MarkerType.ArrowClosed, color: 'var(--muted)' } }),
       animated: !!data?.active && kind !== 'rework',
@@ -32,7 +32,7 @@ export default function WorkflowGraph({ graph, stages = noStages, phases = noPha
   return <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}
     aria-label={t(preview ? 'workflowGraph.preview' : 'workflowGraph.diagram')} nodesDraggable={false} nodesConnectable={false} elementsSelectable={!preview}
     nodesFocusable={!preview} edgesFocusable={false} panOnScroll={!preview} panOnDrag={!preview} zoomOnScroll={!preview} zoomOnPinch={!preview} zoomOnDoubleClick={false}
-    minZoom={preview ? 0.05 : 0.4} maxZoom={1.6} fitView fitViewOptions={{ padding: 0.06, minZoom: preview ? 0.05 : 0.72, maxZoom: 1 }}
+    minZoom={preview ? 0.05 : 0.4} maxZoom={1.6} fitView fitViewOptions={{ padding: 0.06, minZoom: preview ? 0.05 : 0.55, maxZoom: 1 }}
     onNodeClick={(_, node) => { if (node.type === 'stage') onSelectStage?.(node.id); }}
     onSelectionChange={({ nodes: selected }) => { const stage = selected.find(node => node.type === 'stage'); if (stage) onSelectStage?.(stage.id); }}
     onPaneClick={() => onSelectStage?.(null)} proOptions={{ hideAttribution: true }}
