@@ -416,7 +416,7 @@ Chi tiết: [13-team-workflow-documents.md](13-team-workflow-documents.md). Phi�
 | `elkjs` | 0.12.1 | EPL-2.0 hoặc GPL-3.0 | Sắp xếp đồ thị chất lượng cao | **Loại**: giấy phép |
 | `pdfjs-dist` | 6.5.438 | Apache-2.0 | Xem trước PDF trong UI | **Đề xuất** (luôn `isEvalSupported: false`, cập nhật bản vá) |
 | `mammoth` | 1.13.0 | BSD-2-Clause | DOCX → HTML để xem nhanh | **Đề xuất** |
-| `exceljs` | 4.4.0 | MIT | XLSX → bảng xem trước | **Đề xuất** |
+| `read-excel-file` | 9.3.13 | MIT | XLSX → bảng xem trước | **Đề xuất** (thay `exceljs` 4.4.0: kéo theo `uuid` có lỗ hổng, 12/11/2026) |
 | `papaparse` | 5.7.1 | MIT | CSV → bảng | **Đề xuất** |
 | `react-markdown` + `remark-gfm` + `rehype-sanitize` | 10.1.0 / 4.0.1 / 6.0.0 | MIT | Hiển thị Markdown an toàn | **Đề xuất** |
 | `shiki` | 4.6.0 | MIT | Tô màu mã | **Đề xuất** |
