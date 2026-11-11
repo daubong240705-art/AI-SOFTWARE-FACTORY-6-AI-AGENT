@@ -499,8 +499,9 @@ const proposed = (over = {}) => ({
   requiredCapabilities: ["code.typescript"], placement: "repo-bound", sideEffect: "artifact", reviewPolicy: "human-final", dependsOn: [], ...over,
 });
 
+// knowledge.find, knowledge.outline and knowledge.read were added with the document extraction slice (docs 13, section 3.6).
 test("the tool surface is the agreed M0-lite set", () => {
-  assert.deepEqual([...c.MCP_TOOL_NAMES].sort(), ["decision.request", "handoff.submit", "knowledge.get", "knowledge.search", "notify.send-internal", "output.register", "project.briefing", "request.create", "request.get", "request.reply", "skill.get", "task.progress", "task.propose", "workflow.patch"]);
+  assert.deepEqual([...c.MCP_TOOL_NAMES].sort(), ["decision.request", "handoff.submit", "knowledge.find", "knowledge.get", "knowledge.outline", "knowledge.read", "knowledge.search", "notify.send-internal", "output.register", "project.briefing", "request.create", "request.get", "request.reply", "skill.get", "task.progress", "task.propose", "workflow.patch"]);
 });
 
 test("task.propose keeps the V1 plan rules: at most 10 tasks, dependencies point backwards", () => {

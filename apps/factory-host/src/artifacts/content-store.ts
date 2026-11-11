@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { assertInside, refuseMount } from "../workspace/paths.js";
 
 export interface ContentStore {
+  readonly maxObjectBytes?: number;
   put(bytes: Uint8Array | string): { hash: string; size: number };
   get(hash: string): Buffer | null;
   has(hash: string): boolean;
@@ -70,6 +71,7 @@ export function createContentStore(options: { dir: string; maxObjectBytes?: numb
     catch (error) { if (missing(error)) return null; throw unavailable(); }
   };
   return {
+    maxObjectBytes: limit,
     put(input) {
       let temporary: string | undefined;
       let lock: string | undefined;

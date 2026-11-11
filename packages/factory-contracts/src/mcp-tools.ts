@@ -109,6 +109,24 @@ export const knowledgeGetInputSchema = z.strictObject({
 });
 export type KnowledgeGetInput = z.infer<typeof knowledgeGetInputSchema>;
 
+export const knowledgeOutlineInputSchema = z.strictObject({
+  artifactId: idSchema, version: z.number().int().min(1).max(Number.MAX_SAFE_INTEGER).optional(),
+});
+export const knowledgeReadInputSchema = z.strictObject({
+  ...knowledgeOutlineInputSchema.shape,
+  ref: z.string().min(1).max(32).optional(),
+  pages: z.strictObject({ from: z.number().int().min(1).max(100000), to: z.number().int().min(1).max(100000) }).optional(),
+  offset: z.number().int().min(0).max(2_000_000).optional(),
+  maxChars: z.number().int().min(1).max(12000).optional(),
+}).superRefine((value, ctx) => {
+  if ([value.ref, value.pages, value.offset].filter((part) => part !== undefined).length > 1 ||
+      (value.pages && (value.pages.to < value.pages.from || value.pages.to - value.pages.from >= 20)))
+    ctx.addIssue({ code: "custom", message: "Select one section, offset or range of at most 20 pages" });
+});
+export const knowledgeFindInputSchema = z.strictObject({
+  artifactId: idSchema, query: z.string().trim().min(1).max(200), limit: z.number().int().min(1).max(20).optional(),
+});
+
 export const requestCreateInputSchema = z.strictObject({
   kind: requestKindSchema,
   targetTeamId: idSchema,
@@ -150,6 +168,9 @@ export const MCP_TOOLS = {
   "handoff.submit": handoffSubmitInputSchema,
   "knowledge.search": knowledgeSearchInputSchema,
   "knowledge.get": knowledgeGetInputSchema,
+  "knowledge.outline": knowledgeOutlineInputSchema,
+  "knowledge.read": knowledgeReadInputSchema,
+  "knowledge.find": knowledgeFindInputSchema,
   "request.create": requestCreateInputSchema,
   "request.reply": requestReplyInputSchema,
   "request.get": requestGetInputSchema,

@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { knowledgeGetInputSchema, knowledgeSearchInputSchema } from "@factory/contracts";
+import { knowledgeGetInputSchema, knowledgeSearchInputSchema, knowledgeOutlineInputSchema, knowledgeReadInputSchema, knowledgeFindInputSchema } from "@factory/contracts";
 import { openStorage } from "../dist/storage/database.js";
 import { createKnowledgeIndex } from "../dist/knowledge/index.js";
 import { createKnowledgeMcp } from "../dist/knowledge/mcp.js";
@@ -15,7 +15,7 @@ const migrationsDir = fileURLToPath(new URL("../migrations/", import.meta.url));
 const now = () => new Date("2026-11-08T00:00:00.000Z");
 const rpc = (method, params = {}) => ({ jsonrpc: "2.0", id: 1, method, params });
 const baseNames = ["task.progress", "output.register", "decision.request"];
-const names = [...baseNames, "knowledge.search", "knowledge.get"];
+const names = [...baseNames, "knowledge.search", "knowledge.get", "knowledge.outline", "knowledge.read", "knowledge.find"];
 const error = (result, message) => assert.deepEqual(result, { isError: true, content: [{ type: "text", text: message }] });
 const data = (result) => { assert.equal(result.isError, false); return JSON.parse(result.content[0].text); };
 
@@ -92,7 +92,8 @@ for (const transport of ["handler", "proxy"]) {
   test(`${transport} lists strict knowledge schemas when enabled`, async (t) => {
     const f = fixture(t, transport); const list = (await f.send("tools/list")).tools;
     assert.deepEqual(list.map((tool) => tool.name), names);
-    for (const [name, schema] of [["knowledge.search",knowledgeSearchInputSchema],["knowledge.get",knowledgeGetInputSchema]]) {
+    for (const [name, schema] of [["knowledge.search",knowledgeSearchInputSchema],["knowledge.get",knowledgeGetInputSchema],
+      ["knowledge.outline",knowledgeOutlineInputSchema],["knowledge.read",knowledgeReadInputSchema],["knowledge.find",knowledgeFindInputSchema]]) {
       const tool = list.find((entry) => entry.name === name);
       assert.equal(tool.inputSchema.additionalProperties, false); assert.deepEqual(tool.inputSchema, z.toJSONSchema(schema));
     }

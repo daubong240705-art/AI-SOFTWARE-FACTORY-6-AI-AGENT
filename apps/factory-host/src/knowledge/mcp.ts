@@ -4,6 +4,8 @@ import { KnowledgeError, type KnowledgeIndex, type KnowledgeResult, type Knowled
 import type { TokenGrant } from "../proxy/tokens.js";
 import { assertActiveGrant, sanitizeAgentText } from "../mcp/security.js";
 import type { ToolResult } from "../mcp/tools.js";
+import type { ContentStore } from "../artifacts/content-store.js";
+import { documentTool } from "../documents/mcp.js";
 
 /** Identity and context grants come exclusively from the running task, never tool arguments. */
 export function knowledgeScopeForGrant(raw: Database, grant: Pick<TokenGrant, "projectId" | "taskId" | "attemptId" | "epoch">): KnowledgeScope {
@@ -23,7 +25,7 @@ export function knowledgeScopeForSeat(raw: Database, grant: { projectId: string;
 }
 
 /** Grant-derived knowledge reads, with an independent per-attempt read budget. */
-export function createKnowledgeMcp(deps: { raw: Database; knowledge: KnowledgeIndex; now?: () => Date }) {
+export function createKnowledgeMcp(deps: { raw: Database; knowledge: KnowledgeIndex; store?: ContentStore; now?: () => Date }) {
   const calls = new Map<string, number>();
   const scopeFor = (grant: TokenGrant): KnowledgeScope => {
     assertActiveGrant(deps.raw, grant, deps.now?.());
@@ -42,6 +44,10 @@ export function createKnowledgeMcp(deps: { raw: Database; knowledge: KnowledgeIn
         const used = calls.get(key) ?? 0;
         if (used >= 200) return result("tool limit reached", true);
         calls.set(key, used + 1);
+        if (["knowledge.outline", "knowledge.read", "knowledge.find"].includes(name)) {
+          if (!deps.store) return result("tool is not available", true);
+          return result(JSON.stringify(documentTool({ ...deps, store: deps.store }, scope, name, input)));
+        }
         if (name === "knowledge.search") {
           const parsed = knowledgeSearchInputSchema.safeParse(input);
           if (!parsed.success) return result("invalid tool input", true);
@@ -56,7 +62,7 @@ export function createKnowledgeMcp(deps: { raw: Database; knowledge: KnowledgeIn
         if (!row) throw new KnowledgeError("not found");
         return result(JSON.stringify({ ...clean(row), text: row.level === "l2" ? row.text : sanitizeAgentText(row.text) }));
       } catch (error) {
-        const reason = error instanceof KnowledgeError ? error.reason
+        const reason = error instanceof KnowledgeError ? error.reason : error instanceof Error && error.message === "invalid tool input" ? "invalid tool input"
           : error instanceof Error && error.message === "attempt is not active" ? "attempt is not active" : "search is temporarily unavailable";
         return result(reason, true);
       }

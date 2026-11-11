@@ -27,7 +27,7 @@ export const samples = [
   ["application/json", "json", Buffer.from('{"textbodymarker":true}'), false],
 ];
 
-export function documentsFixture(t, config = {}) {
+export function documentsFixture(t, config = {}, register) {
   const storage = openStorage(":memory:"); storage.migrate({ migrationsDir, backupDir: null }); const raw = storage.raw;
   const hub = new EventHub(raw); const projectId = randomUUID(); const otherProject = randomUUID();
   for (const id of [projectId, otherProject]) {
@@ -44,6 +44,7 @@ export function documentsFixture(t, config = {}) {
   const sessions = createSessionStore(); const session = sessions.create(); const host = "127.0.0.1:18787";
   const app = createApiServer({ origins: [`http://${host}`], sessions, gate: { consume() { return "invalid"; } }, register(app, guards) {
     registerKnowledgeRoutes(app, guards, { raw, store, knowledge }); registerDocumentRoutes(app, guards, deps);
+    register?.(app, guards, { ...deps, knowledge });
     app.post("/commands", { preHandler: guards.write }, async () => ({ ok: true }));
   } });
   t.after(async () => { await app.close(); storage.close(); });
@@ -58,8 +59,8 @@ export function documentsFixture(t, config = {}) {
       origin: "agent", fileName: null, kind: "other", status: "draft", visibility: "project", title: "Document", abstractL0: "Document abstract", ...data };
     const content = store.put(row.bytes);
     raw.prepare(`INSERT INTO artifact_versions (project_id,artifact_id,version,kind,title,media_type,content_hash,size_bytes,status,visibility,
-      abstract_l0,created_at,origin,file_name) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(row.projectId, row.artifactId, row.version, row.kind, row.title,
-      row.mediaType, content.hash, content.size, row.status, row.visibility, row.abstractL0, new Date().toISOString(), row.origin, row.fileName);
+      abstract_l0,created_at,origin,file_name,produced_by_attempt_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(row.projectId, row.artifactId, row.version, row.kind, row.title,
+      row.mediaType, content.hash, content.size, row.status, row.visibility, row.abstractL0, new Date().toISOString(), row.origin, row.fileName, row.producedByAttemptId ?? null);
     knowledge.indexVersion(row.projectId, row.artifactId, row.version); return { ...row, hash: content.hash };
   };
   return { ...deps, storage, objects, projectId, otherProject, app, headers, upload, read, rawUrl, add, knowledge, observations };

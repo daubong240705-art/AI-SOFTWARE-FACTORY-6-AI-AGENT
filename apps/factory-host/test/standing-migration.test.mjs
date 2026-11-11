@@ -7,7 +7,7 @@ import { standingFixture } from "./standing-fixture.mjs";
 import { temp, migrationsDir } from "./org-fixture.mjs";
 import { openStorage } from "../dist/storage/database.js";
 
-test("standing migration reaches exactly 0022 with STRICT tables and foreign keys", t => { const f = standingFixture(t); assert.equal(f.raw.prepare("SELECT max(version) AS n FROM migration_ledger").get().n, 22); for (const name of ["standing_approvals", "standing_approval_uses"]) assert.equal(f.raw.prepare("SELECT strict FROM pragma_table_list WHERE name=?").get(name).strict, 1); assert.deepEqual(f.raw.pragma("foreign_key_check"), []); });
+test("standing migration reaches exactly 0023 with STRICT tables and foreign keys", t => { const f = standingFixture(t); assert.equal(f.raw.prepare("SELECT max(version) AS n FROM migration_ledger").get().n, 23); for (const name of ["standing_approvals", "standing_approval_uses"]) assert.equal(f.raw.prepare("SELECT strict FROM pragma_table_list WHERE name=?").get(name).strict, 1); assert.deepEqual(f.raw.pragma("foreign_key_check"), []); });
 for (const [field, value] of [["revision", 0], ["revision", 1.5], ["action_kind", "deploy.production"], ["action_kind", "spend-money"], ["action_kind", "publish-external"], ["action_kind", "delete-data"], ["scope_kind", "other"], ["scope_ref", null], ["scope_ref", "other"], ["limit_per_day", 0], ["limit_per_day", 51], ["limit_per_day", 1.5], ["max_tokens_per_use", 0], ["max_tokens_per_use", -1], ["max_tokens_per_use", 1.5], ["state", "other"], ["state", "revoked"], ["revoked_at", "2026-11-10T01:00:00.000Z"], ["expires_at", "2026-11-10T00:00:00.000Z"], ["project_id", "missing"]]) test(`DB rejects standing ${field}=${value}`, t => { const f = standingFixture(t), id = f.create(); assert.throws(() => f.raw.prepare(`UPDATE standing_approvals SET ${field}=? WHERE id=?`).run(value, id)); });
 test("DB accepts revoked state and timestamp together", t => { const f = standingFixture(t), id = f.create(); f.raw.prepare("UPDATE standing_approvals SET state='revoked',revoked_at=? WHERE id=?").run(f.clock().toISOString(), id); assert.equal(f.row(id).state, "revoked"); });
 test("DB accepts null token cap", t => { const f = standingFixture(t), id = f.create(); assert.equal(f.row(id).max_tokens_per_use, null); });
@@ -24,7 +24,7 @@ test("migration 0019 adds tables without rebuilding or changing 0001-0018 data",
   raw.exec("INSERT INTO notifications VALUES ('preserved','notification','dedup','important','normal','Title','Body',NULL,NULL,'unread','2026-11-10T00:00:00.000Z',NULL)");
   const schema = raw.prepare("SELECT type,name,rootpage,sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY name").all();
   const ledger = raw.prepare("SELECT * FROM migration_ledger ORDER BY version").all(), notifications = raw.prepare("SELECT * FROM notifications").all();
-  assert.deepEqual(storage.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [19,20,21,22]);
+  assert.deepEqual(storage.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [19,20,21,22,23]);
   // 0020 only appends these workflow columns; every previous definition and rootpage must still match.
   const before0020 = sql => sql
     .replace(/,\s*extra_loops INTEGER NOT NULL DEFAULT 0 CHECK \(extra_loops BETWEEN 0 AND 10\)/, "")

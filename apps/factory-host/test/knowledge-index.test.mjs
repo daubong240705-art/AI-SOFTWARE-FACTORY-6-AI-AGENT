@@ -31,7 +31,7 @@ function fixture(t, extra = {}) {
 
 test("migration reaches five with both knowledge tables and a foreign key", (t) => {
   const f = fixture(t);
-  assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map((r) => r.version), [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22]);
+  assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map((r) => r.version), [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]);
   for (const name of ["knowledge_index", "knowledge_indexed"]) assert.ok(f.raw.prepare("SELECT name FROM sqlite_master WHERE name=?").get(name));
   assert.equal(f.raw.prepare("SELECT strict FROM pragma_table_list WHERE name='knowledge_indexed'").get().strict, 1);
   assert.throws(() => f.raw.prepare("INSERT INTO knowledge_indexed VALUES ('p1','absent',1,1,'now')").run(), /FOREIGN KEY/);

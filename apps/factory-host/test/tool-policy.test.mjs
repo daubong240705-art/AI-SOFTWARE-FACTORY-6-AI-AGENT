@@ -9,7 +9,7 @@ import { createMcpHandler } from "../dist/mcp/rpc.js";
 import { createToolPolicy } from "../dist/mcp/policy.js";
 import { fixture, temp, writePack } from "./org-fixture.mjs";
 
-const optional = ["knowledge.search", "knowledge.get", "request.create", "request.reply", "request.get", "project.briefing"];
+const optional = ["knowledge.search", "knowledge.get", "knowledge.outline", "knowledge.read", "knowledge.find", "request.create", "request.reply", "request.get", "project.briefing"];
 const core = ["task.progress", "output.register", "decision.request", "skill.get"];
 const rpc = (method, params = {}) => ({ jsonrpc: "2.0", id: 1, method, params });
 const unavailable = { content: [{ type: "text", text: "tool is not available" }], isError: true };

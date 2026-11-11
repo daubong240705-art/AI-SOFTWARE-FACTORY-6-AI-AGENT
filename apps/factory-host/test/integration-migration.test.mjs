@@ -6,7 +6,7 @@ import { openStorage } from "../dist/storage/database.js";
 import { integrationFixture } from "./integration-fixture.mjs";
 import { temp, migrationsDir } from "./org-fixture.mjs";
 
-test("integration migration ledger reaches exactly 0022", t => { const f = integrationFixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map(x => x.version), Array.from({ length:22 }, (_, i) => i + 1)); });
+test("integration migration ledger reaches exactly 0023", t => { const f = integrationFixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map(x => x.version), Array.from({ length:23 }, (_, i) => i + 1)); });
 test("integration table is STRICT", t => { const f = integrationFixture(t); assert.equal(f.raw.prepare("SELECT strict FROM pragma_table_list WHERE name='integration_merges'").get().strict, 1); });
 test("integration queue lookup index has the specified columns", t => { const f = integrationFixture(t); assert.deepEqual(f.raw.pragma("index_info(integration_merges_pending)").map(x => x.name), ["project_id", "state", "created_at"]); });
 test("integration defaults and null fields", t => { const f = integrationFixture(t), id = f.merge(), row = f.row(id); assert.equal(row.attempts, 0); assert.equal(row.merge_sha, null); assert.equal(row.resolved_at, null); assert.equal(row.error_kind, null); });

@@ -70,6 +70,9 @@ import { createSkillsMcp } from "./instructions/mcp.js";
 import { createToolPolicy } from "./mcp/policy.js";
 import { loadMcpServers, parseMcpServers, type McpServersConfig } from "./mcp-external/config.js";
 import { createExternalTools, type ExternalTools } from "./mcp-external/index.js";
+import { docWorkerConfig, type DocWorkerConfig } from "./documents/config.js";
+import { createExtractionService, type ExtractionService } from "./documents/service.js";
+import { registerExtractionRoutes } from "./documents/routes.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -101,6 +104,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   stateDir: string; port: number; backupDir?: string;
   periodicBackup: { dir: string; intervalMs: number };
   documents: DocumentConfig;
+  docWorker: DocWorkerConfig;
   dispatch: { nodeSlots: number };
   workspace: { projectsRoot: string; worktreesRoot: string };
   agentProxy?: { port: number; approvedModels: string[]; socketPath?: string };
@@ -195,6 +199,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
       intervalMs: Number(minutes) * 60_000,
     },
     documents: { maxBytes: documentMaxBytes, quotaBytes: documentQuotaBytes },
+    docWorker: docWorkerConfig(env),
   };
 }
 
@@ -219,6 +224,7 @@ export async function startHost(options: {
   multiTeam?: boolean; packsDir?: string;
   contentDir?: string;
   documents?: DocumentConfig;
+  docWorker?: DocWorkerConfig;
   pushRemotes?: PushRemote[] | null;
   pushSshCommand?: string;
   monitorStatfs?: MonitorDeps["statfs"];
@@ -282,6 +288,7 @@ export async function startHost(options: {
   let monitorTick: Promise<void> | undefined;
   let ruleDeps: RuleDeps | undefined;
   let knowledgeTimer: ReturnType<typeof setImmediate> | undefined;
+  let extractions: ExtractionService | undefined;
   const interval = options.timers?.setInterval ?? ((callback: () => void, ms: number) => setInterval(callback, ms).unref());
   const clearExpiry = options.timers?.clearInterval ?? ((handle: unknown) => clearInterval(handle as ReturnType<typeof setInterval>));
   let closePromise: Promise<void> | undefined;
@@ -291,6 +298,7 @@ export async function startHost(options: {
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
       if (scheduleTimer !== undefined) { clearExpiry(scheduleTimer); scheduleTimer = undefined; }
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
+      await extractions?.close();
       await effects?.close();
       try { await runner?.stop(); } finally {
         try {
@@ -384,8 +392,13 @@ export async function startHost(options: {
     const documentConfig = options.documents ?? DEFAULT_DOCUMENT_CONFIG;
     const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content"), maxObjectBytes: Math.max(8 * 1024 * 1024, documentConfig.maxBytes) }) };
     const knowledge = createKnowledgeIndex({ raw: storage.raw, store: artifacts.store });
+    const extraction = createExtractionService({ raw: storage.raw, store: artifacts.store, knowledge, now: clock,
+      ...(options.docWorker === undefined ? {} : { config: options.docWorker }) });
+    extractions = extraction;
+    extraction.recover();
     const afterRegister = (ref: { projectId: string; artifactId: string; version: number }): void => {
       knowledge.indexVersion(ref.projectId, ref.artifactId, ref.version);
+      extraction.enqueue(ref.projectId, ref.artifactId, ref.version);
     };
     const backfill = (): void => {
       knowledgeTimer = undefined;
@@ -429,7 +442,7 @@ export async function startHost(options: {
         skills: createSkillsMcp({ raw, now: clock }),
         ...(options.multiTeam ? { briefing: createBriefingMcp({ raw,store: artifacts.store,now: clock }) } : {}),
         ...(options.multiTeam ? { requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }) } : {}),
-        knowledge: createKnowledgeMcp({ raw, knowledge, now: clock }),
+        knowledge: createKnowledgeMcp({ raw, knowledge, store: artifacts.store, now: clock }),
         requestDecision(grant, request) {
           const result = requestAgentDecision({ raw, hub, now: clock, newId: resultId }, { grant, request });
           // The synchronous tool result is serialized before this deferred stop fences its session.
@@ -580,6 +593,7 @@ export async function startHost(options: {
       routes(app, guards);
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store });
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });
+      registerExtractionRoutes(app, guards, extraction);
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
         apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set",
           "dossier.refresh",

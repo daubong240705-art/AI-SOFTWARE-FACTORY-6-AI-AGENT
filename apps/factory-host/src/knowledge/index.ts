@@ -4,6 +4,7 @@ import type { ContentStore } from "../artifacts/content-store.js";
 import { visibleToScope, type KnowledgeScope, type SqlPredicate } from "./permissions.js";
 import { buildMatchQuery, normalizeForSearch, snippetOf } from "./text.js";
 import { isVersionStale, versionStale } from "./lifecycle.js";
+import { extractionSummary } from "../documents/records.js";
 
 export { visibleToScope, type KnowledgeScope } from "./permissions.js";
 export interface KnowledgeQuery {
@@ -19,6 +20,7 @@ export interface KnowledgeResult {
 export interface KnowledgeGetInput { artifactId: string; version?: number | undefined; level?: "l0" | "l1" | "l2" | undefined }
 export interface KnowledgeDocument extends Omit<KnowledgeResult, "rank" | "snippet"> {
   level: "l0" | "l1" | "l2"; text: string; sizeBytes: number; truncated: boolean;
+  extraction: { status: string; pages: number | null } | null;
 }
 export class KnowledgeError extends Error {
   constructor(readonly reason: "not found" | "content is not readable as text" | "search is temporarily unavailable") { super(reason); }
@@ -66,6 +68,12 @@ export function createKnowledgeIndex({ raw, store }: { raw: Database; store: Con
         if (bytes !== null) { body = textBytes(bytes, 256 * 1024); bodyIndexed = 1; }
       } catch { /* Unverified or invalid text still has searchable metadata. */ }
     }
+    const extraction = raw.prepare(`SELECT text_hash AS hash FROM document_extractions
+      WHERE project_id=? AND artifact_id=? AND version=? AND status='done'`).get(projectId, artifactId, version) as { hash: string | null } | undefined;
+    if (extraction?.hash) {
+      try { const bytes = store.get(extraction.hash); if (bytes !== null) { body = bytes.toString("utf8").slice(0, 200_000); bodyIndexed = 1; } }
+      catch { /* Rebuildable derivative may be missing. */ }
+    }
     raw.prepare("DELETE FROM knowledge_index WHERE project_id = ? AND artifact_id = ? AND version = ?")
       .run(projectId, artifactId, version);
     raw.prepare("INSERT INTO knowledge_index (title, abstract, body, project_id, artifact_id, version) VALUES (?,?,?,?,?,?)")
@@ -73,6 +81,18 @@ export function createKnowledgeIndex({ raw, store }: { raw: Database; store: Con
     raw.prepare(`INSERT INTO knowledge_indexed (project_id, artifact_id, version, body_indexed, indexed_at) VALUES (?,?,?,?,?)
       ON CONFLICT(project_id, artifact_id, version) DO UPDATE SET body_indexed = excluded.body_indexed, indexed_at = excluded.indexed_at`)
       .run(projectId, artifactId, version, bodyIndexed, new Date().toISOString());
+    return true;
+  })();
+  const indexExtracted = (projectId: string, artifactId: string, version: number, body: string): boolean => raw.transaction(() => {
+    const row = raw.prepare(`SELECT title, abstract_l0 AS l0, abstract_l1 AS l1 FROM artifact_versions
+      WHERE project_id=? AND artifact_id=? AND version=?`).get(projectId, artifactId, version) as { title: string; l0: string; l1: string | null } | undefined;
+    if (!row) return false;
+    raw.prepare("DELETE FROM knowledge_index WHERE project_id=? AND artifact_id=? AND version=?").run(projectId, artifactId, version);
+    raw.prepare("INSERT INTO knowledge_index(title,abstract,body,project_id,artifact_id,version) VALUES(?,?,?,?,?,?)")
+      .run(normalizeForSearch(row.title), normalizeForSearch(`${row.l0} ${row.l1 ?? ""}`), normalizeForSearch(body.slice(0, 200_000)), projectId, artifactId, version);
+    raw.prepare(`INSERT INTO knowledge_indexed(project_id,artifact_id,version,body_indexed,indexed_at) VALUES(?,?,?,?,?)
+      ON CONFLICT(project_id,artifact_id,version) DO UPDATE SET body_indexed=excluded.body_indexed,indexed_at=excluded.indexed_at`)
+      .run(projectId, artifactId, version, 1, new Date().toISOString());
     return true;
   })();
   const missingSql = `FROM artifact_versions v WHERE NOT EXISTS (SELECT 1 FROM knowledge_indexed k
@@ -135,7 +155,7 @@ export function createKnowledgeIndex({ raw, store }: { raw: Database; store: Con
         truncated = bytes.length > 32 * 1024;
       } catch { throw new KnowledgeError("not found"); }
     }
-    return { ...summary, mediaType, text, level, truncated, stale: isVersionStale(raw, row) };
+    return { ...summary, mediaType, text, level, truncated, stale: isVersionStale(raw, row), extraction: extractionSummary(raw, row) };
   };
   const rebuild = async () => {
     raw.transaction(() => { raw.prepare("DELETE FROM knowledge_index").run(); raw.prepare("DELETE FROM knowledge_indexed").run(); })();
@@ -145,7 +165,7 @@ export function createKnowledgeIndex({ raw, store }: { raw: Database; store: Con
       await new Promise<void>((resolve) => setImmediate(resolve));
     }
   };
-  return { indexVersion, indexAllMissing, rebuild, search, get, stats,
+  return { indexVersion, indexExtracted, indexAllMissing, rebuild, search, get, stats,
     // Status and visibility are read from authoritative rows; K1b can use the same hook.
     afterStatusChange: indexVersion };
 }
@@ -162,7 +182,8 @@ export function listKnowledgeArtifacts(raw: Database, scope: KnowledgeScope, que
         WHERE newer.project_id = v.project_id AND newer.artifact_id = v.artifact_id AND ${newer.sql})
     ORDER BY v.created_at DESC, v.artifact_id LIMIT ? OFFSET ?`)
     .all(...newer.params, scope.projectId, ...permission.params, ...filter.params, ...newer.params,
-      bounded(query.limit, 10, 1, 50), bounded(query.offset, 0, 0, Number.MAX_SAFE_INTEGER));
+      bounded(query.limit, 10, 1, 50), bounded(query.offset, 0, 0, Number.MAX_SAFE_INTEGER))
+    .map((value) => { const row = value as KnowledgeResult; return { ...row, extraction: extractionSummary(raw, row) }; });
 }
 
 export function getKnowledgeArtifact(raw: Database, scope: KnowledgeScope, artifactId: string) {
@@ -183,6 +204,6 @@ export function getKnowledgeArtifact(raw: Database, scope: KnowledgeScope, artif
     ORDER BY v.artifact_id, v.version`).all(scope.projectId, artifactId, ...permission.params) as
     { artifactId: string; version: number; title: string }[];
   return { artifactId, kind: first.kind, title: first.title,
-    versions: versions.map((row) => ({ ...row, stale: versionStale(raw, row, scope), isStale: isVersionStale(raw, row) })),
+    versions: versions.map((row) => ({ ...row, stale: versionStale(raw, row, scope), isStale: isVersionStale(raw, row), extraction: extractionSummary(raw, row) })),
     inputs: provenance(false), dependants: provenance(true) };
 }
