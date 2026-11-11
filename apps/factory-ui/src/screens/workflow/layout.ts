@@ -38,6 +38,16 @@ export function layoutWorkflow(graph: WorkflowGraph, stages: WorkflowStage[] = [
     layout.setEdge(source, target, {}, id);
     edges.push({ id, source, target, data: { type: 'finish-to-start', active: stageState(stageKey, stages).state === 'active' } });
   }));
+  // Dagre ranks by dependency only. Invisible anchors between consecutive phases force every stage of a phase to sit
+  // after every stage of the previous one, so phase bands are contiguous columns and never overlap their neighbours.
+  const phased = phaseKeys.filter(phase => definitions.some(stage => stage.phase === phase));
+  phased.forEach((phase, index) => {
+    const before = definitions.filter(stage => stage.phase === phased[index - 1]); const after = definitions.filter(stage => stage.phase === phase);
+    if (index === 0 || !before.length || !after.length) return;
+    const id = `anchor:${index}`; layout.setNode(id, { width: 2, height: 2 });
+    before.forEach(stage => layout.setEdge(stage.key, id, { weight: 0 }, `phase-in:${index}:${stage.key}`));
+    after.forEach(stage => layout.setEdge(id, stage.key, { weight: 0 }, `phase-out:${index}:${stage.key}`));
+  });
   dagre.layout(layout);
   nodes.forEach(node => { const at = layout.node(node.id); node.position = { x: at.x - (node.width ?? 0) / 2, y: at.y - (node.height ?? 0) / 2 }; });
   const stageNodes = nodes.filter(node => node.type === 'stage');
@@ -59,6 +69,8 @@ export function layoutWorkflow(graph: WorkflowGraph, stages: WorkflowStage[] = [
   const groups = [...new Set(definitions.map(stage => stage.parallelGroup).filter(group => group !== null))];
   groups.forEach(group => {
     const members = stageNodes.filter(node => node.data.definition.parallelGroup === group);
+    // A group that spans two phases would draw a frame across the phase boundary: leave it unframed.
+    if (new Set(members.map(node => node.data.definition.phase)).size > 1) return;
     const x = Math.min(...members.map(node => node.position.x)) - 12;
     const y = Math.min(...members.map(node => node.position.y)) - 36;
     const width = Math.max(...members.map(node => node.position.x + W)) - x + 12;
