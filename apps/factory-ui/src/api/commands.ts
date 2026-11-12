@@ -5,6 +5,11 @@ function build<T extends Command['type']>(type: T, projectId: string, payload: O
   return commandSchema.parse({ apiVersion: API_VERSION, commandId: crypto.randomUUID(), projectId, type, payload }) as Of<T>;
 }
 
+export function notificationsMarkRead({ projectId, ...payload }: Of<'notifications.mark-read'>['payload'] & { projectId: string }) { return build('notifications.mark-read', projectId, payload); }
+export function notificationsDismiss({ projectId, ...payload }: Of<'notifications.dismiss'>['payload'] & { projectId: string }) { return build('notifications.dismiss', projectId, payload); }
+export function integrationRetry({ projectId, ...payload }: Of<'integration.retry'>['payload'] & { projectId: string }) { return build('integration.retry', projectId, payload); }
+export function integrationSkip({ projectId, ...payload }: Of<'integration.skip'>['payload'] & { projectId: string }) { return build('integration.skip', projectId, payload); }
+
 export function autonomySet({ projectId, ...payload }: Of<'autonomy.set'>['payload'] & { projectId: string }) {
   return build('autonomy.set', projectId, payload);
 }

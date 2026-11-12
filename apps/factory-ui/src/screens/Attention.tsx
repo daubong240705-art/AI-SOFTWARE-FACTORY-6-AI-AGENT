@@ -16,7 +16,7 @@ import { RequestPanel } from './Requests';
 import { attentionItems, type AttentionItem } from './shell/attention';
 import { relativeTime } from './Inbox';
 import { ProjectTile } from './shell/ProjectTile';
-import { GatePanel, PatchPanel, ReadOnlyPanel } from './attention/Details';
+import { GatePanel, PatchPanel, ReadOnlyPanel, IntegrationConflictPanel } from './attention/Details';
 import { attentionTitle } from './attention/presentation';
 
 export function attentionHash(key?: string): string { return key ? `#/attention/${encodeURIComponent(key)}` : '#/attention'; }
@@ -120,6 +120,7 @@ export function Attention({ store }: { store: Store }) {
   </div>;
 }
 function AttentionDetail({ store, row, onSuccess }: { store: Store; row: AttentionItem; onSuccess: () => void }) {
+  if (row.kind === 'integration-conflict') return <IntegrationConflictPanel store={store} row={row} onSuccess={onSuccess} />;
   if ((row.kind === 'review' || row.kind === 'question') && row.selection) return <DecisionPanel store={store} approvalId={row.selection.id} onClose={() => {}} inline onSuccess={onSuccess} />;
   if (row.kind === 'request' && row.selection) return <RequestPanel store={store} taskId={row.selection.id} onClose={() => {}} inline onSuccess={onSuccess} />;
   if (row.kind === 'start-gate' && row.selection) return <GatePanel store={store} row={row} taskId={row.selection.id} onSuccess={onSuccess} />;

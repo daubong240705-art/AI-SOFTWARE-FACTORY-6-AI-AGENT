@@ -14,6 +14,7 @@ import { Requests } from './Requests';
 import { TaskStatus } from './shell/TaskStatus';
 import { taskTime } from './shell/taskTime';
 import { Page } from '../components/Page';
+import { IntegrationCard } from './overview/IntegrationCard';
 
 export function ProjectOverview({ store, onOpenTask }: { store: Store; onOpenTask: (id: string) => void }) {
   const t = useT(); const id = useId(); const state = store.useStoreSelector(value => value);
@@ -34,5 +35,6 @@ export function ProjectOverview({ store, onOpenTask }: { store: Store; onOpenTas
       {!tasks.length ? <Empty className="py-10"><EmptyHeader><EmptyDescription>{t('projectUi.noActiveTasks')}</EmptyDescription></EmptyHeader></Empty> : <ul className="m-0 list-none p-0">{tasks.map((task, index) => { const time = taskTime(task, state); return <li key={task.id}>{index > 0 && <Separator />}<Button type="button" variant="ghost" className="flex h-auto w-full flex-wrap justify-start gap-3 rounded-none border-0 bg-transparent px-5 py-3 text-left font-normal whitespace-normal hover:bg-secondary" onClick={() => onOpenTask(task.id)}><span className="font-mono text-xs">{task.code}</span><strong className="min-w-0 flex-1 text-sm font-medium [overflow-wrap:anywhere]">{task.title}</strong><TaskStatus task={task} state={state} />{time && <time dateTime={time} className="text-xs whitespace-nowrap text-muted-foreground">{relativeTime(time)}</time>}</Button></li>; })}</ul>}
     </CardContent></Card></section>
     <Requests store={store} hideEmpty />
+    <IntegrationCard store={store} />
   </Page>;
 }

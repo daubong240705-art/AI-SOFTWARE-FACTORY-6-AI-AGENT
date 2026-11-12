@@ -1,4 +1,11 @@
 export const extra = {
+  notificationsUi: {
+    title: 'Notifications', filter: 'Notification filter', unread: 'Unread', all: 'All', markRead: 'Mark read', dismiss: 'Dismiss', markAll: 'Mark all as read', empty: 'No new notifications', allRead: 'All notifications marked as read', conflict: 'This notification changed. The list has been refreshed.', progress: 'Marking read: {done}/{total}', batchFailed: 'Marked {done}/{total} as read. Try again to finish.',
+    category: { action: 'Action', important: 'Important', digest: 'Digest', unknown: 'Notification' }, urgency: { normal: 'Normal', urgent: 'Urgent', unknown: 'Unspecified urgency' },
+  },
+  integrationUi: {
+    title: 'Integration', branch: 'Task branch', target: 'Integration branch', retry: 'Retry integration', skip: 'Skip this branch', skipTitle: 'Skip this branch?', skipDescription: 'The task result stays on its own branch and will not be merged into the integration branch.', retryRequested: 'Integration retry requested', skipped: 'Branch skipped', conflict: 'Integration state changed. The inbox and integration list have been refreshed.', unavailable: 'Refresh integration details before taking action.', invalid: 'Integration details are unavailable.', errors: { conflict: 'Changes on this branch conflict with the integration branch. Resolve the conflicts before retrying.', 'git-failed': 'Git could not merge this branch after several attempts. Check the workspace before retrying.', unknown: 'This branch could not be integrated. Check its changes and try again.' }, states: { pending: 'Pending', merged: 'Merged', conflict: 'Needs resolution', skipped: 'Skipped', unknown: 'Unknown' },
+  },
   workflowGraph: {
     live: {
       awaitingGo: 'Waiting for your permission to start', awaitingReview: 'Waiting for result review', awaitingAssignment: 'Waiting for assignment',

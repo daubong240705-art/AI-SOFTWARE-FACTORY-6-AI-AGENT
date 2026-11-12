@@ -2,6 +2,7 @@ import { m3Models } from './m3Models';
 import { automationErrorKey } from './automationErrors';
 import { settingsErrorKey } from './settingsErrors';
 import { settingsReadModels } from './settingsModels';
+import { notificationReadModels } from './notificationModels';
 import { activityReadModel } from './activityModels';
 import { extractionModels, mediaTypeForFile } from './documents';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
@@ -113,6 +114,8 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     return params.size ? `?${params}` : '';
   };
   return {
+    listNotifications: (id: string, state: 'unread' | 'read' | 'dismissed' | 'all' = 'all') => request(`${projectPath(id)}/notifications?state=${state}`, notificationReadModels.notifications),
+    listIntegration: (id: string) => request(`${projectPath(id)}/integration`, notificationReadModels.integration),
     getOrgActivity: () => request('/org/activity', activityReadModel),
     listTeams: () => request('/teams', m3Models.teams),
     listPacks: () => request('/packs', m3Models.packs),
@@ -241,7 +244,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     sendCommand: (command: Command) => {
       // Validate without replacing/mutating the caller's object or generating a new identity.
       if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');
-      return request('/commands', successResponseSchema, command, /^(schedules|rules|monitors|autonomy|standing-approvals)\./.test(command.type));
+      return request('/commands', successResponseSchema, command, /^(schedules|rules|monitors|autonomy|standing-approvals|notifications|integration)\./.test(command.type));
     },
   };
 }

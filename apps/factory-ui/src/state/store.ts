@@ -13,6 +13,9 @@ import { createExtractionPolling } from './extractionPolling';
 import { toast } from 'sonner';
 import { i18n } from '../i18n';
 import { settingsPendingKey, type SettingsCommand } from './settingsCommands';
+import { emptyNotifications, emptyIntegration, notificationPendingKey, integrationPendingKey, type NotificationCommand, type IntegrationCommand } from './notifications';
+import type { NotificationsResponse, IntegrationResponse } from '../api/notificationModels';
+import { notificationsMarkRead } from '../api/commands';
 
 type AutomationCommand = Extract<Command, { type: `schedules.${string}` | `rules.${string}` | `monitors.${string}` }>;
 
@@ -29,6 +32,9 @@ const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], requests: [], 
 export type M3State = { teams: OrgTeam[]; packs: Awaited<ReturnType<ApiClient['listPacks']>>['packs']; queues: Record<string, Awaited<ReturnType<ApiClient['getTeamQueue']>>['items']>; disabled: boolean; requestTargets: RequestItem[]; requests: RequestItem[]; requestDetails: Record<string, RequestDetail>; dossier: Dossier | null; briefing: Briefing | null; contexts: Record<string, TaskContext[]> };
 const emptyM3 = (): M3State => ({ teams: [], packs: [], queues: {}, disabled: false, requestTargets: [], requests: [], requestDetails: {}, dossier: null, briefing: null, contexts: {} });
 export type StoreState = {
+  notifications: NotificationsResponse;
+  integration: IntegrationResponse;
+  notificationProgress: { done: number; total: number } | null;
   activity: ActivityState;
   settings: SettingsState;
   m5: M5State;
@@ -49,7 +55,7 @@ export type StoreOptions = {
   openEvents?: (options: ProjectEventsOptions) => { close(): void };
   timer?: { setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 };
-const projectState = () => ({ activity: emptyActivity(), settings: emptySettings(), m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
+const projectState = () => ({ notifications: emptyNotifications(), integration: emptyIntegration(), notificationProgress: null, activity: emptyActivity(), settings: emptySettings(), m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}), ...(error.detailKey ? { detailKey: error.detailKey } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
@@ -189,6 +195,23 @@ export function createStore(options: StoreOptions = {}) {
   const loadAutonomy = () => readSettings('autonomy', async id => ({ autonomy: await api.getAutonomy(id) }));
   const loadStandingApprovals = () => readSettings('standingApprovals', async id => ({ standingApprovals: await api.listStandingApprovals(id) }));
   const loadSettings = async () => { await Promise.all([loadAutonomy(), loadStandingApprovals()]); };
+  function loadNotifications(debounce = false) {
+    const id = state.selectedProjectId;
+    if (!id || state.session !== 'authenticated') return Promise.resolve();
+    return enqueue('notifications', generation, async () => {
+      // The Host caps each list at 100. Include unread rows even when newer read
+      // or dismissed rows would otherwise hide them from the unread tab.
+      const [all, unread] = await Promise.all([api.listNotifications(id), api.listNotifications(id, 'unread')]);
+      const items = new Map(all.items.map(item => [item.id, item]));
+      for (const item of unread.items) items.set(item.id, item);
+      return { notifications: { items: [...items.values()], unread: unread.unread } };
+    }, debounce);
+  }
+  function loadIntegration(debounce = false) {
+    const id = state.selectedProjectId;
+    if (!id || state.session !== 'authenticated') return Promise.resolve();
+    return enqueue('integration', generation, async () => ({ integration: await api.listIntegration(id) }), debounce);
+  }
   function readM5(area: string, work: (id: string) => Promise<Partial<M5State>>) {
     const id = state.selectedProjectId;
     if (!id || state.session !== 'authenticated') return Promise.resolve();
@@ -479,6 +502,7 @@ export function createStore(options: StoreOptions = {}) {
     });
   }
   async function refresh() {
+    void loadNotifications(); void loadIntegration();
     for (const read of openM5.values()) void read();
     for (const read of openM3.values()) void read();
     if (knowledgeOpen) void readKnowledge();
@@ -529,6 +553,8 @@ export function createStore(options: StoreOptions = {}) {
     if (payload.type === 'message.appended') void loadMessages(payload.message.conversationId, true);
     else if (payload.type === 'command.receipted') void loadArea('budget', true);
     else if (payload.type === 'entity.changed') {
+      if (String(payload.entity.kind) === 'notification') void loadNotifications(true);
+      if (payload.entity.kind === 'task') void loadIntegration(true);
       if (payload.entity.kind === 'artifact-version') {
         if (knowledgeOpen) void readKnowledge(false, true);
         for (const id of openKnowledge) void loadKnowledgeDetail(id, true);
@@ -598,7 +624,39 @@ export function createStore(options: StoreOptions = {}) {
   function sendSettings(command: SettingsCommand) {
     return sendCollectionCommand(command, settingsPendingKey(command), loadSettings, 'settingsWrite.conflict');
   }
-  async function sendCollectionCommand(command: Command, key: string, reload: () => Promise<void>, conflictKey: string) {
+  function sendNotification(command: NotificationCommand, quietConflict = false) {
+    return sendCollectionCommand(command, notificationPendingKey(command.payload.notificationId), loadNotifications, 'notificationsUi.conflict', quietConflict);
+  }
+  function sendIntegration(command: IntegrationCommand) {
+    return sendCollectionCommand(command, integrationPendingKey(command.payload.taskId), async () => {
+      await Promise.all([loadIntegration(), loadInbox(), loadGlobalInbox()]);
+    }, 'integrationUi.conflict');
+  }
+  async function markAllNotificationsRead() {
+    const projectId = state.selectedProjectId; const scope = generation;
+    if (!projectId || state.session !== 'authenticated' || state.notificationProgress) return;
+    const total = state.notifications.unread;
+    if (!total || state.notifications.items.some(item => state.loading[notificationPendingKey(item.id)])) return;
+    update({ notificationProgress: { done: 0, total } });
+    let done = 0;
+    try {
+      // Re-read after each command so unread batches beyond the Host's first
+      // page are processed too. Bound the run to the count present at the click.
+      while (done < total) {
+        if (!active(scope)) return;
+        const item = state.notifications.items.find(item => item.state === 'unread');
+        if (!item || !await sendNotification(notificationsMarkRead({ projectId, notificationId: item.id }), true)) break;
+        if (!active(scope)) return;
+        done++; update({ notificationProgress: { done, total } });
+        if (state.errors.notifications) break;
+      }
+      if (active(scope)) {
+        if (done === total || !state.notifications.unread) toast.success(i18n.t('notificationsUi.allRead'));
+        else toast.error(i18n.t('notificationsUi.batchFailed').replace('{done}', String(done)).replace('{total}', String(total)));
+      }
+    } finally { if (active(scope)) update({ notificationProgress: null }); }
+  }
+  async function sendCollectionCommand(command: Command, key: string, reload: () => Promise<void>, conflictKey: string, quietConflict = false) {
     const scope = generation;
     if (state.loading[key] || state.session !== 'authenticated' || command.projectId !== state.selectedProjectId) return;
     update({ loading: { ...state.loading, [key]: true }, errors: { ...state.errors, [key]: undefined } });
@@ -610,7 +668,7 @@ export function createStore(options: StoreOptions = {}) {
       if (response || error?.code === 'conflict') {
         await reload();
         if (!active(scope)) return;
-        if (error?.code === 'conflict') toast.info(i18n.t(conflictKey));
+        if (error?.code === 'conflict' && !quietConflict) toast.info(i18n.t(conflictKey));
       }
       return response;
     } finally {
@@ -631,6 +689,7 @@ export function createStore(options: StoreOptions = {}) {
     loadWorkflows, loadWorkflow, loadWorkflowDefinitions, loadAutomation, loadSchedules, loadRules, loadMonitors, loadBreakers,
     loadScheduleOccurrences, loadRuleFires, loadMonitorEvents, sendAutomation,
     loadAutonomy, loadStandingApprovals, loadSettings, sendSettings,
+    loadNotifications: () => loadNotifications(), loadIntegration: () => loadIntegration(), sendNotification, sendIntegration, markAllNotificationsRead,
     watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
     loadTeams, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
@@ -670,7 +729,7 @@ export function createStore(options: StoreOptions = {}) {
       stop(); const scope = generation;
       update({ selectedProjectId: id, ...projectState(), errors: {}, loading: {}, pending: {} });
       connect(id, scope);
-      await Promise.all([loadInbox(), loadGlobalInbox(), loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget')]);
+      await Promise.all([loadNotifications(), loadIntegration(), loadInbox(), loadGlobalInbox(), loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget')]);
     },
     loadMessages: (id: string) => loadMessages(id), send,
     openTask(taskId: string) { openTaskCounts.set(taskId, (openTaskCounts.get(taskId) ?? 0) + 1); openTasks.add(taskId); return loadTaskDetail(taskId); },

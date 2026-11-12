@@ -4,6 +4,8 @@ import { i18n } from '../i18n';
 
 function successKey(command: Command, approvalKind?: Approval['kind']) {
   switch (command.type) {
+    case 'integration.retry': return 'integrationUi.retryRequested';
+    case 'integration.skip': return 'integrationUi.skipped';
     case 'autonomy.set': return 'settingsWrite.autonomySaved';
     case 'standing-approvals.create': return 'settingsWrite.approvalCreated';
     case 'standing-approvals.revoke': return 'settingsWrite.approvalRevoked';

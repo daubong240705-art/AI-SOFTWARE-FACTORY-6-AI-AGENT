@@ -2,6 +2,13 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  notificationsUi: {
+    title: 'Thông báo', filter: 'Lọc thông báo', unread: 'Chưa đọc', all: 'Tất cả', markRead: 'Đã đọc', dismiss: 'Bỏ qua', markAll: 'Đánh dấu tất cả đã đọc', empty: 'Không có thông báo mới', allRead: 'Đã đánh dấu tất cả thông báo là đã đọc', conflict: 'Thông báo đã thay đổi. Danh sách đã được tải lại.', progress: 'Đang đánh dấu đã đọc: {done}/{total}', batchFailed: 'Đã đánh dấu {done}/{total} thông báo. Hãy thử lại để hoàn tất.',
+    category: { action: 'Cần xử lý', important: 'Quan trọng', digest: 'Tổng hợp', unknown: 'Thông báo' }, urgency: { normal: 'Bình thường', urgent: 'Khẩn cấp', unknown: 'Chưa rõ mức độ ưu tiên' },
+  },
+  integrationUi: {
+    title: 'Tích hợp', branch: 'Nhánh của việc', target: 'Nhánh tích hợp', retry: 'Thử tích hợp lại', skip: 'Bỏ qua nhánh này', skipTitle: 'Bỏ qua nhánh này?', skipDescription: 'Kết quả của việc vẫn nằm trên nhánh riêng và sẽ không được gộp vào nhánh tích hợp.', retryRequested: 'Đã yêu cầu tích hợp lại', skipped: 'Đã bỏ qua nhánh', conflict: 'Trạng thái tích hợp đã thay đổi. Hộp thư và danh sách tích hợp đã được tải lại.', unavailable: 'Hãy tải lại thông tin tích hợp trước khi thao tác.', invalid: 'Chưa có thông tin tích hợp.', errors: { conflict: 'Thay đổi trên nhánh này xung đột với nhánh tích hợp. Hãy xử lý xung đột trước khi thử lại.', 'git-failed': 'Git không thể gộp nhánh sau nhiều lần thử. Hãy kiểm tra thư mục làm việc trước khi thử lại.', unknown: 'Chưa thể tích hợp nhánh này. Hãy kiểm tra các thay đổi rồi thử lại.' }, states: { pending: 'Chờ tích hợp', merged: 'Đã gộp', conflict: 'Cần xử lý', skipped: 'Đã bỏ qua', unknown: 'Chưa rõ' },
+  },
   workflowGraph: {
     live: {
       awaitingGo: 'Chờ bạn cho phép bắt đầu', awaitingReview: 'Chờ duyệt kết quả', awaitingAssignment: 'Chờ giao việc',
