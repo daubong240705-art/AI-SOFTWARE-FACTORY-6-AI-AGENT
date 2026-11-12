@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { MarkdownContent } from '@/components/MarkdownContent';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
 import { Spinner } from '@/components/ui/spinner';
@@ -56,6 +57,34 @@ export function ProjectChat({ store, projectId, showBudget = true, onClose }: { 
   return <div className="flex h-full min-h-0 flex-col"><ChatHeader onClose={onClose} /><div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center"><MascotEmpty seat="Lead" size={64} fallback={<><MessageCircle className="size-6 text-muted-foreground" aria-hidden="true" /><p className="text-sm text-muted-foreground">{t('empty.conversations')}</p></>}><p className="text-sm text-muted-foreground">{t('empty.conversations')}</p><p className="text-sm text-muted-foreground">{t('chatUi.greeting')}</p></MascotEmpty>{state.errors.conversations && <ErrorNotice error={state.errors.conversations} />}{state.errors.team && <ErrorNotice error={state.errors.team} />}{state.team && !lead && <p role="alert" className="text-sm text-need">{t('chatUi.noLead')}</p>}{pending?.error && <ErrorNotice error={pending.error} />}{pending?.status === 'failed' && command ? <Button variant="outline" disabled={busy || state.session !== 'authenticated'} onClick={() => { void execute(command, true); }}>{t('errors.retry')}</Button> : <Button disabled={!state.team || !lead || busy || state.session !== 'authenticated'} onClick={() => { if (!lead || inFlight.current) return; const created = conversationsCreate({ projectId, seatId: lead.id, title: 'Lead' }); setCommand(created); void execute(created); }}>{t('chatUi.start')}</Button>}</div></div>;
 }
 
+/** One decision for the whole plan: accept (or decline) every proposed task in code order. */
+function PlanActions({ store, projectId, tasks }: { store: Store; projectId: string; tasks: Task[] }) {
+  const t = useT();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<Command | null>(null);
+  const failed = store.useStoreSelector(value => error ? value.pending[error.commandId]?.error : undefined);
+  async function decide(to: 'accepted' | 'declined') {
+    if (busy) return;
+    setBusy(true); setError(null);
+    try {
+      for (const { id } of [...tasks].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))) {
+        const current = store.getState().tasks.find(task => task.id === id);
+        if (current?.state !== 'proposed') continue;
+        const command = tasksTransition({ projectId, taskId: id, expectedRevision: current.revision, to });
+        if (!await store.send(command)) { setError(command); break; }
+        await store.loadTasks();
+      }
+    } finally { setBusy(false); }
+  }
+  return <Card className="gap-3 rounded-lg border-border bg-secondary/50 p-4 shadow-none">
+    <p className="text-sm font-medium">{t('chatUi.planTitle').replace('{count}', String(tasks.length))}</p>
+    <p className="text-xs text-muted-foreground">{t('chatUi.planNote')}</p>
+    <div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={busy} onClick={() => { void decide('accepted'); }}><Check />{t('chatUi.acceptPlan')}</Button>
+      <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { void decide('declined'); }}><X />{t('chatUi.declinePlan')}</Button></div>
+    {failed && <ErrorNotice error={failed} />}
+  </Card>;
+}
+
 function ProposalCard({ store, projectId, task }: { store: Store; projectId: string; task: Task }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
@@ -95,7 +124,8 @@ function ConversationChat({ store, projectId, conversation, showBudget, onClose 
   const date = new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' });
   const tooLong = draft.text.length > 32_000;
   const disabled = !draft.text.trim() || tooLong || busy || state.session !== 'authenticated';
-  const proposed = state.tasks.filter(task => task.state === 'proposed').slice(0, 3);
+  const allProposed = state.tasks.filter(task => task.state === 'proposed');
+  const proposed = allProposed.slice(0, 3);
   useEffect(() => { void store.loadMessages(conversation.id); }, [store, conversation.id]);
   function latest() { const node = log.current; if (node) node.scrollTop = node.scrollHeight; nearBottom.current = true; setJump(false); }
   useLayoutEffect(() => { if (nearBottom.current) latest(); else if (messages?.length) setJump(true); }, [messages]);
@@ -119,9 +149,22 @@ function ConversationChat({ store, projectId, conversation, showBudget, onClose 
     <ChatHeader onClose={onClose} />
     {showBudget && <BudgetLine store={store} />}
     {state.errors[`messages:${conversation.id}`] && <div className="p-4 pb-0"><ErrorNotice error={state.errors[`messages:${conversation.id}`]!} /></div>}
-    <div ref={log} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4" role="log" aria-live="polite" aria-label={t('chatUi.messages')} tabIndex={0} onScroll={() => { const node = log.current; if (!node) return; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 64; if (nearBottom.current) setJump(false); }}>
+    <div ref={log} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 [scrollbar-gutter:stable]" role="log" aria-live="polite" aria-label={t('chatUi.messages')} tabIndex={0} onScroll={() => { const node = log.current; if (!node) return; nearBottom.current = node.scrollHeight - node.scrollTop - node.clientHeight <= 64; if (nearBottom.current) setJump(false); }}>
       {!messages?.length && <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center"><MascotEmpty seat="Lead" size={64} fallback={<><MessageCircle aria-hidden="true" className="size-6 text-muted-foreground" /><p className="text-sm text-muted-foreground">{t('empty.messages')}</p></>}><p className="text-sm text-muted-foreground">{t('empty.messages')}</p><p className="text-sm text-muted-foreground">{t('chatUi.greeting')}</p></MascotEmpty></div>}
-      {messages?.map(({ message }) => message.speaker === 'system' ? <p key={message.id} className="text-center text-xs text-muted-foreground">{message.text}</p> : <article key={message.id} className={`flex max-w-[90%] items-start gap-2 ${message.speaker === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}><Avatar size="sm" className={message.speaker === 'user' ? 'bg-primary' : 'bg-secondary'}><AvatarFallback className={message.speaker === 'user' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground'}>{message.speaker === 'user' ? 'You' : 'L'}</AvatarFallback></Avatar><div className={message.speaker === 'user' ? 'space-y-1 text-right' : 'space-y-1'}><div className={`rounded-xl px-4 py-3 text-sm leading-6 ${message.speaker === 'user' ? 'bg-secondary' : 'bg-transparent'}`}><p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p></div><time dateTime={message.createdAt} className="text-[11px] text-muted-foreground">{date.format(new Date(message.createdAt))}</time></div></article>)}
+      {messages?.map(({ message }) => {
+        const user = message.speaker === 'user';
+        if (message.speaker === 'system') return <p key={message.id} className="shrink-0 text-center text-xs text-muted-foreground">{message.text}</p>;
+        return <article key={message.id} className={`flex min-w-0 shrink-0 items-start gap-2 ${user ? 'max-w-[92%] self-end flex-row-reverse' : 'w-full self-start'}`}>
+          <Avatar size="sm" className={`shrink-0 ${user ? 'bg-primary' : 'bg-secondary'}`}><AvatarFallback className={user ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground'}>{user ? 'You' : 'L'}</AvatarFallback></Avatar>
+          <div className="min-w-0 flex-1 space-y-1 text-left">
+            <div className={`min-w-0 rounded-xl px-4 py-3 text-sm leading-6 ${user ? 'bg-secondary' : 'bg-transparent'}`}>
+              {user ? <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p> : <MarkdownContent content={message.text} className="space-y-3 leading-6 [&_pre]:max-w-full [&_pre]:p-3" />}
+            </div>
+            <time dateTime={message.createdAt} className={`block text-[11px] text-muted-foreground ${user ? 'text-right' : ''}`}>{date.format(new Date(message.createdAt))}</time>
+          </div>
+        </article>;
+      })}
+      {allProposed.length > 1 && <PlanActions store={store} projectId={projectId} tasks={allProposed} />}
       {proposed.length > 0 && <div className="space-y-3">{proposed.map(task => <ProposalCard key={task.id} store={store} projectId={projectId} task={task} />)}</div>}
     </div>
     {jump && <div className="px-4 pb-3"><Button variant="outline" size="sm" onClick={latest}>{t('chatUi.jump')}</Button></div>}

@@ -3,6 +3,8 @@
 :root { color-scheme: dark; }
 [data-theme="light"] { color-scheme: light; }
 [data-theme="dark"] { color-scheme: dark; }
+/* The shell owns scrolling. Route transitions must never scroll the document. */
+html, body, #root { width: 100%; height: 100%; min-width: 0; overflow: hidden; }
 body { margin: 0; background: var(--color-canvas); color: var(--color-text); font: var(--type-body-size) / var(--type-body-line-height) var(--font-body); }
 button, input, textarea, select { font: inherit; color: inherit; }
 button, input, textarea, select { border: 1px solid var(--color-control-border); border-radius: var(--radius-control); padding: var(--space-xs) var(--space-md); background: var(--color-surface); }

@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useT } from '../../i18n';
 import type { Store } from '../../state/store';
+import { MarkdownContent } from '@/components/MarkdownContent';
 import { readableText } from './presentation';
 
 export function ReviewDocuments({ store, taskId, documents, attemptId }: { store: Store; taskId: string; documents: TaskArtifact[]; attemptId: string | undefined }) {
@@ -39,7 +40,7 @@ function DocumentRow({ store, taskId, document, version }: { store: Store; taskI
     <CollapsibleContent className="pb-3">
       {state.loading[`content:${key}`] && <div role="status"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-24 w-full" /></div>}
       {error && <Alert className="border-border"><AlertDescription><p>{t(`safeErrors.${error.code}`)}</p><Button variant="outline" size="sm" onClick={load}>{t('errors.retry')}</Button></AlertDescription></Alert>}
-      {content && <pre className="max-h-80 overflow-auto rounded-lg border border-border bg-background p-4 font-sans text-sm leading-relaxed whitespace-pre-wrap break-words">{readableText(content.text)}</pre>}
+      {content && (/^text\/markdown(?:;|$)/i.test(version.mediaType) ? <div className="max-h-80 overflow-auto rounded-lg border border-border bg-background p-4"><MarkdownContent content={content.text} /></div> : <pre className="max-h-80 overflow-auto rounded-lg border border-border bg-background p-4 font-sans text-sm leading-relaxed whitespace-pre-wrap break-words">{readableText(content.text)}</pre>)}
       {!text && <p className="text-sm text-muted-foreground">{readableText(version.abstractL1 || version.abstractL0) || t('reviewUi.contentUnavailable')}</p>}
     </CollapsibleContent>
   </Collapsible>;
