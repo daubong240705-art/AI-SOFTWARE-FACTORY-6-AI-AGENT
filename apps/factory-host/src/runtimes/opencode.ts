@@ -33,7 +33,7 @@ function utf8Prefix(text: string, bytes: number): string {
   return buffer.subarray(0, end).toString("utf8");
 }
 
-function promptFor(context: AttemptContext, maxBytes: number, token: string): string {
+export function promptFor(context: AttemptContext, maxBytes: number, token: string): string {
   const redact = (text: string): string => text.replaceAll(token, "[redacted]").replace(/fpx_[A-Za-z0-9_-]+/g, "[redacted]");
   const prompt = redact([
     `Task: ${context.task.code} — ${context.task.title}`,
@@ -104,8 +104,9 @@ export function createOpenCodeRuntime(options: OpenCodeRuntimeOptions): RuntimeA
         if (!workspace || !model?.socketPath || !model.token || !model.models.length
           || model.models.some((name) => !name || /[\s\p{Cc}]/u.test(name))
           || new Set(model.models).size !== model.models.length) return invalid();
-        const selected = model.models[0];
-        if (!selected) return invalid();
+        const selected = context.agent?.model ?? model.models[0];
+        if (!selected || !model.models.includes(selected)) return invalid();
+        const variant = context.agent?.effort ?? options.variant;
         const secrets = [model.token, ...Object.values(options.roots), options.nodeDir ?? dirname(dirname(process.execPath)),
           options.opencodeDir, options.relayFile ?? fileURLToPath(new URL("../sandbox/relay-main.js", import.meta.url)), model.socketPath];
         scrub = (text) => {
@@ -147,7 +148,7 @@ export function createOpenCodeRuntime(options: OpenCodeRuntimeOptions): RuntimeA
           },
           command: "/opt/opencode/bin/opencode",
           args: ["run", "--pure", "--format", "json", "-m", `factory/${selected}`, "--dir", workspace.path,
-            ...(options.variant === undefined ? [] : ["--variant", options.variant]),
+            ...(variant === undefined ? [] : ["--variant", variant]),
             promptFor(context, maxPromptBytes, model.token)],
         };
         if (JSON.stringify({ ...spec, env: { ...spec.env, OPENCODE_CONFIG_CONTENT: "" } }).includes(model.token)) return invalid();

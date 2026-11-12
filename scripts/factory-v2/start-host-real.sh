@@ -6,6 +6,7 @@
 #   export NINE_ROUTER_API_KEY=...                       # only in this shell
 #   FACTORY_AGENT_MODELS=<model[,model]> bash scripts/factory-v2/start-host-real.sh
 #   bash scripts/factory-v2/start-host-real.sh --check   # verify prerequisites, start nothing, spend nothing
+#   bash scripts/factory-v2/start-host-real.sh --local-cli  # enable local Codex/Claude attempts (full operator permissions)
 #
 # Optional: FACTORY_LEAD_MODEL, FACTORY_LEAD_EFFORT, FACTORY_MULTI_TEAM=1 (more than the default team),
 #           FACTORY_BUDGET_TASK_TOKENS (default here 500000), FACTORY_BUDGET_DAY_TOKENS (default here 2000000),
@@ -13,13 +14,21 @@
 # Run `bash scripts/factory-v2/deploy-host-wsl.sh` first so the app and the UI build are on ext4.
 set -u
 ROOT="${FACTORY_V2_HOME:-$HOME/factory-v2}"
-CHECK=0; [ "${1:-}" = "--check" ] && CHECK=1
+CHECK=0
+for arg in "$@"; do
+  case "$arg" in
+    --check) CHECK=1 ;;
+    --local-cli) export FACTORY_LOCAL_CLI=1
+      echo "WARNING: local CLI agents run with the operator's full permissions." >&2 ;;
+    *) echo "Usage: $0 [--check] [--local-cli]" >&2; exit 1 ;;
+  esac
+done
 fail=0
 ok()   { echo "  ok    $*"; }
 bad()  { echo "  MISSING  $*" >&2; fail=1; }
 
 echo "Factory Host (real OpenCode runtime) preflight"
-export PATH="$ROOT/node/bin:$PATH"
+export PATH="$ROOT/node/bin:$HOME/.local/bin:$PATH"
 command -v node >/dev/null 2>&1 && ok "node $(node --version)" || bad "node (expected $ROOT/node/bin/node)"
 [ -f "$ROOT/app/apps/factory-host/dist/main.js" ] && ok "deployed Host build ($(tr '
 ' ' ' < "$ROOT/app/VERSION" 2>/dev/null))" || bad "Host build: run scripts/factory-v2/deploy-host-wsl.sh"
@@ -30,6 +39,12 @@ command -v bwrap >/dev/null 2>&1 && ok "bubblewrap" || bad "bubblewrap (bwrap)"
 [ -n "${NINE_ROUTER_API_KEY:-}" ] && ok "NINE_ROUTER_API_KEY is set (value not shown)" || bad "NINE_ROUTER_API_KEY is not set in this shell"
 [ -n "${FACTORY_AGENT_MODELS:-}" ] && ok "agent models: ${FACTORY_AGENT_MODELS}" || bad "FACTORY_AGENT_MODELS (no default on purpose: you choose the model)"
 case "$ROOT" in /mnt/*) bad "FACTORY_V2_HOME must not be under /mnt";; esac
+if [ "${FACTORY_LOCAL_CLI:-0}" = "1" ]; then
+  for cli in codex claude; do
+    if command -v "$cli" >/dev/null 2>&1; then ok "$cli $("$cli" --version 2>/dev/null | head -1) (login status is shown on the System page)"
+    else bad "$cli CLI not found in PATH (install it inside WSL and log in)"; fi
+  done
+fi
 GATEWAY="${FACTORY_GATEWAY_URL:-https://ai.lazy.local/v1}"
 ok "gateway $GATEWAY"
 # With a key and a model chosen, ask the gateway which models it offers (a free listing call: no tokens are spent).

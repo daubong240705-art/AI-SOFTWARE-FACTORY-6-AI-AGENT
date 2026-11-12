@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { LIVE_ATTEMPT_STATES } from "@factory/contracts";
 import { engagementLoad, seatLoad } from "../dispatch/node.js";
 import { getSeatCapabilities, getSeatTools } from "../instructions/snapshot.js";
+import { getSeatRuntimeConfig } from "./runtime-config.js";
 import { listSeats } from "./service.js";
 
 export function projectEngagements(raw: Database, projectId: string) {
@@ -24,11 +25,15 @@ export function teamViews(raw: Database) {
       e.priority, e.max_concurrent AS maxConcurrent, e.state, e.revision FROM engagements e JOIN projects p ON p.id = e.project_id
       WHERE e.team_id = ? ORDER BY e.priority DESC, e.created_at, e.id`).all(team.id) as {
         projectId: string; projectName: string; engagementId: string; priority: number; maxConcurrent: number; state: string; revision: number }[];
-    return { ...team, seats: listSeats(raw, team.id).map(({ id, name, role, slots, isLead, revision }) => {
+    return { ...team, seats: listSeats(raw, team.id).map(({ id, name, role, slots, isLead, revision, runtime }) => {
       // Capabilities and tools come from the pinned pack snapshot; absent for v1 packs and teams without one.
       const capabilities = getSeatCapabilities(raw, { seatId: id });
       const tools = getSeatTools(raw, { seatId: id });
-      return { id, name, role, slots, isLead, revision, live: seatLoad(raw, id).used,
+      // The operator's per-seat override (null = the seat runs as its pack declares).
+      const config = getSeatRuntimeConfig(raw, id);
+      return { id, name, role, slots, isLead, revision, live: seatLoad(raw, id).used, runtime,
+        runtimeConfig: config === undefined ? null : { revision: config.revision, runtime: config.runtime, cli: config.cli,
+          model: config.model, effort: config.effort, permission: config.permission },
         ...(capabilities === null ? {} : { capabilities }), ...(tools === null ? {} : { tools }) };
     }),
     engagements: engagements.map((engagement) => ({ ...engagement,

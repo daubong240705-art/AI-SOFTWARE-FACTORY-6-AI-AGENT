@@ -74,8 +74,8 @@ test("0024 upgrades 0023 without a seed row, preserves data and is idempotent", 
   storage.raw.exec("INSERT INTO projects VALUES ('preserved',1,'Preserved','directory','/workspace/preserved','active')");
   const before = storage.raw.prepare("SELECT * FROM projects").all();
   const result = storage.migrate({ migrationsDir, backupDir: join(root, "backups") });
-  assert.deepEqual(result.applied, [24]); assert.ok(result.backup);
-  assert.equal(loadMigrations(migrationsDir).at(-1).name, "model_settings");
+  assert.deepEqual(result.applied, [24,25]); assert.ok(result.backup);
+  assert.equal(loadMigrations(migrationsDir).at(-1).name, "seat_runtime_config");
   assert.deepEqual(storage.raw.prepare("SELECT * FROM model_settings").all(), []);
   assert.deepEqual(readModelSettings(storage.raw, seed), { ...seed, revision: null, source: "environment" });
   assert.deepEqual(storage.raw.prepare("SELECT * FROM projects").all(), before);

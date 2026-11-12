@@ -104,7 +104,7 @@ test("host backfills existing artifact versions when upgrading from schema three
   const host = await launch(t, stateDir);
   const deadline = Date.now() + 5000;
   while (host.knowledge.stats().missing && Date.now() < deadline) await new Promise((done) => setImmediate(done));
-  assert.equal(host.storage.raw.prepare("SELECT MAX(version) AS version FROM migration_ledger").get().version, 24);
+  assert.equal(host.storage.raw.prepare("SELECT MAX(version) AS version FROM migration_ledger").get().version, 25);
   assert.equal(host.knowledge.stats().missing, 0);
   for (const query of ["thiet ke", "searchablebodymarker"]) {
     const rows = host.knowledge.search({ projectId, teamId: null, viewer: "operator" }, query);

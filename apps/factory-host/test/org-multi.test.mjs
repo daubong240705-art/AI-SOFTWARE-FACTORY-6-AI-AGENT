@@ -19,6 +19,7 @@ const samples = (f) => ({
   "engagements.create": { engagementId: randomUUID(), teamId: f.teamId, priority: 70, maxConcurrent: 2 },
   "engagements.update": { engagementId: f.primary.id, expectedRevision: 1, priority: 70 },
   "seats.update": { seatId: f.seat.id, expectedRevision: 1, slots: 2 },
+  "seats.set-runtime": { seatId: f.seat.id, expectedRevision: null, runtime: "acp", cli: "codex" },
 });
 test("multi-team defaults off", () => assert.equal(parseEnv({}).multiTeam, false));
 for (const value of ["0", "1"]) test(`multi-team accepts flag ${value}`, () => assert.equal(parseEnv({ FACTORY_MULTI_TEAM: value }).multiTeam, value === "1"));
@@ -32,7 +33,7 @@ test("main refuses invalid multi-team configuration before startup", () => {
   });
   assert.equal(result.status, 1); assert.equal(result.stdout, ""); assert.equal(result.stderr.trim(), "FACTORY_MULTI_TEAM must be 0 or 1");
 });
-for (const type of ORG_COMMANDS) test(`flag off refuses ${type} without mutation`, (t) => {
+for (const type of ORG_COMMANDS.filter(type => type !== "seats.set-runtime")) test(`flag off refuses ${type} without mutation`, (t) => {
   const f = fixture(t, { multiTeam: false });
   const snapshot = () => ["teams", "seats", "engagements"].map((table) => f.raw.prepare(`SELECT * FROM ${table}`).all());
   const before = snapshot();

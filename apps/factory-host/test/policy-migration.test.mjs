@@ -6,9 +6,9 @@ import { policyFixture } from "./policy-fixture.mjs";
 import { migrationsDir, temp } from "./org-fixture.mjs";
 import { openStorage } from "../dist/storage/database.js";
 
-test("fresh policy migration reaches 0024", t => {
+test("fresh policy migration reaches 0025", t => {
   const f = policyFixture(t); assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map(r => r.version),
-    Array.from({ length:24 }, (_, i) => i + 1));
+    Array.from({ length:25 }, (_, i) => i + 1));
 });
 for (const table of ["budgets", "autonomy_settings"]) test(`${table} is STRICT`, t => {
   const f = policyFixture(t); assert.equal(f.raw.prepare("SELECT strict FROM pragma_table_list WHERE name=?").get(table).strict, 1);
@@ -64,10 +64,10 @@ test("upgrade from 0015 preserves every budget row unchanged and other schema", 
   raw.prepare("INSERT INTO budgets VALUES ('p','day-budget',2,'day','2026-11-10',12345,90)").run();
   raw.prepare("INSERT INTO budgets VALUES ('q','task-budget',1,'task','task-ref',999,50)").run();
   const before = raw.prepare("SELECT * FROM budgets ORDER BY project_id,id").all();
-  const schema = () => raw.prepare("SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' AND name NOT IN ('budgets','autonomy_settings','team_breakers','notifications','notification_deliveries','notifications_inbox','standing_approvals','standing_approval_uses','standing_approval_uses_day','integration_merges','integration_merges_pending','document_extractions','model_settings','model_settings_models_insert','model_settings_models_update') ORDER BY type,name").all();
+  const schema = () => raw.prepare("SELECT type,name,sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%' AND name NOT IN ('budgets','autonomy_settings','team_breakers','notifications','notification_deliveries','notifications_inbox','standing_approvals','standing_approval_uses','standing_approval_uses_day','integration_merges','integration_merges_pending','document_extractions','seat_runtime_config','model_settings','model_settings_models_insert','model_settings_models_update') ORDER BY type,name").all();
   const otherSchema = schema(), ledger = raw.prepare("SELECT * FROM migration_ledger ORDER BY version").all();
   const result = storage.migrate({ migrationsDir, backupDir: join(root, "backups"), now: () => new Date("2026-11-10T00:00:00Z") });
-  assert.deepEqual(result.applied, [16, 17,18,19,20,21,22,23,24]); assert.ok(result.backup);
+  assert.deepEqual(result.applied, [16, 17,18,19,20,21,22,23,24,25]); assert.ok(result.backup);
   assert.deepEqual(raw.prepare("SELECT * FROM budgets ORDER BY project_id,id").all(), before);
   const before0020 = sql => sql.replace(/,\s*extra_loops INTEGER NOT NULL DEFAULT 0 CHECK \(extra_loops BETWEEN 0 AND 10\)/, "").replace(/,\s*run_failures INTEGER NOT NULL DEFAULT 0 CHECK \(run_failures BETWEEN 0 AND 10\)/, "").replace(/,\s*reconciled_at TEXT/, "");
   // 0022 appends only these document columns to artifact_versions; all older definitions must match.

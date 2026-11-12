@@ -76,6 +76,9 @@ import { createExternalTools, type ExternalTools } from "./mcp-external/index.js
 import { docWorkerConfig, type DocWorkerConfig } from "./documents/config.js";
 import { createExtractionService, type ExtractionService } from "./documents/service.js";
 import { registerExtractionRoutes } from "./documents/routes.js";
+import { createAgentCliProbe } from "./runtimes/probe.js";
+import { createLocalCliRuntime } from "./runtimes/local-cli.js";
+import Fastify from "fastify";
 
 function proxySocketPath(path: string): string {
   try {
@@ -111,6 +114,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   dispatch: { nodeSlots: number };
   workspace: { projectsRoot: string; worktreesRoot: string };
   agentProxy?: { port: number; approvedModels: string[]; socketPath?: string };
+  localCli: boolean;
   opencode?: { dir: string };
   pushRemotes: PushRemote[] | null;
   pushSshCommand?: string;
@@ -118,6 +122,8 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   if (env.FACTORY_MULTI_TEAM !== undefined && env.FACTORY_MULTI_TEAM !== "0" && env.FACTORY_MULTI_TEAM !== "1")
     throw new Error("FACTORY_MULTI_TEAM must be 0 or 1");
   const pushRemotes = env.FACTORY_PUSH_REMOTES === undefined ? null : parsePushRemotes(env.FACTORY_PUSH_REMOTES);
+  if (env.FACTORY_LOCAL_CLI !== undefined && env.FACTORY_LOCAL_CLI !== "0" && env.FACTORY_LOCAL_CLI !== "1")
+    throw new Error("FACTORY_LOCAL_CLI must be 0 or 1");
   validatePushSshCommand(env.FACTORY_PUSH_SSH_COMMAND);
   const input = env.FACTORY_PORT ?? "8787";
   if (!/^[0-9]+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) < 1 || Number(input) > 65_535)
@@ -190,7 +196,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   }
   return {
     ...(!env.FACTORY_MCP_SERVERS_FILE ? {} : { mcpServers: loadMcpServers(env.FACTORY_MCP_SERVERS_FILE) }),
-    multiTeam: env.FACTORY_MULTI_TEAM === "1",
+    multiTeam: env.FACTORY_MULTI_TEAM === "1", localCli: env.FACTORY_LOCAL_CLI === "1",
     stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) }, workspace, pushRemotes,
     ...(env.FACTORY_PUSH_SSH_COMMAND === undefined ? {} : { pushSshCommand: env.FACTORY_PUSH_SSH_COMMAND }),
     ...(opencode === undefined ? {} : { opencode }),
@@ -237,6 +243,7 @@ export async function startHost(options: {
   budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>; uiDir?: string;
   agentModels?: string[];
   runtimes?: RuntimeAdapter[];
+  localCli?: { enabled: boolean; codexCommand?: readonly string[]; claudeCommand?: readonly string[] };
   periodicBackup?: { dir: string; intervalMs?: number; firstRunDelayMs?: number; keep?: BackupKeep } | null;
   dispatch?: Partial<DispatcherConfig> & { stepMs?: number; adapters?: RuntimeAdapter[] } | null;
   workspace?: { projectsRoot: string; worktreesRoot: string; evidenceDir?: string } | null;
@@ -293,6 +300,12 @@ export async function startHost(options: {
   let ruleDeps: RuleDeps | undefined;
   let knowledgeTimer: ReturnType<typeof setImmediate> | undefined;
   let extractions: ExtractionService | undefined;
+  let localMcp: FastifyInstance | undefined;
+  let localTokens: TokenRegistry | undefined;
+  let localMcpUrl: string | undefined;
+  const localCliCommands = { codex: options.localCli?.codexCommand ?? ["codex"], claude: options.localCli?.claudeCommand ?? ["claude"] };
+  const probeAgentClis = createAgentCliProbe({ enabled: options.localCli?.enabled === true, commands: localCliCommands });
+  if (options.localCli?.enabled) console.warn("Local CLI runtimes enabled: agents run with the operator's full permissions.");
   const interval = options.timers?.setInterval ?? ((callback: () => void, ms: number) => setInterval(callback, ms).unref());
   const clearExpiry = options.timers?.clearInterval ?? ((handle: unknown) => clearInterval(handle as ReturnType<typeof setInterval>));
   let closePromise: Promise<void> | undefined;
@@ -304,6 +317,8 @@ export async function startHost(options: {
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
       await extractions?.close();
       await effects?.close();
+      await localMcp?.close();
+      localTokens?.revokeAll();
       try { await runner?.stop(); } finally {
         try {
           proxy?.tokens.revokeAll();
@@ -442,13 +457,45 @@ export async function startHost(options: {
       },
     });
     runner.recover();
+    const raw = storage.raw;
+    const makeAttemptMcp = (dispatcher: Dispatcher) => createMcpHandler({
+      ...(external === undefined ? {} : { external }), toolPolicy: createToolPolicy(raw),
+      workflow: createWorkflowPatchMcp({ raw, hub, clock, dispatcher }),
+      standing: createStandingApprovalMcp({ raw, hub, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes }),
+      skills: createSkillsMcp({ raw, now: clock }),
+      ...(options.multiTeam ? { briefing: createBriefingMcp({ raw, store: artifacts.store, now: clock }),
+        requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }) } : {}),
+      knowledge: createKnowledgeMcp({ raw, knowledge, store: artifacts.store, now: clock }),
+      requestDecision(grant, request) {
+        const result = requestAgentDecision({ raw, hub, now: clock, newId: resultId }, { grant, request });
+        // Return the tool response before fencing this attempt.
+        setTimeout(() => { void dispatcher.parkAttempt(grant).catch(() => { console.error("Decision parking failed"); }); }, 50).unref();
+        return result;
+      },
+      progress(grant, input) {
+        assertActiveGrant(raw, grant);
+        if (!dispatcher.recordAgentProgress(grant, input.summary, input.percent)) throw new McpToolError("attempt is not active");
+      },
+      registerOutput(grant, input) {
+        return hub.transaction(() => {
+          const { result: ref, effects: changes } = collectLifecycleChanges(raw, () => registerAgentOutput(
+            { raw, store: artifacts.store, now: clock, newId: resultId, afterRegister, documents: documentConfig }, { ...input, grant }));
+          for (const entity of changes) hub.append({ projectId: grant.projectId, causationId: grant.attemptId,
+            rootCausationId: grant.attemptId, payload: { type: "entity.changed", entity } });
+          hub.append({ projectId: grant.projectId, causationId: grant.attemptId, rootCausationId: grant.attemptId,
+            payload: { type: "entity.changed", entity: { kind: "artifact-version", id: ref.artifactId, revision: ref.version } } });
+          return ref;
+        });
+      },
+    });
+    if (options.localCli?.enabled) localTokens = createTokenRegistry({ clock });
     if (options.modelProxy) {
       const configured = options.modelProxy;
       if (!Number.isSafeInteger(configured.port) || configured.port < 0 || configured.port > 65_535
         || !agentModelsSchema.safeParse(configured.approvedModels).success) throw new Error("Invalid model proxy configuration");
       const upstream = createUpstream(configured.upstream);
       listModels ??= () => upstream.listModels();
-      const tokens = createTokenRegistry({ clock });
+      const tokens = localTokens ?? createTokenRegistry({ clock });
       const allowedHosts = configured.allowedHosts === undefined ? [] : [...configured.allowedHosts];
       let modelPort = SANDBOX_RELAY_PORT;
       modelAccess = { issue(input) {
@@ -460,37 +507,7 @@ export async function startHost(options: {
       const raw = storage.raw;
       startModelProxy = async () => {
       const dispatcher = dispatch;
-      const mcp = dispatcher === null ? undefined : createMcpHandler({
-        ...(external === undefined ? {} : { external }),
-        toolPolicy: createToolPolicy(raw),
-        workflow: createWorkflowPatchMcp({ raw, hub, clock, dispatcher }),
-        standing: createStandingApprovalMcp({ raw, hub, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes }),
-        skills: createSkillsMcp({ raw, now: clock }),
-        ...(options.multiTeam ? { briefing: createBriefingMcp({ raw,store: artifacts.store,now: clock }) } : {}),
-        ...(options.multiTeam ? { requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }) } : {}),
-        knowledge: createKnowledgeMcp({ raw, knowledge, store: artifacts.store, now: clock }),
-        requestDecision(grant, request) {
-          const result = requestAgentDecision({ raw, hub, now: clock, newId: resultId }, { grant, request });
-          // The synchronous tool result is serialized before this deferred stop fences its session.
-          setTimeout(() => { void dispatcher.parkAttempt(grant).catch(() => { console.error("Decision parking failed"); }); }, 50).unref();
-          return result;
-        },
-        progress(grant, input) {
-          assertActiveGrant(raw, grant);
-          if (!dispatcher.recordAgentProgress(grant, input.summary, input.percent)) throw new McpToolError("attempt is not active");
-        },
-        registerOutput(grant, input) {
-          return hub.transaction(() => {
-            const { result: ref, effects: changes } = collectLifecycleChanges(raw, () => registerAgentOutput(
-              { raw, store: artifacts.store, now: clock, newId: resultId, afterRegister, documents: documentConfig }, { ...input, grant }));
-            for (const entity of changes) hub.append({ projectId: grant.projectId, causationId: grant.attemptId,
-              rootCausationId: grant.attemptId, payload: { type: "entity.changed", entity } });
-            hub.append({ projectId: grant.projectId, causationId: grant.attemptId, rootCausationId: grant.attemptId,
-              payload: { type: "entity.changed", entity: { kind: "artifact-version", id: ref.artifactId, revision: ref.version } } });
-            return ref;
-          });
-        },
-      });
+      const mcp = dispatcher === null ? undefined : makeAttemptMcp(dispatcher);
       modelProxy = createModelProxy({ upstream, tokens, raw, budget: budgetConfig, clock,
         ...(routeBreaker === undefined ? {} : { routeBreaker }),
         newId: createIdGenerator(clock), allowedHosts, ...(mcp === undefined ? {} : { mcp }) });
@@ -514,6 +531,7 @@ export async function startHost(options: {
       const { stepMs, adapters, ...config } = options.dispatch;
       const registry = new RuntimeRegistry([
         createFakeRuntime(stepMs === undefined ? {} : { stepMs }), ...(adapters ?? []), ...(options.runtimes ?? []),
+        ...(options.localCli?.enabled ? [createLocalCliRuntime({ codexCommand: localCliCommands.codex, claudeCommand: localCliCommands.claude })] : []),
       ]);
       const raw = storage.raw;
       let roots: ReturnType<typeof canonicalRoots> | null = null;
@@ -524,6 +542,19 @@ export async function startHost(options: {
         workspace = createWorkspaceProvider({ roots, evidenceDir });
       }
       const resultsEvidenceDir = evidenceDir;
+      // Local CLIs need only an attempt grant, even without any model gateway configured.
+      if (options.localCli?.enabled) {
+        const proxyAccess = modelAccess;
+        // startModelProxy has not run yet, so use its registry through proxyAccess when present.
+        modelAccess = proxyAccess ? {
+          issue(input) { return { ...proxyAccess.issue(input), ...(localMcpUrl ? { mcpBaseUrl: localMcpUrl } : {}) }; },
+          revoke: (attemptId) => proxyAccess.revoke(attemptId),
+        } : {
+          issue(input) { return { token: localTokens!.issue({ ...input, allowedModels: [] }).token,
+            models: [], baseUrl: `${localMcpUrl}/v1`, mcpBaseUrl: localMcpUrl! }; },
+          revoke: (attemptId) => localTokens!.revoke(attemptId),
+        };
+      }
       dispatch = createDispatcher({ storage, hub, registry, clock, config, multiTeam: options.multiTeam ?? false,
         ...(options.timers === undefined ? {} : { timers: options.timers }),
         onInReview(input) { requestTaskReview({ raw, hub, now: clock, newId: resultId }, input); },
@@ -546,6 +577,24 @@ export async function startHost(options: {
       });
     }
     await startModelProxy?.();
+    if (options.localCli?.enabled && dispatch) {
+      // A separate, loopback-only MCP listener keeps the sandbox's Unix socket transport intact.
+      const tokens = localTokens!;
+      const mcp = makeAttemptMcp(dispatch);
+      localMcp = Fastify({ logger: false, bodyLimit: 1_048_576 });
+      localMcp.setErrorHandler((_error, _request, reply) => reply.code(400).send({ error: "Invalid request" }));
+      localMcp.post("/mcp", async (request, reply) => {
+        reply.header("cache-control", "no-store").header("x-content-type-options", "nosniff");
+        const expectedHost = new URL(localMcpUrl!).host;
+        const grant = tokens.resolve(request.headers.authorization?.replace(/^Bearer /, ""));
+        if (request.headers.host !== expectedHost || !grant) return reply.code(401).send({ error: "Authentication required" });
+        try {
+          const response = await mcp.handle(grant, request.body);
+          return reply.code(response.status).send(response.body);
+        } catch { return reply.code(400).send({ error: "Invalid request" }); }
+      });
+      localMcpUrl = `http://127.0.0.1:${await listenLoopback(localMcp, 0)}`;
+    }
     if (dispatch) {
       const raw = storage.raw;
       dispatch.start();
@@ -638,14 +687,16 @@ export async function startHost(options: {
           ...INTEGRATION_COMMANDS,
           ...NOTIFICATION_COMMANDS,
           ...STANDING_COMMANDS,
-          ...(options.multiTeam ? [...ORG_COMMANDS, ...REQUEST_COMMANDS] : []),
+          "seats.set-runtime",
+          ...(options.multiTeam ? [...ORG_COMMANDS.filter((command) => command !== "seats.set-runtime"), ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],
         capabilities: ["inbox", "approvals.review"],
         // Read-only facts for the operator's System page; no paths, tokens or environment values.
         host: { startedAt: hostStartedAt, nodeVersion: process.version, platform: process.platform },
-        features: { multiTeam: options.multiTeam === true, dispatch: dispatch !== null, documentExtraction: options.docWorker?.enabled ?? true },
+        features: { multiTeam: options.multiTeam === true, dispatch: dispatch !== null, documentExtraction: options.docWorker?.enabled ?? true, localCli: options.localCli?.enabled === true },
       }));
+      app.get("/system/agent-clis", { preHandler: guards.session }, async () => ({ apiVersion: 1, ok: true, ...(await probeAgentClis()) }));
       if (options.uiDir) registerStaticUi(app, { dir: options.uiDir });
     } });
     await listenLoopback(app, port);

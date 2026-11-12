@@ -899,3 +899,27 @@ test-only follow-up.
 ## Model settings
 
 The authenticated `models.set` command and `GET /system/models` endpoint manage the Lead model and reasoning effort plus the ordered agent model allow-list. A setting row is stored in the Host database with an optimistic revision; the first agent model is used as the default for new attempts. The gateway URL and API key remain in the environment and are never stored or returned. While no database row exists, `FACTORY_LEAD_MODEL`, `FACTORY_LEAD_EFFORT`, and `FACTORY_AGENT_MODELS` remain the effective values; a row takes precedence immediately for subsequent Lead turns and newly issued agent tokens. Gateway model discovery is server-side, bounded, and cached briefly.
+# Local CLI runtimes
+
+Set `FACTORY_LOCAL_CLI=1` (default: off), or pass `--local-cli` to
+`scripts/factory-v2/start-host-real.sh`, to run installed Codex and Claude Code CLIs
+as Host child processes in each attempt's git worktree. Install and log in on the
+Host machine (`codex login` or `claude auth login`). The session-protected
+`GET /system/agent-clis` reports installation, version and login status; probes are
+cached for 30 seconds.
+
+Use the `seats.set-runtime` command with `seatId`, `expectedRevision` (`null` when
+there is no override), `runtime: "acp"`, `cli: "codex" | "claude"`, and optional
+`model`, `effort` (`low`, `medium`, `high`, `xhigh`) and `permission`. Replacements
+increment the config revision; `runtime: "inherit"` deletes it and restores the
+pack runtime. `runtime: "native-opencode"` can also override model/effort without
+a CLI. Omitted model/effort use CLI defaults; Claude currently ignores effort.
+Changes apply to new attempts, including Lead attempts; Lead chat uses the gateway.
+
+`autonomous` is the default and bypasses CLI approvals and sandbox restrictions.
+`workspace-write` selects Codex's workspace sandbox or Claude's `acceptEdits`
+permission mode. These agents run with the operator's permissions and can access
+the Host machine, including local login files; Claude's permission mode is not an
+OS sandbox. Enable only for trusted tasks. Factory does not copy login credentials
+into its database; attempt MCP tokens are supplied through the child environment.
+
