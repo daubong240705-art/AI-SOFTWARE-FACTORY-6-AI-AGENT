@@ -1,4 +1,22 @@
 export const extra = {
+  modelsUi: {
+    title: 'Models', description: 'Choose models for the Lead and agents.', change: 'Change models', lead: 'Lead', agents: 'Agent',
+    effort: 'Reasoning effort', efforts: { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra high' },
+    default: 'Default', environment: 'From environment', database: 'Saved in Host', unknown: 'Unknown source',
+    gatewayReady: 'Gateway configured, key present in the environment', gatewayMissing: 'Gateway not configured', gatewayNoKey: 'Gateway configured, no key in the environment',
+    note: 'The API key and gateway URL are set only through environment variables and are not stored here. Lead changes apply from the next chat turn; new agent work uses the new list, and running work keeps its current list.',
+    noProject: 'At least one project is required to save model settings.',
+    search: 'Search models by name or ID', count: '{count} models', selectAll: 'Select all ({count})', clearAll: 'Deselect all',
+    vision: 'Accepts images', reasoning: 'Supports reasoning', outside: 'Not in gateway list', empty: 'No matching models.',
+    unavailable: 'Could not retrieve models from the gateway; enter a model ID manually.', manual: 'Model ID', add: 'Add',
+    invalidModel: 'Enter a model ID with 1–256 characters, without whitespace or control characters.',
+    limit: 'Maximum 8 models.', minimum: 'Choose at least one agent model.', chosen: 'Agent model order',
+    makeDefault: 'Make {model} the default', moveUp: 'Move {model} up', moveDown: 'Move {model} down',
+    cancel: 'Cancel', save: 'Save', saving: 'Saving…', back: 'Back', confirm: 'Confirm save', confirmTitle: 'Confirm model settings',
+    warning: 'Using models consumes real tokens. This choice applies to new turns and new work.', understood: 'I understand',
+    invalid: 'Choose a Lead model, reasoning effort and 1–8 unique agent models.',
+    revisionMissing: 'Reload settings to obtain the current revision before saving.', saved: 'Model settings saved', conflict: 'Data changed and has been reloaded',
+  },
   mascot: { label: 'Characters', gallery: 'Character gallery', openGallery: 'View characters', description: 'Meet every seat, expression and size in your selected character set.', sizes: 'Sizes', disabled: 'Characters are off. Letter avatars are shown.', skins: { classic: 'Classic', forest: 'Forest', ocean: 'Ocean', fantasy: 'Fantasy', off: 'Off' }, states: { idle: 'Idle', thinking: 'Thinking', working: 'Working', done: 'Done', typing: 'Typing', attention: 'Needs attention', error: 'Error', success: 'Success', offline: 'Offline' } },
   folderPicker: {
     open: 'Choose folder…', title: 'Choose a project folder', description: 'Browse folders on the Host and choose a workspace.',

@@ -20,6 +20,7 @@ import { emptyNotifications, emptyIntegration, notificationPendingKey, integrati
 import type { NotificationsResponse, IntegrationResponse } from '../api/notificationModels';
 import { notificationsMarkRead } from '../api/commands';
 import { emptySystem, systemAreas, type SystemArea, type SystemState } from './system';
+import { modelSettingsPendingKey } from '../api/modelSettings';
 
 type AutomationCommand = Extract<Command, { type: `schedules.${string}` | `rules.${string}` | `monitors.${string}` }>;
 
@@ -199,6 +200,7 @@ export function createStore(options: StoreOptions = {}) {
   async function loadSystem(area?: SystemArea) {
     if (state.session !== 'authenticated') return;
     const reads = {
+      models: async () => ({ models: await api.getModelSettings() }),
       health: async () => ({ health: await api.systemHealth() }),
       capabilities: async () => ({ capabilities: await api.systemCapabilities() }),
       backups: async () => ({ backups: await api.systemBackups() }),
@@ -211,6 +213,11 @@ export function createStore(options: StoreOptions = {}) {
     })));
   }
   const loadQueue = (teamId: string) => readM3(`queue:${teamId}`, async () => ({ queues: { ...state.m3.queues, [teamId]: (await api.getTeamQueue(teamId)).items } }));
+  const loadModelSettings = () => state.session !== 'authenticated' ? Promise.resolve()
+    : enqueue('system:models', generation, async () => {
+      const models = await api.getModelSettings();
+      return { get system() { return { ...state.system, models }; } };
+    });
   const loadRequests = (filters: { state?: string; team?: string } = {}) => readM3('requests', async id => ({ requests: (await api.listRequests(id, filters)).items }));
   const loadRequestTargets = () => readM3('request-targets', async id => ({ requestTargets: (await api.listRequests(id)).items }));
   const loadRequest = (taskId: string) => readM3(`request:${taskId}`, async id => ({ requestDetails: { ...state.m3.requestDetails, [taskId]: (await api.getRequest(id, taskId)).request } }));
@@ -616,6 +623,7 @@ export function createStore(options: StoreOptions = {}) {
     if (payload.type === 'message.appended') void loadMessages(payload.message.conversationId, true);
     else if (payload.type === 'command.receipted') void loadArea('budget', true);
     else if (payload.type === 'entity.changed') {
+      if (String(payload.entity.kind) === 'model-settings') void loadModelSettings();
       if (String(payload.entity.kind) === 'notification') void loadNotifications(true);
       if (payload.entity.kind === 'task') void loadIntegration(true);
       if (payload.entity.kind === 'artifact-version') {
@@ -687,6 +695,9 @@ export function createStore(options: StoreOptions = {}) {
   function sendSettings(command: SettingsCommand) {
     return sendCollectionCommand(command, settingsPendingKey(command), loadSettings, 'settingsWrite.conflict');
   }
+  function sendModelSettings(command: Extract<Command, { type: 'models.set' }>) {
+    return sendCollectionCommand(command, modelSettingsPendingKey, loadModelSettings, 'modelsUi.conflict');
+  }
   function sendKnowledge(command: KnowledgeCommand) {
     return sendCollectionCommand(command, knowledgePendingKey(command.payload.artifactId, command.payload.version), async () => {
       await Promise.all([
@@ -733,7 +744,8 @@ export function createStore(options: StoreOptions = {}) {
   }
   async function sendCollectionCommand(command: Command, key: string, reload: () => Promise<void>, conflictKey: string, quietConflict = false, recoverNotFound = false) {
     const scope = generation;
-    if (state.loading[key] || state.session !== 'authenticated' || command.projectId !== state.selectedProjectId) return;
+    const projectId = command.type === 'models.set' ? state.selectedProjectId ?? state.projects[0]?.id : state.selectedProjectId;
+    if (state.loading[key] || state.session !== 'authenticated' || command.projectId !== projectId) return;
     update({ loading: { ...state.loading, [key]: true }, errors: { ...state.errors, [key]: undefined } });
     try {
       const response = await send(command);
@@ -769,7 +781,7 @@ export function createStore(options: StoreOptions = {}) {
     watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
     loadTeams, loadPack, loadMcpServers, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
-    loadActivity, loadSystem,
+    loadActivity, loadSystem, loadModelSettings, sendModelSettings,
     browseFolders: api.browseFolders,
     watchActivity: () => {
       openM3.set('activity', loadActivity); void loadActivity();

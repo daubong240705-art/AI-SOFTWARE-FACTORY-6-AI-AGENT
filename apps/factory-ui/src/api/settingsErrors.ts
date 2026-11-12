@@ -5,6 +5,7 @@ const messages: Record<string, string> = {
   'project subject must match project id': 'projectMismatch',
   'project scope must match project id': 'projectMismatch',
   'autonomy revision changed': 'revisionChanged',
+  'model settings revision changed': 'revisionChanged',
   'autonomy setting does not exist': 'settingMissing',
   'standing approval revision changed': 'revisionChanged',
   'standing approval not found': 'approvalMissing',
