@@ -1,17 +1,18 @@
 import type { Task } from '@factory/contracts';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Mascot, type MascotState } from '@/components/mascot';
 import { Badge } from '@/components/ui/badge';
 import { useT } from '../i18n';
 import type { StoreState } from '../state/store';
 import { relativeTime } from './Inbox';
 import { taskTime } from './shell/taskTime';
 
-export function SeatChip({ name }: { name: string | undefined }) {
+export function SeatChip({ name, state = 'idle', size = 28 }: { name: string | undefined; state?: MascotState; size?: number }) {
   const t = useT();
   if (!name) return <span className="text-xs text-muted-foreground">{t('taskUi.dash')}</span>;
   const initials = name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join('');
   return <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground" title={name}>
-    <Avatar className="size-5 rounded-md"><AvatarFallback className="rounded-md bg-muted font-mono text-[9px]">{initials}</AvatarFallback></Avatar>
+    <Mascot seat={name} size={size} state={state} fallback={<Avatar className="size-5 rounded-md"><AvatarFallback className="rounded-md bg-muted font-mono text-[9px]">{initials}</AvatarFallback></Avatar>} />
     <span className="max-w-24 truncate">{name}</span>
   </span>;
 }

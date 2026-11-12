@@ -3,6 +3,7 @@ import { AnimatePresence } from 'motion/react';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCheck } from 'lucide-react';
+import { Mascot } from '@/components/mascot';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
@@ -107,7 +108,7 @@ export function Attention({ store }: { store: Store }) {
       <Stagger ref={list} aria-label={t('attention.list')} className="m-0 list-none p-0"><AnimatePresence initial={false}>{rows.map((row, index) => {
         const code = row.code ?? state.tasks.find(task => task.projectId === row.projectId && task.id === state.globalInbox.approvals.find(approval => `approval:${approval.id}` === row.key)?.taskId)?.code;
         return <StaggerItem key={row.key} index={index} collapse><Button type="button" variant="ghost" aria-current={selected?.key === row.key ? 'true' : undefined} aria-selected={selected?.key === row.key} className={cn('h-auto w-full flex-col items-stretch gap-2 rounded-none border-t border-l-2 border-t-border border-l-transparent px-6 py-3 text-left whitespace-normal hover:bg-card', selected?.key === row.key && 'border-l-need bg-secondary hover:bg-secondary')} onClick={() => select(row)}>
-          <span className="flex items-start gap-3"><strong className="min-w-0 flex-1 text-sm leading-relaxed font-semibold break-words">{attentionTitle(row.title)}</strong>{row.actionable && <span aria-label={t('inboxUi.needsDecision')} className="mt-2 size-1.5 shrink-0 rounded-full bg-need" />}</span>
+          <span className="flex items-start gap-3"><Mascot seat={state.activity?.teams.flatMap(team => team.seats).find(seat => seat.needsYou.some(need => `approval:${need.approvalId}` === row.key))?.name ?? 'Lead'} size={32} state="attention" /><strong className="min-w-0 flex-1 text-sm leading-relaxed font-semibold break-words">{attentionTitle(row.title)}</strong>{row.actionable && <span aria-label={t('inboxUi.needsDecision')} className="mt-2 size-1.5 shrink-0 rounded-full bg-need" />}</span>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal text-muted-foreground"><ProjectTile id={row.projectId} name={name(row)} className="h-5 w-6" /><span>{name(row)}</span>{code && <span className="font-mono">{code}</span>}{!row.since.startsWith('9999') && <time dateTime={row.since} className="ml-auto">{relativeTime(row.since)}</time>}</span>
         </Button></StaggerItem>;
       })}</AnimatePresence></Stagger>

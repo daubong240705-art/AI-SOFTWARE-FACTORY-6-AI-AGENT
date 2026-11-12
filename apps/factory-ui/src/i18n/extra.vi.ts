@@ -2,6 +2,7 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  mascot: { label: 'Nhân vật', gallery: 'Bộ nhân vật', openGallery: 'Xem bộ nhân vật', description: 'Khám phá từng vị trí, biểu cảm và kích thước trong bộ nhân vật đã chọn.', sizes: 'Kích thước', disabled: 'Đã tắt nhân vật. Ảnh đại diện bằng chữ được hiển thị.', skins: { classic: 'Mặc định', forest: 'Rừng', ocean: 'Biển', fantasy: 'Kỳ ảo', off: 'Tắt' }, states: { idle: 'Nghỉ', thinking: 'Đang nghĩ', working: 'Đang làm', done: 'Xong', typing: 'Đang gõ', attention: 'Cần chú ý', error: 'Lỗi', success: 'Thành công', offline: 'Ngoại tuyến' } },
   folderPicker: {
     open: 'Chọn thư mục…', title: 'Chọn thư mục dự án', description: 'Duyệt thư mục trên máy chủ và chọn thư mục làm việc.',
     breadcrumb: 'Vị trí thư mục hiện tại', up: 'Lên một cấp', folders: 'Thư mục con', loading: 'Đang tải thư mục…',

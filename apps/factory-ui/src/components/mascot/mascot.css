@@ -1,0 +1,27 @@
+﻿.mascot {
+  --mascot-outline: color-mix(in srgb, var(--sidebar-bg) 80%, var(--p-2));
+  --mascot-paper: color-mix(in srgb, var(--text) 85%, var(--p-4));
+  --mascot-orange: color-mix(in srgb, var(--run) 80%, var(--p-3));
+  --mascot-brown: color-mix(in srgb, var(--run) 55%, var(--sidebar-bg));
+  --mascot-lavender: var(--p-2); --mascot-pink: var(--p-3);
+  --mascot-blue: var(--p-4); --mascot-green: var(--p-1);
+  --mascot-yellow: color-mix(in srgb, var(--run) 70%, var(--text));
+  --mascot-grey: color-mix(in srgb, var(--muted) 75%, var(--p-4));
+  --mascot-screen: color-mix(in srgb, var(--p-1) 35%, var(--sidebar-bg));
+  --mascot-blush: var(--p-3);
+  display: inline-grid; flex: none; place-items: center; vertical-align: middle;
+  color: var(--mascot-outline); line-height: 0;
+}
+[data-theme="light"] .mascot { --mascot-outline: var(--text); --mascot-paper: var(--surface); }
+.mascot-body { transform-origin: 50% 70%; }
+.mascot-eyes { transform-box: fill-box; transform-origin: center; animation: mascot-blink 5.3s infinite; animation-delay: var(--mascot-delay); }
+.mascot-working .mascot-body, .mascot-typing .mascot-body { animation: mascot-bob 1.4s ease-in-out infinite; }
+.mascot-thinking .mascot-effect { animation: mascot-float 1.8s ease-in-out infinite; }
+.mascot-sparkle, .mascot-dots { animation: mascot-twinkle 1.8s ease-in-out infinite; }
+.mascot-offline .mascot-body { filter: grayscale(1); opacity: .7; }
+.mascot-static *, .mascot-static { animation: none !important; }
+@keyframes mascot-blink { 0%, 92%, 96%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.08); } }
+@keyframes mascot-bob { 50% { transform: translateY(-2px); } }
+@keyframes mascot-float { 50% { transform: translateY(-4px) rotate(8deg); } }
+@keyframes mascot-twinkle { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .mascot, .mascot * { animation: none !important; } }

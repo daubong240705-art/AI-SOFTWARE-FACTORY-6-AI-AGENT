@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { Dialog } from '../components/Dialog';
@@ -15,6 +15,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Reveal } from '@/components/motion/Reveal';
 
 const compactQuery = '(max-width: 1179px)';
+const MascotGallery = lazy(() => import('./MascotGallery'));
 function useCompact() {
   const [compact, setCompact] = useState(() => typeof matchMedia === 'function' && matchMedia(compactQuery).matches);
   useEffect(() => {
@@ -63,6 +64,7 @@ export function AppShell({ store }: { store: Store }) {
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} tab={teamTab} onTabChange={next => navigate('team', 'overview', next)} onTask={openTask} />
         : view === 'system' ? <System store={store} />
+        : view === 'mascots' ? <Suspense fallback={<p role="status">{t('viewStates.loading')}</p>}><MascotGallery /></Suspense>
         : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} tab={tab} onTabChange={next => navigate(view, next)} openChat={chatProject === selected.id} onChatOpened={() => setChatProject(null)} initialTaskId={initialTask?.projectId === selected.id ? initialTask.taskId : undefined} />
         : <p role="status">{t('viewStates.loading')}</p>}
       </Reveal>

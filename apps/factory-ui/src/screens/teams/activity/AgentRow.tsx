@@ -1,5 +1,6 @@
-import { Avatar, AvatarBadge, AvatarFallback } from '@/components/ui/avatar';
+﻿import { Avatar, AvatarBadge, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Mascot, mascotState } from '@/components/mascot';
 import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import type { ActivitySeat } from '@/api/activityModels';
@@ -18,11 +19,11 @@ export function AgentRow({ seat, now, onTask }: { seat: ActivitySeat; now: numbe
   return <div className="min-w-0 py-1">
     <div role="button" tabIndex={run ? 0 : -1} aria-disabled={!run} onClick={open}
       onKeyDown={event => { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); open(); } }}
-      className={cn('grid min-w-0 grid-cols-[32px_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 rounded-lg px-2 py-3 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring', run && 'cursor-pointer hover:bg-secondary/50')}>
-      <Avatar className="size-8 overflow-visible rounded-md" aria-hidden="true">
+      className={cn('grid min-w-0 grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 rounded-lg px-2 py-3 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring', run && 'cursor-pointer hover:bg-secondary/50')}>
+      <Mascot seat={seat.isLead ? 'Lead' : seat.name} state={seat.needsYou.length ? 'attention' : mascotState(seat.status)} size={40} fallback={<Avatar className="size-8 overflow-visible rounded-md" aria-hidden="true">
         <AvatarFallback className="rounded-md bg-secondary font-mono text-xs text-foreground">{Array.from(seat.name)[0]?.toLocaleUpperCase()}</AvatarFallback>
         <AvatarBadge className={cn('top-0 bottom-auto size-2.5 text-foreground ring-card', dotClass[seat.status])} />
-      </Avatar>
+      </Avatar>} />
       <div className="min-w-0 space-y-1">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5"><span className="text-sm font-medium [overflow-wrap:anywhere]">{seat.name}</span><span className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{seat.role}</span></div>
         {run ? <RunContext run={run} /> : <p className="text-xs text-muted-foreground">{context}</p>}
@@ -37,3 +38,4 @@ export function AgentRow({ seat, now, onTask }: { seat: ActivitySeat; now: numbe
     {seat.runs.length > 4 && <p className="mt-2 ml-13 text-xs text-muted-foreground">{t('activityUi.moreRuns').replace('{count}', String(seat.runs.length - 4))}</p>}
   </div>;
 }
+

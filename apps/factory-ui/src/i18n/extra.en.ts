@@ -1,4 +1,5 @@
 export const extra = {
+  mascot: { label: 'Characters', gallery: 'Character gallery', openGallery: 'View characters', description: 'Meet every seat, expression and size in your selected character set.', sizes: 'Sizes', disabled: 'Characters are off. Letter avatars are shown.', skins: { classic: 'Classic', forest: 'Forest', ocean: 'Ocean', fantasy: 'Fantasy', off: 'Off' }, states: { idle: 'Idle', thinking: 'Thinking', working: 'Working', done: 'Done', typing: 'Typing', attention: 'Needs attention', error: 'Error', success: 'Success', offline: 'Offline' } },
   folderPicker: {
     open: 'Choose folder…', title: 'Choose a project folder', description: 'Browse folders on the Host and choose a workspace.',
     breadcrumb: 'Current folder location', up: 'Up one level', folders: 'Subfolders', loading: 'Loading folders…',
