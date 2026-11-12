@@ -13,6 +13,7 @@ import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import type { StoreError } from '@/state/store';
 import { FolderBreadcrumb } from './FolderBreadcrumb';
+import { MascotEmpty } from '@/components/mascot';
 
 type Props = {
   initialPath: string;
@@ -117,7 +118,7 @@ export function FolderPicker({ initialPath, browseFolders, onChoose, onClose, on
           onKeyDown={handleKey} className="min-h-62 p-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
           {loading ? <div role="status" className="space-y-2 p-2"><span className="sr-only">{t('folderPicker.loading')}</span>{[0, 1, 2, 3, 4].map(row => <Skeleton key={row} className="h-9 w-full" />)}</div> :
             error ? <div className="space-y-3 p-4"><ErrorNotice error={error} /><Button type="button" variant="outline" onClick={() => { void load(target.current); }}>{t('errors.retry')}</Button></div> :
-              entries.length === 0 ? <Empty className="min-h-58 p-5"><EmptyHeader><EmptyMedia variant="icon"><Folder aria-hidden="true" /></EmptyMedia><EmptyDescription>{t('folderPicker.empty')}</EmptyDescription></EmptyHeader></Empty> :
+              entries.length === 0 ? <Empty className="min-h-58 p-5"><MascotEmpty seat="FE" compact fallback={<EmptyHeader><EmptyMedia variant="icon"><Folder aria-hidden="true" /></EmptyMedia><EmptyDescription>{t('folderPicker.empty')}</EmptyDescription></EmptyHeader>}><EmptyDescription>{t('folderPicker.empty')}</EmptyDescription></MascotEmpty></Empty> :
                 entries.map((entry, index) => <div key={entry.name} role="listitem">
                   <Button type="button" variant="ghost" data-folder tabIndex={-1} onFocus={() => setActive(index)}
                     className={cn('h-auto min-h-10 w-full justify-start gap-3 px-3 py-2 text-left font-normal', active === index && 'bg-secondary')}

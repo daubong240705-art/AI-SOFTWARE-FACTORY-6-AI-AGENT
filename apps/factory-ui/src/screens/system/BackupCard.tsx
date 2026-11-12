@@ -1,6 +1,7 @@
 import { useT } from '@/i18n';
 import type { Store } from '@/state/store';
 import { Fact, SystemCard, SystemRead, SystemTime } from './SystemCard';
+import { MascotEmpty } from '@/components/mascot';
 
 export function BackupCard({ store, now }: { store: Store; now: number }) {
   const t = useT(); const backup = store.useStoreSelector(state => state.system.backups?.backup);
@@ -16,6 +17,6 @@ export function BackupCard({ store, now }: { store: Store; now: number }) {
         <p className="font-medium">{t('systemUi.lastError')} · <SystemTime value={backup.lastErrorAt} now={now} /></p>
         <p className="break-words">{backup.lastError}</p>
       </div>}
-    </> : <p className="text-sm text-muted-foreground">{t('systemUi.noBackups')}</p>}
+    </> : <MascotEmpty seat="DevOps" state="offline" compact><p className="text-sm text-muted-foreground">{t('systemUi.noBackups')}</p></MascotEmpty>}
   </SystemRead></SystemCard>;
 }

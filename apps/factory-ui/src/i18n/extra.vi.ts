@@ -275,6 +275,7 @@ export const extra: Translated<typeof en> = {
     explanation: { start: 'Tác tử sẽ làm việc trong vùng làm việc riêng và sử dụng ngân sách mô hình.', stop: 'Tác tử được dừng và công việc đã làm được giữ lại.', retry: 'Một lần thực thi mới bắt đầu từ công việc trước đó.' },
   },
   chatUi: {
+    greeting: 'Xin chào! Hãy mô tả việc bạn cần, tôi sẽ lập kế hoạch cùng đội.',
     start: 'Bắt đầu trò chuyện với trưởng nhóm', noLead: 'Đội ngũ này chưa được phân công vị trí trưởng nhóm.',
     budget: 'NGÂN SÁCH TOKEN', tokens: 'token', budgetLoading: 'Chưa có thông tin ngân sách token.',
     verdict: { ok: 'Trong giới hạn', warn: 'Sắp đạt giới hạn', exceeded: 'Đã đạt giới hạn' },

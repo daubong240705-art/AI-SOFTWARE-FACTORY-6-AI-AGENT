@@ -1,4 +1,6 @@
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
+import { MascotEmpty } from '@/components/mascot';
+import type { ReactNode } from 'react';
 import { useId, useState } from 'react';
 import { X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -12,14 +14,14 @@ import { M5ReadState, M5Status, m5Dot, TechnicalDetails } from '../M5Shared';
 import type { Store } from '@/state/store';
 import { LoopChip } from './LoopChip';
 
-export function WorkflowList({ store, onOpenTask }: { store: Store; onOpenTask?: ((taskId: string) => void) | undefined }) {
+export function WorkflowList({ store, onOpenTask, emptyAction }: { store: Store; onOpenTask?: ((taskId: string) => void) | undefined; emptyAction?: ReactNode }) {
   const t = useT(); const state = store.useStoreSelector(s => s); const id = useId();
   const [selected, setSelected] = useState<string | null>(null);
   const selectedItem = state.m5.workflows.find(item => item.id === selected);
   const detail = selectedItem ? state.m5.workflowDetails[selectedItem.id] : undefined;
   return <div className={cn('grid min-w-0 items-start gap-6', selectedItem && 'lg:grid-cols-[minmax(240px,1fr)_minmax(0,2fr)]')}>
       <Card role="region" aria-label={t('workflowUi.list')} className="gap-0 overflow-hidden border-border py-0 shadow-none">
-        <M5ReadState store={store} area="workflows" retry={store.loadWorkflows} empty={!state.m5.workflows.length} emptyKey="workflowUi.empty" />
+        <M5ReadState store={store} area="workflows" retry={store.loadWorkflows} empty={!state.m5.workflows.length} emptyKey="workflowUi.empty" emptyAction={emptyAction} />
         <Stagger className="divide-y divide-border">{state.m5.workflows.map((item, index) => {
           const info = state.m5.workflowDetails[item.id]; const current = info?.stages.filter(stage => stage.state === 'active');
           const loop = info?.stages.find(stage => stage.loopCount !== undefined); const at = info?.lastProgressAt ?? item.createdAt;
@@ -38,7 +40,7 @@ export function WorkflowList({ store, onOpenTask }: { store: Store; onOpenTask?:
             <div className="flex flex-wrap items-center gap-3"><h3 className="text-sm font-medium">{stage.key}</h3><M5Status value={stage.state} /><LoopChip stage={stage} /></div>
             {!!stage.tasks.length && <div className="mt-3 flex flex-wrap gap-2">{stage.tasks.map(task => <Badge key={task.taskId} variant="outline" asChild={!!onOpenTask} className="rounded-md font-mono font-normal">{onOpenTask ? <Button type="button" variant="ghost" size="sm" className="h-6 px-2" onClick={() => onOpenTask(task.taskId)}>{task.code}</Button> : task.code}</Badge>)}</div>}
             {stage.blockedReason && <div className="mt-2"><TechnicalDetails><p>{stage.blockedReason}</p></TechnicalDetails></div>}
-          </li>)}</ol>{!detail.stages.length && <Empty><EmptyDescription>{t('workflowUi.noStages')}</EmptyDescription></Empty>}<TechnicalDetails identifier={detail.id}><dl className="grid gap-1"><dt>{t('workflowUi.definition')}</dt><dd className="font-mono">{detail.key}</dd></dl></TechnicalDetails></>}
+          </li>)}</ol>{!detail.stages.length && <Empty><MascotEmpty seat="BA" compact><EmptyDescription>{t('workflowUi.noStages')}</EmptyDescription></MascotEmpty></Empty>}<TechnicalDetails identifier={detail.id}><dl className="grid gap-1"><dt>{t('workflowUi.definition')}</dt><dd className="font-mono">{detail.key}</dd></dl></TechnicalDetails></>}
         </CardContent>
       </Card>}
   </div>;

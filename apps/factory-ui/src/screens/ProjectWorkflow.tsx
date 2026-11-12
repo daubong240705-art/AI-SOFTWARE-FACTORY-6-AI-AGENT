@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { MascotEmpty } from '@/components/mascot';
 import { PencilRuler, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription } from '@/components/ui/empty';
@@ -53,9 +54,9 @@ export function ProjectWorkflow({ store, projectId, onOpenTask }: { store: Store
         {create}
       </div>
     </header>
-    {view === 'list' ? <WorkflowList store={store} onOpenTask={onOpenTask} /> : <>
+    {view === 'list' ? <WorkflowList store={store} onOpenTask={onOpenTask} emptyAction={create} /> : <>
       <M5ReadState store={store} area="workflows" retry={store.loadWorkflows} />
-      {!instances.length && !state.loading.workflows && !state.errors.workflows && <Empty className="min-h-[480px] rounded-xl border border-border bg-card"><EmptyDescription>{t('workflowUi.empty')}</EmptyDescription>{create}</Empty>}
+      {!instances.length && !state.loading.workflows && !state.errors.workflows && <Empty className="min-h-[480px] rounded-xl border border-border bg-card"><MascotEmpty seat="BA" state="thinking"><EmptyDescription>{t('workflowUi.empty')}</EmptyDescription>{create}</MascotEmpty></Empty>}
       {instance && <div className="space-y-3">
         <M5ReadState store={store} area={`workflow:${instance.id}`} retry={() => store.loadWorkflow(instance.id)} />
         {detail && <WorkflowDiagram key={detail.id} store={store} projectId={projectId} detail={detail} liveRuns={liveRuns} selectedStage={selectedStage} onSelectStage={selectStage} onOpenTask={onOpenTask} editMode={editMode && canPatchWorkflow(detail.state)} />}

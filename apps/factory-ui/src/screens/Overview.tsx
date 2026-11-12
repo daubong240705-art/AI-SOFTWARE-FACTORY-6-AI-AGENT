@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import { MascotEmpty } from '@/components/mascot';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useId, useRef, useState } from 'react';
 import type { Command } from '@factory/contracts';
@@ -102,14 +103,14 @@ export function Overview({ store, onProject, onAttention, onCreate, operatorName
         </div>
         {error && <ErrorNotice error={error} />}{problem && <p role="alert">{t(problem)}</p>}
         {(error || problem) && <Button type="button" variant="outline" disabled={busy} onClick={() => { void submit(true); }}>{t('errors.retry')}</Button>}
-      </form></Card> : <Card className="rounded-xl border-border p-5 shadow-none" aria-label={t('overview.composer')}><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><Button className="mt-4" onClick={onCreate}>{t('projects.create')}</Button></Card>}
+      </form></Card> : <Card className="rounded-xl border-border p-5 shadow-none" aria-label={t('overview.composer')}><MascotEmpty seat="Lead"><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><Button className="mt-4" onClick={onCreate}>{t('projects.create')}</Button></MascotEmpty></Card>}
       <ActivityFeed store={store} onCreate={onCreate} onTask={(projectId, taskId) => { if (onTask) onTask(projectId, taskId); else onProject(projectId); }} />
       </div>
       <Card className="gap-0 overflow-hidden rounded-xl border-border border-l-2 border-l-need py-0 shadow-none" aria-labelledby={`${id}-needs`}>
         <CardHeader className="flex flex-row items-center justify-between gap-3 p-5 pb-3"><h2 id={`${id}-needs`} className="font-display text-lg font-semibold">{t('nav.attention')}</h2><Badge className="border-0 bg-need text-need-foreground">{items.length}</Badge></CardHeader>
         {state.loading.globalInbox && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3 px-5 pb-4"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-5 w-4/5" /><Skeleton className="h-4 w-3/5" /></div>}
         {state.errors.globalInbox && <><ErrorNotice error={state.errors.globalInbox} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></>}
-        {!items.length && !state.loading.globalInbox && !state.errors.globalInbox && <Empty className="border-0 px-5 py-10"><EmptyHeader><EmptyMedia variant="icon"><CheckCircle2 aria-hidden="true" /></EmptyMedia><EmptyDescription>{t('overview.caughtUp')}</EmptyDescription></EmptyHeader></Empty>}
+        {!items.length && !state.loading.globalInbox && !state.errors.globalInbox && <Empty className="border-0 px-5 py-10"><MascotEmpty seat="Lead" state="success" fallback={<EmptyHeader><EmptyMedia variant="icon"><CheckCircle2 aria-hidden="true" /></EmptyMedia><EmptyDescription>{t('overview.caughtUp')}</EmptyDescription></EmptyHeader>}><EmptyDescription>{t('overview.caughtUp')}</EmptyDescription></MascotEmpty></Empty>}
         <Stagger className="m-0 list-none p-0">{items.map((item, index) => {
           const name = item.projectName ?? state.projects.find(project => project.id === item.projectId)?.name ?? t('overview.project');
           return <StaggerItem key={item.key} index={index}><Button type="button" variant="ghost" className="h-auto w-full items-start justify-start gap-3 rounded-none border-0 border-t border-border px-5 py-3 text-left whitespace-normal hover:bg-secondary" onClick={() => onAttention(item)}>

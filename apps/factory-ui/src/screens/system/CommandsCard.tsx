@@ -1,3 +1,4 @@
+import { MascotEmpty } from '@/components/mascot';
 import { ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,7 @@ export function CommandsCard({ store }: { store: Store }) {
             <p className="flex items-center justify-between gap-3 text-sm text-muted-foreground"><span className="font-mono">{prefix}</span><span>{t('systemUi.commandCount').replace('{count}', String(names.length))}</span></p>
             <ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-2 p-0">{names.map(name => <li key={name} className="font-mono text-xs break-all text-muted-foreground">{name}</li>)}</ul>
           </div>)}
-        </div> : <p className="pt-4 text-sm text-muted-foreground">{t('systemUi.noCommands')}</p>}
+        </div> : <MascotEmpty seat="DevOps" compact><p className="pt-4 text-sm text-muted-foreground">{t('systemUi.noCommands')}</p></MascotEmpty>}
       </CollapsibleContent>
     </Collapsible>
   </SystemRead></SystemCard>;

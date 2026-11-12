@@ -1,4 +1,5 @@
-﻿import { useEffect, useId, useState } from 'react';
+import { MascotEmpty } from '@/components/mascot';
+import { useEffect, useId, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { artifactsTransition, dossierRefresh } from '../api/commands';
 import { changeKeys } from '../api/m3Models';
@@ -24,7 +25,7 @@ function DossierState({ store, area, empty = false, retry }: { store: Store; are
   return <div className="space-y-3 empty:hidden">
     {state.loading[area] && <Skeleton role="status" aria-label={t('viewStates.loading')} className="h-24" />}
     {state.errors[area] && <><ErrorNotice error={state.errors[area]!} /><Button variant="outline" size="sm" onClick={retry}>{t('errors.retry')}</Button></>}
-    {empty && !state.loading[area] && !state.errors[area] && <Empty className="py-6"><EmptyHeader><EmptyDescription>{t('m3.empty')}</EmptyDescription></EmptyHeader></Empty>}
+    {empty && !state.loading[area] && !state.errors[area] && <Empty className="py-6"><MascotEmpty seat="BA" compact><EmptyHeader><EmptyDescription>{t('m3.empty')}</EmptyDescription></EmptyHeader></MascotEmpty></Empty>}
   </div>;
 }
 

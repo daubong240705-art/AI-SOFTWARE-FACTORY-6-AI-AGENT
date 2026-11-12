@@ -1,3 +1,4 @@
+import { MascotEmpty } from '@/components/mascot';
 import { useEffect } from 'react';
 import type { WorkflowDetail } from '@/api/m5Models';
 import { Empty, EmptyDescription } from '@/components/ui/empty';
@@ -19,7 +20,7 @@ export function WorkflowDiagram({ store, projectId, detail, liveRuns, selectedSt
   const definition = detail.graph?.stages.find(stage => stage.key === selected);
   const stage = definition ? stageState(definition.key, detail.stages) : null;
   return <div className="min-w-0 space-y-3">
-    {detail.graph?.stages.length ? <div className="h-[calc(100vh-12.5rem)] min-h-[440px] min-w-0 overflow-hidden rounded-xl border border-border bg-card" role="region" aria-label={t('workflowGraph.diagram')}><LazyWorkflowGraph graph={detail.graph} stages={detail.stages} phases={detail.phases} liveRuns={liveRuns} selectedStage={selected} onSelectStage={setSelected} editMode={editMode} /></div> : <Empty className="min-h-[480px] rounded-xl border border-border bg-card"><EmptyDescription>{t('workflowGraph.unavailable')}</EmptyDescription></Empty>}
+    {detail.graph?.stages.length ? <div className="h-[calc(100vh-12.5rem)] min-h-[440px] min-w-0 overflow-hidden rounded-xl border border-border bg-card" role="region" aria-label={t('workflowGraph.diagram')}><LazyWorkflowGraph graph={detail.graph} stages={detail.stages} phases={detail.phases} liveRuns={liveRuns} selectedStage={selected} onSelectStage={setSelected} editMode={editMode} /></div> : <Empty className="min-h-[480px] rounded-xl border border-border bg-card"><MascotEmpty seat="BA" state="offline"><EmptyDescription>{t('workflowGraph.unavailable')}</EmptyDescription></MascotEmpty></Empty>}
     <Sheet open={!!(definition && stage)} onOpenChange={open => { if (!open) setSelected(null); }} modal={false}>
       <SheetContent side="right" className="w-full gap-0 overflow-y-auto border-border sm:max-w-[400px]" onOpenAutoFocus={event => event.preventDefault()}
         onInteractOutside={event => { if ((event.target as HTMLElement | null)?.closest('.react-flow')) event.preventDefault(); }}>

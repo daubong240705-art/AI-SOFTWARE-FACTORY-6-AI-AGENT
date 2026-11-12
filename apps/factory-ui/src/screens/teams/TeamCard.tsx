@@ -1,3 +1,4 @@
+import { MascotEmpty } from '@/components/mascot';
 import { Stagger } from '@/components/motion/Stagger';
 import { useEffect, useId } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -49,7 +50,7 @@ export function TeamCard({ store, team }: { store: Store; team: OrgTeam }) {
                 <SeatRow index={index} key={`${seat.id}:${seat.revision}`} seat={seat} team={team} store={store} projectId={state.selectedProjectId} readOnly={readOnly} command={command} />
               ))}
             </Stagger>
-          ) : <p className="text-sm text-muted-foreground">{t('team.emptySeats')}</p>}
+          ) : <MascotEmpty seat="Lead" compact><p className="text-sm text-muted-foreground">{t('team.emptySeats')}</p></MascotEmpty>}
         </section>
         <Separator />
         <section className="space-y-3" aria-labelledby={`${id}-engagements`}>
@@ -60,7 +61,7 @@ export function TeamCard({ store, team }: { store: Store; team: OrgTeam }) {
                 <EngagementRow key={`${engagement.engagementId}:${engagement.revision}`} engagement={engagement} readOnly={readOnly} command={command} />
               ))}
             </ul>
-          ) : <p className="text-sm text-muted-foreground">{t('m3.empty')}</p>}
+          ) : <MascotEmpty seat="Lead" compact><p className="text-sm text-muted-foreground">{t('m3.empty')}</p></MascotEmpty>}
         </section>
         {!readOnly && command.notice}
         <Separator />

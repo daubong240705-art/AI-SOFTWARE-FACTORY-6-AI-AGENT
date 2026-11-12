@@ -75,7 +75,7 @@ export function ModelPickerForm({ data, store, onClose, container }: {
           <div className="flex items-center gap-3"><Label htmlFor={`${id}-effort`}>{t('modelsUi.effort')}</Label>
             <Select value={leadEffort} onValueChange={value => { if (value === 'low' || value === 'medium' || value === 'high' || value === 'xhigh') setLeadEffort(value); }}>
               <SelectTrigger id={`${id}-effort`} className="w-40"><SelectValue /></SelectTrigger>
-              <SelectContent container={container}>{(['low', 'medium', 'high', 'xhigh'] as const).map(effort => <SelectItem key={effort} value={effort} disabled={!data.efforts.includes(effort)}>{t(`modelsUi.efforts.${effort}`)}</SelectItem>)}</SelectContent>
+              <SelectContent position="popper" sideOffset={6} collisionPadding={12} container={container}>{(['low', 'medium', 'high', 'xhigh'] as const).map(effort => <SelectItem key={effort} value={effort} disabled={!data.efforts.includes(effort)}>{t(`modelsUi.efforts.${effort}`)}</SelectItem>)}</SelectContent>
             </Select></div>
           <ModelPicker models={models} selected={[leadModel]} multi={false} onChange={next => { if (next[0]) setLeadModel(next[0]); }} />
           {data.available === null && <ModelPickerManual onAdd={model => add(model, false)} />}

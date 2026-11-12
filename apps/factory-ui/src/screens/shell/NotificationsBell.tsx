@@ -16,6 +16,7 @@ import type { Store } from '@/state/store';
 import { attentionHash } from '../Attention';
 import { NotificationItem } from './NotificationItem';
 import { attentionItems } from './attention';
+import { MascotEmpty } from '@/components/mascot';
 
 export function NotificationsBell({ store, projectId, onTask }: { store: Store; projectId: string; onTask: (projectId: string, taskId: string) => void }) {
   const t = useT(); const id = useId(); const state = store.useStoreSelector(s => s);
@@ -38,7 +39,7 @@ export function NotificationsBell({ store, projectId, onTask }: { store: Store; 
       <header className="space-y-3 p-4"><h2 id={id} className="font-display text-lg font-semibold">{t('notificationsUi.title')}</h2><ToggleGroup type="single" value={filter} onValueChange={value => { if (value) setFilter(value); }} variant="outline" size="sm" aria-label={t('notificationsUi.filter')}><ToggleGroupItem value="unread">{t('notificationsUi.unread')}</ToggleGroupItem><ToggleGroupItem value="all">{t('notificationsUi.all')}</ToggleGroupItem></ToggleGroup></header>
       {state.errors.notifications && <div className="space-y-2 px-4 pb-4"><ErrorNotice error={state.errors.notifications} /><Button variant="outline" size="sm" onClick={() => { void store.loadNotifications(); }}>{t('errors.retry')}</Button></div>}
       {state.loading.notifications && !state.notifications.items.length ? <div role="status" aria-label={t('viewStates.loading')} className="space-y-2 p-4"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-10 w-full" /></div> : <ScrollArea className="max-h-[min(420px,55dvh)] [&_[data-slot=scroll-area-viewport]]:max-h-[min(420px,55dvh)]">
-        {items.length ? <ul className="m-0 list-none p-0">{items.map(item => <NotificationItem key={item.id} store={store} item={item} projectId={projectId} onOpen={navigate} />)}</ul> : !state.errors.notifications && <Empty className="py-10"><EmptyHeader><EmptyMedia variant="icon"><CheckCheck /></EmptyMedia><EmptyDescription>{t('notificationsUi.empty')}</EmptyDescription></EmptyHeader></Empty>}
+        {items.length ? <ul className="m-0 list-none p-0">{items.map(item => <NotificationItem key={item.id} store={store} item={item} projectId={projectId} onOpen={navigate} />)}</ul> : !state.errors.notifications && <Empty className="py-10"><MascotEmpty seat="Lead" state="success" compact fallback={<EmptyHeader><EmptyMedia variant="icon"><CheckCheck /></EmptyMedia><EmptyDescription>{t('notificationsUi.empty')}</EmptyDescription></EmptyHeader>}><EmptyDescription>{t('notificationsUi.empty')}</EmptyDescription></MascotEmpty></Empty>}
       </ScrollArea>}
       <footer className="space-y-2 border-t border-border p-3">{progress && <div role="status" className="space-y-2 text-xs text-muted-foreground"><span>{t('notificationsUi.progress').replace('{done}', String(progress.done)).replace('{total}', String(progress.total))}</span><Progress value={progress.done / progress.total * 100} aria-label={t('notificationsUi.markAll')} /></div>}<Button variant="ghost" size="sm" className="w-full text-xs" disabled={!state.notifications.unread || !!progress || state.notifications.items.some(item => state.loading[`notifications:${item.id}`])} onClick={() => { void store.markAllNotificationsRead(); }}><CheckCheck />{t('notificationsUi.markAll')}</Button></footer>
     </PopoverContent>

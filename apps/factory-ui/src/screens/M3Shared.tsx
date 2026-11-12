@@ -6,15 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useT } from '../i18n';
 import { Select as ThemedSelect } from '../components/Select';
+import { MascotEmpty } from '@/components/mascot';
 
 export function AreaState({ store, area, empty = false }: { store: Store; area: string; empty?: boolean }) {
   const t = useT();
   const state = store.useStoreSelector((value) => value);
   return (
     <div className="space-y-3 text-sm text-muted-foreground empty:hidden">
-      {state.loading[area] && <p role="status">{t('viewStates.loading')}</p>}
+      {state.loading[area] && <MascotEmpty seat="Lead" state="thinking" compact><p role="status">{t('viewStates.loading')}</p></MascotEmpty>}
       {state.errors[area] && <ErrorNotice error={state.errors[area]!} />}
-      {empty && !state.loading[area] && !state.errors[area] && <p>{t('m3.empty')}</p>}
+      {empty && !state.loading[area] && !state.errors[area] && <MascotEmpty seat="Lead" compact><p>{t('m3.empty')}</p></MascotEmpty>}
     </div>
   );
 }

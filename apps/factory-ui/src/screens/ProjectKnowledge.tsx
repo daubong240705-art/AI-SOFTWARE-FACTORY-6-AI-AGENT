@@ -15,6 +15,7 @@ import { DossierPanel } from './Dossier';
 import { DocumentToolbar } from './documents/DocumentToolbar';
 import { UploadDialog } from './documents/UploadDialog';
 import { DocumentList } from './documents/DocumentList';
+import { MascotEmpty } from '@/components/mascot';
 
 export function ProjectKnowledge({ store, projectId }: { store: Store; projectId: string }) {
   const t = useT();
@@ -57,7 +58,7 @@ export function ProjectKnowledge({ store, projectId }: { store: Store; projectId
     <div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="font-display text-xl font-semibold">{t(searching ? 'knowledgeUi.results' : 'knowledgeUi.allDocuments')}</h3><p role="status" className="text-xs text-muted-foreground">{number(rows.length)} {plural(t, i18n.locale, rows.length, 'knowledgeUi.count')}</p></div>
     {loading && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3">{[0, 1, 2].map(key => <Skeleton key={key} className="h-24 rounded-xl" />)}</div>}
     {knowledge.errors.knowledge && <div className="space-y-3"><ErrorNotice error={knowledge.errors.knowledge} /><Button variant="outline" onClick={() => { void store.searchKnowledge(query, filters); }}>{t('errors.retry')}</Button></div>}
-    {!loading && !knowledge.errors.knowledge && !rows.length && <Card className="rounded-xl border-border py-0 shadow-none"><Empty><EmptyHeader><EmptyDescription>{t(searching ? 'knowledgeUi.noMatches' : 'knowledgeUi.empty')}</EmptyDescription></EmptyHeader></Empty></Card>}
+    {!loading && !knowledge.errors.knowledge && !rows.length && <Card className="rounded-xl border-border py-0 shadow-none"><Empty><MascotEmpty seat="BA" state={searching ? 'thinking' : 'idle'} compact={searching} fallback={<EmptyHeader><EmptyDescription>{t(searching ? 'knowledgeUi.noMatches' : 'knowledgeUi.empty')}</EmptyDescription></EmptyHeader>}><EmptyDescription>{t(searching ? 'knowledgeUi.noMatches' : 'knowledgeUi.empty')}</EmptyDescription>{!searching && <p className="text-sm text-muted-foreground">{t('knowledgeUi.drop')}</p>}</MascotEmpty></Empty></Card>}
     {!!rows.length && <DocumentList store={store} rows={rows} onSelect={setSelected} />}
     {knowledge.hasMore && <Button variant="outline" disabled={!!loading} onClick={() => { void store.loadKnowledgeMore(); }}>{t('knowledgeUi.more')}</Button>}
     {selected && <KnowledgeArtifact key={selected} store={store} artifactId={selected} onClose={() => setSelected(null)} />}

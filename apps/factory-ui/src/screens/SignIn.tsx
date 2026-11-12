@@ -1,4 +1,5 @@
 import { useId, useRef, type FormEvent } from 'react';
+import { Mascot } from '@/components/mascot';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { Button } from '../components/Button';
@@ -22,6 +23,7 @@ export function SignIn({ store }: { store: Store }) {
     void store.signIn(token).finally(() => { submitting.current = false; });
   }
   return <main className="signin"><Card>
+    <Mascot seat="Lead" state="idle" size={80} />
     <h1>{t('shell.product')}</h1>
     <h2>{t('auth.signIn')}</h2>
     <p id={explanation} className="muted">{t('auth.explanation')}</p>

@@ -260,6 +260,7 @@ export const extra = {
     explanation: { start: 'The agent will work in an isolated workspace and use model budget.', stop: 'The agent is stopped and its work so far is kept.', retry: 'A new attempt starts from the previous work.' },
   },
   chatUi: {
+    greeting: 'Hi! Describe what you need and I will plan it with the team.',
     start: 'Start chat with Lead', noLead: 'No Lead seat is assigned to this team.',
     budget: 'TOKEN BUDGET', tokens: 'tokens', budgetLoading: 'Token budget is not available yet.',
     verdict: { ok: 'OK', warn: 'Close to the limit', exceeded: 'Limit reached' },
