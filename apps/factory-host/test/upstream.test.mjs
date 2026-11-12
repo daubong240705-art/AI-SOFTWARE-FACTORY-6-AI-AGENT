@@ -29,7 +29,7 @@ for (const baseUrl of ["https://example.test/v1", "http://localhost:9000", "http
   });
 test("upstream properties and inspection do not expose the private credential", () => {
   const upstream = createUpstream(options);
-  assert.deepEqual(Object.keys(upstream), ["providerId", "chatCompletions"]);
+  assert.deepEqual(Object.keys(upstream), ["providerId", "listModels", "chatCompletions"]);
   assert.equal(inspect(upstream, { showHidden: true, depth: null }).includes(key), false);
   config({ providerId: key });
 });

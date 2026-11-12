@@ -1,8 +1,26 @@
 import { ModelError } from "./gateway.js";
 
+/** What the operator's model picker may show about a gateway model. Only plain, bounded, secret-free values are kept. */
+export interface ModelInfo { id: string; name?: string; provider?: string; vision?: boolean; reasoning?: boolean }
+const plain = (value: unknown, apiKey: string): string | undefined =>
+  typeof value === "string" && value.trim().length > 0 && value.length <= 120 && !/\p{Cc}/u.test(value) && !value.includes(apiKey) ? value.trim() : undefined;
+const flag = (...values: unknown[]): boolean | undefined => values.find((value): value is boolean => typeof value === "boolean");
+const hasImage = (value: unknown): boolean | undefined => Array.isArray(value) ? value.some((entry) => entry === "image" || entry === "vision") : undefined;
+const record = (value: unknown): Record<string, unknown> => (value && typeof value === "object" ? value as Record<string, unknown> : {});
+function modelInfo(item: Record<string, unknown>, apiKey: string): ModelInfo {
+  const capabilities = record(item.capabilities);
+  const name = plain(item.name ?? item.display_name ?? item.displayName, apiKey);
+  const provider = plain(item.owned_by ?? item.provider, apiKey);
+  const vision = flag(item.vision, item.supports_vision, capabilities.vision, hasImage(item.input_modalities), hasImage(item.modalities));
+  const reasoning = flag(item.reasoning, item.thinking, item.supports_reasoning, capabilities.reasoning, capabilities.thinking);
+  return { id: item.id as string, ...(name === undefined ? {} : { name }), ...(provider === undefined ? {} : { provider }),
+    ...(vision === undefined ? {} : { vision }), ...(reasoning === undefined ? {} : { reasoning }) };
+}
+
 export interface Upstream {
   readonly providerId: string;
   chatCompletions(body: string, signal: AbortSignal): Promise<Response>;
+  listModels(): Promise<ModelInfo[] | null>;
 }
 
 export interface ResponseGuard {
@@ -39,11 +57,13 @@ export function createResponseGuard(upstream: Upstream, token: string): Response
 
 export function createUpstream(options: {
   baseUrl: string; apiKey: string; providerId?: string; fetchImpl?: typeof fetch; connectTimeoutMs?: number;
+  modelListTimeoutMs?: number;
 }): Upstream {
-  const { apiKey, providerId = "9router", fetchImpl = fetch, connectTimeoutMs = 30_000 } = options;
+  const { apiKey, providerId = "9router", fetchImpl = fetch, connectTimeoutMs = 30_000, modelListTimeoutMs = 10_000 } = options;
   if (typeof apiKey !== "string" || !apiKey || /[\s\p{Cc}]/u.test(apiKey)
     || typeof providerId !== "string" || providerId.includes(apiKey)
-    || !Number.isSafeInteger(connectTimeoutMs) || connectTimeoutMs < 1 || connectTimeoutMs > 2_147_483_647)
+    || !Number.isSafeInteger(connectTimeoutMs) || connectTimeoutMs < 1 || connectTimeoutMs > 2_147_483_647
+    || !Number.isSafeInteger(modelListTimeoutMs) || modelListTimeoutMs < 1 || modelListTimeoutMs > 10_000)
     throw new ModelError("config");
   let base: URL;
   try { base = new URL(options.baseUrl); } catch { throw new ModelError("config"); }
@@ -53,6 +73,40 @@ export function createUpstream(options: {
   const endpoint = `${base.href.replace(/\/+$/, "")}/chat/completions`;
   const upstream: Upstream = {
     providerId,
+    async listModels() {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), modelListTimeoutMs);
+      try {
+        const response = await fetchImpl(`${base.href.replace(/\/+$/, "")}/models`, {
+          method: "GET", redirect: "manual", signal: controller.signal,
+          headers: { authorization: `Bearer ${apiKey}` },
+        });
+        if (!response.ok || !response.body) { void response.body?.cancel().catch(() => {}); return null; }
+        const reader = response.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let size = 0;
+        try {
+          while (true) {
+            const part = await reader.read();
+            if (part.done) break;
+            size += part.value.byteLength;
+            if (size > 1_048_576) { void reader.cancel().catch(() => {}); return null; }
+            chunks.push(part.value);
+          }
+        } finally { reader.releaseLock(); }
+        const body: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, size)));
+        if (!body || typeof body !== "object" || !("data" in body) || !Array.isArray(body.data)) return null;
+        const models: ModelInfo[] = [];
+        for (const item of body.data) {
+          if (!item || typeof item !== "object" || typeof item.id !== "string" || item.id.length === 0 || item.id.length > 256
+            || /[\s\p{Cc}]/u.test(item.id) || item.id.includes(apiKey) || models.some((model) => model.id === item.id)) continue;
+          models.push(modelInfo(item as Record<string, unknown>, apiKey));
+          if (models.length === 500) break;
+        }
+        return controller.signal.aborted ? null : models;
+      } catch { return null; }
+      finally { clearTimeout(timer); controller.abort(); }
+    },
     async chatCompletions(body, signal) {
       if (signal.aborted) throw new ModelError("cancelled");
       const timeout = new AbortController();

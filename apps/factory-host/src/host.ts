@@ -29,8 +29,11 @@ import { EventHub } from "./events/hub.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { createIdGenerator, systemClock, type Clock } from "./ids.js";
 import { createLeadRunner, type LeadConfig, type LeadRunner } from "./lead/runner.js";
+import { DEFAULT_LEAD_CONFIG } from "./lead/runner.js";
+import { agentModelsSchema, reasoningEffortSchema } from "@factory/contracts";
+import { modelsSetHandler, readModelSettings, type ModelSettingsSeed } from "./models/settings.js";
 import type { ModelGateway } from "./models/index.js";
-import { createUpstream } from "./models/upstream.js";
+import { createUpstream, type ModelInfo } from "./models/upstream.js";
 import { createModelProxy, createTokenRegistry, type TokenRegistry } from "./proxy/index.js";
 import type { ModelAccess } from "./dispatch/dispatcher.js";
 import { createOrgHandlers, loadPack, loadPackRegistry, ORG_COMMANDS } from "./org/index.js";
@@ -154,8 +157,8 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   let approvedModels: string[] | undefined;
   if (env.FACTORY_AGENT_MODELS !== undefined) {
     approvedModels = env.FACTORY_AGENT_MODELS.split(",");
-    if (approvedModels.some((model) => !model || /[\s\p{Cc}]/u.test(model)) || new Set(approvedModels).size !== approvedModels.length)
-      throw new Error("FACTORY_AGENT_MODELS must contain unique non-empty model names without whitespace");
+    if (!agentModelsSchema.safeParse(approvedModels).success)
+      throw new Error("FACTORY_AGENT_MODELS must contain 1 to 8 unique model names, each 1 to 256 characters without whitespace or control characters");
   }
   const proxyPort = env.FACTORY_PROXY_PORT ?? String(Number(input) + 1);
   let socketPath: string | undefined;
@@ -232,6 +235,7 @@ export async function startHost(options: {
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
   budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>; uiDir?: string;
+  agentModels?: string[];
   runtimes?: RuntimeAdapter[];
   periodicBackup?: { dir: string; intervalMs?: number; firstRunDelayMs?: number; keep?: BackupKeep } | null;
   dispatch?: Partial<DispatcherConfig> & { stepMs?: number; adapters?: RuntimeAdapter[] } | null;
@@ -368,6 +372,24 @@ export async function startHost(options: {
       effects.recoverAtStart();
     }
     const approvalRaw = storage.raw;
+    const modelSeed: ModelSettingsSeed = {
+      leadModel: options.lead?.model ?? DEFAULT_LEAD_CONFIG.model,
+      leadEffort: options.lead?.effort ?? DEFAULT_LEAD_CONFIG.effort ?? "medium",
+      agentModels: [...(options.agentModels ?? options.modelProxy?.approvedModels ?? [])],
+    };
+    const effectiveModels = () => readModelSettings(approvalRaw, modelSeed);
+    let listModels = options.modelGateway?.listModels?.bind(options.modelGateway);
+    let availableCache: { expiresAt: number; models: ModelInfo[] | null } | undefined;
+    let availablePending: Promise<ModelInfo[] | null> | undefined;
+    const availableModels = (): Promise<ModelInfo[] | null> => {
+      if (!listModels) return Promise.resolve(null);
+      if (availableCache && availableCache.expiresAt > clock().getTime()) return Promise.resolve(availableCache.models);
+      availablePending ??= listModels().catch(() => null).then((models) => {
+        availableCache = { expiresAt: clock().getTime() + 60_000, models };
+        return models;
+      }).finally(() => { availablePending = undefined; });
+      return availablePending;
+    };
     const sweepApprovals = (): void => {
       expirePendingApprovals({ raw: approvalRaw, hub, now: clock });
       try { sweepWorkflows({ raw: approvalRaw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) }); }
@@ -414,19 +436,23 @@ export async function startHost(options: {
     runner = createLeadRunner({ storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
       profileText: readFileSync(join(pack.dir, leadSeat.profile), "utf8"),
       ...(options.lead === undefined ? {} : { config: options.lead }),
+      getModelConfig() {
+        const settings = effectiveModels();
+        return { model: settings.leadModel, effort: settings.source === "environment" && options.lead?.effort === null ? null : settings.leadEffort };
+      },
     });
     runner.recover();
     if (options.modelProxy) {
       const configured = options.modelProxy;
       if (!Number.isSafeInteger(configured.port) || configured.port < 0 || configured.port > 65_535
-        || !configured.approvedModels.length || configured.approvedModels.some((model) => !model || /[\s\p{Cc}]/u.test(model))
-        || new Set(configured.approvedModels).size !== configured.approvedModels.length) throw new Error("Invalid model proxy configuration");
+        || !agentModelsSchema.safeParse(configured.approvedModels).success) throw new Error("Invalid model proxy configuration");
       const upstream = createUpstream(configured.upstream);
+      listModels ??= () => upstream.listModels();
       const tokens = createTokenRegistry({ clock });
       const allowedHosts = configured.allowedHosts === undefined ? [] : [...configured.allowedHosts];
       let modelPort = SANDBOX_RELAY_PORT;
-      const approvedModels = [...configured.approvedModels];
       modelAccess = { issue(input) {
+        const approvedModels = effectiveModels().agentModels;
         const { token } = tokens.issue({ ...input, allowedModels: approvedModels });
         return { token, models: [...approvedModels], baseUrl: `http://127.0.0.1:${modelPort}/v1`,
           ...(socketPath === undefined ? {} : { socketPath }) };
@@ -563,6 +589,7 @@ export async function startHost(options: {
       "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,
       "autonomy.set": setAutonomyHandler,
+      "models.set": modelsSetHandler,
       "approvals.decide": withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: options.multiTeam === true })),
         ...createKnowledgeHandlers({ multiTeam: options.multiTeam ?? false }),
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
@@ -594,9 +621,15 @@ export async function startHost(options: {
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store });
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });
       registerExtractionRoutes(app, guards, extraction);
+      app.get("/system/models", { preHandler: guards.session }, async () => {
+        const catalog = await availableModels();
+        return { apiVersion: 1, ok: true, settings: effectiveModels(),
+          gateway: { configured: listModels !== undefined, keyPresent: listModels !== undefined },
+          available: catalog === null ? null : catalog.map((model) => model.id), catalog, efforts: reasoningEffortSchema.options };
+      });
       const hostStartedAt = clock().toISOString();
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
-        apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set",
+        apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set", "models.set",
           "dossier.refresh",
           ...WORKFLOW_COMMANDS,
           ...SCHEDULE_COMMANDS,

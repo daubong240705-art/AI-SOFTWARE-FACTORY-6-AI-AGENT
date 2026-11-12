@@ -68,6 +68,7 @@ try {
     try { if ((await stat(defaultUiDir)).isDirectory()) uiDir = defaultUiDir; } catch { /* UI build is optional. */ }
   }
   const host = await startHost({ ...hostOptions, dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead, runtimes, pushRemotes,
+    ...(agentProxy === undefined ? {} : { agentModels: agentProxy.approvedModels }),
     ...(pushSshCommand === undefined ? {} : { pushSshCommand }),
     ...(uiDir === undefined ? {} : { uiDir }), onBootstrapToken(token) {
     process.stdout.write(`One-time bootstrap token: ${token}\n`);
