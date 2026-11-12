@@ -31,6 +31,16 @@ command -v bwrap >/dev/null 2>&1 && ok "bubblewrap" || bad "bubblewrap (bwrap)"
 case "$ROOT" in /mnt/*) bad "FACTORY_V2_HOME must not be under /mnt";; esac
 GATEWAY="${FACTORY_GATEWAY_URL:-https://ai.lazy.local/v1}"
 ok "gateway $GATEWAY"
+# With a key and a model chosen, ask the gateway which models it offers (a free listing call: no tokens are spent).
+if [ "$fail" -eq 0 ]; then
+  LIST="$(curl -sS --max-time 20 --cacert "$ROOT/ca/caddy-root.crt" -H "Authorization: Bearer $NINE_ROUTER_API_KEY" "$GATEWAY/models" 2>/dev/null || true)"
+  if printf '%s' "$LIST" | grep -qiE '"error"|unauthori|invalid api|forbidden'; then bad "the gateway rejected the key (check NINE_ROUTER_API_KEY)"
+  elif [ -n "$LIST" ]; then
+    for model in $(echo "${FACTORY_AGENT_MODELS}${FACTORY_LEAD_MODEL:+,$FACTORY_LEAD_MODEL}" | tr ',' ' '); do
+      if printf '%s' "$LIST" | grep -q "\"$model\""; then ok "gateway offers $model"; else bad "gateway does not list $model (check the spelling)"; fi
+    done
+  else echo "  note  could not list models from the gateway (network or key); continuing" >&2; fi
+fi
 if [ "$fail" -ne 0 ]; then echo "Preflight failed: nothing started." >&2; exit 1; fi
 if [ "$CHECK" -eq 1 ]; then echo "Preflight passed. Start without --check to run the Host."; exit 0; fi
 
