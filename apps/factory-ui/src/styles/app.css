@@ -261,6 +261,13 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 @media (prefers-reduced-motion: reduce) { .project-dock { animation: none; transition: none; } }
 
 /* U-E1: Read-only workflow master-detail and automation lists. */
+.office-floor { container-type: inline-size; }
+.office-lead-row { grid-template-columns: minmax(0, 1fr) minmax(0, 320px) minmax(0, 1fr); }
+.office-seat-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+@container (max-width: 580px) {
+  .office-lead-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .office-lead-card { grid-column: 1 / -1; grid-row: 2; max-width: none; }
+}
 .m5-screen { min-width: 0; padding: var(--space-xl); overflow-wrap: anywhere; }
 .m5-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md); margin-bottom: var(--space-lg); }
 .m5-toolbar h2 { margin: 0; font-family: var(--display); }

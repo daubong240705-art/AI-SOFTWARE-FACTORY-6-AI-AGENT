@@ -176,6 +176,7 @@ export const extra: Translated<typeof en> = {
     engagements: 'Dự án tham gia', running: 'Đang chạy', teamActions: 'Thao tác với đội',
   },
   officeUi: {
+    currentWork: 'Công việc hiện tại', viewAgent: 'Xem hoạt động agent',
     title: 'Văn phòng', description: 'Các agent đang làm gì và đang chuyển gì cho nhau. Agent không trò chuyện tự do: mọi trao đổi đi qua giao việc, bàn giao đầu ra, câu hỏi và duyệt.',
     floor: 'Sàn làm việc', feed: 'Luồng trao đổi', you: 'Bạn', knowledge: 'Kho tài liệu', hideProgress: 'Ẩn tiến độ',
     empty: 'Chưa có trao đổi nào. Gửi yêu cầu cho Lead ở chế độ Giao việc để đội bắt đầu.', noSeats: 'Dự án chưa có đội.',
@@ -306,6 +307,7 @@ export const extra: Translated<typeof en> = {
   chatUi: {
     greeting: 'Xin chào! Hãy mô tả việc bạn cần, tôi sẽ lập kế hoạch cùng đội.',
     start: 'Bắt đầu trò chuyện với trưởng nhóm', noLead: 'Đội ngũ này chưa được phân công vị trí trưởng nhóm.',
+    planTitle: 'Kế hoạch của Lead: {count} việc', acceptPlan: 'Duyệt cả kế hoạch', declinePlan: 'Từ chối cả kế hoạch', planNote: 'Sau khi duyệt, các việc tự chạy theo thứ tự. Bạn chỉ được hỏi khi kết quả cần bạn xem.',
     budget: 'TOKEN ĐÃ DÙNG HÔM NAY', tokens: 'token', budgetLoading: 'Chưa có số token đã dùng.',
     verdict: { ok: 'Trong giới hạn', warn: 'Sắp đạt giới hạn', exceeded: 'Đã đạt giới hạn' },
     messages: 'Tin nhắn hội thoại', speakers: { user: 'Bạn', agent: 'Trưởng nhóm', system: 'Hệ thống' },

@@ -78,7 +78,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
       <div className="project-tab-content" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${active}`} tabIndex={0}>
         <Reveal key={active} className="h-full min-h-0">
         {active === 'overview' && <ProjectOverview store={store} onOpenTask={openTask} />}
-        {active === 'office' && <ProjectOffice key={project.id} store={store} projectId={project.id} onOpenTask={openTask} />}
+        {active === 'office' && <ProjectOffice key={project.id} store={store} projectId={project.id} />}
         {active === 'board' && <ProjectTasks store={store} projectId={project.id} selectedTask={selected} onOpenTask={openTask} onCloseTask={() => setSelected(null)} newTaskOpen={creating} newTaskId={`${id}-new-task`} />}
         {active === 'workflow' && <ProjectWorkflow key={project.id} store={store} projectId={project.id} onOpenTask={openTask} />}
         {active === 'automation' && <ProjectAutomation key={project.id} store={store} projectId={project.id} />}

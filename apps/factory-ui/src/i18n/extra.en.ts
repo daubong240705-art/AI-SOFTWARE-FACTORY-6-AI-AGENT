@@ -173,6 +173,7 @@ export const extra = {
     engagements: 'Project engagements', running: 'Running', teamActions: 'Team actions',
   },
   officeUi: {
+    currentWork: 'Current work', viewAgent: 'View agent activity',
     title: 'Office', description: 'What the agents are doing and what they pass to each other. Agents do not chat freely: every exchange is an assignment, a hand-off of outputs, a question or a review.',
     floor: 'Floor', feed: 'Exchanges', you: 'You', knowledge: 'Documents', hideProgress: 'Hide progress',
     empty: 'No exchanges yet. Send the Lead a request in Delegate mode to get the team started.', noSeats: 'This project has no team yet.',
@@ -291,6 +292,7 @@ export const extra = {
   chatUi: {
     greeting: 'Hi! Describe what you need and I will plan it with the team.',
     start: 'Start chat with Lead', noLead: 'No Lead seat is assigned to this team.',
+    planTitle: 'Lead plan: {count} tasks', acceptPlan: 'Accept the whole plan', declinePlan: 'Decline the whole plan', planNote: 'Once accepted, tasks run on their own in order. You are asked only when a result needs you.',
     budget: 'TOKENS USED TODAY', tokens: 'tokens', budgetLoading: 'Token usage is not available yet.',
     verdict: { ok: 'OK', warn: 'Close to the limit', exceeded: 'Limit reached' },
     messages: 'Conversation messages', speakers: { user: 'You', agent: 'Lead', system: 'System' },
