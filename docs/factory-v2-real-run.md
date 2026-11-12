@@ -65,3 +65,22 @@ bash /mnt/e/GIT/AI-SOFTWARE-FACTORY-6-AI-AGENT/scripts/factory-v2/start-host-rea
 - Quy trình Software Delivery cho một việc mỗi bước: thao tác "Thêm việc vào bước" của Plan Patch bị Host từ chối (giao diện đã ẩn).
 - Chỉ một node cục bộ (M4 chưa làm). Chỉ runtime OpenCode.
 - Thông báo do Host sinh ra bằng tiếng Anh.
+
+## 8. Chạy agent bằng Codex CLI và Claude Code CLI (cùng máy với Host)
+
+Cài và đăng nhập **bên trong WSL** (không dùng bản Windows): `codex login` (ChatGPT) và `claude auth login`. Hai lệnh phải nằm trong PATH của Host (script đã thêm `~/.local/bin`).
+
+```
+export NINE_ROUTER_API_KEY=...                # Lead và OpenCode vẫn đi qua gateway
+export FACTORY_AGENT_MODELS=ds/deepseek-v4-pro
+export FACTORY_LEAD_MODEL=ds/deepseek-v4-pro   # hoặc chọn model Lead ở trang Hệ thống
+bash scripts/factory-v2/start-host-real.sh --agents codex          # mọi vị trí chạy bằng Codex trừ vị trí bạn cấu hình riêng
+# hoặc: --agents claude | --agents opencode | --local-cli (chỉ bật CLI, chọn từng vị trí trong giao diện) | --slots 8
+```
+
+- `--agents codex|claude` bật CLI cục bộ và đặt CLI đó làm mặc định cho các vị trí chưa tự cấu hình. Agent chạy với **toàn quyền của bạn** trong worktree của từng việc (chế độ tự chủ, không hỏi từng lệnh).
+- Chọn riêng từng vị trí: **Đội → Cấu hình → "Cấu hình agent"** (runtime, CLI, model, mức suy luận, chế độ quyền). Thứ tự ưu tiên: cấu hình riêng của vị trí > `--agents` > mặc định của gói.
+- Trang **Hệ thống** có thẻ "Công cụ agent trên máy" (đã cài chưa, phiên bản, đã đăng nhập chưa) và thẻ "Model" (model của Lead).
+- Số agent chạy cùng lúc (`--slots`, mặc định tính theo lõi CPU và RAM) không bị giới hạn theo CLI. Các agent dùng chung hạn mức của gói thuê bao; hết hạn mức thì việc dừng kèm thông báo.
+- Lead (chat) luôn đi qua gateway bằng model đặt ở trang Hệ thống; chưa chạy Lead bằng CLI.
+- Lỗi thường gặp: "chưa đăng nhập" → chạy lại `codex login` hoặc `claude auth login` trong WSL; "chưa cài" → kiểm tra `command -v codex` và `command -v claude` trong WSL.
