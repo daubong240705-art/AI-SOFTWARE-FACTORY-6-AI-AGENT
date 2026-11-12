@@ -2,6 +2,18 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  systemUi: {
+    title: 'Hệ thống', description: 'Tình trạng Host, sao lưu, công cụ ngoài và gói đội.', refresh: 'Làm mới',
+    host: 'Host', backups: 'Sao lưu', servers: 'Máy chủ MCP ngoài', packs: 'Gói đội', commands: 'Lệnh Host cung cấp',
+    running: 'Đang chạy', disconnected: 'Không kết nối', apiVersion: 'Phiên bản API', startedAt: 'Khởi động', uptime: 'Thời gian hoạt động',
+    nodeVersion: 'Phiên bản Node', platform: 'Nền tảng', multiTeam: 'Nhiều đội', dispatch: 'Điều phối agent',
+    documentExtraction: 'Trích xuất tài liệu', enabled: 'Đã bật', disabled: 'Đã tắt', unknown: 'Chưa có thông tin',
+    extractionSetup: 'Bật bằng cách chạy scripts/factory-v2/doc-worker/setup-doc-worker.sh và khởi động lại Host',
+    lastSuccess: 'Sao lưu thành công gần nhất', count: 'Số bản sao lưu', file: 'Tệp', lastError: 'Lỗi gần nhất', noBackups: 'Chưa có bản sao lưu',
+    noServers: 'Chưa cấu hình máy chủ MCP ngoài.', noPacks: 'Chưa có gói đội.', noCommands: 'Chưa có lệnh nào.',
+    seats: '{count} vị trí', workflows: '{count} quy trình', tools: '{count} công cụ', commandCount: '{count} lệnh', showCommands: 'Xem các lệnh',
+    days: '{count} ngày', hours: '{count} giờ', minutes: '{count} phút', seconds: '{count} giây',
+  },
   agentProfile: {
     open: 'Xem hồ sơ {name}', profile: 'Hồ sơ', skills: 'Kỹ năng', tools: 'Công cụ', tabs: 'Các mục trong hồ sơ agent',
     noPack: 'Đội này không tạo từ gói', close: 'Đóng hồ sơ agent', loading: 'Đang tải hồ sơ…',

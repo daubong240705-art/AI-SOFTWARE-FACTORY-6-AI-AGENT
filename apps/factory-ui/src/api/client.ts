@@ -6,6 +6,8 @@ import { settingsReadModels } from './settingsModels';
 import { notificationReadModels } from './notificationModels';
 import { activityReadModel } from './activityModels';
 import { extractionModels, mediaTypeForFile } from './documents';
+import { systemModels } from './systemModels';
+export type { SystemHealth, SystemCapabilities, SystemBackup } from './systemModels';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
@@ -122,6 +124,9 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listPacks: () => request('/packs', m3Models.packs),
     getPack: (key: string) => request(`/packs/${encodeURIComponent(key)}`, packDetailModel),
     listMcpServers: () => request('/mcp-servers', mcpServersModel),
+    systemHealth: () => request('/health', systemModels.health),
+    systemCapabilities: () => request('/system/capabilities', systemModels.capabilities),
+    systemBackups: () => request('/system/backups', systemModels.backups),
     getTeamQueue: (id: string) => request(`/teams/${encodeURIComponent(id)}/queue`, m3Models.queue),
     listRequests: (id: string, filters: { state?: string; team?: string } = {}) => {
       const params = new URLSearchParams({ limit: '100', ...filters });

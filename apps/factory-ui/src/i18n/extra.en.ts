@@ -1,4 +1,16 @@
 export const extra = {
+  systemUi: {
+    title: 'System', description: 'Host health, backups, external tools and team packs.', refresh: 'Refresh',
+    host: 'Host', backups: 'Backups', servers: 'External MCP servers', packs: 'Team packs', commands: 'Host commands',
+    running: 'Running', disconnected: 'Disconnected', apiVersion: 'API version', startedAt: 'Started', uptime: 'Uptime',
+    nodeVersion: 'Node version', platform: 'Platform', multiTeam: 'Multiple teams', dispatch: 'Agent dispatch',
+    documentExtraction: 'Document extraction', enabled: 'Enabled', disabled: 'Disabled', unknown: 'Unavailable',
+    extractionSetup: 'Enable by running scripts/factory-v2/doc-worker/setup-doc-worker.sh and restarting the Host.',
+    lastSuccess: 'Last successful backup', count: 'Backup count', file: 'File', lastError: 'Last error', noBackups: 'No backups yet',
+    noServers: 'No external MCP servers are configured.', noPacks: 'No team packs are available.', noCommands: 'No commands are available.',
+    seats: '{count} seats', workflows: '{count} workflows', tools: '{count} tools', commandCount: '{count} commands', showCommands: 'View commands',
+    days: '{count}d', hours: '{count}h', minutes: '{count}m', seconds: '{count}s',
+  },
   agentProfile: {
     open: 'View profile for {name}', profile: 'Profile', skills: 'Skills', tools: 'Tools', tabs: 'Agent profile sections',
     noPack: 'This team was not created from a pack', close: 'Close agent profile', loading: 'Loading profile…',

@@ -1,5 +1,5 @@
 import { deriveDisplayStatus, isLiveAttempt } from '@factory/contracts';
-import { House, Inbox, PanelLeftClose, PanelLeftOpen, Plus, Users, X } from 'lucide-react';
+import { Activity, House, Inbox, PanelLeftClose, PanelLeftOpen, Plus, Users, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -37,6 +37,7 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
     <NavButton collapsed={collapsed} aria-label={t('nav.overview')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => onNavigate('overview')}><House /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.overview')}</span></NavButton>
     <NavButton collapsed={collapsed} aria-label={`${t('nav.attention')}, ${inboxCount(t, items.length)}`} aria-current={view === 'needs-attention' ? 'page' : undefined} onClick={() => onNavigate('needs-attention')}><Inbox /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.attention')}</span>{items.length > 0 && !collapsed && <Badge key={items.length} className="ml-auto min-w-[22px] animate-[pop_300ms_ease-out] motion-reduce:animate-none border-0 bg-need py-0 text-need-foreground">{items.length}</Badge>}</NavButton>
     <NavButton collapsed={collapsed} aria-label={t('nav.team')} aria-current={view === 'team' ? 'page' : undefined} onClick={() => onNavigate('team')}><Users /><span className={labelClass}>{t('nav.team')}</span></NavButton>
+    <NavButton collapsed={collapsed} aria-label={t('systemUi.title')} aria-current={view === 'system' ? 'page' : undefined} onClick={() => onNavigate('system')}><Activity /><span className={labelClass}>{t('systemUi.title')}</span></NavButton>
     <div className={cn('mt-4 flex h-8 shrink-0 items-center justify-between px-2.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase', collapsed && 'justify-center px-0')}>
       <span className={collapsed ? 'sr-only' : ''}>{t('global.projects')}</span>
       <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" className="border-0 bg-transparent" aria-label={t('nav.addProject')} onClick={onCreate}><Plus /></Button></TooltipTrigger><TooltipContent side="right">{t('nav.addProject')}</TooltipContent></Tooltip>

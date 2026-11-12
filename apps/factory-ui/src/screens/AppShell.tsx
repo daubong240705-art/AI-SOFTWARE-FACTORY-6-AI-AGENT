@@ -6,6 +6,7 @@ import { ProjectView } from './ProjectView';
 import { CreateProject } from './CreateProject';
 import { Attention, attentionHash } from './Attention';
 import { Teams } from './Teams';
+import { System } from './system/SystemPage';
 import { Overview } from './Overview';
 import { useNavigation, type View } from './shell/navigation';
 import { Sidebar } from './shell/Sidebar';
@@ -51,7 +52,7 @@ export function AppShell({ store }: { store: Store }) {
   function newTask() { setInitialTask(null); setFocusComposer(value => value + 1); go('overview'); }
   function openTask(projectId: string, taskId: string) { setInitialTask({ projectId, taskId }); navigate(`project:${projectId}`, 'board'); setExpanded(false); }
   const navigation = <Sidebar store={store} view={view} collapsed={collapsed && !compact} compact={compact} expanded={expanded} onNavigate={go} onCreate={create} onCollapse={() => compact ? setExpanded(false) : setCollapsed(value => !value)} />;
-  const pageName = selected?.name ?? t(view === 'needs-attention' ? 'nav.attention' : view === 'team' ? 'nav.team' : 'nav.overview');
+  const pageName = selected?.name ?? t(view === 'needs-attention' ? 'nav.attention' : view === 'team' ? 'nav.team' : view === 'system' ? 'systemUi.title' : 'nav.overview');
   return <div className={`app${collapsed && !compact ? ' sidebar-collapsed' : ''}`}>
     <a className="skip-link" href="#factory-main" onClick={event => { event.preventDefault(); main.current?.focus(); }}>{t('nav.skip')}</a>
     <TooltipProvider>{!compact && navigation}<TopBar store={store} compact={compact} expanded={expanded} onToggle={() => setExpanded(value => !value)} onNewTask={newTask} onProject={id => go(`project:${id}`)} onTask={openTask} />
@@ -61,6 +62,7 @@ export function AppShell({ store }: { store: Store }) {
       {view === 'overview' ? <Overview store={store} onProject={id => { setChatProject(id); go(`project:${id}`); }} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} focusComposer={focusComposer} onTask={openTask} />
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} tab={teamTab} onTabChange={next => navigate('team', 'overview', next)} onTask={openTask} />
+        : view === 'system' ? <System store={store} />
         : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} tab={tab} onTabChange={next => navigate(view, next)} openChat={chatProject === selected.id} onChatOpened={() => setChatProject(null)} initialTaskId={initialTask?.projectId === selected.id ? initialTask.taskId : undefined} />
         : <p role="status">{t('viewStates.loading')}</p>}
       </Reveal>

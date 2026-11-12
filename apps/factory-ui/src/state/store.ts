@@ -17,6 +17,7 @@ import { settingsPendingKey, type SettingsCommand } from './settingsCommands';
 import { emptyNotifications, emptyIntegration, notificationPendingKey, integrationPendingKey, type NotificationCommand, type IntegrationCommand } from './notifications';
 import type { NotificationsResponse, IntegrationResponse } from '../api/notificationModels';
 import { notificationsMarkRead } from '../api/commands';
+import { emptySystem, systemAreas, type SystemArea, type SystemState } from './system';
 
 type AutomationCommand = Extract<Command, { type: `schedules.${string}` | `rules.${string}` | `monitors.${string}` }>;
 
@@ -33,6 +34,7 @@ const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], requests: [], 
 export type M3State = { teams: OrgTeam[]; packs: Awaited<ReturnType<ApiClient['listPacks']>>['packs']; queues: Record<string, Awaited<ReturnType<ApiClient['getTeamQueue']>>['items']>; disabled: boolean; requestTargets: RequestItem[]; requests: RequestItem[]; requestDetails: Record<string, RequestDetail>; dossier: Dossier | null; briefing: Briefing | null; contexts: Record<string, TaskContext[]> };
 const emptyM3 = (): M3State => ({ teams: [], packs: [], queues: {}, disabled: false, requestTargets: [], requests: [], requestDetails: {}, dossier: null, briefing: null, contexts: {} });
 export type StoreState = {
+  system: SystemState;
   packDetails: Record<string, PackDetail>;
   mcpServers: McpServer[] | null;
   notifications: NotificationsResponse;
@@ -64,7 +66,7 @@ const errorDetails = (error: unknown): StoreError => error instanceof ApiClientE
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
 
 export function createStore(options: StoreOptions = {}) {
-  let state: StoreState = { packDetails: {}, mcpServers: null, session: 'unknown', projects: [], selectedProjectId: null, ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, errors: {}, loading: {}, pending: {} };
+  let state: StoreState = { system: emptySystem(), packDetails: {}, mcpServers: null, session: 'unknown', projects: [], selectedProjectId: null, ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, errors: {}, loading: {}, pending: {} };
   const listeners = new Set<() => void>();
   const submittedCommands = new Set<string>();
   const update = (patch: Partial<StoreState>) => { state = { ...state, ...patch }; listeners.forEach((listener) => listener()); extractionPolling.sync(); };
@@ -111,7 +113,7 @@ export function createStore(options: StoreOptions = {}) {
     submittedCommands.clear();
     unwatchInbox(); remotesPromise = undefined;
     stop();
-    update({ packDetails: {}, mcpServers: null, session: 'anonymous', selectedProjectId: null, projects: [], ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, loading: {}, errors: {}, pending: {} });
+    update({ system: emptySystem(), packDetails: {}, mcpServers: null, session: 'anonymous', selectedProjectId: null, projects: [], ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, loading: {}, errors: {}, pending: {} });
   };
   // Handle authentication failures inside the guarded action, where obsolete requests
   // can be discarded before they affect a newly selected project or session.
@@ -191,6 +193,20 @@ export function createStore(options: StoreOptions = {}) {
   }
   const loadActivity = () => state.session !== 'authenticated' ? Promise.resolve()
     : enqueue('activity', generation, async () => ({ activity: await api.getOrgActivity() }));
+  async function loadSystem(area?: SystemArea) {
+    if (state.session !== 'authenticated') return;
+    const reads = {
+      health: async () => ({ health: await api.systemHealth() }),
+      capabilities: async () => ({ capabilities: await api.systemCapabilities() }),
+      backups: async () => ({ backups: await api.systemBackups() }),
+      servers: async () => ({ servers: (await api.listMcpServers()).servers }),
+      packs: async () => ({ packs: (await api.listPacks()).packs }),
+    };
+    await Promise.all((area ? [area] : systemAreas).map(key => state.loading[`system:${key}`] ? Promise.resolve() : enqueue(`system:${key}`, generation, async () => {
+      const patch = await reads[key]();
+      return { get system() { return { ...state.system, ...patch }; } };
+    })));
+  }
   const loadQueue = (teamId: string) => readM3(`queue:${teamId}`, async () => ({ queues: { ...state.m3.queues, [teamId]: (await api.getTeamQueue(teamId)).items } }));
   const loadRequests = (filters: { state?: string; team?: string } = {}) => readM3('requests', async id => ({ requests: (await api.listRequests(id, filters)).items }));
   const loadRequestTargets = () => readM3('request-targets', async id => ({ requestTargets: (await api.listRequests(id)).items }));
@@ -708,7 +724,7 @@ export function createStore(options: StoreOptions = {}) {
     watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
     loadTeams, loadPack, loadMcpServers, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
-    loadActivity,
+    loadActivity, loadSystem,
     watchActivity: () => {
       openM3.set('activity', loadActivity); void loadActivity();
       return () => {
