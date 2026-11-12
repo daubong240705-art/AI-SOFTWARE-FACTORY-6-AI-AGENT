@@ -2,6 +2,7 @@ import { m3Models } from './m3Models';
 import { packDetailModel, mcpServersModel } from './agentProfileModels';
 import { automationErrorKey } from './automationErrors';
 import { settingsErrorKey } from './settingsErrors';
+import { knowledgeErrorKey } from './knowledgeErrors';
 import { settingsReadModels } from './settingsModels';
 import { notificationReadModels } from './notificationModels';
 import { activityReadModel } from './activityModels';
@@ -65,7 +66,7 @@ export class ApiClientError extends Error {
     this.nextAction = error?.nextAction;
     this.correlationId = error?.correlationId;
     this.currentRevision = error?.currentRevision;
-    this.detailKey = includeHostMessage && error ? settingsErrorKey(error.message) ?? automationErrorKey(error.message) : undefined;
+    this.detailKey = includeHostMessage && error ? settingsErrorKey(error.message) ?? automationErrorKey(error.message) ?? knowledgeErrorKey(error.message) : undefined;
   }
 }
 export class DocumentUploadError extends ApiClientError {
@@ -254,7 +255,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     sendCommand: (command: Command) => {
       // Validate without replacing/mutating the caller's object or generating a new identity.
       if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');
-      return request('/commands', successResponseSchema, command, /^(schedules|rules|monitors|autonomy|standing-approvals|notifications|integration)\./.test(command.type));
+      return request('/commands', successResponseSchema, command, /^(schedules|rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts)\./.test(command.type));
     },
   };
 }

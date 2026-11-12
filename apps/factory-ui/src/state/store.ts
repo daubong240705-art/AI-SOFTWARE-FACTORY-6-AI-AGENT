@@ -15,6 +15,7 @@ import { createExtractionPolling } from './extractionPolling';
 import { toast } from 'sonner';
 import { i18n } from '../i18n';
 import { settingsPendingKey, type SettingsCommand } from './settingsCommands';
+import { knowledgePendingKey, type KnowledgeCommand } from './knowledgeCommands';
 import { emptyNotifications, emptyIntegration, notificationPendingKey, integrationPendingKey, type NotificationCommand, type IntegrationCommand } from './notifications';
 import type { NotificationsResponse, IntegrationResponse } from '../api/notificationModels';
 import { notificationsMarkRead } from '../api/commands';
@@ -686,6 +687,18 @@ export function createStore(options: StoreOptions = {}) {
   function sendSettings(command: SettingsCommand) {
     return sendCollectionCommand(command, settingsPendingKey(command), loadSettings, 'settingsWrite.conflict');
   }
+  function sendKnowledge(command: KnowledgeCommand) {
+    return sendCollectionCommand(command, knowledgePendingKey(command.payload.artifactId, command.payload.version), async () => {
+      await Promise.all([
+        readKnowledge(false, false, knowledgeOpen),
+        ...[...openKnowledge].map(id => loadKnowledgeDetail(id)),
+        ...['dossier', 'briefing'].flatMap(area => {
+          const reload = openM3.get(area);
+          return reload ? [reload()] : [];
+        }),
+      ]);
+    }, 'knowledgeWrite.changed', false, true);
+  }
   function sendNotification(command: NotificationCommand, quietConflict = false) {
     return sendCollectionCommand(command, notificationPendingKey(command.payload.notificationId), loadNotifications, 'notificationsUi.conflict', quietConflict);
   }
@@ -718,7 +731,7 @@ export function createStore(options: StoreOptions = {}) {
       }
     } finally { if (active(scope)) update({ notificationProgress: null }); }
   }
-  async function sendCollectionCommand(command: Command, key: string, reload: () => Promise<void>, conflictKey: string, quietConflict = false) {
+  async function sendCollectionCommand(command: Command, key: string, reload: () => Promise<void>, conflictKey: string, quietConflict = false, recoverNotFound = false) {
     const scope = generation;
     if (state.loading[key] || state.session !== 'authenticated' || command.projectId !== state.selectedProjectId) return;
     update({ loading: { ...state.loading, [key]: true }, errors: { ...state.errors, [key]: undefined } });
@@ -727,12 +740,13 @@ export function createStore(options: StoreOptions = {}) {
       if (!active(scope)) return;
       const error = state.pending[command.commandId]?.error;
       if (error) update({ errors: { ...state.errors, [key]: error } });
-      if (response || error?.code === 'conflict') {
+      const changed = error?.code === 'conflict' || (recoverNotFound && error?.code === 'not-found');
+      if (response || changed) {
         await reload();
         if (!active(scope)) return;
-        if (error?.code === 'conflict' && !quietConflict) toast.info(i18n.t(conflictKey));
+        if (changed && !quietConflict) toast.info(i18n.t(conflictKey));
       }
-      return response;
+      return response || (recoverNotFound && changed ? true : undefined);
     } finally {
       if (active(scope)) update({ loading: { ...state.loading, [key]: false } });
     }
@@ -766,6 +780,7 @@ export function createStore(options: StoreOptions = {}) {
       };
     },
     watchM3: (area: string, read: () => Promise<void>) => { openM3.set(area, read); void read(); return () => { openM3.delete(area); }; },
+    sendKnowledge,
     searchKnowledge, loadKnowledgeList: (filters: KnowledgeFilters = {}) => searchKnowledge('', filters),
     loadKnowledgeMore: () => readKnowledge(true), cancelKnowledgeSearch,
     openKnowledgeList: () => { knowledgeOpen = true; extractionPolling.sync(); },

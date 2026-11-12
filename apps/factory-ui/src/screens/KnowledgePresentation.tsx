@@ -18,6 +18,11 @@ export function KnowledgeStatus({ status }: { status: string }) {
   return <Badge variant="outline" className={cn('gap-1.5 font-normal', status === 'approved' || status === 'reviewed' ? 'text-ok' : status === 'in-review' ? 'text-info' : 'text-muted-foreground')}><span aria-hidden="true" className="size-1.5 rounded-full bg-current" />{t(`knowledgeUi.statuses.${status}`)}</Badge>;
 }
 
+export function KnowledgeVisibility({ visibility }: { visibility: string }) {
+  const t = useT();
+  return <Badge variant="secondary" className="text-xs font-normal text-muted-foreground">{t(`knowledgeUi.visibility.${visibility}`)}</Badge>;
+}
+
 // Keep document content inert: no embedded HTML or remote resources.
 export function KnowledgeText({ text, code = false }: { text: string; code?: boolean }) {
   if (code) return <pre className="overflow-x-auto rounded-lg border border-border bg-muted/40 p-4 font-mono text-xs leading-7 whitespace-pre-wrap [overflow-wrap:anywhere]">{text}</pre>;

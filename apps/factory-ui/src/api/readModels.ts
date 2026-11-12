@@ -7,6 +7,7 @@ const invalid = (): never => { throw new Error('Invalid read model'); };
 const record = (v: unknown): Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : invalid();
 const string = (max = 500, min = 0): Reader<string> => v => typeof v === 'string' && v.length >= min && v.length <= max ? v : invalid();
 const integer = (min = 0): Reader<number> => v => typeof v === 'number' && Number.isSafeInteger(v) && v >= min ? v : invalid();
+const boolean: Reader<boolean> = v => typeof v === 'boolean' ? v : invalid();
 const nullable = <T,>(read: Reader<T>): Reader<T | null> => v => v === null ? null : read(v);
 const defaulted = <T,>(read: Reader<T>, fallback: T): Reader<T> => v => v === undefined ? fallback : read(v);
 const array = <T,>(read: Reader<T>): Reader<T[]> => v => Array.isArray(v) && v.length <= 5000 ? v.map(read) : invalid();
@@ -55,7 +56,8 @@ const documentFields = { extraction, origin: defaulted(enumeration(['agent', 'up
 const knowledgeFields = { ...documentFields, artifactId: identifier, version: integer(1), kind: enumeration(knowledgeKinds), title: string(500, 1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), projectId: identifier };
 const knowledgeResult = object({ ...knowledgeFields, snippet: string(1000), rank: (v: unknown): number => typeof v === 'number' && Number.isFinite(v) ? v : invalid() });
 const knowledgeItem = object({ ...knowledgeFields, createdAt: timestamp, versionCount: defaulted(integer(1), 1) });
-const knowledgeVersion = object({ ...documentFields, version: integer(1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), abstractL1: nullable(string(6000)), producedByAttemptId: nullable(identifier), supersedesVersion: nullable(integer(1)), createdAt: timestamp });
+const staleReason = object({ becauseArtifactId: identifier, becauseVersion: integer(1), since: timestamp });
+const knowledgeVersion = object({ ...documentFields, version: integer(1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), abstractL1: nullable(string(6000)), producedByAttemptId: nullable(identifier), supersedesVersion: nullable(integer(1)), createdAt: timestamp, stale: defaulted(array(staleReason), []), isStale: defaulted(boolean, false) });
 const knowledgeRef = object({ artifactId: identifier, version: integer(1), title: string(500, 1) });
 const knowledgeArtifact = object({ artifactId: identifier, kind: enumeration(knowledgeKinds), title: string(500, 1), versions: knowledgeArray(knowledgeVersion), inputs: knowledgeArray(knowledgeRef), dependants: knowledgeArray(knowledgeRef) });
 export type KnowledgeResult = ReturnType<typeof knowledgeResult>;

@@ -4,6 +4,8 @@ import { i18n } from '../i18n';
 
 function successKey(command: Command, approvalKind?: Approval['kind']) {
   switch (command.type) {
+    case 'artifacts.share': return 'knowledgeWrite.shared';
+    case 'artifacts.clear-stale': return 'knowledgeWrite.reviewed';
     case 'integration.retry': return 'integrationUi.retryRequested';
     case 'integration.skip': return 'integrationUi.skipped';
     case 'autonomy.set': return 'settingsWrite.autonomySaved';

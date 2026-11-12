@@ -12,19 +12,22 @@ import { relativeTime } from './Inbox';
 import { KnowledgeKindIcon, KnowledgeStatus, KnowledgeText, KnowledgeTitle } from './KnowledgePresentation';
 import { documentSize, documentType } from './documents/presentation';
 import { UploadDialog } from './documents/UploadDialog';
+import { ShareDocument } from './documents/ShareDocument';
+import { StaleReasons } from './documents/StaleReasons';
 import { ExtractionChip, ExtractionTechnicalDetails } from './documents/ExtractionStatus';
 import { useExtraction } from './documents/useExtraction';
 const DocumentPreview = lazy(() => import('./documents/preview/DocumentPreview').then(module => ({ default: module.DocumentPreview })));
 
-export function KnowledgeArtifact({ store, artifactId, onClose }: { store: Store; artifactId: string; onClose: () => void }) {
-  const t = useT(); const state = store.useStoreSelector(value => value); const id = useId(); const [versionNumber, setVersionNumber] = useState<number | null>(null); const [upload, setUpload] = useState(false);
+export function KnowledgeArtifact({ store, artifactId, initialVersion = null, onClose }: { store: Store; artifactId: string; initialVersion?: number | null; onClose: () => void }) {
+  const t = useT(); const state = store.useStoreSelector(value => value); const id = useId(); const [versionNumber, setVersionNumber] = useState<number | null>(initialVersion); const [upload, setUpload] = useState(false);
   useEffect(() => { void store.openKnowledgeArtifact(artifactId); return () => store.closeKnowledgeArtifact(artifactId); }, [store, artifactId]);
   const artifact = state.knowledge.detail[artifactId]; const area = `knowledge-detail:${artifactId}`; const latest = artifact?.versions[0]; const selected = artifact?.versions.find(value => value.version === versionNumber) ?? latest; const number = (value: number) => new Intl.NumberFormat(i18n.locale).format(value);
   const { extraction, error: extractionError, reload } = useExtraction({ store, projectId: state.selectedProjectId ?? '', artifactId, version: selected?.version ?? 1 }, selected?.extraction ?? null, selected?.extraction?.status !== 'pending' && selected?.extraction?.status !== 'running');
   if (state.session !== 'authenticated') return null;
   return <Sheet open onOpenChange={open => { if (!open) onClose(); }}><SheetContent side="right" showCloseButton={false} aria-labelledby={`${id}-title`} aria-describedby={undefined} className="w-full gap-0 overflow-y-auto border-border bg-card sm:max-w-2xl">
-    <SheetHeader className="sticky top-0 z-10 flex-row items-start justify-between gap-4 border-b border-border bg-card p-5"><div className="min-w-0 space-y-3"><SheetTitle id={`${id}-title`} className="font-display text-2xl leading-tight [overflow-wrap:anywhere]"><KnowledgeTitle title={artifact?.title ?? t('knowledgeUi.detail')} /></SheetTitle>{artifact && <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary"><KnowledgeKindIcon kind={artifact.kind} />{t(`knowledgeUi.kinds.${artifact.kind}`)}</Badge>{latest && <KnowledgeStatus status={latest.status} />}</div>}<ExtractionTechnicalDetails extraction={extraction} /></div><Button variant="ghost" size="icon" onClick={onClose} aria-label={t('knowledgeUi.close')}><X className="size-4" /></Button></SheetHeader>
+    <SheetHeader className="sticky top-0 z-10 flex-row items-start justify-between gap-4 border-b border-border bg-card p-5"><div className="min-w-0 space-y-3"><SheetTitle id={`${id}-title`} className="font-display text-2xl leading-tight [overflow-wrap:anywhere]"><KnowledgeTitle title={artifact?.title ?? t('knowledgeUi.detail')} /></SheetTitle>{artifact && <div className="flex flex-wrap items-center gap-2"><Badge variant="secondary"><KnowledgeKindIcon kind={artifact.kind} />{t(`knowledgeUi.kinds.${artifact.kind}`)}</Badge>{selected && <KnowledgeStatus status={selected.status} />}</div>}{artifact && selected && <ShareDocument key={`${artifactId}:${selected.version}`} store={store} projectId={state.selectedProjectId ?? ''} artifactId={artifactId} title={artifact.title} version={selected} />}<ExtractionTechnicalDetails extraction={extraction} /></div><Button variant="ghost" size="icon" onClick={onClose} aria-label={t('knowledgeUi.close')}><X className="size-4" /></Button></SheetHeader>
     <div className="mx-auto w-full max-w-2xl space-y-6 p-5">
+      {artifact && selected && <StaleReasons key={`${artifactId}:${selected.version}`} store={store} projectId={state.selectedProjectId ?? ''} artifact={artifact} version={selected} />}
       {state.knowledge.loading[area] && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3"><Skeleton className="h-5 w-2/3" /><Skeleton className="h-32" /></div>}
       {state.knowledge.errors[area] && <div className="space-y-3"><ErrorNotice error={state.knowledge.errors[area]} /><Button variant="outline" onClick={() => { void store.openKnowledgeArtifact(artifactId); }}>{t('errors.retry')}</Button></div>}
       {artifact && selected && <>

@@ -155,6 +155,17 @@ export const extra: Translated<typeof en> = {
     activitySelectProject: 'Mở một dự án để xem hoạt động công việc.', undated: 'KHÁC',
   },
   m3: m3Vi,
+  knowledgeWrite: {
+    stale: 'Cần xem lại', staleReason: 'Vì «{title}» v{version} đã đổi, từ {time}', markReviewed: 'Đã xem lại', reviewTitle: 'Đánh dấu đã xem lại?',
+    reviewDescription: 'Tài liệu sẽ không còn bị coi là cũ vì thay đổi này; nội dung không đổi.', reviewInvalid: 'Chưa thể ghi nhận việc xem lại. Hãy tải lại tài liệu và thử lại.',
+    hiddenReason: 'Một tài liệu nguồn đã thay đổi. Hiện không xem được chi tiết.', reviewDocument: 'Xem lại tài liệu',
+    share: 'Chia sẻ', visibility: 'Ai có thể xem phiên bản này',
+    help: { 'team-draft': 'Chỉ đội tạo ra nó xem được', project: 'Mọi đội trong dự án xem được', shared: 'Mọi dự án trong tổ chức xem được và có thể dùng làm tri thức chung' },
+    approvedOnly: 'Chỉ tài liệu đã được duyệt mới chia sẻ toàn tổ chức', noDraft: 'Tài liệu đã duyệt không quay về nháp', inactive: 'Phiên bản đã bị thay thế, rút lại hoặc từ chối không chia sẻ được',
+    organizationWarning: 'Tài liệu sẽ hiện ở mọi dự án trong tổ chức và agent sẽ đọc nó như tri thức chung.', understood: 'Tôi hiểu', acknowledge: 'Hãy xác nhận bạn hiểu phạm vi chia sẻ toàn tổ chức.', invalid: 'Hãy chọn một phạm vi chia sẻ khả dụng.',
+    changed: 'Dữ liệu đã đổi, đã tải lại', shared: 'Đã cập nhật phạm vi chia sẻ.', reviewed: 'Đã ghi nhận việc xem lại.',
+    visibilityDenied: 'Phiên bản này không thể chia sẻ ở phạm vi đã chọn.',
+  },
   knowledgeUi: {
     extraction: {
       done: 'Đã trích xuất', donePages: 'Đã trích xuất {count} trang', extracting: 'Đang trích xuất…', failed: 'Không trích xuất được', disabled: 'Chưa bật bộ trích xuất',
@@ -178,7 +189,7 @@ export const extra: Translated<typeof en> = {
     count: { one: 'tài liệu được hiển thị', other: 'tài liệu được hiển thị' }, versionCount: { one: 'phiên bản', other: 'phiên bản' }, version: 'Phiên bản', more: 'Tải thêm', close: 'Đóng tài liệu', detail: 'Chi tiết tài liệu',
     versions: 'Các phiên bản', bytes: 'byte', supersedes: 'Thay thế', l0: 'Tóm tắt', l1: 'Tóm tắt chi tiết', read: 'Đọc văn bản', truncated: 'Đã cắt tại {count} ký tự.',
     provenance: 'Nguồn gốc', inputs: 'Được tạo từ', dependants: 'Được dùng bởi', noRefs: 'Không có.',
-    visibility: { 'team-draft': 'Bản nháp của nhóm', project: 'Dự án', shared: 'Được chia sẻ' },
+    visibility: { 'team-draft': 'Nháp của đội', project: 'Cả dự án', shared: 'Toàn tổ chức' },
     statuses: { draft: 'Bản nháp', 'in-review': 'Đang xét duyệt', reviewed: 'Đã xét duyệt', approved: 'Đã phê duyệt', superseded: 'Đã thay thế', rejected: 'Đã từ chối', withdrawn: 'Đã rút lại' },
     kinds: { 'research-report': 'Báo cáo nghiên cứu', requirements: 'Yêu cầu', adr: 'Quyết định kiến trúc', 'data-model': 'Mô hình dữ liệu', 'api-contract': 'Hợp đồng API', 'ui-spec': 'Đặc tả giao diện', 'design-asset': 'Tài nguyên thiết kế', media: 'Đa phương tiện', 'code-ref': 'Tham chiếu mã nguồn', dataset: 'Tập dữ liệu', dossier: 'Hồ sơ', plan: 'Kế hoạch', other: 'Khác' },
   },

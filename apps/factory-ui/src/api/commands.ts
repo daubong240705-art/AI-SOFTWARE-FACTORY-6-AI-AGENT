@@ -144,3 +144,6 @@ export function monitorsResume({ projectId, ...payload }: Of<'monitors.resume'>[
 export function monitorsDelete({ projectId, ...payload }: Of<'monitors.delete'>['payload'] & { projectId: string }) {
   return build('monitors.delete', projectId, payload);
 }
+
+export function artifactsShare({ projectId, ...payload }: Of<'artifacts.share'>['payload'] & { projectId: string }) { return build('artifacts.share', projectId, payload); }
+export function artifactsClearStale({ projectId, ...payload }: Of<'artifacts.clear-stale'>['payload'] & { projectId: string }) { return build('artifacts.clear-stale', projectId, payload); }
