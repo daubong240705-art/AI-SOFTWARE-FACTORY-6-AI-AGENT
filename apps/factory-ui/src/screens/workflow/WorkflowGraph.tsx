@@ -8,12 +8,13 @@ import { BandNode, GateNode, StageNode } from './WorkflowNodes';
 import { ReworkEdge } from './ReworkEdge';
 import type { WorkflowGraphProps } from './graphTypes';
 import { noLiveRuns } from './useLiveRuns';
+import { stagePatchKinds } from './patchOperations';
 
 const nodeTypes = { stage: StageNode, gate: GateNode, band: BandNode, parallel: BandNode };
 const edgeTypes = { rework: ReworkEdge };
 const noStages: NonNullable<WorkflowGraphProps['stages']> = [];
 const noPhases: string[] = [];
-export default function WorkflowGraph({ graph, stages = noStages, phases = noPhases, liveRuns = noLiveRuns, selectedStage, onSelectStage, preview = false }: WorkflowGraphProps) {
+export default function WorkflowGraph({ graph, stages = noStages, phases = noPhases, liveRuns = noLiveRuns, selectedStage, onSelectStage, preview = false, editMode = false }: WorkflowGraphProps) {
   const t = useT();
   const layout = useMemo(() => layoutWorkflow(graph, stages, phases), [graph, stages, phases]);
   const flow = useRef<{ getZoom: () => number; setCenter: (x: number, y: number, options?: { zoom?: number; duration?: number }) => unknown } | null>(null);
@@ -26,9 +27,9 @@ export default function WorkflowGraph({ graph, stages = noStages, phases = noPha
   }, [selectedStage, layout.nodes, preview]);
   const nodes = useMemo(() => layout.nodes.map(node => {
     if (node.type !== 'stage') return { ...node, selected: false };
-    return { ...node, selected: node.id === selectedStage, data: { ...node.data, liveRuns },
+    return { ...node, selected: node.id === selectedStage, data: { ...node.data, liveRuns, editable: editMode && stagePatchKinds(node.data.definition, node.data.stage).length > 0 },
       ariaLabel: `${node.data.definition.title || node.id}, ${t(`m5Ui.states.${node.data.stage.state}`)}` };
-  }), [layout.nodes, selectedStage, liveRuns, t]);
+  }), [layout.nodes, selectedStage, liveRuns, t, editMode]);
   const edges = layout.edges.map(edge => {
     const data = edge.data;
     const kind = data?.type;

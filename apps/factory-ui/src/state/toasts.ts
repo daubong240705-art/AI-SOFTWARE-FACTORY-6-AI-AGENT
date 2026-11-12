@@ -43,6 +43,7 @@ function successKey(command: Command, approvalKind?: Approval['kind']) {
     case 'workflows.resume': return 'toastUi.workflowResumed';
     case 'workflows.cancel': return 'toastUi.workflowCancelled';
     case 'workflows.assign-stage': return 'toastUi.stageAssigned';
+    case 'workflows.decide-patch': return 'planPatch.decisionSaved';
     // Starting uses the Execution Gate release command; transition to active is a retry.
     case 'tasks.release': return 'toastUi.started';
     case 'tasks.transition': return command.payload.to === 'accepted' ? 'toastUi.approved' : undefined;

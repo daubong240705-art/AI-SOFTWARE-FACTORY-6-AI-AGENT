@@ -12,6 +12,8 @@ export function workflowGraph(definition: WorkflowDefinition) {
       sideEffect: stage.sideEffect ?? null,
       requiredCapabilities: [...stage.requiredCapabilities],
       teamHint: stage.teamHint ?? null,
+      // Plan Patch addTaskWithinStage needs room: the Host allows 2 + extra tasks up to this limit (default 1 = no room).
+      maxTasks: stage.limits?.maxTasks ?? 1,
       inputs: stage.inputs.map(({ kind, required }) => ({ kind, required })),
       outputs: stage.outputs.map(({ kind, mustReach }) => ({ kind, mustReach })),
     })),

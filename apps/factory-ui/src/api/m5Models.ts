@@ -24,7 +24,7 @@ const graphStage = o.extend({ key: s.min(1), title: s.optional().default(''), ph
   optional: seatSchema.shape.isLead.optional().default(false), parallelGroup: s.nullable().optional().default(null),
   placement: en(['portable', 'node-bound', 'unknown'] as const).catch('unknown'), sideEffect: en(['none', 'artifact', 'code', 'external', 'unknown'] as const).catch('unknown'),
   requiredCapabilities: s.array().optional().default([]).transform(items => items.filter((item): item is string => typeof item === 'string')),
-  teamHint: s.nullable().optional().default(null), inputs: graphInput.nullable().catch(null).array().optional().default([]).transform(items => items.filter(item => item !== null)),
+  teamHint: s.nullable().optional().default(null), maxTasks: n.int().positive().optional().catch(undefined), inputs: graphInput.nullable().catch(null).array().optional().default([]).transform(items => items.filter(item => item !== null)),
   outputs: graphOutput.nullable().catch(null).array().optional().default([]).transform(items => items.filter(item => item !== null)),
 }).strip();
 const graphEdge = o.extend({ from: s.min(1), to: s.min(1),
@@ -46,7 +46,17 @@ const stage = o.extend({
   engagementId: idSchema.nullable().optional().catch(undefined),
   tasks: task.nullable().catch(null).array().optional().default([]).transform(items => items.filter(item => item !== null)),
 }).strip();
+export const workflowPatchModel = o.extend({
+  id: idSchema, number: n.positive(), proposedBy: en(['operator', 'lead', 'unknown'] as const).catch('unknown'),
+  policy: en(['auto', 'approval', 'operator', 'unknown'] as const).catch('unknown'),
+  state: en(['applied', 'pending', 'rejected', 'refused', 'unknown'] as const).catch('unknown'),
+  reason: s.optional().default(''), refusal: s.nullable().optional().default(null), createdAt: date,
+  decidedAt: maybeDate, comment: s.nullable().optional().default(null), appliedRevision: n.positive().nullable().optional().catch(null).default(null),
+}).strip();
 const detail = workflow.extend({ lastProgressAt: maybeDate,
+  // Per operation kind: auto | approval | operator (older Hosts do not send it).
+  allowedPatches: workflowDefinitionSchema.shape.allowedPatches.optional().catch(undefined),
+  patches: workflowPatchModel.nullable().catch(null).array().optional().catch([]).default([]).transform(items => items.filter(item => item !== null)),
   stages: stage.nullable().catch(null).array().optional().default([]).transform(items => items.filter(item => item !== null)),
   graph: workflowGraph.nullable().optional().catch(null).default(null),
   phases: s.array().optional().catch([]).default([]), definitionTitle: s.optional().catch(undefined),
@@ -101,6 +111,7 @@ export const m5ReadModels = {
   monitorEvents: ok.extend({ items: monitorEvent.nullable().catch(null).array().optional().default([]).transform(items => items.filter(item => item !== null)) }).strip(),
 };
 export type WorkflowInstance = ReturnType<typeof workflow.parse>;
+export type WorkflowPatch = ReturnType<typeof workflowPatchModel.parse>;
 export type WorkflowStage = ReturnType<typeof stage.parse>;
 export type WorkflowDetail = ReturnType<typeof detail.parse>;
 export type WorkflowGraph = ReturnType<typeof workflowGraph.parse>;

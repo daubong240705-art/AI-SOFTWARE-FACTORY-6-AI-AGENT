@@ -2,6 +2,17 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  planPatch: {
+    noRoom: 'Quy trình này chỉ cho một việc mỗi bước nên không thêm việc vào bước này được.', edit: 'Sửa kế hoạch', editStage: 'Chỉnh sửa bước', drafting: 'Bản vá đang soạn ({count}/10)', composer: 'Bản vá kế hoạch',
+    actions: { addTaskWithinStage: 'Thêm việc vào bước', skipOptionalStage: 'Bỏ qua bước', reorderStages: 'Chuyển bước này ra sau bước…', removeRequiredStage: 'Xóa bước bắt buộc' },
+    taskTitle: 'Tiêu đề việc', after: 'Đặt sau', chooseStage: 'Chọn một bước', cycleHint: 'Host sẽ từ chối chu trình và nêu lý do.', requiredWarning: 'Bước này là bắt buộc. Việc xóa luôn cần bạn duyệt.', understood: 'Tôi hiểu', skipConfirm: 'Bỏ qua bước “{stage}”?', draftOnly: 'Thao tác này chỉ thêm vào bản nháp; chưa gửi đi.', addToDraft: 'Thêm vào bản nháp', cancel: 'Hủy',
+    limit: 'Bản nháp đã đủ 10 thao tác.', reason: 'Lý do', reasonPlaceholder: 'Giải thích vì sao kế hoạch cần thay đổi…', submit: 'Gửi bản vá', clear: 'Bỏ bản vá', clearConfirm: 'Bỏ toàn bộ thao tác trong bản nháp?', clearDescription: 'Các thao tác này chưa được gửi đến Host.', remove: 'Xóa thao tác',
+    history: 'Lịch sử chỉnh sửa', emptyHistory: 'Chưa có bản vá nào.', lead: 'Lead', you: 'Bạn', revision: 'bản {revision}', approve: 'Duyệt', reject: 'Từ chối', commentOptional: 'Nhận xét (không bắt buộc)', decisionHelp: 'Xác nhận quyết định cho bản vá #{number}.', decisionSaved: 'Đã lưu quyết định về bản vá',
+    policies: { auto: 'Tự áp dụng', approval: 'Cần duyệt', operator: 'Chỉ bạn quyết', unknown: 'Chưa rõ chính sách' }, states: { applied: 'Đã áp dụng', pending: 'Chờ duyệt', rejected: 'Bị từ chối', refused: 'Host từ chối', unknown: 'Chưa rõ' },
+    applied: 'Đã áp dụng bản vá, kế hoạch lên bản {revision}', pending: 'Bản vá đang chờ bạn duyệt trong mục Cần xử lý', refused: 'Host từ chối: {reason}', noRefusal: 'Không có lý do', conflict: 'Dữ liệu đã đổi, đã tải lại',
+    errors: { missing: 'Quy trình hoặc bản vá này không còn tồn tại.', limit: 'Quy trình đã đạt giới hạn số bản vá.', pendingLimit: 'Hãy quyết định các bản vá đang chờ trước khi thêm.', invalid: 'Kiểm tra các thao tác và lý do.', terminal: 'Quy trình này không còn cho phép chỉnh sửa.', outcome: 'Đã gửi bản vá. Hãy tải lại để xác nhận kết quả trước khi gửi tiếp.' },
+    summary: { addTaskWithinStage: 'Thêm việc “{title}” vào bước «{stage}»', skipOptionalStage: 'Bỏ qua bước «{stage}»', reorderStages: 'Chuyển «{stage}» ra sau «{after}»', removeRequiredStage: 'Xóa bước bắt buộc «{stage}»', splitStage: 'Tách bước «{stage}»', addStage: 'Thêm bước «{stage}»' },
+  },
   modelsUi: {
     title: 'Model', description: 'Chọn model cho Lead và các agent.', change: 'Đổi model', lead: 'Lead', agents: 'Agent',
     effort: 'Mức suy luận', efforts: { low: 'Thấp', medium: 'Vừa', high: 'Cao', xhigh: 'Rất cao' },

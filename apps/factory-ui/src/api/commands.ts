@@ -50,6 +50,7 @@ export function approvalsDecide({ projectId, ...payload }: Of<'approvals.decide'
 export function workflowsDecidePatch({ projectId, ...payload }: Of<'workflows.decide-patch'>['payload'] & { projectId: string }) {
   return build('workflows.decide-patch', projectId, payload);
 }
+export function workflowsPatch({ projectId, ...payload }: Of<'workflows.patch'>['payload'] & { projectId: string }) { return build('workflows.patch', projectId, payload); }
 export function workflowsCreate({ projectId, ...payload }: Of<'workflows.create'>['payload'] & { projectId: string }) { return build('workflows.create', projectId, payload); }
 export function workflowsStart({ projectId, ...payload }: Of<'workflows.start'>['payload'] & { projectId: string }) { return build('workflows.start', projectId, payload); }
 export function workflowsPause({ projectId, ...payload }: Of<'workflows.pause'>['payload'] & { projectId: string }) { return build('workflows.pause', projectId, payload); }

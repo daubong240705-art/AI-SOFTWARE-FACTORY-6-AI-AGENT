@@ -13,6 +13,7 @@ import { modelSettingsResponse } from './modelSettings';
 export type { FolderListing } from './folderModels';
 export type { SystemHealth, SystemCapabilities, SystemBackup } from './systemModels';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
+import { workflowErrorKey } from './workflowErrors';
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
@@ -69,7 +70,7 @@ export class ApiClientError extends Error {
     this.nextAction = error?.nextAction;
     this.correlationId = error?.correlationId;
     this.currentRevision = error?.currentRevision;
-    this.detailKey = includeHostMessage && error ? settingsErrorKey(error.message) ?? automationErrorKey(error.message) ?? knowledgeErrorKey(error.message) : undefined;
+    this.detailKey = includeHostMessage && error ? workflowErrorKey(error.message) ?? settingsErrorKey(error.message) ?? automationErrorKey(error.message) ?? knowledgeErrorKey(error.message) : undefined;
   }
 }
 export class DocumentUploadError extends ApiClientError {
@@ -260,7 +261,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     sendCommand: (command: Command) => {
       // Validate without replacing/mutating the caller's object or generating a new identity.
       if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');
-      return request('/commands', successResponseSchema, command, /^(schedules|rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts|models)\./.test(command.type));
+      return request('/commands', successResponseSchema, command, /^(workflows|schedules|rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts|models)\./.test(command.type));
     },
   };
 }

@@ -1,4 +1,15 @@
 export const extra = {
+  planPatch: {
+    noRoom: 'This workflow allows one task per step, so no task can be added to this step.', edit: 'Edit plan', editStage: 'Edit this step', drafting: 'Plan patch in draft ({count}/10)', composer: 'Plan patch composer',
+    actions: { addTaskWithinStage: 'Add task to this step', skipOptionalStage: 'Skip this step', reorderStages: 'Move this step after…', removeRequiredStage: 'Remove required step' },
+    taskTitle: 'Task title', after: 'Place after', chooseStage: 'Choose a step', cycleHint: 'The Host will reject cycles and explain why.', requiredWarning: 'This step is required. Removing it always needs your approval.', understood: 'I understand', skipConfirm: 'Skip step “{stage}”?', draftOnly: 'This action is added to the draft; nothing is sent yet.', addToDraft: 'Add to draft', cancel: 'Cancel',
+    limit: 'The draft is full (10 operations).', reason: 'Reason', reasonPlaceholder: 'Explain why this plan should change…', submit: 'Send patch', clear: 'Discard patch', clearConfirm: 'Discard all operations in this draft?', clearDescription: 'These operations have not been sent to the Host.', remove: 'Remove operation',
+    history: 'Edit history', emptyHistory: 'No patches yet.', lead: 'Lead', you: 'You', revision: 'revision {revision}', approve: 'Approve', reject: 'Reject', commentOptional: 'Comment (optional)', decisionHelp: 'Confirm your decision for patch #{number}.', decisionSaved: 'Patch decision saved',
+    policies: { auto: 'Auto apply', approval: 'Needs approval', operator: 'Operator only', unknown: 'Unknown policy' }, states: { applied: 'Applied', pending: 'Pending approval', rejected: 'Rejected', refused: 'Host refused', unknown: 'Unknown' },
+    applied: 'Patch applied; plan is now revision {revision}', pending: 'Patch is waiting for your approval in Needs attention', refused: 'Host refused: {reason}', noRefusal: 'No reason supplied', conflict: 'Data changed; the workflow was reloaded',
+    errors: { missing: 'This workflow or patch no longer exists.', limit: 'The workflow has reached its patch limit.', pendingLimit: 'Decide existing pending patches before adding more.', invalid: 'Check the operations and reason.', terminal: 'This workflow no longer allows editing.', outcome: 'The patch was sent. Reload to confirm its outcome before sending again.' },
+    summary: { addTaskWithinStage: 'Add task “{title}” to step «{stage}»', skipOptionalStage: 'Skip step «{stage}»', reorderStages: 'Move «{stage}» after «{after}»', removeRequiredStage: 'Remove required step «{stage}»', splitStage: 'Split step «{stage}»', addStage: 'Add step «{stage}»' },
+  },
   modelsUi: {
     title: 'Models', description: 'Choose models for the Lead and agents.', change: 'Change models', lead: 'Lead', agents: 'Agent',
     effort: 'Reasoning effort', efforts: { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra high' },
