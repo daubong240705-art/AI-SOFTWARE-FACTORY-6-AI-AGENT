@@ -16,5 +16,13 @@ rm -rf "$DST"; mkdir -p "$DST/apps/factory-host" "$DST/apps/factory-ui" "$DST/pa
 if [ -d "$SRC/apps/factory-ui/dist" ]; then (cd "$SRC/apps/factory-ui" && tar cf - dist) | tar xf - -C "$DST/apps/factory-ui"; else echo "note: apps/factory-ui/dist not found, the Host will serve no UI" >&2; fi
 (cd "$DST/packages/factory-contracts" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null)
 (cd "$DST/apps/factory-host" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null)
+# A small stamp so an operator can tell which build is running (commit, branch, time); the checkout may be dirty.
+GITC="git -c safe.directory=* -C $SRC"
+{ echo "commit=$($GITC rev-parse --short HEAD 2>/dev/null || echo unknown)"
+  echo "branch=$($GITC rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+  echo "dirty=$([ -n "$($GITC status --porcelain --untracked-files=no 2>/dev/null)" ] && echo yes || echo no)"
+  echo "deployed=$(date -u +%Y-%m-%dT%H:%M:%SZ)"; } > "$DST/VERSION"
+echo "Build: $(tr '
+' ' ' < "$DST/VERSION")"
 echo "Deployed to $DST. Start with:"
 echo "  FACTORY_STATE_DIR=\$HOME/factory-v2/state FACTORY_PORT=8787 node $DST/apps/factory-host/dist/main.js"

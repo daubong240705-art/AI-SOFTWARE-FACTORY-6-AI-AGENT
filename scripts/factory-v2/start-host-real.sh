@@ -21,7 +21,8 @@ bad()  { echo "  MISSING  $*" >&2; fail=1; }
 echo "Factory Host (real OpenCode runtime) preflight"
 export PATH="$ROOT/node/bin:$PATH"
 command -v node >/dev/null 2>&1 && ok "node $(node --version)" || bad "node (expected $ROOT/node/bin/node)"
-[ -f "$ROOT/app/apps/factory-host/dist/main.js" ] && ok "deployed Host build" || bad "Host build: run scripts/factory-v2/deploy-host-wsl.sh"
+[ -f "$ROOT/app/apps/factory-host/dist/main.js" ] && ok "deployed Host build ($(tr '
+' ' ' < "$ROOT/app/VERSION" 2>/dev/null))" || bad "Host build: run scripts/factory-v2/deploy-host-wsl.sh"
 [ -f "$ROOT/app/apps/factory-ui/dist/index.html" ] && ok "UI build" || bad "UI build: run npm run build in apps/factory-ui, then redeploy"
 command -v bwrap >/dev/null 2>&1 && ok "bubblewrap" || bad "bubblewrap (bwrap)"
 [ -x "$ROOT/opencode/bin/opencode" ] && ok "OpenCode $("$ROOT/opencode/bin/opencode" --version 2>/dev/null | head -1)" || bad "OpenCode at $ROOT/opencode/bin/opencode"
