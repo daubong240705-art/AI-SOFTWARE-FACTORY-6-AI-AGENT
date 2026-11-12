@@ -969,6 +969,18 @@ nodeTest("opencode entrypoint refuses an unavailable sandbox before opening host
 });
 
 
+test("folder browse needs a session, starts at the Host user's home and refuses other places",async(t)=>{
+  const host=await launch(t,undefined,{dispatch:null}); const session=await bootstrap(host);
+  assert.equal((await fetch(`${host.origin}/system/browse`)).status,401);
+  const ok=await fetch(`${host.origin}/system/browse`,{headers:{cookie:session.cookie}}); assert.equal(ok.status,200);
+  const body=await ok.json(); assert.equal(body.ok,true); assert.equal(body.parent,null); assert.ok(Array.isArray(body.entries));
+  assert.equal(body.entries.every(entry=>typeof entry.name==="string"&&typeof entry.isGit==="boolean"),true);
+  const get=(path)=>fetch(`${host.origin}/system/browse?path=${encodeURIComponent(path)}`,{headers:{cookie:session.cookie}});
+  assert.equal((await get(`${homedir()}/../..`)).status,400);
+  assert.equal((await get(process.platform==="win32"?"C:\\Windows":"/etc")).status,403);
+  assert.equal((await get("relative")).status,400);
+  assert.equal(JSON.stringify(body).includes("token"),false);
+});
 test("host advertises and executes all document lifecycle commands",async(t)=>{
   const host=await launch(t,undefined,{dispatch:null}); const session=await bootstrap(host); const project=command();
   assert.equal((await postCommand(host,session,project)).status,200);

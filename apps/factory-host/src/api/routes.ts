@@ -42,6 +42,8 @@ import type { ExternalTools } from "../mcp-external/index.js";
 import { listWorkflowInstances, workflowInstanceView } from "../workflow/service.js";
 import { listWorkflowDefinitions } from "../workflow/definitions.js";
 import { orgActivity } from "../org/activity.js";
+import { homedir } from "node:os";
+import { browseDirectory, BrowseError } from "../workspace/browse.js";
 
 export function createRoutes(deps: {
   external?: ExternalTools;
@@ -56,6 +58,8 @@ export function createRoutes(deps: {
   evidenceDir?: string;
   artifacts?: { store: ContentStore };
   effects?: EffectExecutor;
+  /** Directories the operator may browse when choosing a project folder. Defaults to the Host user's home. */
+  browseRoots?: readonly string[];
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
@@ -173,6 +177,17 @@ export function createRoutes(deps: {
           profile: pack.files.profiles[index]?.content ?? "" })),
         skills: pack.files.skills.map(({ name, description, content }) => ({ name, description, content })),
         workflows: pack.files.workflows.map(({ definition: { key, revision, title } }) => ({ key, revision, title })) };
+    });
+    app.get<{ Querystring: { path?: string } }>("/system/browse", { preHandler: guards.session }, async (request, reply) => {
+      const query = z.strictObject({ path: z.string().max(4096).optional() }).safeParse(request.query);
+      if (!query.success) return failure(reply, 400, "validation", "Invalid browse request.", "correct-input", newId);
+      try { return { apiVersion: API_VERSION, ok: true, ...browseDirectory(deps.browseRoots ?? [homedir()], query.data.path) }; }
+      catch (error) {
+        if (!(error instanceof BrowseError)) throw error;
+        return error.code === "not-found" || error.code === "not-directory" ? failure(reply, 404, "not-found", "Folder not found.", "correct-input", newId)
+          : error.code === "outside-roots" ? failure(reply, 403, "forbidden", "This folder cannot be browsed.", "correct-input", newId)
+          : failure(reply, 400, "validation", "Invalid folder path.", "correct-input", newId);
+      }
     });
     app.get("/teams", { preHandler: guards.session }, async () => ({ teams: teamViews(deps.storage.raw) }));
     app.get("/org/activity", { preHandler: guards.session }, async () => ({
