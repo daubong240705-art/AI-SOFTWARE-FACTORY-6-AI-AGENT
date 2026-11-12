@@ -8,6 +8,8 @@ import { notificationReadModels } from './notificationModels';
 import { activityReadModel } from './activityModels';
 import { extractionModels, mediaTypeForFile } from './documents';
 import { systemModels } from './systemModels';
+import { folderBrowseModel } from './folderModels';
+export type { FolderListing } from './folderModels';
 export type { SystemHealth, SystemCapabilities, SystemBackup } from './systemModels';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
@@ -78,7 +80,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
 } = {}) {
   let csrfToken: string | null = null;
   const base = baseUrl.replace(/\/$/, '');
-  async function request<T>(path: string, schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } }, body?: unknown, commandDetails = false): Promise<T> {
+  async function request<T>(path: string, schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } }, body?: unknown, commandDetails = false, signal?: AbortSignal): Promise<T> {
     const headers: Record<string, string> = {};
     if (body !== undefined) {
       headers['content-type'] = 'application/json';
@@ -87,7 +89,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     let response: Response;
     try {
       response = await fetchImpl(`${base}${path}`, { method: body === undefined ? 'GET' : 'POST', headers,
-        credentials: 'same-origin', cache: 'no-store', ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+        credentials: 'same-origin', cache: 'no-store', ...(signal ? { signal } : {}), ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     } catch { throw new ApiClientError('network'); }
     if (response.status === 401) {
       csrfToken = null;
@@ -129,6 +131,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     systemHealth: () => request('/health', systemModels.health),
     systemCapabilities: () => request('/system/capabilities', systemModels.capabilities),
     systemBackups: () => request('/system/backups', systemModels.backups),
+    browseFolders: (path?: string, signal?: AbortSignal) => request(`/system/browse${path ? `?${new URLSearchParams({ path })}` : ''}`, folderBrowseModel, undefined, false, signal),
     getTeamQueue: (id: string) => request(`/teams/${encodeURIComponent(id)}/queue`, m3Models.queue),
     listRequests: (id: string, filters: { state?: string; team?: string } = {}) => {
       const params = new URLSearchParams({ limit: '100', ...filters });

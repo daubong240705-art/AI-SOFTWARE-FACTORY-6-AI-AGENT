@@ -770,6 +770,7 @@ export function createStore(options: StoreOptions = {}) {
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
     loadTeams, loadPack, loadMcpServers, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
     loadActivity, loadSystem,
+    browseFolders: api.browseFolders,
     watchActivity: () => {
       openM3.set('activity', loadActivity); void loadActivity();
       return () => {

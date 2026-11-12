@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { DialogFooter, DialogHeader, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { Folder, GitBranch } from 'lucide-react';
+import { Folder, FolderOpen, GitBranch } from 'lucide-react';
+import { FolderPicker } from './projects/FolderPicker';
 
 type ValidationErrors = { name?: string; root?: string };
 function invalidFields(error: unknown): ValidationErrors {
@@ -32,6 +33,9 @@ export function CreateProject({ store, onClose, onCreated }: { store: Store; onC
   const t = useT(); const titleId = useId();
   const [name, setName] = useState(''); const [root, setRoot] = useState('');
   const [kind, setKind] = useState<'directory' | 'git'>('directory');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const rootInput = useRef<HTMLInputElement>(null);
+  const browseButton = useRef<HTMLButtonElement>(null);
   const [errors, setErrors] = useState<ValidationErrors>({}); const [command, setCommand] = useState<Command | null>(null);
   const [busy, setBusy] = useState(false); const inFlight = useRef(false);
   const pending = store.useStoreSelector(state => command ? state.pending[command.commandId] : undefined);
@@ -65,9 +69,26 @@ export function CreateProject({ store, onClose, onCreated }: { store: Store; onC
           </Label>)}
         </RadioGroup>
       </fieldset>
-      <Field><FieldLabel htmlFor={`${titleId}-root`}>{t('projects.root')}</FieldLabel><Input id={`${titleId}-root`} value={root} disabled={!!command} placeholder={t('projects.rootPlaceholder')} className="font-mono" aria-invalid={!!errors.root} aria-describedby={`${titleId}-root-hint${errors.root ? ` ${titleId}-root-error` : ''}`} onChange={event => setRoot(event.target.value)} /><FieldDescription id={`${titleId}-root-hint`}>{t(`ux5.${kind}PathHint`)}</FieldDescription>{unsafePath && <Alert className="border-info/30 bg-info/10"><AlertDescription className="text-info">{t('ux5.pathWarning')}</AlertDescription></Alert>}{errors.root && <FieldError id={`${titleId}-root-error`}>{t(errors.root)}</FieldError>}</Field>
+      <Field>
+        <FieldLabel htmlFor={`${titleId}-root`}>{t('projects.root')}</FieldLabel>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input ref={rootInput} id={`${titleId}-root`} value={root} disabled={!!command} placeholder={t('projects.rootPlaceholder')}
+            className="min-w-0 flex-1 font-mono" aria-invalid={!!errors.root}
+            aria-describedby={`${titleId}-root-hint${errors.root ? ` ${titleId}-root-error` : ''}`} onChange={event => setRoot(event.target.value)} />
+          <Button ref={browseButton} type="button" variant="outline" disabled={!!command} aria-haspopup="dialog" aria-expanded={pickerOpen} onClick={() => setPickerOpen(true)}>
+            <FolderOpen aria-hidden="true" />{t('folderPicker.open')}
+          </Button>
+        </div>
+        <FieldDescription id={`${titleId}-root-hint`}>{t(`ux5.${kind}PathHint`)}</FieldDescription>
+        {unsafePath && <Alert className="border-info/30 bg-info/10"><AlertDescription className="text-info">{t('ux5.pathWarning')}</AlertDescription></Alert>}
+        {errors.root && <FieldError id={`${titleId}-root-error`}>{t(errors.root)}</FieldError>}
+      </Field>
       {pending?.error && <ErrorNotice error={pending.error} />}
       <DialogFooter className="-mx-6 border-t border-border px-6 pt-4"><Button type="button" variant="ghost" onClick={onClose}>{t('actions.cancel')}</Button>{pending?.status === 'failed' && command ? <Button type="button" disabled={busy} onClick={() => { void execute(command, true); }}>{t('errors.retry')}</Button> : <Button type="submit" disabled={busy || !!command}>{t('projects.create')}</Button>}</DialogFooter>
     </form>
+    {pickerOpen && <FolderPicker initialPath={root} browseFolders={store.browseFolders}
+      onClose={() => setPickerOpen(false)}
+      onChoose={(path, isGit) => { setRoot(path); if (isGit) setKind('git'); setErrors(previous => { const { root: _root, ...rest } = previous; return rest; }); setPickerOpen(false); }}
+      onReturnFocus={chosen => { (chosen ? rootInput.current : browseButton.current)?.focus(); }} />}
   </Dialog>;
 }

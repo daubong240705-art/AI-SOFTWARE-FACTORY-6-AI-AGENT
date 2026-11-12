@@ -2,6 +2,12 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  folderPicker: {
+    open: 'Chọn thư mục…', title: 'Chọn thư mục dự án', description: 'Duyệt thư mục trên máy chủ và chọn thư mục làm việc.',
+    breadcrumb: 'Vị trí thư mục hiện tại', up: 'Lên một cấp', folders: 'Thư mục con', loading: 'Đang tải thư mục…',
+    empty: 'Thư mục này chưa có thư mục con.', scope: 'Chỉ hiện thư mục bên trong thư mục chính của máy chủ.',
+    truncated: 'Danh sách bị cắt bớt.', currentPath: 'Đường dẫn thư mục hiện tại', choose: 'Chọn thư mục này', git: 'Git',
+  },
   codeUi: {
     description: 'Cách công việc của agent đi vào mã nguồn: nhánh tích hợp và các lần đẩy mã.', refresh: 'Làm mới',
     integration: 'Nhánh tích hợp', pushes: 'Đẩy mã lên remote', noBranch: 'Chưa có nhánh tích hợp.',
@@ -91,8 +97,8 @@ export const extra: Translated<typeof en> = {
   ux5: {
     createTitle: 'Dự án mới', createDescription: 'Một dự án gồm thư mục làm việc, các việc và đội agent.',
     directory: 'Thư mục', git: 'Dự án Git', directoryDescription: 'Thư mục trống do Host tạo', gitDescription: 'Dùng bản sao Git có sẵn',
-    directoryPathHint: 'Đường dẫn tuyệt đối trong WSL/Linux của Host, ví dụ /srv/factory/workspaces/my-project. Không dùng ổ Windows (E:\\ hoặc /mnt/).',
-    gitPathHint: 'Đường dẫn tới bản sao Git đã có, trong WSL/Linux của Host.', pathWarning: 'Đây có vẻ là đường dẫn Windows hoặc /mnt/. Hãy dùng đường dẫn trong WSL/Linux của Host. Host sẽ kiểm tra đường dẫn này.',
+    directoryPathHint: 'Nhập đường dẫn tuyệt đối trong WSL/Linux của Host, ví dụ /srv/factory/workspaces/my-project, hoặc dùng nút Chọn thư mục. Không dùng ổ Windows (E:\\ hoặc /mnt/).',
+    gitPathHint: 'Nhập đường dẫn tới bản sao Git đã có trong WSL/Linux của Host, hoặc dùng nút Chọn thư mục.', pathWarning: 'Đây có vẻ là đường dẫn Windows hoặc /mnt/. Hãy dùng đường dẫn trong WSL/Linux của Host. Host sẽ kiểm tra đường dẫn này.',
     workflowDescription: 'Theo dõi từng quy trình và công việc trong mỗi giai đoạn.', automationDescription: 'Lịch chạy, quy tắc, giám sát và cầu dao của dự án.',
     emptyBreakers: 'Không có cầu dao đang mở.', checked: 'Kiểm tra gần nhất', clearFilters: 'Xóa lọc', dossier: 'Tóm tắt dự án', briefing: 'Việc mới từ lần xem trước',
     levelNumber: 'Mức {level} / 4', defaultSource: 'Mặc định', explicitSource: 'Đặt thủ công', noProjectLimit: 'Không giới hạn dự án', loop: 'Vòng {current}/{total}',
