@@ -26,12 +26,13 @@ export interface LeadRunner {
 export function createLeadRunner(deps: {
   storage: Storage; hub: EventHub; gateway: ModelGateway | null; profileText: string;
   config?: Partial<LeadConfig>; budgetConfig?: BudgetConfig; clock?: Clock; newId?: () => string;
+  getModelConfig?: () => Pick<LeadConfig, "model" | "effort">;
 }): LeadRunner {
   const { raw } = deps.storage;
   const { hub, gateway } = deps;
   const clock = deps.clock ?? systemClock;
   const newId = deps.newId ?? createIdGenerator(clock);
-  const config = { ...DEFAULT_LEAD_CONFIG, ...deps.config };
+  const baseConfig = { ...DEFAULT_LEAD_CONFIG, ...deps.config };
   const budgetConfig = deps.budgetConfig ?? DEFAULT_BUDGET_CONFIG;
   let stopped = false;
   let running = false;
@@ -62,6 +63,7 @@ export function createLeadRunner(deps: {
     });
   };
   const processTurn = async (turn: LeadTurn): Promise<void> => {
+    let config = baseConfig;
     try { setTurnState(raw, turn.projectId, turn.id, "running", { now: clock().toISOString() }); }
     catch { return; } // Another processor may already have claimed this turn.
     let estimate: number | undefined;
@@ -69,6 +71,7 @@ export function createLeadRunner(deps: {
     let calling = false;
     let completed: ModelResult | undefined; // the provider answered: tokens were spent whatever happens next
     try {
+      config = { ...baseConfig, ...deps.getModelConfig?.() };
       const conversation = getConversation(raw, turn.projectId, turn.conversationId);
       const project = getProject(raw, turn.projectId);
       if (!conversation || !project) throw new Error("Missing turn context");

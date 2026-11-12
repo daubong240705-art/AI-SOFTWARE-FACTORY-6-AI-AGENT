@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { isLiveAttempt } from '@factory/contracts';
+import { taskMascotState } from '@/components/mascot/state';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -44,7 +45,7 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request', inl
         <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon" aria-label={t('workUi.close')} className="shrink-0 border-0 bg-transparent text-muted-foreground" onClick={onClose}><X className="size-4" aria-hidden="true" /></Button></TooltipTrigger><TooltipContent>{t('workUi.close')} <Kbd>Esc</Kbd></TooltipContent></Tooltip>
       </div>
       <h2 id={`${id}-title`} className="font-display text-xl leading-snug font-semibold [overflow-wrap:anywhere]">{task.title}</h2>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground"><span>{t('workUi.lifecycle')}: {t(`taskUi.lifecycle.${task.state}`)}</span><span className="inline-flex items-center gap-2">{t('taskUi.owner')}: <SeatChip name={state.team?.seats.find(seat => seat.id === task.ownerSeatId)?.name} /></span></div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground"><span>{t('workUi.lifecycle')}: {t(`taskUi.lifecycle.${task.state}`)}</span><span className="inline-flex items-center gap-2">{t('taskUi.owner')}: <SeatChip name={state.team?.seats.find(seat => seat.id === task.ownerSeatId)?.name} size={40} state={taskMascotState(task, state)} /></span></div>
     </header>
     <Tabs value={active} onValueChange={value => setActive(value as Tab)} className="min-w-0 gap-5">
       <TabsList variant="pills" aria-label={t('workUi.sections')} className="max-w-full">

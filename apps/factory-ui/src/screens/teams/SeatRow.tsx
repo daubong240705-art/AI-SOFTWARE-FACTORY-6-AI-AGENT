@@ -3,6 +3,7 @@ import { AgentProfileButton } from '@/components/agent-profile/AgentProfileButto
 import type { Store } from '@/state/store';
 import { useId } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Mascot } from '@/components/mascot';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,7 +29,7 @@ export function SeatRow({ seat, team, store, projectId, readOnly, command, index
     <StaggerItem index={index} className="grid min-w-0 gap-3 py-4 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
       <div className="min-w-0 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h4 className="text-sm font-medium [overflow-wrap:anywhere]">{seat.name}</h4>
+          <Mascot seat={seat.isLead ? 'Lead' : seat.name} size={40} state={seat.live ? 'working' : 'idle'} /><h4 className="text-sm font-medium [overflow-wrap:anywhere]">{seat.name}</h4>
           <Badge variant="outline">{seat.role}</Badge>
           {seat.isLead && <Badge variant="secondary">{t('team.lead')}</Badge>}
           <AgentProfileButton store={store} packKey={team.packKey} packVersion={team.packVersion} seatName={seat.name} />

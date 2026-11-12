@@ -2,6 +2,25 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  modelsUi: {
+    title: 'Model', description: 'Chọn model cho Lead và các agent.', change: 'Đổi model', lead: 'Lead', agents: 'Agent',
+    effort: 'Mức suy luận', efforts: { low: 'Thấp', medium: 'Vừa', high: 'Cao', xhigh: 'Rất cao' },
+    default: 'Mặc định', environment: 'Từ biến môi trường', database: 'Đã lưu trong Host', unknown: 'Chưa rõ nguồn',
+    gatewayReady: 'Gateway đã cấu hình, khóa có trong môi trường', gatewayMissing: 'Chưa cấu hình gateway', gatewayNoKey: 'Gateway đã cấu hình, chưa có khóa trong môi trường',
+    note: 'Khóa API và địa chỉ gateway chỉ đặt bằng biến môi trường, không lưu ở đây. Lead đổi từ lượt chat sau; việc mới của agent dùng danh sách mới, việc đang chạy giữ danh sách cũ.',
+    noProject: 'Cần có ít nhất một dự án để lưu cấu hình model.',
+    search: 'Tìm model theo tên hoặc mã', count: '{count} models', selectAll: 'Chọn tất cả ({count})', clearAll: 'Bỏ chọn tất cả',
+    vision: 'Nhận hình ảnh', reasoning: 'Có suy luận', outside: 'Ngoài danh sách', empty: 'Không có model phù hợp.',
+    unavailable: 'Không lấy được danh sách model từ gateway; nhập mã model thủ công.', manual: 'Mã model', add: 'Thêm',
+    invalidModel: 'Nhập mã model từ 1 đến 256 ký tự, không có khoảng trắng hoặc ký tự điều khiển.',
+    limit: 'Tối đa 8 model.', minimum: 'Chọn ít nhất một model cho agent.', chosen: 'Thứ tự model của agent',
+    makeDefault: 'Đặt {model} làm mặc định', moveUp: 'Đưa {model} lên', moveDown: 'Đưa {model} xuống',
+    cancel: 'Hủy', save: 'Lưu', saving: 'Đang lưu…', back: 'Quay lại', confirm: 'Xác nhận lưu', confirmTitle: 'Xác nhận cấu hình model',
+    warning: 'Việc dùng model tốn token thật. Lựa chọn này áp dụng cho các lượt và việc mới.', understood: 'Tôi hiểu',
+    invalid: 'Chọn model Lead, mức suy luận và từ 1 đến 8 model khác nhau cho agent.',
+    revisionMissing: 'Tải lại cấu hình để lấy phiên bản dữ liệu trước khi lưu.', saved: 'Đã lưu cấu hình model', conflict: 'Dữ liệu đã đổi, đã tải lại',
+  },
+  mascot: { label: 'Nhân vật', gallery: 'Bộ nhân vật', openGallery: 'Xem bộ nhân vật', description: 'Khám phá từng vị trí, biểu cảm và kích thước trong bộ nhân vật đã chọn.', sizes: 'Kích thước', disabled: 'Đã tắt nhân vật. Ảnh đại diện bằng chữ được hiển thị.', skins: { classic: 'Mặc định', forest: 'Rừng', ocean: 'Biển', fantasy: 'Kỳ ảo', off: 'Tắt' }, states: { idle: 'Nghỉ', thinking: 'Đang nghĩ', working: 'Đang làm', done: 'Xong', typing: 'Đang gõ', attention: 'Cần chú ý', error: 'Lỗi', success: 'Thành công', offline: 'Ngoại tuyến' } },
   folderPicker: {
     open: 'Chọn thư mục…', title: 'Chọn thư mục dự án', description: 'Duyệt thư mục trên máy chủ và chọn thư mục làm việc.',
     breadcrumb: 'Vị trí thư mục hiện tại', up: 'Lên một cấp', folders: 'Thư mục con', loading: 'Đang tải thư mục…',

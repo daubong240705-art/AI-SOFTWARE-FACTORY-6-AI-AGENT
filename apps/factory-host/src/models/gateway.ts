@@ -1,5 +1,6 @@
 import { reasoningEffortSchema, usageSchema, type Usage } from "@factory/contracts";
 import { z } from "zod";
+import { createUpstream, type ModelInfo } from "./upstream.js";
 
 export type ReasoningEffort = z.infer<typeof reasoningEffortSchema>;
 export interface ModelRequest {
@@ -22,6 +23,7 @@ export class ModelError extends Error {
 export interface ModelGateway {
   readonly providerId: string;
   complete(request: ModelRequest): Promise<ModelResult>;
+  listModels?(): Promise<ModelInfo[] | null>;
 }
 
 const timeoutSchema = z.number().int().min(1).max(2_147_483_647);
@@ -84,9 +86,11 @@ export function createChatCompletionsGateway(options: {
     || base.username || base.password || base.search || base.hash)
     throw new ModelError("config");
   const endpoint = `${base.href.replace(/\/+$/, "")}/chat/completions`;
+  const upstream = createUpstream({ baseUrl: options.baseUrl, apiKey, providerId, fetchImpl });
 
   return {
     providerId,
+    listModels: () => upstream.listModels(),
     async complete(request) {
       const parsed = requestSchema.safeParse(request);
       if (!parsed.success) throw new ModelError("config");

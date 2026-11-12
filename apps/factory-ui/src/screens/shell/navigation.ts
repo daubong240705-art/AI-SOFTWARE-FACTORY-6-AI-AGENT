@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 export type ProjectTab = 'overview' | 'board' | 'workflow' | 'automation' | 'knowledge' | 'code' | 'settings';
 export type TeamTab = 'activity' | 'config';
-export type View = 'overview' | 'needs-attention' | 'team' | 'system' | `project:${string}`;
+export type View = 'overview' | 'needs-attention' | 'team' | 'system' | 'mascots' | `project:${string}`;
 export function viewHash(view: View, tab: ProjectTab = 'overview', team: TeamTab = 'activity'): string {
   if (view === 'team') return team === 'config' ? '#/team/config' : '#/team';
   return view.startsWith('project:') ? `#/project/${encodeURIComponent(view.slice(8))}${tab === 'overview' ? '' : `/${tab}`}` : view === 'needs-attention' ? '#/attention' : `#/${view}`;
@@ -13,6 +13,7 @@ export function projectTab(hash: string): ProjectTab {
   return tab === 'board' || tab === 'workflow' || tab === 'automation' || tab === 'knowledge' || tab === 'code' || tab === 'settings' ? tab : 'overview';
 }
 export function parseHash(hash: string): View {
+  if (hash === '#/mascots') return 'mascots';
   if (hash === '#/system') return 'system';
   if (hash === '#/attention' || hash.startsWith('#/attention/')) return 'needs-attention';
   if (hash === '#/team' || hash === '#/team/config') return 'team';

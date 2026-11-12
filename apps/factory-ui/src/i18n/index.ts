@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import type { MascotSkin } from '@/components/mascot/skins';
 import en from '../../../../design/factory-v2/labels.en.json';
 import vi from '../../../../design/factory-v2/labels.vi.json';
 import { extra as extraEn } from './extra.en';
@@ -12,8 +13,8 @@ export function plural(t: (key: string) => string, locale: string, count: number
 }
 export type Theme = 'light' | 'dark' | 'system';
 export const PREFERENCES_KEY = 'factory-ui.preferences.v1';
-type Preferences = { locale: Locale; theme: Theme };
-const defaults: Preferences = { locale: 'vi', theme: 'dark' };
+type Preferences = { locale: Locale; theme: Theme; mascotSkin: MascotSkin };
+const defaults: Preferences = { locale: 'vi', theme: 'dark', mascotSkin: 'classic' };
 let memory: Preferences = { ...defaults };
 let memoryOnly = false;
 export function getPreferences(): Preferences {
@@ -22,7 +23,8 @@ export function getPreferences(): Preferences {
     const parsed: unknown = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? 'null');
     if (typeof parsed === 'object' && parsed !== null && 'locale' in parsed && 'theme' in parsed &&
       (parsed.locale === 'en' || parsed.locale === 'vi') && ['light', 'dark', 'system'].includes(String(parsed.theme))) {
-      memory = { locale: parsed.locale, theme: parsed.theme as Theme };
+      const candidate = 'mascotSkin' in parsed ? String(parsed.mascotSkin) : 'classic';
+      memory = { locale: parsed.locale, theme: parsed.theme as Theme, mascotSkin: ['classic', 'forest', 'ocean', 'fantasy', 'off'].includes(candidate) ? candidate as MascotSkin : 'classic' };
     } else memory = { ...defaults };
   } catch { memoryOnly = true; }
   return { ...memory };
@@ -32,6 +34,7 @@ function save(patch: Partial<Preferences>) {
   try { localStorage.setItem(PREFERENCES_KEY, JSON.stringify(memory)); memoryOnly = false; }
   catch { memoryOnly = true; }
 }
+export function saveMascotSkin(mascotSkin: MascotSkin) { save({ mascotSkin }); }
 function flatten(value: unknown, prefix = '', result: Record<string, string> = {}) {
   if (typeof value === 'string') result[prefix] = value;
   else if (value && typeof value === 'object') {

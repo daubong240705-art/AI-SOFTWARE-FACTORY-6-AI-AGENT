@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Info, X } from 'lucide-react';
+import { Mascot } from '@/components/mascot';
 import { Button } from '@/components/ui/button';
 import { SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,7 +21,7 @@ export function AgentProfileSheet({ store, packKey, packVersion, seatName }: { s
   return (
     <SheetContent side="right" showCloseButton={false} className="w-full gap-0 border-border bg-background sm:max-w-[560px]">
       <SheetHeader className="gap-2 border-b border-border p-6 pr-16">
-        <SheetTitle className="font-display text-3xl leading-tight [overflow-wrap:anywhere]">{seatName}</SheetTitle>
+        <Mascot seat={seatName} size={64} /><SheetTitle className="font-display text-3xl leading-tight [overflow-wrap:anywhere]">{seatName}</SheetTitle>
         <SheetDescription>{t('agentProfile.source')}</SheetDescription>
       </SheetHeader>
       <SheetClose asChild>

@@ -7,6 +7,7 @@ function build<T extends Command['type']>(type: T, projectId: string, payload: O
 
 export function notificationsMarkRead({ projectId, ...payload }: Of<'notifications.mark-read'>['payload'] & { projectId: string }) { return build('notifications.mark-read', projectId, payload); }
 export function notificationsDismiss({ projectId, ...payload }: Of<'notifications.dismiss'>['payload'] & { projectId: string }) { return build('notifications.dismiss', projectId, payload); }
+export function modelsSet({ projectId, ...payload }: Of<'models.set'>['payload'] & { projectId: string }) { return build('models.set', projectId, payload); }
 export function integrationRetry({ projectId, ...payload }: Of<'integration.retry'>['payload'] & { projectId: string }) { return build('integration.retry', projectId, payload); }
 export function integrationSkip({ projectId, ...payload }: Of<'integration.skip'>['payload'] & { projectId: string }) { return build('integration.skip', projectId, payload); }
 

@@ -9,6 +9,7 @@ import { activityReadModel } from './activityModels';
 import { extractionModels, mediaTypeForFile } from './documents';
 import { systemModels } from './systemModels';
 import { folderBrowseModel } from './folderModels';
+import { modelSettingsResponse } from './modelSettings';
 export type { FolderListing } from './folderModels';
 export type { SystemHealth, SystemCapabilities, SystemBackup } from './systemModels';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
@@ -131,6 +132,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     systemHealth: () => request('/health', systemModels.health),
     systemCapabilities: () => request('/system/capabilities', systemModels.capabilities),
     systemBackups: () => request('/system/backups', systemModels.backups),
+    getModelSettings: () => request('/system/models', modelSettingsResponse),
     browseFolders: (path?: string, signal?: AbortSignal) => request(`/system/browse${path ? `?${new URLSearchParams({ path })}` : ''}`, folderBrowseModel, undefined, false, signal),
     getTeamQueue: (id: string) => request(`/teams/${encodeURIComponent(id)}/queue`, m3Models.queue),
     listRequests: (id: string, filters: { state?: string; team?: string } = {}) => {
@@ -258,7 +260,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     sendCommand: (command: Command) => {
       // Validate without replacing/mutating the caller's object or generating a new identity.
       if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');
-      return request('/commands', successResponseSchema, command, /^(schedules|rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts)\./.test(command.type));
+      return request('/commands', successResponseSchema, command, /^(schedules|rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts|models)\./.test(command.type));
     },
   };
 }

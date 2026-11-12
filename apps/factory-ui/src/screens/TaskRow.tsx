@@ -1,6 +1,7 @@
 ﻿import { useId, useRef, useState } from 'react';
 import { TASK_TRANSITIONS, type Command, type Task, type TaskState } from '@factory/contracts';
 import { tasksTransition } from '../api/commands';
+import { taskMascotState } from '@/components/mascot/state';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +46,7 @@ export function TaskRow({ store, projectId, task, onOpen, selected = false }: { 
       <TableCell className="pl-4"><Button type="button" variant="ghost" size="sm" data-task-id={task.id} aria-pressed={selected} className="px-0 font-mono text-xs" onClick={event => { event.stopPropagation(); onOpen(task.id); }}>{task.code}</Button></TableCell>
       <TableCell className="min-w-60 max-w-sm whitespace-normal"><span className="line-clamp-2 font-medium">{task.title}</span>{state.inbox.approvals.some(item => item.taskId === task.id) && <DecisionBadge />}</TableCell>
       <TableCell><TaskStatus task={task} state={state} /></TableCell>
-      <TableCell><SeatChip name={owner?.name} /></TableCell>
+      <TableCell><SeatChip name={owner?.name} state={taskMascotState(task, state)} /></TableCell>
       <TableCell><TaskTime task={task} state={state} /></TableCell>
       <TableCell className="pr-4" onClick={event => event.stopPropagation()}><div className="flex justify-end gap-1">
         <Button type="button" variant="ghost" size="sm" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(!expanded)}>{t('taskUi.details')} {task.code}</Button>

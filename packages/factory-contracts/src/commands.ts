@@ -3,6 +3,7 @@ import { notificationIdPayloadSchema } from "./notifications.js";
 import { standingCreateSchema, standingRevokeSchema } from "./standing.js";
 import { ruleInputSchema, rulePatchSchema } from "./rules.js";
 import { autonomyLevelSchema } from "./autonomy.js";
+import { modelSettingsSetSchema } from "./model-settings.js";
 import { z } from "zod";
 import { scheduleInputSchema, schedulePatchSchema } from "./schedule.js";
 import { workflowKeySchema, workflowPatchSchema } from "./workflow.js";
@@ -282,6 +283,7 @@ export const commandSchema = z.discriminatedUnion("type", [
     mergeIntoTaskId: idSchema.optional(),
   })),
   command("requests.message", z.strictObject({ requestTaskId: idSchema, text: z.string().min(1).max(2000) })),
+  command("models.set", modelSettingsSetSchema),
 ]);
 export type Command = z.infer<typeof commandSchema>;
 export type CommandType = Command["type"];

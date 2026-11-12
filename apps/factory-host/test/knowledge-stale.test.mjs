@@ -161,7 +161,7 @@ test("stale listing is ordered oldest first and capped at two hundred", (t) => {
 });
 test("migration five has strict stale rows composite foreign keys and an index", (t) => {
   const f = fixture(t);
-  assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map((r) => r.version), [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]);
+  assert.deepEqual(f.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all().map((r) => r.version), [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]);
   assert.equal(f.raw.prepare("SELECT strict FROM pragma_table_list WHERE name='knowledge_stale'").get().strict, 1);
   assert.equal(f.raw.prepare("PRAGMA foreign_key_list(knowledge_stale)").all().length, 6);
   assert.deepEqual(f.raw.prepare("PRAGMA index_info(knowledge_stale_because)").all().map((r) => r.name), ["project_id","because_artifact_id","because_version"]);
@@ -176,7 +176,7 @@ test("a database at migration four upgrades preserving versions and pinned input
   storage.raw.prepare(`INSERT INTO artifact_versions (project_id,artifact_id,version,kind,title,media_type,content_hash,size_bytes,status,abstract_l0,visibility,created_at)
     VALUES ('project','document',1,'other','Retained','text/plain',?,1,'approved','Abstract','project',?)`).run("a".repeat(64), now);
   const before = storage.raw.prepare("SELECT * FROM artifact_versions").all();
-  assert.deepEqual(storage.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,18,19,20,21,22,23]);
+  assert.deepEqual(storage.migrate({ migrationsDir, backupDir: join(root, "backups") }).applied, [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,18,19,20,21,22,23,24]);
   assert.deepEqual(storage.raw.prepare("SELECT * FROM artifact_versions").all(), before.map(row => ({ ...row, origin: "agent", file_name: null })));
   assert.deepEqual(storage.raw.prepare("PRAGMA foreign_key_check").all(), []);
 });

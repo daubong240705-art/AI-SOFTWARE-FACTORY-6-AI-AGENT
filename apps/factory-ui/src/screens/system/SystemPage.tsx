@@ -9,6 +9,7 @@ import { HostCard } from './HostCard';
 import { BackupCard } from './BackupCard';
 import { McpCard, PacksCard } from './CatalogCards';
 import { CommandsCard } from './CommandsCard';
+import { ModelsCard } from './ModelsCard';
 
 export function System({ store }: { store: Store }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
@@ -32,6 +33,7 @@ export function System({ store }: { store: Store }) {
         <p className="text-base text-muted-foreground">{t('systemUi.description')}</p></div>
       <Button type="button" variant="ghost" disabled={busy} onClick={() => { setNow(Date.now()); void store.loadSystem(); }}><RefreshCw />{t('systemUi.refresh')}</Button>
     </header>
+    <ModelsCard store={store} />
     <div className="grid min-w-0 items-start gap-5 lg:grid-cols-2">
       <HostCard store={store} now={now} /><BackupCard store={store} now={now} />
       <McpCard store={store} /><PacksCard store={store} />

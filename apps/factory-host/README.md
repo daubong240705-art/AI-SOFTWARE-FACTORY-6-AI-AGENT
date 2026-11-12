@@ -895,3 +895,7 @@ terminating it as failed, and the existing `loop_count <= 10` database check
 rejects extended rework beyond ten loops. These tests remain failing so the
 source limitations are visible; source and migrations are unchanged by this
 test-only follow-up.
+
+## Model settings
+
+The authenticated `models.set` command and `GET /system/models` endpoint manage the Lead model and reasoning effort plus the ordered agent model allow-list. A setting row is stored in the Host database with an optimistic revision; the first agent model is used as the default for new attempts. The gateway URL and API key remain in the environment and are never stored or returned. While no database row exists, `FACTORY_LEAD_MODEL`, `FACTORY_LEAD_EFFORT`, and `FACTORY_AGENT_MODELS` remain the effective values; a row takes precedence immediately for subsequent Lead turns and newly issued agent tokens. Gateway model discovery is server-side, bounded, and cached briefly.
