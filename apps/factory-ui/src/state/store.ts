@@ -1,4 +1,5 @@
 import type { OrgTeam, RequestItem, RequestDetail, Dossier, Briefing, TaskContext } from '../api/m3Models';
+import type { PackDetail, McpServer } from '../api/agentProfileModels';
 import { useSyncExternalStore } from 'react';
 import type { Approval, Command, Conversation, FactoryEvent, Project, Task } from '@factory/contracts';
 import { ApiClientError, DocumentUploadError, createApiClient, type ApiClient, type ArtifactContent, type Attempt, type AttemptEvent, type AttemptPatch, type TaskArtifact, type BudgetResponse, type MessagesResponse, type TeamResponse } from '../api/client';
@@ -32,6 +33,8 @@ const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], requests: [], 
 export type M3State = { teams: OrgTeam[]; packs: Awaited<ReturnType<ApiClient['listPacks']>>['packs']; queues: Record<string, Awaited<ReturnType<ApiClient['getTeamQueue']>>['items']>; disabled: boolean; requestTargets: RequestItem[]; requests: RequestItem[]; requestDetails: Record<string, RequestDetail>; dossier: Dossier | null; briefing: Briefing | null; contexts: Record<string, TaskContext[]> };
 const emptyM3 = (): M3State => ({ teams: [], packs: [], queues: {}, disabled: false, requestTargets: [], requests: [], requestDetails: {}, dossier: null, briefing: null, contexts: {} });
 export type StoreState = {
+  packDetails: Record<string, PackDetail>;
+  mcpServers: McpServer[] | null;
   notifications: NotificationsResponse;
   integration: IntegrationResponse;
   notificationProgress: { done: number; total: number } | null;
@@ -61,7 +64,7 @@ const errorDetails = (error: unknown): StoreError => error instanceof ApiClientE
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
 
 export function createStore(options: StoreOptions = {}) {
-  let state: StoreState = { session: 'unknown', projects: [], selectedProjectId: null, ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, errors: {}, loading: {}, pending: {} };
+  let state: StoreState = { packDetails: {}, mcpServers: null, session: 'unknown', projects: [], selectedProjectId: null, ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, errors: {}, loading: {}, pending: {} };
   const listeners = new Set<() => void>();
   const submittedCommands = new Set<string>();
   const update = (patch: Partial<StoreState>) => { state = { ...state, ...patch }; listeners.forEach((listener) => listener()); extractionPolling.sync(); };
@@ -108,7 +111,7 @@ export function createStore(options: StoreOptions = {}) {
     submittedCommands.clear();
     unwatchInbox(); remotesPromise = undefined;
     stop();
-    update({ session: 'anonymous', selectedProjectId: null, projects: [], ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, loading: {}, errors: {}, pending: {} });
+    update({ packDetails: {}, mcpServers: null, session: 'anonymous', selectedProjectId: null, projects: [], ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, loading: {}, errors: {}, pending: {} });
   };
   // Handle authentication failures inside the guarded action, where obsolete requests
   // can be discarded before they affect a newly selected project or session.
@@ -174,6 +177,18 @@ export function createStore(options: StoreOptions = {}) {
     }, false, () => m3Revisions.get(area) === revision);
   }
   const loadTeams = () => readM3('teams', async () => { const [teams, packs] = await Promise.all([api.listTeams(), api.listPacks()]); return { teams: teams.teams, packs: packs.packs }; });
+  function loadPack(key: string, retry = false) {
+    const area = `pack:${key}`;
+    if (state.session !== 'authenticated' || state.loading[area] || (!retry && (state.packDetails[key] || state.errors[area]))) return Promise.resolve();
+    return enqueue(area, generation, async () => {
+      const pack = await api.getPack(key);
+      return { get packDetails() { return { ...state.packDetails, [key]: pack }; } };
+    });
+  }
+  function loadMcpServers(retry = false) {
+    if (state.session !== 'authenticated' || state.loading.mcpServers || (!retry && (state.mcpServers || state.errors.mcpServers))) return Promise.resolve();
+    return enqueue('mcpServers', generation, async () => ({ mcpServers: (await api.listMcpServers()).servers }));
+  }
   const loadActivity = () => state.session !== 'authenticated' ? Promise.resolve()
     : enqueue('activity', generation, async () => ({ activity: await api.getOrgActivity() }));
   const loadQueue = (teamId: string) => readM3(`queue:${teamId}`, async () => ({ queues: { ...state.m3.queues, [teamId]: (await api.getTeamQueue(teamId)).items } }));
@@ -692,7 +707,7 @@ export function createStore(options: StoreOptions = {}) {
     loadNotifications: () => loadNotifications(), loadIntegration: () => loadIntegration(), sendNotification, sendIntegration, markAllNotificationsRead,
     watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
-    loadTeams, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
+    loadTeams, loadPack, loadMcpServers, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
     loadActivity,
     watchActivity: () => {
       openM3.set('activity', loadActivity); void loadActivity();

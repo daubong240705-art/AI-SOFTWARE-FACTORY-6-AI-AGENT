@@ -39,8 +39,8 @@ Tiếng Việt và nền tối, trừ khi người dùng đã lưu lựa chọn 
 | U-A | Khung mới, token, điều hướng hash, Tổng quan | Xong (commit `cba3805`) |
 | U-B | Cần xử lý: một danh sách, màn duyệt chia đôi, phím tắt J/K/A/R | Xong |
 | U-C | Trang Dự án: 3 tab (Tổng quan, Bảng việc, Tri thức), chi tiết Task và chat agent là khung gắn bên phải | Xong |
-| U-D | Đội (có chỗ cho Máy của M4) | Trang Đội có Team activity (UX-9); chỗ cho Máy của M4 chưa |
-| U-E | Quy trình, Tự động (lịch, rule, monitor), thông báo | E1 xong; UX-10/11 sơ đồ Quy trình (kiểu n8n, drawer, hiện việc đang chạy); UX-14 tab Tự động có thao tác ghi (tạo, sửa, tạm dừng, tiếp tục, xóa, chạy ngay); thông báo chưa làm |
+| U-D | Đội (có chỗ cho Máy của M4) | Trang Đội có Team activity (UX-9) và xem hồ sơ agent (UX-17: hồ sơ, kỹ năng, công cụ từ gói, chỉ đọc); chỗ cho Máy của M4 chưa |
+| U-E | Quy trình, Tự động (lịch, rule, monitor), thông báo | E1 xong; UX-10/11 sơ đồ Quy trình (kiểu n8n, drawer, hiện việc đang chạy); UX-14 tab Tự động có thao tác ghi (tạo, sửa, tạm dừng, tiếp tục, xóa, chạy ngay); UX-16 chuông thông báo và xử lý xung đột tích hợp |
 | U-F | Tri thức, Mã nguồn (nhánh tích hợp) | Tri thức đã thành thư viện Tài liệu (UX-12 tải lên và xem trước PDF/DOCX/XLSX/CSV/MD/ảnh; UX-13 trạng thái trích xuất, văn bản agent đọc, mục lục); Mã nguồn chưa |
 | U-G | Cài đặt: ngân sách, mức tự chủ, Standing Approval | G1 xong; UX-15 đổi mức tự chủ (xác nhận khi tăng quyền) và tạo/thu hồi Standing Approval |
 

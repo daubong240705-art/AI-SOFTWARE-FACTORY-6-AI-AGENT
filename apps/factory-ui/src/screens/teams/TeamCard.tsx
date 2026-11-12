@@ -46,7 +46,7 @@ export function TeamCard({ store, team }: { store: Store; team: OrgTeam }) {
           {team.seats.length ? (
             <Stagger className="m-0 list-none divide-y divide-border p-0">
               {team.seats.map((seat, index) => (
-                <SeatRow index={index} key={`${seat.id}:${seat.revision}`} seat={seat} projectId={state.selectedProjectId} readOnly={readOnly} command={command} />
+                <SeatRow index={index} key={`${seat.id}:${seat.revision}`} seat={seat} team={team} store={store} projectId={state.selectedProjectId} readOnly={readOnly} command={command} />
               ))}
             </Stagger>
           ) : <p className="text-sm text-muted-foreground">{t('team.emptySeats')}</p>}

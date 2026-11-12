@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import { AgentProfileButton } from '@/components/agent-profile/AgentProfileButton';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -55,6 +56,7 @@ export function TeamPanel({ store }: { store: Store }) {
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">{seat.name}</span>
                             {seat.isLead && <Badge variant="secondary">{t('team.lead')}</Badge>}
+                            <AgentProfileButton store={store} packKey={team.team.pack?.key ?? null} packVersion={team.team.pack?.version ?? null} seatName={seat.name} />
                           </div>
                         </TableCell>
                         <TableCell><Badge variant="outline">{seat.role}</Badge></TableCell>

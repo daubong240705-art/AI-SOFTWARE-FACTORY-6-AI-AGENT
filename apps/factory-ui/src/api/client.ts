@@ -1,4 +1,5 @@
 import { m3Models } from './m3Models';
+import { packDetailModel, mcpServersModel } from './agentProfileModels';
 import { automationErrorKey } from './automationErrors';
 import { settingsErrorKey } from './settingsErrors';
 import { settingsReadModels } from './settingsModels';
@@ -119,6 +120,8 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     getOrgActivity: () => request('/org/activity', activityReadModel),
     listTeams: () => request('/teams', m3Models.teams),
     listPacks: () => request('/packs', m3Models.packs),
+    getPack: (key: string) => request(`/packs/${encodeURIComponent(key)}`, packDetailModel),
+    listMcpServers: () => request('/mcp-servers', mcpServersModel),
     getTeamQueue: (id: string) => request(`/teams/${encodeURIComponent(id)}/queue`, m3Models.queue),
     listRequests: (id: string, filters: { state?: string; team?: string } = {}) => {
       const params = new URLSearchParams({ limit: '100', ...filters });

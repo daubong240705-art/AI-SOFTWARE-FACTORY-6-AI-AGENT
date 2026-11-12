@@ -1,4 +1,6 @@
 import { StaggerItem } from '@/components/motion/Stagger';
+import { AgentProfileButton } from '@/components/agent-profile/AgentProfileButton';
+import type { Store } from '@/state/store';
 import { useId } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,9 +11,11 @@ import type { OrgTeam } from '../../api/m3Models';
 import { useT } from '../../i18n';
 import type { useM3Command } from '../M3Shared';
 
-export function SeatRow({ seat, projectId, readOnly, command, index }: {
+export function SeatRow({ seat, team, store, projectId, readOnly, command, index }: {
   index: number;
   seat: OrgTeam['seats'][number];
+  team: OrgTeam;
+  store: Store;
   projectId: string | null;
   readOnly: boolean;
   command: ReturnType<typeof useM3Command>;
@@ -27,6 +31,7 @@ export function SeatRow({ seat, projectId, readOnly, command, index }: {
           <h4 className="text-sm font-medium [overflow-wrap:anywhere]">{seat.name}</h4>
           <Badge variant="outline">{seat.role}</Badge>
           {seat.isLead && <Badge variant="secondary">{t('team.lead')}</Badge>}
+          <AgentProfileButton store={store} packKey={team.packKey} packVersion={team.packVersion} seatName={seat.name} />
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary" className="font-normal tabular-nums">{t('ux4.running')} {seat.live}</Badge>
