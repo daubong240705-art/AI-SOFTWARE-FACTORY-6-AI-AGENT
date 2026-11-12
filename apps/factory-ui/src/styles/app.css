@@ -224,6 +224,10 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 .project-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; position: relative; }
 .project-body.has-chat { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); }
 .project-tab-content { min-height: 0; overflow: auto; }
+/* Reserve scrollbar space while reads resolve so text and cards keep their width. */
+.content, .project-tab-content, .project-board-area, .project-dock, .attention-detail {
+  scrollbar-gutter: stable;
+}
 .project-tab-content:has(.project-tasks) { overflow: hidden; }
 .project-overview, .project-knowledge { padding: var(--space-xl); }
 .project-numbers { display: flex; flex-wrap: wrap; gap: var(--space-xl); margin: 0; }

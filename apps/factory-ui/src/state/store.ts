@@ -86,6 +86,12 @@ export function createStore(options: StoreOptions = {}) {
   const timer = options.timer ?? { setTimeout: (cb: () => void, ms: number) => setTimeout(cb, ms), clearTimeout: (handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>) };
   type Job = { run: () => Promise<void>; promise?: Promise<void>; dirty: boolean; timer?: unknown };
   const jobs = new Map<string, Job>();
+  // A read may run many times while a screen is open (SSE refreshes, focus,
+  // polling). Only the first read should drive the page-level loading UI.
+  // Keeping this separate from `loading` also lets background refreshes retain
+  // their existing content and dimensions.
+  const loadedAreas = new Set<string>();
+  const initialLoadingMs = 360;
   const openM3 = new Map<string, () => Promise<void>>();
   const openM5 = new Map<string, () => Promise<void>>();
   const openTasks = new Set<string>();
@@ -115,6 +121,7 @@ export function createStore(options: StoreOptions = {}) {
     stream?.close(); stream = undefined;
     for (const job of jobs.values()) if (job.timer !== undefined) timer.clearTimeout(job.timer);
     jobs.clear(); openM3.clear(); openM5.clear();
+    loadedAreas.clear();
     openTasks.clear(); openTaskCounts.clear(); contentCache.clear(); openKnowledge.clear(); knowledgeOpen = false; knowledgeRevision++;
     extractionPolling.stop();
   };
@@ -137,17 +144,55 @@ export function createStore(options: StoreOptions = {}) {
     const current = () => active(scope) && valid();
     if (!current()) return;
     const knowledgeArea = area === 'knowledge' || area.startsWith('knowledge-detail:');
-    const knowledgeActivity = (loading: boolean, error?: StoreError) => {
-      if (knowledgeArea) update({ knowledge: { ...state.knowledge, loading: { ...state.knowledge.loading, [area]: loading }, errors: { ...state.knowledge.errors, [area]: error } } });
-    };
-    knowledgeActivity(true);
-    update({ loading: { ...state.loading, [area]: true }, errors: { ...state.errors, [area]: undefined } });
     const detailId = area.startsWith('detail:') ? area.slice(7) : null;
-    if (detailId) update({ details: { ...state.details, [detailId]: { ...(state.details[detailId] ?? emptyDetail()), loading: true, error: undefined } } });
-    try { const patch = await work(); if (current()) update(patch); }
-    catch (error) { if (current()) { failed(area, error); if (current()) knowledgeActivity(false, errorDetails(error)); if (active(scope) && detailId) update({ details: { ...state.details, [detailId]: { ...(state.details[detailId] ?? emptyDetail()), error: errorDetails(error) } } }); } }
-    finally { if (current()) { if (knowledgeArea) update({ knowledge: { ...state.knowledge, loading: { ...state.knowledge.loading, [area]: false } } }); update({ loading: { ...state.loading, [area]: false } }); if (detailId && state.details[detailId]) update({ details: { ...state.details, [detailId]: { ...state.details[detailId], loading: false } } }); } }
+    const initial = !loadedAreas.has(area);
+    const started = Date.now();
+    update({
+      loading: { ...state.loading, [area]: initial },
+      errors: { ...state.errors, [area]: undefined },
+      ...(knowledgeArea ? { knowledge: { ...state.knowledge,
+        loading: { ...state.knowledge.loading, [area]: initial },
+        errors: { ...state.knowledge.errors, [area]: undefined },
+      } } : {}),
+      ...(detailId ? { details: { ...state.details, [detailId]: {
+        ...(state.details[detailId] ?? emptyDetail()), loading: initial, error: undefined,
+      } } } : {}),
+    });
+    let patch: Partial<StoreState> = {};
+    let failure: StoreError | undefined;
+    try { patch = await work(); }
+    catch (error) {
+      if (!current()) return;
+      // Authentication changes must take effect immediately.
+      if (error instanceof ApiClientError && error.status === 401) { anonymous(); return; }
+      failure = errorDetails(error);
+    }
+    if (!current()) return;
+    if (initial) {
+      const remaining = initialLoadingMs - (Date.now() - started);
+      if (remaining > 0) await new Promise<void>(resolve => timer.setTimeout(resolve, remaining));
+    }
+    if (!current()) return;
+    loadedAreas.add(area);
+    // Resolve lazy merge patches only at publication, then publish the result
+    // and the end of loading together. No frame contains both data and skeleton.
+    const result = { ...patch };
+    const knowledge = result.knowledge ?? state.knowledge;
+    const details = result.details ?? state.details;
+    update({
+      ...result,
+      loading: { ...state.loading, [area]: false },
+      errors: { ...state.errors, [area]: failure },
+      ...(knowledgeArea ? { knowledge: { ...knowledge,
+        loading: { ...knowledge.loading, [area]: false },
+        errors: { ...knowledge.errors, [area]: failure },
+      } } : {}),
+      ...(detailId ? { details: { ...details, [detailId]: {
+        ...(details[detailId] ?? emptyDetail()), loading: false, error: failure,
+      } } } : {}),
+    });
   }
+
   // All reads of a collection share one queue, including initial loads and snapshot recovery.
   function enqueue(area: string, scope: number, work: () => Promise<Partial<StoreState>>, debounce = false, valid = () => true): Promise<void> {
     if (!active(scope)) return Promise.resolve();
@@ -179,7 +224,7 @@ export function createStore(options: StoreOptions = {}) {
   function readM3(area: string, work: (projectId: string) => Promise<Partial<M3State>>) {
     const id = state.selectedProjectId;
     if (state.session !== 'authenticated' || (!id && area !== 'teams')) return Promise.resolve();
-    const revision = (m3Revisions.get(area) ?? 0) + 1; m3Revisions.set(area, revision); jobs.delete(area);
+    const revision = (m3Revisions.get(area) ?? 0) + 1; m3Revisions.set(area, revision);
     return enqueue(area, generation, async () => {
       try { return m3Patch(await work(id ?? '')); }
       catch (error) {
@@ -323,7 +368,7 @@ export function createStore(options: StoreOptions = {}) {
     if (!id || state.session !== 'authenticated') return Promise.resolve();
     const { query, filters } = state.knowledge;
     const offset = more ? (query ? state.knowledge.results.length : state.knowledge.list.length) : 0;
-    if (offset >= 500 || (more && (!state.knowledge.hasMore || state.knowledge.loading.knowledge))) return Promise.resolve();
+    if (offset >= 500 || (more && (!state.knowledge.hasMore || (state.knowledge.loading.knowledge || jobs.get('knowledge')?.promise)))) return Promise.resolve();
     return enqueue('knowledge', generation, async () => {
       if (debounce && !knowledgeOpen) return {};
       const page = { ...filters, offset, limit: Math.min(50, 500 - offset) };
@@ -351,6 +396,10 @@ export function createStore(options: StoreOptions = {}) {
   function searchKnowledge(query: string, filters: KnowledgeFilters = {}) {
     if (!state.selectedProjectId || state.session !== 'authenticated') return Promise.resolve();
     cancelKnowledgeSearch();
+    const sameFilters = (['kinds', 'statuses', 'origins'] as const).every(key =>
+      JSON.stringify(filters[key] ?? []) === JSON.stringify(state.knowledge.filters[key] ?? []));
+    if (query.trim() === state.knowledge.query && sameFilters && loadedAreas.has('knowledge')) return readKnowledge();
+    loadedAreas.delete('knowledge');
     update({ knowledge: { ...state.knowledge, query: query.trim(), filters: { ...(filters.kinds ? { kinds: [...filters.kinds] } : {}), ...(filters.statuses ? { statuses: [...filters.statuses] } : {}), ...(filters.origins ? { origins: [...filters.origins] } : {}) }, results: [], list: [], hasMore: false } });
     return readKnowledge();
   }
