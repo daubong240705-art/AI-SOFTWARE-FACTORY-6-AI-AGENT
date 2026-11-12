@@ -17,7 +17,7 @@ if [ -d "$SRC/apps/factory-ui/dist" ]; then (cd "$SRC/apps/factory-ui" && tar cf
 (cd "$DST/packages/factory-contracts" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null)
 (cd "$DST/apps/factory-host" && npm ci --omit=dev --ignore-scripts --no-audit --no-fund >/dev/null)
 # A small stamp so an operator can tell which build is running (commit, branch, time); the checkout may be dirty.
-GITC="git -c safe.directory=* -C $SRC"
+GITC="git -c safe.directory=* -c core.autocrlf=true -C $SRC"
 { echo "commit=$($GITC rev-parse --short HEAD 2>/dev/null || echo unknown)"
   echo "branch=$($GITC rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
   echo "dirty=$([ -n "$($GITC status --porcelain --untracked-files=no 2>/dev/null)" ] && echo yes || echo no)"
