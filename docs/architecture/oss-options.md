@@ -431,6 +431,14 @@ Chi tiết: [13-team-workflow-documents.md](13-team-workflow-documents.md). Phi�
 
 ---
 
+## 6G. Adapter CLI cục bộ cho Codex và Claude Code (12/11/2026)
+
+Người dùng muốn agent hoạt động như Codex CLI và Claude Code trên máy Windows, "như Paperclip". Đã đọc mã `packages/adapters/{claude-local,codex-local}` và `docs/adapters/` của `paperclipai/paperclip` (MIT). Chi tiết thiết kế ở [15](15-local-cli-adapters.md).
+
+| Mã | Đề xuất | Vì sao | Trạng thái |
+|---|---|---|---|
+| **OSS-17** | Học thiết kế và chép có chọn lọc từ Paperclip (MIT): luồng đăng nhập dẫn đường không lộ bí mật (`claude setup-token`, device login Codex), ưu tiên xác thực (khóa API > mã dài hạn > đăng nhập sẵn có), phân loại lỗi hạn mức, hợp đồng không-git-remote, cấu hình quyền theo agent. Không dùng gói `@paperclipai/*` | Giảm rủi ro thiết kế ở phần khó nhất (đăng nhập thuê bao, hạn mức, đồng thời); giữ nguyên bộ điều phối của Factory. Mỗi đoạn chép nguyên văn giữ thông báo MIT | **Chờ duyệt** |
+
 ## 7. Dữ liệu 52 repo (GitHub API, 07/11/2026)
 
 Số sao làm tròn để tham khảo, không phải tiêu chí chính. "NOASSERTION" nghĩa là GitHub không nhận diện được một license SPDX duy nhất.
@@ -545,6 +553,7 @@ Số sao làm tròn để tham khảo, không phải tiêu chí chính. "NOASSER
 | 08/11/2026 | Mở rộng Pack (M3+) | Thêm §3 O11: khảo sát gateway MCP, MCP Registry, `allowed-tools`; OSS-14 đã duyệt (phương án A) |
 | 10/11/2026 | Context Engineering | Thêm §6E; OSS-15 đề xuất (không dùng framework memory), chờ duyệt |
 | 12/11/2026 | Đội, Quy trình, Tài liệu | Thêm §6F; OSS-16 (dagre, bộ xem trước, MarkItDown) Đã duyệt cùng 13 §7 |
+| 12/11/2026 | Adapter CLI cục bộ | Thêm §6G; OSS-17 (học thiết kế Paperclip cho Codex/Claude Code), chờ duyệt cùng 15 |
 
 ---
 
