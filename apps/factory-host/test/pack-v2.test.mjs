@@ -24,11 +24,19 @@ for (const [index, value] of [[], ["other"], artifactKindSchema.options].entries
   test(`produces valid case ${index}`, () => { const m = base(); m.produces = value; assert.ok(packManifestSchema.safeParse(m).success); });
 for (const [index, value] of [["unknown"], ["other", "other"], [...artifactKindSchema.options, "other"], null, "other"].entries())
   test(`produces invalid case ${index}`, () => { const m = base(); m.produces = value; assert.equal(packManifestSchema.safeParse(m).success, false); });
-test("software pack digest and v1 schema stay unchanged", () => {
-  assert.equal(loadPack(join(packsDir, "software-team")).digest, "7c35032be61b6a767d4309253dfc262ee449e100b68e532facfc0a0c5d2e0a1f");
+test("software pack 1.1.0 digest is pinned and v1 metadata stays optional", (t) => {
+  assert.equal(loadPack(join(packsDir, "software-team")).digest, "670ba35723f015f79df36e61f3810f352620ff01ee9bb2c757984f21c29a9ccc");
   assert.deepEqual(packManifestSchema.parse(pack.manifest), pack.manifest);
-  assert.equal(Object.hasOwn(registryEntry(pack), "produces"), false);
-  assert.equal(Object.hasOwn(registryEntry(pack).seats[0], "tools"), false);
+  assert.equal(pack.manifest.version, "1.1.0");
+  assert.deepEqual(registryEntry(pack).produces, ["requirements", "plan", "api-contract", "data-model", "code-ref"]);
+  for (const seat of registryEntry(pack).seats) {
+    assert.equal(Object.hasOwn(seat, "capabilities"), false);
+    assert.equal(Object.hasOwn(seat, "tools"), false);
+  }
+  const legacy = loadPack(writePack(temp(t)));
+  assert.deepEqual(packManifestSchema.parse(legacy.manifest), legacy.manifest);
+  assert.equal(Object.hasOwn(registryEntry(legacy), "produces"), false);
+  assert.equal(Object.hasOwn(registryEntry(legacy).seats[0], "tools"), false);
 });
 test("capability edits change the content digest", (t) => {
   const dir = writePack(temp(t)); const before = loadPack(dir).digest;

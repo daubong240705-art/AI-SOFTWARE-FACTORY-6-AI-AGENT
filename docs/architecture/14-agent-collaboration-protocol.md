@@ -3,7 +3,7 @@
 | Mục | Nội dung |
 |---|---|
 | Trạng thái | **Đã chốt 12/11/2026** theo ủy quyền của người dùng ("chốt theo phương án bạn thấy tối ưu trong việc phân chia công việc, bàn giao task, trò chuyện với nhau") |
-| Phạm vi | Ba Team Pack mới: `research-team`, `architecture-team`, `design-team` (mỗi profile và mỗi skill, kèm một skill mới `team-coordination` cho mỗi gói). `software-team` **không đổi** vì mã băm nội dung được ghim bằng test |
+| Phạm vi | Cả bốn Team Pack: `research-team`, `architecture-team`, `design-team` (mỗi profile và mỗi skill, kèm một skill mới `team-coordination` cho mỗi gói) và `software-team` 1.1.0 (viết lại cùng cấu trúc, xem §3). Đội đã tạo trước đó giữ bản đã ghim |
 | Liên quan | [10 (M3, AP-6)](10-m3-slice-plan.md), [12 Context Engineering](12-context-engineering.md) §13 (kết quả chạy thật E1b), [04 workflow](04-workflow-and-governance.md), [06 §11](06-implementation-roadmap.md) |
 
 ## 1. Quyết định
@@ -29,11 +29,11 @@
 
 ## 3. Chưa làm và ghi nhận
 
-- `software-team` giữ nguyên (mã băm nội dung ghim bằng test). Nếu muốn áp dụng giao thức cho gói này, cần đổi giá trị ghim ở hai test, một việc nhỏ nhưng thay đổi mã băm của Team đã tạo.
+- **`software-team` 1.1.0** (12/11/2026, theo yêu cầu đồng bộ của người dùng, không cần duyệt): 7 profile và 4 skill cũ (bản tiếng Việt mang từ V1) được viết lại bằng tiếng Anh cùng cấu trúc, cùng khối quy ước Factory và đoạn cộng tác, thêm skill `team-coordination` (Test là người duyệt độc lập của lập trình viên; FE và BE chỉ song song khi phạm vi file tách rời) và `produces`. Giữ nguyên tên vị trí, vai trò, runtime, số suất và workflow `software-delivery` để các test và workflow hiện có không đổi. **Cố ý không khai báo `capabilities` và `tools`** cho các vị trí: khi đó Host giữ cách chọn vị trí theo từ khóa cũ và cấp đủ công cụ cho agent lập trình, còn nếu khai báo thì các mã năng lực tự do mà Lead đề xuất (ví dụ `code.typescript`) có thể gặp lỗi không có vị trí phù hợp. Cần một lần chạy thật để quyết định có khai báo hay không. Hành vi Lead của V1 (trò chuyện như đồng nghiệp, "cho phương án" không phải lệnh, không tự nâng ngân sách) giữ lại trong profile Lead rút gọn; phần lập kế hoạch và duyệt chi tiết nằm ở skill `team-coordination`. Hai giá trị mã băm được ghim trong `pack-v2.test.mjs` và `packs-m3.test.mjs` đã đổi theo.
 - Chưa có lần chạy thật với model cho ba gói này (E1b chỉ chạy `software-team`). Cần một lần chạy thử để kiểm xem agent có làm theo bàn giao có trường hay không.
 - Host chưa kiểm cứng tính đầy đủ của bàn giao (chỉ kiểm độ dài và cấu trúc L1 khi đăng ký). Việc kiểm trường bắt buộc có thể thêm sau nếu lần chạy thật cho thấy agent bỏ sót.
 - Nội dung vai trò và skill cũ không đổi. Người dùng có thể sửa bất kỳ lúc nào; mỗi lần sửa đổi mã băm của gói (Team mới tạo dùng bản mới, Team cũ giữ bản đã ghim).
 
 ## 4. Kiểm chứng
 
-`pack:check` đạt cho ba gói (research 4 seat 5 skill, architecture 5 seat 6 skill, design 4 seat 5 skill); toàn bộ test Host đạt trên Windows (7305 test, 0 lỗi).
+`pack:check` đạt cho bốn gói (research 4 seat 5 skill, architecture 5 seat 6 skill, design 4 seat 5 skill, software 7 seat 5 skill); toàn bộ test Host đạt trên Windows (7355 test, 0 lỗi).

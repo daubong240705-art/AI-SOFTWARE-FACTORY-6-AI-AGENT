@@ -2,12 +2,13 @@
 
 Date: 2026-11-08
 
-The wording in these three packs is original. Their role responsibilities and
+The wording in these four packs is original. Their role responsibilities and
 workflows adapt ideas from the sources below; no third-party prose or license
 text has been copied into this release.
 
 | Pack key | Adapted sources |
 | --- | --- |
+| software-team | BMAD-METHOD by bmad-code-org (MIT), software delivery roles and handoffs; github/spec-kit (MIT), tasks with acceptance criteria; Agent Skills specification, SKILL.md layout. |
 | research-team | BMAD-METHOD by bmad-code-org (MIT), analyst roles and evidence workflows; github/spec-kit (MIT), scoped questions and acceptance criteria; Agent Skills specification, SKILL.md layout. |
 | architecture-team | BMAD-METHOD by bmad-code-org (MIT), architecture roles and decision review; github/spec-kit (MIT), specification then plan then tasks; Agent Skills specification, SKILL.md layout. |
 | design-team | BMAD-METHOD by bmad-code-org (MIT), user experience roles and review workflows; github/spec-kit (MIT), scenarios and verifiable acceptance criteria; Agent Skills specification, SKILL.md layout. |
