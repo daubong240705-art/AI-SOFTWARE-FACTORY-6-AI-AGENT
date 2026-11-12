@@ -1,3 +1,4 @@
+import { MascotEmpty } from '@/components/mascot';
 import { useMemo, useState } from 'react';
 import { Brain, BrainCircuit, Bot, Check, Cpu, Eye, Layers, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -76,7 +77,7 @@ export function ModelPicker({ models, selected, multi, onChange }: {
         {items.map(model => { const picked = selected.includes(model.id); const disabled = multi && !picked && selected.length >= 8; return <Toggle key={model.id} type="button" variant="outline" pressed={picked} disabled={disabled} onPressedChange={() => toggle(model)} aria-label={`${displayName(model)} (${model.id})${model.vision ? `, ${t('modelsUi.vision')}` : ''}${model.reasoning ? `, ${t('modelsUi.reasoning')}` : ''}`} title={model.id} className={cn('h-auto min-h-9 max-w-full rounded-full border-border bg-card px-3 py-1.5 text-left hover:border-primary/60 hover:bg-card data-[state=on]:border-primary data-[state=on]:bg-primary/10 data-[state=on]:text-foreground', disabled && 'opacity-45')}>
           <span className="min-w-0 break-all whitespace-normal font-medium">{displayName(model)}</span>{model.vision && <TooltipProvider><Tooltip><TooltipTrigger asChild><span className="inline-flex"><Eye className="size-3.5 text-info" aria-hidden="true" /><span className="sr-only">{t('modelsUi.vision')}</span></span></TooltipTrigger><TooltipContent>{t('modelsUi.vision')}</TooltipContent></Tooltip></TooltipProvider>}{model.reasoning && <TooltipProvider><Tooltip><TooltipTrigger asChild><span className="inline-flex"><BrainCircuit className="size-3.5 text-run" aria-hidden="true" /><span className="sr-only">{t('modelsUi.reasoning')}</span></span></TooltipTrigger><TooltipContent>{t('modelsUi.reasoning')}</TooltipContent></Tooltip></TooltipProvider>}{model.outside && <Badge variant="outline" className="border-border px-1.5 text-[10px] text-muted-foreground">{t('modelsUi.outside')}</Badge>}{picked && <Check className="size-3.5 text-primary" aria-hidden="true" />}</Toggle>; })}
       </div></section>)}
-      {!groups.length && <p className="py-8 text-center text-sm text-muted-foreground">{t('modelsUi.empty')}</p>}
+      {!groups.length && <MascotEmpty seat="DevOps" compact><p className="py-8 text-center text-sm text-muted-foreground">{t('modelsUi.empty')}</p></MascotEmpty>}
     </div></ScrollArea>
   </div>;
 }

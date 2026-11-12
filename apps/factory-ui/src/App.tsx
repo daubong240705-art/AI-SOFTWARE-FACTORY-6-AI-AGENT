@@ -1,3 +1,4 @@
+import { MascotEmpty } from '@/components/mascot';
 import { useEffect, useRef } from 'react';
 import { MotionConfig } from 'motion/react';
 import { i18n, useT } from './i18n';
@@ -13,7 +14,7 @@ export function App({ store = defaultStore }: { store?: Store }) {
   useEffect(() => { if (booted.current !== store) { booted.current = store; void store.boot(); } }, [store]);
   useEffect(() => { document.documentElement.lang = i18n.locale; }, [t, i18n.locale]);
   return <MotionConfig reducedMotion="user">
-    {session === 'unknown' ? <main className="signin"><p role="status">{t('viewStates.loading')}</p></main>
+    {session === 'unknown' ? <main className="signin"><MascotEmpty seat="Lead" state="thinking" compact><p role="status">{t('viewStates.loading')}</p></MascotEmpty></main>
       : session === 'anonymous' ? <SignIn store={store} /> : <AppShell store={store} />}
     <Toaster position="bottom-right" richColors={false} />
   </MotionConfig>;

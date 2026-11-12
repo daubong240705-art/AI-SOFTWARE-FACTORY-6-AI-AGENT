@@ -1,4 +1,5 @@
 import { Skeleton } from '@/components/ui/skeleton';
+import { MascotEmpty } from '@/components/mascot';
 import { AgentProfileButton } from '@/components/agent-profile/AgentProfileButton';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
@@ -19,7 +20,7 @@ export function TeamPanel({ store }: { store: Store }) {
     <div className="min-w-0 space-y-5">
       {errors.team && <ErrorNotice error={errors.team} />}
       {!team ? !errors.team && (
-        <Card className="border-border p-5 shadow-none"><p className="text-sm text-muted-foreground">{t('empty.team')}</p></Card>
+        <Card className="border-border p-5 shadow-none"><MascotEmpty seat="Lead"><p className="text-sm text-muted-foreground">{t('empty.team')}</p></MascotEmpty></Card>
       ) : (
         <Card className="min-w-0 gap-0 overflow-hidden border-border py-0 shadow-none">
           <CardHeader className="gap-3 px-5 py-5">
@@ -39,7 +40,7 @@ export function TeamPanel({ store }: { store: Store }) {
             <Separator />
             <section className="min-w-0 space-y-3">
               <h3 className="font-display text-base font-semibold">{t('team.seats')}</h3>
-              {team.seats.length === 0 ? <p className="text-sm text-muted-foreground">{t('team.emptySeats')}</p> : (
+              {team.seats.length === 0 ? <MascotEmpty seat="Lead" compact><p className="text-sm text-muted-foreground">{t('team.emptySeats')}</p></MascotEmpty> : (
                 <Table>
                   <TableHeader>
                     <TableRow>

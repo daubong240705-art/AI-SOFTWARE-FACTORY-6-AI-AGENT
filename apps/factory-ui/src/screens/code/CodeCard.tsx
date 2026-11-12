@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useT } from '@/i18n';
+import { MascotEmpty } from '@/components/mascot';
 import type { StoreError } from '@/state/store';
 
 export function CodeCard({ title, icon, meta, loading, error, onRetry, empty, children }: {
@@ -19,9 +20,7 @@ export function CodeCard({ title, icon, meta, loading, error, onRetry, empty, ch
     </CardHeader>
     <CardContent className="p-0">
       {error && <div className="space-y-3 p-5"><ErrorNotice error={error} /><Button variant="outline" size="sm" onClick={onRetry} disabled={loading}>{t('errors.retry')}</Button></div>}
-      {loading ? <div role="status" aria-label={t('codeUi.loading')} className="space-y-4 p-5">
-        <Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-4/5" />
-      </div> : empty && !error ? <Empty className="py-10"><EmptyHeader><EmptyDescription>{empty}</EmptyDescription></EmptyHeader></Empty> : children}
+      {loading ? <div role="status" aria-label={t('codeUi.loading')} className="space-y-4 p-5"><MascotEmpty seat="BE" state="thinking" compact><Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-4/5" /></MascotEmpty></div> : empty && !error ? <Empty className="py-10"><MascotEmpty seat="BE" compact fallback={<EmptyHeader><EmptyDescription>{empty}</EmptyDescription></EmptyHeader>}><EmptyDescription>{empty}</EmptyDescription></MascotEmpty></Empty> : children}
     </CardContent>
   </Card>;
 }

@@ -9,6 +9,7 @@ import type { Store } from '../../state/store';
 import { AreaState, useM3Command } from '../M3Shared';
 import { TeamPanel } from '../TeamPanel';
 import { TeamCard } from './TeamCard';
+import { MascotEmpty } from '@/components/mascot';
 
 export function TeamConfiguration({ store }: { store: Store }) {
   const t = useT();
@@ -33,7 +34,7 @@ export function TeamConfiguration({ store }: { store: Store }) {
               <h2 className="font-display text-lg font-semibold">{t('ux4.createFromPack')}</h2>
             </CardHeader>
             <CardContent className="space-y-3 px-5">
-              {!projectId && <p className="text-sm text-muted-foreground">{t('m3.selectProject')}</p>}
+              {!projectId && <MascotEmpty seat="Lead" compact><p className="text-sm text-muted-foreground">{t('m3.selectProject')}</p></MascotEmpty>}
               <form
                 className="flex flex-col gap-3 sm:flex-row sm:items-end"
                 onSubmit={(event) => {
@@ -61,6 +62,7 @@ export function TeamConfiguration({ store }: { store: Store }) {
                   {t('m3.createTeam')}
                 </Button>
               </form>
+              {!state.m3.packs.length && !state.loading.teams && !state.errors.teams && <MascotEmpty seat="Lead" compact description={t('systemUi.noPacks')} fallback={null} />}
               {command.notice}
             </CardContent>
           </Card>

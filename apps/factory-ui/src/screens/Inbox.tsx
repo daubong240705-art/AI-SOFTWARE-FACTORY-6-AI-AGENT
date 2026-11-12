@@ -1,3 +1,4 @@
+import { MascotEmpty } from '@/components/mascot';
 import { RequestPanel } from './Requests';
 import { useEffect, useId, useState } from 'react';
 import type { Inbox as InboxModel } from '../api/client';
@@ -46,7 +47,7 @@ export function Inbox({ store, global = false, onClose, initialSelection }: { st
   const content = <>
     {onClose && <Button onClick={onClose}>{t('inboxUi.close')}</Button>}
     <h2 id={id}>{t('inboxUi.title')} {inbox.counts.total > 0 && <Badge>{inboxCount(t, inbox.counts.total)}</Badge>}</h2>
-    {state.loading[global ? 'globalInbox' : 'inbox'] && <p role="status">{t('viewStates.loading')}</p>}
+    {state.loading[global ? 'globalInbox' : 'inbox'] && <MascotEmpty seat="Lead" state="thinking" compact><p role="status">{t('viewStates.loading')}</p></MascotEmpty>}
     {state.errors[global ? 'globalInbox' : 'inbox'] && <><ErrorNotice error={state.errors[global ? 'globalInbox' : 'inbox']!} /><Button onClick={() => { void (global ? store.loadGlobalInbox() : store.loadInbox()); }}>{t('errors.retry')}</Button></>}
     <InboxItems inbox={inbox} store={store} global={global} busy={busy} onOpen={(projectId, item) => { void open(projectId, item); }} />
   </>;
@@ -54,7 +55,7 @@ export function Inbox({ store, global = false, onClose, initialSelection }: { st
 }
 function InboxItems({ inbox, store, global, busy, onOpen }: { inbox: InboxModel; store: Store; global: boolean; busy: boolean; onOpen: (projectId: string, selection: Selection) => void }) {
   const t = useT(); const tasks = store.useStoreSelector(state => state.tasks);
-  if (!inbox.approvals.length && !inbox.startGates.length && !inbox.requests?.length) return <p>{t('inboxUi.empty')}</p>;
+  if (!inbox.approvals.length && !inbox.startGates.length && !inbox.requests?.length) return <MascotEmpty seat="Lead" state="success"><p>{t('inboxUi.empty')}</p></MascotEmpty>;
   return <ul className="task-list stack inbox-list">
     {!!inbox.requests?.length && <li className="stack"><h3>{t('m3.awaitingTriage')}</h3><ul>{inbox.requests.map(item => <li key={item.taskId} className="card stack"><h4>{item.code} {item.subject}</h4>{global && <p>{item.projectName}</p>}<Button disabled={busy} onClick={() => onOpen(item.projectId ?? store.getState().selectedProjectId!, { kind: 'request', id: item.taskId })}>{t('m3.openRequest')}</Button></li>)}</ul></li>}
     {[...inbox.approvals].sort((a, b) => Date.parse(a.requestedAt) - Date.parse(b.requestedAt)).map(item => <li key={item.id} className="card stack">

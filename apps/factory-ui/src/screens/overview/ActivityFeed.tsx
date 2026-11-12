@@ -1,6 +1,7 @@
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useId, useState } from 'react';
 import { Activity } from 'lucide-react';
+import { MascotEmpty } from '@/components/mascot';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
@@ -41,7 +42,7 @@ export function ActivityFeed({ store, onCreate, onTask }: {
       </ToggleGroup>
     </div>
     <CardContent className="p-0">
-      {!rows.length ? <Empty className="px-5 py-10"><EmptyHeader><EmptyMedia variant="icon"><Activity aria-hidden="true" /></EmptyMedia><EmptyDescription>{t('overview.activityEmpty')}</EmptyDescription></EmptyHeader>{!state.projects.length && <EmptyContent><Button onClick={onCreate}>{t('projects.create')}</Button></EmptyContent>}</Empty> : [...groups].map(([key, group]) => <section key={key} aria-label={group.label}>
+      {!rows.length ? <Empty className="px-5 py-10"><MascotEmpty seat="PM" compact fallback={<EmptyHeader><EmptyMedia variant="icon"><Activity aria-hidden="true" /></EmptyMedia><EmptyDescription>{t('overview.activityEmpty')}</EmptyDescription></EmptyHeader>}><EmptyDescription>{t('overview.activityEmpty')}</EmptyDescription></MascotEmpty>{!state.projects.length && <EmptyContent><Button onClick={onCreate}>{t('projects.create')}</Button></EmptyContent>}</Empty> : [...groups].map(([key, group]) => <section key={key} aria-label={group.label}>
         <h3 className="px-5 pt-3 pb-1 font-sans text-xs font-normal tracking-wide text-muted-foreground uppercase">{group.label}</h3>
         <Stagger className="m-0 list-none p-0">{group.rows.map(({ task, time }) => {
           const project = state.projects.find(item => item.id === task.projectId);

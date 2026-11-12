@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { useT } from '@/i18n';
 import type { Store } from '@/state/store';
 import { SystemCard, SystemRead, SystemStatus } from './SystemCard';
+import { MascotEmpty } from '@/components/mascot';
 
 export function McpCard({ store }: { store: Store }) {
   const t = useT(); const servers = store.useStoreSelector(state => state.system.servers);
@@ -16,7 +17,7 @@ export function McpCard({ store }: { store: Store }) {
           <p className="text-xs text-muted-foreground">{t('systemUi.tools').replace('{count}', String(server.tools))}</p>
         </li>;
       })}
-    </ul> : <p className="text-sm text-muted-foreground">{t('systemUi.noServers')}</p>}
+    </ul> : <MascotEmpty seat="DevOps" compact><p className="text-sm text-muted-foreground">{t('systemUi.noServers')}</p></MascotEmpty>}
   </SystemRead></SystemCard>;
 }
 
@@ -32,6 +33,6 @@ export function PacksCard({ store }: { store: Store }) {
         </div>
         {!!pack.produces.length && <div className="flex flex-wrap gap-1.5">{pack.produces.map(value => <Badge key={value} variant="outline" className="max-w-full whitespace-normal">{value}</Badge>)}</div>}
       </li>)}
-    </ul> : <p className="text-sm text-muted-foreground">{t('systemUi.noPacks')}</p>}
+    </ul> : <MascotEmpty seat="DevOps" compact><p className="text-sm text-muted-foreground">{t('systemUi.noPacks')}</p></MascotEmpty>}
   </SystemRead></SystemCard>;
 }

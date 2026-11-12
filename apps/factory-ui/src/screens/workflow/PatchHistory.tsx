@@ -1,3 +1,4 @@
+import { MascotEmpty } from '@/components/mascot';
 import { useId, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -32,7 +33,7 @@ export function PatchHistory({ store, detail, editMode }: { store: Store; detail
   return <Collapsible className="rounded-xl border border-border bg-card">
     <CollapsibleTrigger asChild><Button type="button" variant="ghost" className="group h-auto w-full justify-between rounded-xl px-4 py-3"><span className="font-display text-lg font-semibold">{t('planPatch.history')}</span><ChevronDown className="transition-transform group-data-[state=open]:rotate-180" /></Button></CollapsibleTrigger>
     <CollapsibleContent className="border-t border-border">
-      {!patches.length && <p className="p-4 text-sm text-muted-foreground">{t('planPatch.emptyHistory')}</p>}
+      {!patches.length && <MascotEmpty seat="BA" compact><p className="p-4 text-sm text-muted-foreground">{t('planPatch.emptyHistory')}</p></MascotEmpty>}
       <ul className="divide-y divide-border">{patches.map(patch => <li key={patch.id} className="space-y-2 p-4">
         <div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs">#{patch.number}</span><span className="text-sm">{t(patch.proposedBy === 'lead' ? 'planPatch.lead' : patch.proposedBy === 'operator' ? 'planPatch.you' : 'm5Ui.states.unknown')}</span>
           {patch.policy !== 'unknown' && <Badge variant="secondary" className="font-normal">{t(`planPatch.policies.${patch.policy}`)}</Badge>}

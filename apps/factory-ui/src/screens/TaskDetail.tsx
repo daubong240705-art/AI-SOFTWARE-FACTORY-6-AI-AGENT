@@ -1,3 +1,4 @@
+import { MascotEmpty } from '@/components/mascot';
 import { useEffect, useId, useState } from 'react';
 import { isLiveAttempt } from '@factory/contracts';
 import { taskMascotState } from '@/components/mascot/state';
@@ -51,7 +52,7 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request', inl
       <TabsList variant="pills" aria-label={t('workUi.sections')} className="max-w-full">
         {tabs.map(tab => <TabsTrigger value={tab} key={tab} id={`${id}-${tab}`} aria-controls={`${id}-panel`}>{t(tab === 'request' ? 'ux4.overview' : tab === 'context' ? 'projectUi.context' : `workUi.${tab}`)}</TabsTrigger>)}
       </TabsList>
-      {detail?.loading && <p role="status" className="text-sm text-muted-foreground">{t('viewStates.loading')}</p>}
+      {detail?.loading && <MascotEmpty seat="Lead" state="thinking" compact><p role="status" className="text-sm text-muted-foreground">{t('viewStates.loading')}</p></MascotEmpty>}
       {detail?.error && <><ErrorNotice error={detail.error} /><Button type="button" variant="outline" size="sm" className="self-start" onClick={() => { void store.loadTaskDetail(taskId); }}>{t('errors.retry')}</Button></>}
       <TabsContent value={active} id={`${id}-panel`} aria-labelledby={`${id}-${active}`} tabIndex={0} className="min-w-0 space-y-5 outline-none">
         {active === 'request' && <TaskOverview store={store} task={task} />}

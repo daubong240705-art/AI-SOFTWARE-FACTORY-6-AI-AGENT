@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type FormEvent } from 'react';
+import { MascotEmpty } from '@/components/mascot';
 import { workflowsCreate } from '@/api/commands';
 import type { WorkflowDefinition } from '@/api/m5Models';
 import { Dialog } from '@/components/Dialog';
@@ -96,14 +97,14 @@ export function CreateWorkflow({ store, projectId, onClose, onCreated }: {
           options={definitions.map(item => ({ value: definitionId(item), label: `${item.title} · ${item.packKey}${item.packVersion ? ` ${item.packVersion}` : ''}` }))} />
       </div>
       {!definitions.length && !loading && !state.errors['workflow-definitions'] && <Empty className="rounded-xl border border-border p-5">
-        <EmptyDescription>{t('workflowGraph.noDefinitions')}</EmptyDescription>
+        <MascotEmpty seat="BA" state="offline" compact><EmptyDescription>{t('workflowGraph.noDefinitions')}</EmptyDescription></MascotEmpty>
       </Empty>}
       {definition && <>
         <div className="space-y-2">
           <p id={`${id}-preview`} className="text-sm font-medium">{t('workflowGraph.preview')}</p>
           <div role="region" aria-labelledby={`${id}-preview`} className="h-[220px] overflow-hidden rounded-xl border border-border bg-background">
             {definition.graph.stages.length ? <LazyWorkflowGraph key={selectedId} graph={definition.graph} phases={definition.phases} preview />
-              : <Empty className="h-full p-5"><EmptyDescription>{t('workflowGraph.previewUnavailable')}</EmptyDescription></Empty>}
+              : <Empty className="h-full p-5"><MascotEmpty seat="BA" state="offline" compact><EmptyDescription>{t('workflowGraph.previewUnavailable')}</EmptyDescription></MascotEmpty></Empty>}
           </div>
         </div>
         {!!definition.parameters.length && <fieldset disabled={disabled || unavailable} className="grid min-w-0 gap-4">
