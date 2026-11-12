@@ -1,4 +1,29 @@
 export const extra = {
+  planPatch: {
+    stageForm: {
+      add: 'Add step', addAfter: 'Add a new step after this step', addBefore: 'Add a new step before this step', addToPatch: 'Add to patch',
+      title: 'Title', key: 'Key', keyHelp: 'A unique key with 2–40 lowercase ASCII letters, digits or dashes.',
+      keyFormat: 'Use 2–40 lowercase ASCII letters, digits or dashes; start with a letter or digit.', keyTaken: 'This key is already used in the workflow or draft.',
+      phase: 'Phase', position: 'Place', after: 'after', before: 'before',
+      capabilities: 'Required capabilities', capabilityPlaceholder: 'Type a capability, then press Enter or comma', capabilityHelp: 'Up to 8 capabilities. Press Enter or comma to add.',
+      capabilityFormat: 'Use 1–40 lowercase letters, digits, dots or dashes; start with a letter or digit.', capabilityLimit: 'Choose at most 8 capabilities.',
+      removeCapability: 'Remove capability {capability}', suggestions: 'Used in this workflow', optional: 'Optional step (can be skipped)',
+      placement: 'Placement', portable: 'Run on any machine', 'node-bound': 'Needs a specific machine', teamHint: 'Team hint (optional)',
+      approval: 'Adding a step usually needs your approval before it is applied.',
+      split: 'Split step', splitAction: 'Split this step', splitDescription: 'The original step will be replaced by the child steps in order.',
+      child: 'Child step {number}', addChild: 'Add child step', removeChild: 'Remove child step {number}', childCount: '{count}/5 steps · minimum 2',
+      inheritCapabilities: 'Leave empty to keep the original step’s capabilities.',
+    },
+    noRoom: 'This workflow allows one task per step, so no task can be added to this step.', edit: 'Edit plan', editStage: 'Edit this step', drafting: 'Plan patch in draft ({count}/10)', composer: 'Plan patch composer',
+    actions: { addTaskWithinStage: 'Add task to this step', skipOptionalStage: 'Skip this step', reorderStages: 'Move this step after…', removeRequiredStage: 'Remove required step' },
+    taskTitle: 'Task title', after: 'Place after', chooseStage: 'Choose a step', cycleHint: 'The Host will reject cycles and explain why.', requiredWarning: 'This step is required. Removing it always needs your approval.', understood: 'I understand', skipConfirm: 'Skip step “{stage}”?', draftOnly: 'This action is added to the draft; nothing is sent yet.', addToDraft: 'Add to draft', cancel: 'Cancel',
+    limit: 'The draft is full (10 operations).', reason: 'Reason', reasonPlaceholder: 'Explain why this plan should change…', submit: 'Send patch', clear: 'Discard patch', clearConfirm: 'Discard all operations in this draft?', clearDescription: 'These operations have not been sent to the Host.', remove: 'Remove operation',
+    history: 'Edit history', emptyHistory: 'No patches yet.', lead: 'Lead', you: 'You', revision: 'revision {revision}', approve: 'Approve', reject: 'Reject', commentOptional: 'Comment (optional)', decisionHelp: 'Confirm your decision for patch #{number}.', decisionSaved: 'Patch decision saved',
+    policies: { auto: 'Auto apply', approval: 'Needs approval', operator: 'Operator only', unknown: 'Unknown policy' }, states: { applied: 'Applied', pending: 'Pending approval', rejected: 'Rejected', refused: 'Host refused', unknown: 'Unknown' },
+    applied: 'Patch applied; plan is now revision {revision}', pending: 'Patch is waiting for your approval in Needs attention', refused: 'Host refused: {reason}', noRefusal: 'No reason supplied', conflict: 'Data changed; the workflow was reloaded',
+    errors: { missing: 'This workflow or patch no longer exists.', limit: 'The workflow has reached its patch limit.', pendingLimit: 'Decide existing pending patches before adding more.', invalid: 'Check the operations and reason.', terminal: 'This workflow no longer allows editing.', outcome: 'The patch was sent. Reload to confirm its outcome before sending again.' },
+    summary: { addTaskWithinStage: 'Add task “{title}” to step «{stage}»', skipOptionalStage: 'Skip step «{stage}»', reorderStages: 'Move «{stage}» after «{after}»', removeRequiredStage: 'Remove required step «{stage}»', splitStage: 'Split «{stage}» into {children}', addStage: 'Add step «{stage}» {position} «{anchor}»' },
+  },
   modelsUi: {
     title: 'Models', description: 'Choose models for the Lead and agents.', change: 'Change models', lead: 'Lead', agents: 'Agent',
     effort: 'Reasoning effort', efforts: { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra high' },
@@ -17,7 +42,7 @@ export const extra = {
     invalid: 'Choose a Lead model, reasoning effort and 1–8 unique agent models.',
     revisionMissing: 'Reload settings to obtain the current revision before saving.', saved: 'Model settings saved', conflict: 'Data changed and has been reloaded',
   },
-  mascot: { label: 'Characters', gallery: 'Character gallery', openGallery: 'View characters', description: 'Meet every seat, expression and size in your selected character set.', sizes: 'Sizes', disabled: 'Characters are off. Letter avatars are shown.', skins: { classic: 'Classic', forest: 'Forest', ocean: 'Ocean', fantasy: 'Fantasy', off: 'Off' }, states: { idle: 'Idle', thinking: 'Thinking', working: 'Working', done: 'Done', typing: 'Typing', attention: 'Needs attention', error: 'Error', success: 'Success', offline: 'Offline' } },
+  mascot: { label: 'Characters', gallery: 'Character gallery', openGallery: 'View characters', description: 'Meet every seat, expression and size in your selected character set.', sizes: 'Sizes', disabled: 'Characters are off. Letter avatars are shown.', skins: { original: 'Your original set', classic: 'Simple cartoon', forest: 'Forest', ocean: 'Ocean', fantasy: 'Fantasy', off: 'Off' }, states: { idle: 'Idle', thinking: 'Thinking', working: 'Working', done: 'Done', typing: 'Typing', attention: 'Needs attention', error: 'Error', success: 'Success', offline: 'Offline' } },
   folderPicker: {
     open: 'Choose folder…', title: 'Choose a project folder', description: 'Browse folders on the Host and choose a workspace.',
     breadcrumb: 'Current folder location', up: 'Up one level', folders: 'Subfolders', loading: 'Loading folders…',

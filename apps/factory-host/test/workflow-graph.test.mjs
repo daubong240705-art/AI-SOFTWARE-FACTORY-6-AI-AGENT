@@ -14,7 +14,7 @@ import { registryEntry } from "../dist/org/registry.js";
 const software = pack.files.workflows.find((file) => file.definition.key === "software-delivery").definition;
 const viewFields = ["id", "key", "title", "state", "revision", "createdAt", "startedAt", "endedAt", "counts",
   "stalledReason", "lastProgressAt", "stages", "params", "definitionRevision", "packKey", "packVersion",
-  "definitionTitle", "phases", "patches"];
+  "definitionTitle", "phases", "patches", "allowedPatches"];
 
 function assertKeys(value, keys) {
   assert.deepEqual(Object.keys(value).sort(), [...keys].sort());
@@ -24,7 +24,7 @@ function assertGraphFields(graph) {
   assertKeys(graph, ["stages", "edges", "joins", "gates"]);
   for (const stage of graph.stages) {
     assertKeys(stage, ["key", "title", "phase", "optional", "parallelGroup", "placement", "sideEffect",
-      "requiredCapabilities", "teamHint", "inputs", "outputs"]);
+      "requiredCapabilities", "teamHint", "maxTasks", "inputs", "outputs"]);
     for (const input of stage.inputs) assertKeys(input, ["kind", "required"]);
     for (const output of stage.outputs) assertKeys(output, ["kind", "mustReach"]);
   }
@@ -63,7 +63,7 @@ test("software delivery graph is bounded and redacts conditions", () => {
   assert.deepEqual(graph.stages.map((stage) => stage.key), software.stages.map((stage) => stage.key));
   assert.deepEqual(graph.stages[0], { key: "research", title: "research", phase: "discovery", optional: true,
     parallelGroup: null, placement: "portable", sideEffect: "artifact", requiredCapabilities: ["research.synthesis"],
-    teamHint: null, inputs: [{ kind: "brief", required: true }], outputs: [{ kind: "research-report", mustReach: "approved" }] });
+    teamHint: null, maxTasks: 1, inputs: [{ kind: "brief", required: true }], outputs: [{ kind: "research-report", mustReach: "approved" }] });
   assert.equal(graph.stages.find((stage) => stage.key === "design").parallelGroup, "analysis-specialists");
   assert.equal(graph.stages.find((stage) => stage.key === "ba").sideEffect, null);
   assert.deepEqual(graph.edges.find((edge) => edge.type === "rework"), {

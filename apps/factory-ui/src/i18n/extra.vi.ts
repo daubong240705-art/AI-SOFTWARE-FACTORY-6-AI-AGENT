@@ -2,6 +2,31 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  planPatch: {
+    stageForm: {
+      add: 'Thêm bước', addAfter: 'Thêm bước mới sau bước này', addBefore: 'Thêm bước mới trước bước này', addToPatch: 'Thêm vào bản vá',
+      title: 'Tiêu đề', key: 'Mã bước', keyHelp: 'Mã duy nhất, gồm 2–40 chữ cái ASCII viết thường, chữ số hoặc dấu gạch ngang.',
+      keyFormat: 'Dùng 2–40 chữ cái ASCII viết thường, chữ số hoặc dấu gạch ngang; bắt đầu bằng chữ hoặc số.', keyTaken: 'Mã này đã có trong quy trình hoặc bản nháp.',
+      phase: 'Giai đoạn', position: 'Đặt', after: 'sau', before: 'trước',
+      capabilities: 'Năng lực cần có', capabilityPlaceholder: 'Nhập năng lực rồi nhấn Enter hoặc dấu phẩy', capabilityHelp: 'Tối đa 8 năng lực. Nhấn Enter hoặc dấu phẩy để thêm.',
+      capabilityFormat: 'Dùng 1–40 chữ cái viết thường, chữ số, dấu chấm hoặc gạch ngang; bắt đầu bằng chữ hoặc số.', capabilityLimit: 'Chọn tối đa 8 năng lực.',
+      removeCapability: 'Xóa năng lực {capability}', suggestions: 'Đã dùng trong quy trình', optional: 'Bước tùy chọn (có thể bỏ qua)',
+      placement: 'Nơi chạy', portable: 'Chạy ở bất kỳ máy nào', 'node-bound': 'Cần một máy cụ thể', teamHint: 'Gợi ý đội (không bắt buộc)',
+      approval: 'Việc thêm bước thường cần bạn duyệt trước khi áp dụng.',
+      split: 'Tách bước', splitAction: 'Tách bước này', splitDescription: 'Bước gốc sẽ được thay bằng các bước con theo thứ tự.',
+      child: 'Bước con {number}', addChild: 'Thêm bước con', removeChild: 'Xóa bước con {number}', childCount: '{count}/5 bước · tối thiểu 2',
+      inheritCapabilities: 'Để trống để giữ năng lực của bước gốc.',
+    },
+    noRoom: 'Quy trình này chỉ cho một việc mỗi bước nên không thêm việc vào bước này được.', edit: 'Sửa kế hoạch', editStage: 'Chỉnh sửa bước', drafting: 'Bản vá đang soạn ({count}/10)', composer: 'Bản vá kế hoạch',
+    actions: { addTaskWithinStage: 'Thêm việc vào bước', skipOptionalStage: 'Bỏ qua bước', reorderStages: 'Chuyển bước này ra sau bước…', removeRequiredStage: 'Xóa bước bắt buộc' },
+    taskTitle: 'Tiêu đề việc', after: 'Đặt sau', chooseStage: 'Chọn một bước', cycleHint: 'Host sẽ từ chối chu trình và nêu lý do.', requiredWarning: 'Bước này là bắt buộc. Việc xóa luôn cần bạn duyệt.', understood: 'Tôi hiểu', skipConfirm: 'Bỏ qua bước “{stage}”?', draftOnly: 'Thao tác này chỉ thêm vào bản nháp; chưa gửi đi.', addToDraft: 'Thêm vào bản nháp', cancel: 'Hủy',
+    limit: 'Bản nháp đã đủ 10 thao tác.', reason: 'Lý do', reasonPlaceholder: 'Giải thích vì sao kế hoạch cần thay đổi…', submit: 'Gửi bản vá', clear: 'Bỏ bản vá', clearConfirm: 'Bỏ toàn bộ thao tác trong bản nháp?', clearDescription: 'Các thao tác này chưa được gửi đến Host.', remove: 'Xóa thao tác',
+    history: 'Lịch sử chỉnh sửa', emptyHistory: 'Chưa có bản vá nào.', lead: 'Lead', you: 'Bạn', revision: 'bản {revision}', approve: 'Duyệt', reject: 'Từ chối', commentOptional: 'Nhận xét (không bắt buộc)', decisionHelp: 'Xác nhận quyết định cho bản vá #{number}.', decisionSaved: 'Đã lưu quyết định về bản vá',
+    policies: { auto: 'Tự áp dụng', approval: 'Cần duyệt', operator: 'Chỉ bạn quyết', unknown: 'Chưa rõ chính sách' }, states: { applied: 'Đã áp dụng', pending: 'Chờ duyệt', rejected: 'Bị từ chối', refused: 'Host từ chối', unknown: 'Chưa rõ' },
+    applied: 'Đã áp dụng bản vá, kế hoạch lên bản {revision}', pending: 'Bản vá đang chờ bạn duyệt trong mục Cần xử lý', refused: 'Host từ chối: {reason}', noRefusal: 'Không có lý do', conflict: 'Dữ liệu đã đổi, đã tải lại',
+    errors: { missing: 'Quy trình hoặc bản vá này không còn tồn tại.', limit: 'Quy trình đã đạt giới hạn số bản vá.', pendingLimit: 'Hãy quyết định các bản vá đang chờ trước khi thêm.', invalid: 'Kiểm tra các thao tác và lý do.', terminal: 'Quy trình này không còn cho phép chỉnh sửa.', outcome: 'Đã gửi bản vá. Hãy tải lại để xác nhận kết quả trước khi gửi tiếp.' },
+    summary: { addTaskWithinStage: 'Thêm việc “{title}” vào bước «{stage}»', skipOptionalStage: 'Bỏ qua bước «{stage}»', reorderStages: 'Chuyển «{stage}» ra sau «{after}»', removeRequiredStage: 'Xóa bước bắt buộc «{stage}»', splitStage: 'Tách «{stage}» thành {children}', addStage: 'Thêm bước «{stage}» {position} «{anchor}»' },
+  },
   modelsUi: {
     title: 'Model', description: 'Chọn model cho Lead và các agent.', change: 'Đổi model', lead: 'Lead', agents: 'Agent',
     effort: 'Mức suy luận', efforts: { low: 'Thấp', medium: 'Vừa', high: 'Cao', xhigh: 'Rất cao' },
@@ -20,7 +45,7 @@ export const extra: Translated<typeof en> = {
     invalid: 'Chọn model Lead, mức suy luận và từ 1 đến 8 model khác nhau cho agent.',
     revisionMissing: 'Tải lại cấu hình để lấy phiên bản dữ liệu trước khi lưu.', saved: 'Đã lưu cấu hình model', conflict: 'Dữ liệu đã đổi, đã tải lại',
   },
-  mascot: { label: 'Nhân vật', gallery: 'Bộ nhân vật', openGallery: 'Xem bộ nhân vật', description: 'Khám phá từng vị trí, biểu cảm và kích thước trong bộ nhân vật đã chọn.', sizes: 'Kích thước', disabled: 'Đã tắt nhân vật. Ảnh đại diện bằng chữ được hiển thị.', skins: { classic: 'Mặc định', forest: 'Rừng', ocean: 'Biển', fantasy: 'Kỳ ảo', off: 'Tắt' }, states: { idle: 'Nghỉ', thinking: 'Đang nghĩ', working: 'Đang làm', done: 'Xong', typing: 'Đang gõ', attention: 'Cần chú ý', error: 'Lỗi', success: 'Thành công', offline: 'Ngoại tuyến' } },
+  mascot: { label: 'Nhân vật', gallery: 'Bộ nhân vật', openGallery: 'Xem bộ nhân vật', description: 'Khám phá từng vị trí, biểu cảm và kích thước trong bộ nhân vật đã chọn.', sizes: 'Kích thước', disabled: 'Đã tắt nhân vật. Ảnh đại diện bằng chữ được hiển thị.', skins: { original: 'Bộ gốc của bạn', classic: 'Hoạt hình đơn giản', forest: 'Rừng', ocean: 'Biển', fantasy: 'Kỳ ảo', off: 'Tắt' }, states: { idle: 'Nghỉ', thinking: 'Đang nghĩ', working: 'Đang làm', done: 'Xong', typing: 'Đang gõ', attention: 'Cần chú ý', error: 'Lỗi', success: 'Thành công', offline: 'Ngoại tuyến' } },
   folderPicker: {
     open: 'Chọn thư mục…', title: 'Chọn thư mục dự án', description: 'Duyệt thư mục trên máy chủ và chọn thư mục làm việc.',
     breadcrumb: 'Vị trí thư mục hiện tại', up: 'Lên một cấp', folders: 'Thư mục con', loading: 'Đang tải thư mục…',

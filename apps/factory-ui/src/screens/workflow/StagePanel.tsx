@@ -10,9 +10,9 @@ import type { StageDefinition } from './graphTypes';
 import type { LiveRuns } from './useLiveRuns';
 import { StageLivePanel } from './StageLivePanel';
 
-export function StagePanel({ definition, stage, detail, liveRuns, onOpenTask, assignment }: {
+export function StagePanel({ definition, stage, detail, liveRuns, onOpenTask, assignment, editActions }: {
   definition: StageDefinition; stage: WorkflowStage; detail: WorkflowDetail; liveRuns: LiveRuns;
-  onOpenTask?: ((taskId: string) => void) | undefined; assignment?: ReactNode;
+  onOpenTask?: ((taskId: string) => void) | undefined; assignment?: ReactNode; editActions?: ReactNode;
 }) {
   const t = useT();
   const gates = detail.graph?.gates.filter(gate => gate.before === stage.key) ?? [];
@@ -30,6 +30,7 @@ export function StagePanel({ definition, stage, detail, liveRuns, onOpenTask, as
       {!!stage.tasks.length && <section className="space-y-2"><h4 className="text-xs text-muted-foreground">{t('workflowGraph.tasks')}</h4><div className="flex flex-wrap gap-2">{stage.tasks.map(task => <Badge key={task.taskId} variant="outline" asChild={!!onOpenTask} className="rounded-md font-mono font-normal">{onOpenTask ? <Button type="button" variant="ghost" size="sm" className="h-7 px-2" onClick={() => onOpenTask(task.taskId)}>{task.code}</Button> : task.code}</Badge>)}</div></section>}
       {stage.blockedReason && <p className="rounded-lg border border-info/30 bg-info/5 p-3 text-info break-words">{stage.blockedReason}</p>}
       {assignment && <><Separator />{assignment}</>}
+      {editActions && <><Separator />{editActions}</>}
     </div>
   </div>;
 }

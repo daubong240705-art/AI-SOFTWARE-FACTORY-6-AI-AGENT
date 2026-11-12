@@ -24,4 +24,20 @@
 @keyframes mascot-bob { 50% { transform: translateY(-2px); } }
 @keyframes mascot-float { 50% { transform: translateY(-4px) rotate(8deg); } }
 @keyframes mascot-twinkle { 50% { opacity: .35; } }
+/* The operator's artwork: a picture plus a transparent overlay for the effect marks; motion lives on the picture. */
+.mascot-set { position: relative; }
+.mascot-set .mascot-art, .mascot-set .mascot-overlay { grid-area: 1 / 1; width: 100%; height: 100%; }
+.mascot-set .mascot-art { object-fit: contain; transform-origin: 50% 90%; user-select: none; -webkit-user-drag: none; animation: mascot-breathe 4.8s ease-in-out infinite; animation-delay: var(--mascot-delay); }
+.mascot-set .mascot-overlay { overflow: visible; pointer-events: none; }
+.mascot-set.mascot-thinking .mascot-art { animation: mascot-sway 3.2s ease-in-out infinite; animation-delay: var(--mascot-delay); }
+.mascot-set.mascot-working .mascot-art, .mascot-set.mascot-typing .mascot-art { animation: mascot-bob 1.2s ease-in-out infinite; animation-delay: var(--mascot-delay); }
+.mascot-set.mascot-attention .mascot-art { animation: mascot-shake 1s ease-in-out infinite; }
+.mascot-set.mascot-success .mascot-art, .mascot-set.mascot-done .mascot-art { animation: mascot-hop 1.8s ease-in-out infinite; animation-delay: var(--mascot-delay); }
+.mascot-set.mascot-error .mascot-art { animation: mascot-shake 2.2s ease-in-out infinite; filter: saturate(.85); }
+.mascot-set.mascot-offline .mascot-art { animation: mascot-breathe 7s ease-in-out infinite; filter: grayscale(.7); opacity: .75; }
+.mascot-set.mascot-working .mascot-laptop { animation: mascot-bob 1.2s ease-in-out infinite; }
+@keyframes mascot-breathe { 50% { transform: scale(1.025, .975); } }
+@keyframes mascot-sway { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
+@keyframes mascot-shake { 0%, 100% { transform: translateX(0); } 15% { transform: translateX(-2.5%) rotate(-2deg); } 30% { transform: translateX(2.5%) rotate(2deg); } 45% { transform: translateX(-1.5%); } 60% { transform: translateX(1.5%); } 75% { transform: translateX(0); } }
+@keyframes mascot-hop { 0%, 55%, 100% { transform: translateY(0) scale(1, 1); } 20% { transform: translateY(-9%) scale(.97, 1.04); } 38% { transform: translateY(0) scale(1.04, .96); } }
 @media (prefers-reduced-motion: reduce) { .mascot, .mascot * { animation: none !important; } }

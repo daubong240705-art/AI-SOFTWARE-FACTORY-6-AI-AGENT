@@ -21,6 +21,9 @@ import type { NotificationsResponse, IntegrationResponse } from '../api/notifica
 import { notificationsMarkRead } from '../api/commands';
 import { emptySystem, systemAreas, type SystemArea, type SystemState } from './system';
 import { modelSettingsPendingKey } from '../api/modelSettings';
+import { workflowPatchOpSchema, type WorkflowPatchOp } from '@factory/contracts';
+import { workflowsPatch } from '../api/commands';
+import { canPatchWorkflow, emptyPatchDraft, patchDecisionKey, patchOutcomeText, patchPendingKey, type PatchDraft } from './workflowPatches';
 
 type AutomationCommand = Extract<Command, { type: `schedules.${string}` | `rules.${string}` | `monitors.${string}` }>;
 
@@ -763,7 +766,46 @@ export function createStore(options: StoreOptions = {}) {
       if (active(scope)) update({ loading: { ...state.loading, [key]: false } });
     }
   }
+  function editPatchDraft(instanceId: string, edit: (draft: PatchDraft) => PatchDraft) {
+    if (state.loading[patchPendingKey(instanceId)]) return;
+    const draft = edit(state.m5.patchDrafts[instanceId] ?? emptyPatchDraft());
+    update({ m5: { ...state.m5, patchDrafts: { ...state.m5.patchDrafts, [instanceId]: draft }, patchOutcomes: { ...state.m5.patchOutcomes, [instanceId]: undefined } } });
+  }
+  async function submitPatch(instanceId: string, reason: string) {
+    const detail = state.m5.workflowDetails[instanceId]; const projectId = state.selectedProjectId; const scope = generation;
+    const draft = state.m5.patchDrafts[instanceId];
+    if (!projectId || !detail || detail.revision === undefined || !canPatchWorkflow(detail.state) || !draft?.ops.length || draft.ops.length > 10 || !reason.trim() || reason.length > 500 || state.loading[patchPendingKey(instanceId)]) return;
+    const previous = new Set(detail.patches.map(patch => patch.id));
+    const response = await sendCollectionCommand(workflowsPatch({ projectId, instanceId, expectedRevision: detail.revision, ops: draft.ops, reason: reason.trim() }), patchPendingKey(instanceId), () => loadWorkflow(instanceId), 'planPatch.conflict');
+    if (!active(scope) || !response || typeof response === 'boolean') return;
+    const current = state.m5.workflowDetails[instanceId];
+    const patch = current?.patches.filter(item => !previous.has(item.id) && item.proposedBy === 'operator').sort((a, b) => b.number - a.number)[0];
+    if (!patch) {
+      update({ errors: { ...state.errors, [patchPendingKey(instanceId)]: { kind: 'unexpected', message: 'The patch outcome could not be confirmed.', detailKey: 'planPatch.errors.outcome' } } });
+      toast.info(i18n.t('planPatch.errors.outcome')); return;
+    }
+    const outcome = { ...patch, appliedRevision: patch.appliedRevision ?? (patch.state === 'applied' ? response.receipt.effects.find(effect => effect.id === instanceId)?.revision ?? current?.revision ?? null : null) };
+    update({ m5: { ...state.m5, patchOutcomes: { ...state.m5.patchOutcomes, [instanceId]: outcome }, patchDrafts: { ...state.m5.patchDrafts, [instanceId]: ['applied', 'pending'].includes(outcome.state) ? emptyPatchDraft() : draft } } });
+    const message = patchOutcomeText(outcome, i18n.t);
+    if (outcome.state === 'refused') toast.error(message); else toast.success(message);
+    void loadWorkflows();
+    return outcome;
+  }
   const store = {
+    addPatchOp(instanceId: string, op: WorkflowPatchOp) {
+      if (!canPatchWorkflow(state.m5.workflowDetails[instanceId]?.state ?? '') || !workflowPatchOpSchema.safeParse(op).success) return false;
+      if ((state.m5.patchDrafts[instanceId]?.ops.length ?? 0) >= 10 || state.loading[patchPendingKey(instanceId)]) return false;
+      editPatchDraft(instanceId, draft => ({ ...draft, ops: [...draft.ops, op] })); return true;
+    },
+    removePatchOp: (instanceId: string, index: number) => editPatchDraft(instanceId, draft => ({ ...draft, ops: draft.ops.filter((_, i) => i !== index) })),
+    clearPatchDraft: (instanceId: string) => editPatchDraft(instanceId, emptyPatchDraft),
+    setPatchReason: (instanceId: string, reason: string) => editPatchDraft(instanceId, draft => ({ ...draft, reason: reason.slice(0, 500) })),
+    submitPatch,
+    decideWorkflowPatch(instanceId: string, command: Extract<Command, { type: 'workflows.decide-patch' }>) {
+      return sendCollectionCommand(command, patchDecisionKey(command.payload.patchId), async () => {
+        await Promise.all([loadWorkflow(instanceId), readM5('workflows', async id => ({ workflows: (await api.listWorkflows(id)).instances }))]);
+      }, 'planPatch.conflict');
+    },
     getState: () => state,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     boot: () => authAction(() => api.session()),

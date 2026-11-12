@@ -6,5 +6,5 @@ import { useMascotSkin, setMascotSkin } from './preference';
 import type { MascotSkin } from './skins';
 export function SkinSelect() {
   const t = useT(); const id = useId(); const skin = useMascotSkin();
-  return <div className="grid gap-2"><Label htmlFor={id}>{t('mascot.label')}</Label><Select value={skin} onValueChange={value => setMascotSkin(value as MascotSkin)}><SelectTrigger id={id} className="w-full"><SelectValue /></SelectTrigger><SelectContent>{(['classic', 'forest', 'ocean', 'fantasy', 'off'] as const).map(value => <SelectItem key={value} value={value}>{t(`mascot.skins.${value}`)}</SelectItem>)}</SelectContent></Select></div>;
+  return <div className="grid gap-2"><Label htmlFor={id}>{t('mascot.label')}</Label><Select value={skin} onValueChange={value => setMascotSkin(value as MascotSkin)}><SelectTrigger id={id} className="w-full"><SelectValue /></SelectTrigger><SelectContent>{(['original', 'classic', 'forest', 'ocean', 'fantasy', 'off'] as const).map(value => <SelectItem key={value} value={value}>{t(`mascot.skins.${value}`)}</SelectItem>)}</SelectContent></Select></div>;
 }
