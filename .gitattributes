@@ -2,15 +2,6 @@
 *.sh text eol=lf
 *.service text eol=lf
 *.timer text eol=lf
-infrastructure/deploy/ssh-entry text eol=lf
-infrastructure/deploy/stage-ssh-entry text eol=lf
-infrastructure/deploy/asf-validation-firewall text eol=lf
-apps/windows-worker/**/*.ts text eol=lf
-apps/windows-worker/**/*.tsx text eol=lf
-apps/windows-worker/**/*.cjs text eol=lf
-apps/windows-worker/**/*.css text eol=lf
-apps/windows-worker/**/*.html text eol=lf
-apps/windows-worker/**/*.json text eol=lf
 design/factory-v2/assets/Inter-LICENSE.txt -text
 design/factory-v2/assets/*.woff2 binary
 # Team packs are pinned by content digest: their bytes must be identical on every platform.

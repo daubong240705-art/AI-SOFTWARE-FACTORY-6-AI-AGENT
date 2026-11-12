@@ -1,1 +1,0 @@
-`router.py` calls 9Router `/responses` with TLS verification, bounded retries, structured output validation and a persistent usage/reservation ledger. Tokens are worker-only, never prompts or artifacts. GitLab/OpenProject write adapters remain in Phase 5. Earlier read-only probes live in `spikes/`.

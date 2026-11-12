@@ -1,4 +1,0 @@
-{
-  "description": "Approved exceptions to the V1 Protection Guard. Each entry needs a path, a reason and an approvedAt date from the user. Empty means V1 and the legacy platform are untouched.",
-  "exceptions": []
-}

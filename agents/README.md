@@ -1,1 +1,0 @@
-PM/BA contracts and enforced artifact write permissions are in `contracts.py`. Live mode uses validated structured output; mock mode is deterministic and explicitly simulated. BE/FE/TEST/DEVOPS have no tool or write capability in Phase 2. No agent can approve a specification.
