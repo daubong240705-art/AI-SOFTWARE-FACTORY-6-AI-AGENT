@@ -13,7 +13,7 @@ import { getConversation, listConversations, listMessages } from "../chat/index.
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import { getPrimaryEngagement, getTeam, listSeats } from "../org/service.js";
-import type { RegistryPack } from "../org/registry.js";
+import { registryPack, type RegistryPack } from "../org/registry.js";
 import { projectEngagements, teamQueue, teamViews } from "../org/views.js";
 import { autonomyStatus, budgetStatus, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "../policy/index.js";
 import { getProject, listProjects } from "../projects/service.js";
@@ -161,6 +161,19 @@ export function createRoutes(deps: {
         ({ key, version, name, description, seatCount: seats.length, seats,
           ...(produces === undefined ? {} : { produces }), ...(workflows === undefined ? {} : { workflows }) })),
     }));
+    // Read-only pack detail for the operator: profile text per seat and the skill texts. Directories stay private.
+    app.get<{ Params: { key: string } }>("/packs/:key", { preHandler: guards.session }, async (request, reply) => {
+      const entry = (deps.packs ?? []).find((pack) => pack.key === request.params.key);
+      if (!entry) return failure(reply, 404, "not-found", "Pack not found.", "correct-input", newId);
+      const pack = registryPack(entry);
+      return { apiVersion: API_VERSION, ok: true, key: entry.key, version: entry.version, name: entry.name,
+        description: entry.description, digest: pack.digest,
+        seats: pack.manifest.seats.map((seat, index) => ({ name: seat.name, role: seat.role, runtime: seat.runtime,
+          slots: seat.slots, isLead: seat.isLead, capabilities: seat.capabilities ?? [], tools: seat.tools ?? [],
+          profile: pack.files.profiles[index]?.content ?? "" })),
+        skills: pack.files.skills.map(({ name, description, content }) => ({ name, description, content })),
+        workflows: pack.files.workflows.map(({ definition: { key, revision, title } }) => ({ key, revision, title })) };
+    });
     app.get("/teams", { preHandler: guards.session }, async () => ({ teams: teamViews(deps.storage.raw) }));
     app.get("/org/activity", { preHandler: guards.session }, async () => ({
       apiVersion: API_VERSION, ok: true, ...orgActivity(deps.storage.raw, (deps.clock ?? systemClock)()),
