@@ -45,7 +45,7 @@ export const extra: Translated<typeof en> = {
     invalid: 'Chọn model Lead, mức suy luận và từ 1 đến 8 model khác nhau cho agent.',
     revisionMissing: 'Tải lại cấu hình để lấy phiên bản dữ liệu trước khi lưu.', saved: 'Đã lưu cấu hình model', conflict: 'Dữ liệu đã đổi, đã tải lại',
   },
-  mascot: { label: 'Nhân vật', gallery: 'Bộ nhân vật', openGallery: 'Xem bộ nhân vật', description: 'Khám phá từng vị trí, biểu cảm và kích thước trong bộ nhân vật đã chọn.', sizes: 'Kích thước', disabled: 'Đã tắt nhân vật. Ảnh đại diện bằng chữ được hiển thị.', skins: { classic: 'Mặc định', forest: 'Rừng', ocean: 'Biển', fantasy: 'Kỳ ảo', off: 'Tắt' }, states: { idle: 'Nghỉ', thinking: 'Đang nghĩ', working: 'Đang làm', done: 'Xong', typing: 'Đang gõ', attention: 'Cần chú ý', error: 'Lỗi', success: 'Thành công', offline: 'Ngoại tuyến' } },
+  mascot: { label: 'Nhân vật', gallery: 'Bộ nhân vật', openGallery: 'Xem bộ nhân vật', description: 'Khám phá từng vị trí, biểu cảm và kích thước trong bộ nhân vật đã chọn.', sizes: 'Kích thước', disabled: 'Đã tắt nhân vật. Ảnh đại diện bằng chữ được hiển thị.', skins: { original: 'Bộ gốc của bạn', classic: 'Hoạt hình đơn giản', forest: 'Rừng', ocean: 'Biển', fantasy: 'Kỳ ảo', off: 'Tắt' }, states: { idle: 'Nghỉ', thinking: 'Đang nghĩ', working: 'Đang làm', done: 'Xong', typing: 'Đang gõ', attention: 'Cần chú ý', error: 'Lỗi', success: 'Thành công', offline: 'Ngoại tuyến' } },
   folderPicker: {
     open: 'Chọn thư mục…', title: 'Chọn thư mục dự án', description: 'Duyệt thư mục trên máy chủ và chọn thư mục làm việc.',
     breadcrumb: 'Vị trí thư mục hiện tại', up: 'Lên một cấp', folders: 'Thư mục con', loading: 'Đang tải thư mục…',

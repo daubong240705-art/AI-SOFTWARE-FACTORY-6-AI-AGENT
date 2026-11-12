@@ -14,7 +14,7 @@ export function plural(t: (key: string) => string, locale: string, count: number
 export type Theme = 'light' | 'dark' | 'system';
 export const PREFERENCES_KEY = 'factory-ui.preferences.v1';
 type Preferences = { locale: Locale; theme: Theme; mascotSkin: MascotSkin };
-const defaults: Preferences = { locale: 'vi', theme: 'dark', mascotSkin: 'classic' };
+const defaults: Preferences = { locale: 'vi', theme: 'dark', mascotSkin: 'original' };
 let memory: Preferences = { ...defaults };
 let memoryOnly = false;
 export function getPreferences(): Preferences {
@@ -23,8 +23,8 @@ export function getPreferences(): Preferences {
     const parsed: unknown = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? 'null');
     if (typeof parsed === 'object' && parsed !== null && 'locale' in parsed && 'theme' in parsed &&
       (parsed.locale === 'en' || parsed.locale === 'vi') && ['light', 'dark', 'system'].includes(String(parsed.theme))) {
-      const candidate = 'mascotSkin' in parsed ? String(parsed.mascotSkin) : 'classic';
-      memory = { locale: parsed.locale, theme: parsed.theme as Theme, mascotSkin: ['classic', 'forest', 'ocean', 'fantasy', 'off'].includes(candidate) ? candidate as MascotSkin : 'classic' };
+      const candidate = 'mascotSkin' in parsed ? String(parsed.mascotSkin) : 'original';
+      memory = { locale: parsed.locale, theme: parsed.theme as Theme, mascotSkin: ['original', 'classic', 'forest', 'ocean', 'fantasy', 'off'].includes(candidate) ? candidate as MascotSkin : 'original' };
     } else memory = { ...defaults };
   } catch { memoryOnly = true; }
   return { ...memory };
