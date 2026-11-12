@@ -15,6 +15,15 @@ import { CreateWorkflow } from './workflow/CreateWorkflow';
 import { useLiveRuns } from './workflow/useLiveRuns';
 import { WorkflowLiveChip } from './workflow/WorkflowLiveChip';
 import { canPatchWorkflow } from '@/state/workflowPatches';
+import { AddStageDialog } from './workflow/AddStageDialog';
+import { useStagePatchForm } from './workflow/stagePatchForms';
+import type { WorkflowDetail } from '@/api/m5Models';
+
+function AddStageButton({ store, detail }: { store: Store; detail: WorkflowDetail }) {
+  const t = useT(); const [open, setOpen] = useState(false); const { disabled } = useStagePatchForm(store, detail);
+  return <><Button type="button" variant="outline" disabled={disabled || !detail.graph?.stages.length || !detail.phases.length} onClick={() => setOpen(true)}><Plus />{t('planPatch.stageForm.add')}</Button>
+    {open && <AddStageDialog store={store} detail={detail} onClose={() => setOpen(false)} />}</>;
+}
 
 export function ProjectWorkflow({ store, projectId, onOpenTask }: { store: Store; projectId: string; onOpenTask?: (taskId: string) => void }) {
   const t = useT(); const state = store.useStoreSelector(value => value); const [view, setView] = useState('diagram'); const [selected, setSelected] = useState<string | null>(null);
@@ -35,6 +44,7 @@ export function ProjectWorkflow({ store, projectId, onOpenTask }: { store: Store
         : <h2 className="min-w-0 flex-1 font-display text-xl font-semibold">{t('workflowUi.title')}</h2>}
       <div className="ml-auto flex items-center gap-2">
         {view === 'diagram' && detail && canPatchWorkflow(detail.state) && <Button type="button" variant={editMode ? 'default' : 'outline'} aria-pressed={editMode} disabled={state.session !== 'authenticated'} onClick={() => setEditMode(value => !value)}><PencilRuler />{t('planPatch.edit')}</Button>}
+        {view === 'diagram' && editMode && detail && canPatchWorkflow(detail.state) && <AddStageButton key={detail.id} store={store} detail={detail} />}
         <ToggleGroup type="single" value={view} onValueChange={value => { if (value) { setView(value); setStageSelection(null); } }} variant="outline" size="sm" aria-label={t('workflowGraph.views')} className="rounded-full">
           <ToggleGroupItem value="diagram" className="!rounded-l-full">{t('workflowGraph.diagram')}</ToggleGroupItem>
           <ToggleGroupItem value="list" className="!rounded-r-full">{t('workUi.list')}</ToggleGroupItem>

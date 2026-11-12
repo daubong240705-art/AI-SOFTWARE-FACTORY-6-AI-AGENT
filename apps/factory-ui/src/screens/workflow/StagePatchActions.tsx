@@ -11,12 +11,16 @@ import type { Store } from '@/state/store';
 import { patchPendingKey } from '@/state/workflowPatches';
 import type { StageDefinition } from './graphTypes';
 import { stagePatchKinds, type SimplePatchKind } from './patchOperations';
+import { AddStageDialog } from './AddStageDialog';
+import { SplitStageDialog } from './SplitStageDialog';
 
 export function StagePatchActions({ store, detail, definition, stage }: { store: Store; detail: WorkflowDetail; definition: StageDefinition; stage: WorkflowStage }) {
   const t = useT(); const state = store.useStoreSelector(value => value); const id = useId();
   const [kind, setKind] = useState<SimplePatchKind | null>(null); const [title, setTitle] = useState('');
   const [after, setAfter] = useState(''); const [understood, setUnderstood] = useState(false);
   const [panel, setPanel] = useState<HTMLDivElement | null>(null);
+  const [addPosition, setAddPosition] = useState<'after' | 'before' | null>(null);
+  const [splitOpen, setSplitOpen] = useState(false);
   // The Host refuses extra tasks unless the definition allows at least two per stage (an older Host does not say, so offer it).
   const noRoom = definition.maxTasks !== undefined && definition.maxTasks < 2;
   const kinds = stagePatchKinds(definition, stage).filter(item => item !== 'reorderStages' || (detail.graph?.stages.length ?? 0) > 1).filter(item => item !== 'addTaskWithinStage' || !noRoom);
@@ -28,10 +32,13 @@ export function StagePatchActions({ store, detail, definition, stage }: { store:
       : kind === 'reorderStages' ? { op: kind, stage: stage.key, after } : { op: kind, stage: stage.key };
     if (store.addPatchOp(detail.id, op)) setKind(null);
   }
-  if (!kinds.length && !noRoom) return null;
   return <section className="space-y-3" aria-label={t('planPatch.editStage')}>
     <h4 className="text-sm font-medium">{t('planPatch.editStage')}</h4>
     <div className="flex flex-col items-start gap-2">{kinds.map(item => <Button key={item} type="button" size="sm" variant={item === 'removeRequiredStage' ? 'destructive' : 'outline'} disabled={Boolean(disabled)} onClick={() => { setTitle(''); setAfter(''); setUnderstood(false); setKind(item); }}>{t(`planPatch.actions.${item}`)}</Button>)}</div>
+    <div className="flex flex-col items-start gap-2">{(['after', 'before'] as const).map(position => <Button key={position} type="button" size="sm" variant="outline" disabled={Boolean(disabled) || !detail.phases.length} onClick={() => setAddPosition(position)}>{t(`planPatch.stageForm.add${position === 'after' ? 'After' : 'Before'}`)}</Button>)}</div>
+    {addPosition && <AddStageDialog store={store} detail={detail} initialStage={stage.key} initialPosition={addPosition} onClose={() => setAddPosition(null)} />}
+    {!['done', 'skipped', 'failed', 'cancelled', 'unknown'].includes(stage.state) && <Button type="button" size="sm" variant="outline" disabled={Boolean(disabled)} onClick={() => setSplitOpen(true)}>{t('planPatch.stageForm.splitAction')}</Button>}
+    {splitOpen && <SplitStageDialog store={store} detail={detail} definition={definition} stage={stage} onClose={() => setSplitOpen(false)} />}
     {noRoom && <p className="text-xs text-muted-foreground">{t('planPatch.noRoom')}</p>}
     {(state.m5.patchDrafts[detail.id]?.ops.length ?? 0) >= 10 && <p className="text-xs text-muted-foreground">{t('planPatch.limit')}</p>}
     <Dialog open={!!kind} onOpenChange={open => { if (!open) setKind(null); }}>

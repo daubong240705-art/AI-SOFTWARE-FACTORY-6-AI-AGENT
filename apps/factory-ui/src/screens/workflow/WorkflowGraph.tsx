@@ -8,7 +8,6 @@ import { BandNode, GateNode, StageNode } from './WorkflowNodes';
 import { ReworkEdge } from './ReworkEdge';
 import type { WorkflowGraphProps } from './graphTypes';
 import { noLiveRuns } from './useLiveRuns';
-import { stagePatchKinds } from './patchOperations';
 
 const nodeTypes = { stage: StageNode, gate: GateNode, band: BandNode, parallel: BandNode };
 const edgeTypes = { rework: ReworkEdge };
@@ -17,7 +16,20 @@ const noPhases: string[] = [];
 export default function WorkflowGraph({ graph, stages = noStages, phases = noPhases, liveRuns = noLiveRuns, selectedStage, onSelectStage, preview = false, editMode = false }: WorkflowGraphProps) {
   const t = useT();
   const layout = useMemo(() => layoutWorkflow(graph, stages, phases), [graph, stages, phases]);
-  const flow = useRef<{ getZoom: () => number; setCenter: (x: number, y: number, options?: { zoom?: number; duration?: number }) => unknown } | null>(null);
+  const flow = useRef<{
+    getZoom: () => number; setCenter: (x: number, y: number, options?: { zoom?: number; duration?: number }) => unknown;
+    fitView: (options: { padding: number; minZoom: number; maxZoom: number; duration: number }) => unknown;
+  } | null>(null);
+  const stageKeys = graph.stages.map(stage => stage.key).join(',');
+  const previousKeys = useRef(stageKeys);
+  useEffect(() => {
+    if (previousKeys.current === stageKeys) return;
+    previousKeys.current = stageKeys;
+    // Added and split stages receive fresh positions before any live run data arrives.
+    const frame = requestAnimationFrame(() => { void flow.current?.fitView({ padding: 0.06, minZoom: preview ? 0.05 : 0.4, maxZoom: 1,
+      duration: matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 250 }); });
+    return () => cancelAnimationFrame(frame);
+  }, [stageKeys, preview]);
   // The stage drawer covers the right side of the canvas: bring the selected stage into the part that stays visible.
   useEffect(() => {
     const instance = flow.current; const node = selectedStage ? layout.nodes.find(item => item.id === selectedStage && item.type === 'stage') : undefined;
@@ -27,7 +39,7 @@ export default function WorkflowGraph({ graph, stages = noStages, phases = noPha
   }, [selectedStage, layout.nodes, preview]);
   const nodes = useMemo(() => layout.nodes.map(node => {
     if (node.type !== 'stage') return { ...node, selected: false };
-    return { ...node, selected: node.id === selectedStage, data: { ...node.data, liveRuns, editable: editMode && stagePatchKinds(node.data.definition, node.data.stage).length > 0 },
+    return { ...node, selected: node.id === selectedStage, data: { ...node.data, liveRuns, editable: editMode },
       ariaLabel: `${node.data.definition.title || node.id}, ${t(`m5Ui.states.${node.data.stage.state}`)}` };
   }), [layout.nodes, selectedStage, liveRuns, t, editMode]);
   const edges = layout.edges.map(edge => {

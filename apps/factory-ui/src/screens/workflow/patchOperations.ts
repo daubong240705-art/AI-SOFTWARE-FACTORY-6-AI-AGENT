@@ -13,9 +13,12 @@ export function stagePatchKinds(definition: StageDefinition, stage: WorkflowStag
   }
   return kinds;
 }
-// The draft accepts the full contract union so later operation editors can register here.
 export function patchOpText(op: WorkflowPatchOp, detail: WorkflowDetail, t: (key: string) => string) {
   const title = (key: string) => detail.graph?.stages.find(stage => stage.key === key)?.title || key;
-  return t(`planPatch.summary.${op.op}`).replace('{stage}', typeof op.stage === 'string' ? title(op.stage) : op.stage.title)
+  if (op.op === 'addStage') return t('planPatch.summary.addStage').replace('{stage}', op.stage.title)
+    .replace('{position}', t(`planPatch.stageForm.${op.after ? 'after' : 'before'}`)).replace('{anchor}', title(op.after ?? op.before ?? ''));
+  if (op.op === 'splitStage') return t('planPatch.summary.splitStage').replace('{stage}', title(op.stage))
+    .replace('{children}', op.into.map(part => `«${part.title}»`).join(', '));
+  return t(`planPatch.summary.${op.op}`).replace('{stage}', title(op.stage))
     .replace('{title}', 'title' in op ? op.title : '').replace('{after}', 'after' in op && op.after ? title(op.after) : '');
 }
