@@ -41,13 +41,13 @@ const ledger = (raw) => raw.prepare("SELECT version, name, checksum FROM migrati
 test("migrates an empty database, and running again changes nothing", () => {
   const s = openStorage(":memory:");
   const first = s.migrate(opts(MIGRATIONS));
-  assert.deepEqual(first.applied, [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21]);
+  assert.deepEqual(first.applied, [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]);
   assert.equal(first.backup, null); // nothing existed to protect
   const before = JSON.stringify(s.raw.prepare("SELECT name, sql FROM sqlite_master ORDER BY name").all());
   const second = s.migrate(opts(MIGRATIONS));
   assert.deepEqual(second, { applied: [], backup: null });
   assert.equal(JSON.stringify(s.raw.prepare("SELECT name, sql FROM sqlite_master ORDER BY name").all()), before);
-  assert.equal(ledger(s.raw).length, 21);
+  assert.equal(ledger(s.raw).length, 23);
   assert.equal(ledger(s.raw)[0].name, "core");
   s.close();
 });
@@ -79,7 +79,9 @@ test("the migration is the 002 reference plus the M1 additions: no drift", () =>
   const withoutM3Columns = (name, sql) => name === "teams" ? sql.replace(/,\s*pack_digest TEXT REFERENCES pack_snapshots\(digest\)/, "") : name === "workflow_instances" ? sql.replace(/,\s*last_progress_at TEXT NULL/, "") : name === "workflow_stages" ? sql.replace(/,\s*blocked_reason TEXT/, "").replace(/,\s*engagement_id TEXT/, "").replace(/,\s*extra_tasks INTEGER NOT NULL DEFAULT 0 CHECK \(extra_tasks BETWEEN 0 AND 20\)/, "").replace(/,\s*extra_loops INTEGER NOT NULL DEFAULT 0 CHECK \(extra_loops BETWEEN 0 AND 10\)/, "").replace(/,\s*extra_titles TEXT NOT NULL DEFAULT '\[\]' CHECK \(json_valid\(extra_titles\)\)/, "") : sql;
   // 0016 rebuilds budgets with wider scopes; SQLite quotes the renamed table.
   for (const r of reference) {
-    const sql = withoutM3Columns(r.name, migrated.get(`${r.type}:${r.name}`));
+    const current = migrated.get(`${r.type}:${r.name}`);
+    const documentColumns = /, origin TEXT NOT NULL DEFAULT 'agent'\s+CHECK \(origin IN \('agent','upload'\)\), file_name TEXT CHECK \(file_name IS NULL OR length\(file_name\) <= 200\)/;
+    const sql = withoutM3Columns(r.name, r.name === "artifact_versions" ? current.replace(documentColumns, "") : current);
     const normalized = r.name === "budgets" ? sql.replace('CREATE TABLE "budgets"', 'CREATE TABLE budgets')
       .replace("'task','day','project','engagement'", "'task','day'") : sql;
     assert.equal(normalized, lf(r.sql), `${r.type} ${r.name} drifted from the 002 reference`);
@@ -133,15 +135,15 @@ test("line endings do not change the checksum (autocrlf checkouts)", () => {
 
 test("a database newer than the code, or a gap in the files, is refused", () => {
   const dir = migrationsCopy();
-  writeFileSync(join(dir, "0022_more.sql"), "CREATE TABLE more (id TEXT PRIMARY KEY) STRICT;");
+  writeFileSync(join(dir, "0024_more.sql"), "CREATE TABLE more (id TEXT PRIMARY KEY) STRICT;");
   const s = openStorage(":memory:");
   s.migrate(opts(dir));
-  rmSync(join(dir, "0022_more.sql"));
+  rmSync(join(dir, "0024_more.sql"));
   rejectsWith(() => s.migrate(opts(dir)), "db-ahead");
   s.close();
 
   const gapDir = migrationsCopy();
-  writeFileSync(join(gapDir, "0023_skip.sql"), "SELECT 1;");
+  writeFileSync(join(gapDir, "0025_skip.sql"), "SELECT 1;");
   rejectsWith(() => loadMigrations(gapDir), "gap");
   const badName = migrationsCopy();
   writeFileSync(join(badName, "next.sql"), "SELECT 1;");
@@ -155,10 +157,10 @@ test("a failing migration rolls back completely and a backup was taken first", (
   const s = openStorage(join(scratch(), "host.db"));
   s.migrate(opts(dir, backupDir));
   s.raw.prepare("INSERT INTO projects VALUES ('p1',1,'Demo','git','/srv/p1','active')").run();
-  writeFileSync(join(dir, "0022_bad.sql"), "CREATE TABLE half_done (id TEXT PRIMARY KEY) STRICT;\nINSERT INTO half_done VALUES (1, 2, 3);");
+  writeFileSync(join(dir, "0024_bad.sql"), "CREATE TABLE half_done (id TEXT PRIMARY KEY) STRICT;\nINSERT INTO half_done VALUES (1, 2, 3);");
   rejectsWith(() => s.migrate(opts(dir, backupDir)), "failed");
   assert.equal(tables(s.raw).includes("half_done"), false); // the CREATE was rolled back with the failure
-  assert.equal(ledger(s.raw).length, 21);
+  assert.equal(ledger(s.raw).length, 23);
   assert.equal(s.raw.inTransaction, false);
   assert.equal(s.raw.prepare("SELECT count(*) c FROM projects").get().c, 1);
   assert.equal(readdirSync(backupDir).length, 1); // taken before the attempt
@@ -171,12 +173,12 @@ test("a migration that leaves dangling references is rolled back", () => {
   s.migrate(opts(dir));
   s.raw.prepare("INSERT INTO projects VALUES ('p1',1,'Demo','git','/srv/p1','active')").run();
   writeFileSync(
-    join(dir, "0022_dangling.sql"),
+    join(dir, "0024_dangling.sql"),
     "PRAGMA defer_foreign_keys = ON;\nINSERT INTO engagements VALUES ('p1','e1','no-such-team',1,50,1,'active','2026-11-07T00:00:00.000Z');",
   );
   rejectsWith(() => s.migrate(opts(dir)), "foreign-key-violation");
   assert.equal(s.raw.prepare("SELECT count(*) c FROM engagements").get().c, 0);
-  assert.equal(ledger(s.raw).length, 21);
+  assert.equal(ledger(s.raw).length, 23);
   s.close();
 });
 
@@ -187,22 +189,22 @@ test("the backup is a consistent copy that can be opened and restored", () => {
   const s = openStorage(file);
   s.migrate(opts(dir, backupDir));
   s.raw.prepare("INSERT INTO projects VALUES ('p1',1,'Before migration','git','/srv/p1','active')").run();
-  writeFileSync(join(dir, "0022_more.sql"), "CREATE TABLE more (id TEXT PRIMARY KEY) STRICT;");
+  writeFileSync(join(dir, "0024_more.sql"), "CREATE TABLE more (id TEXT PRIMARY KEY) STRICT;");
   const result = s.migrate(opts(dir, backupDir));
-  assert.deepEqual(result.applied, [22]);
-  assert.match(result.backup, /pre-migration-0022-20261107T100000Z\.db$/);
+  assert.deepEqual(result.applied, [24]);
+  assert.match(result.backup, /pre-migration-0024-20261107T100000Z\.db$/);
   s.close();
 
   const restored = new Database(result.backup, { readonly: true });
   assert.equal(restored.pragma("integrity_check", { simple: true }), "ok");
   assert.equal(restored.prepare("SELECT name FROM projects").get().name, "Before migration");
-  assert.equal(restored.prepare("SELECT count(*) c FROM migration_ledger").get().c, 21); // state as of before
+  assert.equal(restored.prepare("SELECT count(*) c FROM migration_ledger").get().c, 23); // state as of before
   assert.equal(restored.prepare("SELECT count(*) c FROM sqlite_master WHERE name='more'").get().c, 0);
   restored.close();
 
   // restoring = open the backup as the database and migrate forward again
   const again = openStorage(result.backup);
-  assert.deepEqual(again.migrate(opts(dir, backupDir)).applied, [22]);
+  assert.deepEqual(again.migrate(opts(dir, backupDir)).applied, [24]);
   assert.equal(again.raw.prepare("SELECT name FROM projects").get().name, "Before migration");
   again.close();
 });
@@ -211,7 +213,7 @@ test("a database that has data is not migrated without a backup directory", () =
   const dir = migrationsCopy();
   const s = openStorage(":memory:");
   s.migrate(opts(dir));
-  writeFileSync(join(dir, "0022_more.sql"), "CREATE TABLE more (id TEXT PRIMARY KEY) STRICT;");
+  writeFileSync(join(dir, "0024_more.sql"), "CREATE TABLE more (id TEXT PRIMARY KEY) STRICT;");
   rejectsWith(() => s.migrate({ migrationsDir: dir, backupDir: null, now: NOW }), "backup-failed");
   assert.equal(tables(s.raw).includes("more"), false);
   s.close();

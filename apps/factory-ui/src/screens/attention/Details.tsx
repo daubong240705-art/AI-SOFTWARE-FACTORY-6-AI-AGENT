@@ -8,6 +8,7 @@ import type { Store } from '../../state/store';
 import type { AttentionItem } from '../shell/attention';
 import { TaskActions } from '../TaskDetail';
 import { ActionHints } from './ActionHints';
+export { IntegrationConflictPanel } from './IntegrationConflictPanel';
 
 export function GatePanel({ store, row, taskId, onSuccess }: { store: Store; row: AttentionItem; taskId: string; onSuccess: () => void }) {
   const t = useT(); const state = store.useStoreSelector(value => value); const task = state.tasks.find(item => item.id === taskId);

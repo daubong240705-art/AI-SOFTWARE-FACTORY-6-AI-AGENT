@@ -10,7 +10,7 @@ DST="${FACTORY_APP_DIR:-$HOME/factory-v2/app}"
 case "$DST" in /mnt/*) echo "refusing to deploy under /mnt" >&2; exit 1;; esac
 rm -rf "$DST"; mkdir -p "$DST/apps/factory-host" "$DST/apps/factory-ui" "$DST/packages/factory-contracts" "$DST/packs"
 (cd "$SRC/packages/factory-contracts" && tar cf - package.json package-lock.json dist) | tar xf - -C "$DST/packages/factory-contracts"
-(cd "$SRC/apps/factory-host" && tar cf - package.json package-lock.json dist migrations) | tar xf - -C "$DST/apps/factory-host"
+(cd "$SRC/apps/factory-host" && tar cf - package.json package-lock.json dist migrations workers) | tar xf - -C "$DST/apps/factory-host"
 (cd "$SRC/packs" && tar cf - .) | tar xf - -C "$DST/packs"
 # The built UI (run `npm run build` in apps/factory-ui first); the Host serves it from apps/factory-ui/dist.
 if [ -d "$SRC/apps/factory-ui/dist" ]; then (cd "$SRC/apps/factory-ui" && tar cf - dist) | tar xf - -C "$DST/apps/factory-ui"; else echo "note: apps/factory-ui/dist not found, the Host will serve no UI" >&2; fi

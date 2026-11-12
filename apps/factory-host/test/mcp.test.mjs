@@ -175,12 +175,22 @@ test("response bound also applies to large ids and dependency returns", () => {
   }
 });
 for (const [label, change] of [["empty title", { title: " " }], ["long title", { title: "x".repeat(161) }], ["bad kind", { kind: "bad" }],
-  ["bad media", { mediaType: "image/png" }], ["empty abstract", { abstractL0: "" }], ["long abstract", { abstractL0: "x".repeat(401) }],
+  ["bad media", { mediaType: "application/x-msdownload" }], ["HTML media", { mediaType: "text/html" }], ["ZIP media", { mediaType: "application/zip" }],
+  ["empty abstract", { abstractL0: "" }], ["long abstract", { abstractL0: "x".repeat(401) }],
   ["long detail", { abstractL1: "x".repeat(6001) }], ["missing path", { path: undefined }], ["empty path", { path: "" }],
   ["foreign attempt", { attemptId: randomUUID() }], ["hash upload", { contentHash: "a".repeat(64) }],
   ["bad ref", { inputs: [{ artifactId: "bad", version: 1 }] }], ["bad version", { inputs: [{ artifactId: randomUUID(), version: 0 }] }],
   ["too many refs", { inputs: Array.from({ length: 101 }, () => ({ artifactId: randomUUID(), version: 1 })) }]])
   test(`output schema rejects ${label}`, () => { const f = fake(); toolError(f.call("output.register", output(change)).body.result, "invalid tool input"); assert.equal(f.calls.length, 0); });
+for (const mediaType of ["application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml", "text/csv",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation"])
+  test(`output schema accepts document media ${mediaType}`, () => {
+    const f = fake(); const response = f.call("output.register", output({ mediaType })).body.result;
+    assert.equal(response.isError, false);
+    assert.deepEqual(f.calls, [[fakeGrant, { ...output({ mediaType }), inputs: [] }]]);
+    assert.deepEqual(JSON.parse(response.content[0].text), { artifactId: fakeGrant.taskId, version: 1 });
+  });
 test("output defaults inputs and returns only a pinned reference", () => {
   const f = fake(); const response = f.call("output.register", output()).body.result;
   assert.deepEqual(f.calls[0][1].inputs, []); assert.deepEqual(JSON.parse(response.content[0].text), { artifactId: fakeGrant.taskId, version: 1 });
@@ -350,7 +360,7 @@ for (const enabled of [false, true]) test(`real Host MCP dispatcher wiring ${ena
   const ping = await send(rpc("ping")); assert.equal(ping.status, enabled ? 200 : 404);
   if (enabled) {
     assert.deepEqual((await send(rpc("tools/list"))).body.result.tools.map((tool) => tool.name),
-      ["skill.get", "task.progress", "output.register", "decision.request", "knowledge.search", "knowledge.get"]);
+      ["skill.get", "task.progress", "output.register", "decision.request", "knowledge.search", "knowledge.get", "knowledge.outline", "knowledge.read", "knowledge.find"]);
     assert.equal((await send(rpc("tools/call", { name: "task.progress", arguments: { summary: "Host milestone" } }))).body.result.isError, false);
     assert.equal((await send(rpc("tools/call", { name: "output.register", arguments: output() }))).body.result.isError, false);
     assert.equal(host.storage.raw.prepare("SELECT status FROM artifact_versions").get().status, "draft");

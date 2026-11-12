@@ -405,6 +405,30 @@ Chi tiết: [12-context-engineering.md](12-context-engineering.md). **License v�
 
 Đề xuất **OSS-15** (chờ duyệt cùng CE-D1..D5): không đưa framework memory/context vào V2 ở giai đoạn này; tự mở rộng `buildContextPack`, `buildHandoff`, `task.progress`.
 
+## 6F. Đội, sơ đồ Quy trình, thư viện Tài liệu (12/11/2026)
+
+Chi tiết: [13-team-workflow-documents.md](13-team-workflow-documents.md). Phiên bản và giấy phép lấy từ npm registry, PyPI JSON API và file `LICENSE` trong kho GitHub ngày 12/11/2026.
+
+| Gói | Phiên bản | Giấy phép | Giải bài toán gì | Kết luận |
+|---|---|---|---|---|
+| `@xyflow/react` | 12.12.1 | MIT | Vẽ sơ đồ quy trình, kéo thả, thu phóng | **Áp dụng** (đã duyệt ở O9) |
+| `@dagrejs/dagre` | 3.1.3 | MIT | Tự sắp xếp nút theo hướng trái sang phải | **Đề xuất** |
+| `elkjs` | 0.12.1 | EPL-2.0 hoặc GPL-3.0 | Sắp xếp đồ thị chất lượng cao | **Loại**: giấy phép |
+| `pdfjs-dist` | 6.5.438 | Apache-2.0 | Xem trước PDF trong UI | **Đề xuất** (luôn `isEvalSupported: false`, cập nhật bản vá) |
+| `mammoth` | 1.13.0 | BSD-2-Clause | DOCX → HTML để xem nhanh | **Đề xuất** |
+| `read-excel-file` | 9.3.13 | MIT | XLSX → bảng xem trước | **Đề xuất** (thay `exceljs` 4.4.0: kéo theo `uuid` có lỗ hổng, 12/11/2026) |
+| `papaparse` | 5.7.1 | MIT | CSV → bảng | **Đề xuất** |
+| `react-markdown` + `remark-gfm` + `rehype-sanitize` | 10.1.0 / 4.0.1 / 6.0.0 | MIT | Hiển thị Markdown an toàn | **Đề xuất** |
+| `shiki` | 4.6.0 | MIT | Tô màu mã | **Đề xuất** |
+| MarkItDown (Microsoft) | 0.1.9 (PyPI) | MIT | Chuyển PDF/DOCX/PPTX/XLSX/HTML sang Markdown cho agent | **Đề xuất** làm bộ chuyển đổi mặc định của doc-worker, chạy trong bubblewrap |
+| Docling (IBM, LF AI & Data) | 2.150.0 (PyPI) | MIT (mô hình Granite-Docling: Apache-2.0) | Bố cục, bảng, thứ tự đọc, OCR | **Hoãn tới D3**: nặng (PyTorch, mô hình vài GB), ưu tiên chạy trên máy M4 |
+| OCRmyPDF (+ Tesseract) | 17.14.1 | MPL-2.0 (Tesseract: Apache-2.0) | Thêm lớp chữ cho PDF quét | **Hoãn tới D3** |
+| Unstructured | 0.27.37 | Apache-2.0 | Chia đoạn tài liệu kiểu ETL | **Không chọn**: nhiều phụ thuộc, trùng vai trò |
+| Apache Tika | máy chủ Java | Apache-2.0 | Trích xuất định dạng rộng | **Không chọn**: thêm JVM, bố cục yếu |
+| Pandoc, PyMuPDF | | GPL-2.0, AGPL-3.0 | Chuyển đổi, đọc PDF | **Loại** khỏi đường xử lý mặc định: giấy phép sao chép bắt buộc |
+
+Đề xuất **OSS-16** (**Đã duyệt 12/11/2026** cùng 13 §7): `@dagrejs/dagre` cho sơ đồ; bộ xem trước `pdfjs-dist`, `mammoth`, `exceljs`, `papaparse`, `react-markdown`/`remark-gfm`/`rehype-sanitize`, `shiki`; MarkItDown làm bộ chuyển đổi doc-worker trong venv ghim hash. Docling và OCRmyPDF chờ D3.
+
 ---
 
 ## 7. Dữ liệu 52 repo (GitHub API, 07/11/2026)
@@ -520,6 +544,7 @@ Số sao làm tròn để tham khảo, không phải tiêu chí chính. "NOASSER
 | 07/11/2026 | Đồng bộ giai đoạn 5–6 | Thêm §6B, §6C; OSS-11 (croner, cockatiel), OSS-12 (Fastify, better-sqlite3, Kysely, pino, OpenTelemetry) Đã duyệt |
 | 08/11/2026 | Mở rộng Pack (M3+) | Thêm §3 O11: khảo sát gateway MCP, MCP Registry, `allowed-tools`; OSS-14 đã duyệt (phương án A) |
 | 10/11/2026 | Context Engineering | Thêm §6E; OSS-15 đề xuất (không dùng framework memory), chờ duyệt |
+| 12/11/2026 | Đội, Quy trình, Tài liệu | Thêm §6F; OSS-16 (dagre, bộ xem trước, MarkItDown) Đã duyệt cùng 13 §7 |
 
 ---
 

@@ -1,4 +1,5 @@
 import { listPatches } from "./patch.js";
+import { workflowGraph } from "./graph.js";
 import type { Database } from "better-sqlite3";
 import { workflowDefinitionSchema, workflowStageStateSchema, type WorkflowInstanceState } from "@factory/contracts";
 
@@ -40,5 +41,5 @@ export function workflowInstanceView(raw: Database, projectId: string, id: strin
         tasks: tasks.map(({ taskId, code, state }) => ({ taskId, code, state })) };
     }), params: JSON.parse(row.params_json) as Record<string, unknown>,
     definitionRevision: row.definition_revision, packKey: row.pack_key, packVersion: row.pack_version,
-    definitionTitle: definition.title, phases: definition.phases, patches: listPatches({ raw }, projectId, id).map(({ id: patchId, number, proposedBy, policy, state, reason, refusal, createdAt, decidedAt, comment }) => ({ id: patchId, number, proposedBy, policy, state, reason, refusal, createdAt, decidedAt, comment })) };
+    definitionTitle: definition.title, phases: definition.phases, graph: workflowGraph(definition), patches: listPatches({ raw }, projectId, id).map(({ id: patchId, number, proposedBy, policy, state, reason, refusal, createdAt, decidedAt, comment }) => ({ id: patchId, number, proposedBy, policy, state, reason, refusal, createdAt, decidedAt, comment })) };
 }

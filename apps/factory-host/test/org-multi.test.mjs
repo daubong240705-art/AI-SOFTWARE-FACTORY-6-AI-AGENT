@@ -187,6 +187,19 @@ test("packs view exposes only seat metadata", async (t) => {
   assert.equal(p.seatCount, 7); assert.deepEqual(Object.keys(p.seats[0]).sort(), ["name", "role", "runtime", "slots", "isLead"].sort());
   assert.equal(p.key, pack.manifest.key);
 });
+test("pack detail requires a session and answers 404 for an unknown key", async (t) => {
+  const f = await api(t);
+  assert.equal((await f.get(`/packs/${pack.manifest.key}`, false)).statusCode, 401);
+  assert.equal((await f.get("/packs/no-such-pack")).statusCode, 404);
+});
+test("pack detail exposes profile and skill text but never the directory", async (t) => {
+  const f = await api(t); const response = await f.get(`/packs/${pack.manifest.key}`); assert.equal(response.statusCode, 200);
+  const body = response.json();
+  assert.equal(body.digest, pack.digest); assert.equal(body.seats.length, pack.manifest.seats.length);
+  assert.equal(body.seats[0].profile, pack.files.profiles[0].content);
+  assert.equal(body.skills.length, pack.files.skills.length); assert.equal(body.skills[0].content, pack.files.skills[0].content);
+  assert.equal(response.body.includes(pack.dir.replaceAll("\\", "\\\\")), false);
+});
 test("project team view retains the primary team and lists every engagement", async (t) => {
   const f = await api(t); const e = f.engage(f.secondTeam(), f.projectId, 100); const body = (await f.get(`/projects/${f.projectId}/team`)).json();
   assert.equal(body.team.id, f.teamId); assert.equal(body.engagement.id, f.primary.id);

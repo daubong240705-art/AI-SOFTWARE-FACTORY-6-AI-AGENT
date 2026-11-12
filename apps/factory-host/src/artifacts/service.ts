@@ -6,6 +6,8 @@ import { ARTIFACT_TRANSITIONS, type ArtifactStatus } from "@factory/contracts";
 import { assertInside } from "../workspace/paths.js";
 import type { ContentStore } from "./content-store.js";
 import { cleanArtifactSummary } from "./summary.js";
+import { mediaKind, sniffMedia } from "./media.js";
+import { DEFAULT_DOCUMENT_CONFIG, withinDocumentQuota, type DocumentConfig } from "./limits.js";
 import type { TokenGrant } from "../proxy/tokens.js";
 import { agentOutputInputSchema, type AgentOutputInput } from "../mcp/tools.js";
 import { assertActiveGrant, McpToolError, readWorkspaceOutput, sanitizeAgentText } from "../mcp/security.js";
@@ -23,7 +25,7 @@ export interface AttemptResultsInput {
 export interface ArtifactVersionRecord {
   version: number; status: ArtifactStatus; mediaType: string; sizeBytes: number; contentHash: string;
   abstractL0: string; abstractL1: string | null; producedByAttemptId: string | null;
-  supersedesVersion: number | null; createdAt: string;
+  supersedesVersion: number | null; createdAt: string; origin: "agent" | "upload"; fileName: string | null;
 }
 export interface ArtifactRecord {
   artifactId: string; kind: string; title: string; versions: ArtifactVersionRecord[];
@@ -32,7 +34,7 @@ type VersionRow = ArtifactVersionRecord & { artifactId: string; kind: string; ti
 const columns = `v.artifact_id AS artifactId, v.version, v.kind, v.title, v.status,
   v.media_type AS mediaType, v.size_bytes AS sizeBytes, v.content_hash AS contentHash,
   v.abstract_l0 AS abstractL0, v.abstract_l1 AS abstractL1, v.produced_by_attempt_id AS producedByAttemptId,
-  v.supersedes_version AS supersedesVersion, v.created_at AS createdAt`;
+  v.supersedes_version AS supersedesVersion, v.created_at AS createdAt, v.origin, v.file_name AS fileName`;
 
 export function getArtifactVersion(raw: Database, projectId: string, artifactId: string, version: number): VersionRow | null {
   return raw.prepare(`SELECT ${columns} FROM artifact_versions v
@@ -88,6 +90,7 @@ function summaryBytes(summary: string): Buffer {
 export function registerAgentOutput(deps: {
   raw: Database; store: ContentStore; now: () => Date; newId: () => string;
   afterRegister?: AfterRegister;
+  documents?: DocumentConfig;
 }, input: { grant: TokenGrant } & AgentOutputInput): ResultRef {
   const { raw, store } = deps;
   return collectLifecycleChanges(raw, () => raw.transaction(() => {
@@ -105,11 +108,17 @@ export function registerAgentOutput(deps: {
       if (!getArtifactVersion(raw, grant.projectId, ref.artifactId, ref.version))
         throw new McpToolError("output could not be registered");
     }
-    const bytes = readWorkspaceOutput(grant, data.path);
-    try {
-      const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-      if (data.mediaType === "application/json") JSON.parse(text) as unknown;
-    } catch { throw new McpToolError("output could not be registered"); }
+    const documents = deps.documents ?? DEFAULT_DOCUMENT_CONFIG;
+    const bytes = readWorkspaceOutput(grant, data.path, mediaKind(data.mediaType) === "binary" ? documents.maxBytes : 8 * 1024 * 1024);
+    // Existing agent text outputs retain their strict decoder/JSON behavior and 8 MiB limit.
+    if (["text/plain", "text/markdown", "application/json"].includes(data.mediaType)) {
+      try {
+        const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+        if (data.mediaType === "application/json") JSON.parse(text) as unknown;
+      } catch { throw new McpToolError("output could not be registered"); }
+    } else if (!sniffMedia(data.mediaType, bytes)) throw new McpToolError("output could not be registered");
+    if (!withinDocumentQuota(raw, grant.projectId, bytes.length, documents.quotaBytes))
+      throw new McpToolError("output could not be registered");
     const title = sanitizeAgentText(data.title).trim() || "Output";
     const previous = data.kind === "dossier" ? raw.prepare(`SELECT artifact_id AS artifactId,version,status FROM artifact_versions
       WHERE project_id=? AND kind='dossier' ORDER BY created_at DESC,version DESC,artifact_id LIMIT 1`)

@@ -443,7 +443,7 @@ flowchart LR
 | **AP-3** | Cuối M0 | Hình dạng mô hình dữ liệu và giao thức (khó đổi nhất) |
 | **AP-4** | Đầu M2 | Nơi đặt mã nguồn Project trong MVP (§5.3) |
 | **AP-5** | Cuối M2 | Chuyển công việc hằng ngày của ít nhất một Project sang V2 |
-| **AP-6** | Cuối M3 | Nội dung Team Pack (Research, Architecture, Design) |
+| **AP-6** | Cuối M3 | Nội dung Team Pack (Research, Architecture, Design). **Giao thức cộng tác đã chốt 12/11/2026** theo ủy quyền ([14](14-agent-collaboration-protocol.md)) |
 | **AP-7** | Đầu M4 | Tạo VM `factory-cp`, `factory-node-1`; mức tin cậy node |
 | **AP-8** | Cuối M5 | Mức tự chủ, ngân sách mặc định, Standing Approval, bật ntfy hay không |
 | **AP-9** | Sau M6 | Chuyển control plane lên máy luôn bật nào (M2b) |

@@ -6,33 +6,42 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createCommandPipeline } from "../dist/commands/pipeline.js";
 import { EventHub } from "../dist/events/hub.js";
-import { createProjectsCreateHandler } from "../dist/projects/service.js";
+import { createProjectsCreateHandler, projectsCreateHandler } from "../dist/projects/service.js";
 import { openStorage } from "../dist/storage/database.js";
 import { parseEnv } from "../dist/host.js";
 import { createOrgHandlers, getTeam, listSeats, loadPack, loadPackRegistry, packManifestSchema } from "../dist/org/index.js";
 import { migrationsDir } from "./org-fixture.mjs";
 
 const packsDir = fileURLToPath(new URL("../../../packs/", import.meta.url));
-// Captured before adding the M3 packs; loadPack hashes manifest and profile bytes.
-const softwareDigest = "1071840e726289f5c65e9a67feed1a6f5721a716003fcb4809b9363f2f411305";
+// Pinned to software-team 1.1.0; loadPack hashes manifest, profiles, skills, and workflows.
+const softwareDigest = "670ba35723f015f79df36e61f3810f352620ff01ee9bb2c757984f21c29a9ccc";
 const expected = {
+  "software-team": {
+    name: "Software Team",
+    version: "1.1.0",
+    seats: [["Lead", 1], ["PM", 1], ["BA", 1], ["FE", 1], ["BE", 1], ["DevOps", 1], ["Test", 1]],
+    skills: { "fix-bug": "code-ref", "implement-feature": "code-ref", "local-dev": "code-ref", "testing": "code-ref", "team-coordination": "plan" },
+  },
   "research-team": {
     name: "Research Team",
+    version: "1.0.0",
     seats: [["Lead", 1], ["Researcher", 2], ["Analyst", 1], ["Fact Checker", 1]],
-    skills: { "research-brief": "research-report", "source-evaluation": "research-report", "report-writing": "research-report", "comparative-analysis": "research-report" },
+    skills: { "research-brief": "research-report", "source-evaluation": "research-report", "report-writing": "research-report", "comparative-analysis": "research-report", "team-coordination": "research-report" },
   },
   "architecture-team": {
     name: "Architecture Team",
+    version: "1.0.0",
     seats: [["Lead", 1], ["Architect", 1], ["Data Designer", 1], ["API Designer", 1], ["Architecture Reviewer", 1]],
-    skills: { "spec-driven-planning": "plan", "write-adr": "adr", "data-model-design": "data-model", "api-contract-design": "api-contract", "architecture-review": "plan" },
+    skills: { "spec-driven-planning": "plan", "write-adr": "adr", "data-model-design": "data-model", "api-contract-design": "api-contract", "architecture-review": "plan", "team-coordination": "plan" },
   },
   "design-team": {
     name: "Design Team",
+    version: "1.0.0",
     seats: [["Lead", 1], ["UX Designer", 1], ["UI Designer", 1], ["Design Reviewer", 1]],
-    skills: { "ux-flow": "ui-spec", "ui-spec": "ui-spec", "accessibility-review": "ui-spec", "design-tokens": "ui-spec" },
+    skills: { "ux-flow": "ui-spec", "ui-spec": "ui-spec", "accessibility-review": "ui-spec", "design-tokens": "ui-spec", "team-coordination": "ui-spec" },
   },
 };
-const keys = [...Object.keys(expected), "software-team"].sort();
+const keys = Object.keys(expected).sort();
 const read = (key, path) => readFileSync(join(packsDir, key, path), "utf8");
 const wordCount = (text) => text.trim().split(/\s+/u).length;
 const conventions = (text) => {
@@ -124,8 +133,24 @@ for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) 
   });
 }
 
-test("software-team manifest and profile bytes retain their pre-edit digest", () => {
+test("software-team content digest is pinned to the 1.1.0 content", () => {
   assert.equal(loadPack(join(packsDir, "software-team")).digest, softwareDigest);
+});
+
+test("software-team preserves every legacy seat field, routing declaration, and workflow path", () => {
+  const { manifest } = loadPack(join(packsDir, "software-team"));
+  const roles = ["Technical lead: talks with the operator, plans, proposes tasks", "Product manager", "Business analyst", "Frontend developer", "Backend developer", "DevOps engineer", "Tester"];
+  const profiles = ["lead", "pm", "ba", "fe", "be", "devops", "test"];
+  assert.deepEqual(manifest.seats, expected["software-team"].seats.map(([name, slots], index) => ({
+    name, role: roles[index], profile: `profiles/${profiles[index]}.md`,
+    runtime: index === 0 ? "api-agent" : "native-opencode", slots, isLead: index === 0,
+  })));
+  for (const seat of manifest.seats) {
+    assert.equal(Object.hasOwn(seat, "capabilities"), false, "preserve legacy keyword routing");
+    assert.equal(Object.hasOwn(seat, "tools"), false, "preserve the default tool set");
+  }
+  assert.deepEqual(manifest.workflows, ["workflows/software-delivery.json"]);
+  assert.deepEqual(manifest.produces, ["requirements", "plan", "api-contract", "data-model", "code-ref"]);
 });
 
 test("real registry contains exactly four packs with only software-team default and no errors", () => {
@@ -136,7 +161,7 @@ test("real registry contains exactly four packs with only software-team default 
   assert.deepEqual(errors, []);
 });
 
-test("NOTICE credits each new pack, both MIT sources, and the skills layout", () => {
+test("NOTICE credits all four packs, both MIT sources, and the skills layout", () => {
   const notice = readFileSync(join(packsDir, "NOTICE.md"), "utf8");
   for (const marker of ["BMAD-METHOD", "bmad-code-org", "github/spec-kit", "MIT", "Agent Skills specification", "SKILL.md", "2026-11-08", "wording", "original", "trademarks", "future", ...Object.keys(expected)])
     assert.ok(notice.includes(marker), `NOTICE missing ${marker}`);
@@ -151,7 +176,7 @@ for (const [key, spec] of Object.entries(expected)) {
   const manifest = JSON.parse(read(key, "pack.json"));
   test(`${key}: exact charter, version, seats, and skill inventory`, () => {
     assert.equal(manifest.name, spec.name);
-    assert.equal(manifest.version, "1.0.0");
+    assert.equal(manifest.version, spec.version);
     assert.ok(manifest.description.trim().length > 0 && manifest.description.length <= 250);
     assert.deepEqual(manifest.seats.map((seat) => [seat.name, seat.slots]), spec.seats);
     assert.deepEqual(manifest.skills, Object.keys(spec.skills).map((name) => `skills/${name}`));
@@ -188,14 +213,19 @@ for (const [key, spec] of Object.entries(expected)) {
       for (const marker of ["Independently", "pass/fail/unverified", "evidence", "Do not rewrite the work under review", "criterion"])
         assert.ok(text.includes(marker), `missing ${marker}`);
     });
+    if (key === "software-team" && seat.name === "Test") test(`${key}/Test: independent review preserves developer work`, () => {
+      for (const marker of ["Independently", "author/reviewer must differ", "Source stays read-only", "passed/failed/unverified per criterion", "actual commands/exit codes"])
+        assert.ok(text.includes(marker), `missing ${marker}`);
+    });
   }
 
   for (const [name, kind] of Object.entries(spec.skills)) {
     const text = read(key, `skills/${name}/SKILL.md`);
     test(`${key}/${name}: valid versioned skill frontmatter with source attribution`, () => {
       const fields = frontmatter(text);
+      assert.deepEqual(Object.keys(fields), ["name", "description", "version", "source"]);
       assert.equal(fields.name, name);
-      assert.equal(fields.version, "1.0.0");
+      assert.equal(fields.version, spec.version);
       assert.ok(fields.description.trim() && fields.description.length <= 250);
       assert.match(fields.description, /^[^.]+\.$/, "one-sentence description");
       assert.ok(fields.source.includes("BMAD-METHOD") && fields.source.includes("github/spec-kit") && fields.source.includes("Agent Skills specification"));
@@ -226,7 +256,9 @@ for (const [key, spec] of Object.entries(expected)) {
     const registry = loadPackRegistry(packsDir, { onError: (error) => errors.push(error) });
     assert.deepEqual(errors, []);
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
-      "projects.create": createProjectsCreateHandler({ pack: loadPack(join(packsDir, "software-team")), multiTeam: enabled }),
+      // Leave the default team unseeded when testing software-team seat creation.
+      "projects.create": key === "software-team" && enabled ? projectsCreateHandler
+        : createProjectsCreateHandler({ pack: loadPack(join(packsDir, "software-team")), multiTeam: enabled }),
       ...createOrgHandlers({ packs: registry, multiTeam: enabled }),
     } });
     const projectId = randomUUID();
@@ -238,7 +270,7 @@ for (const [key, spec] of Object.entries(expected)) {
     };
     ok("projects.create", { name: "Pack integration", workspace: { kind: "directory", root: `/workspace/packs-m3/${key}` } });
     const teamId = randomUUID();
-    const payload = { teamId, packKey: key, packVersion: "1.0.0" };
+    const payload = { teamId, packKey: key, packVersion: spec.version };
     if (!enabled) {
       const before = storage.raw.prepare("SELECT count(*) AS n FROM teams").get().n;
       const result = execute("teams.create-from-pack", payload);
@@ -258,7 +290,7 @@ for (const [key, spec] of Object.entries(expected)) {
       manifest.seats.map(({ name, role, slots, runtime, isLead }) => ({ name, role, slots, runtime, isLead })).sort((a, b) => a.name.localeCompare(b.name)));
     assert.equal(seats.filter((seat) => seat.isLead).length, 1);
     assert.equal(seats.find((seat) => seat.isLead).name, "Lead");
-    assert.deepEqual(getTeam(storage.raw, teamId).pack, { key, version: "1.0.0" });
+    assert.deepEqual(getTeam(storage.raw, teamId).pack, { key, version: spec.version });
     assert.equal(getTeam(storage.raw, teamId).charter, manifest.description);
     const engagementId = randomUUID();
     ok("engagements.create", { engagementId, teamId, priority: 50, maxConcurrent: 2 });

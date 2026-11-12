@@ -94,7 +94,8 @@
     "skills/write-adr",
     "skills/data-model-design",
     "skills/api-contract-design",
-    "skills/architecture-review"
+    "skills/architecture-review",
+    "skills/team-coordination"
   ],
   "produces": [
     "adr",

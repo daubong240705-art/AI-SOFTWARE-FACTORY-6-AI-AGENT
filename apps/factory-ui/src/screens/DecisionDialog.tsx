@@ -1,14 +1,23 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Approval, Command } from '@factory/contracts';
+import { MessageSquarePlus } from 'lucide-react';
 import { approvalsDecide } from '../api/commands';
-import { Button } from '../components/Button';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog } from '../components/Dialog';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { i18n, useT } from '../i18n';
 import type { Store } from '../state/store';
 import { TaskDetail } from './TaskDetail';
 import { ReviewResult } from './attention/ReviewResult';
-import { ActionHints } from './attention/ActionHints';
+import { DecisionOptions } from './attention/DecisionOptions';
+import { DecisionActions } from './attention/DecisionActions';
+import { AgentSummary, Facts, Fold } from './attention/ReviewShared';
+import { attentionTitle, readableText } from './attention/presentation';
 
 export const pendingApproval = (approval: Approval) => approval.state === 'pending' || approval.state === 'requested';
 export function DecisionDialog({ store, approvalId, onClose }: { store: Store; approvalId: string; onClose: () => void }) {
@@ -21,6 +30,7 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
   const [ready, setReady] = useState(false);
   const [optionId, setOptionId] = useState('');
   const [comment, setComment] = useState('');
+  const [noteOpen, setNoteOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [changed, setChanged] = useState(false);
   const [command, setCommand] = useState<Command | null>(null);
@@ -29,6 +39,7 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
   const [, tick] = useState(0);
   const inFlight = useRef(false);
   const commentInput = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { if (noteOpen && optionId === 'request-changes') commentInput.current?.focus(); }, [noteOpen, optionId]);
   const projectId = state.selectedProjectId;
   useEffect(() => { let current = true; setReady(false); void store.loadApproval(approvalId).then(() => { if (current) setReady(true); }); return () => { current = false; }; }, [store, approvalId, projectId]);
   const approval = ready && !state.errors[`approval:${approvalId}`] ? state.approvals[approvalId] : undefined;
@@ -65,51 +76,45 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
   }
   if (state.session !== 'authenticated') return null;
   if (results && approval?.taskId) return <TaskDetail store={store} taskId={approval.taskId} initialTab="results" onClose={() => setResults(false)} />;
+  const review = inline && approval?.kind === 'review';
   const content = <>
-    {!inline && <Button disabled={busy} onClick={onClose}>{t('inboxUi.close')}</Button>}
-    <h2 id={`${id}-title`}>{approval?.subject ?? t('inboxUi.decision')}</h2>
-    {(!ready || state.loading[`approval:${approvalId}`]) && <p role="status">{t('viewStates.loading')}</p>}
-    {state.errors[`approval:${approvalId}`] && <><ErrorNotice error={state.errors[`approval:${approvalId}`]!} /><Button onClick={() => { void store.loadApproval(approvalId); }}>{t('errors.retry')}</Button></>}
-    {changed && <p role="status">{t('inboxUi.changed')}</p>}
+    <header className="p-6">
+      {!inline && <Button variant="ghost" className="mb-3" disabled={busy} onClick={onClose}>{t('inboxUi.close')}</Button>}
+      {task && <p className="mb-1 font-mono text-xs text-muted-foreground">{task.code} · {state.projects.find(project => project.id === projectId)?.name ?? t('overview.project')}</p>}
+      <h2 id={`${id}-title`} className="font-display text-2xl leading-tight font-semibold tracking-tight">{approval ? review && task ? attentionTitle(task.title) : attentionTitle(approval.subject) : t('inboxUi.decision')}</h2>
+      {approval && <AgentSummary key={approval.id} text={approval.summary} />}
+    </header>
+    {(!ready || state.loading[`approval:${approvalId}`]) && <div role="status" className="space-y-3 px-6 pb-6"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-6 w-1/2" /><Skeleton className="h-48 w-full" /></div>}
+    {state.errors[`approval:${approvalId}`] && <div className="px-6 pb-6"><ErrorNotice error={state.errors[`approval:${approvalId}`]!} /><Button variant="outline" onClick={() => { void store.loadApproval(approvalId); }}>{t('errors.retry')}</Button></div>}
+    {changed && <p role="status" className="px-6 pb-4 text-sm text-muted-foreground">{t('inboxUi.changed')}</p>}
     {approval && <>
-      <p className="plain-text">{approval.summary}</p>{!inline && <p className="plain-text">{approval.impactIfWaiting}</p>}
-      <p>{t('inboxUi.expires')}: <time dateTime={approval.expiresAt}>{new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(approval.expiresAt))}</time></p>
-      {inline && approval.taskId && <ReviewResult store={store} taskId={approval.taskId} />}
-      {!inline && approval.kind === 'review' && approval.taskId && <Button disabled={busy} onClick={() => setResults(true)}>{t('inboxUi.openResults')}</Button>}
-      {approval.kind === 'question' && task && <p>{task.code} · {task.title}</p>}
-      {expired && <p role="status">{t('inboxUi.expired')}</p>}
-      {!editable && !expired && <p>{t(`inboxUi.states.${approval.state}`)}</p>}
-      {approval.outcome && <section className="plain-text stack"><h3>{t('inboxUi.outcome')}</h3><p>{approval.options.find(item => item.id === approval.outcome?.optionId)?.label}</p><p>{approval.outcome.comment}</p></section>}
-      {editable && <>
-        {!(inline && approval.kind === 'review') && <fieldset disabled={busy || confirm || !!command}><legend>{t('inboxUi.options')}</legend><div role="radiogroup" aria-label={t('inboxUi.options')} className="stack">
-          {approval.options.map(item => <label className="decision-option" key={item.id}><input type="radio" name={`${id}-option`} value={item.id} checked={optionId === item.id} onChange={() => setOptionId(item.id)} /><span>{item.label} {approval.recommendation === item.id && <strong>{t('inboxUi.recommended')}</strong>}<span className="plain-text consequence">{item.consequence}</span></span></label>)}
-        </div></fieldset>}
-        <div className="field"><label htmlFor={`${id}-comment`}>{t('inboxUi.comment')}{approval.kind === 'review' && optionId === 'request-changes' ? ` (${t('inboxUi.required')})` : ''}</label>
-          <textarea ref={commentInput} id={`${id}-comment`} rows={3} maxLength={32000} value={comment} required={approval.kind === 'review' && optionId === 'request-changes'} disabled={busy || confirm || !!command} onChange={event => setComment(event.target.value)} aria-describedby={`${id}-counter`} />
-          <p id={`${id}-counter`}>{new Intl.NumberFormat(i18n.locale).format(comment.length)} / {new Intl.NumberFormat(i18n.locale).format(32000)} {t('inboxUi.characters')}</p>
-        </div>
-        <footer className={inline ? 'attention-actions' : 'stack'}>
-        {inline && !confirm && !command && <>
-          <Button className={approval.kind === 'review' ? 'attention-approve' : ''} data-attention-primary disabled={busy || (approval.kind === 'question' && !valid)} onClick={() => {
-            if (approval.kind === 'review') {
-              const accept = approval.options.find(item => item.id === 'accept' || item.id === 'approve');
-              if (!accept) return;
-              setOptionId(accept.id);
-            } else if (!valid) return;
-            setConfirm(true);
-          }}>{t(approval.kind === 'review' ? 'attention.approve' : 'attention.answer')}</Button>
-          {approval.kind === 'review' && approval.options.some(item => item.id === 'request-changes') && <Button data-attention-changes disabled={busy} onClick={() => { setOptionId('request-changes'); commentInput.current?.focus(); }}>{t('attention.requestChanges')}</Button>}
-          {approval.kind === 'review' && optionId === 'request-changes' && <Button disabled={!valid || busy} onClick={() => setConfirm(true)}>{t('attention.requestChangesConfirm')}</Button>}
+      {review && approval.taskId && <ReviewResult store={store} taskId={approval.taskId} approval={approval} />}
+      <div className="space-y-5 px-6 pb-6">
+        {!inline && approval.kind === 'review' && approval.taskId && <Button variant="outline" disabled={busy} onClick={() => setResults(true)}>{t('inboxUi.openResults')}</Button>}
+        {expired && <p role="status" className="text-sm text-muted-foreground">{t('inboxUi.expired')}</p>}
+        {!editable && !expired && <p className="text-sm text-muted-foreground">{t(`inboxUi.states.${approval.state}`)}</p>}
+        {approval.outcome && <Card className="gap-2 border-border p-4 shadow-none"><h3 className="text-sm font-semibold">{t('inboxUi.outcome')}</h3><p className="text-sm">{readableText(approval.options.find(item => item.id === approval.outcome?.optionId)?.label ?? '')}</p><p className="text-sm text-muted-foreground">{readableText(approval.outcome.comment)}</p></Card>}
+        {editable && <>
+          {!review && <DecisionOptions approval={approval} id={id} value={optionId} onChange={value => { setOptionId(value); if (approval.kind === 'review' && value === 'request-changes') setNoteOpen(true); }} disabled={busy || confirm || !!command} />}
+          <Collapsible open={approval.kind !== 'review' || noteOpen || optionId === 'request-changes'} onOpenChange={setNoteOpen}>
+            {approval.kind === 'review' && <CollapsibleTrigger asChild><Button type="button" variant="ghost" size="sm" disabled={busy || confirm || !!command || optionId === 'request-changes'} className="gap-2 text-muted-foreground"><MessageSquarePlus aria-hidden="true" />{t('reviewUi.addNote')}</Button></CollapsibleTrigger>}
+            <CollapsibleContent className="space-y-2 data-[state=open]:pt-2"><Label htmlFor={`${id}-comment`}>{t('reviewUi.note')}{approval.kind === 'review' && optionId === 'request-changes' ? ` (${t('inboxUi.required')})` : ''}</Label>
+            <Textarea ref={commentInput} id={`${id}-comment`} name="comment" rows={3} maxLength={32000} value={comment} required={approval.kind === 'review' && optionId === 'request-changes'} disabled={busy || confirm || !!command} onChange={event => setComment(event.target.value)} aria-describedby={`${id}-counter`} className="min-h-24 resize-y border-border bg-background px-3 py-2" />
+            <p id={`${id}-counter`} className="text-right text-xs text-muted-foreground">{new Intl.NumberFormat(i18n.locale).format(comment.length)} / {new Intl.NumberFormat(i18n.locale).format(32000)} {t('inboxUi.characters')}</p>
+            </CollapsibleContent>
+          </Collapsible>
         </>}
-        {!inline && !confirm && !command && <Button variant="primary" disabled={!valid || busy} onClick={() => setConfirm(true)}>{t('inboxUi.decide')}</Button>}
-        {confirm && option && <div role="group" aria-label={t('taskUi.confirmation')} className="confirmation-row"><p className="plain-text"><strong>{option.label}</strong><br />{option.consequence}</p><Button disabled={busy || !!command} onClick={() => { void execute(); }}>{t('workUi.confirm')}</Button><Button disabled={busy || !!command} onClick={() => setConfirm(false)}>{t('workUi.back')}</Button></div>}
-        {pending?.error && <ErrorNotice error={pending.error} />}
-        {pending?.status === 'failed' && <Button disabled={busy} onClick={() => { void execute(true); }}>{t('errors.retry')}</Button>}
-        {inline && <ActionHints />}
-        </footer>
-      </>}
-      {inline && <details><summary>{t('attention.technicalDetails')}</summary><dl><dt>{t('attention.identifier')}</dt><dd>{approval.id}</dd><dt>{t('attention.digest')}</dt><dd>{approval.context.digest}</dd><dt>{t('attention.revision')}</dt><dd>{approval.revision}</dd></dl></details>}
+        {!review && <>
+          <p className="text-xs leading-relaxed text-muted-foreground">{t('reviewUi.waiting').replace('{impact}', readableText(approval.impactIfWaiting))}</p>
+          <Fold title={t('attention.technicalDetails')}><Facts mono rows={[[t('attention.identifier'), approval.id], [t('attention.digest'), approval.context.digest], [t('reviewUi.recordNumber'), String(approval.revision)], [t('inboxUi.expires'), new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(approval.expiresAt))]]} /></Fold>
+        </>}
+      </div>
+      {editable && <DecisionActions approval={approval} inline={inline} confirm={confirm} command={!!command} busy={busy} valid={valid} optionId={optionId} error={pending?.error} failed={pending?.status === 'failed'} onPrimary={() => {
+        if (review) { const accept = approval.options.find(item => item.id === 'accept' || item.id === 'approve'); if (!accept) return; setOptionId(accept.id); }
+        else if (!valid) return;
+        setConfirm(true);
+      }} onChanges={() => { setOptionId('request-changes'); setNoteOpen(true); commentInput.current?.focus(); }} onConfirmChanges={() => setConfirm(true)} onExecute={() => { void execute(); }} onBack={() => setConfirm(false)} onRetry={() => { void execute(true); }} />}
     </>}
   </>;
-  return inline ? <section className="attention-decision stack" aria-labelledby={`${id}-title`}>{content}</section> : <Dialog labelledBy={`${id}-title`} onClose={() => { if (!inFlight.current) onClose(); }}>{content}</Dialog>;
+  return inline ? <section className="flex min-h-full flex-col" aria-labelledby={`${id}-title`}>{content}</section> : <Dialog labelledBy={`${id}-title`} onClose={() => { if (!inFlight.current) onClose(); }}>{content}</Dialog>;
 }

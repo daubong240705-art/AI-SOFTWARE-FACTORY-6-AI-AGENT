@@ -13,7 +13,7 @@ import { getConversation, listConversations, listMessages } from "../chat/index.
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import { getPrimaryEngagement, getTeam, listSeats } from "../org/service.js";
-import type { RegistryPack } from "../org/registry.js";
+import { registryPack, type RegistryPack } from "../org/registry.js";
 import { projectEngagements, teamQueue, teamViews } from "../org/views.js";
 import { autonomyStatus, budgetStatus, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "../policy/index.js";
 import { getProject, listProjects } from "../projects/service.js";
@@ -40,6 +40,10 @@ import { getRequest, listRequests, RequestError } from "../requests/service.js";
 import { registerDossierRoutes } from "../dossier/routes.js";
 import type { ExternalTools } from "../mcp-external/index.js";
 import { listWorkflowInstances, workflowInstanceView } from "../workflow/service.js";
+import { listWorkflowDefinitions } from "../workflow/definitions.js";
+import { orgActivity } from "../org/activity.js";
+import { homedir } from "node:os";
+import { browseDirectory, BrowseError } from "../workspace/browse.js";
 
 export function createRoutes(deps: {
   external?: ExternalTools;
@@ -54,6 +58,8 @@ export function createRoutes(deps: {
   evidenceDir?: string;
   artifacts?: { store: ContentStore };
   effects?: EffectExecutor;
+  /** Directories the operator may browse when choosing a project folder. Defaults to the Host user's home. */
+  browseRoots?: readonly string[];
 }): (app: FastifyInstance, guards: ApiGuards) => void {
   const newId = createIdGenerator();
   return (app, guards) => {
@@ -113,6 +119,11 @@ export function createRoutes(deps: {
         return failure(reply, 404, "not-found", "Schedule not found.", "correct-input", newId);
       return { apiVersion: API_VERSION, ok: true, items: listOccurrences(deps.storage.raw, projectId, scheduleId) };
     });
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/workflow-definitions", { preHandler: guards.session }, async (request, reply) => {
+      const { projectId } = request.params;
+      if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      return { apiVersion: API_VERSION, ok: true, items: listWorkflowDefinitions(deps.storage.raw, projectId, deps.packs ?? []) };
+    });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/workflows", { preHandler: guards.session }, async (request, reply) => {
       const { projectId } = request.params;
       if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
@@ -154,7 +165,34 @@ export function createRoutes(deps: {
         ({ key, version, name, description, seatCount: seats.length, seats,
           ...(produces === undefined ? {} : { produces }), ...(workflows === undefined ? {} : { workflows }) })),
     }));
+    // Read-only pack detail for the operator: profile text per seat and the skill texts. Directories stay private.
+    app.get<{ Params: { key: string } }>("/packs/:key", { preHandler: guards.session }, async (request, reply) => {
+      const entry = (deps.packs ?? []).find((pack) => pack.key === request.params.key);
+      if (!entry) return failure(reply, 404, "not-found", "Pack not found.", "correct-input", newId);
+      const pack = registryPack(entry);
+      return { apiVersion: API_VERSION, ok: true, key: entry.key, version: entry.version, name: entry.name,
+        description: entry.description, digest: pack.digest,
+        seats: pack.manifest.seats.map((seat, index) => ({ name: seat.name, role: seat.role, runtime: seat.runtime,
+          slots: seat.slots, isLead: seat.isLead, capabilities: seat.capabilities ?? [], tools: seat.tools ?? [],
+          profile: pack.files.profiles[index]?.content ?? "" })),
+        skills: pack.files.skills.map(({ name, description, content }) => ({ name, description, content })),
+        workflows: pack.files.workflows.map(({ definition: { key, revision, title } }) => ({ key, revision, title })) };
+    });
+    app.get<{ Querystring: { path?: string } }>("/system/browse", { preHandler: guards.session }, async (request, reply) => {
+      const query = z.strictObject({ path: z.string().max(4096).optional() }).safeParse(request.query);
+      if (!query.success) return failure(reply, 400, "validation", "Invalid browse request.", "correct-input", newId);
+      try { return { apiVersion: API_VERSION, ok: true, ...browseDirectory(deps.browseRoots ?? [homedir()], query.data.path) }; }
+      catch (error) {
+        if (!(error instanceof BrowseError)) throw error;
+        return error.code === "not-found" || error.code === "not-directory" ? failure(reply, 404, "not-found", "Folder not found.", "correct-input", newId)
+          : error.code === "outside-roots" ? failure(reply, 403, "forbidden", "This folder cannot be browsed.", "correct-input", newId)
+          : failure(reply, 400, "validation", "Invalid folder path.", "correct-input", newId);
+      }
+    });
     app.get("/teams", { preHandler: guards.session }, async () => ({ teams: teamViews(deps.storage.raw) }));
+    app.get("/org/activity", { preHandler: guards.session }, async () => ({
+      apiVersion: API_VERSION, ok: true, ...orgActivity(deps.storage.raw, (deps.clock ?? systemClock)()),
+    }));
     app.get<{ Params: { teamId: string } }>("/teams/:teamId/queue", { preHandler: guards.session }, async (request, reply) => {
       const parsed = idSchema.safeParse(request.params.teamId);
       if (!parsed.success) return failure(reply, 400, "validation", "Invalid team id.", "correct-input", newId);

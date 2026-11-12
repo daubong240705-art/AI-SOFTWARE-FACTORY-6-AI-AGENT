@@ -12,15 +12,19 @@ const BASE = process.env.E2E_WORK_DIR ?? `${home}/factory-v2/e2e-work`;
 const APP = process.env.E2E_APP_DIR ?? `${home}/factory-v2/app/apps/factory-host/dist`;
 const PORT = Number(process.env.E2E_WORK_PORT ?? 8812);
 const REAL_KEY = 'sk-e2e-work-upstream-key-0123456789';
-rmSync(BASE, { recursive: true, force: true });
+// E2E_WORK_KEEP=1 reuses the data of an earlier run (a demo with real projects, tasks and reviews).
+const KEEP = process.env.E2E_WORK_KEEP === '1';
+if (!KEEP) rmSync(BASE, { recursive: true, force: true });
 for (const dir of ['src-repo', 'proxy', 'remote.git']) mkdirSync(`${BASE}/${dir}`, { recursive: true });
 chmodSync(`${BASE}/proxy`, 0o700);
 const git = (args, cwd) => execFileSync('git', args, { cwd, encoding: 'utf8' });
+if (!KEEP) {
 git(['init', '-q', '-b', 'main'], `${BASE}/src-repo`);
 writeFileSync(`${BASE}/src-repo/README.md`, '# Demo project\n\nA tiny repository used by the end-to-end test.\n');
 git(['add', '.'], `${BASE}/src-repo`);
 git(['-c', 'user.name=e2e', '-c', 'user.email=e2e@example.invalid', 'commit', '-qm', 'initial'], `${BASE}/src-repo`);
 git(['init', '-q', '--bare'], `${BASE}/remote.git`);
+}
 
 // ---- fake model: scripted by what the request contains -------------------------------------------------------
 const toolResults = (messages) => messages.filter((m) => m.role === 'tool').length;
@@ -61,7 +65,7 @@ const upstream = createServer((req, res) => {
 await new Promise((resolve) => upstream.listen(0, '127.0.0.1', resolve));
 const upstreamPort = upstream.address().port;
 
-const clone = JSON.parse(execFileSync(process.execPath, [`${APP}/workspace/cli.js`, 'clone', '--projects-root', `${BASE}/projects`, '--name', 'Demo', '--source', `${BASE}/src-repo`], { encoding: 'utf8' }));
+const clone = KEEP ? { root: `${BASE}/projects/demo` } : JSON.parse(execFileSync(process.execPath, [`${APP}/workspace/cli.js`, 'clone', '--projects-root', `${BASE}/projects`, '--name', 'Demo', '--source', `${BASE}/src-repo`], { encoding: 'utf8' }));
 const env = { ...process.env, FACTORY_STATE_DIR: `${BASE}/state`, FACTORY_PORT: String(PORT), FACTORY_BACKUP_DIR: `${BASE}/backups`,
   FACTORY_PROJECTS_ROOT: `${BASE}/projects`, FACTORY_WORKTREES_ROOT: `${BASE}/worktrees`, FACTORY_RUNTIME: 'opencode', FACTORY_OPENCODE_DIR: `${home}/factory-v2/opencode`,
   FACTORY_PROXY_SOCKET: `${BASE}/proxy/model.sock`, NINE_ROUTER_API_KEY: REAL_KEY, FACTORY_GATEWAY_URL: `http://127.0.0.1:${upstreamPort}/v1`,

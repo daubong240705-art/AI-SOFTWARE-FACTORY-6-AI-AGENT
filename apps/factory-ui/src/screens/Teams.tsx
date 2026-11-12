@@ -1,34 +1,9 @@
-import { useEffect, useId, useState } from 'react';
-import { teamsCreateFromPack, teamsSetLifecycle, engagementsCreate, engagementsUpdate, seatsUpdate } from '../api/commands';
-import type { OrgTeam } from '../api/m3Models';
 import type { Store } from '../state/store';
-import { Badge } from '../components/Badge';
-import { Button } from '../components/Button';
-import { Card } from '../components/Card';
-import { Field } from '../components/Field';
-import { Select as ThemedSelect } from '../components/Select';
-import { useT } from '../i18n';
-import { AreaState, Select, useM3Command } from './M3Shared';
-import { TeamPanel } from './TeamPanel';
-export function Teams({ store }: { store: Store }) {
-  const t = useT(); const state = store.useStoreSelector(s => s); const [pack, setPack] = useState('');
-  useEffect(() => store.watchM3('teams', store.loadTeams), [store]);
-  const command = useM3Command(store, store.loadTeams); const projectId = state.selectedProjectId;
-  const selected = state.m3.packs.find(p => `${p.key}@${p.version}` === pack);
-  return <section className="stack"><h1>{t('m3.teams')}</h1>{state.m3.disabled ? <><p role="status">{t('m3.disabled')}</p><TeamPanel store={store} /></> : <><AreaState store={store} area="teams" empty={!state.m3.teams.length} />{!projectId && <p>{t('m3.selectProject')}</p>}<form onSubmit={e => { e.preventDefault(); if (selected && projectId && !command.busy) void command.run(teamsCreateFromPack({ projectId, teamId: crypto.randomUUID(), packKey: selected.key, packVersion: selected.version })); }}><Select label={t('m3.pack')} value={pack} onChange={setPack} options={[['',t('m3.choose')], ...state.m3.packs.map(p => [`${p.key}@${p.version}`,`${p.name} ${p.version}`] as [string,string])]} /><Button type="submit" disabled={!selected || !projectId || command.busy}>{t('m3.createTeam')}</Button></form>{command.notice}</>}{state.m3.teams.map(team => <TeamCard key={team.id} store={store} team={team} />)}</section>;
-}
-function TeamCard({ store, team }: { store: Store; team: OrgTeam }) {
-  const t = useT(); const state = store.useStoreSelector(s => s); const projectId = state.selectedProjectId;
-  useEffect(() => state.m3.disabled ? undefined : store.watchM3(`queue:${team.id}`, () => store.loadQueue(team.id)), [store,team.id,state.m3.disabled]);
-  const command = useM3Command(store, async () => { await Promise.all([store.loadTeams(),store.loadQueue(team.id)]); });
-  const hidden = state.m3.disabled; const disabled = command.busy || !projectId;
-  return <Card><h2>{team.name} <Badge>{t(`m3.values.${team.lifecycle}`)}</Badge></h2><p className="plain-text">{team.charter}</p><p>{t('m3.pack')}: {team.packKey} {team.packVersion}</p>{!hidden && <div className="task-actions">{team.lifecycle !== 'archived' && (['active','paused','archived'] as const).filter(v => v !== team.lifecycle).map(lifecycle => <Button key={lifecycle} disabled={disabled} onClick={() => { if (projectId) void command.run(teamsSetLifecycle({ projectId,teamId:team.id,expectedRevision:team.revision,lifecycle })); }}>{t(`m3.lifecycle.${lifecycle}`)}</Button>)}<Button disabled={disabled || team.lifecycle !== 'active' || team.engagements.some(e => e.projectId === projectId && e.state === 'active')} onClick={() => { if (projectId) void command.run(engagementsCreate({ projectId,teamId:team.id,engagementId:crypto.randomUUID(),priority:50,maxConcurrent:2 })); }}>{t('m3.invite')}</Button></div>}
-    <h3>{t('team.seats')}</h3>{team.seats.map(seat => <section key={`${seat.id}:${seat.revision}`}><h4>{seat.name} | {seat.role}</h4><p>{t('m3.live')}: {seat.live} | {t('team.slots')}: {seat.slots}</p><p>{t('m3.capabilities')}: {seat.capabilities?.join(', ')}</p><p>{t('m3.tools')}: {seat.tools?.join(', ')}</p>{!hidden && <form onSubmit={e => { e.preventDefault(); if (!projectId || disabled) return; const data = new FormData(e.currentTarget); void command.run(seatsUpdate({ projectId,seatId:seat.id,expectedRevision:seat.revision,slots:Number(data.get('slots')) })); }}><Field label={`${t('team.slots')} | ${seat.name}`} name="slots" type="number" min={1} max={8} required defaultValue={seat.slots} disabled={disabled} /><Button type="submit" disabled={disabled}>{t('m3.save')}</Button></form>}</section>)}
-    <h3>{t('team.engagement')}</h3>{team.engagements.map(e => <section key={`${e.engagementId}:${e.revision}`}><h4>{e.projectName}</h4><p>{t('m3.live')}: {e.live} | {t(`m3.values.${e.state}`)}</p>{hidden ? <p>{t('team.priority')}: {e.priority} | {t('team.maxConcurrent')}: {e.maxConcurrent}</p> : <form onSubmit={event => { event.preventDefault(); if (command.busy) return; const data = new FormData(event.currentTarget); void command.run(engagementsUpdate({ projectId:e.projectId, engagementId:e.engagementId,expectedRevision:e.revision,priority:Number(data.get('priority')),maxConcurrent:Number(data.get('maxConcurrent')),state:data.get('state') as 'active'|'paused'|'ended' })); }}><Field label={t('team.priority')} name="priority" type="number" required min={0} max={100} defaultValue={e.priority} disabled={command.busy} /><Field label={t('team.maxConcurrent')} name="maxConcurrent" type="number" required min={1} max={32} defaultValue={e.maxConcurrent} disabled={command.busy} /><EngagementStateSelect initialValue={e.state} disabled={command.busy} /><Button type="submit" disabled={command.busy}>{t('m3.save')}</Button></form>}</section>)}{!hidden && command.notice}<h3>{t('m3.queue')}</h3>{!hidden && <AreaState store={store} area={`queue:${team.id}`} empty={state.m3.queues[team.id]?.length === 0} />}<ol>{state.m3.queues[team.id]?.map(item => <li key={item.taskId}>{item.projectName} | {item.code} {item.title} | {t(`m3.values.${item.state}`)} | {t('team.priority')}: {item.engagementPriority} | {item.seatName} | {item.liveAttemptState} | {item.queuedAt}</li>)}</ol>
-  </Card>;
-}
+import { TeamsPage } from './teams/TeamsPage';
+import type { TeamTab } from './shell/navigation';
 
-function EngagementStateSelect({ initialValue, disabled }: { initialValue: string; disabled: boolean }) {
-  const t = useT(); const id = useId(); const [value, setValue] = useState(initialValue);
-  return <div className="field"><label htmlFor={id}>{t('m3.state')}</label><ThemedSelect id={id} name="state" value={value} onValueChange={setValue} disabled={disabled} options={['active', 'paused', 'ended'].map(state => ({ value: state, label: t(`m3.values.${state}`) }))} /></div>;
+export function Teams({ store, tab, onTabChange, onTask }: {
+  store: Store; tab: TeamTab; onTabChange: (tab: TeamTab) => void; onTask: (projectId: string, taskId: string) => void;
+}) {
+  return <TeamsPage store={store} tab={tab} onTabChange={onTabChange} onTask={onTask} />;
 }

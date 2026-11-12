@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, searchForWorkspaceRoot } from "vite";
 import { fileURLToPath } from "node:url";
 
@@ -9,7 +10,8 @@ const hostPort = process.env.FACTORY_PORT ?? "8787";
 const hostOrigin = `http://127.0.0.1:${hostPort}`;
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
   server: {
     fs: { allow: [searchForWorkspaceRoot(process.cwd()), fileURLToPath(new URL("../../design/factory-v2", import.meta.url))] },
     host: "127.0.0.1",

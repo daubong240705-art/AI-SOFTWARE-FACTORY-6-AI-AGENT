@@ -1,8 +1,8 @@
 {
   "key": "software-team",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Software Team",
-  "description": "Default team for software projects. Profiles and skills are carried over from Windows Worker V1 (agent-profiles, skills).",
+  "description": "Delivers working software from clarified requirements and explicit contracts. Produces requirements, plan, api-contract, data-model, and code-ref artifacts with tests and execution evidence.",
   "seats": [
     {
       "name": "Lead",
@@ -65,9 +65,17 @@
     "skills/fix-bug",
     "skills/implement-feature",
     "skills/local-dev",
-    "skills/testing"
+    "skills/testing",
+    "skills/team-coordination"
   ],
   "workflows": [
     "workflows/software-delivery.json"
+  ],
+  "produces": [
+    "requirements",
+    "plan",
+    "api-contract",
+    "data-model",
+    "code-ref"
   ]
 }

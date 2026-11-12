@@ -4,7 +4,8 @@ import { canTransitionWorkflow, evaluateParamCondition, workflowDefinitionSchema
   type WorkflowInstanceState, type WorkflowValue } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerContext, HandlerMap } from "../commands/pipeline.js";
-import { registryPack, type RegistryPack } from "../org/registry.js";
+import type { RegistryPack } from "../org/registry.js";
+import { matchWorkflowDefinitions } from "./definitions.js";
 import { getWorkflowInstance } from "./service.js";
 import { validateWorkflowDefinition } from "./validate.js";
 import { advanceWorkflow, type WorkflowEngineDeps } from "./engine.js";
@@ -76,9 +77,8 @@ export function createWorkflowHandlers(deps: { packs: readonly RegistryPack[]; e
       requireProject(ctx, projectId);
       if (getWorkflowInstance(ctx.raw, projectId, payload.instanceId))
         throw new CommandError("conflict", "workflow id already exists", "correct-input");
-      const matches = deps.packs.filter((entry) => payload.packKey === undefined || entry.key === payload.packKey)
-        .flatMap((entry) => registryPack(entry).files.workflows.filter((file) => file.definition.key === payload.definitionKey)
-          .map((file) => ({ entry, definition: file.definition })));
+      const matches = matchWorkflowDefinitions(deps.packs, { definitionKey: payload.definitionKey,
+        ...(payload.packKey === undefined ? {} : { packKey: payload.packKey }) });
       if (matches.length !== 1) throw new CommandError("validation", matches.length ? "ambiguous workflow definition" : "workflow definition not found", "correct-input");
       const { entry, definition: input } = matches[0]!;
       const parsed = workflowDefinitionSchema.safeParse(input);

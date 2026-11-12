@@ -1,4 +1,5 @@
 import { requestItemSchema, type RequestItem } from './m3Models';
+import { extractionSummarySchema, type ExtractionSummary } from './documents';
 import { API_VERSION, approvalSchema, artifactKindSchema, artifactStatusSchema, type Approval, type AttemptState } from '@factory/contracts';
 
 type Reader<T> = (value: unknown) => T;
@@ -6,7 +7,9 @@ const invalid = (): never => { throw new Error('Invalid read model'); };
 const record = (v: unknown): Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : invalid();
 const string = (max = 500, min = 0): Reader<string> => v => typeof v === 'string' && v.length >= min && v.length <= max ? v : invalid();
 const integer = (min = 0): Reader<number> => v => typeof v === 'number' && Number.isSafeInteger(v) && v >= min ? v : invalid();
+const boolean: Reader<boolean> = v => typeof v === 'boolean' ? v : invalid();
 const nullable = <T,>(read: Reader<T>): Reader<T | null> => v => v === null ? null : read(v);
+const defaulted = <T,>(read: Reader<T>, fallback: T): Reader<T> => v => v === undefined ? fallback : read(v);
 const array = <T,>(read: Reader<T>): Reader<T[]> => v => Array.isArray(v) && v.length <= 5000 ? v.map(read) : invalid();
 const enumeration = <T extends string>(values: readonly T[]): Reader<T> => v => typeof v === 'string' && values.includes(v as T) ? v as T : invalid();
 const identifier: Reader<string> = v => { const s = string(500, 1)(v); return /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i.test(s) ? s : invalid(); };
@@ -48,16 +51,19 @@ export const knowledgeKinds = artifactKindSchema.options;
 export const knowledgeStatuses = artifactStatusSchema.options;
 export const knowledgeVisibilities = ['team-draft', 'project', 'shared'] as const;
 const knowledgeArray = <T,>(read: Reader<T>): Reader<T[]> => v => Array.isArray(v) && v.length <= 200 ? v.map(read) : invalid();
-const knowledgeFields = { artifactId: identifier, version: integer(1), kind: enumeration(knowledgeKinds), title: string(500, 1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), projectId: identifier };
+const extraction: Reader<ExtractionSummary | null> = v => v == null ? null : extractionSummarySchema.parse(v);
+const documentFields = { extraction, origin: defaulted(enumeration(['agent', 'upload'] as const), 'agent'), fileName: defaulted(nullable(string(500)), null), mediaType: defaulted(string(128, 1), 'text/plain'), sizeBytes: defaulted(integer(), 0) };
+const knowledgeFields = { ...documentFields, artifactId: identifier, version: integer(1), kind: enumeration(knowledgeKinds), title: string(500, 1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), projectId: identifier };
 const knowledgeResult = object({ ...knowledgeFields, snippet: string(1000), rank: (v: unknown): number => typeof v === 'number' && Number.isFinite(v) ? v : invalid() });
-const knowledgeItem = object({ ...knowledgeFields, mediaType: string(128, 1), sizeBytes: integer(), createdAt: timestamp, versionCount: integer(1) });
-const knowledgeVersion = object({ version: integer(1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), mediaType: string(128, 1), sizeBytes: integer(), abstractL0: string(6000), abstractL1: nullable(string(6000)), producedByAttemptId: nullable(identifier), supersedesVersion: nullable(integer(1)), createdAt: timestamp });
+const knowledgeItem = object({ ...knowledgeFields, createdAt: timestamp, versionCount: defaulted(integer(1), 1) });
+const staleReason = object({ becauseArtifactId: identifier, becauseVersion: integer(1), since: timestamp });
+const knowledgeVersion = object({ ...documentFields, version: integer(1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), abstractL1: nullable(string(6000)), producedByAttemptId: nullable(identifier), supersedesVersion: nullable(integer(1)), createdAt: timestamp, stale: defaulted(array(staleReason), []), isStale: defaulted(boolean, false) });
 const knowledgeRef = object({ artifactId: identifier, version: integer(1), title: string(500, 1) });
 const knowledgeArtifact = object({ artifactId: identifier, kind: enumeration(knowledgeKinds), title: string(500, 1), versions: knowledgeArray(knowledgeVersion), inputs: knowledgeArray(knowledgeRef), dependants: knowledgeArray(knowledgeRef) });
 export type KnowledgeResult = ReturnType<typeof knowledgeResult>;
 export type KnowledgeItem = ReturnType<typeof knowledgeItem>;
 export type KnowledgeArtifact = ReturnType<typeof knowledgeArtifact>;
-export type KnowledgeFilters = { kinds?: Array<typeof knowledgeKinds[number]>; statuses?: Array<typeof knowledgeStatuses[number]> };
+export type KnowledgeFilters = { kinds?: Array<typeof knowledgeKinds[number]>; statuses?: Array<typeof knowledgeStatuses[number]>; origins?: Array<'agent' | 'upload'> };
 export type KnowledgePage = KnowledgeFilters & { limit?: number; offset?: number };
 export type Inbox = Partial<InboxExtras> & { requests?: RequestItem[] | undefined; approvals: Array<Approval & { projectName?: string }>; startGates: Array<{ taskId: string; code: string; title: string; projectId: string; projectName?: string }>; counts: { approvals: number; startGates: number; total: number; requests?: number | undefined } };
 function inbox(global: boolean): Reader<Inbox> {
@@ -77,10 +83,11 @@ function envelope<T>(read: Reader<T>) {
 // These adapters deliberately copy only validated fields; unknown event bodies stay opaque.
 export const readModels = { attempts: envelope(object({ attempts: array(attempt) })), events: envelope(object({ events: array((v) => { const r = record(v); if (!Object.hasOwn(r, 'body')) invalid(); return event(v); }) })), patch: envelope(patch), artifacts: envelope(object({ items: array(artifact) })), content: envelope(content), approvals: envelope(object({ approvals: array(approval) })),
   approval: envelope(object({ approval })), inbox: envelope(inbox(false)), globalInbox: envelope(inbox(true)), remotes: envelope(object({ remotes: array(name) })), effects: envelope(object({ effects: array(effect) })), effect: envelope(object({ effect })),
-  knowledgeSearch: envelope(object({ results: knowledgeArray(knowledgeResult) })), knowledgeList: envelope(object({ items: knowledgeArray(knowledgeItem) })), knowledgeArtifact: envelope(object({ artifact: knowledgeArtifact })) };
+  knowledgeSearch: envelope(object({ results: knowledgeArray(knowledgeResult) })), knowledgeList: envelope(object({ items: knowledgeArray(knowledgeItem) })), knowledgeArtifact: envelope(object({ artifact: knowledgeArtifact })),
+  uploadedArtifact: envelope(object({ artifact: knowledgeItem })) };
 
 export { m5ReadModels } from './m5Models';
-export type { WorkflowInstance, WorkflowDetail, WorkflowStage, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './m5Models';
+export type { WorkflowInstance, WorkflowDetail, WorkflowStage, WorkflowGraph, WorkflowDefinition, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './m5Models';
 export type Effect = ReturnType<typeof effect>;
 export type Attempt = ReturnType<typeof attempt>;
 export type AttemptEvent = ReturnType<typeof event>;

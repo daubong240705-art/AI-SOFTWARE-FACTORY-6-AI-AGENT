@@ -12,6 +12,7 @@ import Database from "better-sqlite3";
 import { openStorage } from "../dist/storage/database.js";
 import { API_VERSION } from "@factory/contracts";
 import { parseEnv, startHost } from "../dist/host.js";
+import { docWorkerConfig } from "../dist/documents/config.js";
 import { createFakeGateway } from "../dist/models/index.js";
 import { loadPack, findLeadSeat, getActiveEngagement } from "../dist/org/index.js";
 import { createCommandPipeline } from "../dist/commands/pipeline.js";
@@ -103,7 +104,7 @@ test("host backfills existing artifact versions when upgrading from schema three
   const host = await launch(t, stateDir);
   const deadline = Date.now() + 5000;
   while (host.knowledge.stats().missing && Date.now() < deadline) await new Promise((done) => setImmediate(done));
-  assert.equal(host.storage.raw.prepare("SELECT MAX(version) AS version FROM migration_ledger").get().version, 21);
+  assert.equal(host.storage.raw.prepare("SELECT MAX(version) AS version FROM migration_ledger").get().version, 23);
   assert.equal(host.knowledge.stats().missing, 0);
   for (const query of ["thiet ke", "searchablebodymarker"]) {
     const rows = host.knowledge.search({ projectId, teamId: null, viewer: "operator" }, query);
@@ -405,17 +406,17 @@ test("pending migration backs up the existing database before applying the new f
   await first.close();
   const customMigrations = join(dir, "migrations");
   cpSync(migrationsDir, customMigrations, { recursive: true });
-  writeFileSync(join(customMigrations, "0022_marker.sql"), "CREATE TABLE migration_marker (id INTEGER PRIMARY KEY) STRICT;\n");
+  writeFileSync(join(customMigrations, "0024_marker.sql"), "CREATE TABLE migration_marker (id INTEGER PRIMARY KEY) STRICT;\n");
   const backupDir = join(dir, "saved-backups");
   const second = await launch(t, stateDir, { migrationsDir: customMigrations, backupDir });
-  assert.deepEqual(second.storage.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }, { version: 14 }, { version: 15 }, { version: 16 }, { version: 17 }, { version: 18 }, { version: 19 }, { version: 20 }, { version: 21 }, { version: 22 }]);
+  assert.deepEqual(second.storage.raw.prepare("SELECT version FROM migration_ledger ORDER BY version").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }, { version: 14 }, { version: 15 }, { version: 16 }, { version: 17 }, { version: 18 }, { version: 19 }, { version: 20 }, { version: 21 }, { version: 22 }, { version: 23 }, { version: 24 }]);
   const backups = readdirSync(backupDir);
   assert.equal(backups.length, 1);
-  assert.match(backups[0], /^pre-migration-0022-.*\.db$/);
+  assert.match(backups[0], /^pre-migration-0024-.*\.db$/);
   const backup = new Database(join(backupDir, backups[0]), { readonly: true });
   try {
     assert.equal(backup.prepare("SELECT id FROM projects WHERE id = ?").get(c.projectId).id, c.projectId);
-    assert.deepEqual(backup.prepare("SELECT version FROM migration_ledger").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }, { version: 14 }, { version: 15 }, { version: 16 }, { version: 17 }, { version: 18 }, { version: 19 }, { version: 20 }, { version: 21 }]);
+    assert.deepEqual(backup.prepare("SELECT version FROM migration_ledger").all(), [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }, { version: 9 }, { version: 10 }, { version: 11 }, { version: 12 }, { version: 13 }, { version: 14 }, { version: 15 }, { version: 16 }, { version: 17 }, { version: 18 }, { version: 19 }, { version: 20 }, { version: 21 }, { version: 22 }, { version: 23 }]);
     assert.equal(backup.prepare("SELECT name FROM sqlite_master WHERE name = ?").get("migration_marker"), undefined);
   } finally { backup.close(); }
 });
@@ -457,10 +458,10 @@ test("migration failure closes storage and allows a corrected restart", async (t
   const stateDir = join(dir, "state");
   const customMigrations = join(dir, "migrations");
   cpSync(migrationsDir, customMigrations, { recursive: true });
-  writeFileSync(join(customMigrations, "0022_broken.sql"), "invalid SQL;");
+  writeFileSync(join(customMigrations, "0024_broken.sql"), "invalid SQL;");
   let calls = 0;
   await assert.rejects(startHost({ stateDir, port: 0, migrationsDir: customMigrations,
-    onBootstrapToken() { calls++; } }), /migration 22 .* failed/);
+    onBootstrapToken() { calls++; } }), /migration 24 .* failed/);
   assert.equal(calls, 0);
   const next = await launch(t, stateDir);
   assert.equal(next.storage.raw.open, true);
@@ -515,14 +516,14 @@ test("parseEnv defaults are an absolute home state directory and port 8787", () 
     worktreesRoot: join(homedir(), 'factory-v2', 'worktrees'),
   }, periodicBackup: {
     dir: existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(stateDir, "backups", "periodic"), intervalMs: 3_600_000,
-  } });
+  }, documents: { maxBytes: 26_214_400, quotaBytes: 2_147_483_648 }, docWorker: docWorkerConfig({}) });
 });
 
 test("parseEnv accepts state, backup, and integer port overrides", () => {
   assert.deepEqual(parseEnv({ FACTORY_STATE_DIR: "/state", FACTORY_PORT: "12345", FACTORY_BACKUP_DIR: "/backup",
     FACTORY_MIGRATION_BACKUP_DIR: "/migration", FACTORY_BACKUP_INTERVAL_MINUTES: "30" }),
     { stateDir: "/state", port: 12345, multiTeam: false, pushRemotes: null, dispatch: { nodeSlots: 2 }, workspace: parseEnv({}).workspace,
-      backupDir: "/migration", periodicBackup: { dir: "/backup", intervalMs: 1_800_000 } });
+      backupDir: "/migration", periodicBackup: { dir: "/backup", intervalMs: 1_800_000 }, documents: { maxBytes: 26_214_400, quotaBytes: 2_147_483_648 }, docWorker: docWorkerConfig({}) });
   assert.equal(parseEnv({ FACTORY_PORT: "1" }).port, 1);
   assert.equal(parseEnv({ FACTORY_PORT: "65535" }).port, 65535);
 });
@@ -968,11 +969,25 @@ nodeTest("opencode entrypoint refuses an unavailable sandbox before opening host
 });
 
 
+test("folder browse needs a session, starts at the Host user's home and refuses other places",async(t)=>{
+  const host=await launch(t,undefined,{dispatch:null}); const session=await bootstrap(host);
+  assert.equal((await fetch(`${host.origin}/system/browse`)).status,401);
+  const ok=await fetch(`${host.origin}/system/browse`,{headers:{cookie:session.cookie}}); assert.equal(ok.status,200);
+  const body=await ok.json(); assert.equal(body.ok,true); assert.equal(body.parent,null); assert.ok(Array.isArray(body.entries));
+  assert.equal(body.entries.every(entry=>typeof entry.name==="string"&&typeof entry.isGit==="boolean"),true);
+  const get=(path)=>fetch(`${host.origin}/system/browse?path=${encodeURIComponent(path)}`,{headers:{cookie:session.cookie}});
+  assert.equal((await get(`${homedir()}/../..`)).status,400);
+  assert.equal((await get(process.platform==="win32"?"C:\\Windows":"/etc")).status,403);
+  assert.equal((await get("relative")).status,400);
+  assert.equal(JSON.stringify(body).includes("token"),false);
+});
 test("host advertises and executes all document lifecycle commands",async(t)=>{
   const host=await launch(t,undefined,{dispatch:null}); const session=await bootstrap(host); const project=command();
   assert.equal((await postCommand(host,session,project)).status,200);
   const response=await fetch(`${host.origin}/system/capabilities`,{headers:{cookie:session.cookie}}); const capabilities=await response.json();
   for(const type of ["artifacts.transition","artifacts.share","artifacts.clear-stale"]) assert.ok(capabilities.commands.includes(type));
+  assert.match(capabilities.host.nodeVersion,/^v\d+\./); assert.match(capabilities.host.startedAt,/^\d{4}-\d\d-\d\dT/); assert.equal(capabilities.features.dispatch,false);
+  assert.equal(typeof capabilities.features.multiTeam,"boolean"); assert.equal(typeof capabilities.features.documentExtraction,"boolean"); assert.equal(JSON.stringify(capabilities).includes(process.cwd().replaceAll("\\","\\\\")),false);
   const artifactId=randomUUID(); const raw=host.storage.raw;
   raw.prepare(`INSERT INTO artifact_versions (project_id,artifact_id,version,kind,title,media_type,content_hash,size_bytes,status,
     abstract_l0,visibility,created_at) VALUES (?,?,1,'other','Document','text/plain',?,1,'reviewed','Abstract','team-draft',?)`)

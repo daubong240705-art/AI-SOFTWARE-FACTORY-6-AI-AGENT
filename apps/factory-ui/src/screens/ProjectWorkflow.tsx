@@ -1,52 +1,52 @@
-import { useEffect, useId, useState } from 'react';
-import { useT } from '../i18n';
-import { relativeTime } from './Inbox';
-import { M5ReadState, M5Status } from './M5Shared';
-import type { Store } from '../state/store';
+import { useEffect, useState } from 'react';
+import { Plus, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription } from '@/components/ui/empty';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Page } from '@/components/Page';
+import { useT } from '@/i18n';
+import type { Store } from '@/state/store';
+import { M5ReadState } from './M5Shared';
+import { InstanceChooser } from './workflow/InstanceChooser';
+import { WorkflowDiagram } from './workflow/WorkflowDiagram';
+import { WorkflowList } from './workflow/WorkflowList';
+import { InstanceControls } from './workflow/InstanceControls';
+import { CreateWorkflow } from './workflow/CreateWorkflow';
+import { useLiveRuns } from './workflow/useLiveRuns';
+import { WorkflowLiveChip } from './workflow/WorkflowLiveChip';
 
 export function ProjectWorkflow({ store, projectId, onOpenTask }: { store: Store; projectId: string; onOpenTask?: (taskId: string) => void }) {
-  const t = useT(); const state = store.useStoreSelector(s => s); const id = useId();
-  const [selected, setSelected] = useState<string | null>(null);
+  const t = useT(); const state = store.useStoreSelector(value => value); const [view, setView] = useState('diagram'); const [selected, setSelected] = useState<string | null>(null);
+  const [stageSelection, setStageSelection] = useState<{ instanceId: string; key: string } | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   useEffect(() => store.watchM5('workflows', store.loadWorkflows), [store, projectId]);
-  const selectedItem = state.m5.workflows.find(item => item.id === selected);
-  const detail = selectedItem ? state.m5.workflowDetails[selectedItem.id] : undefined;
-  return <div className="m5-screen">
-    <header className="m5-toolbar"><h2>{t('workflowUi.title')}</h2><button type="button" disabled={state.loading.workflows} onClick={() => void store.loadWorkflows()}>{t('m5Ui.refresh')}</button></header>
-    <div className={`workflow-layout${selectedItem ? ' has-selection' : ''}`}>
-      <section className="m5-list" aria-label={t('workflowUi.list')}>
-        <M5ReadState store={store} area="workflows" retry={store.loadWorkflows} empty={!state.m5.workflows.length} emptyKey="workflowUi.empty" />
-        <ul>{state.m5.workflows.map(item => {
-          const info = state.m5.workflowDetails[item.id];
-          const current = info?.stages.filter(stage => stage.state === 'active');
-          const loops = info?.stages.filter(stage => stage.loopCount !== undefined);
-          const at = info?.lastProgressAt ?? item.createdAt;
-          return <li key={item.id}><button type="button" className="m5-row" aria-current={selected === item.id} aria-controls={`${id}-detail`} onClick={() => {
-            setSelected(item.id); if (!info) void store.loadWorkflow(item.id);
-          }}>
-            <strong>{item.title}</strong><M5Status value={item.state} />
-            {!!current?.length && <span>{t('workflowUi.currentStage')}: {current.map(stage => stage.key).join(', ')}</span>}
-            {!!loops?.length && <span>{t('workflowUi.loop')}: {Math.max(...loops.map(stage => stage.loopCount ?? 0))}</span>}
-            <time dateTime={at}>{relativeTime(at)}</time>
-          </button></li>;
-        })}</ul>
-      </section>
-      {selectedItem && <section className="m5-detail" id={`${id}-detail`} aria-label={t('workflowUi.detail')}>
-        <header className="m5-toolbar"><h2>{selectedItem.title}</h2><button type="button" onClick={() => setSelected(null)}>{t('m5Ui.close')}</button></header>
-        <M5ReadState store={store} area={`workflow:${selectedItem.id}`} retry={() => store.loadWorkflow(selectedItem.id)} />
-        {detail && <>
-          <ol className="workflow-stages" aria-label={t('workflowUi.stages')}>{detail.stages.map(stage => <li key={stage.key}>
-            <strong>{stage.key}</strong><M5Status value={stage.state} />
-            {stage.loopCount !== undefined && <span>{t('workflowUi.loop')}: {stage.loopCount}</span>}
-            {stage.iteration !== undefined && stage.iteration > 1 && <span>{t('workflowUi.iteration')}: {stage.iteration}</span>}
-            {stage.tasks.length > 0 && <div className="m5-task-links">{stage.tasks.map(task => onOpenTask
-              ? <button type="button" key={task.taskId} className="m5-task-code" onClick={() => onOpenTask(task.taskId)}>{task.code}</button>
-              : <span key={task.taskId} className="m5-task-code">{task.code}</span>)}</div>}
-            {stage.blockedReason && <details><summary>{t('m5Ui.technicalDetails')}</summary><p>{stage.blockedReason}</p></details>}
-          </li>)}</ol>
-          {!detail.stages.length && <p className="m5-empty">{t('workflowUi.noStages')}</p>}
-          <details><summary>{t('m5Ui.technicalDetails')}</summary><dl><dt>{t('m5Ui.identifier')}</dt><dd>{detail.id}</dd><dt>{t('workflowUi.definition')}</dt><dd>{detail.key}</dd></dl></details>
-        </>}
-      </section>}
-    </div>
-  </div>;
+  const instances = state.m5.workflows; const instance = instances.find(item => item.id === selected) ?? instances[0]; const detail = instance ? state.m5.workflowDetails[instance.id] : undefined;
+  const liveRuns = useLiveRuns(store, projectId, view === 'diagram' && !!detail?.graph?.stages.length);
+  const selectedStage = stageSelection?.instanceId === detail?.id ? stageSelection?.key ?? null : null;
+  const selectStage = (key: string | null) => setStageSelection(key && detail ? { instanceId: detail.id, key } : null);
+  const create = <Button type="button" disabled={state.session !== 'authenticated'} onClick={() => setCreateOpen(true)}><Plus />{t('workflowGraph.create')}</Button>;
+  return <Page className="min-w-0 space-y-3 py-4">
+    <header className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2">
+      {view === 'diagram' && instance ? <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3"><InstanceChooser instances={instances} selected={instance.id} onSelect={id => { setSelected(id); setStageSelection(null); }} />{detail && <InstanceControls key={detail.id} store={store} projectId={projectId} instance={detail} liveChip={<WorkflowLiveChip detail={detail} liveRuns={liveRuns} onSelectStage={selectStage} />} />}</div>
+        : <h2 className="min-w-0 flex-1 font-display text-xl font-semibold">{t('workflowUi.title')}</h2>}
+      <div className="ml-auto flex items-center gap-2">
+        <ToggleGroup type="single" value={view} onValueChange={value => { if (value) { setView(value); setStageSelection(null); } }} variant="outline" size="sm" aria-label={t('workflowGraph.views')} className="rounded-full">
+          <ToggleGroupItem value="diagram" className="!rounded-l-full">{t('workflowGraph.diagram')}</ToggleGroupItem>
+          <ToggleGroupItem value="list" className="!rounded-r-full">{t('workUi.list')}</ToggleGroupItem>
+        </ToggleGroup>
+        <Button type="button" variant="outline" size="icon" aria-label={t('m5Ui.refresh')} title={t('m5Ui.refresh')} disabled={state.loading.workflows} onClick={() => void store.loadWorkflows()}><RefreshCw /></Button>
+        {create}
+      </div>
+    </header>
+    {view === 'list' ? <WorkflowList store={store} onOpenTask={onOpenTask} /> : <>
+      <M5ReadState store={store} area="workflows" retry={store.loadWorkflows} />
+      {!instances.length && !state.loading.workflows && !state.errors.workflows && <Empty className="min-h-[480px] rounded-xl border border-border bg-card"><EmptyDescription>{t('workflowUi.empty')}</EmptyDescription>{create}</Empty>}
+      {instance && <div className="space-y-3">
+        <M5ReadState store={store} area={`workflow:${instance.id}`} retry={() => store.loadWorkflow(instance.id)} />
+        {detail && <WorkflowDiagram key={detail.id} store={store} projectId={projectId} detail={detail} liveRuns={liveRuns} selectedStage={selectedStage} onSelectStage={selectStage} onOpenTask={onOpenTask} />}
+      </div>}
+    </>}
+    {createOpen && <CreateWorkflow key={projectId} store={store} projectId={projectId} onClose={() => setCreateOpen(false)}
+      onCreated={instanceId => { setSelected(instanceId); setView('diagram'); setCreateOpen(false); }} />}
+  </Page>;
 }

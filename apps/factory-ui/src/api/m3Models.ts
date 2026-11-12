@@ -12,7 +12,9 @@ export const requestStates = [...new Set([...triageStates, ...taskSchema.shape.s
 const seat = o.extend({ id: idSchema, name: s, role: s, slots: n.positive(), revision: n.positive(), isLead: bool, live: n, capabilities: s.array().optional(), tools: s.array().optional() }).loose();
 const engagement = o.extend({ projectId: idSchema, projectName: s, engagementId: idSchema, priority: n.max(100), maxConcurrent: n.positive().max(32), state: en(['active', 'paused', 'ended'] as const), revision: n.positive(), live: n }).loose();
 const team = o.extend({ id: idSchema, name: s, charter: s, packKey: s.nullable(), packVersion: s.nullable(), lifecycle: en(['active', 'paused', 'archived'] as const), revision: n.positive(), seats: seat.array(), engagements: engagement.array() }).loose();
-const pack = o.extend({ key: s, version: s, name: s, description: s, seatCount: n, seats: o.extend({ name: s }).loose().array() }).loose();
+const pack = o.extend({ key: s, version: s, name: s, description: s.catch(''), seatCount: n.catch(0), seats: o.extend({ name: s }).loose().array().catch([]),
+  produces: s.array().catch([]), workflows: o.loose().or(s).array().catch([]),
+}).loose();
 const queue = o.extend({ projectId: idSchema, projectName: s, taskId: idSchema, code: s, title: s, state: taskSchema.shape.state, engagementPriority: n, queuedAt: date.nullable(), seatName: s.nullable(), liveAttemptState: s.nullable() }).loose();
 export const requestItemSchema = o.extend({ taskId: idSchema, code: s, kind: en(['clarify','consult','produce','review','decision','notify'] as const), subject: s, taskState: taskSchema.shape.state, triageState: en(triageStates), targetTeamName: s, hop: n, rounds: n, waiting: n, requesterCode: s, createdAt: date, projectId: idSchema.optional(), projectName: s.optional() }).loose();
 const request = o.extend({ requestId: idSchema, code: s, kind: s, subject: s, state: taskSchema.shape.state, triageState: en(triageStates), rounds: n, hop: n, followers: n, waiting: n,

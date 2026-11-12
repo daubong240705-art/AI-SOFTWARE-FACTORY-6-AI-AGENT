@@ -56,6 +56,8 @@ import { parsePushRemotes, validatePushSshCommand, type PushRemote } from "./eff
 import { createEffectExecutor, type EffectExecutor } from "./effects/executor.js";
 import { createKnowledgeIndex, type KnowledgeIndex } from "./knowledge/index.js";
 import { registerKnowledgeRoutes } from "./knowledge/routes.js";
+import { registerDocumentRoutes } from "./artifacts/routes.js";
+import { DEFAULT_DOCUMENT_CONFIG, type DocumentConfig } from "./artifacts/limits.js";
 import { createKnowledgeMcp } from "./knowledge/mcp.js";
 import { createKnowledgeHandlers, withKnowledgeEffects } from "./knowledge/commands.js";
 import { collectLifecycleChanges } from "./knowledge/lifecycle.js";
@@ -68,6 +70,9 @@ import { createSkillsMcp } from "./instructions/mcp.js";
 import { createToolPolicy } from "./mcp/policy.js";
 import { loadMcpServers, parseMcpServers, type McpServersConfig } from "./mcp-external/config.js";
 import { createExternalTools, type ExternalTools } from "./mcp-external/index.js";
+import { docWorkerConfig, type DocWorkerConfig } from "./documents/config.js";
+import { createExtractionService, type ExtractionService } from "./documents/service.js";
+import { registerExtractionRoutes } from "./documents/routes.js";
 
 function proxySocketPath(path: string): string {
   try {
@@ -98,6 +103,8 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   multiTeam: boolean;
   stateDir: string; port: number; backupDir?: string;
   periodicBackup: { dir: string; intervalMs: number };
+  documents: DocumentConfig;
+  docWorker: DocWorkerConfig;
   dispatch: { nodeSlots: number };
   workspace: { projectsRoot: string; worktreesRoot: string };
   agentProxy?: { port: number; approvedModels: string[]; socketPath?: string };
@@ -119,6 +126,14 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   const slots = env.FACTORY_NODE_SLOTS ?? "2";
   if (!/^[0-9]+$/.test(slots) || !Number.isSafeInteger(Number(slots)) || Number(slots) < 1 || Number(slots) > 16)
     throw new Error("FACTORY_NODE_SLOTS must be an integer from 1 to 16");
+  const documentNumber = (name: string, value: string | undefined, fallback: number, min: number, max: number): number => {
+    const input = value ?? String(fallback);
+    if (!/^[0-9]+$/.test(input) || !Number.isSafeInteger(Number(input)) || Number(input) < min || Number(input) > max)
+      throw new Error(`${name} must be an integer from ${min} to ${max}`);
+    return Number(input);
+  };
+  const documentMaxBytes = documentNumber("FACTORY_DOC_MAX_BYTES", env.FACTORY_DOC_MAX_BYTES, 25 * 1024 * 1024, 1024 * 1024, 100 * 1024 * 1024);
+  const documentQuotaBytes = documentNumber("FACTORY_DOC_QUOTA_BYTES", env.FACTORY_DOC_QUOTA_BYTES, 2 * 1024 * 1024 * 1024, 1, Number.MAX_SAFE_INTEGER);
   const runtime = env.FACTORY_RUNTIME ?? "fake";
   if (runtime !== "fake" && runtime !== "opencode") throw new Error("unsupported runtime");
   let opencode: { dir: string } | undefined;
@@ -183,6 +198,8 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
       dir: env.FACTORY_BACKUP_DIR ?? (existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(stateDir, "backups", "periodic")),
       intervalMs: Number(minutes) * 60_000,
     },
+    documents: { maxBytes: documentMaxBytes, quotaBytes: documentQuotaBytes },
+    docWorker: docWorkerConfig(env),
   };
 }
 
@@ -206,6 +223,8 @@ export async function startHost(options: {
   mcpServers?: McpServersConfig;
   multiTeam?: boolean; packsDir?: string;
   contentDir?: string;
+  documents?: DocumentConfig;
+  docWorker?: DocWorkerConfig;
   pushRemotes?: PushRemote[] | null;
   pushSshCommand?: string;
   monitorStatfs?: MonitorDeps["statfs"];
@@ -269,6 +288,7 @@ export async function startHost(options: {
   let monitorTick: Promise<void> | undefined;
   let ruleDeps: RuleDeps | undefined;
   let knowledgeTimer: ReturnType<typeof setImmediate> | undefined;
+  let extractions: ExtractionService | undefined;
   const interval = options.timers?.setInterval ?? ((callback: () => void, ms: number) => setInterval(callback, ms).unref());
   const clearExpiry = options.timers?.clearInterval ?? ((handle: unknown) => clearInterval(handle as ReturnType<typeof setInterval>));
   let closePromise: Promise<void> | undefined;
@@ -278,6 +298,7 @@ export async function startHost(options: {
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
       if (scheduleTimer !== undefined) { clearExpiry(scheduleTimer); scheduleTimer = undefined; }
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
+      await extractions?.close();
       await effects?.close();
       try { await runner?.stop(); } finally {
         try {
@@ -368,10 +389,16 @@ export async function startHost(options: {
     sweepApprovals();
     await monitorTick;
     expiryTimer = interval(() => { try { sweepApprovals(); } catch { console.error("Approval expiry failed"); } }, 60_000);
-    const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content") }) };
+    const documentConfig = options.documents ?? DEFAULT_DOCUMENT_CONFIG;
+    const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content"), maxObjectBytes: Math.max(8 * 1024 * 1024, documentConfig.maxBytes) }) };
     const knowledge = createKnowledgeIndex({ raw: storage.raw, store: artifacts.store });
+    const extraction = createExtractionService({ raw: storage.raw, store: artifacts.store, knowledge, now: clock,
+      ...(options.docWorker === undefined ? {} : { config: options.docWorker }) });
+    extractions = extraction;
+    extraction.recover();
     const afterRegister = (ref: { projectId: string; artifactId: string; version: number }): void => {
       knowledge.indexVersion(ref.projectId, ref.artifactId, ref.version);
+      extraction.enqueue(ref.projectId, ref.artifactId, ref.version);
     };
     const backfill = (): void => {
       knowledgeTimer = undefined;
@@ -415,7 +442,7 @@ export async function startHost(options: {
         skills: createSkillsMcp({ raw, now: clock }),
         ...(options.multiTeam ? { briefing: createBriefingMcp({ raw,store: artifacts.store,now: clock }) } : {}),
         ...(options.multiTeam ? { requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }) } : {}),
-        knowledge: createKnowledgeMcp({ raw, knowledge, now: clock }),
+        knowledge: createKnowledgeMcp({ raw, knowledge, store: artifacts.store, now: clock }),
         requestDecision(grant, request) {
           const result = requestAgentDecision({ raw, hub, now: clock, newId: resultId }, { grant, request });
           // The synchronous tool result is serialized before this deferred stop fences its session.
@@ -429,7 +456,7 @@ export async function startHost(options: {
         registerOutput(grant, input) {
           return hub.transaction(() => {
             const { result: ref, effects: changes } = collectLifecycleChanges(raw, () => registerAgentOutput(
-              { raw, store: artifacts.store, now: clock, newId: resultId, afterRegister }, { ...input, grant }));
+              { raw, store: artifacts.store, now: clock, newId: resultId, afterRegister, documents: documentConfig }, { ...input, grant }));
             for (const entity of changes) hub.append({ projectId: grant.projectId, causationId: grant.attemptId,
               rootCausationId: grant.attemptId, payload: { type: "entity.changed", entity } });
             hub.append({ projectId: grant.projectId, causationId: grant.attemptId, rootCausationId: grant.attemptId,
@@ -564,7 +591,10 @@ export async function startHost(options: {
     });
     app = createApiServer({ origins, gate, sessions, clock, register(app, guards) {
       routes(app, guards);
-      registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge });
+      registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store });
+      registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });
+      registerExtractionRoutes(app, guards, extraction);
+      const hostStartedAt = clock().toISOString();
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
         apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set",
           "dossier.refresh",
@@ -579,6 +609,9 @@ export async function startHost(options: {
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],
         capabilities: ["inbox", "approvals.review"],
+        // Read-only facts for the operator's System page; no paths, tokens or environment values.
+        host: { startedAt: hostStartedAt, nodeVersion: process.version, platform: process.platform },
+        features: { multiTeam: options.multiTeam === true, dispatch: dispatch !== null, documentExtraction: options.docWorker?.enabled ?? true },
       }));
       if (options.uiDir) registerStaticUi(app, { dir: options.uiDir });
     } });
