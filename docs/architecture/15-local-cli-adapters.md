@@ -67,8 +67,8 @@ Theo hợp đồng "không dựa vào git remote" của Paperclip: Host gửi **
 ### 3.6 Hồ sơ, kỹ năng, công cụ Factory
 Hồ sơ và kỹ năng của gói đội (đã ghim bằng mã băm) được ghi vào thư mục chạy của CLI (`AGENTS.md` / `CLAUDE.md` và thư mục kỹ năng) ở **thư mục chạy tạm, không phải trong repo**. Công cụ MCP của Factory (tiến độ, đăng ký đầu ra, tri thức, yêu cầu) được CLI gọi qua một cầu nối cục bộ trên node chuyển về Host bằng mã thông báo của attempt (như attempt OpenCode hiện nay).
 
-### 3.7 Song song
-Mỗi node khai báo số slot. Với kiểu `chatgpt-login` và `cli-login`: **slot mặc định là 1** vì một đăng nhập thuê bao có mã làm mới xoay vòng dùng chung. Muốn chạy song song nhiều agent: chuyển sang khóa API cho từng agent, như khuyến nghị của Paperclip.
+### 3.7 Song song (đã chỉnh 12/11/2026 theo yêu cầu linh hoạt)
+Không đặt trần riêng cho từng CLI. Nhiều agent Codex hoặc Claude chạy cùng lúc trên một máy là bình thường vì chúng **dùng chung một thư mục đăng nhập** (có khóa tệp khi làm mới). Giới hạn "một đăng nhập một agent" của Paperclip chỉ áp dụng khi *chép* `auth.json` sang nhiều sandbox hoặc máy khác nhau, nên không áp dụng cho adapter cục bộ này. Số agent chạy cùng lúc do số slot của máy (mặc định tính theo lõi CPU và RAM, tối đa 16, chỉnh bằng `--slots`), số suất của vị trí và mức đồng thời của đội quyết định. Điều thật sự giới hạn là **hạn mức của gói thuê bao** (tính chung cho mọi cửa sổ cùng tài khoản): khi chạm trần, adapter phân loại lỗi `quota-exhausted`, dừng việc và báo cho người dùng, không thử lại mù. Khi chạy rất nhiều agent song song nên cân nhắc khóa API.
 
 ## 4. Lát việc đề xuất (M4-A)
 

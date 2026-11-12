@@ -111,7 +111,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   periodicBackup: { dir: string; intervalMs: number };
   documents: DocumentConfig;
   docWorker: DocWorkerConfig;
-  dispatch: { nodeSlots: number };
+  dispatch: { nodeSlots: number; defaultAgentCli?: "codex" | "claude" };
   workspace: { projectsRoot: string; worktreesRoot: string };
   agentProxy?: { port: number; approvedModels: string[]; socketPath?: string };
   localCli: boolean;
@@ -133,6 +133,9 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
     throw new Error("FACTORY_BACKUP_INTERVAL_MINUTES must be an integer from 1 to 1440");
   const stateDir = env.FACTORY_STATE_DIR ?? join(homedir(), "factory-v2", "state");
   const slots = env.FACTORY_NODE_SLOTS ?? "2";
+  const defaultAgentCli = env.FACTORY_DEFAULT_AGENT_CLI === undefined || env.FACTORY_DEFAULT_AGENT_CLI === "" ? undefined : env.FACTORY_DEFAULT_AGENT_CLI;
+  if (defaultAgentCli !== undefined && defaultAgentCli !== "codex" && defaultAgentCli !== "claude") throw new Error("FACTORY_DEFAULT_AGENT_CLI must be codex or claude");
+  if (defaultAgentCli !== undefined && env.FACTORY_LOCAL_CLI !== "1") throw new Error("FACTORY_DEFAULT_AGENT_CLI needs FACTORY_LOCAL_CLI=1");
   if (!/^[0-9]+$/.test(slots) || !Number.isSafeInteger(Number(slots)) || Number(slots) < 1 || Number(slots) > 16)
     throw new Error("FACTORY_NODE_SLOTS must be an integer from 1 to 16");
   const documentNumber = (name: string, value: string | undefined, fallback: number, min: number, max: number): number => {
@@ -197,7 +200,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   return {
     ...(!env.FACTORY_MCP_SERVERS_FILE ? {} : { mcpServers: loadMcpServers(env.FACTORY_MCP_SERVERS_FILE) }),
     multiTeam: env.FACTORY_MULTI_TEAM === "1", localCli: env.FACTORY_LOCAL_CLI === "1",
-    stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots) }, workspace, pushRemotes,
+    stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots), ...(defaultAgentCli === undefined ? {} : { defaultAgentCli }) }, workspace, pushRemotes,
     ...(env.FACTORY_PUSH_SSH_COMMAND === undefined ? {} : { pushSshCommand: env.FACTORY_PUSH_SSH_COMMAND }),
     ...(opencode === undefined ? {} : { opencode }),
     ...(approvedModels === undefined ? {} : { agentProxy: { port: Number(proxyPort), approvedModels,

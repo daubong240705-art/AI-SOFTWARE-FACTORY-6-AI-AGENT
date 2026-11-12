@@ -10,7 +10,7 @@ export const systemModels = {
   capabilities: envelope.extend({
     commands: text.array().catch([]), capabilities: text.array().catch([]),
     host: object.extend({ startedAt: optionalText, nodeVersion: optionalText, platform: optionalText }).loose().optional().catch(undefined),
-    features: object.extend({ multiTeam: flag, dispatch: flag, documentExtraction: flag }).loose().optional().catch(undefined),
+    features: object.extend({ multiTeam: flag, dispatch: flag, documentExtraction: flag, localCli: flag }).loose().optional().catch(undefined),
   }).loose(),
   backups: envelope.extend({ backup: object.extend({
     lastSuccessAt: optionalText, lastError: optionalText, lastErrorAt: optionalText,

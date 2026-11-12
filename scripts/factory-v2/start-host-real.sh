@@ -6,6 +6,8 @@
 #   export NINE_ROUTER_API_KEY=...                       # only in this shell
 #   FACTORY_AGENT_MODELS=<model[,model]> bash scripts/factory-v2/start-host-real.sh
 #   bash scripts/factory-v2/start-host-real.sh --check   # verify prerequisites, start nothing, spend nothing
+#   bash scripts/factory-v2/start-host-real.sh --agents codex   # seats of the team run on the Codex CLI unless you configured them otherwise (or claude)
+#   bash scripts/factory-v2/start-host-real.sh --slots 8        # agents running at the same time (default: from cores and RAM)
 #   bash scripts/factory-v2/start-host-real.sh --local-cli  # enable local Codex/Claude attempts (full operator permissions)
 #
 # Optional: FACTORY_LEAD_MODEL, FACTORY_LEAD_EFFORT, FACTORY_MULTI_TEAM=1 (more than the default team),
@@ -15,13 +17,21 @@
 set -u
 ROOT="${FACTORY_V2_HOME:-$HOME/factory-v2}"
 CHECK=0
-for arg in "$@"; do
-  case "$arg" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --check) CHECK=1 ;;
     --local-cli) export FACTORY_LOCAL_CLI=1
       echo "WARNING: local CLI agents run with the operator's full permissions." >&2 ;;
-    *) echo "Usage: $0 [--check] [--local-cli]" >&2; exit 1 ;;
+    --agents) shift; case "${1:-}" in
+        codex|claude) export FACTORY_LOCAL_CLI=1 FACTORY_DEFAULT_AGENT_CLI="$1"
+          echo "WARNING: seats without an override run on the $1 CLI with the operator's full permissions." >&2 ;;
+        opencode) ;;
+        *) echo "--agents needs codex, claude or opencode" >&2; exit 1 ;;
+      esac ;;
+    --slots) shift; export FACTORY_NODE_SLOTS="${1:-}" ;;
+    *) echo "Usage: $0 [--check] [--local-cli] [--agents codex|claude|opencode] [--slots N]" >&2; exit 1 ;;
   esac
+  shift
 done
 fail=0
 ok()   { echo "  ok    $*"; }
@@ -73,6 +83,13 @@ export FACTORY_WORKTREES_ROOT="${FACTORY_WORKTREES_ROOT:-$ROOT/worktrees}"
 export FACTORY_PORT="${FACTORY_PORT:-8787}"
 export FACTORY_BUDGET_TASK_TOKENS="${FACTORY_BUDGET_TASK_TOKENS:-500000}"
 export FACTORY_BUDGET_DAY_TOKENS="${FACTORY_BUDGET_DAY_TOKENS:-2000000}"
+# Agent slots follow the hardware unless you set them: cores and about 1.2 GB of available RAM per agent, 2 to 16.
+if [ -z "${FACTORY_NODE_SLOTS:-}" ]; then
+  CORES="$(nproc 2>/dev/null || echo 2)"; MEM_MB="$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 2400)"
+  AUTO=$(( MEM_MB / 1200 )); [ "$CORES" -lt "$AUTO" ] && AUTO="$CORES"; [ "$AUTO" -lt 2 ] && AUTO=2; [ "$AUTO" -gt 16 ] && AUTO=16
+  export FACTORY_NODE_SLOTS="$AUTO"
+fi
+echo "Agent slots: $FACTORY_NODE_SLOTS (override with --slots N or FACTORY_NODE_SLOTS)."
 echo "Starting on http://127.0.0.1:${FACTORY_PORT}/ (loopback only). Budget: ${FACTORY_BUDGET_TASK_TOKENS} tokens/task, ${FACTORY_BUDGET_DAY_TOKENS}/day."
 echo "The one-time sign-in token is printed below; stop with Ctrl+C."
 exec node "$ROOT/app/apps/factory-host/dist/main.js"

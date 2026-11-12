@@ -8,9 +8,11 @@ import { attentionHash } from '../../Attention';
 import { activityTime, dotClass } from './presentation';
 import { RunContext } from './RunContext';
 import { StatusPill } from './StatusPill';
+import type { Store } from '@/state/store';
+import { SeatRuntimeBadge } from '@/components/agent-config/SeatRuntimeBadge';
 
 export type OpenActivityTask = (projectId: string, taskId: string) => void;
-export function AgentRow({ seat, now, onTask }: { seat: ActivitySeat; now: number; onTask: OpenActivityTask }) {
+export function AgentRow({ store, seat, now, onTask }: { store: Store; seat: ActivitySeat; now: number; onTask: OpenActivityTask }) {
   const t = useT(); const run = seat.runs[0];
   const open = () => { if (run) onTask(run.projectId, run.taskId); };
   const context = seat.status === 'queued' ? t('activityUi.queuedWork').replace('{count}', String(seat.queued))
@@ -25,7 +27,7 @@ export function AgentRow({ seat, now, onTask }: { seat: ActivitySeat; now: numbe
         <AvatarBadge className={cn('top-0 bottom-auto size-2.5 text-foreground ring-card', dotClass[seat.status])} />
       </Avatar>} />
       <div className="min-w-0 space-y-1">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5"><span className="text-sm font-medium [overflow-wrap:anywhere]">{seat.name}</span><span className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{seat.role}</span></div>
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5"><span className="text-sm font-medium [overflow-wrap:anywhere]">{seat.name}</span><span className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{seat.role}</span><SeatRuntimeBadge store={store} seatId={seat.id} /></div>
         {run ? <RunContext run={run} /> : <p className="text-xs text-muted-foreground">{context}</p>}
       </div>
       <StatusPill status={seat.status} />

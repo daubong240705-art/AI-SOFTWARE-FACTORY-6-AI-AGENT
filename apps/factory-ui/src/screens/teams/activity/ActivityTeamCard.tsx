@@ -8,9 +8,10 @@ import { cn } from '@/lib/utils';
 import type { ActivityNode, ActivityTeam } from '@/api/activityModels';
 import { AgentRow, type OpenActivityTask } from './AgentRow';
 import { dotClass } from './presentation';
+import type { Store } from '@/state/store';
 
-export function ActivityTeamCard({ team, nodes, onlyMine, now, onTask }: {
-  team: ActivityTeam; nodes: ActivityNode[]; onlyMine: boolean; now: number; onTask: OpenActivityTask;
+export function ActivityTeamCard({ store, team, nodes, onlyMine, now, onTask }: {
+  store: Store; team: ActivityTeam; nodes: ActivityNode[]; onlyMine: boolean; now: number; onTask: OpenActivityTask;
 }) {
   const t = useT();
   const seats = team.seats.filter(seat => !onlyMine || seat.status === 'waiting').sort((a, b) => Number(b.isLead) - Number(a.isLead));
@@ -33,7 +34,7 @@ export function ActivityTeamCard({ team, nodes, onlyMine, now, onTask }: {
     </CardHeader>
     <CardContent className="min-w-0 px-3 py-2">
       {!seats.length && <MascotEmpty seat="Lead" compact><p className="px-2 py-4 text-sm text-muted-foreground">{t('team.emptySeats')}</p></MascotEmpty>}
-      <Stagger className="m-0 list-none p-0">{seats.map((seat, index) => <StaggerItem key={seat.id} index={index} className={cn(!seat.isLead && hasLead && 'ml-5 border-l-2 border-border pl-4')}><AgentRow seat={seat} now={now} onTask={onTask} /></StaggerItem>)}</Stagger>
+      <Stagger className="m-0 list-none p-0">{seats.map((seat, index) => <StaggerItem key={seat.id} index={index} className={cn(!seat.isLead && hasLead && 'ml-5 border-l-2 border-border pl-4')}><AgentRow store={store} seat={seat} now={now} onTask={onTask} /></StaggerItem>)}</Stagger>
     </CardContent>
   </Card>;
 }

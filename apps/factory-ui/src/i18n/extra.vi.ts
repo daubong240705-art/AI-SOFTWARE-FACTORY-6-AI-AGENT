@@ -2,6 +2,24 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  agentConfig: {
+    open: 'Cấu hình agent', description: 'Chọn cách agent này chạy công việc.', runtime: 'Môi trường chạy', packRuntime: 'Môi trường của gói',
+    runtimes: { inherit: 'Theo gói (mặc định)', 'native-opencode': 'OpenCode (khóa API, có sandbox, chạy song song được)', codex: 'Codex CLI (đăng nhập ChatGPT của máy)', claude: 'Claude Code CLI (đăng nhập Claude của máy)' },
+    cliDisabled: 'Chưa bật. Khởi động Host với --local-cli.', cliMissing: 'Chưa cài hoặc chưa đăng nhập trên máy Host',
+    installHint: 'Cài trong WSL rồi chạy {command}', model: 'Model', default: 'Mặc định', cliModelDefault: 'Để trống = model mặc định của CLI',
+    effort: 'Mức suy luận', claudeEffort: 'Claude Code tự chọn mức suy luận', permission: 'Chế độ quyền',
+    permissions: { autonomous: 'Tự chủ (không hỏi từng lệnh, toàn quyền trên máy)', 'workspace-write': 'Chỉ ghi trong thư mục dự án' },
+    warning: 'Agent chạy bằng CLI có toàn quyền như khi bạn tự mở nó trên máy này. Hãy chắc là bạn tin dự án.',
+    noProject: 'Tạo dự án để sửa cấu hình agent. Các tùy chọn hiện chỉ để xem.', save: 'Lưu', saved: 'Đã lưu cấu hình agent',
+    conflict: 'Cấu hình agent đã đổi, đã tải lại đội', invalid: 'Kiểm tra cấu hình agent và tên model.',
+    summary: '{name} sẽ chạy bằng {runtime}', inheritSummary: 'môi trường của gói ({runtime})', modelSummary: 'model {model}', effortSummary: 'mức {effort}',
+    permissionSummary: { autonomous: 'tự chủ', 'workspace-write': 'chỉ ghi trong thư mục dự án' },
+  },
+  agentClis: {
+    title: 'Công cụ agent trên máy', refresh: 'Kiểm tra lại', enabled: 'Đã bật', disabled: 'Chưa bật: khởi động Host với --local-cli',
+    loggedIn: 'Đã đăng nhập', notLoggedIn: 'Chưa đăng nhập', notInstalled: 'Chưa cài', unknown: 'Chưa rõ', unavailable: 'Chưa có thông tin trạng thái CLI.',
+    note: 'Codex và Claude Code chạy trên chính máy chạy Host (trong WSL), dùng đăng nhập thuê bao của bạn. Chạy được nhiều agent cùng lúc; các agent dùng chung hạn mức của gói.',
+  },
   planPatch: {
     stageForm: {
       add: 'Thêm bước', addAfter: 'Thêm bước mới sau bước này', addBefore: 'Thêm bước mới trước bước này', addToPatch: 'Thêm vào bản vá',

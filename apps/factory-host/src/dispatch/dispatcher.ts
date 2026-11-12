@@ -24,6 +24,8 @@ import { getSeatRuntimeConfig } from "../org/runtime-config.js";
 import { LOCAL_CLI_FAILURES } from "../runtimes/failures.js";
 
 export interface DispatcherConfig {
+  /** Seats without an override and whose pack declares OpenCode run on this local CLI (FACTORY_DEFAULT_AGENT_CLI). */
+  defaultAgentCli?: "codex" | "claude";
   nodeSlots: number; leaseMs: number; leaseRenewMs: number; leaseCheckMs: number; stopTimeoutMs: number;
   /** Collecting evidence (git add, diff, patch) can take long on big repositories: its own limit. */
   evidenceTimeoutMs: number;
@@ -88,9 +90,11 @@ export function createDispatcher(deps: {
   const newId = deps.newId ?? createIdGenerator(clock);
   const timers = deps.timers ?? defaultTimers;
   const config = { ...DEFAULT_DISPATCHER_CONFIG, ...deps.config };
-  for (const value of Object.values(config)) {
-    if (!Number.isSafeInteger(value) || value < 1) throw new Error("Invalid dispatcher configuration");
+  for (const [key, value] of Object.entries(config)) {
+    if (key === "defaultAgentCli") { if (value !== undefined && value !== "codex" && value !== "claude") throw new Error("Invalid dispatcher configuration"); continue; }
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) throw new Error("Invalid dispatcher configuration");
   }
+  const defaultAgentCli = config.defaultAgentCli;
   const live = new Map<string, Live>();
   const stops = new Map<string, Promise<AttemptRecord>>();
   const waiters = new Set<() => void>();
@@ -162,7 +166,8 @@ export function createDispatcher(deps: {
   };
   const create = (input: { projectId: string; taskId: string; seatId: string }): AttemptRecord => {
     const seat = raw.prepare("SELECT runtime FROM seats WHERE id = ?").get(input.seatId) as { runtime: RuntimeKind } | undefined;
-    const config = getSeatRuntimeConfig(raw, input.seatId);
+    const config = getSeatRuntimeConfig(raw, input.seatId) ?? (defaultAgentCli !== undefined && seat?.runtime === "native-opencode"
+      ? { runtime: "acp" as const, cli: defaultAgentCli, model: null, effort: null, permission: "autonomous" as const } : undefined);
     const runtime = config?.runtime ?? seat?.runtime ?? "fake";
     const provider = config?.cli === "codex" ? "codex-cli" : config?.cli === "claude" ? "claude-cli" : "fake";
     const a = createAttempt(raw, { ...input, id: newId(), runtime, provider,

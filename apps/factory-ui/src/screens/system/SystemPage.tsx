@@ -10,6 +10,7 @@ import { BackupCard } from './BackupCard';
 import { McpCard, PacksCard } from './CatalogCards';
 import { CommandsCard } from './CommandsCard';
 import { ModelsCard } from './ModelsCard';
+import { AgentClisCard } from './AgentClisCard';
 
 export function System({ store }: { store: Store }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
@@ -27,13 +28,19 @@ export function System({ store }: { store: Store }) {
     sync(); document.addEventListener('visibilitychange', sync);
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', sync); };
   }, [store, state.session]);
+  useEffect(() => {
+    if (state.session !== 'authenticated') return;
+    void store.loadAgentClis();
+    const timer = setInterval(() => { if (!document.hidden) void store.loadAgentClis(true); }, 30_000);
+    return () => clearInterval(timer);
+  }, [store, state.session]);
   return <Page className="min-w-0 space-y-6 px-6 2xl:px-6">
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div className="space-y-2"><h1 className="font-display text-[38px] leading-tight font-bold tracking-tight">{t('systemUi.title')}</h1>
         <p className="text-base text-muted-foreground">{t('systemUi.description')}</p></div>
-      <Button type="button" variant="ghost" disabled={busy} onClick={() => { setNow(Date.now()); void store.loadSystem(); }}><RefreshCw />{t('systemUi.refresh')}</Button>
+      <Button type="button" variant="ghost" disabled={busy} onClick={() => { setNow(Date.now()); void store.loadSystem(); void store.loadAgentClis(true); }}><RefreshCw />{t('systemUi.refresh')}</Button>
     </header>
-    <ModelsCard store={store} />
+    <div className="grid min-w-0 items-start gap-5 lg:grid-cols-2"><ModelsCard store={store} /><AgentClisCard store={store} /></div>
     <div className="grid min-w-0 items-start gap-5 lg:grid-cols-2">
       <HostCard store={store} now={now} /><BackupCard store={store} now={now} />
       <McpCard store={store} /><PacksCard store={store} />
