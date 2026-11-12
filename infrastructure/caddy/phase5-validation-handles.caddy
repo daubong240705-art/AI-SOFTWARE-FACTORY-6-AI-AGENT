@@ -1,8 +1,0 @@
-# Temporary synthetic staging health verification; production BFF routes stay in asf.caddy.
-# Insert these handles inside asf.lazy.local only for the Phase 5 isolated dev stack.
-handle_path /phase5-api/* {
-    reverse_proxy 192.168.1.60:18050
-}
-handle_path /validation/* {
-    reverse_proxy 192.168.1.14:18120
-}
