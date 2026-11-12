@@ -1,6 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { LIVE_ATTEMPT_STATES, type AttemptState } from "@factory/contracts";
 import { sanitizeAgentText } from "../mcp/security.js";
+import { meaningfulProgressSql } from "../dispatch/progress.js";
 import { listSeats } from "./service.js";
 import { listTeams } from "./views.js";
 
@@ -68,7 +69,7 @@ function attemptEvents(raw: Database, rows: LiveRow[]): Map<string, EventRow> {
     .map((row) => [row.projectId, row.attemptId]));
   const events = raw.prepare(`WITH latest AS (
     SELECT e.project_id, e.attempt_id, MIN(CASE WHEN e.kind = 'state' THEN e.seq END) AS firstState,
-      MAX(CASE WHEN e.kind = 'progress' THEN e.seq END) AS progress
+      MAX(CASE WHEN e.kind = 'progress' AND ${meaningfulProgressSql("e")} THEN e.seq END) AS progress
     FROM json_each(?) ref JOIN attempt_events e ON e.project_id = json_extract(ref.value, '$[0]')
       AND e.attempt_id = json_extract(ref.value, '$[1]') WHERE e.kind IN ('state','progress') GROUP BY e.project_id, e.attempt_id
     ) SELECT l.project_id AS projectId, l.attempt_id AS attemptId, s.at AS firstStateAt, p.at AS progressAt,

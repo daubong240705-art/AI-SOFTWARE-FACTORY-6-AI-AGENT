@@ -17,6 +17,5 @@ const effect = object.extend({
 // and future state/error values must not hide otherwise useful code activity.
 export const codeReadModels = {
   effects: object.extend({ effects: effect.array() }).strip(),
-  remotes: object.extend({ remotes: text.array() }).strip(),
 };
 export type CodeEffect = ReturnType<typeof effect.parse>;

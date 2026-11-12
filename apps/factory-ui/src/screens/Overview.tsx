@@ -41,6 +41,7 @@ export function Overview({ store, onProject, onAttention, onCreate, operatorName
   const error = pending ? state.pending[pending.commandId]?.error : undefined;
   const tooLong = text.length > 32_000;
   const disabled = !text.trim() || !projectId || tooLong || busy || state.session !== 'authenticated';
+  const selecting = useRef<Promise<void> | undefined>(undefined);
   async function submit(retry = false) {
     if (sending.current || (!retry && disabled)) return;
     const entry = retry ? attempt.current : { projectId, text, intent };
@@ -51,6 +52,9 @@ export function Overview({ store, onProject, onAttention, onCreate, operatorName
       return store.getState().pending[command.commandId]?.status === 'failed' ? store.retry(command.commandId) : store.send(command);
     }
     try {
+      // The landing preselection may still be loading the team and conversations: finish it first,
+      // or the composer would report a missing Lead or create a second Lead conversation.
+      await selecting.current;
       if (store.getState().selectedProjectId !== entry.projectId) await store.selectProject(entry.projectId);
       if (!current()) return;
       const lead = store.getState().team?.seats.find(seat => seat.isLead);
@@ -78,7 +82,7 @@ export function Overview({ store, onProject, onAttention, onCreate, operatorName
   const hour = new Date().getHours();
   const dayPart = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
   useEffect(() => {
-    if (state.projects.length && state.selectedProjectId === null) void store.selectProject(state.projects[0]!.id);
+    if (state.projects.length && state.selectedProjectId === null) selecting.current = store.selectProject(state.projects[0]!.id);
   }, [store, state.projects, state.selectedProjectId]);
   return <Page className="overview min-w-0">
     <h1 className="m-0 font-display text-3xl font-semibold tracking-tight">{t('overview.greetingStart')} <span className="text-project-1">{t(`overview.${dayPart}`)}</span>{operatorName && <>, {operatorName}</>}</h1>
@@ -106,7 +110,7 @@ export function Overview({ store, onProject, onAttention, onCreate, operatorName
       </form></Card> : <Card className="rounded-xl border-border p-5 shadow-none" aria-label={t('overview.composer')}><MascotEmpty seat="Lead"><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><Button className="mt-4" onClick={onCreate}>{t('projects.create')}</Button></MascotEmpty></Card>}
       <ActivityFeed store={store} onCreate={onCreate} onTask={(projectId, taskId) => { if (onTask) onTask(projectId, taskId); else onProject(projectId); }} />
       </div>
-      <Card className="gap-0 overflow-hidden rounded-xl border-border border-l-2 border-l-need py-0 shadow-none" aria-labelledby={`${id}-needs`}>
+      <Card role="complementary" className="gap-0 overflow-hidden rounded-xl border-border border-l-2 border-l-need py-0 shadow-none" aria-labelledby={`${id}-needs`}>
         <CardHeader className="flex flex-row items-center justify-between gap-3 p-5 pb-3"><h2 id={`${id}-needs`} className="font-display text-lg font-semibold">{t('nav.attention')}</h2><Badge className="border-0 bg-need text-need-foreground">{items.length}</Badge></CardHeader>
         {state.loading.globalInbox && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3 px-5 pb-4"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-5 w-4/5" /><Skeleton className="h-4 w-3/5" /></div>}
         {state.errors.globalInbox && <><ErrorNotice error={state.errors.globalInbox} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></>}

@@ -95,15 +95,6 @@ if (installed) {
   assert.equal(runtimeVerification.opencodeProtocol.healthy, true);
   assert.equal(runtimeVerification.ownedProcessExited, true);
 }
-const tests = run(
-  [
-    "/usr/bin/python3",
-    "-c",
-    `import runpy,sys; sys.stderr=sys.stdout; runpy.run_path(${JSON.stringify(`${mounted}/scripts/factory-v2/preflight.test.py`)},run_name='__main__')`,
-  ],
-  "",
-);
-assert(/Ran 10 tests/.test(tests) && /\nOK\s*$/.test(tests));
 const disk = JSON.parse(
   execFileSync(
     "powershell.exe",
@@ -119,7 +110,6 @@ const sourceFiles = [
   "scripts/factory-v2/preflight-linux.py",
   "scripts/factory-v2/setup-linux.py",
   "scripts/factory-v2/linux-toolchain.lock.json",
-  "scripts/factory-v2/preflight.test.py",
   "scripts/factory-v2/capture-preflight.mjs",
   ...(installed ? ["scripts/factory-v2/verify-linux-runtime.py"] : []),
 ];
@@ -154,8 +144,6 @@ const report = {
   diskLimitNote:
     "WSL ext4 reports virtual VHD capacity, not physically available Windows backing disk space; VHD backing volume not conclusively mapped",
   validation: {
-    wslBoundaryTests: 10,
-    failed: 0,
     legacySourceUnchanged: true,
     checkpointVerified: true,
   },

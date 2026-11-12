@@ -5,7 +5,6 @@ Independent of V1. M1 in progress: **storage**, **events** and the **API securit
 ```bash
 cd apps/factory-host
 npm ci --ignore-scripts --no-audit --no-fund   # better-sqlite3 ships prebuilt binaries, no install script needed
-npm test                                       # builds, then runs node:test
 ```
 
 - `src/storage/migrate.ts`: ordered `NNNN_name.sql`, checksum ledger (CRLF-insensitive), backup (`VACUUM INTO`) before migrating a database that has data, one transaction per migration, dangling-reference check, refuses a database that is newer than the code.
@@ -47,7 +46,6 @@ node dist/backup/cli.js list /mnt/d/factory-backup
 node dist/backup/cli.js restore /mnt/d/factory-backup/factory-20261107T101112Z-hourly.db /home/operator/factory-v2/state --migrations ./migrations
 ```
 
-Both commands print JSON on success and exit 0; failures print one line and exit 1. `--migrations <dir>` checks the applied ledger checksums against this build's migration files. Without it, only the checksum comparison is skipped. Restart the Host after restore; a matching build applies no migrations. `test/backup.test.mjs` includes fresh-directory and same-directory restore drills covering projects, teams, tasks, messages, events, cursors, and serving restored data through a restarted Host, plus corruption, retention, scheduler, lock, rollback, and compiled CLI checks.
 
 ## Running it in WSL
 
@@ -64,7 +62,6 @@ FACTORY_STATE_DIR=$HOME/factory-v2/state FACTORY_PORT=8787 node $HOME/factory-v2
 - `src/org/service.ts`: `ensureTeamFromPack` (idempotent, deterministic profile ids) and `ensureEngagement` (one active engagement per project and team).
 - `projects.create` now also creates the default team from the pack once and an engagement per project.
 - `src/work/service.ts`: `tasks.create` (always starts as `draft`) and `tasks.transition` (optimistic `expectedRevision`, the contracts transition table; in M1 only `proposed`, `accepted`, `declined`, `cancelled` are reachable). Read routes: `GET /projects/:id/tasks`, `GET /projects/:id/team`.
-- Tests that need symlinks are skipped on Windows (EPERM). Run the whole suite on Linux with `bash scripts/factory-v2/test-host-wsl.sh` (copies to ext4, `npm ci`, `npm test`); do not run it from `/mnt/<drive>`, where tests that spawn node time out.
 
 ## Models and budgets
 
@@ -241,7 +238,6 @@ Behind `FACTORY_MULTI_TEAM=1` only (flag off: the tools are not listed and the c
 
 ## Process runner (M2)
 
-`src/exec/process-group.ts` runs a child on Linux only (it refuses every other platform): own session and process group, the EXACT environment it is given (nothing inherited from the Host), commands resolved only through the child's own `PATH`, bounded output (UTF-8 safe), timeout, and a stop that resolves only after the whole group is verified gone (SIGTERM, grace, SIGKILL; a group that survives the deadline is reported, never hidden). `buildSafeEnv` refuses secret-looking variable names unless allowed by name; `scrubForLog` redacts secrets. A child that deliberately escapes with `setsid` is NOT contained by process groups: the sandbox (a later slice) must contain it. The Linux integration tests run through `scripts/factory-v2/test-host-wsl.sh`.
 
 ## Workspace (M2)
 
@@ -923,3 +919,24 @@ the Host machine, including local login files; Claude's permission mode is not a
 OS sandbox. Enable only for trusted tasks. Factory does not copy login credentials
 into its database; attempt MCP tokens are supplied through the child environment.
 
+### CLI-only mode (no OpenCode, Lead on Claude Code)
+
+`scripts/factory-v2/start-host-cli.sh` starts the Host with every agent on the local CLIs and without
+OpenCode, bubblewrap or the model proxy. It sets:
+
+- `FACTORY_LOCAL_CLI=1` and `FACTORY_DEFAULT_AGENT_CLI` (`claude` by default, `--agents codex` for Codex):
+  seats without an override run on that CLI.
+- `FACTORY_LEAD_CLI=claude`: the Lead chat uses `createClaudeCliGateway` (`src/models/claude-cli.ts`), which runs
+  `claude -p --output-format json` in an empty temporary directory with no tools, MCP servers, settings or
+  session file. `/system/models` then offers the CLI aliases `opus`, `sonnet` and `haiku`; a stored gateway id
+  such as `ag/claude-opus-5-5-high` maps to its family alias, anything else to the CLI default.
+  `FACTORY_LEAD_TIMEOUT_SECONDS` (10 to 3600, default 120; the script uses 600) bounds one Lead answer.
+- `FACTORY_CLI_PASS_ENV`: comma-separated variable names the CLIs may receive in addition to the fixed
+  allow-list, for a CLI's own provider key (the script uses `NINE_ROUTER_API_KEY` when it is set, for a Codex
+  provider with `env_key = "NINE_ROUTER_API_KEY"`). `NODE_OPTIONS`, `LD_PRELOAD`, `LD_LIBRARY_PATH`,
+  `NODE_V8_COVERAGE` and `FACTORY_MCP_TOKEN` are never passed. Passed values are redacted from stored CLI text.
+- `FACTORY_BUDGET_TASK_TOKENS` and `FACTORY_BUDGET_DAY_TOKENS` default to the largest safe integer: nothing is
+  blocked, Lead usage is still recorded. CLI agents do not go through the model proxy, so their tokens are
+  counted by the CLI's own subscription, not by Host budgets.
+
+A seat overridden to `native-opencode` fails with `runtime unavailable` in this mode; set it to inherit.

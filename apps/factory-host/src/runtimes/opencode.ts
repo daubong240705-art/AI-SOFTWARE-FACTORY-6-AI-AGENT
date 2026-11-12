@@ -1,5 +1,5 @@
 import { lstatSync, readFileSync } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AttemptContext, RuntimeAdapter, RuntimeEvent, RuntimeSession } from "../dispatch/runtime.js";
 import type { RunHandle } from "../exec/process-group.js";
@@ -46,7 +46,8 @@ export function promptFor(context: AttemptContext, maxBytes: number, token: stri
     "Do not touch files outside the task scope.",
     "Run the project's own tests when they exist.",
     "Finish with a short summary of what changed and what was verified.",
-    "Factory tools: factory_task_progress (call it at meaningful milestones, short summary) and factory_output_register (after you write a deliverable file in the workspace, register it with its workspace-relative path, a title, a kind and a one-sentence abstract). Never include secrets in them.",
+    "Factory tools: factory_task_progress (call it at meaningful milestones, short summary) and factory_output_register (only for a document explicitly requested by the operator in the task scope, register it with its workspace-relative path, a title, a kind and a one-sentence abstract). Never include secrets in them.",
+    "Document policy (overrides profiles and skills): create and register documents only when the operator explicitly requests them, such as an SRD. Source code, diffs, test output, task summaries and routine handoffs stay in the workspace or task progress; do not publish them as documents.",
     "If a business decision blocks you and you cannot make it yourself, call factory_decision_request with the question and 2-6 options, then stop immediately without further tool calls. The operator will answer and a new session will continue your work.",
   ].join("\n"));
   if (prompt.includes("\0") || Buffer.byteLength(prompt) > maxBytes) return invalid();
@@ -210,26 +211,12 @@ export function createOpenCodeRuntime(options: OpenCodeRuntimeOptions): RuntimeA
         try { event = object(JSON.parse(input) as unknown); } catch { return; }
         if (typeof event.type !== "string") return;
         resetStall();
+        // Tool calls and step boundaries are liveness signals, not work reports.
         const part = object(event.part);
-        if (event.type === "step_start") emit({ type: "progress", message: scrub("Working") });
-        else if (event.type === "text" && typeof part.text === "string") {
+        if (event.type === "text" && typeof part.text === "string") {
           const text = scrub(part.text);
           summary = text.trim().slice(0, 2000);
           emit({ type: "progress", message: text.slice(0, 200) });
-        } else if (event.type === "tool_use" && typeof part.tool === "string") {
-          const state = object(part.state);
-          const tool = scrub(part.tool).slice(0, 80);
-          if (part.tool.startsWith("factory_")) emit({ type: "progress", message: `tool: ${tool}` });
-          else if (state.status === "error") emit({ type: "progress", message: `tool failed: ${tool}` });
-          else if (state.status === "completed") {
-            const input = object(state.input);
-            let detail = "";
-            if (typeof input.filePath === "string") {
-              const path = relative(spec.workspace, resolve(spec.workspace, input.filePath));
-              detail = isAbsolute(path) || path === ".." || path.startsWith(`..${sep}`) ? "<outside workspace>" : path.replaceAll("\\", "/");
-            } else if (typeof input.command === "string") detail = scrub(input.command).slice(0, 80);
-            emit({ type: "progress", message: scrub(`tool: ${tool}${detail ? ` ${detail}` : ""}`) });
-          }
         } else if (event.type === "error") {
           const error = object(event.error);
           const status = object(error.data).statusCode;

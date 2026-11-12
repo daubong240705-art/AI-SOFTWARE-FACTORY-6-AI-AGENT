@@ -1,4 +1,5 @@
 import { modelNameSchema, modelSettingsSetSchema, seatSchema, successResponseSchema, textSchema } from '@factory/contracts';
+import { runtimeFactsModel } from './agentRuntime';
 
 const envelope = successResponseSchema.pick({ ok: true, apiVersion: true });
 const object = envelope.omit({ ok: true, apiVersion: true });
@@ -22,6 +23,7 @@ export const modelSettingsResponse = envelope.extend({
   available: modelNameSchema.nullable().catch(null).array().transform(items => items.filter(item => item !== null)).nullable().catch(null),
   catalog: entry.nullable().catch(null).array().transform(items => items.filter(item => item !== null)).nullable().catch(null),
   efforts: textSchema.array().catch(['low', 'medium', 'high', 'xhigh']),
+  runtime: runtimeFactsModel,
 }).strip();
 
 export type ModelSettingsResponse = ReturnType<typeof modelSettingsResponse.parse>;

@@ -4,7 +4,7 @@ import type { Project } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Columns3, GitBranch, LayoutGrid, MessageSquare, Plus, Settings, Workflow, Zap } from 'lucide-react';
+import { BookOpen, Columns3, GitBranch, LayoutGrid, MessageSquare, Plus, Settings, Users, Workflow, Zap } from 'lucide-react';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { DockedPane } from './DockedPane';
@@ -16,14 +16,15 @@ import { ProjectCode } from './ProjectCode';
 import { ProjectWorkflow } from './ProjectWorkflow';
 import { ProjectAutomation } from './ProjectAutomation';
 import { ProjectSettings } from './ProjectSettings';
+import { ProjectOffice } from './office/ProjectOffice';
 import { useNavigation, type ProjectTab } from './shell/navigation';
 import { Page } from '../components/Page';
 import { ProjectTile } from './shell/ProjectTile';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { Reveal } from '@/components/motion/Reveal';
 
-const tabs = ['overview', 'board', 'workflow', 'automation', 'knowledge', 'code', 'settings'] as const;
-const tabIcons = { overview: LayoutGrid, board: Columns3, workflow: Workflow, automation: Zap, knowledge: BookOpen, code: GitBranch, settings: Settings };
+const tabs = ['overview', 'office', 'board', 'workflow', 'automation', 'knowledge', 'code', 'settings'] as const;
+const tabIcons = { overview: LayoutGrid, office: Users, board: Columns3, workflow: Workflow, automation: Zap, knowledge: BookOpen, code: GitBranch, settings: Settings };
 export function ProjectView({ store, project, tab, onTabChange, openChat = false, onChatOpened, initialTaskId }: {
   store: Store; project: Project; tab?: ProjectTab; onTabChange?: (tab: ProjectTab) => void; openChat?: boolean; onChatOpened?: () => void; initialTaskId?: string | undefined;
 }) {
@@ -77,6 +78,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
       <div className="project-tab-content" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${active}`} tabIndex={0}>
         <Reveal key={active} className="h-full min-h-0">
         {active === 'overview' && <ProjectOverview store={store} onOpenTask={openTask} />}
+        {active === 'office' && <ProjectOffice key={project.id} store={store} projectId={project.id} onOpenTask={openTask} />}
         {active === 'board' && <ProjectTasks store={store} projectId={project.id} selectedTask={selected} onOpenTask={openTask} onCloseTask={() => setSelected(null)} newTaskOpen={creating} newTaskId={`${id}-new-task`} />}
         {active === 'workflow' && <ProjectWorkflow key={project.id} store={store} projectId={project.id} onOpenTask={openTask} />}
         {active === 'automation' && <ProjectAutomation key={project.id} store={store} projectId={project.id} />}

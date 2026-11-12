@@ -15,6 +15,7 @@ import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import { getPrimaryEngagement, getTeam, listSeats } from "../org/service.js";
 import { registryPack, type RegistryPack } from "../org/registry.js";
 import { projectEngagements, teamQueue, teamViews } from "../org/views.js";
+import { projectInteractions } from "../org/interactions.js";
 import { autonomyStatus, budgetStatus, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "../policy/index.js";
 import { getProject, listProjects } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
@@ -445,6 +446,16 @@ export function createRoutes(deps: {
         return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
       return { apiVersion: API_VERSION, ok: true, items: listTasks(deps.storage.raw, parsed.data) };
     });
+    app.get<{ Params: { projectId: string }; Querystring: { limit?: string } }>("/projects/:projectId/interactions",
+      { preHandler: guards.session }, async (request, reply) => {
+        const parsed = idSchema.safeParse(request.params.projectId);
+        const limit = z.coerce.number().int().min(1).max(300).default(100).safeParse(request.query.limit);
+        if (!parsed.success || !limit.success) return failure(reply, 400, "validation", "Invalid project id or limit.", "correct-input", newId);
+        if (!getProject(deps.storage.raw, parsed.data))
+          return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+        return { apiVersion: API_VERSION, ok: true,
+          ...projectInteractions(deps.storage.raw, parsed.data, (deps.clock ?? systemClock)(), limit.data) };
+      });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/team", { preHandler: guards.session }, async (request, reply) => {
       const parsed = idSchema.safeParse(request.params.projectId);
       if (!parsed.success) return failure(reply, 400, "validation", "Invalid project id.", "correct-input", newId);

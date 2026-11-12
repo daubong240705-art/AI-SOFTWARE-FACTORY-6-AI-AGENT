@@ -41,8 +41,8 @@ python scripts/factory-v2/verify-font.py
 node scripts/factory-v2/verify-design.mjs
 ```
 
-Font checker dùng fontTools đã có; nếu Python thiếu Brotli thì đọc font bằng decoder built-in Node qua stdin, không cài package. Nếu máy chưa có fontTools thì báo thiếu công cụ; builder và Node tests vẫn chạy độc lập, không tự tải/install.
+Font checker dùng fontTools đã có; nếu Python thiếu Brotli thì đọc font bằng decoder built-in Node qua stdin, không cài package. Nếu máy chưa có fontTools thì báo thiếu công cụ; builder vẫn chạy độc lập, không tự tải/install.
 
-Verifier kiểm JSON/resources/tokens/contrast, references/dependency DAG, font hashes/cmap, syntax và chạy 15 logic/smoke tests. 192 tổ hợp render dùng VM + DOM stubs: xác minh code dựng được markup, **không đo layout, accessibility, focus/pointer thực tế hoặc hiệu năng trình duyệt**. Report: [F0-02 validation](../../research/factory-v2/f0-02-validation.json).
+Verifier kiểm JSON/resources/tokens/contrast, references/dependency DAG, font hashes/cmap, syntax và syntax. Report: [F0-02 validation](../../research/factory-v2/f0-02-validation.json).
 
 Native `details` menu và browser title hints là giới hạn prototype; menu portal/collision/full keyboard, custom tooltip, Markdown renderer/code highlighting, production window manager, durable drafts và shared Host stream thuộc F0-03/F2/F3. Chưa có browser QA mới vì lượt Computer Use trước đã dừng theo URL-confidence guard. Không gọi HTML này là Alpha làm việc thật.

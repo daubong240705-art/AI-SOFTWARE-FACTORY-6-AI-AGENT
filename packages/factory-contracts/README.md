@@ -1,15 +1,13 @@
 # Factory V2 contracts · F0-03
 
-Package độc lập, không root workspace và không import V1. Zod 4.6.7 (MIT) là dependency runtime duy nhất; TypeScript 5.9.3 (Apache-2.0) và fast-check 4.10.2 (MIT, chỉ cho property test) là devDependency. Phiên bản khóa trong `package-lock.json`. Không copy source thư viện hay dùng Electron IPC.
+Package độc lập, không root workspace và không import V1. Zod 4.6.7 (MIT) là dependency runtime duy nhất; TypeScript 5.9.3 (Apache-2.0) là devDependency. Phiên bản khóa trong `package-lock.json`. Không copy source thư viện hay dùng Electron IPC.
 
 ```powershell
 cd packages/factory-contracts
 npm ci --ignore-scripts --no-audit --no-fund
 npm run check
-npm test
 ```
 
-`npm test` build declarations/ESM rồi chạy Node boundary tests. Package chưa được publish; Host/UI tương lai khai báo local dependency `file:../../packages/factory-contracts` và build contracts trước consumer. Không import từ `apps/windows-worker/node_modules`.
 
 | Entry | Dùng cho |
 |---|---|
@@ -41,5 +39,3 @@ Thêm, không xoá: 14 command cũ và mọi schema cũ giữ nguyên (additive)
 | `mcp-tools.ts` | 5 tool agent nhìn thấy; input không có trường định danh (relay tự gắn project/task/attempt/epoch) |
 
 **Chồng lấn có chủ đích:** `taskSchema` và `attemptSchema` thay thế `workItemSchema` và `runSchema`, nhưng schema cũ được giữ để không phá tương thích. Ở M1, migration thật bỏ các bảng 001 bị thay (`work_items`, `assignments`, `run_attempts`, `leases`, `reservations`, `callback_inbox`) và các schema cũ.
-
-SQL tham chiếu: [002-multiteam.reference.sql](../../schema/factory-v2/002-multiteam.reference.sql), kiểm bằng `python -I scripts/factory-v2/schema002.test.py`. Các bất biến (vòng đời, một attempt sống mỗi task, hash bất biến, quyết định không sửa lại, không push main) có cả ở Zod lẫn ở SQL.

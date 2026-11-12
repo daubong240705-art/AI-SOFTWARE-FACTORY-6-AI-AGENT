@@ -1,5 +1,5 @@
 import { parseEnv, startHost } from "./host.js";
-import { createChatCompletionsGateway } from "./models/index.js";
+import { createChatCompletionsGateway, createClaudeCliGateway } from "./models/index.js";
 import { DEFAULT_BUDGET_CONFIG } from "./policy/index.js";
 import { reasoningEffortSchema } from "@factory/contracts";
 import type { LeadConfig } from "./lead/runner.js";
@@ -18,7 +18,7 @@ function budgetTokens(name: string, input: string | undefined, fallback: number)
 }
 
 try {
-  const { dispatch, workspace, agentProxy, opencode, pushRemotes, pushSshCommand, localCli, ...hostOptions } = parseEnv(process.env);
+  const { dispatch, workspace, agentProxy, opencode, pushRemotes, pushSshCommand, localCli, cliPassEnv, ...hostOptions } = parseEnv(process.env);
   if (opencode && !await isSandboxAvailable())
     throw new Error("FACTORY_RUNTIME=opencode requires working bubblewrap on Linux");
   if (opencode) {
@@ -45,6 +45,14 @@ try {
       throw new Error("FACTORY_LEAD_MAX_OUTPUT_TOKENS must be an integer from 256 to 131072");
     lead.maxOutputTokens = Number(value);
   }
+  if (process.env.FACTORY_LEAD_TIMEOUT_SECONDS !== undefined) {
+    const value = process.env.FACTORY_LEAD_TIMEOUT_SECONDS;
+    if (!/^[0-9]+$/.test(value) || Number(value) < 10 || Number(value) > 3600)
+      throw new Error("FACTORY_LEAD_TIMEOUT_SECONDS must be an integer from 10 to 3600");
+    lead.timeoutMs = Number(value) * 1000;
+  }
+  const leadCli = process.env.FACTORY_LEAD_CLI === undefined || process.env.FACTORY_LEAD_CLI === "" ? undefined : process.env.FACTORY_LEAD_CLI;
+  if (leadCli !== undefined && leadCli !== "claude") throw new Error("FACTORY_LEAD_CLI must be claude");
   if (process.env.FACTORY_LEAD_EFFORT !== undefined) {
     const parsed = reasoningEffortSchema.safeParse(process.env.FACTORY_LEAD_EFFORT);
     if (!parsed.success) throw new Error("FACTORY_LEAD_EFFORT must be one of low, medium, high, xhigh");
@@ -55,9 +63,11 @@ try {
     defaultDayTokens: budgetTokens("FACTORY_BUDGET_DAY_TOKENS", process.env.FACTORY_BUDGET_DAY_TOKENS, DEFAULT_BUDGET_CONFIG.defaultDayTokens),
   };
   const apiKey = process.env.NINE_ROUTER_API_KEY;
-  const modelGateway = apiKey === undefined ? null : createChatCompletionsGateway({
-    baseUrl: process.env.FACTORY_GATEWAY_URL ?? "https://ai.lazy.local/v1", apiKey,
-  });
+  // FACTORY_LEAD_CLI=claude: the Lead answers through the operator's Claude Code CLI login, no gateway key needed.
+  const modelGateway = leadCli === "claude" ? createClaudeCliGateway({ ...(cliPassEnv === undefined ? {} : { passEnv: cliPassEnv }) })
+    : apiKey === undefined ? null : createChatCompletionsGateway({
+      baseUrl: process.env.FACTORY_GATEWAY_URL ?? "https://ai.lazy.local/v1", apiKey,
+    });
   const modelProxy = apiKey && process.env.FACTORY_GATEWAY_URL && agentProxy ? {
     // Includes the optional FACTORY_PROXY_SOCKET selected by parseEnv.
     ...agentProxy, upstream: { apiKey, baseUrl: process.env.FACTORY_GATEWAY_URL },
@@ -68,7 +78,7 @@ try {
     try { if ((await stat(defaultUiDir)).isDirectory()) uiDir = defaultUiDir; } catch { /* UI build is optional. */ }
   }
   const host = await startHost({ ...hostOptions, dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead, runtimes, pushRemotes,
-    localCli: { enabled: localCli },
+    localCli: { enabled: localCli, ...(cliPassEnv === undefined ? {} : { passEnv: cliPassEnv }) },
     ...(agentProxy === undefined ? {} : { agentModels: agentProxy.approvedModels }),
     ...(pushSshCommand === undefined ? {} : { pushSshCommand }),
     ...(uiDir === undefined ? {} : { uiDir }), onBootstrapToken(token) {

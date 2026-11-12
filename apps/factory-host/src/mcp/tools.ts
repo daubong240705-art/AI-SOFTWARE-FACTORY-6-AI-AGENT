@@ -69,7 +69,7 @@ export const toolDefinitions = [
   { name: "request.get", description: "Read a request thread and readable deliverables.", inputSchema: z.toJSONSchema(requestGetInputSchema) },
   { name: "task.progress", description: "Report a meaningful milestone. Never include secrets.",
     inputSchema: z.toJSONSchema(taskProgressInputSchema) },
-  { name: "output.register", description: "Register a deliverable file using its workspace-relative path. Never include secrets.",
+  { name: "output.register", description: "Publish a document explicitly requested by the operator, using its workspace-relative path. Do not publish source code, diffs, test output, task summaries or routine handoffs. Never include secrets.",
     inputSchema: z.toJSONSchema(agentOutputInputSchema) },
   { name: "decision.request", description: "Use ONLY for business decisions you cannot make yourself. Then stop: finish without further tool calls.",
     inputSchema: z.toJSONSchema(decisionRequestInputSchema) },

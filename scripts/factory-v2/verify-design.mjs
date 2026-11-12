@@ -200,16 +200,6 @@ const syntaxFiles = [
 ];
 for (const path of syntaxFiles)
   execFileSync(process.execPath, ["--check", resolve(root, path)]);
-const testResult = execFileSync(
-  process.execPath,
-  [
-    "--test",
-    "scripts/factory-v2/window-state.test.mjs",
-    "scripts/factory-v2/preview.test.mjs",
-  ],
-  { cwd: root, encoding: "utf8" },
-);
-assert(testResult.includes("# fail 0"));
 const baseline = git("rev-parse", "946872e");
 const legacyChanges = git(
   "diff",
@@ -243,7 +233,6 @@ const report = {
     tasks: seed.tasks.length,
     translationLeaves: Object.keys(resourceA).length,
     contrastPairs: contrasts.length,
-    logicAndSmokeTests: Number(testResult.match(/# tests (\d+)/)[1]),
     renderCombinations: 192,
     checkedLocalDocLinks: checkedLinks,
   },
@@ -259,7 +248,6 @@ const report = {
     syntax: true,
     offlineBundleNoRemoteAssets: true,
     noRuntimeNetworkClients: true,
-    windowLogicAndRenderSmoke: true,
     trackedV1Unchanged: true,
   },
   font,

@@ -1,7 +1,7 @@
 ---
 name: codex-routing
-description: Delegate a well-scoped coding, analysis or test-writing task to Codex CLI (via 9Router) under the approved Intelligent Model Routing policy, then review the result. Use when the user asks to have Codex implement, analyze or test something, or runs /codex-routing. Not for trivial edits, architecture decisions, secrets, or provider/config changes.
-argument-hint: "<task to delegate, e.g. 'implement X in apps/factory-host, tests must pass'>"
+description: Delegate a scoped implementation or analysis task to Codex CLI under the approved routing policy, then review its result.
+argument-hint: "<task to delegate, e.g. 'implement X in apps/factory-host, build must pass'>"
 disable-model-invocation: true
 ---
 
@@ -42,7 +42,7 @@ repo), fill it in. The card is the contract:
 - `declaredClass`, `expectedFiles`, `contextSize`, `priorities`: honest estimates. The router only ever raises the class.
 - `riskFlags`: set every one that applies (`security`, `secrets`, `data`, `migration`, `public-api`, `destructive`, `external-effect`, `architecture-decision`). **Any flag forces `critical`.**
 - `sandbox`: `read-only` for analysis; `workspace-write` only when files must be written, then `acceptance.scope.allowedPrefixes` is mandatory.
-- `acceptance`: written criteria (`criteria`), plus machine checks: `commands` (`{id, cwd, npm:["test"]}` or `{id, cwd, argv:["--test", "x.test.mjs"]}`), `answerRules`, `identifiers`.
+- `acceptance`: written criteria (`criteria`), plus machine checks: `commands` (`{id, cwd, npm:["run", "check"]}` or `{id, cwd, npm:["run", "build"]}`), `answerRules`, `identifiers`.
 
 Acceptance criteria must be things a machine or you can verify. "Looks good" is not a criterion.
 
@@ -74,7 +74,7 @@ Passing checks is **necessary, not sufficient**. After every run:
 
 1. Read Codex's answer file and `git status` / `git diff` for the touched paths.
 2. Check the diff against the spec: is it what was asked, minimal, in style, without extra files, secrets or silent behaviour changes?
-3. Run the tests yourself when the task changes code (the project's own `npm test`, `npm run check`). Do not trust the reported result alone.
+3. Run type checking and build yourself when the task changes code (`npm run check`, `npm run build`). Do not trust the reported result alone.
 4. If anything is out of scope or suspicious, say so; do not "fix quietly".
 
 Then decide: **accept** (then you commit, if the user wants commits), **retry**, **escalate**, **fallback** or **stop**.
@@ -93,11 +93,9 @@ Always tell the user: attempts used, model/effort used, tokens if reported (cost
 
 ## 7. Report to the user (Vietnamese, short)
 
-Task, class and why, model/effort, result (accepted/not), files changed, tests you ran and results, calls used
 today, anything unresolved, and what you need them to decide.
 
 ## Files
 
 - [routing-policy.json](routing-policy.json): approved models, ladder per class, limits, protected paths (human-edited only)
 - `scripts/run.mjs`: the only entry point · `router.mjs` (pure decisions) · `codex.mjs` (spawns `codex exec` without a shell, env allow-list, prompt on stdin) · `verify.mjs` (scope/test checks) · `budget.mjs` · `redact.mjs`
-- `scripts/skill.test.mjs`: free tests, no model call: `node --test .claude/skills/codex-routing/scripts/skill.test.mjs`

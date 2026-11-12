@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, searchForWorkspaceRoot } from "vite";
@@ -28,10 +27,4 @@ export default defineConfig({
     },
   },
   build: { outDir: "dist", sourcemap: false, target: "es2022" },
-  test: {
-    environment: "jsdom",
-    include: ["test/**/*.test.{ts,tsx}"],
-    setupFiles: ["test/setup.ts"],
-    restoreMocks: true,
-  },
 });

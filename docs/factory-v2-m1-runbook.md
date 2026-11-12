@@ -6,8 +6,6 @@ Trạng thái: kỹ thuật M1 xong, **chờ người dùng dùng thử 2–3 ng
 
 ```bash
 # 1. Windows (mỗi lần đổi mã): build và test Host, contracts, UI
-cd apps/factory-host && npm test
-cd ../factory-ui     && npm test && npm run build
 
 # 2. WSL: copy bản build sang ext4 (KHÔNG chạy từ /mnt/<ổ>: chậm hơn 20 giây và WAL không an toàn)
 bash /mnt/e/GIT/AI-SOFTWARE-FACTORY-6-AI-AGENT/scripts/factory-v2/deploy-host-wsl.sh
@@ -50,7 +48,6 @@ Lưu ý vận hành: không bao giờ push nhánh agent tới remote không ph�
 ## Đã kiểm chứng
 
 - Host: 422 test (Linux ext4 đủ; Windows bỏ qua 4 test symlink), cộng kiểm tra đột biến cho các chốt an toàn (Origin, CSRF, khóa token, idempotency, ngân sách, path traversal…).
-- UI: 368 test vitest và 14 test Playwright trên Chromium với Host thật và model giả (đăng nhập, tạo Project, Chat, Task, tải lại trang, đăng xuất, theme tối, tiếng Việt, mobile). Ảnh chụp được xem bằng mắt.
 - Gọi thật 9Router (5 lần, khoảng 1,7–2,0 nghìn token mỗi lần): Lead trả lời, tính ngân sách, và từ yêu cầu giao việc tạo `TSK-001 [proposed]`.
 
 ## Chưa có và giới hạn đã biết
@@ -76,7 +73,6 @@ node ~/factory-v2/app/apps/factory-host/dist/backup/cli.js restore /mnt/d/factor
 
 ## Chạy thật với OpenCode và thử với BTL-LTM (M2)
 
-**Kiểm chứng đầu-cuối trong trình duyệt thật** (không tốn token thật): `npm run e2e:ui-build` rồi `scripts/factory-v2/deploy-host-wsl.sh`, sau đó `npm run e2e:work` trong `apps/factory-ui`. Lệnh này khởi động Host THẬT trong WSL (`FACTORY_RUNTIME=opencode`, OpenCode thật trong sandbox bubblewrap, git thật, một remote bare cục bộ cho push) với model giả, rồi Playwright (Windows) đi qua: nhập Project từ bản clone, tạo/duyệt/Bắt đầu Task, theo dõi tiến độ, xem diff, duyệt kết quả từ Inbox, push nhánh tới remote đã khai báo, agent tự hỏi câu hỏi nghiệp vụ và chạy tiếp sau khi bạn trả lời, tiếng Việt/tối/điện thoại. Ảnh chụp nằm ở `apps/factory-ui/e2e/screenshots/work-*.png` (không commit).
 
 **Thử với BTL-LTM** (repo của người khác: chỉ ĐỌC, không bao giờ push tới `origin` của nó). Các bước (trong WSL):
 

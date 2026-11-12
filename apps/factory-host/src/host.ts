@@ -78,6 +78,7 @@ import { createExtractionService, type ExtractionService } from "./documents/ser
 import { registerExtractionRoutes } from "./documents/routes.js";
 import { createAgentCliProbe } from "./runtimes/probe.js";
 import { createLocalCliRuntime } from "./runtimes/local-cli.js";
+import { validatePassEnv } from "./runtimes/local-cli-process.js";
 import Fastify from "fastify";
 
 function proxySocketPath(path: string): string {
@@ -115,6 +116,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   workspace: { projectsRoot: string; worktreesRoot: string };
   agentProxy?: { port: number; approvedModels: string[]; socketPath?: string };
   localCli: boolean;
+  cliPassEnv?: string[];
   opencode?: { dir: string };
   pushRemotes: PushRemote[] | null;
   pushSshCommand?: string;
@@ -136,6 +138,11 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   const defaultAgentCli = env.FACTORY_DEFAULT_AGENT_CLI === undefined || env.FACTORY_DEFAULT_AGENT_CLI === "" ? undefined : env.FACTORY_DEFAULT_AGENT_CLI;
   if (defaultAgentCli !== undefined && defaultAgentCli !== "codex" && defaultAgentCli !== "claude") throw new Error("FACTORY_DEFAULT_AGENT_CLI must be codex or claude");
   if (defaultAgentCli !== undefined && env.FACTORY_LOCAL_CLI !== "1") throw new Error("FACTORY_DEFAULT_AGENT_CLI needs FACTORY_LOCAL_CLI=1");
+  const cliPassEnv = env.FACTORY_CLI_PASS_ENV === undefined || env.FACTORY_CLI_PASS_ENV === "" ? undefined : env.FACTORY_CLI_PASS_ENV.split(",");
+  if (cliPassEnv !== undefined) {
+    try { validatePassEnv(cliPassEnv); }
+    catch { throw new Error("FACTORY_CLI_PASS_ENV must list up to 32 environment variable names separated by commas"); }
+  }
   if (!/^[0-9]+$/.test(slots) || !Number.isSafeInteger(Number(slots)) || Number(slots) < 1 || Number(slots) > 16)
     throw new Error("FACTORY_NODE_SLOTS must be an integer from 1 to 16");
   const documentNumber = (name: string, value: string | undefined, fallback: number, min: number, max: number): number => {
@@ -200,6 +207,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   return {
     ...(!env.FACTORY_MCP_SERVERS_FILE ? {} : { mcpServers: loadMcpServers(env.FACTORY_MCP_SERVERS_FILE) }),
     multiTeam: env.FACTORY_MULTI_TEAM === "1", localCli: env.FACTORY_LOCAL_CLI === "1",
+    ...(cliPassEnv === undefined ? {} : { cliPassEnv }),
     stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots), ...(defaultAgentCli === undefined ? {} : { defaultAgentCli }) }, workspace, pushRemotes,
     ...(env.FACTORY_PUSH_SSH_COMMAND === undefined ? {} : { pushSshCommand: env.FACTORY_PUSH_SSH_COMMAND }),
     ...(opencode === undefined ? {} : { opencode }),
@@ -246,7 +254,7 @@ export async function startHost(options: {
   budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>; uiDir?: string;
   agentModels?: string[];
   runtimes?: RuntimeAdapter[];
-  localCli?: { enabled: boolean; codexCommand?: readonly string[]; claudeCommand?: readonly string[] };
+  localCli?: { enabled: boolean; codexCommand?: readonly string[]; claudeCommand?: readonly string[]; passEnv?: readonly string[] };
   periodicBackup?: { dir: string; intervalMs?: number; firstRunDelayMs?: number; keep?: BackupKeep } | null;
   dispatch?: Partial<DispatcherConfig> & { stepMs?: number; adapters?: RuntimeAdapter[] } | null;
   workspace?: { projectsRoot: string; worktreesRoot: string; evidenceDir?: string } | null;
@@ -534,7 +542,8 @@ export async function startHost(options: {
       const { stepMs, adapters, ...config } = options.dispatch;
       const registry = new RuntimeRegistry([
         createFakeRuntime(stepMs === undefined ? {} : { stepMs }), ...(adapters ?? []), ...(options.runtimes ?? []),
-        ...(options.localCli?.enabled ? [createLocalCliRuntime({ codexCommand: localCliCommands.codex, claudeCommand: localCliCommands.claude })] : []),
+        ...(options.localCli?.enabled ? [createLocalCliRuntime({ codexCommand: localCliCommands.codex, claudeCommand: localCliCommands.claude,
+          ...(options.localCli.passEnv === undefined ? {} : { passEnv: options.localCli.passEnv }) })] : []),
       ]);
       const raw = storage.raw;
       let roots: ReturnType<typeof canonicalRoots> | null = null;
@@ -668,6 +677,12 @@ export async function startHost(options: {
       ...(evidenceDir === undefined ? {} : { evidenceDir }),
       ...(options.keepAliveMs === undefined ? {} : { keepAliveMs: options.keepAliveMs }),
     });
+    // Which runtimes this Host actually runs, so the UI offers only those. No paths or commands.
+    const runtimeFacts = {
+      opencode: (options.runtimes ?? []).some((runtime) => runtime.kind === "native-opencode"),
+      defaultCli: options.dispatch?.defaultAgentCli ?? null,
+      leadCli: options.modelGateway?.providerId === "claude-cli",
+    };
     app = createApiServer({ origins, gate, sessions, clock, register(app, guards) {
       routes(app, guards);
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store });
@@ -677,7 +692,8 @@ export async function startHost(options: {
         const catalog = await availableModels();
         return { apiVersion: 1, ok: true, settings: effectiveModels(),
           gateway: { configured: listModels !== undefined, keyPresent: listModels !== undefined },
-          available: catalog === null ? null : catalog.map((model) => model.id), catalog, efforts: reasoningEffortSchema.options };
+          available: catalog === null ? null : catalog.map((model) => model.id), catalog, efforts: reasoningEffortSchema.options,
+          runtime: runtimeFacts };
       });
       const hostStartedAt = clock().toISOString();
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
@@ -699,7 +715,7 @@ export async function startHost(options: {
         host: { startedAt: hostStartedAt, nodeVersion: process.version, platform: process.platform },
         features: { multiTeam: options.multiTeam === true, dispatch: dispatch !== null, documentExtraction: options.docWorker?.enabled ?? true, localCli: options.localCli?.enabled === true },
       }));
-      app.get("/system/agent-clis", { preHandler: guards.session }, async () => ({ apiVersion: 1, ok: true, ...(await probeAgentClis()) }));
+      app.get("/system/agent-clis", { preHandler: guards.session }, async () => ({ apiVersion: 1, ok: true, ...(await probeAgentClis()), ...runtimeFacts }));
       if (options.uiDir) registerStaticUi(app, { dir: options.uiDir });
     } });
     await listenLoopback(app, port);

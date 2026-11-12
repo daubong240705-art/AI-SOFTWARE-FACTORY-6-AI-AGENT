@@ -5,12 +5,8 @@ Thiết kế: [01-redesign-proposal.md](01-redesign-proposal.md). Bản mock: [m
 ## Chạy
 
 ```powershell
-cd E:\GIT\AI-SOFTWARE-FACTORY-6-AI-AGENT\apps\factory-ui     # dùng chữ E hoa: đường dẫn viết thường làm vitest lỗi
 npm run check     # kiểm tra kiểu
-npm test          # vitest
 npm run build     # build ra dist/
-npx playwright test                 # e2e với Host thật trên Windows (cần npm run build trước)
-npm run e2e:work                    # e2e Host trong WSL (cần deploy Host: scripts/factory-v2/deploy-host-wsl.sh)
 ```
 
 ## Điều hướng (hash, không dùng thư viện router)
@@ -30,7 +26,7 @@ Nền tối mặc định, giữ chủ đề sáng tương đương. Biến chí
 
 ## Mặc định
 
-Tiếng Việt và nền tối, trừ khi người dùng đã lưu lựa chọn (khóa `factory-ui.preferences.v1`). Bộ test e2e đặt tường minh tiếng Anh và nền sáng bằng `englishLight` trong `e2e/helpers.ts`.
+Tiếng Việt và nền tối, trừ khi người dùng đã lưu lựa chọn (khóa `factory-ui.preferences.v1`).
 
 ## Tiến độ
 

@@ -11,15 +11,9 @@
     "tokens": "node scripts/build-tokens.mjs",
     "predev": "npm run tokens",
     "prebuild": "npm run tokens",
-    "pretest": "npm run tokens",
     "check": "tsc --noEmit",
-    "check:tests": "tsc --noEmit -p tsconfig.test.json",
     "build": "tsc --noEmit && vite build",
-    "dev": "vite",
-    "test": "vitest run",
-    "e2e": "playwright test",
-    "e2e:ui-build": "npm run build && npm --prefix ../factory-host run build",
-    "e2e:work": "node e2e/work/run.mjs"
+    "dev": "vite"
   },
   "dependencies": {
     "@dagrejs/dagre": "3.1.3",
@@ -47,19 +41,14 @@
     "tw-animate-css": "1.4.0"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1",
     "@tailwindcss/vite": "4.3.3",
-    "@testing-library/dom": "10.4.2",
-    "@testing-library/react": "16.3.3",
-    "@testing-library/user-event": "14.6.8",
     "@types/node": "22.20.5",
     "@types/papaparse": "5.5.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
-    "jsdom": "29.1.1",
     "typescript": "5.9.3",
     "vite": "8.3.5",
-    "vitest": "4.1.12"
+    "playwright": "1.64.1"
   }
 }

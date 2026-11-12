@@ -1,6 +1,6 @@
 #!/bin/bash
 # Copies the built Host (and the built contracts it links to) from the Windows checkout to ext4 in WSL and
-# installs production dependencies there. Run from WSL after `npm test` (host/contracts) and `npm run build` (ui) on Windows:
+# installs production dependencies there. Run from WSL after `npm run build` (contracts, host, and ui) on Windows:
 #   bash /mnt/e/GIT/AI-SOFTWARE-FACTORY-6-AI-AGENT/scripts/factory-v2/deploy-host-wsl.sh
 # Why: loading node_modules from /mnt/<drive> (9p) takes 20+ seconds and WAL needs a local filesystem.
 set -euo pipefail

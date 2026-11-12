@@ -55,7 +55,7 @@ export function buildContextPack(raw: Database, input: {
     budget: { maxTokens: input.maxTokens ?? 6000 }, tokens: 0,
     sections: {
       brief: { goal: clean(task.goal), brief: clean(task.brief), acceptance: task.acceptance.map(clean),
-        outputContract: expected ? clean(`${expected.form}: ${expected.format}`) : "Register deliverables and report verification." },
+        outputContract: expected ? clean(`${expected.form}: ${expected.format}`) : "Register only requested documents; report verification." },
       constraints: { placement: task.placement, requiresGo: task.gate.requiresGo, sideEffect: task.sideEffect,
         readScope: "Readable project knowledge, own team drafts, shared approved knowledge and exact active request grants." },
       inputs: [], decisions: [], openQuestions: [], handoff: null, retrievalHints: [],

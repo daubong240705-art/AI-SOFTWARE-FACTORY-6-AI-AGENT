@@ -45,6 +45,7 @@ export const activityReadModel = ok.extend({
   teams: team.nullable().catch(null).array().optional().default([]).transform(items => items.filter(item => item !== null)),
 }).strip();
 export type OrgActivity = ReturnType<typeof activityReadModel.parse>;
+export const activitySeatModel = seat;
 export type ActivityTeam = OrgActivity['teams'][number];
 export type ActivitySeat = ActivityTeam['seats'][number];
 export type ActivityRun = ActivitySeat['runs'][number];

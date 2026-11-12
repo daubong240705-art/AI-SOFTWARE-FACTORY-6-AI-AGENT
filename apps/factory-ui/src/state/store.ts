@@ -1,3 +1,4 @@
+import type { Office } from '@/api/officeModels';
 import type { OrgTeam, RequestItem, RequestDetail, Dossier, Briefing, TaskContext } from '../api/m3Models';
 import type { PackDetail, McpServer } from '../api/agentProfileModels';
 import { useSyncExternalStore } from 'react';
@@ -49,6 +50,7 @@ export type StoreState = {
   projectEffects: CodeEffect[] | null;
   notificationProgress: { done: number; total: number } | null;
   activity: ActivityState;
+  office: Office | null;
   settings: SettingsState;
   m5: M5State;
   m3: M3State;
@@ -68,7 +70,7 @@ export type StoreOptions = {
   openEvents?: (options: ProjectEventsOptions) => { close(): void };
   timer?: { setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 };
-const projectState = () => ({ notifications: emptyNotifications(), integration: emptyIntegration(), projectEffects: null, notificationProgress: null, activity: emptyActivity(), settings: emptySettings(), m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
+const projectState = () => ({ notifications: emptyNotifications(), integration: emptyIntegration(), projectEffects: null, notificationProgress: null, activity: emptyActivity(), office: null, settings: emptySettings(), m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}), ...(error.detailKey ? { detailKey: error.detailKey } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
@@ -199,6 +201,8 @@ export function createStore(options: StoreOptions = {}) {
     if (state.session !== 'authenticated' || state.loading.mcpServers || (!retry && (state.mcpServers || state.errors.mcpServers))) return Promise.resolve();
     return enqueue('mcpServers', generation, async () => ({ mcpServers: (await api.listMcpServers()).servers }));
   }
+  const loadOffice = () => { const id = state.selectedProjectId; return state.session !== 'authenticated' || !id ? Promise.resolve()
+    : enqueue('office', generation, async () => ({ office: await api.getProjectInteractions(id) })); };
   const loadActivity = () => state.session !== 'authenticated' ? Promise.resolve()
     : enqueue('activity', generation, async () => ({ activity: await api.getOrgActivity() }));
   let agentClisLoadedAt = 0;
@@ -836,7 +840,7 @@ export function createStore(options: StoreOptions = {}) {
     watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
     loadTeams, loadPack, loadMcpServers, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
-    loadActivity, loadSystem, loadAgentClis, loadModelSettings, sendModelSettings, sendSeatRuntime,
+    loadActivity, loadOffice, loadSystem, loadAgentClis, loadModelSettings, sendModelSettings, sendSeatRuntime,
     browseFolders: api.browseFolders,
     watchActivity: () => {
       openM3.set('activity', loadActivity); void loadActivity();

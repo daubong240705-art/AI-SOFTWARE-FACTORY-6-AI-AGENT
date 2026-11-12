@@ -36,7 +36,9 @@ export function ModelPickerForm({ data, store, onClose, container }: {
     const ids = new Set([...(data.available ?? [...catalog.keys()]), data.settings.leadModel, ...data.settings.agentModels, leadModel, ...agentModels, ...manual]);
     return [...ids].map(model => ({ ...catalog.get(model), id: model, outside: !data.available?.includes(model) })) as PickerModel[];
   }, [data, leadModel, agentModels, manual]);
-  const draft = { leadModel, leadEffort, agentModels, expectedRevision: data.settings.revision };
+  // Agent models only feed OpenCode. Without it the list is kept as stored; the write schema needs one, so an empty list reuses the Lead model.
+  const agentsShown = data.runtime.opencode;
+  const draft = { leadModel, leadEffort, agentModels: agentsShown || agentModels.length ? agentModels : [leadModel], expectedRevision: data.settings.revision };
   const changed = leadModel !== data.settings.leadModel || leadEffort !== data.settings.leadEffort || JSON.stringify(agentModels) !== JSON.stringify(data.settings.agentModels);
   const revisionMissing = data.settings.revision === null && data.settings.source !== 'environment';
   const valid = modelSettingsSetSchema.safeParse(draft).success && data.efforts.includes(leadEffort);
@@ -66,11 +68,11 @@ export function ModelPickerForm({ data, store, onClose, container }: {
     <fieldset disabled={Boolean(busy) || !projectId || revisionMissing} className="min-w-0 space-y-5">
       {confirming ? <div className="space-y-5">
         <h3 className="font-display text-lg font-semibold">{t('modelsUi.confirmTitle')}</h3>
-        <ModelPickerSummary settings={draft} />
+        <ModelPickerSummary settings={draft} agents={agentsShown} />
         <Alert className="border-border bg-muted/40"><AlertDescription className="text-foreground">{t('modelsUi.warning')}</AlertDescription></Alert>
         <div className="flex items-center gap-2"><Checkbox id={`${id}-ack`} checked={understood} onCheckedChange={value => setUnderstood(value === true)} /><Label htmlFor={`${id}-ack`}>{t('modelsUi.understood')}</Label></div>
       </div> : <Tabs defaultValue="lead" className="min-w-0 gap-4">
-        <TabsList aria-label={t('modelsUi.title')} className="w-full"><TabsTrigger value="lead">{t('modelsUi.lead')}</TabsTrigger><TabsTrigger value="agents">{t('modelsUi.agents')}</TabsTrigger></TabsList>
+        {agentsShown && <TabsList aria-label={t('modelsUi.title')} className="w-full"><TabsTrigger value="lead">{t('modelsUi.lead')}</TabsTrigger><TabsTrigger value="agents">{t('modelsUi.agents')}</TabsTrigger></TabsList>}
         <TabsContent value="lead" className="min-w-0 space-y-4">
           <div className="flex items-center gap-3"><Label htmlFor={`${id}-effort`}>{t('modelsUi.effort')}</Label>
             <Select value={leadEffort} onValueChange={value => { if (value === 'low' || value === 'medium' || value === 'high' || value === 'xhigh') setLeadEffort(value); }}>
@@ -80,11 +82,11 @@ export function ModelPickerForm({ data, store, onClose, container }: {
           <ModelPicker models={models} selected={[leadModel]} multi={false} onChange={next => { if (next[0]) setLeadModel(next[0]); }} />
           {data.available === null && <ModelPickerManual onAdd={model => add(model, false)} />}
         </TabsContent>
-        <TabsContent value="agents" className="min-w-0 space-y-4">
+        {agentsShown && <TabsContent value="agents" className="min-w-0 space-y-4">
           <ModelPicker models={models} selected={agentModels} multi onChange={setAgentModels} />
           {data.available === null && <ModelPickerManual onAdd={model => add(model, true)} disabled={agentModels.length >= 8} />}
           <ModelPickerAgentOrder models={agentModels} onChange={setAgentModels} />
-        </TabsContent>
+        </TabsContent>}
       </Tabs>}
     </fieldset>
     {problem && <p role="alert" className="text-sm text-muted-foreground">{t(problem)}</p>}{error && <ErrorNotice error={error} />}

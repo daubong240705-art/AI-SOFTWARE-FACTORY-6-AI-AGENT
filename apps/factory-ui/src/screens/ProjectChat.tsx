@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
-import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -24,13 +23,10 @@ const emptyDraft = (): Draft => ({ text: '', intent: 'discuss' });
 
 function BudgetLine({ store }: { store: Store }) {
   const t = useT();
-  const budget = store.useStoreSelector(value => value.budget);
-  const day = budget?.day;
+  const day = store.useStoreSelector(value => value.budget?.day);
   if (!day) return null;
-  const percent = Math.min(100, day.limit > 0 ? day.used / day.limit * 100 : 0);
-  const color = day.verdict === 'exceeded' ? '[&_[data-slot=progress-indicator]]:bg-need' : day.verdict === 'warn' ? '[&_[data-slot=progress-indicator]]:bg-run' : '[&_[data-slot=progress-indicator]]:bg-ok';
   const number = new Intl.NumberFormat(i18n.locale);
-  return <div className="shrink-0 space-y-1 border-b border-border p-4"><div className="flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground"><span>{t('chatUi.budget')}</span><span className="tabular-nums">{number.format(day.used)} / {number.format(day.limit)} {t('chatUi.tokens')}</span></div><Progress value={percent} aria-label={t('chatUi.budget')} className={`h-1 ${color}`} /></div>;
+  return <div className="shrink-0 border-b border-border px-4 py-2"><div className="flex items-center justify-between gap-2 text-[11px] uppercase tracking-wide text-muted-foreground"><span>{t('chatUi.budget')}</span><span className="tabular-nums">{number.format(day.used)} {t('chatUi.tokens')}{day.verdict !== 'ok' && <> · {t(`chatUi.verdict.${day.verdict}`)}</>}</span></div></div>;
 }
 
 function ChatHeader({ onClose }: { onClose?: (() => void) | undefined }) {

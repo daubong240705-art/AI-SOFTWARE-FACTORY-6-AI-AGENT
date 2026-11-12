@@ -31,9 +31,10 @@ e00991a3f4d47fcf1529dd74a080afcf46137dc5061e70dc6e3da7b27f2ae3f3  ecc-frontend-a
 
 - `frontend-design` viết cho trang giới thiệu và sản phẩm có "hero". Factory UI là **công cụ vận hành** (Inbox, duyệt, trạng thái hệ thống). Ưu tiên: rõ ràng, mật độ thông tin hợp lý, thao tác an toàn, ngôn ngữ nhất quán. Lấy từ skill phần quy trình, typography, viết nội dung và chất lượng tối thiểu (responsive, focus, reduced motion, tương phản); bỏ qua phần "hero" và rủi ro thẩm mỹ.
 - `ecc-frontend-patterns` nhắc tới Next.js, SWR/React Query, Zustand, framer-motion, `@tanstack/react-virtual`. Factory UI dùng React 19 + Vite. **Không được thêm thư viện** chỉ vì skill nhắc; mọi dependency mới phải qua duyệt (quy ước OSS của dự án).
-- Mọi ví dụ trong skill là minh họa, phải chạy qua kiểm tra của dự án: `npm run check`, vitest, Playwright.
 
 ## Cách đưa cho Codex
 
 Không đặt vào `.agents/skills` hay cấu hình Codex (dự án cấm sửa cấu hình Codex và không muốn tự nạp skill cho mọi card). Card giao diện ghi rõ ở phần READ FIRST:
 `docs/ui/skills/anthropic-frontend-design/SKILL.md`, `docs/ui/skills/ecc-frontend-a11y/SKILL.md` (và các file khác khi cần), cộng bản thiết kế được duyệt.
+
+Kiểm tra mã bằng `npm run check` và `npm run build`.

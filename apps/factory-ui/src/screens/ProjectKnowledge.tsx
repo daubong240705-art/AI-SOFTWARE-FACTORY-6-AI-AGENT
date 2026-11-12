@@ -24,6 +24,9 @@ export function ProjectKnowledge({ store, projectId }: { store: Store; projectId
   const [query, setQuery] = useState(knowledge.query);
   const [filters, setFilters] = useState<KnowledgeFilters>(knowledge.filters);
   const [selected, setSelected] = useState<string | null>(null);
+  // The element that opened the document gets focus back when the sheet closes.
+  const opener = useRef<HTMLElement | null>(null);
+  const select = (artifactId: string) => { opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; setSelected(artifactId); };
   const [upload, setUpload] = useState<{ file: File | null } | null>(null);
   const [dragging, setDragging] = useState(false); const dragDepth = useRef(0);
   useEffect(() => { store.openKnowledgeList(); return () => store.closeKnowledgeList(); }, [store, projectId]);
@@ -59,9 +62,9 @@ export function ProjectKnowledge({ store, projectId }: { store: Store; projectId
     {loading && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3">{[0, 1, 2].map(key => <Skeleton key={key} className="h-24 rounded-xl" />)}</div>}
     {knowledge.errors.knowledge && <div className="space-y-3"><ErrorNotice error={knowledge.errors.knowledge} /><Button variant="outline" onClick={() => { void store.searchKnowledge(query, filters); }}>{t('errors.retry')}</Button></div>}
     {!loading && !knowledge.errors.knowledge && !rows.length && <Card className="rounded-xl border-border py-0 shadow-none"><Empty><MascotEmpty seat="BA" state={searching ? 'thinking' : 'idle'} compact={searching} fallback={<EmptyHeader><EmptyDescription>{t(searching ? 'knowledgeUi.noMatches' : 'knowledgeUi.empty')}</EmptyDescription></EmptyHeader>}><EmptyDescription>{t(searching ? 'knowledgeUi.noMatches' : 'knowledgeUi.empty')}</EmptyDescription>{!searching && <p className="text-sm text-muted-foreground">{t('knowledgeUi.drop')}</p>}</MascotEmpty></Empty></Card>}
-    {!!rows.length && <DocumentList store={store} rows={rows} onSelect={setSelected} />}
+    {!!rows.length && <DocumentList store={store} rows={rows} onSelect={select} />}
     {knowledge.hasMore && <Button variant="outline" disabled={!!loading} onClick={() => { void store.loadKnowledgeMore(); }}>{t('knowledgeUi.more')}</Button>}
-    {selected && <KnowledgeArtifact key={selected} store={store} artifactId={selected} onClose={() => setSelected(null)} />}
+    {selected && <KnowledgeArtifact key={selected} store={store} artifactId={selected} returnFocus={opener.current} onClose={() => setSelected(null)} />}
     {upload && <UploadDialog store={store} initialFile={upload.file} onClose={() => setUpload(null)} onUploaded={id => { setUpload(null); setSelected(id); }} />}
     {dragging && <div role="status" className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/95 p-6"><div className="flex flex-col items-center gap-4"><Upload aria-hidden="true" className="size-10 text-muted-foreground" /><p className="font-display text-2xl font-semibold">{t('knowledgeUi.drop')}</p></div></div>}
   </Page>;

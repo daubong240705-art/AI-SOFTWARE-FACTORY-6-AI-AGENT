@@ -1,3 +1,4 @@
+import { officeReadModel } from './officeModels';
 import { m3Models } from './m3Models';
 import { agentClisModel } from './agentRuntime';
 import { packDetailModel, mcpServersModel } from './agentProfileModels';
@@ -127,6 +128,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listNotifications: (id: string, state: 'unread' | 'read' | 'dismissed' | 'all' = 'all') => request(`${projectPath(id)}/notifications?state=${state}`, notificationReadModels.notifications),
     listIntegration: (id: string) => request(`${projectPath(id)}/integration`, notificationReadModels.integration),
     getOrgActivity: () => request('/org/activity', activityReadModel),
+    getProjectInteractions: (id: string, limit = 120) => request(`${projectPath(id)}/interactions?limit=${limit}`, officeReadModel),
     listTeams: () => request('/teams', m3Models.teams),
     listPacks: () => request('/packs', m3Models.packs),
     getPack: (key: string) => request(`/packs/${encodeURIComponent(key)}`, packDetailModel),
@@ -245,7 +247,8 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
       }) };
     },
     getApproval: (id: string, approvalId: string) => request(`${projectPath(id)}/approvals/${encodeURIComponent(approvalId)}`, readModels.approval),
-    getEffectRemotes: () => request('/effects/remotes', codeReadModels.remotes),
+    // Remote names feed push commands: keep the strict contract (envelope, name pattern, size bounds).
+    getEffectRemotes: () => request('/effects/remotes', readModels.remotes),
     listProjectEffects: (id: string) => request(`${projectPath(id)}/effects`, codeReadModels.effects),
     listAttemptEffects: (id: string, attemptId: string) => request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/effects`, readModels.effects),
     pushAttempt: (id: string, attemptId: string, remote: string) => request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/push`, readModels.effect, { remote }),

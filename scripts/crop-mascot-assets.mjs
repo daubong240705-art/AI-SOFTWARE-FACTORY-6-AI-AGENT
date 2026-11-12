@@ -1,6 +1,6 @@
 // Crops each character of the mascot set (mascot/03_States_SVG, git-ignored source art) to one square box per character
-// and writes the SVGs the UI uses. Run from the repository root: node scripts/crop-mascot-assets.mjs (needs @playwright/test, installed in apps/factory-ui).
-import { chromium } from '../apps/factory-ui/node_modules/@playwright/test/index.mjs';
+// and writes the SVGs the UI uses. Run from the repository root: node scripts/crop-mascot-assets.mjs (needs playwright, installed in apps/factory-ui).
+import { chromium } from '../apps/factory-ui/node_modules/playwright/index.mjs';
 import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs';
 const src = 'mascot/03_States_SVG';
 const dst = 'apps/factory-ui/src/assets/mascot/original';

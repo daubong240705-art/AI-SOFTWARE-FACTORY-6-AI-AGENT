@@ -21,6 +21,7 @@ export function displayName(model: PickerModel) {
   return raw.replace(/[-_]+/g, ' ').replace(/\b\w/g, value => value.toUpperCase());
 }
 function provider(model: PickerModel) {
+  if (model.provider === 'claude-cli') return 'Claude Code CLI';
   if (!model.id.includes('/')) return 'Combos';
   const prefix = model.id.slice(0, model.id.indexOf('/')).toLowerCase();
   const mapped: Record<string, string> = { cx: 'OpenAI Codex', ag: 'Antigravity', ds: 'DeepSeek', oc: 'OpenCode' };
@@ -29,7 +30,7 @@ function provider(model: PickerModel) {
 function ProviderIcon({ group }: { group: string }) {
   if (group === 'Combos') return <Layers className="size-4" />;
   if (group === 'Antigravity') return <Sparkles className="size-4" />;
-  if (group === 'OpenAI Codex') return <Bot className="size-4" />;
+  if (group === 'OpenAI Codex' || group === 'Claude Code CLI') return <Bot className="size-4" />;
   if (group === 'DeepSeek') return <Brain className="size-4" />;
   return <Cpu className="size-4" />;
 }

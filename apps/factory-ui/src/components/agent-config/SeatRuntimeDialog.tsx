@@ -8,7 +8,7 @@ import { Mascot } from '@/components/mascot';
 import { Button } from '@/components/ui/button';
 import { useT } from '@/i18n';
 import type { Store } from '@/state/store';
-import { cliBlockReason, RuntimeCards, type RuntimeChoice } from './RuntimeCards';
+import { cliBlockReason, cliName, RuntimeCards, type RuntimeChoice } from './RuntimeCards';
 import { RuntimeFields, type RuntimeDraft } from './RuntimeFields';
 
 export function SeatRuntimeDialog({ store, seat, onClose }: { store: Store; seat: OrgTeam['seats'][number]; onClose: () => void }) {
@@ -20,10 +20,11 @@ export function SeatRuntimeDialog({ store, seat, onClose }: { store: Store; seat
   }));
   useEffect(() => { void store.loadAgentClis(); void store.loadModelSettings(); }, [store]);
   const isCli = draft.choice === 'codex' || draft.choice === 'claude';
-  const blocked = isCli ? cliBlockReason(data, draft.choice as 'codex' | 'claude') : null;
+  const blocked = isCli ? cliBlockReason(data, draft.choice as 'codex' | 'claude') : draft.choice === 'native-opencode' && data?.opencode === false ? 'agentConfig.opencodeOff' : null;
   const disabled = !projectId || readOnly;
   const changeRuntime = (choice: RuntimeChoice) => setDraft(previous => ({ ...previous, choice, model: '', effort: null, permission: 'autonomous' }));
-  const runtimeName = draft.choice === 'inherit' ? t('agentConfig.inheritSummary').replace('{runtime}', seat.runtime ?? t('agentClis.unknown')) : draft.choice === 'native-opencode' ? 'OpenCode' : draft.choice === 'codex' ? 'Codex CLI' : 'Claude Code CLI';
+  const inherited = data?.defaultCli && seat.runtime === 'native-opencode' ? cliName(data.defaultCli) : seat.runtime ?? t('agentClis.unknown');
+  const runtimeName = draft.choice === 'inherit' ? t('agentConfig.inheritSummary').replace('{runtime}', inherited) : draft.choice === 'native-opencode' ? 'OpenCode' : draft.choice === 'codex' ? 'Codex CLI' : 'Claude Code CLI';
   const details = draft.choice === 'inherit' ? '' : `, ${t('agentConfig.modelSummary').replace('{model}', draft.model.trim() || t('agentConfig.default'))}${draft.choice === 'claude' ? '' : `, ${t('agentConfig.effortSummary').replace('{effort}', draft.effort ? t(`modelsUi.efforts.${draft.effort}`) : t('agentConfig.default'))}`}${isCli ? `, ${t(`agentConfig.permissionSummary.${draft.permission}`)}` : ''}`;
   return <CommandFormFrame store={store} pendingKey={seatRuntimePendingKey(seat.id)} onClose={onClose} send={store.sendSeatRuntime}
     title={<span className="flex items-center gap-3"><Mascot seat={seat.isLead ? 'Lead' : seat.name} size={40} /><span>{seat.name}</span></span>}

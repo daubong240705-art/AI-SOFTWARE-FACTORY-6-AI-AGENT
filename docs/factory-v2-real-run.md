@@ -7,7 +7,6 @@ Lệnh chạy Host thật **tốn token thật**: khóa API và model do bạn t
 
 Trên Windows, tại thư mục repo:
 
-1. Kiểm tra: `packages/factory-contracts` và `apps/factory-host` chạy `npm test`; `apps/factory-ui` chạy `npm run check` và `npm run build`.
 2. Trong WSL: `bash /mnt/e/GIT/AI-SOFTWARE-FACTORY-6-AI-AGENT/scripts/factory-v2/deploy-host-wsl.sh`
    - Chép bản build Host, contracts, gói đội (`packs/`) và giao diện sang `~/factory-v2/app` (ext4), cài phụ thuộc production.
    - Ghi file `~/factory-v2/app/VERSION` (commit, nhánh, giờ triển khai). Dòng `dirty=yes` nghĩa là thư mục làm việc còn thay đổi chưa commit.

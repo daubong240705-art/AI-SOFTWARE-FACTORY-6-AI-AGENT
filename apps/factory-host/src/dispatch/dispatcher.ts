@@ -17,6 +17,7 @@ import type { AttemptRecord, RuntimeKind } from "./types.js";
 import type { WorkspaceProvider } from "./workspace-provider.js";
 import { sanitizeAgentText } from "../mcp/security.js";
 import { advanceTasks } from "./advance.js";
+import { appendProgressReport } from "./progress.js";
 import { registerRequestLifecycle } from "../requests/lifecycle.js";
 import { onRequestTransition, resumeWaiter } from "../requests/waits.js";
 import { integratePending, integrationBlocked } from "../integration/service.js";
@@ -168,7 +169,8 @@ export function createDispatcher(deps: {
     const seat = raw.prepare("SELECT runtime FROM seats WHERE id = ?").get(input.seatId) as { runtime: RuntimeKind } | undefined;
     const config = getSeatRuntimeConfig(raw, input.seatId) ?? (defaultAgentCli !== undefined && seat?.runtime === "native-opencode"
       ? { runtime: "acp" as const, cli: defaultAgentCli, model: null, effort: null, permission: "autonomous" as const } : undefined);
-    const runtime = config?.runtime ?? seat?.runtime ?? "fake";
+    // Without an override an unregistered seat runtime falls back to fake; an override must name a registered one.
+    const runtime = config?.runtime ?? (seat && registry.get(seat.runtime) ? seat.runtime : "fake");
     const provider = config?.cli === "codex" ? "codex-cli" : config?.cli === "claude" ? "claude-cli" : "fake";
     const a = createAttempt(raw, { ...input, id: newId(), runtime, provider,
       model: config?.model ?? (config ? "cli-default" : "fake"), effort: config?.effort ?? "medium", now: now() });
@@ -397,7 +399,8 @@ export function createDispatcher(deps: {
           return;
         }
         hub.transaction(() => {
-          appendAttemptEvent(raw, { projectId: a.projectId, attemptId: a.id, kind: event.type, body: event, at: now() });
+          if (event.type === "progress") appendProgressReport(raw, { projectId: a.projectId, attemptId: a.id, body: event, at: now() });
+          else appendAttemptEvent(raw, { projectId: a.projectId, attemptId: a.id, kind: event.type, body: event, at: now() });
           const expires = new Date(clock().getTime() + config.leaseMs).toISOString();
           changed(a.leaseExpiresAt !== null && expires > a.leaseExpiresAt ? renewLease(raw, a, context.ref.leaseId, expires, now()) : a);
         });
@@ -640,7 +643,7 @@ export function createDispatcher(deps: {
         const a = getAttempt(raw, ref.projectId, ref.attemptId);
         if (!a || !a.leaseId || a.state !== "running"
           || isStaleCallback(a, { ...ref, leaseId: a.leaseId }, clock().getTime())) return false;
-        appendAttemptEvent(raw, { projectId: a.projectId, attemptId: a.id, kind: "progress",
+        appendProgressReport(raw, { projectId: a.projectId, attemptId: a.id,
           body: { type: "progress", message: sanitizeAgentText(message), ...(percent === undefined ? {} : { percent }) }, at: now() });
         const expires = new Date(clock().getTime() + config.leaseMs).toISOString();
         changed(a.leaseExpiresAt !== null && expires > a.leaseExpiresAt ? renewLease(raw, a, a.leaseId, expires, now()) : a);

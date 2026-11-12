@@ -1,9 +1,5 @@
-import fs from "node:fs";
-import { createHash } from "node:crypto";
-import { dirname, join } from "node:path";
 import type { Database } from "better-sqlite3";
 import { ARTIFACT_TRANSITIONS, type ArtifactStatus } from "@factory/contracts";
-import { assertInside } from "../workspace/paths.js";
 import type { ContentStore } from "./content-store.js";
 import { cleanArtifactSummary } from "./summary.js";
 import { mediaKind, sniffMedia } from "./media.js";
@@ -52,38 +48,6 @@ export function listTaskArtifacts(raw: Database, projectId: string, taskId: stri
     artifact.versions.push(version);
   }
   return [...artifacts.values()];
-}
-
-const object = (value: unknown): Record<string, unknown> | null =>
-  typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
-const hashPattern = /^[0-9a-f]{64}$(?![\s\S])/;
-const patchPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.patch$(?![\s\S])/i;
-const digest = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
-function patchBytes(evidence: Record<string, unknown>, dir: string, attemptId: string): Buffer | null {
-  if (evidence.patchSafe !== true || evidence.patchTruncated !== false || typeof evidence.patchFile !== "string"
-    || !patchPattern.test(evidence.patchFile) || evidence.patchFile !== `${attemptId}.patch`
-    || typeof evidence.patchSha256 !== "string" || !hashPattern.test(evidence.patchSha256)) return null;
-  try {
-    if (fs.lstatSync(dir).isSymbolicLink()) return null;
-    const root = assertInside(dirname(dir), dir);
-    const file = join(root, evidence.patchFile);
-    if (!fs.lstatSync(file).isFile() || fs.lstatSync(file).isSymbolicLink()) return null;
-    const fd = fs.openSync(assertInside(root, file), fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
-    try {
-      if (!fs.fstatSync(fd).isFile() || fs.fstatSync(fd).size > 8 * 1024 * 1024) return null;
-      const bytes = fs.readFileSync(fd);
-      return digest(bytes) === evidence.patchSha256 ? bytes : null;
-    } finally { fs.closeSync(fd); }
-  } catch { return null; }
-}
-function summaryBytes(summary: string): Buffer {
-  const bytes = Buffer.from(summary.trim());
-  // A fatal decoder prevents cutting through a UTF-8 character at the byte limit.
-  let end = Math.min(bytes.length, 32 * 1024);
-  for (;;) {
-    try { new TextDecoder("utf-8", { fatal: true }).decode(bytes.subarray(0, end)); return bytes.subarray(0, end); }
-    catch { end--; }
-  }
 }
 
 /** Agent identity comes only from the authenticated grant, never from tool arguments. */
@@ -156,7 +120,7 @@ export function registerAttemptResults(deps: {
 }, input: AttemptResultsInput & { evidenceDir: string }): ResultRef[] {
   try {
     return collectLifecycleChanges(deps.raw, () => deps.raw.transaction(() => {
-      const { raw, store } = deps;
+      const { raw } = deps;
       const task = raw.prepare(`SELECT t.code FROM tasks t JOIN attempts a ON a.project_id = t.project_id AND a.task_id = t.id
         WHERE t.project_id = ? AND t.id = ? AND a.id = ? AND a.epoch = ?`)
         .get(input.projectId, input.taskId, input.attemptId, input.epoch) as { code: string } | undefined;
@@ -170,53 +134,8 @@ export function registerAttemptResults(deps: {
           .run(input.projectId, input.attemptId);
         created.push(...drafts);
       }
-      // Automatic results are idempotent independently of already registered agent outputs.
-      const automatic = raw.prepare(`SELECT title FROM artifact_versions WHERE project_id = ? AND produced_by_attempt_id = ?`)
-        .all(input.projectId, input.attemptId) as { title: string }[];
-      const rows = raw.prepare(`SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ?
-        AND kind = 'evidence' ORDER BY seq DESC`).all(input.projectId, input.attemptId) as { body_json: string }[];
-      const evidence = rows.map((row) => object(JSON.parse(row.body_json) as unknown))
-        .find((body) => body && Array.isArray(body.files) && "patchFile" in body && "patchSha256" in body);
-      // Runtime-only evidence is not workspace evidence; it cannot produce Results.
-      if (!evidence) return created;
-      const register = (role: "Changes" | "Summary", kind: "code-ref" | "other", media: string,
-        bytes: Buffer, l0: string, l1: string | null): void => {
-        const title = `${role} ${task.code} (epoch ${input.epoch})`.slice(0, 160);
-        if (automatic.some((row) => row.title === title)) return;
-        const previous = raw.prepare(`SELECT v.artifact_id AS artifactId, v.version, v.status FROM artifact_versions v
-          JOIN attempts a ON a.project_id = v.project_id AND a.id = v.produced_by_attempt_id
-          WHERE v.project_id = ? AND a.task_id = ? AND v.kind = ? AND v.title LIKE ?
-          ORDER BY v.version DESC LIMIT 1`)
-          .get(input.projectId, input.taskId, kind, `${role} %`) as { artifactId: string; version: number; status: ArtifactStatus } | undefined;
-        const artifactId = previous?.artifactId ?? deps.newId();
-        const version = previous ? previous.version + 1 : 1;
-        const content = store.put(bytes);
-        raw.prepare(`INSERT INTO artifact_versions (project_id, artifact_id, version, kind, title, media_type, content_hash,
-          size_bytes, status, abstract_l0, abstract_l1, produced_by_attempt_id, supersedes_version, visibility, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'project', ?)`)
-          .run(input.projectId, artifactId, version, kind, `${role} ${task.code} (epoch ${input.epoch})`.slice(0, 160), media,
-            content.hash, content.size, input.outcome === "completed" ? "in-review" : "draft", l0, l1,
-            input.attemptId, previous?.version ?? null, deps.now().toISOString());
-        created.push({ artifactId, version, kind, contentHash: content.hash });
-        if (previous) supersedeForRegistration(raw, {
-          projectId: input.projectId, artifactId, supersededVersion: previous.version, byVersion: version, now: deps.now().toISOString(),
-        });
-        afterRegister(deps.afterRegister, input.projectId, artifactId, version);
-      };
-      const patch = patchBytes(evidence, input.evidenceDir, input.attemptId);
-      if (patch !== null) {
-        const totals = object(evidence.totals);
-        const count = (value: unknown): number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
-        const l0 = `${count(totals?.files)} files changed, +${count(totals?.additions)} -${count(totals?.deletions)}`;
-        const l1 = (evidence.files as unknown[]).map(object).filter((file) => file && typeof file.path === "string"
-          && !/^(?:[\\/]|[a-z]:)/i.test(file.path) && !file.path.includes("\0") && typeof file.status === "string")
-          .map((file) => `${String(file?.status)} ${String(file?.path)}`).join("\n").slice(0, 6000);
-        register("Changes", "code-ref", "text/x-diff", patch, l0.slice(0, 400), l1 || null);
-      }
-      if (input.outcome === "completed" && input.summary?.trim()) {
-        const bytes = summaryBytes(input.summary);
-        register("Summary", "other", "text/markdown", bytes, (bytes.toString("utf8").split(/\r?\n/, 1)[0] ?? "Summary").trim().slice(0, 400) || "Summary", null);
-      }
+      // Task summaries and workspace patches remain attempt records, never documents.
+      // Only files explicitly registered through output.register enter Knowledge.
       return created;
     })()).result;
   } catch {

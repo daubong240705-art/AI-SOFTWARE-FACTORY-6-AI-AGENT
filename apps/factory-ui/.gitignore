@@ -2,7 +2,3 @@ node_modules/
 dist/
 src/styles/tokens.css
 public/fonts/
-e2e/.run/
-e2e/.results/
-e2e/.results-work/
-e2e/screenshots/

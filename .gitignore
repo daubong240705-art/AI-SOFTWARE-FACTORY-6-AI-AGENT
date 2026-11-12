@@ -7,7 +7,6 @@ __pycache__/
 node_modules/
 .next/
 *.tsbuildinfo
-.pytest_cache/
 .ruff_cache/
 .mypy_cache/
 dist/
@@ -19,9 +18,6 @@ dist/
 
 # Generated UI screenshots stay local. Keep source/design assets trackable.
 /docs/**/*.png
-
-# Leftovers of interrupted test runs
-apps/factory-host/test/.org-fixture-*/
 
 # Source art of the mascot set (about 18 MB of PNG and previews). Only the cropped SVGs used by the UI are tracked,
 # in apps/factory-ui/src/assets/mascot/original; regenerate them with scripts/crop-mascot-assets.mjs.

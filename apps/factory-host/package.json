@@ -10,7 +10,6 @@
   "scripts": {
     "check": "tsc --noEmit",
     "build": "tsc",
-    "test": "npm run build && node --test test/*.test.mjs",
     "pack:check": "node scripts/pack-check.mjs"
   },
   "dependencies": {

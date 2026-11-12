@@ -3,12 +3,14 @@ import { isAbsolute } from "node:path";
 import type { RuntimeAdapter, RuntimeEvent, RuntimeSession } from "../dispatch/runtime.js";
 import { scrubForLog } from "../exec/safe-env.js";
 import { promptFor } from "./opencode.js";
-import { cliProcess, validateCliCommand } from "./local-cli-process.js";
+import { cliProcess, validateCliCommand, validatePassEnv } from "./local-cli-process.js";
 
 type Cli = "codex" | "claude";
 type Failure = Extract<RuntimeEvent, { type: "failed" }>;
 export interface LocalCliRuntimeOptions {
   codexCommand?: readonly string[]; claudeCommand?: readonly string[];
+  /** Extra Host variables the operator lets through to the CLIs (FACTORY_CLI_PASS_ENV). */
+  passEnv?: readonly string[];
   timeoutMs?: number; stallMs?: number; maxOutputBytes?: number; maxPromptBytes?: number; maxLineBytes?: number;
   // CLI releases can change flags. Each group can be replaced, including with an empty array.
   claudeFlags?: Partial<Record<"prompt" | "output" | "model" | "permission" | "mcp" | "directory", readonly string[]>>;
@@ -17,6 +19,8 @@ const record = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const failure = (cli: Cli, text: string, missing = false): Failure => {
   if (missing) return { type: "failed", kind: "config", message: `${cli}: not installed on the Host machine.` };
+  if (/missing environment variable/i.test(text)) return { type: "failed", kind: "config",
+    message: `${cli}: a provider key it needs is not set for the Host. Set it in the Host's environment (FACTORY_CLI_PASS_ENV) and restart.` };
   if (/sign[ -]?in|log[ -]?in|unauthori[sz]ed|\b401\b|authentication/i.test(text)) return { type: "failed", kind: "config",
     message: `${cli}: not logged in. Run ${cli === "codex" ? "codex login" : "claude auth login"} on the Host machine.` };
   if (/usage limit|quota|rate.?limit|\b429\b|resets at/i.test(text)) return { type: "failed", kind: "model",
@@ -30,6 +34,8 @@ function oneEvent(event: RuntimeEvent): RuntimeSession {
 export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): RuntimeAdapter {
   const commands = { codex: options.codexCommand ?? ["codex"], claude: options.claudeCommand ?? ["claude"] };
   Object.values(commands).forEach(validateCliCommand);
+  const passEnv = [...(options.passEnv ?? [])];
+  validatePassEnv(passEnv);
   const timeoutMs = options.timeoutMs ?? 30 * 60_000, stallMs = options.stallMs ?? 10 * 60_000;
   const maxOutputBytes = options.maxOutputBytes ?? 4 * 1024 * 1024;
   const maxPromptBytes = options.maxPromptBytes ?? 24 * 1024, maxLineBytes = options.maxLineBytes ?? 1024 * 1024;
@@ -44,7 +50,10 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
     if (!workspace || !isAbsolute(workspace.path)) return oneEvent({ type: "failed", kind: "config", message: "local CLI: workspace unavailable" });
     if (!agent?.cli || !model?.token) return oneEvent({ type: "failed", kind: "config", message: "local CLI: configuration invalid" });
     const cli = agent.cli;
-    const scrub = (text: string): string => scrubForLog(text, [model.token, workspace.path, workspace.path.replaceAll("\\", "/"), homedir()])
+    // Values the operator passed through (such as a provider key) are secrets too.
+    const passed = passEnv.map((name) => process.env[name]).filter((value): value is string => value !== undefined && value.length >= 8);
+    const scrub = (text: string): string => passed.reduce((out, value) => out.replaceAll(value, "[redacted]"),
+      scrubForLog(text, [model.token, ...passed, workspace.path, workspace.path.replaceAll("\\", "/"), homedir()]))
       .replaceAll(model.token, "[redacted]").replace(/fpx_[A-Za-z0-9_-]+|\bsk-[A-Za-z0-9_-]+/g, "[redacted]")
       .replace(/[A-Za-z]:[\\/][^\s<>"'`]+|(?<![\w:])\/(?:[^\s<>"'`]+\/)*[^\s<>"'`]+/g, "[path]")
       .replace(/[\p{Cc}\p{Cf}]+/gu, " ");
@@ -56,6 +65,7 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
       // Shared task, profile, context, artifact and summary rules; CLI-native MCP names.
       const prompt = promptFor(context, maxPromptBytes, model.token)
         .replace(/factory_([a-z_]+)/g, (_, name: string) => cli === "claude" ? `mcp__factory__${name.replaceAll("_", ".")}` : `factory MCP ${name.replaceAll("_", ".")}`)
+        + "\nDocument policy: create and register a document only when the operator explicitly requested it (for example, an SRD). Keep source changes, diffs, test output, task summaries and routine handoffs in the task/workspace; do not publish them as documents."
         + (cli === "codex" ? "\nFactory tools are on the 'factory' MCP server; use its advertised tool names (task.progress, output.register, decision.request, skill.get)."
           : "\nFactory tools use the mcp__factory__* prefix; use the advertised names from the factory MCP server.");
       const autonomous = agent.permission !== "workspace-write";
@@ -108,6 +118,7 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
       try { event = record(JSON.parse(input)); } catch { return; }
       const type = event.type;
       if (typeof type !== "string") return;
+      // Any CLI activity resets the stall timer; only agent text and task.progress are work reports.
       activity();
       const item = record(event.item);
       const text = (value: string): void => { const clean = scrub(value); summary = clean.trim().slice(0, 2000); emit({ type: "output", text: clean }); };
@@ -115,12 +126,8 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
       if (type === "error" || type === "turn.failed") { error(); return; }
       if (cli === "codex") {
         if (type === "item.completed" && item.type === "agent_message" && typeof item.text === "string") text(item.text);
-        else if ((type === "item.started" || type === "item.completed") && ["command_execution", "mcp_tool_call", "file_change", "web_search"].includes(String(item.type)))
-          emit({ type: "progress", message: scrub(`tool: ${String(item.type)}`).slice(0, 160) });
         else if (type === "turn.completed") success = true;
-        else if (type === "thread.started" || type === "turn.started") emit({ type: "progress", message: "Working" });
       } else {
-        if (type === "system") emit({ type: "progress", message: "Working" });
         if (type === "assistant") {
           const message = record(event.message);
           if (Array.isArray(message.content)) {
@@ -128,7 +135,6 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
             for (const entry of message.content) {
               const part = record(entry);
               if (part.type === "text" && typeof part.text === "string") texts.push(part.text);
-              if (part.type === "tool_use") emit({ type: "progress", message: "tool: Claude tool activity" });
             }
             if (texts.length) text(texts.join("\n"));
           }
@@ -174,7 +180,7 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
     context.signal.addEventListener("abort", onAbort, { once: true });
     if (context.signal.aborted) { await stop(); return { events: () => iterator, stop }; }
     try {
-      processHandle = cliProcess(commands[cli], args, { cwd: workspace.path, token: model.token, output });
+      processHandle = cliProcess(commands[cli], args, { cwd: workspace.path, token: model.token, passEnv, output });
       totalTimer = setTimeout(timeout, timeoutMs); activity();
       void processHandle.result.then((result) => {
         if (stopped) { finish(); return; }

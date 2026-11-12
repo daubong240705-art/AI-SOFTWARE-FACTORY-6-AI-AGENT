@@ -95,6 +95,20 @@ Các tùy chọn: `--agents codex|claude|opencode`, `--local-cli` (chỉ bật C
 - Dừng bằng `Ctrl+C`. Chạy nền: dùng `tmux` hoặc dịch vụ systemd (mục 11).
 - Agent chạy bằng CLI có **toàn quyền** của người dùng Arch trong worktree của từng việc. Muốn giảm rủi ro, tạo một người dùng Linux riêng cho Factory (mục 10).
 
+## 9b. Chạy chỉ bằng CLI (không OpenCode, Lead bằng Claude Code)
+
+```
+bash scripts/factory-v2/start-host-cli.sh --check                  # kiểm tra, không khởi động
+bash scripts/factory-v2/start-host-cli.sh                          # vị trí chưa cấu hình riêng chạy Claude Code
+export NINE_ROUTER_API_KEY=...; bash scripts/factory-v2/start-host-cli.sh   # thêm: Codex (provider 9Router) dùng được
+```
+- Không cần OpenCode, bubblewrap, proxy model hay gateway cho Lead: Lead chat chạy `claude -p` bằng đăng nhập Claude của bạn. Trang Hệ thống chỉ còn các model `opus`, `sonnet`, `haiku` cho Lead.
+- Ngân sách token không chặn (vẫn ghi lượng token của Lead). Agent CLI dùng hạn mức thuê bao của chính CLI.
+- Codex cấu hình provider 9Router đọc khóa từ `NINE_ROUTER_API_KEY`: script chỉ truyền biến đó cho CLI khi nó có trong shell (`FACTORY_CLI_PASS_ENV`). Không có khóa thì vị trí chạy Codex sẽ thất bại.
+- Không muốn `export` mỗi lần: lưu khóa vào `~/.config/factory/env` (quyền 600, dòng `NINE_ROUTER_API_KEY=...`). Script tự đọc file này nếu biến chưa có trong shell; file có quyền rộng hơn bị bỏ qua. Khóa khi đó nằm trên đĩa: lựa chọn của bạn.
+- Vị trí đang cấu hình `OpenCode` sẽ báo "runtime unavailable": đổi về "Kế thừa" hoặc chọn CLI.
+- Agent có **toàn quyền** người dùng chạy Host trong worktree của từng việc.
+
 ## 10. Dự án thực tế
 
 ```

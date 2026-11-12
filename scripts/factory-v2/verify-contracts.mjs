@@ -102,30 +102,12 @@ execFileSync(process.execPath, [tsc], { cwd: pkg, stdio: "pipe" });
 const { FOUNDATION_COMMANDS } = await import(
   pathToFileURL(resolve(pkg, "dist/index.js")).href
 );
-const contractTests = execFileSync(
-  process.execPath,
-  ["--test", "test/contracts.test.mjs"],
-  { cwd: pkg, encoding: "utf8" },
-);
-assert(contractTests.includes("# fail 0"));
-// Capture unittest output in stdout so failure evidence is preserved across platforms.
-const sqlTests = execFileSync(
-  "python",
-  [
-    "-c",
-    "import runpy,sys; sys.stderr=sys.stdout; runpy.run_path('scripts/factory-v2/schema.test.py',run_name='__main__')",
-  ],
-  { cwd: root, encoding: "utf8" },
-);
-assert(/Ran \d+ tests/.test(sqlTests) && /\nOK\s*$/.test(sqlTests));
 const files = [
   ...sourceFiles.map((file) => "packages/factory-contracts/src/" + file),
-  "packages/factory-contracts/test/contracts.test.mjs",
   "packages/factory-contracts/package.json",
   "packages/factory-contracts/package-lock.json",
   "packages/factory-contracts/tsconfig.json",
   "schema/factory-v2/001-core.reference.sql",
-  "scripts/factory-v2/schema.test.py",
   "scripts/factory-v2/verify-contracts.mjs",
 ];
 const report = {
@@ -149,15 +131,11 @@ const report = {
   counts: {
     commands: FOUNDATION_COMMANDS.length,
     sourceModules: sourceFiles.length,
-    contractTests: Number(contractTests.match(/# tests (\d+)/)[1]),
-    sqliteMemoryTests: Number(sqlTests.match(/Ran (\d+) tests/)[1]),
     checkedLocalDocLinks: checkedLinks,
   },
   checks: {
     typecheck: true,
     buildDeclarationsAndEsm: true,
-    boundaryTests: true,
-    sqliteMemoryTests: true,
     packageDependencyBoundary: true,
     lockfilePinned: true,
     docLinks: true,

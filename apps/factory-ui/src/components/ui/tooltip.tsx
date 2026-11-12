@@ -20,7 +20,8 @@ function TooltipProvider({
 function Tooltip({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+  // Self-contained like current shadcn/ui: works outside AppShell's provider too (isolated screens, tests).
+  return <TooltipProvider><TooltipPrimitive.Root data-slot="tooltip" {...props} /></TooltipProvider>
 }
 
 function TooltipTrigger({

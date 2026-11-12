@@ -110,7 +110,7 @@ Giao diện hiện có 21 màn, chỉ dùng API của ngân sách, team, request
 | U-F | Tri thức (Dossier, báo cáo), Mã nguồn (nhánh tích hợp) | U-A |
 | U-G | Cài đặt: ngân sách, mức tự chủ, Standing Approval, thông báo | U-A |
 
-Mỗi lát có kiểm tra tự động như các lát khác (vitest, Playwright, ảnh chụp để bạn duyệt) và vẫn hoạt động đầy đủ khi xong.
+Mỗi lát được kiểm tra kiểu và build trước khi bàn giao.
 
 ## 7. Cần bạn quyết định
 

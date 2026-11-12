@@ -193,6 +193,10 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 .attention-detail > * { flex: 1 0 auto; }
 .attention-decision, .attention-panel { display: flex; flex-direction: column; flex: 1 0 auto; }
 .attention-decision h2, .attention-panel h2 { font: 600 24px / 32px var(--display); }
+/* Gate, plan patch, request and conflict panels: same 24px inset as the decision panel (px-6). */
+.attention-panel { padding: 24px 24px 0; }
+.attention-panel > ul:not([class]) { list-style: disc; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 4px; }
+.attention-panel .attention-actions { margin-left: -24px; margin-right: -24px; padding-left: 24px; padding-right: 24px; }
 .attention-result-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 32px; align-items: start; }
 .attention-facts { position: sticky; top: 0; padding-left: 24px; border-left: 1px solid var(--line); }
 .attention-facts h3 { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
@@ -207,6 +211,8 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
   .attention-screen { grid-template-columns: minmax(0, 1fr); height: auto; }
   .attention-list { max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--line); }
   .attention-detail { padding: 20px 16px 0; overflow: visible; }
+  .attention-panel { padding: 16px 16px 0; }
+  .attention-panel .attention-actions { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
   .attention-result-grid { grid-template-columns: minmax(0, 1fr); }
   .attention-facts { position: static; padding-left: 0; border-left: 0; }
   .attention-hints { display: none; }

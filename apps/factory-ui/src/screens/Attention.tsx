@@ -53,11 +53,12 @@ export function Attention({ store }: { store: Store }) {
   useEffect(() => {
     if (selected && location.hash !== attentionHash(selected.key)) history.replaceState(null, '', attentionHash(selected.key));
     if (!selected && !state.loading.globalInbox) history.replaceState(null, '', attentionHash());
-    if (restoreFocus.current) {
-      const button = list.current?.querySelector<HTMLButtonElement>('[aria-current="true"]');
+    // Focus the selected row by its key: a row that was just decided may still be leaving with aria-current.
+    if (restoreFocus.current && selected) {
+      const button = [...(list.current?.querySelectorAll<HTMLButtonElement>('[data-row-key]') ?? [])].find(node => node.dataset.rowKey === selected.key);
       if (button) { button.focus(); restoreFocus.current = false; }
     }
-  }, [selected?.key, selectedKey, state.loading.globalInbox]);
+  }, [selected?.key, selectedKey, state.loading.globalInbox, rows]);
   useEffect(() => {
     let active = true; setReadyProject(null);
     if (!selected) return;
@@ -107,7 +108,7 @@ export function Attention({ store }: { store: Store }) {
       {!rows.length && !state.loading.globalInbox && !state.errors.globalInbox && <Empty className="p-6"><MascotEmpty seat="Lead" state="success" fallback={<EmptyHeader><EmptyMedia variant="icon"><CheckCheck /></EmptyMedia><EmptyDescription>{t('attention.empty')}</EmptyDescription></EmptyHeader>}><EmptyDescription>{t('attention.empty')}</EmptyDescription></MascotEmpty><Button asChild variant="outline"><a href="#/overview">{t('nav.overview')}</a></Button></Empty>}
       <Stagger ref={list} aria-label={t('attention.list')} className="m-0 list-none p-0"><AnimatePresence initial={false}>{rows.map((row, index) => {
         const code = row.code ?? state.tasks.find(task => task.projectId === row.projectId && task.id === state.globalInbox.approvals.find(approval => `approval:${approval.id}` === row.key)?.taskId)?.code;
-        return <StaggerItem key={row.key} index={index} collapse><Button type="button" variant="ghost" aria-current={selected?.key === row.key ? 'true' : undefined} aria-selected={selected?.key === row.key} className={cn('h-auto w-full flex-col items-stretch gap-2 rounded-none border-t border-l-2 border-t-border border-l-transparent px-6 py-3 text-left whitespace-normal hover:bg-card', selected?.key === row.key && 'border-l-need bg-secondary hover:bg-secondary')} onClick={() => select(row)}>
+        return <StaggerItem key={row.key} index={index} collapse><Button type="button" variant="ghost" data-row-key={row.key} aria-current={selected?.key === row.key ? 'true' : undefined} aria-selected={selected?.key === row.key} className={cn('h-auto w-full flex-col items-stretch gap-2 rounded-none border-t border-l-2 border-t-border border-l-transparent px-6 py-3 text-left whitespace-normal hover:bg-card', selected?.key === row.key && 'border-l-need bg-secondary hover:bg-secondary')} onClick={() => select(row)}>
           <span className="flex items-start gap-3"><Mascot seat={state.activity?.teams.flatMap(team => team.seats).find(seat => seat.needsYou.some(need => `approval:${need.approvalId}` === row.key))?.name ?? 'Lead'} size={32} state="attention" /><strong className="min-w-0 flex-1 text-sm leading-relaxed font-semibold break-words">{attentionTitle(row.title)}</strong>{row.actionable && <span aria-label={t('inboxUi.needsDecision')} className="mt-2 size-1.5 shrink-0 rounded-full bg-need" />}</span>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal text-muted-foreground"><ProjectTile id={row.projectId} name={name(row)} className="h-5 w-6" /><span>{name(row)}</span>{code && <span className="font-mono">{code}</span>}{!row.since.startsWith('9999') && <time dateTime={row.since} className="ml-auto">{relativeTime(row.since)}</time>}</span>
         </Button></StaggerItem>;

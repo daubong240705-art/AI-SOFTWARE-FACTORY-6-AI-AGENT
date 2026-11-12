@@ -46,7 +46,7 @@ export function ApprovalsSection({ state, store, projectId, id }: {
   const teamOptions = [...teamIds].map(teamId => ({ id: teamId, name: teamName(teamId) }));
   const scope = (item: StandingApproval) => item.scope.kind === 'team' ? teamName(item.scope.ref) : t(`settingsUi.scope.${item.scope.kind}`);
   const rows = (items: StandingApproval[]) => <ul>{items.map(item => <ApprovalRow key={item.id} item={item} scope={scope(item)} store={store} onRevoke={setRevoking} />)}</ul>;
-  return <Card className="gap-0 border-border py-0 shadow-none">
+  return <Card role="region" aria-labelledby={id} className="gap-0 border-border py-0 shadow-none">
     <CardHeader className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 sm:flex-row">
       <h3 id={id} className="font-display text-lg font-semibold">{t('settingsUi.standingApprovals')}</h3>
       <Button type="button" size="sm" disabled={Boolean(state.loading[standingPendingKey()])} onClick={() => setAdding(true)}>{t('settingsWrite.addApproval')}</Button>
