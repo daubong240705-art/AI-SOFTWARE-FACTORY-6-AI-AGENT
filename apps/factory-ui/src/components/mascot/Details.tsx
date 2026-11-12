@@ -5,7 +5,7 @@ export function Face({ state }: { state: MascotState }) {
   </g>{(state === 'thinking' || state === 'attention') && <path d={state === 'attention' ? 'M31 36l10 2m18 0 10-2' : 'M31 38l10-3m18 3 10 1'} fill="none" strokeWidth="2" />}<path d={state === 'error' ? 'M44 66q6-7 12 0' : state === 'attention' ? 'M48 63a2 3 0 104 0 2 3 0 10-4 0' : 'M44 63q6 7 12 0'} fill="none" strokeWidth="2" /><g fill="var(--mascot-blush)" opacity=".65" stroke="none"><ellipse cx="28" cy="59" rx="5" ry="3" /><ellipse cx="72" cy="59" rx="5" ry="3" /></g></>;
 }
 export function Accessory({ kind }: { kind?: string }) {
-  if (kind === 'crown') return <><path d="M34 24l2-14 9 8 5-12 6 12 9-8 1 14z" fill="var(--mascot-yellow)" /><path d="M18 48v-7q0-14 16-17M82 48v-7q0-14-16-17m16 24v8h-7" fill="none" strokeWidth="2" /></>;
+  if (kind === 'crown') return <><path d="M34 24l2-14 9 8 5-12 6 12 9-8 1 14z" fill="var(--mascot-yellow)" /><path d="M18 45h-5v12h5M82 45h5v12h-5M86 59q0 9-17 8" fill="none" strokeWidth="2" /></>;
   if (kind === 'glasses') return <g fill="none" strokeWidth="2"><circle cx="37" cy="47" r="10" /><circle cx="63" cy="47" r="10" /><path d="M47 46h6M27 45l-7-3m53 3 7-3" /></g>;
   if (kind === 'headset') return <path d="M18 48v-6a32 27 0 0164 0v13h-8V44h8m-64 0h8v11h-8m64 0q0 11-16 9" fill="none" />;
   if (kind === 'laptop') return <g><rect x="23" y="70" width="54" height="23" rx="4" fill="var(--mascot-screen)" /><path d="M20 94h60M41 77l-5 4 5 4m18-8 5 4-5 4m-7-9-4 10" fill="none" strokeWidth="2.5" /></g>;
