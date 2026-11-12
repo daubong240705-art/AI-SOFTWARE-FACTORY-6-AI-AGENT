@@ -974,6 +974,8 @@ test("host advertises and executes all document lifecycle commands",async(t)=>{
   assert.equal((await postCommand(host,session,project)).status,200);
   const response=await fetch(`${host.origin}/system/capabilities`,{headers:{cookie:session.cookie}}); const capabilities=await response.json();
   for(const type of ["artifacts.transition","artifacts.share","artifacts.clear-stale"]) assert.ok(capabilities.commands.includes(type));
+  assert.match(capabilities.host.nodeVersion,/^v\d+\./); assert.match(capabilities.host.startedAt,/^\d{4}-\d\d-\d\dT/); assert.equal(capabilities.features.dispatch,false);
+  assert.equal(typeof capabilities.features.multiTeam,"boolean"); assert.equal(typeof capabilities.features.documentExtraction,"boolean"); assert.equal(JSON.stringify(capabilities).includes(process.cwd().replaceAll("\\","\\\\")),false);
   const artifactId=randomUUID(); const raw=host.storage.raw;
   raw.prepare(`INSERT INTO artifact_versions (project_id,artifact_id,version,kind,title,media_type,content_hash,size_bytes,status,
     abstract_l0,visibility,created_at) VALUES (?,?,1,'other','Document','text/plain',?,1,'reviewed','Abstract','team-draft',?)`)

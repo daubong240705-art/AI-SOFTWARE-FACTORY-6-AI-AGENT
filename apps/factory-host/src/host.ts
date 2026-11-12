@@ -594,6 +594,7 @@ export async function startHost(options: {
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store });
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });
       registerExtractionRoutes(app, guards, extraction);
+      const hostStartedAt = clock().toISOString();
       app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
         apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set",
           "dossier.refresh",
@@ -608,6 +609,9 @@ export async function startHost(options: {
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],
         capabilities: ["inbox", "approvals.review"],
+        // Read-only facts for the operator's System page; no paths, tokens or environment values.
+        host: { startedAt: hostStartedAt, nodeVersion: process.version, platform: process.platform },
+        features: { multiTeam: options.multiTeam === true, dispatch: dispatch !== null, documentExtraction: options.docWorker?.enabled ?? true },
       }));
       if (options.uiDir) registerStaticUi(app, { dir: options.uiDir });
     } });
