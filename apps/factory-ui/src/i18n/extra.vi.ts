@@ -2,6 +2,15 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  codeUi: {
+    description: 'Cách công việc của agent đi vào mã nguồn: nhánh tích hợp và các lần đẩy mã.', refresh: 'Làm mới',
+    integration: 'Nhánh tích hợp', pushes: 'Đẩy mã lên remote', noBranch: 'Chưa có nhánh tích hợp.',
+    emptyIntegration: 'Chưa có nhánh nào được tích hợp.', emptyEffects: 'Chưa có lần đẩy mã nào.',
+    remotes: 'Remote được phép: {names}', noRemotes: 'Chưa có remote nào được cấu hình.', reconcile: 'Kiểm tra lại', reconciled: 'Đã kiểm tra kết quả đẩy mã',
+    technical: 'Chi tiết kỹ thuật', attempt: 'Lần chạy', effect: 'Thao tác', push: 'Đẩy mã', otherEffect: 'Thao tác khác', open: 'Xem mã nguồn', loading: 'Đang tải hoạt động mã nguồn',
+    states: { pending: 'Đang chờ', merged: 'Đã gộp', conflict: 'Xung đột', skipped: 'Đã bỏ qua', done: 'Đã đẩy mã', failed: 'Thất bại', unknown: 'Chưa rõ kết quả', unrecognized: 'Chưa rõ trạng thái' },
+    errors: { auth: 'Không xác thực được với remote.', rejected: 'Remote đã từ chối lần đẩy mã này.', network: 'Không kết nối được với remote.', timeout: 'Lần đẩy mã đã hết thời gian chờ.', other: 'Không hoàn tất được lần đẩy mã này.', 'not-pushed': 'Nhánh này chưa được đẩy lên remote.', unknown: 'Chưa xác định được kết quả đẩy mã.' },
+  },
   systemUi: {
     title: 'Hệ thống', description: 'Tình trạng Host, sao lưu, công cụ ngoài và gói đội.', refresh: 'Làm mới',
     host: 'Host', backups: 'Sao lưu', servers: 'Máy chủ MCP ngoài', packs: 'Gói đội', commands: 'Lệnh Host cung cấp',
@@ -239,7 +248,7 @@ export const extra: Translated<typeof en> = {
   empty: { conversations: 'Chưa có hội thoại.', messages: 'Chưa có tin nhắn.', team: 'Chưa có đội ngũ.' },
   shell: { product: 'Factory', theme: 'Giao diện', light: 'Sáng', dark: 'Tối', system: 'Hệ thống', language: 'Ngôn ngữ', english: 'English', vietnamese: 'Tiếng Việt', toggleProjects: 'Ẩn hoặc hiện dự án', live: 'Trực tiếp', reconnecting: 'Đang kết nối lại', offline: 'Ngoại tuyến', welcome: 'Dự án của bạn', chooseProject: 'Chọn hoặc tạo dự án để bắt đầu.', comingSoon: 'Sẽ có ở bước tiếp theo', projectTabs: 'Các chế độ xem dự án', searchPlaceholder: 'Tìm việc theo mã hoặc từ khóa', newTask: 'Việc mới', searchTasks: 'Tìm việc', searchDescription: 'Tìm công việc trong dự án được chọn hoặc mở một dự án.', noSearchResults: 'Không có công việc hoặc dự án phù hợp.', projectTasks: 'Công việc của dự án được chọn' },
   tabs: { chat: 'Trò chuyện', tasks: 'Công việc', team: 'Đội ngũ' },
-  projectUi: { overview: 'Tổng quan', board: 'Bảng việc', workflow: 'Quy trình', automation: 'Tự động', knowledge: 'Tài liệu', settings: 'Cài đặt', askLead: 'Hỏi Lead', closeChat: 'Đóng trò chuyện', chat: 'Trò chuyện với agent', taskDetails: 'Chi tiết công việc', backToBoard: 'Quay lại bảng việc', context: 'Bối cảnh', documents: 'Tài liệu', running: 'Đang chạy', review: 'Đang duyệt', waiting: 'Chờ cho phép', done: 'Hoàn tất', activeTasks: 'Công việc hiện tại', noActiveTasks: 'Không có công việc đang chạy hoặc chờ bạn.', budgetTitle: 'Ngân sách token' },
+  projectUi: { overview: 'Tổng quan', board: 'Bảng việc', workflow: 'Quy trình', automation: 'Tự động', knowledge: 'Tài liệu', code: 'Mã nguồn', settings: 'Cài đặt', askLead: 'Hỏi Lead', closeChat: 'Đóng trò chuyện', chat: 'Trò chuyện với agent', taskDetails: 'Chi tiết công việc', backToBoard: 'Quay lại bảng việc', context: 'Bối cảnh', documents: 'Tài liệu', running: 'Đang chạy', review: 'Đang duyệt', waiting: 'Chờ cho phép', done: 'Hoàn tất', activeTasks: 'Công việc hiện tại', noActiveTasks: 'Không có công việc đang chạy hoặc chờ bạn.', budgetTitle: 'Ngân sách token' },
   settingsWrite: {
     changeLevel: 'Đổi mức', raiseWarning: 'Bạn đang cho agent nhiều quyền tự quyết hơn. Hãy xem lại các quyền trước khi xác nhận.', understood: 'Tôi hiểu',
     operatorOnly: 'Ở mọi mức, việc tăng ngân sách, chi tiền, xuất bản ra bên ngoài và hành động không thể hoàn tác luôn cần người vận hành duyệt.',

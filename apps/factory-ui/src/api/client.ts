@@ -13,6 +13,7 @@ import { commandSchema, successResponseSchema, failureResponseSchema, projectSch
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
 import { readModels, m5ReadModels, type KnowledgePage } from './readModels';
+import { codeReadModels } from './codeModels';
 export type { KnowledgeResult, KnowledgeItem, KnowledgeArtifact, KnowledgeFilters, KnowledgePage } from './readModels';
 export type DocumentUploadMeta = { kind: NonNullable<KnowledgePage['kinds']>[number]; title?: string; artifactId?: string };
 export type { Attempt, AttemptEvent, AttemptPatch, TaskArtifact, ArtifactContent, Inbox, Effect } from './readModels';
@@ -235,7 +236,8 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
       }) };
     },
     getApproval: (id: string, approvalId: string) => request(`${projectPath(id)}/approvals/${encodeURIComponent(approvalId)}`, readModels.approval),
-    getEffectRemotes: () => request('/effects/remotes', readModels.remotes),
+    getEffectRemotes: () => request('/effects/remotes', codeReadModels.remotes),
+    listProjectEffects: (id: string) => request(`${projectPath(id)}/effects`, codeReadModels.effects),
     listAttemptEffects: (id: string, attemptId: string) => request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/effects`, readModels.effects),
     pushAttempt: (id: string, attemptId: string, remote: string) => request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/push`, readModels.effect, { remote }),
     reconcileEffect: (id: string, effectId: string) => request(`${projectPath(id)}/effects/${encodeURIComponent(effectId)}/reconcile`, readModels.effect, {}),

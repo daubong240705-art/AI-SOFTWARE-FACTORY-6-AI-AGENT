@@ -1,4 +1,13 @@
 export const extra = {
+  codeUi: {
+    description: 'How agent work reaches the code base: the integration branch and pushes.', refresh: 'Refresh',
+    integration: 'Integration branch', pushes: 'Pushes to remote', noBranch: 'No integration branch is available.',
+    emptyIntegration: 'No branches have been integrated yet.', emptyEffects: 'No pushes yet.',
+    remotes: 'Allowed remotes: {names}', noRemotes: 'No remotes are configured.', reconcile: 'Check again', reconciled: 'Push outcome checked',
+    technical: 'Technical details', attempt: 'Attempt', effect: 'Effect', push: 'Push', otherEffect: 'Other action', open: 'View code', loading: 'Loading code activity',
+    states: { pending: 'Pending', merged: 'Merged', conflict: 'Conflict', skipped: 'Skipped', done: 'Pushed', failed: 'Failed', unknown: 'Outcome unknown', unrecognized: 'Unknown state' },
+    errors: { auth: 'Remote authentication failed.', rejected: 'The remote rejected this push.', network: 'Could not reach the remote.', timeout: 'The push timed out.', other: 'The push could not be completed.', 'not-pushed': 'This branch has not reached the remote.', unknown: 'The push outcome could not be determined.' },
+  },
   systemUi: {
     title: 'System', description: 'Host health, backups, external tools and team packs.', refresh: 'Refresh',
     host: 'Host', backups: 'Backups', servers: 'External MCP servers', packs: 'Team packs', commands: 'Host commands',
@@ -224,7 +233,7 @@ export const extra = {
   empty: { conversations: 'No conversations yet.', messages: 'No messages yet.', team: 'No team assigned.' },
   shell: { product: 'Factory', theme: 'Theme', light: 'Light', dark: 'Dark', system: 'System', language: 'Language', english: 'English', vietnamese: 'Tiếng Việt', toggleProjects: 'Toggle projects', live: 'Live', reconnecting: 'Reconnecting', offline: 'Offline', welcome: 'Your projects', chooseProject: 'Select a project or create one to get started.', comingSoon: 'Coming in the next step', projectTabs: 'Project views', searchPlaceholder: 'Find tasks by code or keyword', newTask: 'New task', searchTasks: 'Find tasks', searchDescription: 'Find tasks in the selected project or open a project.', noSearchResults: 'No matching tasks or projects.', projectTasks: 'Tasks in the selected project' },
   tabs: { chat: 'Chat', tasks: 'Tasks', team: 'Team' },
-  projectUi: { overview: 'Overview', board: 'Board', workflow: 'Workflow', automation: 'Automation', knowledge: 'Documents', settings: 'Settings', askLead: 'Ask Lead', closeChat: 'Close chat', chat: 'Agent chat', taskDetails: 'Task details', backToBoard: 'Back to board', context: 'Context', documents: 'Documents', running: 'Running', review: 'In review', waiting: 'Waiting for a go', done: 'Done', activeTasks: 'Current tasks', noActiveTasks: 'No tasks are running or waiting for you.', budgetTitle: 'Token budget' },
+  projectUi: { overview: 'Overview', board: 'Board', workflow: 'Workflow', automation: 'Automation', knowledge: 'Documents', code: 'Code', settings: 'Settings', askLead: 'Ask Lead', closeChat: 'Close chat', chat: 'Agent chat', taskDetails: 'Task details', backToBoard: 'Back to board', context: 'Context', documents: 'Documents', running: 'Running', review: 'In review', waiting: 'Waiting for a go', done: 'Done', activeTasks: 'Current tasks', noActiveTasks: 'No tasks are running or waiting for you.', budgetTitle: 'Token budget' },
   settingsWrite: {
     changeLevel: 'Change level', raiseWarning: 'You are giving the agent more autonomy. Review the permissions before confirming.', understood: 'I understand',
     operatorOnly: 'Budget increases, spending money, external publishing and irreversible actions always require the operator at every level.',

@@ -59,3 +59,7 @@ export function notifyCommandSuccess(command: Command, approvalKind?: Approval['
   const key = successKey(command, approvalKind);
   if (key) toast.success(i18n.t(key), { id: command.commandId, duration: 2500 });
 }
+
+export function notifyEffectReconciled(effectId: string) {
+  toast.success(i18n.t('codeUi.reconciled'), { id: `reconcile:${effectId}`, duration: 2500 });
+}

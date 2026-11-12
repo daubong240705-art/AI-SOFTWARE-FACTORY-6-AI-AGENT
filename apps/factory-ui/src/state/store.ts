@@ -5,10 +5,11 @@ import type { Approval, Command, Conversation, FactoryEvent, Project, Task } fro
 import { ApiClientError, DocumentUploadError, createApiClient, type ApiClient, type ArtifactContent, type Attempt, type AttemptEvent, type AttemptPatch, type TaskArtifact, type BudgetResponse, type MessagesResponse, type TeamResponse } from '../api/client';
 import { openProjectEvents, type ProjectEventsOptions, type StreamStatus } from '../api/events';
 import type { Inbox, Effect } from '../api/client';
+import type { CodeEffect } from '../api/codeModels';
 import type { DocumentUploadMeta, KnowledgeArtifact, KnowledgeFilters, KnowledgeItem, KnowledgeResult } from '../api/client';
 import { emptyM5, type M5State } from './m5';
 import { emptySettings, type SettingsState } from './settings';
-import { notifyCommandSuccess } from './toasts';
+import { notifyCommandSuccess, notifyEffectReconciled } from './toasts';
 import { emptyActivity, type ActivityState } from './activity';
 import { createExtractionPolling } from './extractionPolling';
 import { toast } from 'sonner';
@@ -39,6 +40,7 @@ export type StoreState = {
   mcpServers: McpServer[] | null;
   notifications: NotificationsResponse;
   integration: IntegrationResponse;
+  projectEffects: CodeEffect[] | null;
   notificationProgress: { done: number; total: number } | null;
   activity: ActivityState;
   settings: SettingsState;
@@ -60,7 +62,7 @@ export type StoreOptions = {
   openEvents?: (options: ProjectEventsOptions) => { close(): void };
   timer?: { setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 };
-const projectState = () => ({ notifications: emptyNotifications(), integration: emptyIntegration(), notificationProgress: null, activity: emptyActivity(), settings: emptySettings(), m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
+const projectState = () => ({ notifications: emptyNotifications(), integration: emptyIntegration(), projectEffects: null, notificationProgress: null, activity: emptyActivity(), settings: emptySettings(), m5: emptyM5(), m3: emptyM3(), knowledge: emptyKnowledge(), team: null, tasks: [], conversations: [], messages: {}, turns: {}, budget: null, details: {}, artifactContents: {}, liveAttempts: {}, inbox: emptyInbox(), approvals: {}, stream: 'closed' as const });
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}), ...(error.detailKey ? { detailKey: error.detailKey } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
@@ -379,11 +381,11 @@ export function createStore(options: StoreOptions = {}) {
     if (!id) return Promise.resolve();
     return enqueue(`approval:${approvalId}`, generation, async () => { const result = await api.getApproval(id, approvalId); return { approvals: { ...state.approvals, [approvalId]: result.approval } }; });
   }
-  function loadRemotes(): Promise<void> {
-    if (state.session !== 'authenticated' || state.remotes !== null) return Promise.resolve();
+  function loadRemotes(refresh = false): Promise<void> {
+    if (state.session !== 'authenticated' || (!refresh && state.remotes !== null)) return Promise.resolve();
     if (remotesPromise) return remotesPromise;
     const scope = authGeneration;
-    update({ loading: { ...state.loading, remotes: true } });
+    update({ loading: { ...state.loading, remotes: true }, errors: { ...state.errors, remotes: undefined } });
     remotesPromise = (async () => {
       try { const result = await api.getEffectRemotes(); if (scope === authGeneration) update({ remotes: result.remotes }); }
       catch (error) { if (scope === authGeneration) failed('remotes', error); }
@@ -391,14 +393,40 @@ export function createStore(options: StoreOptions = {}) {
     })();
     return remotesPromise;
   }
-  function loadEffects(taskId: string, attemptId: string, debounce = false) {
+  function loadEffects(taskId?: string, attemptId?: string, debounce = false) {
     const id = state.selectedProjectId;
-    if (!id) return Promise.resolve();
+    if (!id || state.session !== 'authenticated') return Promise.resolve();
+    if (!taskId && !attemptId) return enqueue('effects', generation, async () => ({ projectEffects: (await api.listProjectEffects(id)).effects }));
+    if (!taskId || !attemptId) return Promise.resolve();
     return enqueue(`effects:${taskId}:${attemptId}`, generation, async () => {
       if (debounce && !openTasks.has(taskId)) return {};
       const result = await api.listAttemptEffects(id, attemptId);
       return detailPatch(taskId, { effects: { ...state.details[taskId]?.effects, [attemptId]: result.effects } });
     }, debounce);
+  }
+  async function refreshCode() {
+    await Promise.all([loadIntegration(), loadEffects(), loadRemotes(true)]);
+  }
+  async function reconcileProjectEffect(effectId: string) {
+    const id = state.selectedProjectId; const scope = generation; const area = `reconcile:${effectId}`;
+    const effect = state.projectEffects?.find(item => item.id === effectId);
+    if (!id || state.session !== 'authenticated' || state.loading[area] || !effect || (effect.state !== 'unknown' && effect.outcome !== 'unknown' && effect.outcome !== 'outcome-unknown')) return;
+    update({ loading: { ...state.loading, [area]: true }, errors: { ...state.errors, [area]: undefined } });
+    try {
+      const result = await api.reconcileEffect(id, effectId);
+      if (!active(scope)) return;
+      const patch = { ...effect, ...result.effect, outcome: result.effect.state === 'unknown' ? 'unknown' : 'known' };
+      update({ projectEffects: state.projectEffects?.map(item => item.id === effectId ? patch : item) ?? null });
+      for (const [taskId, detail] of Object.entries(state.details)) {
+        const previous = detail.effects[effect.attemptId];
+        if (previous?.some(item => item.id === effectId)) update(detailPatch(taskId, { effects: { ...detail.effects, [effect.attemptId]: previous.map(item => item.id === effectId ? result.effect : item) } }));
+      }
+      notifyEffectReconciled(effectId);
+      return result.effect;
+    } catch (error) { if (active(scope)) failed(area, error); }
+    finally {
+      if (active(scope)) { await refreshCode(); if (active(scope)) update({ loading: { ...state.loading, [area]: false } }); }
+    }
   }
   async function mutateEffect(taskId: string, attemptId: string, remoteOrId: string, reconcile: boolean) {
     const id = state.selectedProjectId; const scope = generation; const area = `push:${taskId}:${attemptId}`;
@@ -411,7 +439,10 @@ export function createStore(options: StoreOptions = {}) {
       update(detailPatch(taskId, { effects: { ...state.details[taskId]?.effects, [attemptId]: [...previous.filter(item => item.id !== effect.id), effect] } }));
       return effect;
     } catch (error) { if (active(scope)) { failed(area, error); if (active(scope) && error instanceof ApiClientError && error.code === 'conflict') await loadEffects(taskId, attemptId); } }
-    finally { if (active(scope)) update({ loading: { ...state.loading, [area]: false } }); }
+    finally {
+      if (active(scope) && state.projectEffects !== null) await refreshCode();
+      if (active(scope)) update({ loading: { ...state.loading, [area]: false } });
+    }
   }
   function loadArea(area: 'team' | 'tasks' | 'conversations' | 'budget', debounce = false) {
     const id = state.selectedProjectId;
@@ -660,7 +691,7 @@ export function createStore(options: StoreOptions = {}) {
   }
   function sendIntegration(command: IntegrationCommand) {
     return sendCollectionCommand(command, integrationPendingKey(command.payload.taskId), async () => {
-      await Promise.all([loadIntegration(), loadInbox(), loadGlobalInbox()]);
+      await Promise.all([refreshCode(), loadInbox(), loadGlobalInbox()]);
     }, 'integrationUi.conflict');
   }
   async function markAllNotificationsRead() {
@@ -752,7 +783,7 @@ export function createStore(options: StoreOptions = {}) {
     loadConversations: () => loadArea('conversations'),
     loadTasks: () => loadArea('tasks'),
     loadBudget: () => loadArea('budget'),
-    loadInbox: () => loadInbox(), loadGlobalInbox: () => loadGlobalInbox(), loadRemotes, loadApproval, loadEffects,
+    loadInbox: () => loadInbox(), loadGlobalInbox: () => loadGlobalInbox(), loadRemotes, loadApproval, loadEffects, refreshCode, reconcileProjectEffect,
     push: (taskId: string, attemptId: string, remote: string) => mutateEffect(taskId, attemptId, remote, false),
     reconcile: (taskId: string, attemptId: string, effectId: string) => mutateEffect(taskId, attemptId, effectId, true),
     announceDecision: () => update({ announcement: state.announcement + 1 }),

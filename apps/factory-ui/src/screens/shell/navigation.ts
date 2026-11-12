@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-export type ProjectTab = 'overview' | 'board' | 'workflow' | 'automation' | 'knowledge' | 'settings';
+export type ProjectTab = 'overview' | 'board' | 'workflow' | 'automation' | 'knowledge' | 'code' | 'settings';
 export type TeamTab = 'activity' | 'config';
 export type View = 'overview' | 'needs-attention' | 'team' | 'system' | `project:${string}`;
 export function viewHash(view: View, tab: ProjectTab = 'overview', team: TeamTab = 'activity'): string {
@@ -9,14 +9,14 @@ export function viewHash(view: View, tab: ProjectTab = 'overview', team: TeamTab
 }
 export function projectTab(hash: string): ProjectTab {
   if (!parseHash(hash).startsWith('project:')) return 'overview';
-  const tab = /^#\/project\/[^/]+\/(board|workflow|automation|knowledge|settings)$/.exec(hash)?.[1];
-  return tab === 'board' || tab === 'workflow' || tab === 'automation' || tab === 'knowledge' || tab === 'settings' ? tab : 'overview';
+  const tab = /^#\/project\/[^/]+\/(board|workflow|automation|knowledge|code|settings)$/.exec(hash)?.[1];
+  return tab === 'board' || tab === 'workflow' || tab === 'automation' || tab === 'knowledge' || tab === 'code' || tab === 'settings' ? tab : 'overview';
 }
 export function parseHash(hash: string): View {
   if (hash === '#/system') return 'system';
   if (hash === '#/attention' || hash.startsWith('#/attention/')) return 'needs-attention';
   if (hash === '#/team' || hash === '#/team/config') return 'team';
-  const project = /^#\/project\/([^/]+)(?:\/(overview|board|workflow|automation|knowledge|settings))?$/.exec(hash);
+  const project = /^#\/project\/([^/]+)(?:\/(overview|board|workflow|automation|knowledge|code|settings))?$/.exec(hash);
   if (project?.[1]) {
     try { const id = decodeURIComponent(project[1]); if (id.trim()) return `project:${id}`; } catch { /* Invalid encodings return home. */ }
   }

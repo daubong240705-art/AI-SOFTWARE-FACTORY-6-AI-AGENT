@@ -4,7 +4,7 @@ import type { Project } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Columns3, LayoutGrid, MessageSquare, Plus, Settings, Workflow, Zap } from 'lucide-react';
+import { BookOpen, Columns3, GitBranch, LayoutGrid, MessageSquare, Plus, Settings, Workflow, Zap } from 'lucide-react';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { DockedPane } from './DockedPane';
@@ -12,6 +12,7 @@ import { ProjectChat } from './ProjectChat';
 import { ProjectTasks } from './ProjectTasks';
 import { ProjectOverview } from './ProjectOverview';
 import { ProjectKnowledge } from './ProjectKnowledge';
+import { ProjectCode } from './ProjectCode';
 import { ProjectWorkflow } from './ProjectWorkflow';
 import { ProjectAutomation } from './ProjectAutomation';
 import { ProjectSettings } from './ProjectSettings';
@@ -21,8 +22,8 @@ import { ProjectTile } from './shell/ProjectTile';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { Reveal } from '@/components/motion/Reveal';
 
-const tabs = ['overview', 'board', 'workflow', 'automation', 'knowledge', 'settings'] as const;
-const tabIcons = { overview: LayoutGrid, board: Columns3, workflow: Workflow, automation: Zap, knowledge: BookOpen, settings: Settings };
+const tabs = ['overview', 'board', 'workflow', 'automation', 'knowledge', 'code', 'settings'] as const;
+const tabIcons = { overview: LayoutGrid, board: Columns3, workflow: Workflow, automation: Zap, knowledge: BookOpen, code: GitBranch, settings: Settings };
 export function ProjectView({ store, project, tab, onTabChange, openChat = false, onChatOpened, initialTaskId }: {
   store: Store; project: Project; tab?: ProjectTab; onTabChange?: (tab: ProjectTab) => void; openChat?: boolean; onChatOpened?: () => void; initialTaskId?: string | undefined;
 }) {
@@ -81,6 +82,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         {active === 'automation' && <ProjectAutomation key={project.id} store={store} projectId={project.id} />}
         {active === 'settings' && <ProjectSettings key={project.id} store={store} projectId={project.id} />}
         {active === 'knowledge' && <ProjectKnowledge key={project.id} store={store} projectId={project.id} />}
+        {active === 'code' && <ProjectCode key={project.id} store={store} projectId={project.id} />}
         </Reveal>
       </div>
       <PanelPresence className="project-chat-dock min-h-0 min-w-0" fallbackFocus={() => ask.current} onExitComplete={chatExited}>{chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock h-full p-0" onClose={() => setChat(false)} fallbackFocus={() => ask.current}>
