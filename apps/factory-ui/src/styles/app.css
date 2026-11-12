@@ -262,6 +262,34 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 
 /* U-E1: Read-only workflow master-detail and automation lists. */
 .office-floor { container-type: inline-size; }
+.office-floor {
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--muted) 13%, transparent) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.office-pulse { background-image: radial-gradient(ellipse at top right, color-mix(in srgb, var(--run) 8%, transparent), transparent 60%); }
+.office-agent-card { position: relative; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+.office-agent-card::after { content: ''; position: absolute; inset: auto 18px 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--border); pointer-events: none; }
+.office-agent-card[data-status="working"]::after { background: var(--run); }
+.office-agent-card[data-status="waiting"]::after { background: var(--need); }
+.office-agent-card[data-status="done"]::after { background: var(--ok); }
+.office-agent-card[data-status="problem"]::after { background: var(--info); }
+.office-agent-card:hover { box-shadow: 0 5px 20px color-mix(in srgb, var(--run) 8%, transparent); }
+.office-avatar { transition: transform .2s; }
+.office-agent-card:hover .office-avatar { transform: rotate(-4deg); }
+.office-avatar i { width: 3px; height: 3px; border-radius: 50%; background: var(--background); animation: office-typing 1.2s ease-in-out infinite; }
+.office-avatar i:nth-child(2) { animation-delay: .15s; }
+.office-avatar i:nth-child(3) { animation-delay: .3s; }
+.office-progress-pending { animation: office-progress 1.8s ease-in-out infinite; }
+.office-agent-preview { max-height: min(650px, var(--radix-hover-card-content-available-height, 80dvh)); overscroll-behavior: contain; scrollbar-gutter: stable; }
+.office-plant { transform-origin: bottom center; animation: office-sway 7s ease-in-out infinite; }
+.office-quiet *, .office-quiet *::before, .office-quiet *::after { animation: none !important; transition: none !important; }
+@keyframes office-typing { 0%, 60%, 100% { opacity: .5; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
+@keyframes office-progress { 0%, 100% { transform: translateX(0); opacity: .4; } 50% { transform: translateX(220%); opacity: .85; } }
+@keyframes office-sway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .office-progress-pending, .office-plant, .office-avatar i { animation: none; }
+  .office-agent-card:hover .office-avatar { transform: none; }
+}
 .office-lead-row { grid-template-columns: minmax(0, 1fr) minmax(0, 320px) minmax(0, 1fr); }
 .office-seat-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
 @container (max-width: 580px) {
