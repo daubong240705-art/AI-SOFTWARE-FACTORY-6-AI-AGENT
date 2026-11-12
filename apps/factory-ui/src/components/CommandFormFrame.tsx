@@ -10,7 +10,7 @@ import type { Store } from '@/state/store';
 
 export function CommandFormFrame<C extends Command>({ pendingKey, store, onClose, onSubmit, send, title, description, submitLabel, invalidKey, submitDisabled = false, children }: {
   pendingKey: string; store: Store; onClose: () => void; onSubmit: () => C | string;
-  send: (command: C) => Promise<unknown>; title: string; description: string; submitLabel: string;
+  send: (command: C) => Promise<unknown>; title: ReactNode; description: string; submitLabel: string;
   invalidKey: string; submitDisabled?: boolean; children: ReactNode;
 }) {
   const t = useT();

@@ -1,4 +1,6 @@
 import { StaggerItem } from '@/components/motion/Stagger';
+import { SeatRuntimeButton } from '@/components/agent-config/SeatRuntimeButton';
+import { SeatRuntimeBadge } from '@/components/agent-config/SeatRuntimeBadge';
 import { AgentProfileButton } from '@/components/agent-profile/AgentProfileButton';
 import type { Store } from '@/state/store';
 import { useId } from 'react';
@@ -32,7 +34,9 @@ export function SeatRow({ seat, team, store, projectId, readOnly, command, index
           <Mascot seat={seat.isLead ? 'Lead' : seat.name} size={40} state={seat.live ? 'working' : 'idle'} /><h4 className="text-sm font-medium [overflow-wrap:anywhere]">{seat.name}</h4>
           <Badge variant="outline">{seat.role}</Badge>
           {seat.isLead && <Badge variant="secondary">{t('team.lead')}</Badge>}
-          <AgentProfileButton store={store} packKey={team.packKey} packVersion={team.packVersion} seatName={seat.name} />
+          <SeatRuntimeBadge store={store} seatId={seat.id} />
+          <AgentProfileButton store={store} packKey={team.packKey} packVersion={team.packVersion} seatName={seat.name} seatId={seat.id} />
+          <SeatRuntimeButton store={store} seat={seat} />
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary" className="font-normal tabular-nums">{t('ux4.running')} {seat.live}</Badge>

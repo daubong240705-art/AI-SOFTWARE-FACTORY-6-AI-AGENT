@@ -1,4 +1,22 @@
 export const extra = {
+  agentConfig: {
+    open: 'Configure agent', description: 'Choose how this agent runs its tasks.', runtime: 'Runtime', packRuntime: 'Pack runtime',
+    runtimes: { inherit: 'From pack (default)', 'native-opencode': 'OpenCode (API key, sandboxed, supports parallel agents)', codex: 'Codex CLI (this machine’s ChatGPT login)', claude: 'Claude Code CLI (this machine’s Claude login)' },
+    cliDisabled: 'Not enabled. Start the Host with --local-cli.', cliMissing: 'Not installed or not logged in on the Host machine',
+    installHint: 'Install in WSL, then run {command}', model: 'Model', default: 'Default', cliModelDefault: 'Leave blank to use the CLI’s default model',
+    effort: 'Reasoning effort', claudeEffort: 'Claude Code chooses its own reasoning effort', permission: 'Permission mode',
+    permissions: { autonomous: 'Autonomous (no per-command prompts, full machine access)', 'workspace-write': 'Write only inside the project folder' },
+    warning: 'CLI agents have the same access as when you open the CLI yourself on this machine. Make sure you trust the project.',
+    noProject: 'Create a project to edit agent configuration. These controls are read-only.', save: 'Save', saved: 'Agent configuration saved',
+    conflict: 'Agent configuration changed; the team has been refreshed', invalid: 'Check the agent configuration and model name.',
+    summary: '{name} will run with {runtime}', inheritSummary: 'the pack runtime ({runtime})', modelSummary: 'model {model}', effortSummary: '{effort} effort',
+    permissionSummary: { autonomous: 'autonomous', 'workspace-write': 'project folder writes only' },
+  },
+  agentClis: {
+    title: 'Agent tools on this machine', refresh: 'Check again', enabled: 'Enabled', disabled: 'Not enabled: start the Host with --local-cli',
+    loggedIn: 'Logged in', notLoggedIn: 'Not logged in', notInstalled: 'Not installed', unknown: 'Unknown', unavailable: 'CLI status is not available yet.',
+    note: 'Codex and Claude Code run on the Host machine (in WSL), using your subscription login. Many agents can run at once; they share your plan quota.',
+  },
   planPatch: {
     stageForm: {
       add: 'Add step', addAfter: 'Add a new step after this step', addBefore: 'Add a new step before this step', addToPatch: 'Add to patch',

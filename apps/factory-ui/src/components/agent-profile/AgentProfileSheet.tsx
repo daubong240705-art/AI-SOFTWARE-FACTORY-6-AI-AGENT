@@ -10,19 +10,24 @@ import { useT } from '@/i18n';
 import type { Store } from '@/state/store';
 import { AgentProfileContent, AgentSkillsContent } from './AgentProfileContent';
 import { AgentToolsContent } from './AgentToolsContent';
+import { SeatRuntimeButton } from '@/components/agent-config/SeatRuntimeButton';
+import { SeatRuntimeBadge } from '@/components/agent-config/SeatRuntimeBadge';
 
-export function AgentProfileSheet({ store, packKey, packVersion, seatName }: { store: Store; packKey: string; packVersion: string | null; seatName: string }) {
+export function AgentProfileSheet({ store, packKey, packVersion, seatName, seatId }: { store: Store; packKey: string; packVersion: string | null; seatName: string; seatId?: string }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
   const pack = state.packDetails[packKey];
   const error = state.errors[`pack:${packKey}`];
   const seat = pack?.seats.find(value => value.name === seatName);
+  const orgSeat = state.m3.teams.flatMap(team => team.seats).find(value => value.id === seatId);
   useEffect(() => { void store.loadPack(packKey); }, [store, packKey]);
+  useEffect(() => { if (seatId) void store.loadTeams(); }, [store, seatId]);
   return (
     <SheetContent side="right" showCloseButton={false} className="w-full gap-0 border-border bg-background sm:max-w-[560px]">
       <SheetHeader className="gap-2 border-b border-border p-6 pr-16">
         <Mascot seat={seatName} size={64} /><SheetTitle className="font-display text-3xl leading-tight [overflow-wrap:anywhere]">{seatName}</SheetTitle>
         <SheetDescription>{t('agentProfile.source')}</SheetDescription>
+        {orgSeat && <div className="flex flex-wrap items-center gap-2"><SeatRuntimeBadge store={store} seatId={orgSeat.id} /><SeatRuntimeButton store={store} seat={orgSeat} /></div>}
       </SheetHeader>
       <SheetClose asChild>
         <Button variant="ghost" size="icon" className="absolute right-4 top-4" aria-label={t('agentProfile.close')}><X aria-hidden="true" /></Button>

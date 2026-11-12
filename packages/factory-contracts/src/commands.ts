@@ -5,6 +5,7 @@ import { ruleInputSchema, rulePatchSchema } from "./rules.js";
 import { autonomyLevelSchema } from "./autonomy.js";
 import { modelSettingsSetSchema } from "./model-settings.js";
 import { z } from "zod";
+import { seatRuntimeInputSchema } from "./org.js";
 import { scheduleInputSchema, schedulePatchSchema } from "./schedule.js";
 import { workflowKeySchema, workflowPatchSchema } from "./workflow.js";
 import {
@@ -211,6 +212,7 @@ export const commandSchema = z.discriminatedUnion("type", [
     state: z.enum(["active", "paused", "ended"]).optional(),
   })),
   // Seats remain elastic; dedicated node assignment arrives in M4.
+  command("seats.set-runtime", seatRuntimeInputSchema),
   command("seats.update", z.strictObject({
     ...change, seatId: idSchema, slots: z.number().int().min(1).max(8).optional(),
   })),

@@ -8,6 +8,19 @@ import {
 } from "./base.js";
 import { runtimeKindSchema } from "./attempt.js";
 
+export const seatRuntimeInputSchema = z.strictObject({
+  seatId: idSchema,
+  expectedRevision: revisionSchema.nullable(),
+  runtime: z.enum(["inherit", "native-opencode", "acp"]),
+  cli: z.enum(["codex", "claude"]).optional(),
+  model: z.string().min(1).max(256).regex(/^[^\s\p{Cc}]+$/u).nullable().optional(),
+  effort: z.enum(["low", "medium", "high", "xhigh"]).nullable().optional(),
+  permission: z.enum(["autonomous", "workspace-write"]).optional(),
+}).refine((value) => (value.runtime === "acp") === (value.cli !== undefined), {
+  message: "cli is required exactly when runtime is acp", path: ["cli"],
+});
+export type SeatRuntimeInput = z.infer<typeof seatRuntimeInputSchema>;
+
 /**
  * Teams come from Packs (a folder under packs/), so the MVP has no "teams.create" command.
  * Organization is intentionally absent in M0-lite: every table is scoped by project, and an

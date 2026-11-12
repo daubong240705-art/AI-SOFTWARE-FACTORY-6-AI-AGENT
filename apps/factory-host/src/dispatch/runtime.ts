@@ -9,8 +9,9 @@ export interface AttemptContext {
   contextPack?: string | null;
   instructions?: { profile: string; skills: { name: string; description: string }[] } | null;
   signal: AbortSignal;
-  model?: { baseUrl: string; token: string; models: string[]; socketPath?: string };
+  model?: { baseUrl: string; token: string; models: string[]; socketPath?: string; mcpBaseUrl?: string };
   workspace?: { path: string; branch: string; baseSha: string };
+  agent?: { cli?: "codex" | "claude"; model?: string | null; effort?: "low" | "medium" | "high" | "xhigh" | null; permission?: "autonomous" | "workspace-write" };
 }
 
 export type RuntimeEvent =

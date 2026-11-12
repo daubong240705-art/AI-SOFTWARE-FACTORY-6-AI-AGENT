@@ -20,8 +20,12 @@ import { advanceTasks } from "./advance.js";
 import { registerRequestLifecycle } from "../requests/lifecycle.js";
 import { onRequestTransition, resumeWaiter } from "../requests/waits.js";
 import { integratePending, integrationBlocked } from "../integration/service.js";
+import { getSeatRuntimeConfig } from "../org/runtime-config.js";
+import { LOCAL_CLI_FAILURES } from "../runtimes/failures.js";
 
 export interface DispatcherConfig {
+  /** Seats without an override and whose pack declares OpenCode run on this local CLI (FACTORY_DEFAULT_AGENT_CLI). */
+  defaultAgentCli?: "codex" | "claude";
   nodeSlots: number; leaseMs: number; leaseRenewMs: number; leaseCheckMs: number; stopTimeoutMs: number;
   /** Collecting evidence (git add, diff, patch) can take long on big repositories: its own limit. */
   evidenceTimeoutMs: number;
@@ -37,7 +41,7 @@ export interface Timers {
 }
 export interface RecoverSummary { leaseExpired: number; unknown: number; requeued: number; untouched: number }
 export interface ModelAccess {
-  issue(input: { attemptId: string; projectId: string; taskId: string; epoch: number; workspacePath?: string }): { baseUrl: string; token: string; models: string[]; socketPath?: string };
+  issue(input: { attemptId: string; projectId: string; taskId: string; epoch: number; workspacePath?: string }): { baseUrl: string; token: string; models: string[]; socketPath?: string; mcpBaseUrl?: string };
   revoke(attemptId: string): void;
 }
 export interface Dispatcher {
@@ -86,9 +90,11 @@ export function createDispatcher(deps: {
   const newId = deps.newId ?? createIdGenerator(clock);
   const timers = deps.timers ?? defaultTimers;
   const config = { ...DEFAULT_DISPATCHER_CONFIG, ...deps.config };
-  for (const value of Object.values(config)) {
-    if (!Number.isSafeInteger(value) || value < 1) throw new Error("Invalid dispatcher configuration");
+  for (const [key, value] of Object.entries(config)) {
+    if (key === "defaultAgentCli") { if (value !== undefined && value !== "codex" && value !== "claude") throw new Error("Invalid dispatcher configuration"); continue; }
+    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) throw new Error("Invalid dispatcher configuration");
   }
+  const defaultAgentCli = config.defaultAgentCli;
   const live = new Map<string, Live>();
   const stops = new Map<string, Promise<AttemptRecord>>();
   const waiters = new Set<() => void>();
@@ -160,8 +166,15 @@ export function createDispatcher(deps: {
   };
   const create = (input: { projectId: string; taskId: string; seatId: string }): AttemptRecord => {
     const seat = raw.prepare("SELECT runtime FROM seats WHERE id = ?").get(input.seatId) as { runtime: RuntimeKind } | undefined;
-    const runtime = seat && registry.get(seat.runtime) ? seat.runtime : "fake";
-    const a = createAttempt(raw, { ...input, id: newId(), runtime, provider: "fake", model: "fake", effort: "medium", now: now() });
+    const config = getSeatRuntimeConfig(raw, input.seatId) ?? (defaultAgentCli !== undefined && seat?.runtime === "native-opencode"
+      ? { runtime: "acp" as const, cli: defaultAgentCli, model: null, effort: null, permission: "autonomous" as const } : undefined);
+    const runtime = config?.runtime ?? seat?.runtime ?? "fake";
+    const provider = config?.cli === "codex" ? "codex-cli" : config?.cli === "claude" ? "claude-cli" : "fake";
+    const a = createAttempt(raw, { ...input, id: newId(), runtime, provider,
+      model: config?.model ?? (config ? "cli-default" : "fake"), effort: config?.effort ?? "medium", now: now() });
+    // Snapshot the override with the attempt, so queued work cannot change CLI mid-flight.
+    if (config) stateEvent(a, { to: "runtime-configured", agent: { ...(config.cli ? { cli: config.cli } : {}),
+      model: config.model, effort: config.effort, permission: config.permission } });
     changed(a);
     return a;
   };
@@ -207,7 +220,7 @@ export function createDispatcher(deps: {
       } else {
         // Runtime text is untrusted and may contain secrets. Persist only a fixed message.
         stateEvent(a, { to: "failed", kind: event.kind, message: workspaceUnavailable
-          ? "workspace unavailable" : event.message === "runtime ended without a result"
+          ? "workspace unavailable" : LOCAL_CLI_FAILURES.has(event.message) || event.message === "runtime ended without a result"
           ? event.message : "runtime failed" });
         taskOutcome(move(a, "failed"), "failed");
       }
@@ -271,7 +284,15 @@ export function createDispatcher(deps: {
       const task = getTask(raw, preparing.projectId, preparing.taskId);
       const seat = raw.prepare("SELECT id, name, role FROM seats WHERE id = ?").get(preparing.seatId) as AttemptContext["seat"] | undefined;
       const adapter = registry.get(preparing.runtime);
-      if (!task || !seat || !adapter || !preparing.leaseId) throw new Error("Missing attempt context");
+      if (!task || !seat || !preparing.leaseId) throw new Error("Missing attempt context");
+      if (!adapter) {
+        finishOutcome(preparing, { type: "failed", kind: "config", message: "runtime unavailable" });
+        return;
+      }
+      const configured = raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'state' ORDER BY seq")
+        .all(preparing.projectId, preparing.id) as { body_json: string }[];
+      const agentConfig = configured.map((row) => JSON.parse(row.body_json) as { to?: string; agent?: AttemptContext["agent"] })
+        .find((event) => event.to === "runtime-configured")?.agent;
       if (deps.workspace) {
         try {
           const projectRoot = deps.projectRootFor?.(preparing.projectId);
@@ -328,6 +349,7 @@ export function createDispatcher(deps: {
         signal: entry.controller.signal,
         ...(model === undefined ? {} : { model }),
         ...(entry.workspace === undefined ? {} : { workspace: entry.workspace }),
+        ...(agentConfig === undefined ? {} : { agent: agentConfig }),
       };
       startInvoked = true;
       const starting = Promise.resolve().then(() => adapter.start(context)).then((session) => {

@@ -21,6 +21,7 @@ import type { NotificationsResponse, IntegrationResponse } from '../api/notifica
 import { notificationsMarkRead } from '../api/commands';
 import { emptySystem, systemAreas, type SystemArea, type SystemState } from './system';
 import { modelSettingsPendingKey } from '../api/modelSettings';
+import { seatRuntimePendingKey } from '../api/agentRuntime';
 import { workflowPatchOpSchema, type WorkflowPatchOp } from '@factory/contracts';
 import { workflowsPatch } from '../api/commands';
 import { canPatchWorkflow, emptyPatchDraft, patchDecisionKey, patchOutcomeText, patchPendingKey, type PatchDraft } from './workflowPatches';
@@ -200,6 +201,15 @@ export function createStore(options: StoreOptions = {}) {
   }
   const loadActivity = () => state.session !== 'authenticated' ? Promise.resolve()
     : enqueue('activity', generation, async () => ({ activity: await api.getOrgActivity() }));
+  let agentClisLoadedAt = 0;
+  function loadAgentClis(force = false) {
+    const key = 'system:agentClis';
+    if (state.session !== 'authenticated' || state.loading[key] || (!force && state.system.agentClis && Date.now() - agentClisLoadedAt < 30_000)) return Promise.resolve();
+    return enqueue(key, generation, async () => {
+      const agentClis = await api.getAgentClis();
+      return { get system() { agentClisLoadedAt = Date.now(); return { ...state.system, agentClis }; } };
+    });
+  }
   async function loadSystem(area?: SystemArea) {
     if (state.session !== 'authenticated') return;
     const reads = {
@@ -210,7 +220,7 @@ export function createStore(options: StoreOptions = {}) {
       servers: async () => ({ servers: (await api.listMcpServers()).servers }),
       packs: async () => ({ packs: (await api.listPacks()).packs }),
     };
-    await Promise.all((area ? [area] : systemAreas).map(key => state.loading[`system:${key}`] ? Promise.resolve() : enqueue(`system:${key}`, generation, async () => {
+    await Promise.all((area ? [area] : systemAreas.filter(key => key !== 'agentClis')).map(key => key === 'agentClis' ? loadAgentClis(true) : state.loading[`system:${key}`] ? Promise.resolve() : enqueue(`system:${key}`, generation, async () => {
       const patch = await reads[key]();
       return { get system() { return { ...state.system, ...patch }; } };
     })));
@@ -701,6 +711,9 @@ export function createStore(options: StoreOptions = {}) {
   function sendModelSettings(command: Extract<Command, { type: 'models.set' }>) {
     return sendCollectionCommand(command, modelSettingsPendingKey, loadModelSettings, 'modelsUi.conflict');
   }
+  function sendSeatRuntime(command: Extract<Command, { type: 'seats.set-runtime' }>) {
+    return sendCollectionCommand(command, seatRuntimePendingKey(command.payload.seatId), loadTeams, 'agentConfig.conflict');
+  }
   function sendKnowledge(command: KnowledgeCommand) {
     return sendCollectionCommand(command, knowledgePendingKey(command.payload.artifactId, command.payload.version), async () => {
       await Promise.all([
@@ -747,7 +760,7 @@ export function createStore(options: StoreOptions = {}) {
   }
   async function sendCollectionCommand(command: Command, key: string, reload: () => Promise<void>, conflictKey: string, quietConflict = false, recoverNotFound = false) {
     const scope = generation;
-    const projectId = command.type === 'models.set' ? state.selectedProjectId ?? state.projects[0]?.id : state.selectedProjectId;
+    const projectId = command.type === 'models.set' || command.type === 'seats.set-runtime' ? state.selectedProjectId ?? state.projects[0]?.id : state.selectedProjectId;
     if (state.loading[key] || state.session !== 'authenticated' || command.projectId !== projectId) return;
     update({ loading: { ...state.loading, [key]: true }, errors: { ...state.errors, [key]: undefined } });
     try {
@@ -823,7 +836,7 @@ export function createStore(options: StoreOptions = {}) {
     watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
     loadTeams, loadPack, loadMcpServers, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
-    loadActivity, loadSystem, loadModelSettings, sendModelSettings,
+    loadActivity, loadSystem, loadAgentClis, loadModelSettings, sendModelSettings, sendSeatRuntime,
     browseFolders: api.browseFolders,
     watchActivity: () => {
       openM3.set('activity', loadActivity); void loadActivity();

@@ -1,4 +1,5 @@
 import { successResponseSchema, textSchema, idSchema, usageSchema, seatSchema, taskSchema, artifactStatusSchema } from '@factory/contracts';
+import { seatRuntimeFields } from './agentRuntime';
 
 const o = successResponseSchema.pick({ ok: true, apiVersion: true }).omit({ ok: true, apiVersion: true });
 const s = textSchema.min(0);
@@ -9,7 +10,7 @@ const bool = seatSchema.shape.isLead;
 const ref = o.extend({ artifactId: idSchema, version: n.positive() }).loose();
 export const triageStates = ['submitted', 'need-info', 'accepted', 'declined', 'redirected', 'merged'] as const;
 export const requestStates = [...new Set([...triageStates, ...taskSchema.shape.state.options])];
-const seat = o.extend({ id: idSchema, name: s, role: s, slots: n.positive(), revision: n.positive(), isLead: bool, live: n, capabilities: s.array().optional(), tools: s.array().optional() }).loose();
+const seat = o.extend({ id: idSchema, name: s, role: s, slots: n.positive(), revision: n.positive(), isLead: bool, live: n, capabilities: s.array().optional(), tools: s.array().optional(), ...seatRuntimeFields }).loose();
 const engagement = o.extend({ projectId: idSchema, projectName: s, engagementId: idSchema, priority: n.max(100), maxConcurrent: n.positive().max(32), state: en(['active', 'paused', 'ended'] as const), revision: n.positive(), live: n }).loose();
 const team = o.extend({ id: idSchema, name: s, charter: s, packKey: s.nullable(), packVersion: s.nullable(), lifecycle: en(['active', 'paused', 'archived'] as const), revision: n.positive(), seats: seat.array(), engagements: engagement.array() }).loose();
 const pack = o.extend({ key: s, version: s, name: s, description: s.catch(''), seatCount: n.catch(0), seats: o.extend({ name: s }).loose().array().catch([]),

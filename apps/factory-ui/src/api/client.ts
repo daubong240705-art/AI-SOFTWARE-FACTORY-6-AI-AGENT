@@ -1,4 +1,5 @@
 import { m3Models } from './m3Models';
+import { agentClisModel } from './agentRuntime';
 import { packDetailModel, mcpServersModel } from './agentProfileModels';
 import { automationErrorKey } from './automationErrors';
 import { settingsErrorKey } from './settingsErrors';
@@ -132,6 +133,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listMcpServers: () => request('/mcp-servers', mcpServersModel),
     systemHealth: () => request('/health', systemModels.health),
     systemCapabilities: () => request('/system/capabilities', systemModels.capabilities),
+    getAgentClis: () => request('/system/agent-clis', agentClisModel),
     systemBackups: () => request('/system/backups', systemModels.backups),
     getModelSettings: () => request('/system/models', modelSettingsResponse),
     browseFolders: (path?: string, signal?: AbortSignal) => request(`/system/browse${path ? `?${new URLSearchParams({ path })}` : ''}`, folderBrowseModel, undefined, false, signal),
@@ -261,7 +263,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     sendCommand: (command: Command) => {
       // Validate without replacing/mutating the caller's object or generating a new identity.
       if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');
-      return request('/commands', successResponseSchema, command, /^(workflows|schedules|rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts|models)\./.test(command.type));
+      return request('/commands', successResponseSchema, command, command.type === 'seats.set-runtime' || /^(workflows|schedules|rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts|models)\./.test(command.type));
     },
   };
 }

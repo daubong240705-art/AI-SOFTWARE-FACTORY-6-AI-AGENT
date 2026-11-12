@@ -1,4 +1,5 @@
 import type { Database } from "better-sqlite3";
+import { seatsSetRuntimeHandler } from "./runtime-config.js";
 import { workflowChanged } from "../workflow/lifecycle.js";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerMap } from "../commands/pipeline.js";
@@ -23,11 +24,12 @@ const noActiveDuplicate = (raw: Database, projectId: string, teamId: string, exc
     .get(projectId, teamId, except)) throw new CommandError("conflict", "active engagement already exists", "refresh");
 };
 
-export const ORG_COMMANDS = ["teams.create-from-pack", "teams.set-lifecycle", "engagements.create", "engagements.update", "seats.update"] as const;
+export const ORG_COMMANDS = ["teams.create-from-pack", "teams.set-lifecycle", "engagements.create", "engagements.update", "seats.update", "seats.set-runtime"] as const;
 
 export function createOrgHandlers(deps: { multiTeam?: boolean; packs: readonly RegistryPack[] }): Partial<HandlerMap> {
   const enabled = (): void => { if (!deps.multiTeam) disabled(); };
   return {
+    "seats.set-runtime": seatsSetRuntimeHandler,
     "teams.create-from-pack": (ctx, { projectId, payload }) => {
       enabled(); requireProject(ctx.raw, projectId);
       const entry = deps.packs.find((pack) => pack.key === payload.packKey && pack.version === payload.packVersion);

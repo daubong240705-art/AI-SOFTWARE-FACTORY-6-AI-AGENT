@@ -89,6 +89,7 @@ export function engagementsCreate({ projectId, ...payload }: Of<'engagements.cre
 export function engagementsUpdate({ projectId, ...payload }: Of<'engagements.update'>['payload'] & { projectId: string }) { return build('engagements.update', projectId, payload); }
 
 export function seatsUpdate({ projectId, ...payload }: Of<'seats.update'>['payload'] & { projectId: string }) { return build('seats.update', projectId, payload); }
+export function seatsSetRuntime({ projectId, ...payload }: Of<'seats.set-runtime'>['payload'] & { projectId: string }) { return build('seats.set-runtime', projectId, payload); }
 
 export function requestsTriage({ projectId, ...payload }: Of<'requests.triage'>['payload'] & { projectId: string }) { return build('requests.triage', projectId, payload); }
 
