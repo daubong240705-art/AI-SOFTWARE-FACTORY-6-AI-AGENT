@@ -73,6 +73,7 @@ import { createSkillsMcp } from "./instructions/mcp.js";
 import { createToolPolicy } from "./mcp/policy.js";
 import { loadMcpServers, parseMcpServers, type McpServersConfig } from "./mcp-external/config.js";
 import { createExternalTools, type ExternalTools } from "./mcp-external/index.js";
+import { assertCliServerEnvironment, createCliMcpResolver } from "./mcp-external/cli-native.js";
 import { docWorkerConfig, type DocWorkerConfig } from "./documents/config.js";
 import { createExtractionService, type ExtractionService } from "./documents/service.js";
 import { registerExtractionRoutes } from "./documents/routes.js";
@@ -288,6 +289,7 @@ export async function startHost(options: {
   const clock = options.clock ?? systemClock;
   const routeBreaker = options.modelProxy ? createRouteBreaker({ clock }) : undefined;
   const mcpServers = options.mcpServers === undefined ? undefined : parseMcpServers(options.mcpServers);
+  if (options.localCli?.enabled) assertCliServerEnvironment(mcpServers, options.localCli.passEnv);
   let external: ExternalTools | undefined;
   const budgetConfig = options.budgetConfig ?? { ...DEFAULT_BUDGET_CONFIG };
   let storage: Storage | undefined;
@@ -571,6 +573,7 @@ export async function startHost(options: {
         ...(options.timers === undefined ? {} : { timers: options.timers }),
         onInReview(input) { requestTaskReview({ raw, hub, now: clock, newId: resultId }, input); },
         ...(modelAccess === undefined ? {} : { modelAccess }),
+        ...(options.localCli?.enabled ? { cliMcp: createCliMcpResolver(raw, mcpServers) } : {}),
         results: { register(input) {
           const { result: refs, effects: changes } = collectLifecycleChanges(raw, () => registerAttemptResults({ raw, store: artifacts.store, now: clock, newId: resultId,
             afterRegister,

@@ -8,6 +8,8 @@ export interface GitOptions {
   stdin?: string; timeoutMs?: number; maxOutputBytes?: number; allowSafeDirectory?: string;
   acceptExitCodes?: readonly number[];
   factoryIdentity?: boolean;
+  /** Treat the agents' `.factory/` scratch directory as ignored, without touching the repository's own ignore files. */
+  excludeScratch?: boolean;
 }
 export interface GitResult { stdout: string; stderr: string; exitCode: number }
 const defaults = [
@@ -28,6 +30,7 @@ async function execute(cwd: string, args: string[], options: GitOptions,
   const prefix = assertInside(temporaryRoot, join(temporaryRoot, "factory-git-home-"));
   const home = fs.mkdtempSync(prefix);
   let patchFile: string | undefined;
+  let excludesFile: string | undefined;
   const failure = (): WorkspaceError => new WorkspaceError("git-failed", `git ${args[0]} failed`);
   try {
     assertInside(temporaryRoot, home);
@@ -37,6 +40,12 @@ async function execute(cwd: string, args: string[], options: GitOptions,
     });
     const leading = [...defaults];
     if (options.factoryIdentity) leading.push("-c", "user.name=Factory", "-c", "user.email=factory@localhost");
+    if (options.excludeScratch) {
+      // An extra ignore source, not a pathspec: an exclude pathspec fails ("paths are ignored") when the repo already ignores it.
+      excludesFile = assertInside(home, join(home, "excludes"));
+      fs.writeFileSync(excludesFile, "/.factory/\n", { mode: 0o600, flag: "wx" });
+      leading.push("-c", `core.excludesFile=${excludesFile}`);
+    }
     if (options.allowSafeDirectory !== undefined) {
       const allowed = checkedDirectory(options.allowSafeDirectory);
       if (allowed !== options.allowSafeDirectory) throw new WorkspaceError("invalid-input");
@@ -70,8 +79,9 @@ async function execute(cwd: string, args: string[], options: GitOptions,
     if (error instanceof ExecError && error.code === "unsupported-platform") throw new WorkspaceError("unsupported-platform");
     throw failure();
   } finally {
-    if (patchFile) {
-      try { fs.unlinkSync(assertInside(home, patchFile)); }
+    for (const file of [patchFile, excludesFile]) {
+      if (!file) continue;
+      try { fs.unlinkSync(assertInside(home, file)); }
       catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw failure(); }
     }
     // HOME is private and empty; never recursively remove a directory supplied by a caller.

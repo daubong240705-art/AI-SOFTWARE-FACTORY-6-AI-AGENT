@@ -23,7 +23,8 @@ async function stage(worktree: string): Promise<string> {
   refuseMount(directory);
   const top = (await runGit(directory, ["rev-parse", "--show-toplevel"])).stdout.replace(/\n$/, "");
   if (top !== directory) throw new WorkspaceError("invalid-input");
-  await runGit(checkedDirectory(directory), ["add", "-A", "--", "."]);
+  // `.factory/` is the agents' scratch output (browser screenshots, traces, tool logs); it never becomes a result.
+  await runGit(checkedDirectory(directory), ["add", "-A", "--", "."], { excludeScratch: true });
   return directory;
 }
 

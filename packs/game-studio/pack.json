@@ -1,0 +1,95 @@
+{
+  "key": "game-studio",
+  "version": "0.1.0",
+  "name": "Game Studio",
+  "description": "Builds an original browser 3D party game with physics-driven, wobbly characters and online multiplayer. Works in small playable increments: reproducible Blender assets, a shared Rapier simulation, an authoritative server, a Three.js client and independent browser, multiplayer and performance checks.",
+  "seats": [
+    {
+      "name": "Lead",
+      "role": "Game lead: talks with the operator, plans playable increments, assigns owners",
+      "profile": "profiles/lead.md",
+      "runtime": "api-agent",
+      "slots": 1,
+      "isLead": true,
+      "capabilities": ["game.design", "test.e2e"],
+      "tools": ["knowledge.*", "request.*", "project.briefing"]
+    },
+    {
+      "name": "Game Designer",
+      "role": "Game designer: rules, verbs, rounds and tuning data",
+      "profile": "profiles/game-designer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": ["game.design", "game.design.tuning", "docs.requirements"],
+      "tools": ["knowledge.*", "request.*", "project.briefing"]
+    },
+    {
+      "name": "Technical Artist",
+      "role": "Technical artist: scripted Blender characters, rigs, animations and GLB assets",
+      "profile": "profiles/technical-artist.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": ["game.asset3d", "game.asset3d.rig", "game.asset3d.animation", "design.asset"],
+      "tools": ["knowledge.*", "request.*", "project.briefing", "ext.blender.*", "ext.meshy.*", "ext.tripo.*"]
+    },
+    {
+      "name": "Physics Engineer",
+      "role": "Physics engineer: Rapier simulation, active ragdolls, grabbing, throwing and bombs",
+      "profile": "profiles/physics-engineer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": ["game.physics", "code.typescript.physics"],
+      "tools": ["knowledge.*", "request.*", "project.briefing"]
+    },
+    {
+      "name": "Network Engineer",
+      "role": "Network engineer: authoritative game server, protocol, prediction and interpolation",
+      "profile": "profiles/network-engineer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": ["game.netcode", "code.typescript.server", "backend.realtime"],
+      "tools": ["knowledge.*", "request.*", "project.briefing", "ext.playwright.*"]
+    },
+    {
+      "name": "Gameplay Engineer",
+      "role": "Gameplay engineer: Three.js client, input, camera, HUD and asset integration",
+      "profile": "profiles/gameplay-engineer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": ["game.client", "game.client.ui", "code.typescript", "ui.web"],
+      "tools": ["knowledge.*", "request.*", "project.briefing", "ext.playwright.*"]
+    },
+    {
+      "name": "QA Engineer",
+      "role": "QA engineer: independent browser, multiplayer and performance testing",
+      "profile": "profiles/qa-engineer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": ["test.e2e", "test.unit", "test.perf", "test.multiplayer", "review.game"],
+      "tools": ["knowledge.*", "request.*", "project.briefing", "ext.playwright.*", "ext.devtools.*"]
+    }
+  ],
+  "skills": [
+    "skills/game-coordination",
+    "skills/game-design-brief",
+    "skills/asset-pipeline-3d",
+    "skills/active-ragdoll-physics",
+    "skills/netcode-authoritative",
+    "skills/browser-game-testing"
+  ],
+  "workflows": [
+    "workflows/game-increment.json"
+  ],
+  "produces": [
+    "code-ref",
+    "design-asset",
+    "requirements",
+    "plan"
+  ]
+}

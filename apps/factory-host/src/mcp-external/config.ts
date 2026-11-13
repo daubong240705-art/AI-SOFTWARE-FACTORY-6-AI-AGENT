@@ -26,10 +26,27 @@ export const mcpServerSchema = z.strictObject({
   maxResultBytes: z.number().int().min(1024).max(65536).default(32768),
   maxTools: z.number().int().min(1).max(64).default(32),
 });
-export const mcpServersSchema = z.strictObject({ servers: z.array(mcpServerSchema).max(16)
+// CLI-native servers are never contacted by the Host: the seat's local CLI (Claude Code, Codex) launches them
+// over stdio for each attempt. "{workspace}" in args becomes the attempt worktree path.
+const cliText = z.string().max(4096).refine((value) => !/[\0\r\n]/.test(value));
+export const envNamePattern = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
+export const cliServerSchema = z.strictObject({
+  name: z.string().regex(serverNamePattern).refine((name) => name !== "factory", "reserved server name"),
+  transport: z.literal("stdio"),
+  command: cliText.min(1),
+  args: z.array(cliText).max(64).default([]),
+  envNames: z.array(z.string().regex(envNamePattern)).max(16).default([]),
+  clis: z.array(z.enum(["claude", "codex"])).min(1).max(2).default(["claude", "codex"]),
+});
+export const mcpServersSchema = z.strictObject({ servers: z.array(z.union([mcpServerSchema, cliServerSchema])).max(16)
   .refine((servers) => new Set(servers.map((server) => server.name)).size === servers.length) });
 export type McpServerConfig = z.infer<typeof mcpServerSchema>;
+export type CliServerConfig = z.infer<typeof cliServerSchema>;
 export type McpServersConfig = z.infer<typeof mcpServersSchema>;
+export const isCliServer = (server: McpServerConfig | CliServerConfig): server is CliServerConfig => "transport" in server;
+export const httpServers = (config: McpServersConfig): McpServerConfig[] =>
+  config.servers.filter((server): server is McpServerConfig => !isCliServer(server));
+export const cliServers = (config: McpServersConfig): CliServerConfig[] => config.servers.filter(isCliServer);
 export function parseMcpServers(value: unknown): McpServersConfig {
   const parsed = mcpServersSchema.safeParse(value);
   if (!parsed.success) throw new Error("Invalid external MCP configuration");

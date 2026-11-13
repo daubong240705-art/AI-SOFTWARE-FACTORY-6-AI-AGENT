@@ -5,7 +5,7 @@ import { assertActiveGrant, McpToolError } from "../mcp/security.js";
 import { createToolPolicy } from "../mcp/policy.js";
 import { appendAttemptEvent } from "../dispatch/attempts.js";
 import { createMcpClient, truncateText, type ClientDeps, type ExternalDefinition, type ExternalStatus } from "./client.js";
-import { externalToolPattern, parseMcpServers, type McpServersConfig } from "./config.js";
+import { externalToolPattern, httpServers, parseMcpServers, type McpServersConfig } from "./config.js";
 
 export interface ExternalTools {
   definitionsFor(grant: TokenGrant): Promise<ExternalDefinition[]>;
@@ -18,7 +18,8 @@ export function createExternalTools(config: McpServersConfig, deps: ClientDeps &
   const parsed = parseMcpServers(config); const now = deps.now ?? Date.now;
   const clientDeps: ClientDeps = { now, ...(deps.fetch === undefined ? {} : { fetch: deps.fetch }),
     ...(deps.env === undefined ? {} : { env: deps.env }) };
-  const clients = new Map(parsed.servers.map((server) => [server.name, createMcpClient(server, clientDeps)]));
+  // CLI-native (stdio) servers belong to the seats' CLIs; the Host proxies only HTTP servers.
+  const clients = new Map(httpServers(parsed).map((server) => [server.name, createMcpClient(server, clientDeps)]));
   const policy = createToolPolicy(deps.raw); const calls = new Map<string, number>();
   const allowed = (grant: TokenGrant, name: string): boolean => { try { return policy(grant).allows(name); } catch { return false; } };
   const privateInput = (value: unknown, grant: TokenGrant): boolean => {

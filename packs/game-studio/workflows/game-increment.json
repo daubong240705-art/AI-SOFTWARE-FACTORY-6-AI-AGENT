@@ -1,0 +1,105 @@
+{
+  "key": "game-increment",
+  "revision": 1,
+  "title": "Playable Game Increment",
+  "domain": "game",
+  "parameters": [
+    { "name": "needsBrief", "type": "bool", "default": false },
+    { "name": "newAssets", "type": "bool", "default": true },
+    { "name": "multiplayer", "type": "bool", "default": true },
+    { "name": "paidAssetGeneration", "type": "bool", "default": false }
+  ],
+  "phases": ["concept", "build", "integrate", "verify"],
+  "stages": [
+    {
+      "key": "brief",
+      "phase": "concept",
+      "title": "brief and tuning",
+      "requiredCapabilities": ["game.design"],
+      "inputs": [{ "kind": "brief", "required": true }],
+      "outputs": [{ "kind": "requirements", "mustReach": "approved" }],
+      "optional": true,
+      "includeIf": { "param": "needsBrief", "op": "eq", "value": true },
+      "sideEffect": "artifact"
+    },
+    {
+      "key": "assets",
+      "phase": "build",
+      "title": "scripted 3D assets",
+      "requiredCapabilities": ["game.asset3d"],
+      "inputs": [],
+      "outputs": [],
+      "optional": true,
+      "includeIf": { "param": "newAssets", "op": "eq", "value": true },
+      "parallelGroup": "build-tracks",
+      "sideEffect": "code"
+    },
+    {
+      "key": "physics",
+      "phase": "build",
+      "title": "simulation and ragdolls",
+      "requiredCapabilities": ["game.physics"],
+      "inputs": [],
+      "outputs": [],
+      "parallelGroup": "build-tracks",
+      "sideEffect": "code"
+    },
+    {
+      "key": "netcode",
+      "phase": "build",
+      "title": "authoritative server",
+      "requiredCapabilities": ["game.netcode"],
+      "inputs": [],
+      "outputs": [],
+      "optional": true,
+      "includeIf": { "param": "multiplayer", "op": "eq", "value": true },
+      "parallelGroup": "build-tracks",
+      "sideEffect": "code"
+    },
+    {
+      "key": "integration",
+      "phase": "integrate",
+      "title": "client integration",
+      "requiredCapabilities": ["game.client"],
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code"
+    },
+    {
+      "key": "qa",
+      "phase": "verify",
+      "title": "browser, multiplayer and performance checks",
+      "requiredCapabilities": ["test.e2e"],
+      "inputs": [],
+      "outputs": []
+    }
+  ],
+  "edges": [
+    { "from": "brief", "to": "assets", "type": "finish-to-start" },
+    { "from": "brief", "to": "physics", "type": "finish-to-start" },
+    { "from": "brief", "to": "netcode", "type": "finish-to-start" },
+    { "from": "assets", "to": "integration", "type": "finish-to-start" },
+    { "from": "physics", "to": "integration", "type": "finish-to-start" },
+    { "from": "netcode", "to": "integration", "type": "finish-to-start" },
+    { "from": "integration", "to": "qa", "type": "finish-to-start" },
+    {
+      "from": "qa",
+      "to": "integration",
+      "type": "rework",
+      "when": { "fact": "review.verdict", "op": "eq", "value": "changes-requested" },
+      "maxLoops": 2
+    }
+  ],
+  "joins": [{ "group": "build-tracks", "policy": "all" }],
+  "gates": [
+    {
+      "before": "assets",
+      "kind": "execution-gate",
+      "approver": "operator",
+      "when": { "param": "paidAssetGeneration", "op": "eq", "value": true }
+    }
+  ],
+  "allowedPatches": {},
+  "autonomy": { "default": "L2" },
+  "timeouts": { "stallAfterMinutes": 1440, "maxDurationMinutes": 43200 }
+}

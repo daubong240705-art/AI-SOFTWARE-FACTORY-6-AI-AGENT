@@ -389,10 +389,62 @@ tool reference names an unconfigured server. Without `--servers`, runtime names
 are accepted without that warning.
 
 SSRF destinations are controlled by the operator's server registration; grant
-metadata and Host workspace paths are never attached to remote requests. Stdio
-servers, OAuth flows, resources, prompts, sampling and server-initiated requests
-are unsupported. JSON and SSE responses, session headers, one session-loss retry,
+metadata and Host workspace paths are never attached to remote requests. OAuth
+flows, resources, prompts, sampling and server-initiated requests are unsupported
+by the Host client. JSON and SSE responses, session headers, one session-loss retry,
 and paginated tool discovery are supported by the minimal Streamable HTTP client.
+
+### CLI-native servers for local CLI seats
+
+Browsers, Blender and similar tools need images, file paths, long sessions and one
+process per agent, which the Host proxy above does not provide. With
+`FACTORY_LOCAL_CLI=1`, the same file may also list stdio servers that the seat's own
+CLI (Claude Code or Codex) launches for each attempt. The Host never starts or
+contacts them.
+
+```json
+{
+  "servers": [{
+    "name": "playwright",
+    "transport": "stdio",
+    "command": "npx",
+    "args": ["-y", "@playwright/mcp@latest", "--headless", "--isolated", "--output-dir", "{workspace}/.factory/playwright"],
+    "envNames": [],
+    "clis": ["claude", "codex"]
+  }]
+}
+```
+
+`{workspace}` in `args` becomes the attempt worktree. `envNames` lists variables the
+server needs; each must also be in `FACTORY_CLI_PASS_ENV`, or startup fails with
+the server and variable name. `clis` defaults to both. The name `factory` is
+reserved.
+
+Seats receive a CLI-native server only through their pinned `tools` list
+(`ext.playwright.*` or `ext.playwright.<tool>`), exactly as for proxied servers. A
+seat with a pinned `tools` list is isolated:
+- **Claude:** runs with `--strict-mcp-config`, so it ignores the operator's own MCP
+  servers and claude.ai connectors.
+- **Codex:** gets `mcp_servers.<name>.enabled=false` for every server in
+  `codex mcp list --json` (cached five minutes). If listing fails, the attempt
+  continues with a progress note.
+
+Seats without a pinned list keep the CLI's own configuration, as before.
+
+The Host also pre-approves MCP tools, because both CLIs refuse unapproved MCP calls
+in non-interactive runs:
+- **Claude** `workspace-write` seats run in `acceptEdits` and get
+  `--allowedTools mcp__factory,mcp__<server>…`. This also restores the Factory's
+  own tools for those seats.
+- **Codex** gets `default_tools_approval_mode="approve"` for `factory` and every
+  assigned server.
+
+Environment and output:
+- **Claude** merges an MCP server's `env` into its own environment, so the Host
+  blanks `FACTORY_MCP_TOKEN` and every passed variable the server did not request.
+- **Codex** starts MCP servers with a minimal environment plus `env_vars`.
+- **`.factory/`** in a worktree is agent scratch output (screenshots, traces). The
+  Host excludes it when it stages results.
 
 ## Workflows as data (M5 W1a)
 

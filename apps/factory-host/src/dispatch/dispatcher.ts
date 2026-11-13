@@ -81,6 +81,8 @@ export function createDispatcher(deps: {
   config?: Partial<DispatcherConfig>; timers?: Timers; onError?: (error: unknown) => void;
   workspace?: WorkspaceProvider; projectRootFor?: (projectId: string) => string | null;
   modelAccess?: ModelAccess;
+  /** CLI-native MCP servers for a seat (local CLI runtimes only). */
+  cliMcp?: (seatId: string) => NonNullable<AttemptContext["mcp"]>;
   onInReview?: (input: { projectId: string; taskId: string; attemptId: string }) => void;
   results?: { register(input: { projectId: string; taskId: string; attemptId: string; epoch: number;
     outcome: "completed" | "failed"; summary: string | null }): void };
@@ -352,6 +354,7 @@ export function createDispatcher(deps: {
         ...(model === undefined ? {} : { model }),
         ...(entry.workspace === undefined ? {} : { workspace: entry.workspace }),
         ...(agentConfig === undefined ? {} : { agent: agentConfig }),
+        ...(agentConfig?.cli === undefined || deps.cliMcp === undefined ? {} : { mcp: deps.cliMcp(seat.id) }),
       };
       startInvoked = true;
       const starting = Promise.resolve().then(() => adapter.start(context)).then((session) => {
