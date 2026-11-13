@@ -1,6 +1,6 @@
 {
   "key": "game-studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "name": "Game Studio",
   "description": "Builds an original browser 3D party game with physics-driven, wobbly characters and online multiplayer. Works in small playable increments: reproducible Blender assets, a shared Rapier simulation, an authoritative server, a Three.js client and independent browser, multiplayer and performance checks.",
   "seats": [
@@ -11,8 +11,15 @@
       "runtime": "api-agent",
       "slots": 1,
       "isLead": true,
-      "capabilities": ["game.design", "test.e2e"],
-      "tools": ["knowledge.*", "request.*", "project.briefing"]
+      "capabilities": [
+        "game.design",
+        "test.e2e"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
     },
     {
       "name": "Game Designer",
@@ -21,8 +28,16 @@
       "runtime": "native-opencode",
       "slots": 1,
       "isLead": false,
-      "capabilities": ["game.design", "game.design.tuning", "docs.requirements"],
-      "tools": ["knowledge.*", "request.*", "project.briefing"]
+      "capabilities": [
+        "game.design",
+        "game.design.tuning",
+        "docs.requirements"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
     },
     {
       "name": "Technical Artist",
@@ -31,8 +46,20 @@
       "runtime": "native-opencode",
       "slots": 1,
       "isLead": false,
-      "capabilities": ["game.asset3d", "game.asset3d.rig", "game.asset3d.animation", "design.asset"],
-      "tools": ["knowledge.*", "request.*", "project.briefing", "ext.blender.*", "ext.meshy.*", "ext.tripo.*"]
+      "capabilities": [
+        "game.asset3d",
+        "game.asset3d.rig",
+        "game.asset3d.animation",
+        "design.asset"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing",
+        "ext.blender.*",
+        "ext.meshy.*",
+        "ext.tripo.*"
+      ]
     },
     {
       "name": "Physics Engineer",
@@ -41,8 +68,15 @@
       "runtime": "native-opencode",
       "slots": 1,
       "isLead": false,
-      "capabilities": ["game.physics", "code.typescript.physics"],
-      "tools": ["knowledge.*", "request.*", "project.briefing"]
+      "capabilities": [
+        "game.physics",
+        "code.typescript.physics"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
     },
     {
       "name": "Network Engineer",
@@ -51,8 +85,17 @@
       "runtime": "native-opencode",
       "slots": 1,
       "isLead": false,
-      "capabilities": ["game.netcode", "code.typescript.server", "backend.realtime"],
-      "tools": ["knowledge.*", "request.*", "project.briefing", "ext.playwright.*"]
+      "capabilities": [
+        "game.netcode",
+        "code.typescript.server",
+        "backend.realtime"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing",
+        "ext.playwright.*"
+      ]
     },
     {
       "name": "Gameplay Engineer",
@@ -61,8 +104,18 @@
       "runtime": "native-opencode",
       "slots": 1,
       "isLead": false,
-      "capabilities": ["game.client", "game.client.ui", "code.typescript", "ui.web"],
-      "tools": ["knowledge.*", "request.*", "project.briefing", "ext.playwright.*"]
+      "capabilities": [
+        "game.client",
+        "game.client.ui",
+        "code.typescript",
+        "ui.web"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing",
+        "ext.playwright.*"
+      ]
     },
     {
       "name": "QA Engineer",
@@ -71,8 +124,20 @@
       "runtime": "native-opencode",
       "slots": 1,
       "isLead": false,
-      "capabilities": ["test.e2e", "test.unit", "test.perf", "test.multiplayer", "review.game"],
-      "tools": ["knowledge.*", "request.*", "project.briefing", "ext.playwright.*", "ext.devtools.*"]
+      "capabilities": [
+        "test.e2e",
+        "test.unit",
+        "test.perf",
+        "test.multiplayer",
+        "review.game"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing",
+        "ext.playwright.*",
+        "ext.devtools.*"
+      ]
     }
   ],
   "skills": [
@@ -81,7 +146,8 @@
     "skills/asset-pipeline-3d",
     "skills/active-ragdoll-physics",
     "skills/netcode-authoritative",
-    "skills/browser-game-testing"
+    "skills/browser-game-testing",
+    "skills/visual-review"
   ],
   "workflows": [
     "workflows/game-increment.json"

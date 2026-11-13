@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import { projectSchema, type Project } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerMap } from "../commands/pipeline.js";
-import { ensureEngagement, ensureTeamFromPack, getTeam, type LoadedPack } from "../org/index.js";
+import { ensureEngagement, ensureTeamFromPack, type LoadedPack } from "../org/index.js";
 
 const createProject: HandlerMap["projects.create"] = ({ raw, hub }, command) => {
   const { projectId, payload } = command;
@@ -26,9 +26,10 @@ export function createProjectsCreateHandler({ pack, multiTeam = false, checkWork
     if (checkWorkspaceRoot && !checkWorkspaceRoot(command.payload.workspace.root))
       throw new CommandError("validation", "workspace must be a clone under the Host projects root", "correct-input");
     const result = createProject(ctx, command);
+    // With multi-team the operator adds teams explicitly (teams.create-from-pack, engagements.create); no default team.
+    // Without it there is no other way to get a team, so the single default team stays.
+    if (multiTeam) return result;
     const team = ensureTeamFromPack(ctx.raw, pack, ctx);
-    if (multiTeam && getTeam(ctx.raw, team.teamId)?.lifecycle !== "active")
-      throw new CommandError("conflict", "default team is not active", "refresh");
     const engagement = ensureEngagement(ctx.raw, { projectId: command.projectId, teamId: team.teamId }, ctx);
     if (team.created) result.effects.push({ kind: "team", id: team.teamId, revision: 1 });
     result.effects.push({ kind: "engagement", id: engagement.engagementId, revision: 1 });

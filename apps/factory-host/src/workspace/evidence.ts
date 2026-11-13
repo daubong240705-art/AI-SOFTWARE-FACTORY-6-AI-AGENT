@@ -35,7 +35,8 @@ export async function checkpoint(worktree: string, message: string): Promise<{ c
     { acceptExitCodes: [1] });
   if (changes.exitCode === 0) return { commit: null };
   await runGit(checkedDirectory(directory), ["commit", "--no-verify", "--allow-empty-message", "--cleanup=verbatim", "-F", "-"],
-    { stdin: message });
+    // The Host runs git without the operator's config, so the commit needs its own identity.
+    { stdin: message, factoryIdentity: true });
   return { commit: (await runGit(checkedDirectory(directory), ["rev-parse", "--verify", "HEAD"])).stdout.trim() };
 }
 

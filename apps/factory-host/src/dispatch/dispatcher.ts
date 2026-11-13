@@ -1,4 +1,5 @@
 import { canRequeueAfterLeaseExpiry, type AttemptState, type Task } from "@factory/contracts";
+import { writeAttemptInputs, type AttemptInputFile, type WrittenInput } from "../workspace/inputs.js";
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import type { Storage } from "../storage/database.js";
@@ -58,6 +59,8 @@ export interface Dispatcher {
   stop(): Promise<void>;
   status(): { live: number; queued: number; nodeUsed: number; nodeTotal: number };
   recordAgentProgress(ref: { projectId: string; attemptId: string; epoch: number }, message: string, percent?: number): boolean;
+  /** Records the agent's check of one acceptance criterion; false unless the attempt is running and the text matches one. */
+  recordCriterion(ref: { projectId: string; attemptId: string; epoch: number }, input: { criterion: string; passed: boolean; evidence: string }): boolean;
 }
 interface Live {
   controller: AbortController; session?: RuntimeSession; done: Promise<void>;
@@ -81,6 +84,8 @@ export function createDispatcher(deps: {
   config?: Partial<DispatcherConfig>; timers?: Timers; onError?: (error: unknown) => void;
   workspace?: WorkspaceProvider; projectRootFor?: (projectId: string) => string | null;
   modelAccess?: ModelAccess;
+  /** Task inputs (artifact bytes) the Host copies into the attempt worktree before the agent starts. */
+  attemptInputs?: (projectId: string, taskId: string) => AttemptInputFile[];
   /** CLI-native MCP servers for a seat (local CLI runtimes only). */
   cliMcp?: (seatId: string) => NonNullable<AttemptContext["mcp"]>;
   onInReview?: (input: { projectId: string; taskId: string; attemptId: string }) => void;
@@ -325,6 +330,20 @@ export function createDispatcher(deps: {
       if (stopped || entry.controller.signal.aborted || isStaleCallback(current(preparing.projectId, preparing.id), {
         projectId: preparing.projectId, attemptId: preparing.id, epoch: preparing.epoch, leaseId: preparing.leaseId,
       }, clock().getTime())) return;
+      let inputs: WrittenInput[] = [];
+      if (entry.workspace && deps.attemptInputs) {
+        // Inputs are reference data for the agent; a failure here is reported and never blocks the attempt.
+        try {
+          const result = writeAttemptInputs(entry.workspace.path, deps.attemptInputs(preparing.projectId, preparing.taskId));
+          inputs = result.written;
+          if (result.written.length || result.skipped) appendAttemptEvent(raw, { projectId: preparing.projectId, attemptId: preparing.id,
+            kind: "progress", at: now(), body: { type: "progress", message: `Reference inputs copied: ${result.written.length} file(s)`
+              + (result.skipped ? `, ${result.skipped} skipped (limit)` : "") } });
+        } catch {
+          appendAttemptEvent(raw, { projectId: preparing.projectId, attemptId: preparing.id, kind: "progress", at: now(),
+            body: { type: "progress", message: "Reference inputs could not be copied" } });
+        }
+      }
       const model = deps.modelAccess?.issue({ attemptId: preparing.id, projectId: preparing.projectId,
         taskId: preparing.taskId, epoch: preparing.epoch,
         ...(entry.workspace === undefined ? {} : { workspacePath: entry.workspace.path }) });
@@ -354,6 +373,7 @@ export function createDispatcher(deps: {
         ...(model === undefined ? {} : { model }),
         ...(entry.workspace === undefined ? {} : { workspace: entry.workspace }),
         ...(agentConfig === undefined ? {} : { agent: agentConfig }),
+        ...(inputs.length ? { inputs } : {}),
         ...(agentConfig?.cli === undefined || deps.cliMcp === undefined ? {} : { mcp: deps.cliMcp(seat.id) }),
       };
       startInvoked = true;
@@ -650,6 +670,21 @@ export function createDispatcher(deps: {
           body: { type: "progress", message: sanitizeAgentText(message), ...(percent === undefined ? {} : { percent }) }, at: now() });
         const expires = new Date(clock().getTime() + config.leaseMs).toISOString();
         changed(a.leaseExpiresAt !== null && expires > a.leaseExpiresAt ? renewLease(raw, a, a.leaseId, expires, now()) : a);
+        return true;
+      });
+    },
+    recordCriterion(ref, input) {
+      if (stopped) return false;
+      return hub.transaction(() => {
+        const a = getAttempt(raw, ref.projectId, ref.attemptId);
+        if (!a || !a.leaseId || a.state !== "running"
+          || isStaleCallback(a, { ...ref, leaseId: a.leaseId }, clock().getTime())) return false;
+        const criterion = getTask(raw, a.projectId, a.taskId)?.acceptance.find((item) => item.trim() === input.criterion.trim());
+        if (criterion === undefined) return false;
+        // The UI marks a criterion from the latest of these events; detail keeps the evidence readable in the timeline.
+        appendAttemptEvent(raw, { projectId: a.projectId, attemptId: a.id, kind: "evidence", at: now(),
+          body: { name: "criterion", criterion, passed: input.passed, evidence: input.evidence.slice(0, 1000),
+            detail: `${input.passed ? "Passed" : "Failed"}: ${criterion.slice(0, 200)}` } });
         return true;
       });
     },

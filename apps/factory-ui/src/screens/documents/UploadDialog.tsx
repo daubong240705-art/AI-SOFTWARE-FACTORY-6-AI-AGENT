@@ -11,38 +11,44 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Textarea } from '@/components/ui/textarea';
 import { useT } from '@/i18n';
 import type { Store } from '@/state/store';
 
 export type UploadTarget = { artifactId: string; kind: DocumentUploadMeta['kind']; title: string };
+const MAX_NOTE_LENGTH = 2000;
+const isRasterImage = (file: File) => /\.(png|jpe?g|webp|gif)$/i.test(file.name);
 export function UploadDialog({ store, initialFile = null, target, onClose, onUploaded }: {
   store: Store; initialFile?: File | null; target?: UploadTarget; onClose: () => void; onUploaded: (id: string) => void;
 }) {
   const t = useT(); const id = useId(); const submitting = useRef(false);
   const upload = store.useStoreSelector(state => state.knowledge.upload);
   const [file, setFile] = useState<File | null>(initialFile);
-  const [kind, setKind] = useState<DocumentUploadMeta['kind']>(target?.kind ?? 'other');
+  const [kind, setKind] = useState<DocumentUploadMeta['kind']>(target?.kind ?? (initialFile && isRasterImage(initialFile) ? 'design-asset' : 'other'));
   const [title, setTitle] = useState(initialFile?.name.replace(/\.[^.]+$/, '').slice(0, 200) ?? target?.title ?? '');
+  const [note, setNote] = useState('');
   const validation = file ? validateDocument(file) : null;
   const error = validation ?? (upload.error ? upload.error.status === 413 ? 'size' : upload.error.status === 415 ? 'type' : upload.error.code === 'quota' ? 'quota' : upload.error.code === 'version' ? 'version' : 'generic' : null);
   const close = () => { if (!submitting.current && !upload.busy) onClose(); };
   async function submit() {
-    if (!file || validation || submitting.current || upload.busy) return;
+    if (!file || validation || note.length > MAX_NOTE_LENGTH || submitting.current || upload.busy) return;
     submitting.current = true;
     try {
-      const artifact = await store.uploadDocument(file, { kind, title: title.trim(), ...(target ? { artifactId: target.artifactId } : {}) });
+      const trimmedNote = note.trim();
+      const artifact = await store.uploadDocument(file, { kind, title: title.trim(), ...(target ? { artifactId: target.artifactId } : {}), ...(trimmedNote ? { note: trimmedNote } : {}) });
       if (artifact) { toast.success(t('knowledgeUi.uploaded')); onUploaded(artifact.artifactId); }
     } finally { submitting.current = false; }
   }
   return <Dialog labelledBy={`${id}-title`} onClose={close} className="sm:max-w-lg">
     <header className="flex items-center justify-between gap-4"><h2 id={`${id}-title`} className="font-display text-2xl font-semibold">{t(target ? 'knowledgeUi.uploadNewVersion' : 'knowledgeUi.upload')}</h2><Button type="button" variant="ghost" size="icon" disabled={upload.busy} aria-label={t('knowledgeUi.close')} onClick={close}><X className="size-4" /></Button></header>
     <form className="space-y-5" onSubmit={event => { event.preventDefault(); void submit(); }}>
-      <div className="space-y-2"><Label htmlFor={`${id}-file`}>{t('knowledgeUi.file')}</Label><Input id={`${id}-file`} type="file" accept={documentAccept} disabled={upload.busy} aria-describedby={`${id}-help`} onChange={event => { const next = event.target.files?.[0] ?? null; setFile(next); if (next) setTitle(next.name.replace(/\.[^.]+$/, '').slice(0, 200)); store.resetDocumentUpload(); }} />{file && <p className="truncate text-sm" title={file.name}>{file.name}</p>}<p id={`${id}-help`} className="text-xs leading-relaxed text-muted-foreground">{t('knowledgeUi.uploadHelp')}</p></div>
+      <div className="space-y-2"><Label htmlFor={`${id}-file`}>{t('knowledgeUi.file')}</Label><Input id={`${id}-file`} type="file" accept={documentAccept} disabled={upload.busy} aria-describedby={`${id}-help`} onChange={event => { const next = event.target.files?.[0] ?? null; setFile(next); if (next) { setTitle(next.name.replace(/\.[^.]+$/, '').slice(0, 200)); if (!target && kind === 'other' && isRasterImage(next)) setKind('design-asset'); } store.resetDocumentUpload(); }} />{file && <p className="truncate text-sm" title={file.name}>{file.name}</p>}<p id={`${id}-help`} className="text-xs leading-relaxed text-muted-foreground">{t('knowledgeUi.uploadHelp')}</p></div>
       <div className="space-y-2"><Label htmlFor={`${id}-kind`}>{t('knowledgeUi.kind')}</Label><Select id={`${id}-kind`} value={kind} disabled={upload.busy || !!target} onValueChange={value => setKind(value as typeof kind)} options={knowledgeKinds.map(value => ({ value, label: t(`knowledgeUi.kinds.${value}`) }))} /></div>
       <div className="space-y-2"><Label htmlFor={`${id}-name`}>{t('knowledgeUi.title')}</Label><Input id={`${id}-name`} maxLength={200} value={title} disabled={upload.busy} onChange={event => setTitle(event.target.value)} /></div>
+      <div className="space-y-2"><Label htmlFor={`${id}-note`}>{t('knowledgeUi.referenceNote')}</Label><Textarea id={`${id}-note`} maxLength={MAX_NOTE_LENGTH} value={note} disabled={upload.busy} aria-invalid={note.length > MAX_NOTE_LENGTH} aria-describedby={`${id}-note-help ${id}-note-count`} onChange={event => setNote(event.target.value)} /><p id={`${id}-note-help`} className="text-xs leading-relaxed text-muted-foreground">{t('knowledgeUi.referenceNoteHelp')}</p><p id={`${id}-note-count`} className={`text-right text-xs ${note.length > MAX_NOTE_LENGTH ? 'text-destructive' : 'text-muted-foreground'}`}>{note.length}/{MAX_NOTE_LENGTH}</p></div>
       {upload.busy && <div role="status" className="space-y-2"><p className="text-sm text-muted-foreground">{t('knowledgeUi.uploading')} {Math.floor(upload.progress)}%</p><Progress value={upload.progress} aria-label={t('knowledgeUi.uploading')} /></div>}
       {error && <Alert><AlertDescription>{t(`knowledgeUi.uploadErrors.${error}`)}</AlertDescription></Alert>}
-      <footer className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" disabled={upload.busy} onClick={close}>{t('knowledgeUi.cancel')}</Button><Button type="submit" disabled={!file || !!validation || upload.busy}><Upload className="size-4" />{t(upload.error ? 'errors.retry' : 'knowledgeUi.upload')}</Button></footer>
+      <footer className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" disabled={upload.busy} onClick={close}>{t('knowledgeUi.cancel')}</Button><Button type="submit" disabled={!file || !!validation || note.length > MAX_NOTE_LENGTH || upload.busy}><Upload className="size-4" />{t(upload.error ? 'errors.retry' : 'knowledgeUi.upload')}</Button></footer>
     </form>
   </Dialog>;
 }

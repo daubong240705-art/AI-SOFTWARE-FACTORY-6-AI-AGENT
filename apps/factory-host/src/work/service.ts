@@ -44,6 +44,17 @@ export function listTasks(raw: Database, projectId: string): Task[] {
     .map((row) => taskFromRow(raw, row));
 }
 
+/** Task inputs must name existing, usable artifact versions of the same project (they are copied into the worktree). */
+export function assertTaskInputs(raw: Database, projectId: string, inputs: readonly { artifactId: string; version: number }[]): void {
+  if (new Set(inputs.map((ref) => `${ref.artifactId}@${ref.version}`)).size !== inputs.length)
+    throw new CommandError("validation", "duplicate input", "correct-input");
+  const usable = raw.prepare(`SELECT 1 FROM artifact_versions WHERE project_id = ? AND artifact_id = ? AND version = ?
+    AND status NOT IN ('withdrawn', 'rejected')`);
+  for (const ref of inputs)
+    if (!usable.get(projectId, ref.artifactId, ref.version))
+      throw new CommandError("not-found", "input document not found in project", "correct-input");
+}
+
 /** The caller owns the transaction, including rollback of the whole proposal. */
 export function createProposedTasks(raw: Database, input: {
   projectId: string; turnId: string; plan: TaskProposeInput; engagementId: string | null;
@@ -55,6 +66,13 @@ export function createProposedTasks(raw: Database, input: {
   // The Lead names the member that does each task; an unknown or Lead name falls back to the Host's own choice.
   const seatByName = new Map((engagementId === null ? [] : raw.prepare(`SELECT s.id, s.name FROM seats s JOIN engagements e ON e.team_id = s.team_id
     WHERE e.id = ? AND s.is_lead = 0`).all(engagementId) as { id: string; name: string }[]).map((seat) => [seat.name.toLowerCase(), seat.id]));
+  // Lead inputs are artifact ids; each resolves to its latest usable version, unknown ids are dropped.
+  const latestUsable = raw.prepare(`SELECT version FROM artifact_versions WHERE project_id = ? AND artifact_id = ?
+    AND status NOT IN ('withdrawn', 'rejected') ORDER BY version DESC LIMIT 1`);
+  const inputsFor = (artifactIds: readonly string[] | undefined) => [...new Set(artifactIds ?? [])].flatMap((artifactId) => {
+    const row = latestUsable.get(projectId, artifactId) as { version: number } | undefined;
+    return row ? [{ artifactId, version: row.version }] : [];
+  });
   return plan.tasks.map((entry, index) => {
     const id = ids[index] as string;
     const existing = getTask(raw, projectId, id);
@@ -70,7 +88,7 @@ export function createProposedTasks(raw: Database, input: {
         "operator", "proposed", "active", entry.placement, entry.sideEffect,
         entry.reviewPolicy === "automatic" && entry.sideEffect !== "external-idempotent" && entry.sideEffect !== "external-irreversible" ? "automatic" : "human-final",
         entry.sideEffect === "external-irreversible" ? 1 : 0,
-        JSON.stringify(entry.requiredCapabilities), JSON.stringify(entry.acceptance), JSON.stringify([]));
+        JSON.stringify(entry.requiredCapabilities), JSON.stringify(entry.acceptance), JSON.stringify(inputsFor(entry.inputs)));
     for (const dependency of entry.dependsOn)
       raw.prepare("INSERT INTO task_dependencies (project_id, task_id, depends_on_task_id) VALUES (?, ?, ?)")
         .run(projectId, id, ids[dependency] as string);
@@ -95,6 +113,7 @@ export const tasksCreateHandler: HandlerMap["tasks.create"] = ({ raw }, { projec
     if (!raw.prepare("SELECT id FROM tasks WHERE project_id = ? AND id = ?").get(projectId, id))
       throw new CommandError("not-found", "referenced task not found in project", "correct-input");
   }
+  assertTaskInputs(raw, projectId, payload.inputs);
   const engagementId = payload.engagementId ?? getPrimaryEngagement(raw, projectId)?.id ?? null;
   const engagement = engagementId === null ? undefined : raw.prepare("SELECT team_id FROM engagements WHERE project_id = ? AND id = ?")
     .get(projectId, engagementId) as { team_id: string } | undefined;

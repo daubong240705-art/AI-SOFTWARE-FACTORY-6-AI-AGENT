@@ -446,6 +446,45 @@ Environment and output:
 - **`.factory/`** in a worktree is agent scratch output (screenshots, traces). The
   Host excludes it when it stages results.
 
+## Reference inputs, plan files and review evidence
+
+**Task inputs reach the agent as files.**
+- `tasks.create` checks that every `inputs` ref names a usable artifact version of the project.
+- Lead plans may list `inputs` as artifact ids; each resolves to the latest usable version, and unknown ids are dropped.
+- When an attempt starts, the dispatcher copies each input's stored bytes into `<worktree>/.factory/inputs/NN-<slug>.<ext>`, with these limits:
+  - at most 20 files and 50 MiB in total;
+  - mode 0600 and exclusive creation;
+  - no symbolic links;
+  - extensions limited to `[a-z0-9]`.
+- PDF and Office inputs also get their extracted text as a `.md` file.
+- `promptFor` lists the paths, titles and operator notes as reference material, not instructions.
+- `.factory/` is excluded from results. A copy failure is reported as progress and never blocks the attempt.
+
+**Upload note.** `POST /projects/:id/documents?note=` accepts up to 2000 characters, which are cleaned and stored as abstract L1. This is where the operator writes what agents should take from a reference image. Context Packs prefer abstract L1.
+
+**Lead reads named documents.**
+- The Lead receives the text of project documents whose file name (or a title of at least 8 characters) appears in a user message within its history window:
+  - text types are read from their bytes; PDF and Office files from their extraction;
+  - at most 5 documents, 24,000 characters each and 60,000 in total.
+- The text is added to the operator's current message after history trimming, marked as data.
+- Uploaded images are listed in the system prompt as "Reference assets" (id, title, note) so the Lead can assign them as task inputs.
+- The Lead also uses the engaged team's pinned Lead profile instead of the Host default pack.
+
+**Plan files.**
+- A single ```` ```factory-csv ```` block (first line `# file: <name>.csv`) in any Lead reply is saved as a project document of kind `plan` (`text/csv`, quota applies). A system message names it.
+- Saving a plan file creates no task. Asking the Lead (intent `delegate`) to apply a named plan file includes its text, and the Lead answers with an ordinary `factory-plan` block.
+- `factory-plan` now allows up to 30 tasks.
+- With `FACTORY_LEAD_CLI=claude`, `FACTORY_LEAD_MAX_OUTPUT_TOKENS` defaults to 16,384.
+
+**Review evidence.**
+- The core MCP tool `criterion.report {criterion, passed, evidence}` records one acceptance criterion of the agent's own task as an evidence event (exact criterion text, at most 64 calls per attempt). The review screen marks each criterion passed, failed or unreported, with its evidence sentence.
+- Agents may register preview images and screenshots as `media` artifacts when a task asks for them. The review screen shows them as thumbnails through the knowledge raw route.
+- The artifact content route also serves `text/plain`, `text/csv` and `application/json` as text.
+
+**Other changes.**
+- With `FACTORY_MULTI_TEAM=1`, `projects.create` no longer creates the default team: a project has only the teams the operator adds.
+- The local CLI runtime's output limit defaults to 48 MiB (maximum 64 MiB), because stream-json carries every image an agent views.
+
 ## Workflows as data (M5 W1a)
 
 Packs may declare `workflows`, up to eight unique relative `.json` files inside

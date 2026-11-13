@@ -1,0 +1,69 @@
+# Factory in Docker: Host + UI in one container, agents on the Claude Code and Codex CLIs of this machine.
+#
+#   docker compose up -d --build     # build and start; open http://127.0.0.1:8787
+#   docker compose logs -f factory   # follow the log
+#   docker compose down              # stop (data stays in ${FACTORY_DATA_DIR})
+#
+# Every setting below can be overridden in a .env file next to this file (see docker/env.example).
+# Secrets (NINE_ROUTER_API_KEY, optional CLAUDE_CODE_OAUTH_TOKEN) come only from ${FACTORY_ENV_FILE}.
+name: factory
+
+services:
+  factory:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: factory-host:local
+    container_name: factory
+    # The Host listens on 127.0.0.1 only (by design). Sharing the machine's network keeps it loopback-only, and lets
+    # agents reach local services such as the 9router gateway and dev servers they start.
+    network_mode: host
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+    env_file:
+      - path: ${FACTORY_ENV_FILE:-${HOME}/.config/factory/env}
+        required: false
+    environment:
+      FACTORY_UID: ${FACTORY_UID:-1000}
+      FACTORY_GID: ${FACTORY_GID:-1000}
+      FACTORY_PORT: ${FACTORY_PORT:-8787}
+      # Agents: claude or codex for seats without their own runtime setting (Settings > Agents in the UI).
+      FACTORY_DEFAULT_AGENT_CLI: ${FACTORY_DEFAULT_AGENT_CLI:-claude}
+      FACTORY_LEAD_CLI: claude
+      FACTORY_LEAD_TIMEOUT_SECONDS: ${FACTORY_LEAD_TIMEOUT_SECONDS:-600}
+      FACTORY_LEAD_EFFORT: ${FACTORY_LEAD_EFFORT:-}
+      FACTORY_LEAD_MODEL: ${FACTORY_LEAD_MODEL:-}
+      # Agents running at the same time (1-16).
+      FACTORY_NODE_SLOTS: ${FACTORY_NODE_SLOTS:-4}
+      # Projects contain only the teams you add.
+      FACTORY_MULTI_TEAM: ${FACTORY_MULTI_TEAM:-1}
+      # No sign-in token: the Host is loopback-only and gives the browser a session itself. Set 0 to require the token.
+      FACTORY_OPEN_LOGIN: ${FACTORY_OPEN_LOGIN:-1}
+      # Token budgets: the largest value the Host accepts (no blocking); usage is still recorded.
+      FACTORY_BUDGET_TASK_TOKENS: ${FACTORY_BUDGET_TASK_TOKENS:-9007199254740991}
+      FACTORY_BUDGET_DAY_TOKENS: ${FACTORY_BUDGET_DAY_TOKENS:-9007199254740991}
+      FACTORY_DOC_WORKER: ${FACTORY_DOC_WORKER:-on}
+    volumes:
+      # Host state, project workspaces and task worktrees; owned by FACTORY_UID on this machine.
+      - ${FACTORY_DATA_DIR:-${HOME}/factory-docker}:/data
+      # CLI home inside the container: logins copied on first start, CLI sessions and caches.
+      - cli-home:/home/factory
+      # The CLIs installed on this machine, read-only.
+      - ${CLAUDE_INSTALL_DIR:-${HOME}/.local/share/claude}:/opt/host-cli/claude:ro
+      - ${CODEX_PACKAGE_DIR:-${HOME}/.local/npm/lib/node_modules/@openai/codex}:/opt/host-cli/codex:ro
+      # Logins and settings, read-only; copied once into cli-home (docker compose run --rm factory reseed to refresh).
+      - ${HOME}/.claude:/seed/claude:ro
+      - ${HOME}/.claude.json:/seed/claude.json:ro
+      - ${HOME}/.codex:/seed/codex:ro
+      # This machine's trusted certificates, so gateways behind a local CA (for example Caddy) are trusted too.
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+process.env.FACTORY_PORT+'/').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+volumes:
+  cli-home:

@@ -64,10 +64,11 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
   const passEnv = [...(options.passEnv ?? [])];
   validatePassEnv(passEnv);
   const timeoutMs = options.timeoutMs ?? 30 * 60_000, stallMs = options.stallMs ?? 10 * 60_000;
-  const maxOutputBytes = options.maxOutputBytes ?? 4 * 1024 * 1024;
+  // stream-json carries every image an agent views as base64 (a screenshot is ~0.5 MB), so visual work needs headroom.
+  const maxOutputBytes = options.maxOutputBytes ?? 48 * 1024 * 1024;
   const maxPromptBytes = options.maxPromptBytes ?? 24 * 1024, maxLineBytes = options.maxLineBytes ?? 1024 * 1024;
   for (const [value, max] of [[timeoutMs, 6 * 60 * 60_000], [stallMs, 2_147_483_647],
-    [maxOutputBytes, 16 * 1024 * 1024], [maxPromptBytes, 96 * 1024], [maxLineBytes, 4 * 1024 * 1024]])
+    [maxOutputBytes, 64 * 1024 * 1024], [maxPromptBytes, 96 * 1024], [maxLineBytes, 4 * 1024 * 1024]])
     if (!Number.isSafeInteger(value) || value! < 1 || value! > max!) throw new Error("Local CLI configuration invalid");
   if (options.claudeFlags) for (const flags of Object.values(options.claudeFlags))
     if (!Array.isArray(flags) || flags.some((flag) => typeof flag !== "string" || flag.includes("\0")))

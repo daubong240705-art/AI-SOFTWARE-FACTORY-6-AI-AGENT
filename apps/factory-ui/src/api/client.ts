@@ -21,8 +21,8 @@ import { commandSchema, successResponseSchema, failureResponseSchema, projectSch
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
 import { readModels, m5ReadModels, type KnowledgePage } from './readModels';
 import { codeReadModels } from './codeModels';
-export type { KnowledgeResult, KnowledgeItem, KnowledgeArtifact, KnowledgeFilters, KnowledgePage } from './readModels';
-export type DocumentUploadMeta = { kind: NonNullable<KnowledgePage['kinds']>[number]; title?: string; artifactId?: string };
+export type { KnowledgeResult, KnowledgeItem, KnowledgeArtifact, KnowledgeFilters, KnowledgePage, KnowledgeGroup, KnowledgeGroups, KnowledgeGroupKey } from './readModels';
+export type DocumentUploadMeta = { kind: NonNullable<KnowledgePage['kinds']>[number]; title?: string; artifactId?: string; note?: string };
 export type { Attempt, AttemptEvent, AttemptPatch, TaskArtifact, ArtifactContent, Inbox, Effect } from './readModels';
 export type { WorkflowInstance, WorkflowDetail, WorkflowStage, WorkflowGraph, WorkflowDefinition, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './readModels';
 
@@ -120,6 +120,8 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     for (const kind of options.kinds ?? []) params.append('kind', kind);
     for (const status of options.statuses ?? []) params.append('status', status);
     for (const origin of options.origins ?? []) params.append('origin', origin);
+    if (options.group !== undefined) params.set('group', options.group);
+    if (options.media !== undefined) params.set('media', options.media);
     if (options.limit !== undefined) params.set('limit', String(options.limit));
     if (options.offset !== undefined) params.set('offset', String(options.offset));
     return params.size ? `?${params}` : '';
@@ -172,6 +174,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     searchKnowledge: (id: string, options: KnowledgePage & { query: string }) => request(`${projectPath(id)}/knowledge/search${knowledgeQuery(options, options.query)}`, readModels.knowledgeSearch),
     listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     listDocuments: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
+    knowledgeGroups: (id: string) => request(`${projectPath(id)}/knowledge/groups`, readModels.knowledgeGroups),
     getKnowledgeArtifact: (id: string, artifactId: string) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact),
     getExtraction: (id: string, artifactId: string, version: number) => request(extractionPath(id, artifactId, version), extractionModels.detail),
     getExtractionText: (id: string, artifactId: string, version: number, from = 0, limit = 8000) => request(`${extractionPath(id, artifactId, version)}/text?${new URLSearchParams({ from: String(from), limit: String(Math.min(20000, limit)) })}`, extractionModels.text),
@@ -194,6 +197,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
       params.set('mediaType', mediaTypeForFile(file.name) ?? file.type);
       if (meta.title) params.set('title', meta.title);
       if (meta.artifactId) params.set('artifactId', meta.artifactId);
+      if (meta.note) params.set('note', meta.note);
       xhr.open('POST', `${base}${projectPath(id)}/documents?${params}`);
       xhr.withCredentials = true;
       xhr.setRequestHeader('content-type', 'application/octet-stream');

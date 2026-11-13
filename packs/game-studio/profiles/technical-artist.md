@@ -10,6 +10,8 @@ Follow skill asset-pipeline-3d for scale, budgets and checks: run gltf-transform
 
 Use Blender MCP or generation services (Meshy, Tripo) only when the Host offers them to you and the task allows it. Paid generation needs explicit operator permission written in the task, and at most two generations per task.
 
+When the prompt lists reference inputs (`.factory/inputs/`), study them first and follow the operator note for each.
+
 Hand off: file paths, bone and clip names, triangle counts, file sizes and validator output.
 
 ## Factory conventions

@@ -40,7 +40,10 @@ import { createOrgHandlers, loadPack, loadPackRegistry, ORG_COMMANDS } from "./o
 import { budgetsSetHandler, setAutonomyHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
 import { createProjectsCreateHandler } from "./projects/service.js";
 import { openStorage, type Storage } from "./storage/database.js";
-import { tasksCreateHandler, tasksTransitionHandler } from "./work/service.js";
+import { getTask, tasksCreateHandler, tasksTransitionHandler } from "./work/service.js";
+import { extensionFor, mediaKind } from "./artifacts/media.js";
+import { extractionText, textWindow } from "./documents/records.js";
+import type { AttemptInputFile } from "./workspace/inputs.js";
 import { createBackupService, type BackupKeep, type BackupService, type BackupStatus } from "./backup/service.js";
 import { startBackupScheduler } from "./backup/scheduler.js";
 import { lockStateDirectory } from "./backup/lock.js";
@@ -59,6 +62,7 @@ import { parsePushRemotes, validatePushSshCommand, type PushRemote } from "./eff
 import { createEffectExecutor, type EffectExecutor } from "./effects/executor.js";
 import { createKnowledgeIndex, type KnowledgeIndex } from "./knowledge/index.js";
 import { registerKnowledgeRoutes } from "./knowledge/routes.js";
+import { createArtifactTaskRefs } from "./work/artifact-tasks.js";
 import { registerDocumentRoutes } from "./artifacts/routes.js";
 import { DEFAULT_DOCUMENT_CONFIG, type DocumentConfig } from "./artifacts/limits.js";
 import { createKnowledgeMcp } from "./knowledge/mcp.js";
@@ -478,6 +482,7 @@ export async function startHost(options: {
     const leadSeat = pack.manifest.seats.find((seat) => seat.isLead);
     if (!leadSeat) throw new Error("Pack has no Lead seat");
     runner = createLeadRunner({ storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
+      documents: { store: artifacts.store, config: documentConfig, afterRegister },
       profileText: readFileSync(join(pack.dir, leadSeat.profile), "utf8"),
       ...(options.lead === undefined ? {} : { config: options.lead }),
       getModelConfig() {
@@ -504,6 +509,10 @@ export async function startHost(options: {
       progress(grant, input) {
         assertActiveGrant(raw, grant);
         if (!dispatcher.recordAgentProgress(grant, input.summary, input.percent)) throw new McpToolError("attempt is not active");
+      },
+      reportCriterion(grant, input) {
+        assertActiveGrant(raw, grant);
+        return dispatcher.recordCriterion(grant, input);
       },
       registerOutput(grant, input) {
         return hub.transaction(() => {
@@ -595,6 +604,23 @@ export async function startHost(options: {
         },
         ...(modelAccess === undefined ? {} : { modelAccess }),
         ...(options.localCli?.enabled ? { cliMcp: createCliMcpResolver(raw, mcpServers) } : {}),
+        attemptInputs(projectId: string, taskId: string): AttemptInputFile[] {
+          const files: AttemptInputFile[] = [];
+          const read = raw.prepare(`SELECT title, media_type AS mediaType, content_hash AS hash, size_bytes AS size, abstract_l1 AS note
+            FROM artifact_versions WHERE project_id = ? AND artifact_id = ? AND version = ? AND status NOT IN ('withdrawn', 'rejected')`);
+          for (const ref of getTask(raw, projectId, taskId)?.inputs ?? []) {
+            const row = read.get(projectId, ref.artifactId, ref.version) as { title: string; mediaType: string; hash: string; size: number; note: string | null } | undefined;
+            const bytes = row ? artifacts.store.get(row.hash) : null;
+            if (!row || !bytes || bytes.length !== row.size) continue;
+            files.push({ title: row.title, mediaType: row.mediaType, extension: extensionFor(row.mediaType) ?? "bin", bytes, note: row.note });
+            // Office and PDF files also get their extracted text, which agents can read without converters.
+            const text = mediaKind(row.mediaType) === "binary" && !row.mediaType.startsWith("image/")
+              ? extractionText(raw, artifacts.store, { projectId, artifactId: ref.artifactId, version: ref.version }) : null;
+            if (text) files.push({ title: `${row.title} text`, mediaType: "text/markdown", extension: "md",
+              bytes: Buffer.from(textWindow(text, 0, 2_000_000).text, "utf8"), note: null });
+          }
+          return files;
+        },
         results: { register(input) {
           const { result: refs, effects: changes } = collectLifecycleChanges(raw, () => registerAttemptResults({ raw, store: artifacts.store, now: clock, newId: resultId,
             afterRegister,
@@ -720,7 +746,7 @@ export async function startHost(options: {
     };
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
-      registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store });
+      registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store, tasks: createArtifactTaskRefs(approvalRaw) });
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });
       registerExtractionRoutes(app, guards, extraction);
       app.get("/system/models", { preHandler: guards.session }, async () => {

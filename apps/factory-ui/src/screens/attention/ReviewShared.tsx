@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import { useT } from '../../i18n';
 import { readableText } from './presentation';
+import { MarkdownContent } from '@/components/MarkdownContent';
 
 export function Fold({ title, children }: { title: string; children: ReactNode }) {
   return <Collapsible className="min-w-0">
@@ -19,7 +20,13 @@ export function Facts({ rows, mono = false }: { rows: string[][]; mono?: boolean
 
 export function AgentSummary({ text }: { text: string }) {
   const t = useT(); const [expanded, setExpanded] = useState(false);
-  return <div className="mt-3 max-w-3xl"><p className={cn('text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground', !expanded && 'line-clamp-3')}>{readableText(text || t('reviewUi.noSummary'))}</p>
-    {(text.length > 240 || text.split('\n').length > 3) && <Button variant="ghost" size="sm" aria-expanded={expanded} className="mt-1 h-auto px-0 text-xs text-muted-foreground" onClick={() => setExpanded(value => !value)}>{t(expanded ? 'reviewUi.showLess' : 'workUi.showMore')}</Button>}
+  const long = text.length > 240 || text.split('\n').length > 3;
+  // Sanitized markdown (no HTML, only http(s) links); collapsed to a short preview until expanded.
+  return <div className="mt-3 max-w-3xl">
+    <div className={cn('relative text-muted-foreground', long && !expanded && 'max-h-28 overflow-hidden')}>
+      {text ? <MarkdownContent content={readableText(text)} className="text-muted-foreground [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm" /> : <p className="text-sm">{t('reviewUi.noSummary')}</p>}
+      {long && !expanded && <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background to-transparent" />}
+    </div>
+    {long && <Button variant="ghost" size="sm" aria-expanded={expanded} className="mt-1 h-auto px-0 text-xs text-muted-foreground" onClick={() => setExpanded(value => !value)}>{t(expanded ? 'reviewUi.showLess' : 'workUi.showMore')}</Button>}
   </div>;
 }

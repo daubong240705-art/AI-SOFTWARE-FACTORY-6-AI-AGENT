@@ -1,4 +1,4 @@
-import { Circle, CircleCheck } from 'lucide-react';
+import { Circle, CircleCheck, CircleX } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { AttemptEvent } from '../../api/client';
@@ -15,7 +15,14 @@ function Row({ label, value }: { label: string; value: string }) {
 export function ReviewAside({ store, taskId, events, totals }: { store: Store; taskId: string; events: AttemptEvent[]; totals?: { files: number; additions: number; deletions: number } }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
   const task = state.tasks.find(item => item.id === taskId);
-  const checks = events.filter(event => event.kind === 'evidence').map(summariseEvent).filter(event => event.text);
+  // Criterion reports (criterion.report) are shown on their criterion, newest report wins.
+  const isCriterion = (event: AttemptEvent) => event.kind === 'evidence' && typeof (event.body as { criterion?: unknown } | null)?.criterion === 'string';
+  const reports = new Map<string, { passed: boolean; evidence: string }>();
+  for (const event of events) if (isCriterion(event)) {
+    const body = event.body as { criterion: string; passed?: unknown; evidence?: unknown };
+    reports.set(body.criterion, { passed: body.passed === true, evidence: typeof body.evidence === 'string' ? body.evidence : '' });
+  }
+  const checks = events.filter(event => event.kind === 'evidence' && !isCriterion(event)).map(summariseEvent).filter(event => event.text);
   const evidence = evidenceView([...events].reverse().find(event => event.kind === 'evidence' && evidenceView(event.body).totals)?.body);
   const changes = totals ?? evidence.totals;
   const tests = checks.filter(check => /\btests?\b|kiểm thử/i.test(check.text));
@@ -24,9 +31,13 @@ export function ReviewAside({ store, taskId, events, totals }: { store: Store; t
     <Card className="gap-3 border-border p-4 shadow-none"><h3 className="text-sm font-semibold text-muted-foreground">{t('taskUi.acceptance')}</h3>
       <ul className="m-0 grid list-none gap-3 p-0">{task?.acceptance.map((criterion, index) => {
         // Only an explicit, successful criterion check can mark a criterion verified.
-        const verified = events.some(event => { const body = event.body as { criterion?: unknown; passed?: unknown } | null; return event.kind === 'evidence' && body?.criterion === criterion && body.passed === true; });
-        const Icon = verified ? CircleCheck : Circle;
-        return <li key={index} className="flex items-start gap-2.5 text-sm leading-relaxed"><Icon aria-hidden="true" className={`mt-0.5 size-4 shrink-0 ${verified ? 'text-ok' : 'text-muted-foreground'}`} /><span><span className="sr-only">{t(verified ? 'reviewUi.verified' : 'reviewUi.unverified')}: </span>{readableText(criterion)}</span></li>;
+        const report = reports.get(criterion);
+        const Icon = report ? (report.passed ? CircleCheck : CircleX) : Circle;
+        const tone = report ? (report.passed ? 'text-ok' : 'text-destructive') : 'text-muted-foreground';
+        const status = t(report ? (report.passed ? 'reviewUi.verified' : 'reviewUi.failedCheck') : 'reviewUi.unverified');
+        return <li key={index} className="flex items-start gap-2.5 text-sm leading-relaxed"><Icon aria-hidden="true" className={`mt-0.5 size-4 shrink-0 ${tone}`} />
+          <span className="min-w-0"><span className="sr-only">{status}: </span>{readableText(criterion)}
+            {report?.evidence && <span className="mt-1 block text-xs text-muted-foreground [overflow-wrap:anywhere]">{readableText(report.evidence)}</span>}</span></li>;
       })}</ul>{!task?.acceptance.length && <p className="text-sm text-muted-foreground">{t('reviewUi.noCriteria')}</p>}
     </Card>
     <Card className="gap-3 border-border p-4 shadow-none"><h3 className="text-sm font-semibold text-muted-foreground">{t('attention.checks')}</h3>

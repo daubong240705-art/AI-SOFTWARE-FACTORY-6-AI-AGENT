@@ -6,5 +6,6 @@ export const LOCAL_CLI_FAILURES = new Set([
     `${cli}: not logged in. Run ${cli === "codex" ? "codex login" : "claude auth login"} on the Host machine.`,
     `${cli}: quota or rate limit reached. Check usage on the Host machine.`,
     `${cli}: execution failed.`, `${cli}: timed out.`, `${cli}: output limit exceeded.`,
+    `${cli}: a provider key it needs is not set for the Host. Set it in the Host's environment (FACTORY_CLI_PASS_ENV) and restart.`,
   ]),
 ]);

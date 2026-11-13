@@ -10,6 +10,11 @@ export { visibleToScope, type KnowledgeScope } from "./permissions.js";
 export interface KnowledgeQuery {
   query: string; kinds?: readonly string[] | undefined; statuses?: readonly string[] | undefined;
   origins?: readonly ("agent" | "upload")[] | undefined;
+  /** Documents produced by these attempts (one task's attempts); an empty list matches nothing. */
+  attemptIds?: readonly string[] | undefined;
+  /** Documents with no producing attempt: operator uploads, plan files, or other agent output. */
+  bucket?: "uploads" | "plans" | "other" | undefined;
+  media?: "image" | "document" | undefined;
   latestOnly?: boolean | undefined; limit?: number | undefined; offset?: number | undefined;
 }
 export interface KnowledgeResult {
@@ -42,13 +47,21 @@ function textBytes(bytes: Buffer, limit: number): string {
     try { return decoder.decode(bytes.subarray(0, end)); } catch { end--; }
   }
 }
-function filters(query: Pick<KnowledgeQuery, "kinds" | "statuses" | "origins">): SqlPredicate {
+const buckets = {
+  uploads: "v.produced_by_attempt_id IS NULL AND v.origin = 'upload' AND v.kind <> 'plan'",
+  plans: "v.produced_by_attempt_id IS NULL AND v.kind = 'plan'",
+  other: "v.produced_by_attempt_id IS NULL AND v.origin = 'agent' AND v.kind <> 'plan'",
+} as const;
+function filters(query: Pick<KnowledgeQuery, "kinds" | "statuses" | "origins" | "attemptIds" | "bucket" | "media">): SqlPredicate {
   const parts: string[] = []; const params: string[] = [];
-  for (const [column, values] of [["v.kind", query.kinds], ["v.status", query.statuses], ["v.origin", query.origins]] as const) {
+  for (const [column, values] of [["v.kind", query.kinds], ["v.status", query.statuses], ["v.origin", query.origins],
+    ["v.produced_by_attempt_id", query.attemptIds]] as const) {
     if (values === undefined) continue;
     parts.push(values.length ? `${column} IN (${values.map(() => "?").join(",")})` : "0");
     params.push(...values);
   }
+  if (query.bucket !== undefined) parts.push(`(${buckets[query.bucket]})`);
+  if (query.media !== undefined) parts.push(query.media === "image" ? "v.media_type LIKE 'image/%'" : "v.media_type NOT LIKE 'image/%'");
   return { sql: parts.length ? parts.join(" AND ") : "1", params };
 }
 const bounded = (value: number | undefined, fallback: number, min: number, max: number): number =>
@@ -184,6 +197,18 @@ export function listKnowledgeArtifacts(raw: Database, scope: KnowledgeScope, que
     .all(...newer.params, scope.projectId, ...permission.params, ...filter.params, ...newer.params,
       bounded(query.limit, 10, 1, 50), bounded(query.offset, 0, 0, Number.MAX_SAFE_INTEGER))
     .map((value) => { const row = value as KnowledgeResult; return { ...row, extraction: extractionSummary(raw, row) }; });
+}
+
+/** Latest visible version of every project document, reduced to what grouping needs. */
+export function listKnowledgeGroupRows(raw: Database, scope: KnowledgeScope) {
+  const permission = visibleToScope(scope); const newer = visibleToScope(scope, "newer");
+  return raw.prepare(`SELECT v.produced_by_attempt_id AS attemptId, v.origin, v.kind, v.media_type AS mediaType, v.created_at AS createdAt
+    FROM artifact_versions v WHERE v.project_id = ? AND ${permission.sql}
+      AND v.version = (SELECT MAX(newer.version) FROM artifact_versions newer
+        WHERE newer.project_id = v.project_id AND newer.artifact_id = v.artifact_id AND ${newer.sql})
+    ORDER BY v.created_at DESC LIMIT 5000`)
+    .all(scope.projectId, ...permission.params, ...newer.params) as
+    { attemptId: string | null; origin: "agent" | "upload"; kind: string; mediaType: string; createdAt: string }[];
 }
 
 export function getKnowledgeArtifact(raw: Database, scope: KnowledgeScope, artifactId: string) {

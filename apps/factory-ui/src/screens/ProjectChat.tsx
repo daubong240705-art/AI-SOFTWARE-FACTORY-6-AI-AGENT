@@ -1,7 +1,7 @@
 import { Mascot, MascotEmpty } from '@/components/mascot';
 import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 import type { Command, Conversation, Task, TaskState } from '@factory/contracts';
-import { ArrowUp, Check, MessageCircle, X } from 'lucide-react';
+import { ArrowUp, Check, ChevronDown, MessageCircle, X } from 'lucide-react';
 import { chatSend, conversationsCreate, tasksTransition } from '../api/commands';
 import { i18n, useT } from '../i18n';
 import type { Store } from '../state/store';
@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Kbd, KbdGroup } from '@/components/ui/kbd';
@@ -16,6 +17,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { readableText } from './attention/presentation';
 
 type Draft = { text: string; intent: 'discuss' | 'delegate' };
 const drafts = new WeakMap<Store, Map<string, Draft>>();
@@ -85,7 +87,7 @@ function PlanActions({ store, projectId, tasks }: { store: Store; projectId: str
   </Card>;
 }
 
-function ProposalCard({ store, projectId, task }: { store: Store; projectId: string; task: Task }) {
+function ProposalCard({ store, projectId, task, detailsOpen }: { store: Store; projectId: string; task: Task; detailsOpen: boolean }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
   const [command, setCommand] = useState<Command | null>(null);
@@ -99,7 +101,23 @@ function ProposalCard({ store, projectId, task }: { store: Store; projectId: str
     if (result) { await store.loadTasks(); setCommand(null); }
   }
   const error = command ? state.pending[command.commandId]?.error : undefined;
-  return <Card className="gap-3 rounded-lg border-border bg-secondary/50 p-4 shadow-none"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="font-mono text-xs text-muted-foreground">{task.code}</p><h3 className="font-medium [overflow-wrap:anywhere]">{task.title}</h3></div><Badge variant="outline" className="text-info"><span className="mr-1.5 size-1.5 rounded-full bg-current" />{t('taskUi.lifecycle.proposed')}</Badge></div><p className="line-clamp-2 text-sm text-muted-foreground">{task.goal}</p><div className="flex flex-wrap gap-2">{actions.map(({ to, label, icon: Icon }) => <Button key={to} type="button" variant={to === 'accepted' ? 'default' : 'outline'} size="sm" disabled={busy} onClick={() => { void transition(to); }}><Icon className="size-3.5" />{label}</Button>)}</div>{error && <><ErrorNotice error={error} /><Button variant="outline" size="sm" disabled={busy} onClick={() => { void transition('accepted'); }}>{t('errors.retry')}</Button></>}</Card>;
+  const owner = task.ownerSeatId ? state.team?.seats.find(seat => seat.id === task.ownerSeatId)
+    ?? state.m3.teams.flatMap(team => team.seats).find(seat => seat.id === task.ownerSeatId) : undefined;
+  const hasDetails = task.acceptance.length > 0 || task.requiredCapabilities.length > 0 || task.dependsOn.length > 0;
+  return <Card className="gap-3 rounded-lg border-border bg-secondary/50 p-4 shadow-none">
+    <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">{task.code}</p><h3 className="font-medium [overflow-wrap:anywhere]">{task.title}</h3></div><Badge variant="outline" className="text-info"><span className="mr-1.5 size-1.5 rounded-full bg-current" />{t('taskUi.lifecycle.proposed')}</Badge></div>
+    <div className="space-y-1 text-sm"><h4 className="font-medium">{t('chatUi.proposalGoal')}</h4><p className="whitespace-pre-wrap text-muted-foreground [overflow-wrap:anywhere]">{readableText(task.goal)}</p></div>
+    {owner && <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">{t('chatUi.proposalOwner')}: {readableText(owner.name)}</p>}
+    {hasDetails && <Collapsible defaultOpen={detailsOpen} className="space-y-2">
+      <CollapsibleTrigger asChild><Button type="button" variant="ghost" size="sm" className="group"><ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />{t('chatUi.proposalDetails')}</Button></CollapsibleTrigger>
+      <CollapsibleContent className="space-y-3 text-sm">
+        {task.acceptance.length > 0 && <div className="space-y-1"><h4 className="font-medium">{t('chatUi.proposalAcceptance')}</h4><ul className="list-disc space-y-1 pl-5 text-muted-foreground">{task.acceptance.map((criterion, index) => <li key={index} className="whitespace-pre-wrap [overflow-wrap:anywhere]">{readableText(criterion)}</li>)}</ul></div>}
+        {task.requiredCapabilities.length > 0 && <div className="space-y-1"><h4 className="font-medium">{t('chatUi.proposalCapabilities')}</h4><div className="flex flex-wrap gap-1.5">{task.requiredCapabilities.map((capability, index) => <Badge key={index} variant="secondary" className="max-w-full whitespace-normal [overflow-wrap:anywhere]">{readableText(capability)}</Badge>)}</div></div>}
+        {task.dependsOn.length > 0 && <div className="space-y-1"><h4 className="font-medium">{t('chatUi.proposalDependencies')}</h4><ul className="list-disc space-y-1 pl-5 font-mono text-xs text-muted-foreground">{task.dependsOn.map(dependency => <li key={dependency} className="[overflow-wrap:anywhere]">{readableText(state.tasks.find(item => item.id === dependency)?.code ?? dependency)}</li>)}</ul></div>}
+      </CollapsibleContent>
+    </Collapsible>}
+    <div className="flex flex-wrap gap-2">{actions.map(({ to, label, icon: Icon }) => <Button key={to} type="button" variant={to === 'accepted' ? 'default' : 'outline'} size="sm" disabled={busy} onClick={() => { void transition(to); }}><Icon className="size-3.5" />{label}</Button>)}</div>{error && <><ErrorNotice error={error} /><Button variant="outline" size="sm" disabled={busy} onClick={() => { void transition('accepted'); }}>{t('errors.retry')}</Button></>}
+  </Card>;
 }
 
 function ConversationChat({ store, projectId, conversation, showBudget, onClose }: { store: Store; projectId: string; conversation: Conversation; showBudget: boolean; onClose?: (() => void) | undefined }) {
@@ -125,7 +143,8 @@ function ConversationChat({ store, projectId, conversation, showBudget, onClose 
   const tooLong = draft.text.length > 32_000;
   const disabled = !draft.text.trim() || tooLong || busy || state.session !== 'authenticated';
   const allProposed = state.tasks.filter(task => task.state === 'proposed');
-  const proposed = allProposed.slice(0, 3);
+  const [showAllProposed, setShowAllProposed] = useState(false);
+  const proposed = allProposed.slice(0, 5);
   useEffect(() => { void store.loadMessages(conversation.id); }, [store, conversation.id]);
   function latest() { const node = log.current; if (node) node.scrollTop = node.scrollHeight; nearBottom.current = true; setJump(false); }
   useLayoutEffect(() => { if (nearBottom.current) latest(); else if (messages?.length) setJump(true); }, [messages]);
@@ -165,7 +184,13 @@ function ConversationChat({ store, projectId, conversation, showBudget, onClose 
         </article>;
       })}
       {allProposed.length > 1 && <PlanActions store={store} projectId={projectId} tasks={allProposed} />}
-      {proposed.length > 0 && <div className="space-y-3">{proposed.map(task => <ProposalCard key={task.id} store={store} projectId={projectId} task={task} />)}</div>}
+      {proposed.length > 0 && <div className="space-y-3">
+        {proposed.map(task => <ProposalCard key={task.id} store={store} projectId={projectId} task={task} detailsOpen={allProposed.length <= 3} />)}
+        {allProposed.length > 5 && <Collapsible open={showAllProposed} onOpenChange={setShowAllProposed} className="space-y-3">
+          <CollapsibleContent className="space-y-3">{allProposed.slice(5).map(task => <ProposalCard key={task.id} store={store} projectId={projectId} task={task} detailsOpen={false} />)}</CollapsibleContent>
+          <CollapsibleTrigger asChild><Button type="button" variant="outline" size="sm">{showAllProposed ? t('chatUi.hideProposals') : t('chatUi.showAllProposals').replace('{count}', String(allProposed.length))}</Button></CollapsibleTrigger>
+        </Collapsible>}
+      </div>}
     </div>
     {jump && <div className="px-4 pb-3"><Button variant="outline" size="sm" onClick={latest}>{t('chatUi.jump')}</Button></div>}
     {turn && turn.state !== 'done' && <p role="status" className="flex items-center gap-2 px-4 pb-3 text-sm text-muted-foreground"><Mascot seat="Lead" state={turn.state === 'queued' || turn.state === 'running' ? 'thinking' : 'attention'} size={32} fallback={<Spinner />} />{t(turn.state === 'queued' || turn.state === 'running' ? 'chatUi.working' : turn.state === 'budget-blocked' ? 'chatUi.blocked' : 'chatUi.resend')}</p>}

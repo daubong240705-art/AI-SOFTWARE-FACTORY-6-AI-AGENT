@@ -53,6 +53,8 @@ try {
   }
   const leadCli = process.env.FACTORY_LEAD_CLI === undefined || process.env.FACTORY_LEAD_CLI === "" ? undefined : process.env.FACTORY_LEAD_CLI;
   if (leadCli !== undefined && leadCli !== "claude") throw new Error("FACTORY_LEAD_CLI must be claude");
+  // Plan files for large requests are long answers; the Claude CLI Lead gets a larger default output budget.
+  if (leadCli === "claude" && process.env.FACTORY_LEAD_MAX_OUTPUT_TOKENS === undefined) lead.maxOutputTokens = 16_384;
   if (process.env.FACTORY_LEAD_EFFORT !== undefined) {
     const parsed = reasoningEffortSchema.safeParse(process.env.FACTORY_LEAD_EFFORT);
     if (!parsed.success) throw new Error("FACTORY_LEAD_EFFORT must be one of low, medium, high, xhigh");

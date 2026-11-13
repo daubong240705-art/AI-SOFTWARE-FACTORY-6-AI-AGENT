@@ -335,7 +335,7 @@ export function createRoutes(deps: {
         let bytes: Buffer | null;
         try { bytes = deps.artifacts.store.get(artifact.contentHash); } catch { return missing(); }
         if (bytes === null || bytes.length !== artifact.sizeBytes) return missing();
-        if (!["text/x-diff", "text/markdown"].includes(artifact.mediaType))
+        if (!["text/x-diff", "text/markdown", "text/plain", "text/csv", "application/json"].includes(artifact.mediaType))
           return failure(reply, 415, "unsupported", "Artifact media type is not supported.", "correct-input", newId);
         let text: string;
         try { text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); }

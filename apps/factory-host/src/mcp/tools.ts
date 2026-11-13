@@ -1,6 +1,6 @@
 import { workflowPatchInputSchema, notifySendInternalInputSchema } from "@factory/contracts";
 import { z } from "zod";
-import { artifactKindSchema, artifactRefSchema, decisionRequestInputSchema, knowledgeGetInputSchema, knowledgeSearchInputSchema, labelSchema, taskProgressInputSchema, requestCreateInputSchema, requestReplyInputSchema, requestGetInputSchema } from "@factory/contracts";
+import { artifactKindSchema, artifactRefSchema, criterionReportInputSchema, decisionRequestInputSchema, knowledgeGetInputSchema, knowledgeSearchInputSchema, labelSchema, taskProgressInputSchema, requestCreateInputSchema, requestReplyInputSchema, requestGetInputSchema } from "@factory/contracts";
 import type { TokenGrant } from "../proxy/tokens.js";
 import { McpToolError, sanitizeAgentText } from "./security.js";
 import { cleanArtifactSummary } from "../artifacts/summary.js";
@@ -45,13 +45,15 @@ export interface McpDeps {
   requests?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   knowledge?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   progress(grant: TokenGrant, input: { summary: string; percent?: number }): void;
+  /** Records one acceptance criterion of the agent's own task; false when the criterion is not one of the task's. */
+  reportCriterion?(grant: TokenGrant, input: { criterion: string; passed: boolean; evidence: string }): boolean;
   registerOutput(grant: TokenGrant, input: AgentOutputInput): { artifactId: string; version: number };
   requestDecision(grant: TokenGrant, input: DecisionRequestInput): { approvalId: string };
 }
 export interface ToolResult { content: { type: "text"; text: string }[]; isError: boolean }
 const result = (text: string, isError = false): ToolResult => ({ content: [{ type: "text", text }], isError });
 
-const coreTools = new Set(["task.progress", "output.register", "decision.request", "skill.get"]);
+const coreTools = new Set(["task.progress", "criterion.report", "output.register", "decision.request", "skill.get"]);
 export function toolAllowed(deps: McpDeps, grant: TokenGrant, name: string): boolean {
   if ((name.startsWith("ext.") || name === "workflow.patch" || name === "notify.send-internal") && deps.toolPolicy === undefined) return false;
   if (coreTools.has(name) || deps.toolPolicy === undefined) return true;
@@ -69,6 +71,8 @@ export const toolDefinitions = [
   { name: "request.get", description: "Read a request thread and readable deliverables.", inputSchema: z.toJSONSchema(requestGetInputSchema) },
   { name: "task.progress", description: "Report a meaningful milestone. Never include secrets.",
     inputSchema: z.toJSONSchema(taskProgressInputSchema) },
+  { name: "criterion.report", description: "Report whether one acceptance criterion of your task passed, using its exact text and one sentence of evidence. Call it once per criterion before finishing. Never include secrets.",
+    inputSchema: z.toJSONSchema(criterionReportInputSchema) },
   { name: "output.register", description: "Publish a document explicitly requested by the operator, using its workspace-relative path. Do not publish source code, diffs, test output, task summaries or routine handoffs. Never include secrets.",
     inputSchema: z.toJSONSchema(agentOutputInputSchema) },
   { name: "decision.request", description: "Use ONLY for business decisions you cannot make yourself. Then stop: finish without further tool calls.",
@@ -85,6 +89,7 @@ export const toolDefinitions = [
 export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?: number } = {}): { call(grant: TokenGrant, name: string, args: unknown): ToolResult | Promise<ToolResult> } {
   const maxProgress = options.maxProgressPerAttempt ?? 500;
   const progressCalls = new Map<string, number>();
+  const criterionCalls = new Map<string, number>(); const maxCriteria = 64;
   return { call(grant, name, args) {
     try {
       if (name.startsWith("ext.")) return deps.external?.call(grant, name, args) ?? result("tool is not available", true);
@@ -110,6 +115,17 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
           ...(parsed.data.percent === undefined ? {} : { percent: parsed.data.percent }) });
         progressCalls.set(grant.attemptId, used + 1);
         return result("progress recorded");
+      }
+      if (name === "criterion.report") {
+        const parsed = criterionReportInputSchema.safeParse(args);
+        if (!parsed.success || !deps.reportCriterion) return result(parsed.success ? "tool is not available" : "invalid tool input", true);
+        const used = criterionCalls.get(grant.attemptId) ?? 0;
+        if (used >= maxCriteria) return result("tool limit reached", true);
+        const recorded = deps.reportCriterion(grant, { criterion: parsed.data.criterion.trim(), passed: parsed.data.passed,
+          evidence: sanitizeAgentText(parsed.data.evidence) });
+        if (!recorded) return result("criterion is not one of this task's acceptance criteria; use its exact text", true);
+        criterionCalls.set(grant.attemptId, used + 1);
+        return result("criterion recorded");
       }
       if (name === "output.register") {
         const parsed = agentOutputInputSchema.safeParse(args);

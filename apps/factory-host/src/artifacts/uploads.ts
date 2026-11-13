@@ -13,6 +13,8 @@ export const uploadQuerySchema = z.strictObject({
   filename: z.string().min(1).max(200).refine((value) => !/[\\/\p{Cc}]/u.test(value)),
   mediaType: z.string().optional(), kind: artifactKindSchema.default("other"),
   title: z.string().max(200).optional(), artifactId: z.uuid().optional(),
+  // Operator note for agents (for a reference image: what to take from it and what not); stored as abstract L1.
+  note: z.string().max(2000).optional(),
 });
 export class DocumentError extends Error {
   constructor(readonly reason: "quota" | "artifact") { super(reason); }
@@ -36,11 +38,12 @@ export function registerUpload(deps: UploadDeps, projectId: string, query: z.inf
       const fileName = sanitizeAgentText(query.filename).replace(/[\\/\p{Cc}\p{Cf}]/gu, "_").slice(0, 200) || "document";
       const title = sanitizeAgentText(query.title ?? fileName.replace(/\.[^.]+$/, "")).trim().slice(0, 200) || fileName;
       const abstract = sanitizeAgentText(`Uploaded file: ${fileName} (${bytes.length} bytes)`).slice(0, 400);
+      const note = (query.note ?? "").split(/\r?\n/).map((line) => sanitizeAgentText(line).trim()).join("\n").trim().slice(0, 2000) || null;
       const content = deps.store.put(bytes); const now = deps.now().toISOString();
       raw.prepare(`INSERT INTO artifact_versions (project_id,artifact_id,version,kind,title,media_type,content_hash,size_bytes,status,
         abstract_l0,abstract_l1,produced_by_attempt_id,supersedes_version,visibility,created_at,origin,file_name)
-        VALUES (?,?,?,?,?,?,?,?,'draft',?,NULL,NULL,?,'project',?,'upload',?)`)
-        .run(projectId, artifactId, version, query.kind, title, mediaType, content.hash, content.size, abstract, previous?.version ?? null, now, fileName);
+        VALUES (?,?,?,?,?,?,?,?,'draft',?,?,NULL,?,'project',?,'upload',?)`)
+        .run(projectId, artifactId, version, query.kind, title, mediaType, content.hash, content.size, abstract, note, previous?.version ?? null, now, fileName);
       if (previous) supersedeForRegistration(raw, { projectId, artifactId, supersededVersion: previous.version, byVersion: version, now });
       afterRegister(deps.afterRegister, projectId, artifactId, version);
       return { artifactId, version };

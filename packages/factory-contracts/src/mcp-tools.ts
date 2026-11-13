@@ -30,12 +30,14 @@ const proposedTaskSchema = z.strictObject({
   // Name of the team member that does the work (a non-Lead seat of the Team list). Omitted: the Host picks by capability.
   ownerSeat: z.string().min(1).max(40).optional(),
   // Indexes into this same array. Must point to EARLIER entries (same rule as V1 validatePlan).
-  dependsOn: z.array(z.number().int().min(0).max(9)).max(9),
+  dependsOn: z.array(z.number().int().min(0).max(29)).max(29),
+  // Ids of project documents or reference images the agent receives in its worktree (latest usable version).
+  inputs: z.array(idSchema).max(10).optional(),
 });
 
 export const taskProposeInputSchema = z
   .strictObject({
-    tasks: z.array(proposedTaskSchema).min(1).max(10),
+    tasks: z.array(proposedTaskSchema).min(1).max(30),
     testingReason: z.string().max(1_000).optional(),
   })
   .superRefine((value, ctx) => {
@@ -56,6 +58,14 @@ export const taskProgressInputSchema = z.strictObject({
   summary: z.string().min(1).max(1_000),
   percent: z.number().int().min(0).max(100).optional(),
 });
+
+/** One acceptance criterion of the agent's own task, checked by the agent, with one sentence of evidence. */
+export const criterionReportInputSchema = z.strictObject({
+  criterion: z.string().min(1).max(500),
+  passed: z.boolean(),
+  evidence: z.string().min(1).max(1_000),
+});
+export type CriterionReportInput = z.infer<typeof criterionReportInputSchema>;
 
 export const outputRegisterInputSchema = z.strictObject({
   title: labelSchema,
@@ -165,6 +175,7 @@ export const MCP_TOOLS = {
   "project.briefing": projectBriefingInputSchema,
   "task.propose": taskProposeInputSchema,
   "task.progress": taskProgressInputSchema,
+  "criterion.report": criterionReportInputSchema,
   "output.register": outputRegisterInputSchema,
   "decision.request": decisionRequestInputSchema,
   "handoff.submit": handoffSubmitInputSchema,

@@ -12,6 +12,8 @@ export interface AttemptContext {
   model?: { baseUrl: string; token: string; models: string[]; socketPath?: string; mcpBaseUrl?: string };
   workspace?: { path: string; branch: string; baseSha: string };
   agent?: { cli?: "codex" | "claude"; model?: string | null; effort?: "low" | "medium" | "high" | "xhigh" | null; permission?: "autonomous" | "workspace-write" };
+  /** Reference inputs the Host copied into the worktree (workspace-relative paths under .factory/inputs). */
+  inputs?: Array<{ path: string; title: string; mediaType: string; note: string | null }>;
   /** CLI-native MCP servers assigned to the seat; isolated CLIs ignore the operator's own MCP configuration. */
   mcp?: { isolated: boolean; servers: CliMcpServer[] };
 }

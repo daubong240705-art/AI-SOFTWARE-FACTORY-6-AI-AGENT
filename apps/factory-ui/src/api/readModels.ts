@@ -53,7 +53,8 @@ export const knowledgeVisibilities = ['team-draft', 'project', 'shared'] as cons
 const knowledgeArray = <T,>(read: Reader<T>): Reader<T[]> => v => Array.isArray(v) && v.length <= 200 ? v.map(read) : invalid();
 const extraction: Reader<ExtractionSummary | null> = v => v == null ? null : extractionSummarySchema.parse(v);
 const documentFields = { extraction, origin: defaulted(enumeration(['agent', 'upload'] as const), 'agent'), fileName: defaulted(nullable(string(500)), null), mediaType: defaulted(string(128, 1), 'text/plain'), sizeBytes: defaulted(integer(), 0) };
-const knowledgeFields = { ...documentFields, artifactId: identifier, version: integer(1), kind: enumeration(knowledgeKinds), title: string(500, 1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), projectId: identifier };
+const taskRef = object({ id: identifier, code: string(40, 1), title: string(500), state: string(40, 1) });
+const knowledgeFields = { ...documentFields, task: defaulted(nullable(taskRef), null), artifactId: identifier, version: integer(1), kind: enumeration(knowledgeKinds), title: string(500, 1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), projectId: identifier };
 const knowledgeResult = object({ ...knowledgeFields, snippet: string(1000), rank: (v: unknown): number => typeof v === 'number' && Number.isFinite(v) ? v : invalid() });
 const knowledgeItem = object({ ...knowledgeFields, createdAt: timestamp, versionCount: defaulted(integer(1), 1) });
 const staleReason = object({ becauseArtifactId: identifier, becauseVersion: integer(1), since: timestamp });
@@ -63,7 +64,15 @@ const knowledgeArtifact = object({ artifactId: identifier, kind: enumeration(kno
 export type KnowledgeResult = ReturnType<typeof knowledgeResult>;
 export type KnowledgeItem = ReturnType<typeof knowledgeItem>;
 export type KnowledgeArtifact = ReturnType<typeof knowledgeArtifact>;
-export type KnowledgeFilters = { kinds?: Array<typeof knowledgeKinds[number]>; statuses?: Array<typeof knowledgeStatuses[number]>; origins?: Array<'agent' | 'upload'> };
+export type KnowledgeFilters = { kinds?: Array<typeof knowledgeKinds[number]>; statuses?: Array<typeof knowledgeStatuses[number]>; origins?: Array<'agent' | 'upload'>; group?: KnowledgeGroupKey; media?: 'image' | 'document' };
+/** `task:<id>` for a task's documents; the other keys hold documents without a producing task. */
+export type KnowledgeGroupKey = `task:${string}` | 'uploads' | 'plans' | 'other';
+const groupKey = (v: unknown): KnowledgeGroupKey => typeof v === 'string' && /^(?:task:[A-Za-z0-9_-]{1,64}|uploads|plans|other)$/.test(v) ? v as KnowledgeGroupKey : invalid();
+const knowledgeGroup = object({ key: groupKey, task: nullable(taskRef), documents: integer(), images: integer(), lastAt: timestamp });
+const knowledgeTotals = object({ all: integer(), images: integer(), documents: integer() });
+const knowledgeGroups = object({ groups: (v: unknown) => Array.isArray(v) && v.length <= 1000 ? v.map(knowledgeGroup) : invalid(), totals: knowledgeTotals });
+export type KnowledgeGroup = ReturnType<typeof knowledgeGroup>;
+export type KnowledgeGroups = ReturnType<typeof knowledgeGroups>;
 export type KnowledgePage = KnowledgeFilters & { limit?: number; offset?: number };
 export type Inbox = Partial<InboxExtras> & { requests?: RequestItem[] | undefined; approvals: Array<Approval & { projectName?: string }>; startGates: Array<{ taskId: string; code: string; title: string; projectId: string; projectName?: string }>; counts: { approvals: number; startGates: number; total: number; requests?: number | undefined } };
 function inbox(global: boolean): Reader<Inbox> {
@@ -83,7 +92,7 @@ function envelope<T>(read: Reader<T>) {
 // These adapters deliberately copy only validated fields; unknown event bodies stay opaque.
 export const readModels = { attempts: envelope(object({ attempts: array(attempt) })), events: envelope(object({ events: array((v) => { const r = record(v); if (!Object.hasOwn(r, 'body')) invalid(); return event(v); }) })), patch: envelope(patch), artifacts: envelope(object({ items: array(artifact) })), content: envelope(content), approvals: envelope(object({ approvals: array(approval) })),
   approval: envelope(object({ approval })), inbox: envelope(inbox(false)), globalInbox: envelope(inbox(true)), remotes: envelope(object({ remotes: array(name) })), effects: envelope(object({ effects: array(effect) })), effect: envelope(object({ effect })),
-  knowledgeSearch: envelope(object({ results: knowledgeArray(knowledgeResult) })), knowledgeList: envelope(object({ items: knowledgeArray(knowledgeItem) })), knowledgeArtifact: envelope(object({ artifact: knowledgeArtifact })),
+  knowledgeSearch: envelope(object({ results: knowledgeArray(knowledgeResult) })), knowledgeList: envelope(object({ items: knowledgeArray(knowledgeItem) })), knowledgeGroups: envelope(knowledgeGroups), knowledgeArtifact: envelope(object({ artifact: knowledgeArtifact })),
   uploadedArtifact: envelope(object({ artifact: knowledgeItem })) };
 
 export { m5ReadModels } from './m5Models';

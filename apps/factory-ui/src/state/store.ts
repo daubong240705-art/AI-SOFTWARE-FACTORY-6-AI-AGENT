@@ -7,7 +7,7 @@ import { ApiClientError, DocumentUploadError, createApiClient, type ApiClient, t
 import { openProjectEvents, type ProjectEventsOptions, type StreamStatus } from '../api/events';
 import type { Inbox, Effect } from '../api/client';
 import type { CodeEffect } from '../api/codeModels';
-import type { DocumentUploadMeta, KnowledgeArtifact, KnowledgeFilters, KnowledgeItem, KnowledgeResult } from '../api/client';
+import type { DocumentUploadMeta, KnowledgeArtifact, KnowledgeFilters, KnowledgeGroups, KnowledgeItem, KnowledgeResult } from '../api/client';
 import { emptyM5, type M5State } from './m5';
 import { emptySettings, type SettingsState } from './settings';
 import { notifyCommandSuccess, notifyEffectReconciled } from './toasts';
@@ -30,9 +30,9 @@ import { canPatchWorkflow, emptyPatchDraft, patchDecisionKey, patchOutcomeText, 
 type AutomationCommand = Extract<Command, { type: `schedules.${string}` | `rules.${string}` | `monitors.${string}` }>;
 
 export type DocumentUploadState = { busy: boolean; progress: number; error: { status: number; code: string } | null };
-export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean; upload: DocumentUploadState };
+export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; groups: KnowledgeGroups | null; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean; upload: DocumentUploadState };
 const emptyUpload = (): DocumentUploadState => ({ busy: false, progress: 0, error: null });
-const emptyKnowledge = (): KnowledgeState => ({ query: '', filters: {}, results: [], list: [], detail: {}, loading: {}, errors: {}, hasMore: false, upload: emptyUpload() });
+const emptyKnowledge = (): KnowledgeState => ({ query: '', filters: {}, results: [], list: [], groups: null, detail: {}, loading: {}, errors: {}, hasMore: false, upload: emptyUpload() });
 
 export type StoreError = { kind: string; message: string; correlationId?: string; code?: string; detailKey?: string };
 export type PendingCommand = { command: Command; status: 'pending' | 'failed'; error?: StoreError };
@@ -372,6 +372,8 @@ export function createStore(options: StoreOptions = {}) {
     return enqueue('knowledge', generation, async () => {
       if (debounce && !knowledgeOpen) return {};
       const page = { ...filters, offset, limit: Math.min(50, 500 - offset) };
+      // The group index is refreshed with every first page; a failure keeps the previous index.
+      const groupsJob = more ? null : api.knowledgeGroups(id).then(data => ({ groups: { groups: data.groups, totals: data.totals } }), () => ({}));
       if (preservePages) {
         const length = Math.max(50, query ? state.knowledge.results.length : state.knowledge.list.length);
         const results: KnowledgeResult[] = []; const list: KnowledgeItem[] = [];
@@ -383,24 +385,24 @@ export function createStore(options: StoreOptions = {}) {
           if (received < 50) break;
         }
         const count = query ? results.length : list.length;
-        return knowledgePatch({ ...(query ? { results } : { list }), hasMore: received === 50 && count < 500 });
+        return knowledgePatch({ ...(query ? { results } : { list }), ...(groupsJob ? await groupsJob : {}), hasMore: received === 50 && count < 500 });
       }
       if (query) {
         const result = await api.searchKnowledge(id, { ...page, query });
-        return knowledgePatch({ results: [...(more ? state.knowledge.results : []), ...result.results].slice(0, 500), hasMore: result.results.length === page.limit && offset + result.results.length < 500 });
+        return knowledgePatch({ results: [...(more ? state.knowledge.results : []), ...result.results].slice(0, 500), ...(groupsJob ? await groupsJob : {}), hasMore: result.results.length === page.limit && offset + result.results.length < 500 });
       }
       const result = await api.listDocuments(id, page);
-      return knowledgePatch({ list: [...(more ? state.knowledge.list : []), ...result.items].slice(0, 500), hasMore: result.items.length === page.limit && offset + result.items.length < 500 });
+      return knowledgePatch({ list: [...(more ? state.knowledge.list : []), ...result.items].slice(0, 500), ...(groupsJob ? await groupsJob : {}), hasMore: result.items.length === page.limit && offset + result.items.length < 500 });
     }, debounce, () => revision === knowledgeRevision);
   }
   function searchKnowledge(query: string, filters: KnowledgeFilters = {}) {
     if (!state.selectedProjectId || state.session !== 'authenticated') return Promise.resolve();
     cancelKnowledgeSearch();
-    const sameFilters = (['kinds', 'statuses', 'origins'] as const).every(key =>
+    const sameFilters = (['kinds', 'statuses', 'origins', 'group', 'media'] as const).every(key =>
       JSON.stringify(filters[key] ?? []) === JSON.stringify(state.knowledge.filters[key] ?? []));
     if (query.trim() === state.knowledge.query && sameFilters && loadedAreas.has('knowledge')) return readKnowledge();
     loadedAreas.delete('knowledge');
-    update({ knowledge: { ...state.knowledge, query: query.trim(), filters: { ...(filters.kinds ? { kinds: [...filters.kinds] } : {}), ...(filters.statuses ? { statuses: [...filters.statuses] } : {}), ...(filters.origins ? { origins: [...filters.origins] } : {}) }, results: [], list: [], hasMore: false } });
+    update({ knowledge: { ...state.knowledge, query: query.trim(), filters: { ...(filters.kinds ? { kinds: [...filters.kinds] } : {}), ...(filters.statuses ? { statuses: [...filters.statuses] } : {}), ...(filters.origins ? { origins: [...filters.origins] } : {}), ...(filters.group ? { group: filters.group } : {}), ...(filters.media ? { media: filters.media } : {}) }, results: [], list: [], hasMore: false } });
     return readKnowledge();
   }
   function loadKnowledgeDetail(artifactId: string, debounce = false) {

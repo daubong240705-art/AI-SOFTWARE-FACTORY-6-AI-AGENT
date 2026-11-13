@@ -57,12 +57,12 @@ export function workflowsPause({ projectId, ...payload }: Of<'workflows.pause'>[
 export function workflowsResume({ projectId, ...payload }: Of<'workflows.resume'>['payload'] & { projectId: string }) { return build('workflows.resume', projectId, payload); }
 export function workflowsCancel({ projectId, ...payload }: Of<'workflows.cancel'>['payload'] & { projectId: string }) { return build('workflows.cancel', projectId, payload); }
 export function workflowsAssignStage({ projectId, ...payload }: Of<'workflows.assign-stage'>['payload'] & { projectId: string }) { return build('workflows.assign-stage', projectId, payload); }
-export function tasksCreate({ projectId, code, title, goal, brief = goal, acceptance, requiredCapabilities = [] }: {
+export function tasksCreate({ projectId, code, title, goal, brief = goal, acceptance, requiredCapabilities = [], inputs = [] }: {
   projectId: string; code: string; title: string; goal: string; brief?: string;
-  acceptance: string[]; requiredCapabilities?: string[];
+  acceptance: string[]; requiredCapabilities?: string[]; inputs?: Of<'tasks.create'>['payload']['inputs'];
 }) {
   return build('tasks.create', projectId, { taskId: crypto.randomUUID(), code, title, goal, brief,
-    parentTaskId: null, engagementId: null, ownerSeatId: null, inputs: [], dependsOn: [],
+    parentTaskId: null, engagementId: null, ownerSeatId: null, inputs, dependsOn: [],
     acceptance, requiredCapabilities, placement: 'node-bound', sideEffect: 'external-irreversible',
     reviewPolicy: 'human-final', requiresGo: true });
 }
