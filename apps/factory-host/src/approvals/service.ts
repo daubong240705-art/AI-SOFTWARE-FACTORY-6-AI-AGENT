@@ -124,7 +124,7 @@ export function requestAgentDecision(deps: { raw: Database; hub?: EventHub; now:
 }
 
 export function requestTaskReview(deps: { raw: Database; now: () => Date; newId: () => string; hub?: EventHub },
-  input: { projectId: string; taskId: string; attemptId: string }): string | null {
+  input: { projectId: string; taskId: string; attemptId: string }, options: { reason?: string } = {}): string | null {
   const { raw } = deps;
   const { projectId, taskId, attemptId } = input;
   const task = raw.prepare("SELECT code, title, state, review_policy FROM tasks WHERE project_id = ? AND id = ?")
@@ -139,6 +139,7 @@ export function requestTaskReview(deps: { raw: Database; now: () => Date; newId:
       .all(projectId, attemptId) as { body_json: string }[];
     const summaries = rows.map((row) => JSON.parse(row.body_json) as { summary?: unknown });
     let summary = publicApprovalText(summaries.find((body) => typeof body.summary === "string" && body.summary.trim())?.summary as string ?? "Task completed.").trim().slice(0, 3500);
+    if (options.reason) summary = `Automatic review needs you: ${options.reason}\n${summary}`.slice(0, 3800);
     const evidenceRows = raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'evidence' ORDER BY seq DESC")
       .all(projectId, attemptId) as { body_json: string }[];
     const totals = evidenceRows.map((row) => JSON.parse(row.body_json) as { totals?: Record<string, unknown> }).find((body) => body.totals)?.totals;
@@ -157,6 +158,60 @@ export function requestTaskReview(deps: { raw: Database; now: () => Date; newId:
     publish(deps.hub, projectId, effect(id, 1));
     return id;
   })();
+}
+
+/**
+ * Automatic review: the Host accepts a finished task itself when the Lead marked it "automatic" and the result is
+ * clean, exactly as an operator "accept" would (task done, documents approved, integration merge, dependents start).
+ * Anything that needs judgement goes to the operator instead, with the reason: flagged files in the change, an
+ * external side effect, or a document that cannot be approved (for example without its summary).
+ * Runs after the attempt outcome has committed, in its own transaction.
+ */
+export function autoReviewTask(deps: { raw: Database; hub: EventHub; now: () => Date; newId: () => string; dispatcher: Dispatcher; multiTeam?: boolean },
+  input: { projectId: string; taskId: string; attemptId: string }): "accepted" | "asked" | null {
+  const { raw, hub } = deps;
+  const { projectId, taskId, attemptId } = input;
+  return hub.transaction(() => {
+    const task = getTask(raw, projectId, taskId);
+    if (task?.state !== "in-review" || task.reviewPolicy !== "automatic") return null;
+    const attempt = listAttempts(raw, projectId, taskId).at(-1);
+    if (attempt?.id !== attemptId) return null;
+    if (raw.prepare("SELECT 1 FROM approvals WHERE project_id = ? AND task_id = ? AND kind = 'review' AND state = 'pending'").get(projectId, taskId)) return null;
+    const ask = (reason: string): "asked" => {
+      // From now on this task is the operator's to review, so its status reads "needs approval".
+      raw.prepare("UPDATE tasks SET review_policy = 'human-final', revision = revision + 1 WHERE project_id = ? AND id = ?").run(projectId, taskId);
+      publish(hub, projectId, { kind: "task", id: taskId, revision: getTask(raw, projectId, taskId)!.revision });
+      requestTaskReview(deps, input, { reason });
+      return "asked";
+    };
+    if (task.sideEffect === "external-idempotent" || task.sideEffect === "external-irreversible") return ask("the task has an external side effect.");
+    const evidence = raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'evidence' ORDER BY seq DESC LIMIT 1")
+      .get(projectId, attemptId) as { body_json: string } | undefined;
+    const flags = evidence ? (JSON.parse(evidence.body_json) as { flags?: Array<{ path?: unknown; kind?: unknown }> }).flags ?? [] : [];
+    if (flags.length) return ask(`the change has flagged files (${flags.slice(0, 5).map((flag) => `${String(flag.kind)}: ${String(flag.path)}`).join(", ")}).`);
+    // A run that reports BLOCKED, or that changed nothing and registered nothing, did not deliver: never accept it silently.
+    const summary = (raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'state' ORDER BY seq DESC")
+      .all(projectId, attemptId) as { body_json: string }[]).map((row) => (JSON.parse(row.body_json) as { summary?: unknown }).summary)
+      .find((value): value is string => typeof value === "string" && value.trim().length > 0) ?? "";
+    if (/^[\s*_`#>-]*blocked\b/i.test(summary)) return ask("the agent reported BLOCKED.");
+    const changedFiles = evidence ? ((JSON.parse(evidence.body_json) as { totals?: { files?: unknown } }).totals?.files ?? 0) : 0;
+    const outputs = (raw.prepare("SELECT count(*) AS n FROM artifact_versions WHERE project_id = ? AND produced_by_attempt_id = ?").get(projectId, attemptId) as { n: number }).n;
+    if (changedFiles === 0 && outputs === 0) return ask("the run changed no files and registered no document.");
+    let effects: EntityRef[] = [];
+    try {
+      effects = raw.transaction(() => {
+        const changed = moveTaskAndAdvance(raw, task, "done", { dispatcher: deps.dispatcher, integrationAt: deps.now().toISOString() });
+        const refs = setTaskArtifactStatus(raw, { projectId, taskId, to: "approved", multiTeam: deps.multiTeam === true });
+        return [...changed, ...refs.map((ref): EntityRef => ({ kind: "artifact-version", id: ref.artifactId, revision: ref.version }))];
+      })();
+    } catch (error) {
+      if (error instanceof ArtifactLifecycleError || error instanceof CommandError) return ask("a document could not be approved automatically.");
+      throw error;
+    }
+    for (const entity of effects) publish(hub, projectId, entity);
+    workflowChanged(raw, projectId);
+    return "accepted";
+  });
 }
 
 /** A review of a stage that is the source of a workflow rework edge carries the verdict for the downstream stage:

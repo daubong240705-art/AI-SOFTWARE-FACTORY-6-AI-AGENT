@@ -7,13 +7,13 @@ source: BMAD-METHOD operations handoffs; github/spec-kit reproducible task check
 
 # Local development
 
-Use existing project tools and the ordinary Windows account for scoped local setup, packaging, builds, and run instructions. Register configuration or code changes as code-ref; keep short operating instructions in the assigned handoff or document.
+Use existing project tools in your worktree on the operator's machine for scoped local setup, packaging, builds, and run instructions. Register configuration or code changes as code-ref; keep short operating instructions in the assigned handoff or document.
 
 ## Inspect before running
 
-Read repository conventions, package scripts, toolchain requirements, and relevant configuration. Use dependency handoffs from the supplied attempt only. Distinguish installed tools from tools that are merely documented. Use existing dependencies; do not install system software, change Windows configuration, or extend infrastructure beyond the task.
+Read repository conventions, package scripts, toolchain requirements, and relevant configuration. Use dependency handoffs from the supplied attempt only. Distinguish installed tools from tools that are merely documented. Use existing dependencies; install project dependencies the task needs, but no system software, no sudo, no system configuration and no infrastructure beyond the task.
 
-The source directory is not an operating-system sandbox. Shell requires permission granted by the Host; the skill does not add permission. Never SSH, push, or deploy production. Do not read or expose credentials, put them in source or logs, or modify .git or another role's files.
+The worktree is not an operating-system sandbox: you can run shell commands and use the network, so stay inside the worktree and the task. Never SSH, push, or deploy production. Do not read or expose credentials, put them in source or logs, or modify .git or another role's files.
 
 ## Keep the session managed
 

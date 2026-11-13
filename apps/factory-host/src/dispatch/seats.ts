@@ -11,7 +11,7 @@ const rules = [
   { name: "Test", prefixes: ["test."], words: ["test"] },
   { name: "FE", prefixes: ["ui.", "frontend.", "web."], words: ["ui", "frontend", "css", "react"] },
   { name: "DevOps", prefixes: ["ops.", "infra.", "deploy."], words: ["docker", "deploy", "ci"] },
-  { name: "BA", prefixes: ["docs.", "spec.", "requirements."], words: ["readme", "document"] },
+  { name: "BA", prefixes: ["docs.", "doc.", "spec.", "requirements.", "analysis.", "research."], words: ["readme", "document", "documentation", "srs", "brd", "docx", "requirements", "spec"] },
   { name: "PM", prefixes: ["plan.", "product."], words: [] },
 ];
 
@@ -50,6 +50,10 @@ export function pickSeat(raw: Database, projectId: string, task: Task): { seatId
     ranked.sort((a, b) => a.load - b.load || a.order - b.order);
     return { seatId: ranked[0]!.seat.id, reason: capabilities.length ? "capability match" : "least loaded" };
   }
+  // A title that starts with a member's name ("BA: write the SRS") names who does it.
+  const named = /^\s*([A-Za-z]+)\s*:/.exec(task.title)?.[1]?.toLowerCase();
+  const byName = named === undefined ? undefined : workers.find((entry) => entry.name.toLowerCase() === named);
+  if (byName) return { seatId: byName.id, reason: "named in the title" };
   const words = new Set([task.title.toLowerCase(), ...capabilities].join(" ").split(/[^a-z0-9]+/));
   const rule = rules.find((entry) => capabilities.some((value) => entry.prefixes.some((prefix) => value.startsWith(prefix)))
     || entry.words.some((word) => words.has(word)));

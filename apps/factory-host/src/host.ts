@@ -50,7 +50,7 @@ import { createWorkspaceProvider, type WorkspaceProvider } from "./dispatch/work
 import { canonicalPath, refuseMount } from "./workspace/paths.js";
 import { SANDBOX_RELAY_PORT } from "./sandbox/index.js";
 import { createContentStore, type ContentStore } from "./artifacts/content-store.js";
-import { approvalsDecideHandler, createApprovalsDecideHandler, expirePendingApprovals, requestAgentDecision, requestTaskReview } from "./approvals/service.js";
+import { approvalsDecideHandler, createApprovalsDecideHandler, expirePendingApprovals, requestAgentDecision, requestTaskReview, autoReviewTask } from "./approvals/service.js";
 import type { Timers } from "./dispatch/dispatcher.js";
 import { registerAgentOutput, registerAttemptResults } from "./artifacts/service.js";
 import { createMcpHandler } from "./mcp/rpc.js";
@@ -242,7 +242,7 @@ async function freeLoopbackPort(): Promise<number> {
 export async function startHost(options: {
   pushChannel?: PushChannel;
   mcpServers?: McpServersConfig;
-  multiTeam?: boolean; packsDir?: string;
+  multiTeam?: boolean; packsDir?: string; openLogin?: boolean;
   contentDir?: string;
   documents?: DocumentConfig;
   docWorker?: DocWorkerConfig;
@@ -459,6 +459,22 @@ export async function startHost(options: {
     };
     knowledgeTimer = setImmediate(backfill).unref();
     const resultId = createIdGenerator(clock);
+    const runAutoReview = (input: { projectId: string; taskId: string; attemptId: string }): void => {
+      if (!dispatch) return;
+      const reviewDeps = { raw: approvalRaw, hub, now: clock, newId: resultId };
+      try { autoReviewTask({ ...reviewDeps, dispatcher: dispatch, multiTeam: options.multiTeam === true }, input); }
+      catch {
+        console.error("Automatic review failed; asking the operator");
+        try {
+          hub.transaction(() => {
+            approvalRaw.prepare("UPDATE tasks SET review_policy = 'human-final', revision = revision + 1 WHERE project_id = ? AND id = ? AND state = 'in-review'")
+              .run(input.projectId, input.taskId);
+            requestTaskReview(reviewDeps, input, { reason: "the automatic review failed." });
+          });
+        } catch { console.error("Review request failed"); }
+      }
+      dispatch.kick();
+    };
     const leadSeat = pack.manifest.seats.find((seat) => seat.isLead);
     if (!leadSeat) throw new Error("Pack has no Lead seat");
     runner = createLeadRunner({ storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
@@ -571,7 +587,12 @@ export async function startHost(options: {
       }
       dispatch = createDispatcher({ storage, hub, registry, clock, config, multiTeam: options.multiTeam ?? false,
         ...(options.timers === undefined ? {} : { timers: options.timers }),
-        onInReview(input) { requestTaskReview({ raw, hub, now: clock, newId: resultId }, input); },
+        onInReview(input) {
+          const policy = (raw.prepare("SELECT review_policy FROM tasks WHERE project_id = ? AND id = ?").get(input.projectId, input.taskId) as { review_policy: string } | undefined)?.review_policy;
+          // Automatic review starts dependents, so it runs once this outcome transaction has committed.
+          if (policy === "automatic") setImmediate(() => { runAutoReview(input); });
+          else requestTaskReview({ raw, hub, now: clock, newId: resultId }, input);
+        },
         ...(modelAccess === undefined ? {} : { modelAccess }),
         ...(options.localCli?.enabled ? { cliMcp: createCliMcpResolver(raw, mcpServers) } : {}),
         results: { register(input) {
@@ -627,6 +648,11 @@ export async function startHost(options: {
     const workflowEngine = { raw: storage.raw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) };
     registerWorkflowEngine(workflowEngine);
     try { sweepWorkflows(workflowEngine); } catch { console.error("Workflow sweep failed"); }
+    // Tasks the Host was to review automatically when it last stopped.
+    if (dispatch) for (const row of storage.raw.prepare(`SELECT t.project_id AS projectId, t.id AS taskId,
+        (SELECT a.id FROM attempts a WHERE a.project_id = t.project_id AND a.task_id = t.id ORDER BY a.epoch DESC LIMIT 1) AS attemptId
+      FROM tasks t WHERE t.state = 'in-review' AND t.review_policy = 'automatic'`).all() as { projectId: string; taskId: string; attemptId: string | null }[])
+      if (row.attemptId) runAutoReview({ projectId: row.projectId, taskId: row.taskId, attemptId: row.attemptId });
     const lead = runner;
     const dispatchHandlers = dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch });
     const workflowHandlers = createWorkflowHandlers({ packs, engine: { raw: storage.raw, hub, clock,
@@ -638,6 +664,11 @@ export async function startHost(options: {
     const sweepSchedules = (): void => tickSchedules(scheduleDeps, clock());
     sweepSchedules();
     scheduleTimer = interval(sweepSchedules, 30_000);
+    let projectsRootGuard: ((root: string) => boolean) | undefined;
+    if (dispatch && options.workspace) {
+      const guardRoots = canonicalRoots(options.workspace);
+      projectsRootGuard = (root) => { try { assertInside(guardRoots.projectsRoot, root); return true; } catch { return false; } };
+    }
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       ...createNotificationHandlers(),
       ...createStandingApprovalHandlers(),
@@ -649,7 +680,8 @@ export async function startHost(options: {
       ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
       ...workflowHandlers,
       ...createRequestHandlers({ multiTeam: options.multiTeam ?? false, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
-      "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false }),
+      "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false,
+        ...(projectsRootGuard === undefined ? {} : { checkWorkspaceRoot: projectsRootGuard }) }),
       "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,
       "autonomy.set": setAutonomyHandler,
@@ -686,7 +718,7 @@ export async function startHost(options: {
       defaultCli: options.dispatch?.defaultAgentCli ?? null,
       leadCli: options.modelGateway?.providerId === "claude-cli",
     };
-    app = createApiServer({ origins, gate, sessions, clock, register(app, guards) {
+    app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store });
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });

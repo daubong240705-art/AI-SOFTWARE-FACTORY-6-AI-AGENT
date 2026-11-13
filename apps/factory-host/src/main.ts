@@ -81,8 +81,8 @@ try {
     localCli: { enabled: localCli, ...(cliPassEnv === undefined ? {} : { passEnv: cliPassEnv }) },
     ...(agentProxy === undefined ? {} : { agentModels: agentProxy.approvedModels }),
     ...(pushSshCommand === undefined ? {} : { pushSshCommand }),
-    ...(uiDir === undefined ? {} : { uiDir }), onBootstrapToken(token) {
-    process.stdout.write(`One-time bootstrap token: ${token}\n`);
+    ...(uiDir === undefined ? {} : { uiDir }), ...(process.env.FACTORY_OPEN_LOGIN === "1" ? { openLogin: true } : {}), onBootstrapToken(token) {
+    if (process.env.FACTORY_OPEN_LOGIN !== "1") process.stdout.write(`One-time bootstrap token: ${token}\n`);
   } });
   process.stdout.write(`Factory Host listening on http://127.0.0.1:${host.port}\n`);
   let stopping = false;

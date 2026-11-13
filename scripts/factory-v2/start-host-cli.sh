@@ -69,6 +69,9 @@ if [ "$CHECK" -eq 1 ]; then echo "Preflight passed. Start without --check to run
 unset FACTORY_RUNTIME FACTORY_OPENCODE_DIR FACTORY_PROXY_SOCKET FACTORY_PROXY_PORT FACTORY_AGENT_MODELS FACTORY_LEAD_MAX_OUTPUT_TOKENS
 mkdir -p "$ROOT/workspaces" "$ROOT/worktrees" "$ROOT/state"
 export FACTORY_LOCAL_CLI=1 FACTORY_DEFAULT_AGENT_CLI="$AGENTS" FACTORY_LEAD_CLI=claude
+# No sign-in token: the Host listens on loopback only and gives the browser a session by itself.
+# Set FACTORY_OPEN_LOGIN=0 to bring the one-time token back.
+export FACTORY_OPEN_LOGIN="${FACTORY_OPEN_LOGIN:-1}"
 export FACTORY_LEAD_TIMEOUT_SECONDS="${FACTORY_LEAD_TIMEOUT_SECONDS:-600}"
 export FACTORY_STATE_DIR="${FACTORY_STATE_DIR:-$ROOT/state}"
 export FACTORY_PROJECTS_ROOT="${FACTORY_PROJECTS_ROOT:-$ROOT/workspaces}"

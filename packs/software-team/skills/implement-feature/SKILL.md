@@ -13,7 +13,7 @@ Produce code-ref changes that satisfy observable acceptance. Start from the assi
 
 Read repository conventions and relevant files first, using available read and search tools. Identify the existing components, dependencies, tests, and user changes. Separate requested behaviour from assumptions and optional improvements. Confirm the API or data contract before integrating dependent work; incomplete or truncated contracts remain unverified and may block implementation.
 
-Choose the smallest change that meets acceptance. Use existing frameworks, dependencies, design systems, components, and fonts. Do not add a dependency, introduce a framework, or refactor unrelated code without task authorization. Shell execution requires existing Host permission; this skill grants none.
+Choose the smallest change that meets acceptance. Use existing frameworks, dependencies, design systems, components, and fonts. Do not add a dependency, introduce a framework, or refactor unrelated code without task authorization. You run shell commands in your worktree: install declared dependencies and use the project's own build and test commands.
 
 ## Implement within ownership
 
@@ -23,7 +23,7 @@ Implement loading, empty, error, keyboard, and responsive behaviour where the UI
 
 ## Verify and report
 
-Run relevant existing checks with the granted tools; distinguish source inspection from executed behaviour and browser evidence. Re-read your diff against requirements before reporting. Give work completed, changed files and reasons, real commands and exit codes, acceptance outcomes, and unverified items. If blocked, state the missing contract, information, permission, or tool.
+Run relevant existing checks; distinguish source inspection from executed behaviour and browser evidence. Re-read your diff against requirements before reporting. Give work completed, changed files and reasons, real commands and exit codes, acceptance outcomes, and unverified items. If blocked, state the missing contract, information, permission, or tool.
 
 Never call other agents, invent file/command identifiers, or claim completion by guessing. Lead arranges independent Test review and any retry through the original task. Keep the final handoff concise; create report files only when assigned.
 

@@ -52,6 +52,9 @@ export function createProposedTasks(raw: Database, input: {
   const codes = raw.prepare("SELECT code FROM tasks WHERE project_id = ?").all(projectId) as { code: string }[];
   let next = codes.reduce((max, row) => /^TSK-\d+$/.test(row.code) ? Math.max(max, Number(row.code.slice(4))) : max, 0) + 1;
   const ids = plan.tasks.map((_, index) => deterministicUuid(`lead-turn:${turnId}:${index}`));
+  // The Lead names the member that does each task; an unknown or Lead name falls back to the Host's own choice.
+  const seatByName = new Map((engagementId === null ? [] : raw.prepare(`SELECT s.id, s.name FROM seats s JOIN engagements e ON e.team_id = s.team_id
+    WHERE e.id = ? AND s.is_lead = 0`).all(engagementId) as { id: string; name: string }[]).map((seat) => [seat.name.toLowerCase(), seat.id]));
   return plan.tasks.map((entry, index) => {
     const id = ids[index] as string;
     const existing = getTask(raw, projectId, id);
@@ -60,9 +63,13 @@ export function createProposedTasks(raw: Database, input: {
     raw.prepare(`INSERT INTO tasks (project_id, id, revision, code, title, goal, brief, parent_task_id, engagement_id,
       owner_seat_id, origin_kind, state, disposition, placement, side_effect, review_policy, requires_go,
       required_capabilities_json, acceptance_json, inputs_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(projectId, id, 1, code, entry.title, entry.goal, entry.goal, null, engagementId, null,
-        // No automatic reviewer exists yet: an 'automatic' or 'hybrid' plan task would wait in review forever (E1b).
-        "operator", "proposed", "active", entry.placement, entry.sideEffect, "human-final", 1,
+      .run(projectId, id, 1, code, entry.title, entry.goal, entry.goal, null, engagementId, seatByName.get((entry.ownerSeat ?? "").toLowerCase()) ?? null,
+        // The Lead decides who reviews: "automatic" tasks are accepted by the Host when their result is clean
+        // (approvals/service.ts autoReviewTask). Hybrid has no reviewer of its own and external effects always need
+        // the operator. Tasks start without a Go; only an irreversible external effect waits for one.
+        "operator", "proposed", "active", entry.placement, entry.sideEffect,
+        entry.reviewPolicy === "automatic" && entry.sideEffect !== "external-idempotent" && entry.sideEffect !== "external-irreversible" ? "automatic" : "human-final",
+        entry.sideEffect === "external-irreversible" ? 1 : 0,
         JSON.stringify(entry.requiredCapabilities), JSON.stringify(entry.acceptance), JSON.stringify([]));
     for (const dependency of entry.dependsOn)
       raw.prepare("INSERT INTO task_dependencies (project_id, task_id, depends_on_task_id) VALUES (?, ?, ?)")

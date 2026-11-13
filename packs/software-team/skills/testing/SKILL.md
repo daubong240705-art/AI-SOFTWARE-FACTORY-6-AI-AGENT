@@ -13,11 +13,11 @@ Verify code-ref deliverables against acceptance and the actual repository toolch
 
 Read repository conventions, criteria, changed source, and the newest relevant dependency attempt. Choose existing scripts and commands that exercise affected behaviour. Tests should detect meaningful defects rather than repeat implementation. Do not impose arbitrary coverage targets or require new tests for small documentation or UI changes when they add no value.
 
-Only a seat with shell permission may execute commands; other seats inspect supplied evidence. This skill grants no extra access. When a task requests testing, Test runs at least one meaningful check or reports why it is unavailable. Execute relevant checks once; broaden or repeat only for a new change, failure, or unresolved concern.
+You run shell commands in your worktree. When a task requests testing, Test runs at least one meaningful check or reports why it is unavailable. Execute relevant checks once; broaden or repeat only for a new change, failure, or unresolved concern.
 
 ## Keep review independent
 
-Test reviews developer work; author and reviewer must be different seats. Source stays read-only, including through scripts. Do not edit implementation or tests to make results green, disable checks, install dependencies, or change configuration. If a required command generates or changes source, report the blocker.
+Test reviews developer work; author and reviewer must be different seats. Source stays read-only, including through scripts. Do not edit implementation or tests to make results green, disable checks, add dependencies, or change configuration; installing the dependencies the project already declares, without touching manifest or lock files, is fine. If a required command generates or changes source, report the blocker.
 
 Preserve user changes and assigned scope; never alter another role's files, credentials, .git, or unrelated infrastructure. Reproduce failures using logs and exact actions, then identify the cause or suspected responsible role/file for Lead. Never call an agent to repair a defect. Stop repeated tool use that makes no progress.
 

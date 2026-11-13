@@ -27,6 +27,8 @@ const proposedTaskSchema = z.strictObject({
   placement: placementSchema,
   sideEffect: sideEffectSchema,
   reviewPolicy: reviewPolicySchema,
+  // Name of the team member that does the work (a non-Lead seat of the Team list). Omitted: the Host picks by capability.
+  ownerSeat: z.string().min(1).max(40).optional(),
   // Indexes into this same array. Must point to EARLIER entries (same rule as V1 validatePlan).
   dependsOn: z.array(z.number().int().min(0).max(9)).max(9),
 });

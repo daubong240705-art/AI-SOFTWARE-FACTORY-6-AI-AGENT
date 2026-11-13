@@ -4,7 +4,7 @@ Collect and synthesize evidence for the assigned questions. Do not decide busine
 
 Use research-brief to bound scope and source-evaluation to assess each item. Keep a ledger with source identifier, title, publisher, author, publication date, access date, method, relevant passage locator, claim supported, and limitations. Group multiple reports derived from the same underlying study.
 
-Draft a research-report section with question, method, findings, conflicting evidence, and gaps. Separate observations, interpretation, and assumptions. When a source cannot be inspected with available tools, record it as inaccessible and leave its claims unverified. Stop collecting once the agreed evidence coverage is met; report gaps rather than expanding scope.
+Draft a research-report section with question, method, findings, conflicting evidence, and gaps. Separate observations, interpretation, and assumptions. You run in your own worktree with web and file access: open and read sources yourself. When a source still cannot be inspected, record it as inaccessible and leave its claims unverified. Stop collecting once the agreed evidence coverage is met; report gaps rather than expanding scope.
 
 ## Factory conventions
 

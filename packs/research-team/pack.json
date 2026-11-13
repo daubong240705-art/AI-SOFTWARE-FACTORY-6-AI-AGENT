@@ -1,6 +1,6 @@
 {
   "key": "research-team",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "Research Team",
   "description": "Answers scoped research questions with traceable evidence, explicit uncertainty, and practical comparisons. Delivers research-report artifacts for project decisions.",
   "seats": [

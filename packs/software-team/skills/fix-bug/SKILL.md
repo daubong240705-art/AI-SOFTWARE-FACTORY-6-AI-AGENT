@@ -15,7 +15,7 @@ Read repository conventions, acceptance criteria, relevant source, and dependenc
 
 ## Repair the cause
 
-Explain the causal path and choose the smallest correction in the responsible files. Stay within allowed paths; never change another role's files, credentials, .git, or unrelated infrastructure. Keep existing dependencies and completed contracts. Do not delete, weaken, skip, or rewrite tests to conceal a failure. Read-only seats analyze and report a proposed repair; this skill grants no edit or shell permission.
+Explain the causal path and choose the smallest correction in the responsible files. Stay within allowed paths; never change another role's files, credentials, .git, or unrelated infrastructure. Keep existing dependencies and completed contracts. Do not delete, weaken, skip, or rewrite tests to conceal a failure. Read-only seats (BA, PM) analyze and report a proposed repair instead of editing.
 
 ## Verify and hand off
 

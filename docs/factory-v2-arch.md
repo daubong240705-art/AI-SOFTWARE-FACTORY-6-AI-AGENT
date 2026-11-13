@@ -108,6 +108,8 @@ export NINE_ROUTER_API_KEY=...; bash scripts/factory-v2/start-host-cli.sh   # th
 - Không muốn `export` mỗi lần: lưu khóa vào `~/.config/factory/env` (quyền 600, dòng `NINE_ROUTER_API_KEY=...`). Script tự đọc file này nếu biến chưa có trong shell; file có quyền rộng hơn bị bỏ qua. Khóa khi đó nằm trên đĩa: lựa chọn của bạn.
 - Vị trí đang cấu hình `OpenCode` sẽ báo "runtime unavailable": đổi về "Kế thừa" hoặc chọn CLI.
 - Agent có **toàn quyền** người dùng chạy Host trong worktree của từng việc.
+- Không cần mã đăng nhập (`FACTORY_OPEN_LOGIN=1`): Host chỉ nghe `127.0.0.1` và tự cấp phiên cho trình duyệt. Đặt `FACTORY_OPEN_LOGIN=0` để dùng lại mã một lần.
+- Bạn chỉ được hỏi khi thật sự cần: duyệt **cả kế hoạch** của Lead một lần (nút "Duyệt cả kế hoạch" trong khung chat), sau đó các việc tự chạy theo thứ tự phụ thuộc, không cần "Go". Kết quả do Lead đánh dấu `automatic` được Host tự chấp nhận khi sạch (không có file bị gắn cờ, tài liệu đủ tóm tắt) và gộp vào nhánh tích hợp; nếu không sạch thì hỏi bạn kèm lý do. Lead chỉ để bạn duyệt (`human-final`) tài liệu, thiết kế hay phương án bạn yêu cầu, quyết định chỉ bạn làm được, và việc có tác động ra ngoài. Đẩy mã lên remote và việc có tác động không đảo ngược luôn cần bạn.
 
 ## 10. Dự án thực tế
 

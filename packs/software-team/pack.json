@@ -1,6 +1,6 @@
 {
   "key": "software-team",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "name": "Software Team",
   "description": "Delivers working software from clarified requirements and explicit contracts. Produces requirements, plan, api-contract, data-model, and code-ref artifacts with tests and execution evidence.",
   "seats": [

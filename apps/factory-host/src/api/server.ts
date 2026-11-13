@@ -24,6 +24,9 @@ export interface ApiServerOptions {
   clock?: Clock;
   newId?: () => string;
   bodyLimit?: number;
+  /** Single-user loopback mode: a request without a valid session gets one automatically (no sign-in token).
+   * The Host allow-list, exact Origin and per-session CSRF token still apply to every write. */
+  openLogin?: boolean;
   register?: (app: FastifyInstance, guards: ApiGuards) => void;
 }
 
@@ -89,7 +92,11 @@ export function createApiServer(options: ApiServerOptions): FastifyInstance {
   const authenticate = (request: FastifyRequest, reply: FastifyReply): Session | null => {
     const header = request.headers.cookie;
     const id = parseCookies(header).get("factory_session");
-    const current = id === undefined ? null : options.sessions.get(id);
+    let current = id === undefined ? null : options.sessions.get(id);
+    if (!current && options.openLogin) {
+      current = options.sessions.create();
+      reply.header("Set-Cookie", sessionCookie(current.id, { maxAgeSec: 7 * 24 * 60 * 60 }));
+    }
     if (!current) {
       const present = header?.split(";").some((part) => part.trim().split("=")[0]?.trim() === "factory_session");
       if (present) reply.header("Set-Cookie", clearSessionCookie());

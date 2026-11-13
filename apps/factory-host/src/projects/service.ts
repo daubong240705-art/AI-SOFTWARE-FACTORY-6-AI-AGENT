@@ -18,8 +18,13 @@ const createProject: HandlerMap["projects.create"] = ({ raw, hub }, command) => 
 
 export const projectsCreateHandler: HandlerMap["projects.create"] = createProject;
 
-export function createProjectsCreateHandler({ pack, multiTeam = false }: { pack: LoadedPack; multiTeam?: boolean }): HandlerMap["projects.create"] {
+export function createProjectsCreateHandler({ pack, multiTeam = false, checkWorkspaceRoot }: {
+  pack: LoadedPack; multiTeam?: boolean; checkWorkspaceRoot?: (root: string) => boolean;
+}): HandlerMap["projects.create"] {
   return (ctx, command) => {
+    // Agents run in worktrees of a clone under the Host's projects root; any other path would fail at the first task.
+    if (checkWorkspaceRoot && !checkWorkspaceRoot(command.payload.workspace.root))
+      throw new CommandError("validation", "workspace must be a clone under the Host projects root", "correct-input");
     const result = createProject(ctx, command);
     const team = ensureTeamFromPack(ctx.raw, pack, ctx);
     if (multiTeam && getTeam(ctx.raw, team.teamId)?.lifecycle !== "active")
