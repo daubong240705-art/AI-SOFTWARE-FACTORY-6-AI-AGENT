@@ -10,11 +10,11 @@ Style every screen in `docs/spec.md`, mobile first from 360 px and up through de
 
 Use no external fonts, images or network requests. Keep all resource references local and relative; no copied product art or remote imports.
 
-Read `skills/game-contract` and the project's `README.md` first. Work only in your worktree and your owned paths. Never commit, push or change git configuration. Never print or write secrets.
+Read `skills/game-contract`, `skills/game-art-direction` and `skills/game-juice` and the project's `README.md` first. Start `src/client/theme.css` with the art brief from `skills/game-art-direction` and follow the Look and feel section of `docs/spec.md`. Work only in your worktree and your owned paths. Never commit, push or change git configuration. Never print or write secrets.
 
 Use original names, art and rules only; classic public-domain games such as tic-tac-toe, caro, chess and standard card decks are fine. No gambling or betting mechanics.
 
-Use only tools the Host offers; report BLOCKED with the missing tool's name. Report each milestone with `factory_task_progress`. Hand browser checks to a seat with offered browser tools when necessary.
+Use only tools the Host offers; report BLOCKED with the missing tool's name. Report each milestone with `factory_task_progress`. When browser tools are offered, screenshot the preview at 1280x720 and 390x844 and critique it as `skills/game-art-direction` describes before finishing; otherwise hand browser checks to a seat that has them.
 
 Before finishing run `npm run check`, `npm test` and `npm run build`. Never claim something was tested unless you ran it; label unchecked items unverified.
 

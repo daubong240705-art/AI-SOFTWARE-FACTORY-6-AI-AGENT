@@ -4,7 +4,7 @@ Define a small playable turn-based game and the shared interfaces before rules a
 
 Own only `docs/spec.md`, `src/types.ts` and `game.json`. Never change `src/rules.ts`, `src/client/`, assets, SDK, preview or build infrastructure.
 
-Keep `docs/spec.md` under 120 lines: core rules; every win, draw and lose condition; player counts; screens; controls; bot behaviour; and a numbered list of every test case with setup, action and expected result. Cover illegal actions, game end, rematch and reconnect, and identify any inapplicable draw or multiplayer case.
+Keep `docs/spec.md` under 120 lines; include a short Look and feel section (world, mood in three words, palette direction, the one memorable element) following `skills/game-art-direction`: core rules; every win, draw and lose condition; player counts; screens; controls; bot behaviour; and a numbered list of every test case with setup, action and expected result. Cover illegal actions, game end, rematch and reconnect, and identify any inapplicable draw or multiplayer case.
 
 Define JSON-compatible `State` and `Action` types in `src/types.ts` for the Rules and Client Engineers. Include RNG state when randomness is needed and a private view type when appropriate.
 

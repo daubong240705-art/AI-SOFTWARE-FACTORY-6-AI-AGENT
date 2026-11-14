@@ -123,7 +123,8 @@
       "sideEffect": "code",
       "acceptance": [
         "docs/spec.md exists, is under 120 lines and defines core rules, win/draw/lose conditions, player counts, screens, controls and bot behaviour with a numbered list of every test case.",
-        "src/types.ts exports the JSON-compatible State and Action types used by rules and client; game.json metadata, player limits and bot support match docs/spec.md."
+        "src/types.ts exports the JSON-compatible State and Action types used by rules and client; game.json metadata, player limits and bot support match docs/spec.md.",
+        "docs/spec.md has a Look and feel section: world, mood in three words, palette direction and the one memorable element."
       ]
     },
     {
@@ -200,7 +201,8 @@
       "acceptance": [
         "assets/thumb.svg exists and game.json references its built path thumb.svg.",
         "src/client/theme.css covers every screen of docs/spec.md at 360 px and 1280 px width, with accessible contrast and touch targets of at least 44 px.",
-        "All art is original SVG and CSS, and no external font, image or other external resource is referenced."
+        "All art is original SVG and CSS, and no external font, image or other external resource is referenced.",
+        "src/client/theme.css starts with the art brief of skills/game-art-direction (world, mood, 4-6 palette variables, memorable element); every asset uses that palette, one stroke scale and one light direction, and every game state has a visible style that does not rely on colour alone. Report whether screenshots at 1280x720 and 390x844 were reviewed, or say the visual check is unverified."
       ]
     },
     {
@@ -219,7 +221,8 @@
         "The page renders SDK room state, turn, seats, result, disconnected opponents and errors, and sends moves and rematch through connectGame without computing rules itself. The whole page fits the game frame without scrolling at 1280x720 and 390x844: compact header, and a board whose cell size comes from the available width and height (for example the smaller of both divided by the number of cells), never a fixed pixel size.",
         "npm run check, npm test and npm run build each exit 0; report all three exit codes.",
         "npm run play serves the preview page, its ready URL returns HTTP 200 and the page loads; stop the preview cleanly after checking.",
-        "dist/ contains game.json, its HTML entry, self-contained ESM rules.js and every referenced asset, and HTML loads main.js and theme.css relatively."
+        "dist/ contains game.json, its HTML entry, self-contained ESM rules.js and every referenced asset, and HTML loads main.js and theme.css relatively.",
+        "Moves, turn changes, illegal moves and the end of the game have feedback following skills/game-juice; every animation ends at its rest state, never blocks input for more than 150 ms, and is replaced by instant changes under prefers-reduced-motion."
       ],
       "includeIf": {
         "param": "runClient",

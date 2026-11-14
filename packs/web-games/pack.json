@@ -65,7 +65,8 @@
       "tools": [
         "knowledge.*",
         "request.*",
-        "project.briefing"
+        "project.briefing",
+        "ext.playwright.*"
       ]
     },
     {
@@ -112,7 +113,9 @@
   "skills": [
     "skills/game-contract",
     "skills/browser-game-testing",
-    "skills/local-preview"
+    "skills/local-preview",
+    "skills/game-art-direction",
+    "skills/game-juice"
   ],
   "leadWorkflow": "game-build",
   "workflows": [
