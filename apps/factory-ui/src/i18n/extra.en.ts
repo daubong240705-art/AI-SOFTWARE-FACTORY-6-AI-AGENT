@@ -194,6 +194,7 @@ export const extra = {
   },
   officeUi: {
     unreported: 'Not reported',
+    running: 'Running', runningJustStarted: 'Running just now', runningMinute: 'Running {count} minute', runningMinutes: 'Running {count} minutes',
     taskProgress: 'Task progress',
     latestReport: 'Latest update',
     taskOverview: 'Task overview',
@@ -221,7 +222,9 @@ export const extra = {
     smallSteps: 'Small steps, shared wins',
     currentWork: 'Current work', viewAgent: 'View agent activity',
     title: 'Office', description: 'What the agents are doing and what they pass to each other. Agents do not chat freely: every exchange is an assignment, a hand-off of outputs, a question or a review.',
-    floor: 'Floor', feed: 'Exchanges', you: 'You', knowledge: 'Documents', hideProgress: 'Hide progress',
+    floor: 'Floor', feed: 'Exchanges', you: 'You', knowledge: 'Documents', openKnowledge: 'Open Documents', hideProgress: 'Hide progress',
+    pipeline: 'Game build pipeline', openWorkflow: 'Open workflow', reworkLoop: 'round {current}/{total}', showMore: 'Show more', showLess: 'Collapse',
+    pipelineStages: { reproduce: 'Reproduce', design: 'Design', rules: 'Rules', art: 'Art', client: 'Client', qa: 'QA' },
     empty: 'No exchanges yet. Send the Lead a request in Delegate mode to get the team started.', noSeats: 'This project has no team yet.',
     noWork: 'No work', waitingYou: 'Waiting for you', replying: 'Answering you', queued: '{count} queued', openTask: 'Open task {code}',
     from: 'from', to: 'to', live: 'Updating live',

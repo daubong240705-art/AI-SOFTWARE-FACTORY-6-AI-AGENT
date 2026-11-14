@@ -4,7 +4,8 @@ import { ArrowRight, BookOpen, FileText, HelpCircle, Mail, UserRound } from 'luc
 import { meaningfulOfficeItems, type Interaction, type InteractionKind, type OfficeSeat, type Party } from '@/api/officeModels';
 import { AgentCard, AgentOverview, mascotFor, type OfficeNeed, type OpenOfficeTask } from './AgentCard';
 import { OfficePulse, OfficeRoomTrim, CoffeeCorner } from './OfficePulse';
-import { MarkdownContent } from '@/components/MarkdownContent';
+import { GamePipeline, orderGameSeats } from './GamePipeline';
+import { FeedMessage } from './FeedMessage';
 import { TaskDetail } from '../TaskDetail';
 import { DecisionDialog } from '../DecisionDialog';
 import { ErrorNotice } from '@/components/ErrorNotice';
@@ -60,10 +61,18 @@ function useOffice(store: Store, projectId: string) {
   return now;
 }
 
-export function ProjectOffice({ store, projectId }: { store: Store; projectId: string }) {
+export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; projectId: string; onOpenTab: (tab: 'knowledge' | 'workflow') => void }) {
   const t = useT(); const id = useId();
   const now = useOffice(store, projectId);
   const { office, error } = store.useStoreSelector(state => ({ office: state.office, error: state.errors.office }));
+  const { m5, teams, tasks } = store.useStoreSelector(state => ({ m5: state.m5, teams: state.m3.teams, tasks: state.tasks }));
+  useEffect(() => store.watchM5('workflows', store.loadWorkflows), [store, projectId]);
+  const workflow = m5.workflows.filter(item => item.key === 'game-build').sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+  const detail = workflow ? m5.workflowDetails[workflow.id] : undefined;
+  useEffect(() => {
+    if (workflow) return store.watchM3('teams', store.loadTeams);
+  }, [store, projectId, workflow?.id]);
+  const seats = useMemo(() => orderGameSeats(office?.seats ?? [], detail, teams, tasks), [office?.seats, detail, teams, tasks]);
   const [hideProgress, setHideProgress] = useState(false);
   const [lively, setLively] = useState(true);
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
@@ -83,15 +92,16 @@ export function ProjectOffice({ store, projectId }: { store: Store; projectId: s
   };
   const closeDecision = () => { setSelectedApprovalId(null); void store.loadOffice(); };
 
-  return <Page className={cn("min-w-0 space-y-5", !lively && "office-quiet")}>
+  return <Page className={cn("flex min-h-full min-w-0 flex-col gap-5", !lively && "office-quiet")}>
     <header className="space-y-1"><h2 className="font-display text-2xl font-semibold">{t('officeUi.title')}</h2>
       <p className="max-w-3xl text-sm text-muted-foreground">{t('officeUi.description')}</p></header>
+    {workflow && <GamePipeline detail={detail} onOpenWorkflow={() => onOpenTab('workflow')} />}
     {error && <div className="space-y-3"><ErrorNotice error={error} /><Button variant="outline" size="sm" onClick={() => { void store.loadOffice(); }}>{t('errors.retry')}</Button></div>}
     {!office && !error && <div role="status" aria-label={t('viewStates.loading')} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
       <Skeleton className="h-96 rounded-2xl" /><Skeleton className="h-96 rounded-2xl" /></div>}
     {office && <OfficePulse store={store} office={office} now={now} lively={lively} onLivelyChange={setLively} />}
-    {office && <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
-      <OfficeFloor store={store} lively={lively} seats={office.seats} items={items} now={now} party={party} onSelectSeat={seat => setSelectedSeatId(seat.id)} onOpenTask={openTask} onReview={review} />
+    {office && <div className="grid min-w-0 flex-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
+      <OfficeFloor store={store} lively={lively} seats={seats} items={items} now={now} party={party} onSelectSeat={seat => setSelectedSeatId(seat.id)} onOpenTask={openTask} onReview={review} onOpenKnowledge={() => onOpenTab('knowledge')} />
       <section aria-labelledby={`${id}-feed`} className="min-w-0 rounded-2xl border border-border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
           <h3 id={`${id}-feed`} className="font-display text-base font-semibold">{t('officeUi.feed')}</h3>
@@ -121,9 +131,10 @@ export function ProjectOffice({ store, projectId }: { store: Store; projectId: s
     </Page>;
 }
 
-function OfficeFloor({ store, lively, seats, items, now, party, onSelectSeat, onOpenTask, onReview }: {
+function OfficeFloor({ store, lively, seats, items, now, party, onSelectSeat, onOpenTask, onReview, onOpenKnowledge }: {
   store: Store; lively: boolean; seats: OfficeSeat[]; items: Interaction[]; now: number; party: (value: Party) => string;
   onSelectSeat: (seat: OfficeSeat) => void; onOpenTask: OpenOfficeTask; onReview: (need: OfficeNeed) => void;
+  onOpenKnowledge: () => void;
 }) {
   const t = useT(); const reduced = useReducedMotion();
   const floor = useRef<HTMLDivElement>(null);
@@ -171,8 +182,8 @@ function OfficeFloor({ store, lively, seats, items, now, party, onSelectSeat, on
   };
   const glow = (key: NodeKey) => active.has(key) && 'ring-2 ring-run/40 motion-safe:transition-shadow';
 
-  return <section aria-label={t('officeUi.floor')} className="min-w-0">
-    <div ref={floor} className="office-floor relative overflow-hidden rounded-2xl border border-border bg-muted/30 p-4 sm:p-6">
+  return <section aria-label={t('officeUi.floor')} className="flex min-w-0 flex-col">
+    <div ref={floor} className="office-floor relative flex min-h-[max(32rem,calc(100dvh-26rem))] flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-muted/30 p-4 sm:p-6">
       <OfficeRoomTrim now={now} />
       {!seats.length ? <p className="py-16 text-center text-sm text-muted-foreground">{t('officeUi.noSeats')}</p> : <>
         <div className="office-lead-row grid items-start gap-3">
@@ -181,16 +192,16 @@ function OfficeFloor({ store, lively, seats, items, now, party, onSelectSeat, on
             <p className="mt-2 text-sm font-semibold">{t('officeUi.you')}</p>
           </div>
           {lead ? <AgentCard store={store} seat={lead} featured innerRef={register(`seat:${lead.id}`)} className={cn('office-lead-card w-full max-w-80', glow(`seat:${lead.id}`))} bubble={bubble(`seat:${lead.id}`)} now={now} onSelectSeat={onSelectSeat} onOpenTask={onOpenTask} onReview={onReview} /> : <span />}
-          <div ref={register('knowledge')} className={cn('justify-self-end rounded-2xl border border-border bg-card p-3 text-center', glow('knowledge'))}>
+          <button type="button" ref={register('knowledge')} onClick={onOpenKnowledge} aria-label={t('officeUi.openKnowledge')} className={cn('justify-self-end rounded-2xl border border-border bg-card p-3 text-center hover:border-info/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring', glow('knowledge'))}>
             <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-secondary"><BookOpen className="size-6" aria-hidden="true" /></span>
-            <p className="mt-2 text-sm font-semibold">{t('officeUi.knowledge')}</p>
-          </div>
+            <span className="mt-2 block text-sm font-semibold">{t('officeUi.knowledge')}</span>
+          </button>
         </div>
         <ul className="office-seat-grid m-0 mt-6 grid list-none items-stretch gap-4 p-0">
           {others.map(seat => <li key={seat.id} className="min-w-0"><AgentCard store={store} seat={seat} innerRef={register(`seat:${seat.id}`)} className={cn(glow(`seat:${seat.id}`))} bubble={bubble(`seat:${seat.id}`)} now={now} onSelectSeat={onSelectSeat} onOpenTask={onOpenTask} onReview={onReview} /></li>)}
         </ul>
       </>}
-      <CoffeeCorner />
+      <div className="mt-auto pt-5"><CoffeeCorner /></div>
       {lively && flights.map(flight => <motion.span key={flight.id} aria-hidden="true"
         className={cn('pointer-events-none absolute top-0 left-0 z-10 flex size-7 items-center justify-center rounded-full border border-border shadow-md', kindTone[flight.kind], 'bg-card')}
         initial={{ x: flight.x0, y: flight.y0, scale: 0.6, opacity: 0 }}
@@ -219,7 +230,7 @@ function Feed({ items, now, party, onOpenTask }: { items: Interaction[]; now: nu
       {item.code && (item.taskId
         ? <Button type="button" variant="outline" size="sm" className="h-auto max-w-full px-2 py-1 font-mono text-xs text-info" onClick={() => onOpenTask(item.taskId!)}>{item.code}</Button>
         : <span className="font-mono text-xs text-muted-foreground">{item.code}</span>)}
-      <MarkdownContent content={item.text} className="space-y-2 leading-6" />
+      <FeedMessage text={item.text} />
       <p className="text-[11px] text-muted-foreground"><time dateTime={item.at}>{activityTime(item.at, now)}</time></p>
     </li>)}
   </ol>;

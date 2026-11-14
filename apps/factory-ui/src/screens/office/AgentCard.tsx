@@ -18,14 +18,18 @@ export const mascotFor: Record<OfficeSeat['status'], MascotState> = {
 };
 
 /** A missing report is indeterminate: elapsed time never becomes a made-up percentage. */
-export function WorkProgress({ percent, label }: { percent: number | null | undefined; label: string }) {
+export function WorkProgress({ percent, label, startedAt, now }: { percent: number | null | undefined; label: string; startedAt?: string | null; now?: number }) {
   const t = useT();
   const value = percent == null ? null : Math.round(Math.max(0, Math.min(100, percent)));
+  const elapsed = startedAt && now !== undefined ? Math.max(0, Math.floor((now - Date.parse(startedAt)) / 60_000)) : null;
+  const running = elapsed !== null && Number.isFinite(elapsed)
+    ? elapsed < 1 ? t('officeUi.runningJustStarted') : t(elapsed === 1 ? 'officeUi.runningMinute' : 'officeUi.runningMinutes').replace('{count}', String(elapsed))
+    : t('officeUi.running');
   return <div className="space-y-2">
     <div className="flex items-baseline justify-between gap-3"><span className="text-xs text-muted-foreground">{label}</span>
-      <span className={cn('shrink-0 font-mono font-semibold tabular-nums', value === null ? 'text-[11px] text-muted-foreground' : 'text-xl text-run')}>{value === null ? t('officeUi.unreported') : `${value}%`}</span>
+      <span className={cn('shrink-0 font-mono font-semibold tabular-nums', value === null ? 'text-[11px] text-muted-foreground' : 'text-xl text-run')}>{value === null ? running : `${value}%`}</span>
     </div>
-    <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} {...(value === null ? { 'aria-valuetext': t('officeUi.unreported') } : { 'aria-valuenow': value })} className="h-2 overflow-hidden rounded-full bg-secondary">
+    <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} {...(value === null ? { 'aria-valuetext': running } : { 'aria-valuenow': value })} className="h-2 overflow-hidden rounded-full bg-secondary">
       <span className={cn('block h-full rounded-full bg-run transition-[width] duration-500 motion-reduce:transition-none', value === null && 'office-progress-pending')} style={{ width: value === null ? '30%' : `${value}%` }} />
     </div>
   </div>;
@@ -58,7 +62,7 @@ export function AgentOverview({ store, seat, now, onOpenTask, onReview }: {
       return <section key={run.attemptId} className="space-y-3 rounded-xl border border-border bg-background/60 p-3">
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><span className="font-mono">{run.code}</span>{run.startedAt && <span className="inline-flex items-center gap-1"><Clock3 className="size-3" />{activityTime(run.startedAt, now)}</span>}</div>
         <h4 className="text-sm font-semibold leading-6 [overflow-wrap:anywhere]">{run.title}</h4>
-        <WorkProgress percent={run.progress?.percent} label={t('officeUi.taskProgress')} />
+        <WorkProgress percent={run.progress?.percent} label={t('officeUi.taskProgress')} startedAt={run.startedAt} now={now} />
         {task?.goal && <div className="space-y-1"><h5 className="text-xs font-medium text-muted-foreground">{t('taskUi.goal')}</h5><div className="line-clamp-5"><MarkdownContent content={task.goal} className="space-y-1 text-xs leading-5" /></div></div>}
         {!!task?.acceptance.length && <div className="space-y-1"><h5 className="text-xs font-medium text-muted-foreground">{t('taskUi.acceptance')}</h5><ul className="list-disc space-y-1 pl-4 text-xs leading-5">{task.acceptance.slice(0, 3).map((item, index) => <li key={index} className="[overflow-wrap:anywhere]">{item}</li>)}</ul></div>}
         {run.progress && <div className="space-y-1 border-t border-border pt-3"><p className="text-[11px] text-muted-foreground">{t('officeUi.latestReport')} · {activityTime(run.progress.at, now)}</p><MarkdownContent content={run.progress.message} className="space-y-1 text-xs leading-5 text-muted-foreground" /></div>}
@@ -82,7 +86,7 @@ export function AgentCard({ store, seat, featured = false, innerRef, className, 
       <div className="flex min-w-0 items-start gap-3"><span className="office-avatar relative shrink-0 rounded-2xl bg-secondary/60 p-1"><Mascot seat={seat.isLead ? 'Lead' : seat.name} state={mascotFor[seat.status]} size={featured ? 52 : 44} fallback={<span className="flex size-11 items-center justify-center text-lg font-semibold">{seat.name.slice(0, 2)}</span>} />{seat.status === 'working' && <span aria-hidden="true" className="absolute -right-1 -bottom-1 flex gap-0.5 rounded-full bg-run px-1.5 py-1"><i /><i /><i /></span>}</span>
         <span className="min-w-0 flex-1 space-y-1"><span className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold">{seat.name}</span><StatusPill status={seat.status} /></span><span className="block truncate text-xs text-muted-foreground">{seat.role}</span></span>
       </div>
-      {run ? <div className="mt-4 space-y-3"><p className="line-clamp-2 text-sm leading-5"><span className="mr-1.5 font-mono text-xs text-muted-foreground">{run.code}</span>{run.title}</p><WorkProgress percent={run.progress?.percent} label={t('officeUi.taskProgress')} />{run.progress && <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{run.progress.message}</p>}{seat.runs.length > 1 && <p className="text-xs text-info">{t('activityUi.moreRuns').replace('{count}', String(seat.runs.length - 1))}</p>}</div>
+      {run ? <div className="mt-4 space-y-3"><p className="line-clamp-2 text-sm leading-5"><span className="mr-1.5 font-mono text-xs text-muted-foreground">{run.code}</span>{run.title}</p><WorkProgress percent={run.progress?.percent} label={t('officeUi.taskProgress')} startedAt={run.startedAt} now={now} />{run.progress && <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{run.progress.message}</p>}{seat.runs.length > 1 && <p className="text-xs text-info">{t('activityUi.moreRuns').replace('{count}', String(seat.runs.length - 1))}</p>}</div>
         : <div className="mt-4 space-y-2"><p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Coffee className="size-3.5" />{t(seat.chat ? 'officeUi.replying' : needs ? 'officeUi.waitingYou' : seat.queued ? 'officeUi.queued' : 'officeUi.resting').replace('{count}', String(seat.queued))}</p>{seat.status === 'done' && seat.lastFinished?.outcome === 'succeeded' ? <WorkProgress percent={100} label={seat.lastFinished.code} /> : <p className="text-xs text-muted-foreground">{t('officeUi.noActiveProgress')}</p>}{bubble}</div>}
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-4 text-xs">{needs ? <span className="inline-flex items-center gap-1 rounded-full bg-need/10 px-2 py-1 font-medium text-need"><ListChecks className="size-3.5" />{t('officeUi.pendingCount').replace('{count}', String(needs))}</span> : <span className="text-muted-foreground">{t('officeUi.hoverHint')}</span>}<ArrowRight className="ml-auto size-3.5 text-info transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" /></div>
     </button></HoverCard.Trigger>

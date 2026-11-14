@@ -197,6 +197,7 @@ export const extra: Translated<typeof en> = {
   },
   officeUi: {
     unreported: 'Chưa báo %',
+    running: 'Đang chạy', runningJustStarted: 'Đang chạy vừa bắt đầu', runningMinute: 'Đang chạy {count} phút', runningMinutes: 'Đang chạy {count} phút',
     taskProgress: 'Tiến độ công việc',
     latestReport: 'Cập nhật gần nhất',
     taskOverview: 'Tổng quan task',
@@ -224,7 +225,9 @@ export const extra: Translated<typeof en> = {
     smallSteps: 'Từng bước nhỏ, cùng nhau về đích',
     currentWork: 'Công việc hiện tại', viewAgent: 'Xem hoạt động agent',
     title: 'Văn phòng', description: 'Các agent đang làm gì và đang chuyển gì cho nhau. Agent không trò chuyện tự do: mọi trao đổi đi qua giao việc, bàn giao đầu ra, câu hỏi và duyệt.',
-    floor: 'Sàn làm việc', feed: 'Luồng trao đổi', you: 'Bạn', knowledge: 'Kho tài liệu', hideProgress: 'Ẩn tiến độ',
+    floor: 'Sàn làm việc', feed: 'Luồng trao đổi', you: 'Bạn', knowledge: 'Kho tài liệu', openKnowledge: 'Mở Tài liệu', hideProgress: 'Ẩn tiến độ',
+    pipeline: 'Quy trình làm game', openWorkflow: 'Mở quy trình', reworkLoop: 'vòng {current}/{total}', showMore: 'Xem thêm', showLess: 'Thu gọn',
+    pipelineStages: { reproduce: 'Tái hiện', design: 'Thiết kế', rules: 'Luật chơi', art: 'Mỹ thuật', client: 'Client', qa: 'Kiểm thử' },
     empty: 'Chưa có trao đổi nào. Gửi yêu cầu cho Lead ở chế độ Giao việc để đội bắt đầu.', noSeats: 'Dự án chưa có đội.',
     noWork: 'Không có việc', waitingYou: 'Đang chờ bạn', replying: 'Đang trả lời bạn', queued: '{count} việc đang chờ', openTask: 'Mở việc {code}',
     from: 'từ', to: 'tới', live: 'Đang làm mới trực tiếp',
