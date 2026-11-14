@@ -7,6 +7,7 @@
 #   bash scripts/factory-v2/start-host-cli.sh                  # seats without an override run on Claude Code
 #   bash scripts/factory-v2/start-host-cli.sh --agents codex   # ... or on Codex
 #   bash scripts/factory-v2/start-host-cli.sh --slots 8        # agents running at the same time (default: from cores and RAM)
+#   bash scripts/factory-v2/start-host-cli.sh --agents codex --lead 9router   # no Claude login: seats on Codex, Lead through the 9Router gateway
 #
 # Codex configured with a provider key (for example 9Router with env_key NINE_ROUTER_API_KEY): export that variable in
 # this shell; it is passed to the CLIs only (FACTORY_CLI_PASS_ENV, default NINE_ROUTER_API_KEY when it is set).
@@ -17,12 +18,14 @@ set -u
 ROOT="${FACTORY_V2_HOME:-$HOME/factory-v2}"
 CHECK=0
 AGENTS=claude
+LEAD=claude
 while [ $# -gt 0 ]; do
   case "$1" in
     --check) CHECK=1 ;;
     --agents) shift; case "${1:-}" in codex|claude) AGENTS="$1" ;; *) echo "--agents needs codex or claude" >&2; exit 1 ;; esac ;;
+    --lead) shift; case "${1:-}" in claude|9router) LEAD="$1" ;; *) echo "--lead needs claude or 9router" >&2; exit 1 ;; esac ;;
     --slots) shift; export FACTORY_NODE_SLOTS="${1:-}" ;;
-    *) echo "Usage: $0 [--check] [--agents codex|claude] [--slots N]" >&2; exit 1 ;;
+    *) echo "Usage: $0 [--check] [--agents codex|claude] [--lead claude|9router] [--slots N]" >&2; exit 1 ;;
   esac
   shift
 done
@@ -46,15 +49,21 @@ if [ -f "$ENV_FILE" ]; then
   esac
 fi
 
-echo "Factory Host (local CLI agents, Claude Code Lead) preflight"
+echo "Factory Host (local CLI agents, Lead on $LEAD) preflight"
 export PATH="$ROOT/node/bin:$HOME/.local/bin:$HOME/.local/npm/bin:$PATH"
 command -v node >/dev/null 2>&1 && ok "node $(node --version)" || bad "node (expected $ROOT/node/bin/node)"
 [ -f "$ROOT/app/apps/factory-host/dist/main.js" ] && ok "deployed Host build ($(tr '
 ' ' ' < "$ROOT/app/VERSION" 2>/dev/null))" || bad "Host build: run scripts/factory-v2/deploy-host-wsl.sh"
 [ -f "$ROOT/app/apps/factory-ui/dist/index.html" ] && ok "UI build" || bad "UI build: run npm run build in apps/factory-ui, then redeploy"
 command -v git >/dev/null 2>&1 && ok "git" || bad "git"
-command -v claude >/dev/null 2>&1 && ok "claude $(claude --version 2>/dev/null | head -1) (Lead chat and default agents)" \
-  || bad "claude CLI not found in PATH (the Lead chat needs it; install and run claude auth login)"
+if [ "$LEAD" = claude ] || [ "$AGENTS" = claude ]; then
+  command -v claude >/dev/null 2>&1 && ok "claude $(claude --version 2>/dev/null | head -1) (Lead chat and default agents)" \
+    || bad "claude CLI not found in PATH (the Lead chat needs it; install and run claude auth login)"
+else ok "claude CLI not needed (Lead on 9Router, agents on $AGENTS)"; fi
+if [ "$LEAD" = 9router ]; then
+  [ -n "${NINE_ROUTER_API_KEY:-}" ] && ok "NINE_ROUTER_API_KEY is set for the Lead gateway (value not shown)" \
+    || bad "NINE_ROUTER_API_KEY (the Lead on 9Router needs it: put NINE_ROUTER_API_KEY=... in $ENV_FILE, mode 600)"
+fi
 if command -v codex >/dev/null 2>&1; then ok "codex $(codex --version 2>/dev/null | head -1)"
 elif [ "$AGENTS" = codex ]; then bad "codex CLI not found in PATH"
 else note "codex CLI not found: seats can only use Claude Code"; fi
@@ -68,7 +77,9 @@ if [ "$CHECK" -eq 1 ]; then echo "Preflight passed. Start without --check to run
 # OpenCode, its sandbox and the model proxy stay off: none of their variables reach the Host.
 unset FACTORY_RUNTIME FACTORY_OPENCODE_DIR FACTORY_PROXY_SOCKET FACTORY_PROXY_PORT FACTORY_AGENT_MODELS FACTORY_LEAD_MAX_OUTPUT_TOKENS
 mkdir -p "$ROOT/workspaces" "$ROOT/worktrees" "$ROOT/state"
-export FACTORY_LOCAL_CLI=1 FACTORY_DEFAULT_AGENT_CLI="$AGENTS" FACTORY_LEAD_CLI=claude
+export FACTORY_LOCAL_CLI=1 FACTORY_DEFAULT_AGENT_CLI="$AGENTS"
+# Lead on the Claude Code CLI login, or (FACTORY_LEAD_CLI unset) through the 9Router chat gateway with NINE_ROUTER_API_KEY.
+if [ "$LEAD" = claude ]; then export FACTORY_LEAD_CLI=claude; else unset FACTORY_LEAD_CLI; fi
 # No sign-in token: the Host listens on loopback only and gives the browser a session by itself.
 # Set FACTORY_OPEN_LOGIN=0 to bring the one-time token back.
 export FACTORY_OPEN_LOGIN="${FACTORY_OPEN_LOGIN:-1}"
@@ -91,6 +102,6 @@ if [ -z "${FACTORY_NODE_SLOTS:-}" ]; then
   export FACTORY_NODE_SLOTS="$AUTO"
 fi
 echo "WARNING: agents run on the $AGENTS CLI (unless a seat is configured otherwise) with the operator's full permissions." >&2
-echo "Agent slots: $FACTORY_NODE_SLOTS. Lead chat: Claude Code CLI. Token budget: not limited."
+echo "Agent slots: $FACTORY_NODE_SLOTS. Lead chat: $([ "$LEAD" = claude ] && echo "Claude Code CLI" || echo "9Router gateway"). Token budget: not limited."
 echo "Starting on http://127.0.0.1:${FACTORY_PORT}/ (loopback only). The one-time sign-in token is printed below; stop with Ctrl+C."
 exec node "$ROOT/app/apps/factory-host/dist/main.js"

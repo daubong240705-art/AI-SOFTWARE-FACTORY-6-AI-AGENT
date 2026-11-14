@@ -341,7 +341,8 @@ export async function startHost(options: {
   let localTokens: TokenRegistry | undefined;
   let localMcpUrl: string | undefined;
   const localCliCommands = { codex: options.localCli?.codexCommand ?? ["codex"], claude: options.localCli?.claudeCommand ?? ["claude"] };
-  const probeAgentClis = createAgentCliProbe({ enabled: options.localCli?.enabled === true, commands: localCliCommands });
+  const probeAgentClis = createAgentCliProbe({ enabled: options.localCli?.enabled === true, commands: localCliCommands,
+    providerKey: () => (options.localCli?.passEnv ?? []).some((name) => (process.env[name] ?? "") !== "") });
   if (options.localCli?.enabled) console.warn("Local CLI runtimes enabled: agents run with the operator's full permissions.");
   const interval = options.timers?.setInterval ?? ((callback: () => void, ms: number) => setInterval(callback, ms).unref());
   const clearExpiry = options.timers?.clearInterval ?? ((handle: unknown) => clearInterval(handle as ReturnType<typeof setInterval>));

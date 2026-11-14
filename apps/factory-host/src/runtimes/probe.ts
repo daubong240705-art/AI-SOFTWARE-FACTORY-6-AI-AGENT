@@ -9,7 +9,9 @@ async function run(command: readonly string[], args: readonly string[]) {
   const timer = setTimeout(() => { timedOut = true; void child.stop().catch(() => {}); }, 5_000);
   try { return { ...(await child.result), output, timedOut }; } finally { clearTimeout(timer); }
 }
-export function createAgentCliProbe(options: { enabled: boolean; commands: Record<Cli, readonly string[]>; now?: () => number }): () => Promise<AgentCliProbe> {
+export function createAgentCliProbe(options: { enabled: boolean; commands: Record<Cli, readonly string[]>; now?: () => number;
+  /** True when a provider key (for example NINE_ROUTER_API_KEY) is handed to the CLIs: Codex then works without `codex login`. */
+  providerKey?: () => boolean }): () => Promise<AgentCliProbe> {
   Object.values(options.commands).forEach(validateCliCommand);
   const now = options.now ?? Date.now;
   let cache: { expires: number; value: AgentCliProbe } | undefined;
@@ -26,7 +28,7 @@ export function createAgentCliProbe(options: { enabled: boolean; commands: Recor
         const semver = version.output.match(/\b\d{1,4}\.\d{1,4}\.\d{1,4}(?:-[a-zA-Z0-9.]+)?\b/)?.[0] ?? null;
         const absent = /not.?logged.?in|sign[ -]?in|unauthori[sz]ed|\b401\b|"loggedIn"\s*:\s*false/i.test(login.output);
         return { cli, installed: version.errorCode !== "ENOENT", version: version.code === 0 && !version.timedOut ? semver : null,
-          login: login.errorCode || login.timedOut ? "unknown" : absent ? "missing" : login.code === 0 ? "ok" : "unknown" };
+          login: login.errorCode || login.timedOut ? "unknown" : absent ? (cli === "codex" && options.providerKey?.() === true ? "ok" : "missing") : login.code === 0 ? "ok" : "unknown" };
       }));
       const value = { enabled: options.enabled, clis }; cache = { expires: now() + 30_000, value }; return value;
     })().finally(() => { pending = undefined; });
