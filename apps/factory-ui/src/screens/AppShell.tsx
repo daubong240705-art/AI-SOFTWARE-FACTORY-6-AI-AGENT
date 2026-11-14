@@ -6,6 +6,7 @@ import { Dialog } from '../components/Dialog';
 import { ProjectView } from './ProjectView';
 import { CreateProject } from './CreateProject';
 import { NewGameDialog } from './NewGameDialog';
+import { StudioHome } from './studio/StudioHome';
 import { Button } from '@/components/ui/button';
 import { Page } from '@/components/Page';
 import { Attention, attentionHash } from './Attention';
@@ -68,8 +69,9 @@ export function AppShell({ store }: { store: Store }) {
     {compact && expanded && <Dialog labelledBy="navigation-title" onClose={() => setExpanded(false)} className="navigation-overlay"><h2 id="navigation-title" className="sr-only">{t('nav.main')}</h2>{navigation}</Dialog>}
     <main ref={main} id="factory-main" className={`content p-0${view === 'needs-attention' ? ' attention-content' : view.startsWith('project:') ? ' project-content' : ''}`} tabIndex={-1} aria-label={pageName} inert={compact && expanded}>
       <Reveal key={view} className="h-full min-h-0">
-      {view === 'overview' && <Page className="flex flex-wrap justify-end gap-2 pb-0"><Button type="button" onClick={() => setCreatingGame(true)}>{t('gameUi.newGame')}</Button>{profile === 'full' && <Button type="button" variant="outline" onClick={create}>{t('projects.create')}</Button>}</Page>}
-      {view === 'overview' ? <Overview store={store} onProject={id => { setChatProject(id); go(`project:${id}`); }} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} focusComposer={focusComposer} onTask={openTask} />
+      {view === 'overview' && profile === 'full' && <Page className="flex flex-wrap justify-end gap-2 pb-0"><Button type="button" onClick={() => setCreatingGame(true)}>{t('gameUi.newGame')}</Button><Button type="button" variant="outline" onClick={create}>{t('projects.create')}</Button></Page>}
+      {view === 'overview' && profile === 'games' ? <StudioHome store={store} onProject={id => go(`project:${id}`)} onCreate={() => setCreatingGame(true)} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} />
+        : view === 'overview' ? <Overview store={store} onProject={id => { setChatProject(id); go(`project:${id}`); }} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} focusComposer={focusComposer} onTask={openTask} />
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} tab={teamTab} onTabChange={next => navigate('team', 'overview', next)} onTask={openTask} />
         : view === 'system' ? <System store={store} />

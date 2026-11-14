@@ -915,6 +915,7 @@ export function createStore(options: StoreOptions = {}) {
     resetDocumentUpload: () => { if (!state.knowledge.upload.busy) update(knowledgePatch({ upload: emptyUpload() })); },
     getPreview: api.getPreview, startPreview: api.startPreview, stopPreview: api.stopPreview,
     createGame: api.createGame, listReleases: api.listReleases, publishGame: api.publishGame,
+    listGames: api.listGames, getGameReport: api.getGameReport,
     reconcileRelease: api.reconcileRelease, rollbackRelease: api.rollbackRelease,
     rawDocumentUrl: api.rawDocumentUrl,
     fetchRawDocument: api.fetchRawDocument,

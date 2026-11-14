@@ -24,7 +24,7 @@ function buildStage(detail: WorkflowDetail | undefined) {
   }));
 }
 
-export function GamePanel({ store, projectId, gameName, workflow }: { store: Store; projectId: string; gameName: string; workflow: WorkflowInstance }) {
+export function GamePanel({ store, projectId, gameName, workflow, releaseOnly = false }: { store: Store; projectId: string; gameName: string; workflow: WorkflowInstance; releaseOnly?: boolean }) {
   const t = useT(); const id = useId();
   const detail = store.useStoreSelector(state => state.m5.workflowDetails[workflow.id]);
   const [data, setData] = useState<ReleasesResponse | null>(null);
@@ -71,15 +71,15 @@ export function GamePanel({ store, projectId, gameName, workflow }: { store: Sto
   return <Card className="gap-0 rounded-xl border-border py-0 shadow-none" aria-labelledby={id}>
     <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 p-5">
       <h2 id={id} className="font-display text-lg font-semibold">{t('gameUi.panelTitle')}</h2>
-      <div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" onClick={() => setPreview(true)}>{t('previewUi.button')}</Button>
+      <div className="flex flex-wrap items-center gap-2">{!releaseOnly && <Button type="button" variant="outline" onClick={() => setPreview(true)}>{t('previewUi.button')}</Button>}
         <Button type="button" disabled={!allowed || busy} aria-describedby={!allowed ? `${id}-publish-reason` : undefined} onClick={() => setConfirmation({ kind: 'publish' })}>{t('gameUi.publish')}</Button>
         {!allowed && <span id={`${id}-publish-reason`} className="max-w-xl text-sm text-muted-foreground [overflow-wrap:anywhere]">{data?.enabled === false ? t('gameUi.publishingDisabled') : loadError ? t('gameUi.loadError') : data ? data.canPublish.reason ?? t('gameUi.publishUnavailable') : t('viewStates.loading')}</span>}
       </div>
     </CardHeader>
     <CardContent className="space-y-4 px-5 pb-5">
-      <dl className="grid gap-2 text-sm"><div className="flex flex-wrap items-center gap-2"><dt className="text-muted-foreground">{t('gameUi.buildStatus')}</dt><dd><M5Status value={detail?.state ?? workflow.state} /></dd></div>
+      {!releaseOnly && <dl className="grid gap-2 text-sm"><div className="flex flex-wrap items-center gap-2"><dt className="text-muted-foreground">{t('gameUi.buildStatus')}</dt><dd><M5Status value={detail?.state ?? workflow.state} /></dd></div>
         <div className="flex flex-wrap gap-x-2"><dt className="text-muted-foreground">{t('gameUi.buildStage')}</dt><dd className="space-y-1 [overflow-wrap:anywhere]">{stages.length ? stages.map(stage => <div key={stage.key} className="flex flex-wrap items-center gap-2"><span>{stage.title}</span><M5Status value={stage.state} /></div>) : t('workflowUi.noStages')}</dd></div>
-      </dl>
+      </dl>}
       {actionError && <p role="alert" className="text-sm text-destructive">{t('gameUi.actionError')}</p>}
       {loadError && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive"><span>{t('gameUi.loadError')}</span><Button type="button" variant="outline" size="sm" onClick={() => setRefresh(value => value + 1)}>{t('errors.retry')}</Button></div>}
       {!data && !loadError && <p role="status" className="text-sm text-muted-foreground">{t('viewStates.loading')}</p>}

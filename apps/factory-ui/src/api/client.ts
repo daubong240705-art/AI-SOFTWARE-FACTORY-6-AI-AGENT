@@ -12,7 +12,7 @@ import { extractionModels, mediaTypeForFile } from './documents';
 import { systemModels } from './systemModels';
 import { folderBrowseModel } from './folderModels';
 import { modelSettingsResponse } from './modelSettings';
-import { newGameRequestSchema, newGameResponseSchema, releaseViewSchema, releasesResponseSchema, rollbackRequestSchema, type NewGameRequest } from '@factory/contracts';
+import { gamesResponseSchema, gameReportResponseSchema, newGameRequestSchema, newGameResponseSchema, releaseViewSchema, releasesResponseSchema, rollbackRequestSchema, type NewGameRequest } from '@factory/contracts';
 export type { FolderListing } from './folderModels';
 export type { SystemHealth, SystemCapabilities, SystemBackup } from './systemModels';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
@@ -158,6 +158,8 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     async session() { const result = await request('/auth/session', auth); csrfToken = result.csrfToken; return result; },
     async logout() { const result = await request('/auth/logout', ok, {}); csrfToken = null; return result; },
     listProjects: () => request('/projects', projects),
+    listGames: (signal?: AbortSignal) => request('/games', gamesResponseSchema, undefined, false, signal),
+    getGameReport: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/game-report`, gameReportResponseSchema, undefined, false, signal),
     createGame: (body: NewGameRequest) => request('/games', newGameResponseSchema, newGameRequestSchema.parse(body)),
     listReleases: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/releases`, releasesResponseSchema, undefined, false, signal),
     publishGame: (id: string) => request(`${projectPath(id)}/publish`, releaseResponse, {}),
@@ -181,9 +183,9 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     searchKnowledge: (id: string, options: KnowledgePage & { query: string }) => request(`${projectPath(id)}/knowledge/search${knowledgeQuery(options, options.query)}`, readModels.knowledgeSearch),
     listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     listDocuments: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
-    getPreview: (id: string) => request(`${projectPath(id)}/preview`, readModels.preview),
-    startPreview: (id: string) => request(`${projectPath(id)}/preview/start`, readModels.preview, {}),
-    stopPreview: (id: string) => request(`${projectPath(id)}/preview/stop`, readModels.preview, {}),
+    getPreview: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/preview`, readModels.preview, undefined, false, signal),
+    startPreview: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/preview/start`, readModels.preview, {}, false, signal),
+    stopPreview: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/preview/stop`, readModels.preview, {}, false, signal),
     knowledgeGroups: (id: string) => request(`${projectPath(id)}/knowledge/groups`, readModels.knowledgeGroups),
     getKnowledgeArtifact: (id: string, artifactId: string) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact),
     getExtraction: (id: string, artifactId: string, version: number) => request(extractionPath(id, artifactId, version), extractionModels.detail),

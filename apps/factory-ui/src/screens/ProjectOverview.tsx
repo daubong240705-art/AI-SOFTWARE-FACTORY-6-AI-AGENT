@@ -17,9 +17,12 @@ import { taskTime } from './shell/taskTime';
 import { Page } from '../components/Page';
 import { IntegrationCard } from './overview/IntegrationCard';
 import { GamePanel } from './GamePanel';
+import { useUiProfile } from '@/config/uiProfile';
+import { StudioGameOverview } from './studio/StudioGameOverview';
 
 export function ProjectOverview({ store, onOpenTask }: { store: Store; onOpenTask: (id: string) => void }) {
   const t = useT(); const id = useId(); const state = store.useStoreSelector(value => value);
+  const profile = useUiProfile();
   useEffect(() => store.watchM5('workflows', store.loadWorkflows), [store, state.selectedProjectId]);
   const gameWorkflow = state.m5.workflows.filter(workflow => workflow.key === 'game-build').sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
   const project = state.projects.find(item => item.id === state.selectedProjectId);
@@ -31,6 +34,7 @@ export function ProjectOverview({ store, onOpenTask }: { store: Store; onOpenTas
   ] as const;
   const approvals = new Set(state.inbox.approvals.map(item => item.taskId));
   const tasks = state.tasks.filter(task => ['active', 'awaiting-go', 'in-review'].includes(task.state) || task.holds.some(hold => hold.needsAction) || approvals.has(task.id));
+  if (profile === 'games' && gameWorkflow && project) return <StudioGameOverview key={project.id} store={store} projectId={project.id} gameName={project.name} workflow={gameWorkflow} />;
   return <Page className="grid gap-6">
     {gameWorkflow && project && <GamePanel key={project.id} store={store} projectId={project.id} gameName={project.name} workflow={gameWorkflow} />}
     <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">

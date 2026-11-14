@@ -2,6 +2,30 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  studioUi: {
+    title: 'Xưởng game', hero: 'Cùng đội tạo game, chơi thử và làm game hay hơn mỗi ngày.', games: 'Game của bạn',
+    empty: 'Bắt đầu với game đầu tiên. Hãy kể cho đội nghe game bạn muốn chơi.', loadError: 'Không tải được danh sách game.',
+    needsYou: 'Cần bạn xử lý', open: 'Mở', build: 'Trạng thái làm game', stage: 'Bước hiện tại', noBuild: 'Chưa có bản dựng',
+    rework: 'Số vòng làm lại:', liveVersion: 'Phiên bản đang phát hành', make: 'Làm', playtest: 'Chơi thử', publish: 'Phát hành',
+    states: { draft: 'Đang chuẩn bị', proposed: 'Chờ bắt đầu', active: 'Đang làm game', 'awaiting-approval': 'Chờ bạn duyệt',
+      paused: 'Tạm dừng', resuming: 'Đang tiếp tục', suspended: 'Đang tạm ngưng', stalled: 'Cần hỗ trợ', completed: 'Đã làm xong',
+      failed: 'Làm game thất bại', cancelled: 'Đã hủy', superseded: 'Đã thay thế', unknown: 'Chưa rõ trạng thái' },
+    run: 'Chạy', openTab: 'Mở trong thẻ mới', fullscreen: 'Toàn màn hình', fullscreenError: 'Không mở được toàn màn hình. Bạn có thể mở game trong thẻ mới.',
+    frameTitle: 'Chơi thử {game}', previewLoading: 'Đang chuẩn bị bản chơi thử…', previewEmpty: 'Bấm Chạy để chơi thử game tại đây.',
+    feedback: 'Góp ý cho đội', feedbackType: 'Loại góp ý', feedbackTypes: { fix: 'Lỗi', improve: 'Cải thiện' },
+    feedbackPrompt: 'Bạn muốn đội thay đổi điều gì?', feedbackPlaceholder: 'Mô tả lỗi gặp phải hoặc điều bạn muốn cải thiện…',
+    counter: '{count}/500 ký tự', uiOnly: 'Chỉ đổi giao diện', rulesOnly: 'Chỉ đổi luật',
+    feedbackBusy: 'Chờ đội làm xong lượt hiện tại rồi gửi góp ý nhé.',
+    feedbackNoBuild: 'Cần làm xong một bản game trước khi gửi góp ý.', workflowError: 'Chưa kiểm tra được trạng thái làm game. Hãy tải lại trang để thử lại.',
+    sendFeedback: 'Gửi cho đội', sendingFeedback: 'Đang gửi…', feedbackSent: 'Đã giao cho đội', feedbackError: 'Chưa gửi được góp ý. Bấm Thử lại để tiếp tục yêu cầu này.',
+    report: 'Báo cáo làm game', reportError: 'Không tải được báo cáo làm game.', duration: 'Thời gian', attempts: 'Số lần thử',
+    iteration: 'Lượt', stageReport: 'Thời gian, số lần thử và token theo từng bước, từng lượt', noReport: 'Chưa có kết quả cho từng bước.',
+    tokens: { input: 'Token đầu vào', cachedInput: 'Token đầu vào đã lưu đệm', output: 'Token đầu ra', reasoning: 'Token suy luận' },
+    hours: 'giờ', minutes: 'phút', seconds: 'giây', qa: 'Các vòng kiểm thử', qaRound: 'Vòng kiểm thử {iteration}',
+    noQa: 'Chưa có vòng kiểm thử nào.', noCriteria: 'Vòng này chưa báo cáo tiêu chí kiểm thử.', noEvidence: 'Chưa có bằng chứng được báo cáo.',
+    pass: 'Đạt', fail: 'Không đạt', notReported: 'Chưa báo cáo',
+    verdicts: { passed: 'Đạt', 'changes-requested': 'Cần chỉnh sửa', running: 'Đang kiểm thử' },
+  },
   uiProfile: { showAllFeatures: 'Hiện tất cả tính năng', help: 'Bật để hiện đầy đủ tính năng của xưởng phần mềm.' },
   gameUi: {
     newGame: 'Tạo game mới', createDescription: 'Mô tả game bạn muốn làm. Đội làm game sẽ xây dựng từ dự án mẫu.',
