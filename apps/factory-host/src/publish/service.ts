@@ -5,7 +5,7 @@
  * are never replayed, including after shutdown or a crash. Reconciliation only reads Portal state.
  */
 import fs from "node:fs";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import type { Database } from "better-sqlite3";
 import { z } from "zod";
 import { idSchema, releaseViewSchema, rollbackRequestSchema, type ReleaseKind, type ReleaseState,
@@ -135,7 +135,7 @@ export function createPublishService(deps: {
   const run = async (cwd: string, command: string, args: string[], home: string, timeoutMs: number,
     output?: (chunk: string) => void): Promise<RunResult> => {
     available();
-    const handle = startProcess({ command, args, cwd, env: buildSafeEnv({ HOME: home, TMPDIR: home }), timeoutMs,
+    const handle = startProcess({ command, args, cwd, env: buildSafeEnv({ HOME: home, TMPDIR: home, PATH: `${dirname(process.execPath)}:/usr/local/bin:/usr/bin:/bin` }), timeoutMs,
       maxOutputBytes: 256 * 1024, ...(output ? { onOutput: (_stream, chunk) => output(chunk) } : {}) });
     handles.add(handle);
     try { return await handle.result; } finally { handles.delete(handle); }
