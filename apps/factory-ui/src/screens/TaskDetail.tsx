@@ -66,5 +66,5 @@ export function TaskDetail({ store, taskId, onClose, initialTab = 'request', inl
     </Tabs>
   </div>;
   return inline ? <DockedPane label={t('projectUi.taskDetails')} className="project-task-pane h-full bg-background p-6" onClose={onClose} {...(fallbackFocus ? { fallbackFocus } : {})}>{content}</DockedPane>
-    : <Dialog labelledBy={`${id}-title`} onClose={onClose} className="task-detail-backdrop">{content}</Dialog>;
+    : <Dialog labelledBy={`${id}-title`} onClose={onClose}>{content}</Dialog>;
 }

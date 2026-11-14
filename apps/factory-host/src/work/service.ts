@@ -56,16 +56,35 @@ export function assertTaskInputs(raw: Database, projectId: string, inputs: reado
 }
 
 /** The caller owns the transaction, including rollback of the whole proposal. */
+/** Seat names compare without case, spacing or a copy number: "gameplay engineer 2", "Gameplay-Engineer #2" and
+ * "Gameplay Engineer (dev2)" all name the Gameplay Engineer seat, whose slots run the copies. */
+function seatKey(name: string): string {
+  return name.toLowerCase().replace(/\((?:dev|copy|#)?\s*\d+\)|#\s*\d+|\b(?:dev|copy)\s*\d+\b|\s+\d+$/g, " ")
+    .replace(/[^a-z0-9]+/g, " ").trim();
+}
+
 export function createProposedTasks(raw: Database, input: {
   projectId: string; turnId: string; plan: TaskProposeInput; engagementId: string | null;
+  /** Full text per task (from the plan normalizer); defaults to the goal. */
+  briefs?: readonly string[];
+  /** Told how many plan entries matched a task that is still open, so no second copy was created. */
+  onDuplicates?: (count: number) => void;
 }): Task[] {
   const { projectId, turnId, plan, engagementId } = input;
   const codes = raw.prepare("SELECT code FROM tasks WHERE project_id = ?").all(projectId) as { code: string }[];
   let next = codes.reduce((max, row) => /^TSK-\d+$/.test(row.code) ? Math.max(max, Number(row.code.slice(4))) : max, 0) + 1;
-  const ids = plan.tasks.map((_, index) => deterministicUuid(`lead-turn:${turnId}:${index}`));
-  // The Lead names the member that does each task; an unknown or Lead name falls back to the Host's own choice.
+  // A Lead that restates a plan (for example after the operator writes "accept all") must not create a second copy:
+  // an entry with the same title and goal as a task that is still open reuses that task, dependencies included.
+  const open = raw.prepare(`SELECT id FROM tasks WHERE project_id = ? AND lower(trim(title)) = lower(trim(?)) AND goal = ?
+    AND state NOT IN ('done', 'failed', 'cancelled', 'declined', 'superseded') ORDER BY code LIMIT 1`);
+  const reused = plan.tasks.map((entry) => (open.get(projectId, entry.title, entry.goal) as { id: string } | undefined)?.id ?? null);
+  const duplicates = reused.filter((id) => id !== null).length;
+  if (duplicates) input.onDuplicates?.(duplicates);
+  const ids = plan.tasks.map((_, index) => reused[index] ?? deterministicUuid(`lead-turn:${turnId}:${index}`));
+  // The Lead names the member that does each task, possibly itself ("Lead") for work no member fits; an unknown name
+  // falls back to the Host's own choice by capability.
   const seatByName = new Map((engagementId === null ? [] : raw.prepare(`SELECT s.id, s.name FROM seats s JOIN engagements e ON e.team_id = s.team_id
-    WHERE e.id = ? AND s.is_lead = 0`).all(engagementId) as { id: string; name: string }[]).map((seat) => [seat.name.toLowerCase(), seat.id]));
+    WHERE e.id = ?`).all(engagementId) as { id: string; name: string }[]).map((seat) => [seatKey(seat.name), seat.id]));
   // Lead inputs are artifact ids; each resolves to its latest usable version, unknown ids are dropped.
   const latestUsable = raw.prepare(`SELECT version FROM artifact_versions WHERE project_id = ? AND artifact_id = ?
     AND status NOT IN ('withdrawn', 'rejected') ORDER BY version DESC LIMIT 1`);
@@ -81,7 +100,7 @@ export function createProposedTasks(raw: Database, input: {
     raw.prepare(`INSERT INTO tasks (project_id, id, revision, code, title, goal, brief, parent_task_id, engagement_id,
       owner_seat_id, origin_kind, state, disposition, placement, side_effect, review_policy, requires_go,
       required_capabilities_json, acceptance_json, inputs_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(projectId, id, 1, code, entry.title, entry.goal, entry.goal, null, engagementId, seatByName.get((entry.ownerSeat ?? "").toLowerCase()) ?? null,
+      .run(projectId, id, 1, code, entry.title, entry.goal, input.briefs?.[index] || entry.goal, null, engagementId, seatByName.get(seatKey(entry.ownerSeat ?? "")) ?? null,
         // The Lead decides who reviews: "automatic" tasks are accepted by the Host when their result is clean
         // (approvals/service.ts autoReviewTask). Hybrid has no reviewer of its own and external effects always need
         // the operator. Tasks start without a Go; only an irreversible external effect waits for one.

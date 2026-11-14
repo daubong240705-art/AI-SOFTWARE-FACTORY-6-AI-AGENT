@@ -39,6 +39,12 @@ function classify(text: string): ModelError {
  * Every call runs in an empty temporary directory with no tools, no MCP servers, no settings and no session file,
  * so the CLI acts as a plain completion endpoint under the operator's own login.
  */
+/** What the Lead may do while inspecting: read files under its working directory (Read rules also bound Grep and Glob)
+ * and run Git commands that only read the repository. git diff and git grep are left out: given paths outside the
+ * repository they read any file. */
+export const INSPECT_ALLOWED = ["Read(./**)", "Bash(git log:*)", "Bash(git show:*)", "Bash(git status:*)",
+  "Bash(git ls-files:*)", "Bash(git ls-tree:*)", "Bash(git for-each-ref:*)", "Bash(git rev-parse:*)", "Bash(git merge-base:*)"] as const;
+
 export function createClaudeCliGateway(options: {
   command?: readonly string[]; passEnv?: readonly string[]; defaultTimeoutMs?: number; maxResponseBytes?: number;
 } = {}): ModelGateway {
@@ -58,10 +64,14 @@ export function createClaudeCliGateway(options: {
       if (request.signal?.aborted) throw new ModelError("cancelled");
       if (!request.messages.length || request.system.includes("\0")) throw new ModelError("config");
       const model = claudeCliModel(request.model);
-      const args = ["-p", "--output-format", "json", "--tools", "", "--system-prompt", request.system,
+      // Inspection: reading inside the view and read-only Git only. Print mode cannot ask for permission, so any other
+      // tool use (edits, other commands, files outside the view) is denied by the CLI itself.
+      const tools = request.inspect ? ["--tools", "Read,Grep,Glob,Bash", "--permission-mode", "default", "--max-turns", "40",
+        "--allowedTools", INSPECT_ALLOWED.join(" "), "--disallowedTools", "Edit Write NotebookEdit WebFetch WebSearch"] : ["--tools", ""];
+      const args = ["-p", "--output-format", "json", ...tools, "--system-prompt", request.system,
         "--setting-sources", "", "--strict-mcp-config", "--no-session-persistence", "--disable-slash-commands",
         ...(model === null ? [] : ["--model", model]), ...(request.effort ? ["--effort", request.effort] : [])];
-      const cwd = await mkdtemp(join(tmpdir(), "factory-lead-"));
+      const cwd = request.inspect?.cwd ?? await mkdtemp(join(tmpdir(), "factory-lead-"));
       let stdout = "", stderr = "", overflow = false, abortKind: "cancelled" | "timeout" | undefined;
       const child = cliProcess(command, args, { cwd, passEnv, input: transcript(request.messages), output(stream, chunk) {
         if (stream === "stderr") { stderr = (stderr + chunk).slice(-4096); return; }
@@ -103,7 +113,8 @@ export function createClaudeCliGateway(options: {
         clearTimeout(timer);
         request.signal?.removeEventListener("abort", onAbort);
         if (!abortKind && !overflow) void child.stop().catch(() => {});
-        await rm(cwd, { recursive: true, force: true }).catch(() => {});
+        // Only the temporary directory is removed; an inspection view belongs to the caller.
+        if (!request.inspect) await rm(cwd, { recursive: true, force: true }).catch(() => {});
       }
     },
   };

@@ -7,6 +7,8 @@ export interface ModelRequest {
   model: string; effort: ReasoningEffort | null; system: string;
   messages: { role: "user" | "assistant"; content: string }[];
   maxOutputTokens: number; timeoutMs?: number; signal?: AbortSignal;
+  /** Read-only inspection of a directory (Claude Code CLI only): read, search and read-only git; no edits. */
+  inspect?: { cwd: string };
 }
 export interface ModelResult {
   text: string; usage: Usage | null; provider: string; model: string; finishReason: string | null;

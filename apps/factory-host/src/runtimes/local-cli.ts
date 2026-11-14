@@ -81,8 +81,10 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
     const cli = agent.cli;
     // Values the operator passed through (such as a provider key) are secrets too.
     const passed = passEnv.map((name) => process.env[name]).filter((value): value is string => value !== undefined && value.length >= 8);
+    // A markdown link to a local file ([name](/abs/path)) keeps its label; the path inside it is the part to hide.
+    const localLinks = (text: string): string => text.replace(/\[([^\]\n]{1,200})\]\((?:[A-Za-z]:[\\/]|\/|file:)[^)\n]*\)/g, "$1");
     const scrub = (text: string): string => passed.reduce((out, value) => out.replaceAll(value, "[redacted]"),
-      scrubForLog(text, [model.token, ...passed, workspace.path, workspace.path.replaceAll("\\", "/"), homedir()]))
+      scrubForLog(localLinks(text), [model.token, ...passed, workspace.path, workspace.path.replaceAll("\\", "/"), homedir()]))
       .replaceAll(model.token, "[redacted]").replace(/fpx_[A-Za-z0-9_-]+|\bsk-[A-Za-z0-9_-]+/g, "[redacted]")
       .replace(/[A-Za-z]:[\\/][^\s<>"'`]+|(?<![\w:])\/(?:[^\s<>"'`]+\/)*[^\s<>"'`]+/g, "[path]")
       .replace(/[\p{Cc}\p{Cf}]+/gu, " ");
@@ -186,7 +188,19 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
       const item = record(event.item);
       const text = (value: string): void => { const clean = scrub(value); summary = clean.trim().slice(0, 2000); emit({ type: "output", text: clean }); };
       const error = (): void => { terminal = failure(cli, input + "\n" + diagnostic); clear(); terminate(); };
-      if (type === "error" || type === "turn.failed") { error(); return; }
+      if (type === "error" || type === "turn.failed") {
+        const reported = typeof event.message === "string" ? event.message
+          : typeof record(event.error).message === "string" ? record(event.error).message as string : "";
+        // Codex reports stream retries ("Reconnecting... 2/5", "stream disconnected") as error events and then
+        // recovers by itself; ending the run there turned busy-gateway hiccups into failed tasks.
+        if (type === "error" && cli === "codex" && /reconnect|retrying|stream disconnected|stream error|temporar|timed out/i.test(reported)) {
+          emit({ type: "progress", message: `codex: ${scrub(reported).slice(0, 300)} (Codex retries by itself)` });
+          return;
+        }
+        // Say why, so a failed task is diagnosable; secrets and paths are scrubbed.
+        if (reported) emit({ type: "progress", message: `${cli} reported: ${scrub(reported).slice(0, 400)}` });
+        error(); return;
+      }
       if (cli === "codex") {
         if (type === "item.completed" && item.type === "agent_message" && typeof item.text === "string") text(item.text);
         else if (type === "turn.completed") success = true;
@@ -249,8 +263,12 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
       void processHandle.result.then((result) => {
         if (stopped) { finish(); return; }
         if (line && !discard) parse(line);
+        const succeeded = !terminal && !result.errorCode && result.code === 0 && success;
+        // A run that ends without a result gets the last lines of the CLI's own diagnostics, scrubbed.
+        if (!terminal && !result.errorCode && !succeeded && diagnostic.trim())
+          emit({ type: "progress", message: `${cli} exited (code ${String(result.code)}): ${scrub(diagnostic.trim().split("\n").slice(-3).join(" | ")).slice(-400)}` });
         emit(terminal ?? (result.errorCode ? failure(cli, "", result.errorCode === "ENOENT")
-          : result.code === 0 && success ? { type: "completed", summary: summary || "Work finished" }
+          : succeeded ? { type: "completed", summary: summary || "Work finished" }
           : failure(cli, diagnostic)));
         diagnostic = ""; line = ""; finish();
       });

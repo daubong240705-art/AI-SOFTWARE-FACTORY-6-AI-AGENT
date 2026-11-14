@@ -1,6 +1,6 @@
 {
   "key": "game-studio",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "name": "Game Studio",
   "description": "Builds an original browser 3D party game with physics-driven, wobbly characters and online multiplayer. Works in small playable increments: reproducible Blender assets, a shared Rapier simulation, an authoritative server, a Three.js client and independent browser, multiplayer and performance checks.",
   "seats": [
@@ -26,11 +26,29 @@
       "role": "Game designer: rules, verbs, rounds and tuning data",
       "profile": "profiles/game-designer.md",
       "runtime": "native-opencode",
-      "slots": 1,
+      "slots": 2,
       "isLead": false,
       "capabilities": [
         "game.design",
         "game.design.tuning",
+        "docs.requirements"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    },
+    {
+      "name": "Product Strategist",
+      "role": "Product strategist: audience, positioning, fair monetization, retention and release scope for the game",
+      "profile": "profiles/product-strategist.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": [
+        "game.business",
+        "docs.research",
         "docs.requirements"
       ],
       "tools": [
@@ -66,7 +84,7 @@
       "role": "Physics engineer: Rapier simulation, active ragdolls, grabbing, throwing and bombs",
       "profile": "profiles/physics-engineer.md",
       "runtime": "native-opencode",
-      "slots": 1,
+      "slots": 2,
       "isLead": false,
       "capabilities": [
         "game.physics",
@@ -83,7 +101,7 @@
       "role": "Network engineer: authoritative game server, protocol, prediction and interpolation",
       "profile": "profiles/network-engineer.md",
       "runtime": "native-opencode",
-      "slots": 1,
+      "slots": 2,
       "isLead": false,
       "capabilities": [
         "game.netcode",
@@ -102,7 +120,7 @@
       "role": "Gameplay engineer: Three.js client, input, camera, HUD and asset integration",
       "profile": "profiles/gameplay-engineer.md",
       "runtime": "native-opencode",
-      "slots": 1,
+      "slots": 3,
       "isLead": false,
       "capabilities": [
         "game.client",
@@ -122,7 +140,7 @@
       "role": "QA engineer: independent browser, multiplayer and performance testing",
       "profile": "profiles/qa-engineer.md",
       "runtime": "native-opencode",
-      "slots": 1,
+      "slots": 2,
       "isLead": false,
       "capabilities": [
         "test.e2e",
@@ -138,6 +156,24 @@
         "ext.playwright.*",
         "ext.devtools.*"
       ]
+    },
+    {
+      "name": "DevOps Engineer",
+      "role": "DevOps engineer: one-command run, build, Docker, health checks and the preview file",
+      "profile": "profiles/devops-engineer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": [
+        "devops.build",
+        "devops.preview",
+        "code.typescript"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
     }
   ],
   "skills": [
@@ -147,7 +183,9 @@
     "skills/active-ragdoll-physics",
     "skills/netcode-authoritative",
     "skills/browser-game-testing",
-    "skills/visual-review"
+    "skills/visual-review",
+    "skills/game-business",
+    "skills/local-preview"
   ],
   "workflows": [
     "workflows/game-increment.json"
@@ -156,6 +194,7 @@
     "code-ref",
     "design-asset",
     "requirements",
-    "plan"
+    "plan",
+    "research-report"
   ]
 }

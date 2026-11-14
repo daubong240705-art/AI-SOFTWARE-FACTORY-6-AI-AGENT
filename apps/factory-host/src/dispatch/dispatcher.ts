@@ -267,7 +267,17 @@ export function createDispatcher(deps: {
       try {
         if (!valid()) return;
         let evidence: Awaited<ReturnType<WorkspaceProvider["finish"]>> | undefined;
-        const finishing = deps.workspace!.finish({ ...entry.workspace!, attemptId: a.id }).then((value) => { evidence = value; });
+        // A retry continues on the branch of the earlier attempt. What the reviewer and the integration branch see is
+        // everything the task changed, so the diff is taken from the commit the FIRST attempt started on; measured from the
+        // retry's own start it would read "no files changed" whenever the retry only verified earlier work.
+        const firstBase = a.epoch > 1 ? (raw.prepare(`SELECT e.body_json FROM attempts x JOIN attempt_events e
+          ON e.project_id = x.project_id AND e.attempt_id = x.id
+          WHERE x.project_id = ? AND x.task_id = ? AND x.epoch < ? AND e.kind = 'state'
+          ORDER BY x.epoch ASC, e.seq ASC`).all(a.projectId, a.taskId, a.epoch) as { body_json: string }[])
+          .map((row) => JSON.parse(row.body_json) as { to?: string; baseSha?: string })
+          .find((body) => body.to === "workspace-ready" && typeof body.baseSha === "string")?.baseSha : undefined;
+        const finishing = deps.workspace!.finish({ ...entry.workspace!, ...(firstBase === undefined ? {} : { baseSha: firstBase }),
+          attemptId: a.id }).then((value) => { evidence = value; });
         // A stop keeps confirmed partial work; expiry and shutdown detach an unfinished collector.
         const abandoned = entry.fenced.then(() => ["stopping", "waiting-input"].includes(current(a.projectId, a.id).state) ? shutdown : undefined);
         await bounded(Promise.race([finishing, abandoned, shutdown]), config.evidenceTimeoutMs);

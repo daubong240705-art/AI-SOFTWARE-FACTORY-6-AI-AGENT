@@ -123,6 +123,22 @@ function lastFinished(raw: Database, seatIds: string): Map<string, Finished> {
   return new Map(rows.map((row) => [row.seatId, { code: text(row.code, 80), outcome: row.outcome, at: timestamp(row.at) }]));
 }
 
+/**
+ * A failure that still needs the operator: the seat's latest failed attempt whose task is still `failed` and has not
+ * been retried. Retrying, cancelling or finishing the task clears it, so a seat never keeps a problem it has already left.
+ */
+function unresolvedFailures(raw: Database, seatIds: string): Map<string, Finished> {
+  const rows = raw.prepare(`WITH failed AS (
+    SELECT ats.seat_id AS seatId, t.code, a.state AS outcome, a.ended_at AS at,
+      ROW_NUMBER() OVER (PARTITION BY ats.seat_id ORDER BY julianday(a.ended_at) DESC, a.rowid DESC) AS position
+    FROM attempt_seats ats JOIN attempts a ON a.project_id = ats.project_id AND a.id = ats.attempt_id
+    JOIN tasks t ON t.project_id = a.project_id AND t.id = a.task_id
+    WHERE ats.seat_id IN (SELECT value FROM json_each(?)) AND a.state = 'failed' AND t.state = 'failed'
+      AND NOT EXISTS (SELECT 1 FROM attempts newer WHERE newer.project_id = a.project_id AND newer.task_id = a.task_id AND newer.epoch > a.epoch)
+    ) SELECT seatId, code, outcome, at FROM failed WHERE position = 1`).all(seatIds) as (Finished & { seatId: string })[];
+  return new Map(rows.map((row) => [row.seatId, { code: text(row.code, 80), outcome: row.outcome, at: timestamp(row.at) }]));
+}
+
 function run(row: LiveRow, event: EventRow | undefined): Run {
   const at = timestamp(event?.progressAt ?? null);
   const percent = event?.percent;
@@ -135,14 +151,21 @@ function run(row: LiveRow, event: EventRow | undefined): Run {
     } : null };
 }
 
-function status(signals: Signals | undefined, needs: Need[], queued: number, finished: Finished | null, now: Date): Status {
+/** "Just finished" is a short confirmation, not a state: after two minutes the seat is simply idle. */
+const JUST_FINISHED_MS = 2 * 60 * 1000;
+
+function status(signals: Signals | undefined, needs: Need[], queued: number, finished: Finished | null,
+  unresolved: Finished | null, now: Date): Status {
   const age = finished?.at === null || !finished ? NaN : now.getTime() - Date.parse(finished.at);
-  const recent = age >= 0 && age <= 30 * 60 * 1000;
+  const justFinished = age >= 0 && age <= JUST_FINISHED_MS;
   if (needs.length > 0 || signals?.waiting) return "waiting";
-  if (signals?.problem || (finished?.outcome === "failed" && recent)) return "problem";
+  // Live trouble (lost lease, unknown outcome) always shows. A seat that is working shows "working": a failed task it
+  // left behind is the operator's to retry or cancel, and it surfaces again once the seat has nothing running.
+  if (signals?.problem) return "problem";
   if (signals?.working) return "working";
+  if (unresolved) return "problem";
   if (queued > 0) return "queued";
-  if (finished?.outcome === "succeeded" && recent) return "done";
+  if (finished?.outcome === "succeeded" && justFinished) return "done";
   return "idle";
 }
 
@@ -155,6 +178,7 @@ export function orgActivity(raw: Database, now: Date): { generatedAt: string; no
   const queued = queuedCounts(raw, seatIds);
   const needs = needsYou(raw, seatIds);
   const finished = lastFinished(raw, seatIds);
+  const unresolved = unresolvedFailures(raw, seatIds);
   const runs = new Map<string, Run[]>();
   const signals = new Map<string, Signals>();
   for (const row of live) {
@@ -167,12 +191,15 @@ export function orgActivity(raw: Database, now: Date): { generatedAt: string; no
   const byTeam = new Map<string, Seat[]>();
   for (const seat of seats) {
     const needsYou = needs.get(seat.id) ?? [];
+    const failure = unresolved.get(seat.id) ?? null;
+    const signal = signals.get(seat.id);
     const lastFinished = finished.get(seat.id) ?? null;
     const count = queued.get(seat.id) ?? 0;
     const items = byTeam.get(seat.teamId) ?? [];
     items.push({ id: seat.id, name: text(seat.name), role: text(seat.role, 160), isLead: seat.isLead, slots: seat.slots,
-      status: status(signals.get(seat.id), needsYou, count, lastFinished, now), runs: runs.get(seat.id) ?? [],
-      queued: count, needsYou, lastFinished });
+      status: status(signal, needsYou, count, lastFinished, failure, now), runs: runs.get(seat.id) ?? [],
+      // When an unresolved failure is the reason for "problem", it is the result shown for the seat.
+      queued: count, needsYou, lastFinished: failure && !signal?.problem && !signal?.working && !signal?.waiting && !needsYou.length ? failure : lastFinished });
     byTeam.set(seat.teamId, items);
   }
   return { generatedAt: now.toISOString(), nodes: nodes(raw), teams: teams.map((team) => {

@@ -15,7 +15,7 @@ import { ReviewChanges } from './ReviewChanges';
 import { ReviewDocuments } from './ReviewDocuments';
 import { ReviewAside } from './ReviewAside';
 import { Fold, Facts } from './ReviewShared';
-import { readableText } from './presentation';
+import { briefBeyondGoal, readableText } from './presentation';
 
 export function ReviewResult({ store, taskId, approval }: { store: Store; taskId: string; approval?: Approval }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
@@ -74,7 +74,7 @@ export function ReviewResult({ store, taskId, approval }: { store: Store; taskId
         </TabsContent>
         <TabsContent value="context" className="m-0 space-y-4">
           {task && <>
-            <Card className="gap-3 border-border p-5 shadow-none"><h3 className="text-sm font-semibold">{t('taskUi.goal')}</h3><p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{readableText(task.goal)}</p>{task.brief && <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{readableText(task.brief)}</p>}</Card>
+            <Card className="gap-3 border-border p-5 shadow-none"><h3 className="text-sm font-semibold">{t('taskUi.goal')}</h3><p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{readableText(task.goal)}</p>{briefBeyondGoal(task.goal, task.brief) && <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{readableText(task.brief)}</p>}</Card>
             <Card className="gap-3 border-border p-5 shadow-none"><h3 className="text-sm font-semibold">{t('taskUi.dependencies')}</h3><ul className="space-y-2 text-sm text-muted-foreground">{task.dependsOn.map(dependency => <li key={dependency} className="font-mono">{state.tasks.find(item => item.id === dependency)?.code ?? dependency}</li>)}</ul><Facts rows={task.holds.map(hold => [t(`workUi.holdKinds.${hold.kind}`), readableText(hold.reason)])} /></Card>
             <TaskContext store={store} taskId={taskId} />
             <TaskInputs store={store} taskId={taskId} />

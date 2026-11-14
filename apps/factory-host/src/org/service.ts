@@ -81,9 +81,11 @@ export function getActiveEngagement(raw: Database, projectId: string): Engagemen
 }
 
 /** The earliest active engagement owns the project's Lead; priority only controls dispatch. */
+/** The project's team engagement: the active one, otherwise a paused one. A paused team is still the project's team
+ * (its tasks wait and the UI keeps showing it); only an ended engagement no longer counts. */
 export function getPrimaryEngagement(raw: Database, projectId: string): Engagement | undefined {
-  const row = raw.prepare("SELECT * FROM engagements WHERE project_id = ? AND state = ? ORDER BY created_at, id LIMIT 1")
-    .get(projectId, "active") as EngagementRow | undefined;
+  const row = raw.prepare(`SELECT * FROM engagements WHERE project_id = ? AND state IN ('active', 'paused')
+    ORDER BY (state = 'active') DESC, created_at, id LIMIT 1`).get(projectId) as EngagementRow | undefined;
   return row === undefined ? undefined : engagementSchema.parse({
     id: row.id, projectId: row.project_id, teamId: row.team_id, revision: row.revision,
     priority: row.priority, maxConcurrent: row.max_concurrent, state: row.state, createdAt: row.created_at,
