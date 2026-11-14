@@ -44,12 +44,11 @@ fi
 step "3/7 user, folders and the application"
 id portal >/dev/null 2>&1 || sudo useradd --system --no-create-home --shell /usr/sbin/nologin portal
 sudo install -d -o portal -g portal -m 750 "$DATA" "$APP" "$APP/.home"
-sudo rsync -a --delete --exclude node_modules --exclude data --exclude .git --exclude web/dist --exclude .home "$SRC"/ "$APP"/
+# Install and build as YOU in the source folder: the portal user may not open outgoing connections (see step 5), so it
+# cannot download packages. --ignore-scripts: better-sqlite3 ships its Linux x64 binary; its install step would compile (needs make).
+(cd "$SRC" && PATH="$NODE_DIR/bin:/usr/bin:/bin" npm ci --ignore-scripts --no-audit --no-fund && PATH="$NODE_DIR/bin:/usr/bin:/bin" npm run web:build)
+sudo rsync -a --delete --exclude data --exclude .git --exclude .home "$SRC"/ "$APP"/
 sudo chown -R portal:portal "$APP"
-run_as_portal() { sudo -u portal env HOME="$APP/.home" PATH="$NODE_DIR/bin:/usr/bin:/bin" bash -c "cd $APP && $*"; }
-# --ignore-scripts: better-sqlite3 ships its Linux x64 binary inside the package; its install step would try to compile it (needs make).
-run_as_portal "npm ci --ignore-scripts --no-audit --no-fund"
-run_as_portal "npm run web:build"
 
 step "4/7 environment file $ENVF (sudo, mode 600)"
 if sudo test -f "$ENVF"; then echo "kept the existing file"; else
