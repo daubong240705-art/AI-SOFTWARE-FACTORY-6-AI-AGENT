@@ -71,6 +71,12 @@ case "$ROOT" in /mnt/*) bad "FACTORY_V2_HOME must not be under /mnt";; esac
 if [ -z "${FACTORY_CLI_PASS_ENV+x}" ] && [ -n "${NINE_ROUTER_API_KEY:-}" ]; then export FACTORY_CLI_PASS_ENV=NINE_ROUTER_API_KEY; fi
 [ -n "${FACTORY_CLI_PASS_ENV:-}" ] && ok "variables passed to the CLIs: ${FACTORY_CLI_PASS_ENV} (values not shown)" \
   || note "no variables passed to the CLIs (a Codex provider key such as NINE_ROUTER_API_KEY is not set)"
+case "${FACTORY_LISTEN_HOST:-127.0.0.1}" in
+  127.0.0.1|::1) ;;
+  *) login_token="${FACTORY_LOGIN_TOKEN:-}"
+     if [ "${#login_token}" -ge 24 ]; then ok "network access on $FACTORY_LISTEN_HOST, sign-in with FACTORY_LOGIN_TOKEN (value not shown)"
+     else bad "FACTORY_LOGIN_TOKEN (24+ characters) is required when FACTORY_LISTEN_HOST is a network address: put it in $ENV_FILE"; fi ;;
+esac
 if [ "$fail" -ne 0 ]; then echo "Preflight failed: nothing started." >&2; exit 1; fi
 if [ "$CHECK" -eq 1 ]; then echo "Preflight passed. Start without --check to run the Host."; exit 0; fi
 
@@ -80,9 +86,10 @@ mkdir -p "$ROOT/workspaces" "$ROOT/worktrees" "$ROOT/state"
 export FACTORY_LOCAL_CLI=1 FACTORY_DEFAULT_AGENT_CLI="$AGENTS"
 # Lead on the Claude Code CLI login, or (FACTORY_LEAD_CLI unset) through the 9Router chat gateway with NINE_ROUTER_API_KEY.
 if [ "$LEAD" = claude ]; then export FACTORY_LEAD_CLI=claude; else unset FACTORY_LEAD_CLI; fi
-# No sign-in token: the Host listens on loopback only and gives the browser a session by itself.
-# Set FACTORY_OPEN_LOGIN=0 to bring the one-time token back.
-export FACTORY_OPEN_LOGIN="${FACTORY_OPEN_LOGIN:-1}"
+# Loopback only: no sign-in, the Host gives the browser a session by itself (FACTORY_OPEN_LOGIN=0 brings the one-time token back).
+# Network access: FACTORY_LISTEN_HOST=<one IP address of this machine> needs FACTORY_LOGIN_TOKEN (24+ characters you choose; it
+# signs in any number of times) and turns open login off. FACTORY_ALLOWED_HOSTS=name1,name2 adds names used in the browser address.
+case "${FACTORY_LISTEN_HOST:-127.0.0.1}" in 127.0.0.1|::1) export FACTORY_OPEN_LOGIN="${FACTORY_OPEN_LOGIN:-1}" ;; *) export FACTORY_OPEN_LOGIN=0 ;; esac
 export FACTORY_LEAD_TIMEOUT_SECONDS="${FACTORY_LEAD_TIMEOUT_SECONDS:-600}"
 export FACTORY_STATE_DIR="${FACTORY_STATE_DIR:-$ROOT/state}"
 export FACTORY_PROJECTS_ROOT="${FACTORY_PROJECTS_ROOT:-$ROOT/workspaces}"
@@ -103,5 +110,8 @@ if [ -z "${FACTORY_NODE_SLOTS:-}" ]; then
 fi
 echo "WARNING: agents run on the $AGENTS CLI (unless a seat is configured otherwise) with the operator's full permissions." >&2
 echo "Agent slots: $FACTORY_NODE_SLOTS. Lead chat: $([ "$LEAD" = claude ] && echo "Claude Code CLI" || echo "9Router gateway"). Token budget: not limited."
-echo "Starting on http://127.0.0.1:${FACTORY_PORT}/ (loopback only). The one-time sign-in token is printed below; stop with Ctrl+C."
+case "${FACTORY_LISTEN_HOST:-127.0.0.1}" in
+  127.0.0.1|::1) echo "Starting on http://127.0.0.1:${FACTORY_PORT}/ (loopback only). Stop with Ctrl+C." ;;
+  *) echo "Starting on http://${FACTORY_LISTEN_HOST}:${FACTORY_PORT}/ (network access: sign in with FACTORY_LOGIN_TOKEN). Stop with Ctrl+C." ;;
+esac
 exec node "$ROOT/app/apps/factory-host/dist/main.js"

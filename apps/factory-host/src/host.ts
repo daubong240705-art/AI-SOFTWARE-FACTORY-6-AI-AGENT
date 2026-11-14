@@ -21,7 +21,7 @@ import { chmod, lstat, unlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createApiServer, createRoutes, listenLoopback, originsFor, registerStaticUi } from "./api/index.js";
+import { createApiServer, createRoutes, isLoopbackHost, listenLoopback, listenOn, originsFor, registerStaticUi } from "./api/index.js";
 import { createCommandPipeline } from "./commands/pipeline.js";
 import { createWorkflowHandlers, WORKFLOW_COMMANDS } from "./workflow/commands.js";
 import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
@@ -264,6 +264,8 @@ export async function startHost(options: {
   pushChannel?: PushChannel;
   mcpServers?: McpServersConfig;
   multiTeam?: boolean; packsDir?: string; openLogin?: boolean;
+  /** Network access (all three are set from the environment in main.ts): the address to listen on, extra Host/Origin names, and the sign-in token. */
+  listenHost?: string; allowedHosts?: readonly string[]; loginToken?: string;
   contentDir?: string;
   documents?: DocumentConfig;
   docWorker?: DocWorkerConfig;
@@ -777,10 +779,15 @@ export async function startHost(options: {
       ...dispatchHandlers,
       "tasks.transition": withKnowledgeEffects(dispatchHandlers["tasks.transition"] ?? tasksTransitionHandler),
     } });
-    const gate = createBootstrapGate({ clock });
+    const listenHost = options.listenHost ?? "127.0.0.1";
+    const networked = !isLoopbackHost(listenHost);
+    // Agents run with the operator's full permissions: whoever gets a session controls this machine.
+    if (networked && options.loginToken === undefined) throw new Error("A network listen address needs FACTORY_LOGIN_TOKEN");
+    if (networked && options.openLogin) throw new Error("Open login cannot be combined with a network listen address");
+    const gate = createBootstrapGate({ clock, ...(options.loginToken === undefined ? {} : { token: options.loginToken, reusable: true }) });
     const sessions = createSessionStore({ clock });
     const port = options.port === 0 ? await freeLoopbackPort() : options.port;
-    const origins = originsFor(port);
+    const origins = originsFor(port, [...(networked ? [listenHost] : []), ...(options.allowedHosts ?? [])]);
     const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, artifacts, packs, backupStatus: () => backup?.status() ?? null,
       ...(routeBreaker === undefined ? {} : { routeBreaker }),
       ...(external === undefined ? {} : { external }),
@@ -860,12 +867,14 @@ export async function startHost(options: {
       app.get("/system/agent-clis", { preHandler: guards.session }, async () => ({ apiVersion: 1, ok: true, ...(await probeAgentClis()), ...runtimeFacts }));
       if (options.uiDir) registerStaticUi(app, { dir: options.uiDir });
     } });
-    await listenLoopback(app, port);
+    await listenOn(app, port, listenHost);
     lead.kick();
     dispatch?.kick();
-    const token = gate.token;
-    if (token === undefined) throw new Error("Bootstrap token unavailable");
-    options.onBootstrapToken(token);
+    if (options.loginToken === undefined) {
+      const token = gate.token;
+      if (token === undefined) throw new Error("Bootstrap token unavailable");
+      options.onBootstrapToken(token);
+    }
     return { app, port, origins, storage, hub, lead, dispatch, workspace, effects, proxy, backup, artifacts, knowledge, models: { gateway: options.modelGateway ?? null, budgetConfig }, close };
   } catch (error) {
     try { await close(); } catch { /* Preserve the original startup failure. */ }

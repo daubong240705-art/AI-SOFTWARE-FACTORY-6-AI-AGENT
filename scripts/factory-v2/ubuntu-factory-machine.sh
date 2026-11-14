@@ -4,6 +4,11 @@
 # Safe to run again. It does not start the Host: copy the app first (see "Next" at the end).
 #
 #   bash ubuntu-factory-machine.sh
+#   LISTEN_HOST=192.168.1.12 ALLOW_FROM="192.168.1.0/24" bash ubuntu-factory-machine.sh    # also open the UI on that address
+#
+# Network access (optional, LISTEN_HOST): the Host then listens on that one address instead of loopback only, asks for a sign-in
+# token (FACTORY_LOGIN_TOKEN, generated here, stored in the environment file) and ufw lets ALLOW_FROM reach port 8787. Anyone who
+# signs in controls this machine (agents run with your permissions): allow only networks you trust.
 #
 # Needs, before it runs:
 #   $FACTORY_V2_HOME/caddy-root.crt   the root certificate of the Caddy that serves ai.lazy.local (public, not a secret)
@@ -84,6 +89,12 @@ ensure FACTORY_PORTAL_ALLOW_PRIVATE_HTTP 1
 ensure FACTORY_NODE_SLOTS 1
 # Node (the Host and its Lead gateway) does not use the system certificate store: give it the CA that signs the 9Router address.
 ensure NODE_EXTRA_CA_CERTS "$CA_FILE"
+if [ -n "${LISTEN_HOST:-}" ]; then
+  ensure FACTORY_LISTEN_HOST "$LISTEN_HOST"
+  grep -q '^FACTORY_LOGIN_TOKEN=.' "$ENV_FILE" || echo "FACTORY_LOGIN_TOKEN=$(openssl rand -base64 48 | tr -d '/+=' | head -c 32)" >> "$ENV_FILE"
+  for net in ${ALLOW_FROM:-192.168.1.0/24}; do sudo ufw allow from "$net" to any port 8787 proto tcp comment 'factory ui'; done
+  echo "Network access on $LISTEN_HOST:8787. The sign-in token is the line FACTORY_LOGIN_TOKEN in $ENV_FILE"
+fi
 grep -q '^NINE_ROUTER_API_KEY=.' "$ENV_FILE" && echo "NINE_ROUTER_API_KEY: present (value not shown)" || echo "WARNING: NINE_ROUTER_API_KEY is missing in $ENV_FILE"
 grep -q '^FACTORY_PORTAL_TOKEN=.' "$ENV_FILE" && echo "FACTORY_PORTAL_TOKEN: present (value not shown)" \
   || echo "NOTE: add FACTORY_PORTAL_TOKEN=<the token in /etc/game-portal.env on the Portal machine> to $ENV_FILE to enable Publish"

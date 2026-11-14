@@ -88,14 +88,21 @@ try {
     const defaultUiDir = fileURLToPath(new URL("../../factory-ui/dist/", import.meta.url));
     try { if ((await stat(defaultUiDir)).isDirectory()) uiDir = defaultUiDir; } catch { /* UI build is optional. */ }
   }
-  const host = await startHost({ ...hostOptions, portal, dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead, runtimes, pushRemotes,
+  // Network access: optional, and only with a sign-in token chosen by the operator (checked again inside startHost).
+  const listenHost = process.env.FACTORY_LISTEN_HOST?.trim() || undefined;
+  const allowedHosts = (process.env.FACTORY_ALLOWED_HOSTS ?? "").split(",").map((name) => name.trim()).filter(Boolean);
+  const loginToken = process.env.FACTORY_LOGIN_TOKEN || undefined;
+  if (loginToken !== undefined && (loginToken.length < 24 || /\s/.test(loginToken))) throw new Error("FACTORY_LOGIN_TOKEN must be at least 24 characters without whitespace");
+  delete process.env.FACTORY_LOGIN_TOKEN;
+  const host = await startHost({ ...hostOptions, portal,
+    ...(listenHost === undefined ? {} : { listenHost }), ...(allowedHosts.length ? { allowedHosts } : {}), ...(loginToken === undefined ? {} : { loginToken }), dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead, runtimes, pushRemotes,
     localCli: { enabled: localCli, ...(cliPassEnv === undefined ? {} : { passEnv: cliPassEnv }) },
     ...(agentProxy === undefined ? {} : { agentModels: agentProxy.approvedModels }),
     ...(pushSshCommand === undefined ? {} : { pushSshCommand }),
     ...(uiDir === undefined ? {} : { uiDir }), ...(process.env.FACTORY_OPEN_LOGIN === "1" ? { openLogin: true } : {}), onBootstrapToken(token) {
     if (process.env.FACTORY_OPEN_LOGIN !== "1") process.stdout.write(`One-time bootstrap token: ${token}\n`);
   } });
-  process.stdout.write(`Factory Host listening on http://127.0.0.1:${host.port}\n`);
+  process.stdout.write(`Factory Host listening on http://${listenHost ?? "127.0.0.1"}:${host.port}\n`);
   let stopping = false;
   const stop = (): void => {
     if (stopping) return;

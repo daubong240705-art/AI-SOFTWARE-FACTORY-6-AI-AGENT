@@ -12,10 +12,12 @@ export interface BootstrapOptions {
   token?: string;
   maxFailures?: number;
   lockMs?: number;
+  /** A token the operator chose (FACTORY_LOGIN_TOKEN) that signs in any number of times: for a Host reachable over a network. */
+  reusable?: boolean;
 }
 
 export function createBootstrapGate({
-  clock = systemClock, token, maxFailures = 5, lockMs = 60_000,
+  clock = systemClock, token, maxFailures = 5, lockMs = 60_000, reusable = false,
 }: BootstrapOptions = {}): BootstrapGate {
   if (!Number.isSafeInteger(maxFailures) || maxFailures < 1 || !Number.isSafeInteger(lockMs) || lockMs < 1)
     throw new Error("Bootstrap limits must be positive integers");
@@ -34,7 +36,7 @@ export function createBootstrapGate({
       return value;
     },
     consume(candidate) {
-      if (used) return "used";
+      if (used && !reusable) return "used";
       const now = clock().getTime();
       if (lockedUntil !== null) {
         if (now < lockedUntil) return "locked";
@@ -44,7 +46,7 @@ export function createBootstrapGate({
       const supplied = createHash("sha256").update(typeof candidate === "string" ? candidate : "").digest();
       const matches = timingSafeEqual(digest, supplied);
       if (matches && typeof candidate === "string") {
-        used = true;
+        if (!reusable) used = true;
         failures = 0;
         displayToken = undefined;
         return "ok";
