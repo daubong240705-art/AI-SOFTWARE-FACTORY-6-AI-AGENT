@@ -16,6 +16,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/u
 import { CheckCircle2, ChevronRight } from 'lucide-react';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { i18n, useT } from '../i18n';
+import { CreateLabel } from '../config/CreateLabel';
 import type { Store } from '../state/store';
 import { relativeTime } from './Inbox';
 import { attentionItems, type AttentionItem } from './shell/attention';
@@ -107,7 +108,7 @@ export function Overview({ store, onProject, onAttention, onCreate, operatorName
         </div>
         {error && <ErrorNotice error={error} />}{problem && <p role="alert">{t(problem)}</p>}
         {(error || problem) && <Button type="button" variant="outline" disabled={busy} onClick={() => { void submit(true); }}>{t('errors.retry')}</Button>}
-      </form></Card> : <Card className="rounded-xl border-border p-5 shadow-none" aria-label={t('overview.composer')}><MascotEmpty seat="Lead"><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><Button className="mt-4" onClick={onCreate}>{t('projects.create')}</Button></MascotEmpty></Card>}
+      </form></Card> : <Card className="rounded-xl border-border p-5 shadow-none" aria-label={t('overview.composer')}><MascotEmpty seat="Lead"><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><Button className="mt-4" onClick={onCreate}><CreateLabel /></Button></MascotEmpty></Card>}
       <ActivityFeed store={store} onCreate={onCreate} onTask={(projectId, taskId) => { if (onTask) onTask(projectId, taskId); else onProject(projectId); }} />
       </div>
       <Card role="complementary" className="gap-0 overflow-hidden rounded-xl border-border border-l-2 border-l-need py-0 shadow-none" aria-labelledby={`${id}-needs`}>

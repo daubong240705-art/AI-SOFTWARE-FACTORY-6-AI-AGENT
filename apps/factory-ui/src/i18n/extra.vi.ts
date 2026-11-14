@@ -2,6 +2,25 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  uiProfile: { showAllFeatures: 'Hiện tất cả tính năng', help: 'Bật để hiện đầy đủ tính năng của xưởng phần mềm.' },
+  gameUi: {
+    newGame: 'Tạo game mới', createDescription: 'Mô tả game bạn muốn làm. Đội làm game sẽ xây dựng từ dự án mẫu.',
+    name: 'Tên game', gameId: 'Mã game', request: 'Yêu cầu',
+    requestPlaceholder: 'Game caro (gomoku) online 2 người chơi, có bot, phong cách chibi dễ thương, chơi đẹp trên điện thoại',
+    idPattern: '2–40 chữ cái thường không dấu, chữ số hoặc dấu gạch ngang; bắt đầu bằng chữ cái hoặc chữ số. Mẫu: [a-z0-9][a-z0-9-]{1,39}',
+    nameValidation: 'Nhập tên game từ 2 đến 60 ký tự.', idValidation: 'Dùng 2–40 chữ cái thường không dấu, chữ số hoặc dấu gạch ngang; bắt đầu bằng chữ cái hoặc chữ số.',
+    requestValidation: 'Mô tả game trong 1–500 ký tự.',
+    exists: 'Đã có game dùng mã này.', creationDisabled: 'Host này chưa bật tính năng tạo game mới (cần đặt FACTORY_GAME_STARTER_DIR).',
+    createError: 'Không tạo được game. Vui lòng thử lại.', creating: 'Đang tạo game…',
+    panelTitle: 'Game', buildStatus: 'Trạng thái xây dựng:', buildStage: 'Bước hiện tại hoặc gần nhất:',
+    publish: 'Phát hành', publishConfirm: 'Phát hành {game} lên Portal? Người chơi sẽ chơi được ngay.', publishUnavailable: 'Hiện chưa thể phát hành.',
+    publishingDisabled: 'Host này chưa cấu hình phát hành (FACTORY_PORTAL_URL, FACTORY_PORTAL_TOKEN)',
+    releases: 'Các bản phát hành', noReleases: 'Chưa có bản phát hành nào.', version: 'Phiên bản {version}', unassignedVersion: 'chưa được gán', openGame: 'Mở game',
+    reconcile: 'Đối soát', reconcileHelp: 'Chưa xác nhận được phản hồi từ Portal. Đối soát sẽ hỏi Portal hiện đang có bản nào.',
+    rollback: 'Quay lại phiên bản này', rollbackConfirm: 'Quay lại phiên bản {version} của {game} trên Portal? Người chơi sẽ chuyển sang phiên bản này.',
+    loadError: 'Không tải được các bản phát hành. Vui lòng thử lại.', actionError: 'Chưa xác nhận được thao tác phát hành. Hãy kiểm tra danh sách bản phát hành trước khi thử lại.', noReleaseError: 'Portal không cung cấp mô tả lỗi.',
+    kinds: { publish: 'Phát hành', rollback: 'Quay lại bản cũ' }, states: { pending: 'Đang chờ', done: 'Hoàn tất', failed: 'Thất bại', unknown: 'Chưa rõ kết quả' },
+  },
   agentConfig: {
     open: 'Cấu hình agent', description: 'Chọn cách agent này chạy công việc.', runtime: 'Môi trường chạy', packRuntime: 'Môi trường của gói', hostDefault: 'Host đang chạy vị trí chưa cấu hình riêng bằng', opencodeOff: 'Host hiện không chạy OpenCode. Chọn Kế thừa hoặc một CLI.',
     runtimes: { inherit: 'Kế thừa (mặc định)', 'native-opencode': 'OpenCode (khóa API, có sandbox, chạy song song được)', codex: 'Codex CLI (đăng nhập ChatGPT của máy)', claude: 'Claude Code CLI (đăng nhập Claude của máy)' },
@@ -274,6 +293,11 @@ export const extra: Translated<typeof en> = {
     organizationWarning: 'Tài liệu sẽ hiện ở mọi dự án trong tổ chức và agent sẽ đọc nó như tri thức chung.', understood: 'Tôi hiểu', acknowledge: 'Hãy xác nhận bạn hiểu phạm vi chia sẻ toàn tổ chức.', invalid: 'Hãy chọn một phạm vi chia sẻ khả dụng.',
     changed: 'Dữ liệu đã đổi, đã tải lại', shared: 'Đã cập nhật phạm vi chia sẻ.', reviewed: 'Đã ghi nhận việc xem lại.',
     visibilityDenied: 'Phiên bản này không thể chia sẻ ở phạm vi đã chọn.',
+  },
+  previewUi: {
+    button: 'Xem thử', title: 'Xem thử game', help: 'Chạy dự án từ code đã tích hợp mới nhất trên Host rồi mở game để chơi thử.',
+    open: 'Mở game', start: 'Chạy', restart: 'Chạy lại với code mới nhất', stop: 'Dừng', close: 'Đóng', log: 'Nhật ký xem thử', error: 'Không kết nối được tới Host. Hãy thử lại.',
+    states: { stopped: 'Đã dừng', preparing: 'Đang chuẩn bị code mới nhất…', installing: 'Đang cài thư viện…', starting: 'Đang khởi động…', running: 'Đang chạy', failed: 'Lỗi' },
   },
   knowledgeUi: {
     extraction: {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useUiProfile, visibleTabs } from '../../config/uiProfile';
 
 export type ProjectTab = 'overview' | 'office' | 'board' | 'workflow' | 'automation' | 'knowledge' | 'code' | 'settings';
 export type TeamTab = 'activity' | 'config';
@@ -25,23 +26,26 @@ export function parseHash(hash: string): View {
 }
 export function teamTab(hash: string): TeamTab { return hash === '#/team/config' ? 'config' : 'activity'; }
 export function useNavigation() {
+  const profile = useUiProfile();
   const [view, setView] = useState<View>(() => parseHash(location.hash));
   const [tab, setTab] = useState<ProjectTab>(() => projectTab(location.hash));
   const [team, setTeam] = useState<TeamTab>(() => teamTab(location.hash));
   useEffect(() => {
     const sync = () => {
       const next = parseHash(location.hash);
-      const nextTab = projectTab(location.hash);
+      const requestedTab = projectTab(location.hash);
+      const nextTab = visibleTabs(profile).includes(requestedTab) ? requestedTab : 'overview';
       const nextTeam = teamTab(location.hash);
       if (location.hash !== viewHash(next, nextTab, nextTeam) && !(next === 'needs-attention' && /^#\/attention\/[^/]+$/.test(location.hash))) history.replaceState(null, '', viewHash(next, nextTab, nextTeam));
       setView(next); setTab(nextTab); setTeam(nextTeam);
     };
     sync(); window.addEventListener('hashchange', sync); window.addEventListener('popstate', sync);
     return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync); };
-  }, []);
+  }, [profile]);
   const navigate = useCallback((next: View, nextTab: ProjectTab = 'overview', nextTeam: TeamTab = 'activity') => {
+    if (!visibleTabs(profile).includes(nextTab)) nextTab = 'overview';
     if (location.hash !== viewHash(next, nextTab, nextTeam)) location.hash = viewHash(next, nextTab, nextTeam);
     setView(next); setTab(nextTab); setTeam(nextTeam);
-  }, []);
-  return { view, tab, teamTab: team, navigate };
+  }, [profile]);
+  return { view, tab: visibleTabs(profile).includes(tab) ? tab : 'overview' as ProjectTab, teamTab: team, navigate };
 }

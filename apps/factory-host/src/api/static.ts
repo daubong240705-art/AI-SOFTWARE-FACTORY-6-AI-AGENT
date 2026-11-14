@@ -5,7 +5,7 @@ import { createIdGenerator } from "../ids.js";
 import { failure } from "./http.js";
 
 const maxFileSize = 5 * 1024 * 1024;
-const apiPrefixes = ["/auth", "/commands", "/projects", "/health", "/api"];
+const apiPrefixes = ["/auth", "/commands", "/projects", "/health", "/api", "/preview"];
 const encodedSeparators = /%(?:2e|2f|5c)/i;
 const hashedAsset = /^assets\/.*-[A-Za-z0-9_-]{6,}(?:\.[A-Za-z0-9]+)+$/;
 const contentTypes: Readonly<Record<string, string>> = {

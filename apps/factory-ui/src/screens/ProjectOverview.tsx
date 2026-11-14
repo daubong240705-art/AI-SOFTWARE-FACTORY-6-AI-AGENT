@@ -1,6 +1,6 @@
 import { CountUp } from '@/components/motion/CountUp';
 import { MascotEmpty } from '@/components/mascot';
-import { useId } from 'react';
+import { useEffect, useId } from 'react';
 import { CheckCircle2, CircleDashed, Play, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,13 @@ import { TaskStatus } from './shell/TaskStatus';
 import { taskTime } from './shell/taskTime';
 import { Page } from '../components/Page';
 import { IntegrationCard } from './overview/IntegrationCard';
+import { GamePanel } from './GamePanel';
 
 export function ProjectOverview({ store, onOpenTask }: { store: Store; onOpenTask: (id: string) => void }) {
   const t = useT(); const id = useId(); const state = store.useStoreSelector(value => value);
+  useEffect(() => store.watchM5('workflows', store.loadWorkflows), [store, state.selectedProjectId]);
+  const gameWorkflow = state.m5.workflows.filter(workflow => workflow.key === 'game-build').sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
+  const project = state.projects.find(item => item.id === state.selectedProjectId);
   const counts = [
     ['running', state.tasks.filter(task => task.state === 'active').length, Play],
     ['review', state.tasks.filter(task => task.state === 'in-review').length, CircleDashed],
@@ -28,6 +32,7 @@ export function ProjectOverview({ store, onOpenTask }: { store: Store; onOpenTas
   const approvals = new Set(state.inbox.approvals.map(item => item.taskId));
   const tasks = state.tasks.filter(task => ['active', 'awaiting-go', 'in-review'].includes(task.state) || task.holds.some(hold => hold.needsAction) || approvals.has(task.id));
   return <Page className="grid gap-6">
+    {gameWorkflow && project && <GamePanel key={project.id} store={store} projectId={project.id} gameName={project.name} workflow={gameWorkflow} />}
     <dl className="m-0 grid grid-cols-2 gap-4 xl:grid-cols-4">
       {counts.map(([key, value, Icon]) => <Card key={key} className="gap-0 rounded-xl border-border p-5 shadow-none"><div className="flex items-start justify-between gap-3"><div className="flex flex-col-reverse gap-1.5"><dt className="text-sm text-muted-foreground">{t(`projectUi.${key}`)}</dt><dd className={cn('m-0 font-display text-4xl leading-none font-bold tabular-nums', key === 'waiting' && value > 0 && 'text-need')}><CountUp value={value} /></dd></div><span className="grid size-9 place-items-center rounded-lg bg-muted text-muted-foreground"><Icon aria-hidden="true" className="size-4" /></span></div></Card>)}
     </dl>

@@ -1,0 +1,126 @@
+{
+  "key": "web-games",
+  "version": "0.1.0",
+  "name": "Web Games",
+  "description": "Builds small original turn-based browser games from the Game Portal starter and prepares validated bundles for the separate Game Portal through one game-build workflow.",
+  "seats": [
+    {
+      "name": "Lead",
+      "role": "Game lead: turns operator requests into game-build parameters",
+      "profile": "profiles/lead.md",
+      "runtime": "api-agent",
+      "slots": 1,
+      "isLead": true,
+      "capabilities": [],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    },
+    {
+      "name": "Game Designer",
+      "role": "Game designer: specification, shared types and manifest",
+      "profile": "profiles/game-designer.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": [
+        "game.design"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    },
+    {
+      "name": "Rules Engineer",
+      "role": "Rules engineer: deterministic rules, bots and rule tests",
+      "profile": "profiles/rules-engineer.md",
+      "runtime": "native-opencode",
+      "slots": 2,
+      "isLead": false,
+      "capabilities": [
+        "game.rules",
+        "code.typescript"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    },
+    {
+      "name": "UI Artist",
+      "role": "UI artist: original SVG assets and responsive CSS",
+      "profile": "profiles/ui-artist.md",
+      "runtime": "native-opencode",
+      "slots": 1,
+      "isLead": false,
+      "capabilities": [
+        "game.ui",
+        "design.asset"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing"
+      ]
+    },
+    {
+      "name": "Client Engineer",
+      "role": "Client engineer: SDK rendering, player input and QA rework integration",
+      "profile": "profiles/client-engineer.md",
+      "runtime": "native-opencode",
+      "slots": 2,
+      "isLead": false,
+      "capabilities": [
+        "game.client",
+        "game.integrate",
+        "code.typescript",
+        "ui.web"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing",
+        "ext.playwright.*"
+      ]
+    },
+    {
+      "name": "QA Engineer",
+      "role": "QA engineer: regression reproduction, gameplay and browser verification",
+      "profile": "profiles/qa-engineer.md",
+      "runtime": "native-opencode",
+      "slots": 2,
+      "isLead": false,
+      "capabilities": [
+        "test.e2e",
+        "test.gameplay",
+        "review.game"
+      ],
+      "tools": [
+        "knowledge.*",
+        "request.*",
+        "project.briefing",
+        "ext.playwright.*",
+        "ext.devtools.*"
+      ]
+    }
+  ],
+  "skills": [
+    "skills/game-contract",
+    "skills/browser-game-testing",
+    "skills/local-preview"
+  ],
+  "leadWorkflow": "game-build",
+  "workflows": [
+    "workflows/game-build.json"
+  ],
+  "produces": [
+    "code-ref",
+    "design-asset",
+    "requirements"
+  ]
+}

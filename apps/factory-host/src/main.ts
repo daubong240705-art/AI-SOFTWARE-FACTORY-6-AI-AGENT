@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { isSandboxAvailable } from "./sandbox/index.js";
 import { createOpenCodeRuntime } from "./runtimes/index.js";
 import { validateRoots } from "./workspace/paths.js";
+import { portalConfig } from "./publish/service.js";
 
 function budgetTokens(name: string, input: string | undefined, fallback: number): number {
   if (input === undefined) return fallback;
@@ -18,6 +19,14 @@ function budgetTokens(name: string, input: string | undefined, fallback: number)
 }
 
 try {
+  const portal = portalConfig({
+    ...(process.env.FACTORY_PORTAL_URL === undefined ? {} : { url: process.env.FACTORY_PORTAL_URL }),
+    ...(process.env.FACTORY_PORTAL_TOKEN === undefined ? {} : { token: process.env.FACTORY_PORTAL_TOKEN }),
+    ...(process.env.FACTORY_PORTAL_PUBLIC_URL === undefined ? {} : { publicUrl: process.env.FACTORY_PORTAL_PUBLIC_URL }),
+    ...(process.env.FACTORY_PORTAL_ALLOW_PRIVATE_HTTP === "1" ? { allowPrivateHttp: true } : {}),
+  });
+  // The credential lives only in the publish service options. Even an explicit CLI passEnv cannot inherit it.
+  delete process.env.FACTORY_PORTAL_TOKEN;
   const { dispatch, workspace, agentProxy, opencode, pushRemotes, pushSshCommand, localCli, cliPassEnv, ...hostOptions } = parseEnv(process.env);
   if (opencode && !await isSandboxAvailable())
     throw new Error("FACTORY_RUNTIME=opencode requires working bubblewrap on Linux");
@@ -79,7 +88,7 @@ try {
     const defaultUiDir = fileURLToPath(new URL("../../factory-ui/dist/", import.meta.url));
     try { if ((await stat(defaultUiDir)).isDirectory()) uiDir = defaultUiDir; } catch { /* UI build is optional. */ }
   }
-  const host = await startHost({ ...hostOptions, dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead, runtimes, pushRemotes,
+  const host = await startHost({ ...hostOptions, portal, dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead, runtimes, pushRemotes,
     localCli: { enabled: localCli, ...(cliPassEnv === undefined ? {} : { passEnv: cliPassEnv }) },
     ...(agentProxy === undefined ? {} : { agentModels: agentProxy.approvedModels }),
     ...(pushSshCommand === undefined ? {} : { pushSshCommand }),

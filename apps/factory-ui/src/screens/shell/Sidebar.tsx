@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ErrorNotice } from '@/components/ErrorNotice';
 import { cn } from '@/lib/utils';
 import { useT } from '../../i18n';
+import { useUiProfile } from '../../config/uiProfile';
 import type { Store } from '../../state/store';
 import { inboxCount } from '../Inbox';
 import { attentionItems } from './attention';
@@ -19,7 +20,7 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
   store: Store; view: View; collapsed: boolean; compact: boolean; expanded: boolean;
   onNavigate: (view: View) => void; onCreate: () => void; onCollapse: () => void;
 }) {
-  const t = useT(); const state = store.useStoreSelector(value => value);
+  const t = useT(); const state = store.useStoreSelector(value => value); const addLabel = useUiProfile() === 'games' ? t('gameUi.newGame') : t('nav.addProject');
   const items = attentionItems(state.globalInbox);
   const labelClass = collapsed ? 'hidden' : 'min-w-0 truncate';
   const CollapseIcon = compact ? X : collapsed ? PanelLeftOpen : PanelLeftClose;
@@ -40,7 +41,7 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
     <NavButton collapsed={collapsed} aria-label={t('systemUi.title')} aria-current={view === 'system' ? 'page' : undefined} onClick={() => onNavigate('system')}><Activity /><span className={labelClass}>{t('systemUi.title')}</span></NavButton>
     <div className={cn('mt-4 flex h-8 shrink-0 items-center justify-between px-2.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase', collapsed && 'justify-center px-0')}>
       <span className={collapsed ? 'sr-only' : ''}>{t('global.projects')}</span>
-      <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" className="border-0 bg-transparent" aria-label={t('nav.addProject')} onClick={onCreate}><Plus /></Button></TooltipTrigger><TooltipContent side="right">{t('nav.addProject')}</TooltipContent></Tooltip>
+      <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" className="border-0 bg-transparent" aria-label={addLabel} onClick={onCreate}><Plus /></Button></TooltipTrigger><TooltipContent side="right">{addLabel}</TooltipContent></Tooltip>
     </div>
     <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block">
       <div className="py-1">

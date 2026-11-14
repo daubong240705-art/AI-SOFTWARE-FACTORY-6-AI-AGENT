@@ -1,4 +1,23 @@
 export const extra = {
+  uiProfile: { showAllFeatures: 'Show all features', help: 'Turn on to show every software factory feature.' },
+  gameUi: {
+    newGame: 'New game', createDescription: 'Describe your game. The game studio will build it from the starter project.',
+    name: 'Game name', gameId: 'Game ID', request: 'Request',
+    requestPlaceholder: 'Online 2 player caro (gomoku) with a bot, cute chibi style, nice on phones',
+    idPattern: '2–40 lowercase letters, digits or hyphens; start with a letter or digit. Pattern: [a-z0-9][a-z0-9-]{1,39}',
+    nameValidation: 'Enter a game name with 2–60 characters.', idValidation: 'Use 2–40 lowercase letters, digits or hyphens, starting with a letter or digit.',
+    requestValidation: 'Describe your game in 1–500 characters.',
+    exists: 'A game with this id already exists.', creationDisabled: 'New game is not enabled on this Host (set FACTORY_GAME_STARTER_DIR).',
+    createError: 'Could not create the game. Please try again.', creating: 'Creating game…',
+    panelTitle: 'Game', buildStatus: 'Build status:', buildStage: 'Current or last stage:',
+    publish: 'Publish', publishConfirm: 'Publish {game} to the Portal? It goes live for players.', publishUnavailable: 'Publishing is not available yet.',
+    publishingDisabled: 'Publishing is not configured on this Host (FACTORY_PORTAL_URL, FACTORY_PORTAL_TOKEN)',
+    releases: 'Releases', noReleases: 'No releases yet.', version: 'Version {version}', unassignedVersion: 'not assigned', openGame: 'Open game',
+    reconcile: 'Reconcile', reconcileHelp: 'The Portal answer was not confirmed. Reconcile asks the Portal what it has.',
+    rollback: 'Roll back to this version', rollbackConfirm: 'Roll back {game} to version {version} on the Portal? This version goes live for players.',
+    loadError: 'Could not load releases. Please try again.', actionError: 'Could not confirm the release action. Check the release list before trying again.', noReleaseError: 'The Portal did not provide an error description.',
+    kinds: { publish: 'Publish', rollback: 'Rollback' }, states: { pending: 'Pending', done: 'Done', failed: 'Failed', unknown: 'Unknown' },
+  },
   agentConfig: {
     open: 'Configure agent', description: 'Choose how this agent runs its tasks.', runtime: 'Runtime', packRuntime: 'Pack runtime', hostDefault: 'The Host runs seats without their own setting on', opencodeOff: 'This Host does not run OpenCode. Choose Inherit or a CLI.',
     runtimes: { inherit: 'Inherit (default)', 'native-opencode': 'OpenCode (API key, sandboxed, supports parallel agents)', codex: 'Codex CLI (this machine’s ChatGPT login)', claude: 'Claude Code CLI (this machine’s Claude login)' },
@@ -259,6 +278,11 @@ export const extra = {
     organizationWarning: 'This document will appear in every project in the organization, and agents will read it as shared knowledge.', understood: 'I understand', acknowledge: 'Please acknowledge the organization-wide visibility.', invalid: 'Choose an available visibility level.',
     changed: 'Data changed and has been reloaded.', shared: 'Document visibility updated.', reviewed: 'Review recorded.',
     visibilityDenied: 'This version cannot be shared at that visibility level.',
+  },
+  previewUi: {
+    button: 'Preview', title: 'Preview the game', help: 'Run the project from its latest integrated code on the Host and open the game to play it.',
+    open: 'Open the game', start: 'Start', restart: 'Restart with latest code', stop: 'Stop', close: 'Close', log: 'Preview log', error: 'Could not reach the Host. Try again.',
+    states: { stopped: 'Stopped', preparing: 'Preparing the latest code…', installing: 'Installing dependencies…', starting: 'Starting…', running: 'Running', failed: 'Failed' },
   },
   knowledgeUi: {
     extraction: {

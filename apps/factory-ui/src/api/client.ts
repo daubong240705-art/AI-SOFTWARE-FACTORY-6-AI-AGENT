@@ -12,6 +12,7 @@ import { extractionModels, mediaTypeForFile } from './documents';
 import { systemModels } from './systemModels';
 import { folderBrowseModel } from './folderModels';
 import { modelSettingsResponse } from './modelSettings';
+import { newGameRequestSchema, newGameResponseSchema, releaseViewSchema, releasesResponseSchema, rollbackRequestSchema, type NewGameRequest } from '@factory/contracts';
 export type { FolderListing } from './folderModels';
 export type { SystemHealth, SystemCapabilities, SystemBackup } from './systemModels';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
@@ -32,6 +33,7 @@ const ok = successResponseSchema.pick({ ok: true, apiVersion: true });
 const object = ok.omit({ ok: true, apiVersion: true });
 const auth = ok.extend({ csrfToken: textSchema });
 const projects = ok.extend({ projects: projectSchema.array() });
+const releaseResponse = ok.extend({ release: releaseViewSchema });
 // The Host adds fields to this response over time (M3 added `engagements`): unknown fields are ignored, known ones stay strict.
 const team = ok.extend({ team: teamSchema, seats: seatSchema.array(), engagement: engagementSchema }).loose();
 const tasks = ok.extend({ items: taskSchema.array() });
@@ -156,6 +158,11 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     async session() { const result = await request('/auth/session', auth); csrfToken = result.csrfToken; return result; },
     async logout() { const result = await request('/auth/logout', ok, {}); csrfToken = null; return result; },
     listProjects: () => request('/projects', projects),
+    createGame: (body: NewGameRequest) => request('/games', newGameResponseSchema, newGameRequestSchema.parse(body)),
+    listReleases: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/releases`, releasesResponseSchema, undefined, false, signal),
+    publishGame: (id: string) => request(`${projectPath(id)}/publish`, releaseResponse, {}),
+    reconcileRelease: (id: string, releaseId: string) => request(`${projectPath(id)}/releases/${encodeURIComponent(releaseId)}/reconcile`, releaseResponse, {}),
+    rollbackRelease: (id: string, version: number) => request(`${projectPath(id)}/releases/rollback`, releaseResponse, rollbackRequestSchema.parse({ version })),
     getTeam: (id: string) => request(`${projectPath(id)}/team`, team),
     listTasks: (id: string) => request(`${projectPath(id)}/tasks`, tasks),
     listAttempts: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/attempts`, readModels.attempts),
@@ -174,6 +181,9 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     searchKnowledge: (id: string, options: KnowledgePage & { query: string }) => request(`${projectPath(id)}/knowledge/search${knowledgeQuery(options, options.query)}`, readModels.knowledgeSearch),
     listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     listDocuments: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
+    getPreview: (id: string) => request(`${projectPath(id)}/preview`, readModels.preview),
+    startPreview: (id: string) => request(`${projectPath(id)}/preview/start`, readModels.preview, {}),
+    stopPreview: (id: string) => request(`${projectPath(id)}/preview/stop`, readModels.preview, {}),
     knowledgeGroups: (id: string) => request(`${projectPath(id)}/knowledge/groups`, readModels.knowledgeGroups),
     getKnowledgeArtifact: (id: string, artifactId: string) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact),
     getExtraction: (id: string, artifactId: string, version: number) => request(extractionPath(id, artifactId, version), extractionModels.detail),

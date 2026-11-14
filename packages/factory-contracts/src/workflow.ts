@@ -70,6 +70,10 @@ export const workflowStageSchema = z.strictObject({
     includeIf: workflowConditionSchema.optional(), skipIf: workflowConditionSchema.optional(),
     parallelGroup: workflowKeySchema.optional(), placement: z.enum(["portable", "node-bound"]).default("portable"),
     sideEffect: z.enum(["none", "artifact", "code", "external"]).optional(),
+    // Who reviews the stage's tasks. Omitted keeps the original behaviour: the operator reviews every task.
+    review: z.enum(["automatic", "human-final"]).optional(),
+    // Observable acceptance criteria copied into every task of the stage; replaces the generated "register an artifact" lines.
+    acceptance: z.array(z.string().min(1).max(500)).max(8).optional(),
     inputs: z.array(z.strictObject({ kind: z.union([artifactKindSchema, z.literal("brief")]), required: z.boolean() })).max(8),
     outputs: z.array(z.strictObject({ kind: artifactKindSchema, mustReach: z.enum(["draft", "reviewed", "approved"]) })).max(8),
     limits: z.strictObject({ maxTasks: z.number().int().min(1).max(50), budgetShare: z.number().min(0).max(1) }).optional(),

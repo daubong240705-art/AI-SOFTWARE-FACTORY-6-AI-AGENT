@@ -5,6 +5,9 @@ import type { Store } from '../state/store';
 import { Dialog } from '../components/Dialog';
 import { ProjectView } from './ProjectView';
 import { CreateProject } from './CreateProject';
+import { NewGameDialog } from './NewGameDialog';
+import { Button } from '@/components/ui/button';
+import { Page } from '@/components/Page';
 import { Attention, attentionHash } from './Attention';
 import { Teams } from './Teams';
 import { System } from './system/SystemPage';
@@ -14,6 +17,7 @@ import { Sidebar } from './shell/Sidebar';
 import { TopBar } from './shell/TopBar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Reveal } from '@/components/motion/Reveal';
+import { useUiProfile } from '../config/uiProfile';
 
 const compactQuery = '(max-width: 1179px)';
 const MascotGallery = lazy(() => import('./MascotGallery'));
@@ -30,10 +34,12 @@ function useCompact() {
 }
 
 export function AppShell({ store }: { store: Store }) {
+  const profile = useUiProfile();
   const t = useT(); const state = store.useStoreSelector(value => value);
   const { view, tab, teamTab, navigate } = useNavigation();
   const [chatProject, setChatProject] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [creatingGame, setCreatingGame] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [focusComposer, setFocusComposer] = useState(0);
@@ -48,9 +54,10 @@ export function AppShell({ store }: { store: Store }) {
   }, [store, view, state.projects, state.selectedProjectId]);
   useEffect(() => { setExpanded(false); main.current?.focus(); main.current?.scrollTo?.(0, 0); }, [view]);
   useEffect(() => { if (!compact) setExpanded(false); }, [compact]);
+  useEffect(() => { if (profile === 'games') setCreating(false); }, [profile]);
   const selected = state.projects.find(project => view === `project:${project.id}`);
   function go(next: View) { navigate(next); setExpanded(false); }
-  function create() { setExpanded(false); setCreating(true); }
+  function create() { setExpanded(false); if (profile === 'games') setCreatingGame(true); else setCreating(true); }
   function newTask() { setInitialTask(null); setFocusComposer(value => value + 1); go('overview'); }
   function openTask(projectId: string, taskId: string) { setInitialTask({ projectId, taskId }); navigate(`project:${projectId}`, 'board'); setExpanded(false); }
   const navigation = <Sidebar store={store} view={view} collapsed={collapsed && !compact} compact={compact} expanded={expanded} onNavigate={go} onCreate={create} onCollapse={() => compact ? setExpanded(false) : setCollapsed(value => !value)} />;
@@ -61,6 +68,7 @@ export function AppShell({ store }: { store: Store }) {
     {compact && expanded && <Dialog labelledBy="navigation-title" onClose={() => setExpanded(false)} className="navigation-overlay"><h2 id="navigation-title" className="sr-only">{t('nav.main')}</h2>{navigation}</Dialog>}
     <main ref={main} id="factory-main" className={`content p-0${view === 'needs-attention' ? ' attention-content' : view.startsWith('project:') ? ' project-content' : ''}`} tabIndex={-1} aria-label={pageName} inert={compact && expanded}>
       <Reveal key={view} className="h-full min-h-0">
+      {view === 'overview' && <Page className="flex flex-wrap justify-end gap-2 pb-0"><Button type="button" onClick={() => setCreatingGame(true)}>{t('gameUi.newGame')}</Button>{profile === 'full' && <Button type="button" variant="outline" onClick={create}>{t('projects.create')}</Button>}</Page>}
       {view === 'overview' ? <Overview store={store} onProject={id => { setChatProject(id); go(`project:${id}`); }} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} focusComposer={focusComposer} onTask={openTask} />
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} tab={teamTab} onTabChange={next => navigate('team', 'overview', next)} onTask={openTask} />
@@ -70,7 +78,8 @@ export function AppShell({ store }: { store: Store }) {
         : <MascotEmpty seat="Lead" state="thinking" compact><p role="status">{t('viewStates.loading')}</p></MascotEmpty>}
       </Reveal>
     </main>
-    {creating && <CreateProject store={store} onClose={() => setCreating(false)} onCreated={id => go(`project:${id}`)} />}
+    {creating && profile === 'full' && <CreateProject store={store} onClose={() => setCreating(false)} onCreated={id => go(`project:${id}`)} />}
+    {creatingGame && <NewGameDialog store={store} onClose={() => setCreatingGame(false)} onCreated={id => go(`project:${id}`)} />}
     <p role="status" className="sr-only" aria-live="polite">{pageName}</p>
     <p role="status" className="sr-only" key={state.announcement}>{state.announcement > 0 ? t('inboxUi.decided') : ''}</p>
   </TooltipProvider></div>;

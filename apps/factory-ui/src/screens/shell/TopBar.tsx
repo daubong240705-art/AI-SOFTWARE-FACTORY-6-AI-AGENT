@@ -10,11 +10,13 @@ import type { Store } from '../../state/store';
 import { ProjectTile } from './ProjectTile';
 import { TaskStatus } from './TaskStatus';
 import { NotificationsBell } from './NotificationsBell';
+import { useUiProfile } from '../../config/uiProfile';
 
 export function TopBar({ store, compact, expanded, onToggle, onNewTask, onProject, onTask }: {
   store: Store; compact: boolean; expanded: boolean; onToggle: () => void; onNewTask: () => void;
   onProject: (id: string) => void; onTask: (projectId: string, taskId: string) => void;
 }) {
+  const profile = useUiProfile();
   const t = useT(); const state = store.useStoreSelector(value => value);
   const [open, setOpen] = useState(false); const search = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -36,7 +38,7 @@ export function TopBar({ store, compact, expanded, onToggle, onNewTask, onProjec
       <div className="flex-1 max-sm:hidden" />
       {state.selectedProjectId && state.stream !== 'open' && <p role="status" className="hidden items-center gap-2 text-xs text-muted-foreground xl:flex"><span className={`size-[5px] rounded-full ${state.stream === 'closed' ? 'bg-muted-foreground' : 'bg-run'}`} aria-hidden="true" />{t(streamLabel)}</p>}
       {state.selectedProjectId && <NotificationsBell key={state.selectedProjectId} store={store} projectId={state.selectedProjectId} onTask={onTask} />}
-      <Button onClick={onNewTask} className="rounded-lg"><Plus />{t('shell.newTask')}</Button>
+      {profile === 'full' && <Button onClick={onNewTask} className="rounded-lg"><Plus />{t('shell.newTask')}</Button>}
     </header>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent showCloseButton={false} className="overflow-hidden rounded-xl border-border bg-popover p-0 sm:max-w-xl" onCloseAutoFocus={event => { event.preventDefault(); search.current?.focus(); }}>

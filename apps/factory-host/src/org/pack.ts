@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
-import { artifactKindSchema, labelSchema, MCP_TOOL_NAMES, runtimeKindSchema, workflowDefinitionSchema, type WorkflowDefinition } from "@factory/contracts";
+import { artifactKindSchema, labelSchema, MCP_TOOL_NAMES, runtimeKindSchema, workflowDefinitionSchema, workflowKeySchema, type WorkflowDefinition } from "@factory/contracts";
 import { z } from "zod";
 import { externalToolPattern } from "../mcp-external/config.js";
 
@@ -30,6 +30,7 @@ export const packManifestSchema = z.strictObject({
   skills: z.array(relativePathSchema),
   workflows: z.array(relativePathSchema.refine((path) => path.endsWith(".json"), "Expected a .json workflow"))
     .max(8).refine((paths) => new Set(paths.map((path) => path.replaceAll("\\", "/"))).size === paths.length, "duplicate workflow").optional(),
+  leadWorkflow: workflowKeySchema.optional(),
   produces: z.array(artifactKindSchema).max(13).refine((values) => new Set(values).size === values.length,
     "duplicate artifact kind").optional(),
 }).superRefine((manifest, ctx) => {
@@ -105,6 +106,8 @@ export function loadPack(dir: string): LoadedPack {
       if (files.workflows.some((file) => file.definition.key === definition.key)) throw new Error();
       add(bytes); files.workflows.push({ path, definition });
     }
+    if (manifest.leadWorkflow !== undefined && !files.workflows.some((file) => file.definition.key === manifest.leadWorkflow))
+      throw new Error("lead workflow not found");
   } catch { throw new Error("Invalid pack content"); }
   return { manifest, digest: hash.digest("hex"), dir: root, files };
 }

@@ -4,6 +4,7 @@ import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import { ModelError, type ModelGateway, type ModelResult, type ReasoningEffort } from "../models/gateway.js";
 import { findLeadSeat, getPrimaryEngagement, listSeats } from "../org/service.js";
+import { packManifestSchema } from "../org/pack.js";
 import { checkAndReserve, DEFAULT_BUDGET_CONFIG, recordUsage, type BudgetConfig } from "../policy/budget.js";
 import { getProject } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
@@ -54,7 +55,8 @@ function namedDocuments(raw: Database, store: ContentStore, projectId: string, u
   }
   return documents;
 }
-import { parseLeadOutput } from "./protocol.js";
+import { parseLeadOutput, type LeadGame } from "./protocol.js";
+import { prepareLeadView } from "./view.js";
 
 export interface LeadConfig {
   model: string; effort: ReasoningEffort | null; maxOutputTokens: number; maxHistoryMessages: number;
@@ -74,6 +76,10 @@ export function createLeadRunner(deps: {
   getModelConfig?: () => Pick<LeadConfig, "model" | "effort">;
   /** Documents the Lead may read (named in chat) and the store/quota for the plan files it writes. */
   documents?: { store: ContentStore; config: DocumentConfig; afterRegister: (ref: { projectId: string; artifactId: string; version: number }) => void };
+  /** Where read-only project views for the Lead chat live (Claude Code CLI Lead only); absent: the Lead has no tools. */
+  viewRoot?: string;
+  /** Synchronous command pipeline call; the Host checks concurrency and creates/starts atomically. */
+  startWorkflow?: (input: { projectId: string; definitionKey: string; packKey: string; params: LeadGame; title: string }) => "started" | "already-running";
 }): LeadRunner {
   const { raw } = deps.storage;
   const { hub, gateway } = deps;
@@ -138,6 +144,11 @@ export function createLeadRunner(deps: {
       // The engaged team's own Lead profile (pinned pack snapshot) wins over the Host default pack's profile.
       let profileText = deps.profileText;
       try { profileText = (lead ? getSeatInstructions(raw, { seatId: lead.id })?.profile : undefined) ?? deps.profileText; } catch { /* default */ }
+      const packRow = lead ? raw.prepare(`SELECT p.manifest_json AS manifest FROM seats s
+        JOIN teams t ON t.id = s.team_id JOIN pack_snapshots p ON p.digest = t.pack_digest WHERE s.id = ?`)
+        .get(lead.id) as { manifest: string } | undefined : undefined;
+      const manifest = packRow ? packManifestSchema.parse(JSON.parse(packRow.manifest) as unknown) : undefined;
+      const leadWorkflow = manifest?.leadWorkflow;
       const userText = history.filter((message) => message.speaker === "user").map((message) => message.text).join("\n");
       const documents = deps.documents ? namedDocuments(raw, deps.documents.store, turn.projectId, userText) : [];
       const references = (raw.prepare(`SELECT v.artifact_id AS artifactId, v.title, v.media_type AS mediaType, v.abstract_l1 AS note
@@ -145,7 +156,11 @@ export function createLeadRunner(deps: {
           AND v.status NOT IN ('withdrawn', 'rejected')
           AND v.version = (SELECT MAX(x.version) FROM artifact_versions x WHERE x.project_id = v.project_id AND x.artifact_id = v.artifact_id)
         ORDER BY v.created_at DESC LIMIT 40`).all(turn.projectId) as Array<{ artifactId: string; title: string; mediaType: string; note: string | null }>);
-      const built = buildLeadRequest({ profileText,
+      // The Lead inspects the latest integrated code read-only; without a Git workspace it plans without tools.
+      const view = deps.viewRoot && gateway?.providerId === "claude-cli" && project.workspace.kind === "git"
+        ? await prepareLeadView(deps.viewRoot, turn.projectId, project.workspace.root) : null;
+      const built = buildLeadRequest({ profileText, ...(view ? { view } : {}),
+        ...(leadWorkflow === undefined ? {} : { leadWorkflow }),
         project: { name: project.name, workspaceRoot: project.workspace.root }, seats, tasks: listTasks(raw, turn.projectId),
         history, intent, config, documents, references });
       if (gateway === null) {
@@ -175,7 +190,7 @@ export function createLeadRunner(deps: {
             usage: result.usage, estimatedTokens: built.estimateTokens, recordedAt: clock().toISOString() }));
         return;
       }
-      const parsed = parseLeadOutput(result.text, intent);
+      const parsed = parseLeadOutput(result.text, intent, leadWorkflow === undefined ? "plan" : "game");
       hub.transaction(() => {
         const now = clock().toISOString();
         recordUsage(raw, { id: newId(), projectId: turn.projectId, taskId, attemptId: null,
@@ -183,10 +198,26 @@ export function createLeadRunner(deps: {
           usage: result.usage, estimatedTokens: built.estimateTokens, recordedAt: now });
         const { message } = appendMessage(raw, { projectId: turn.projectId, conversationId: conversation.id,
           id: newId(), speaker: "agent", agentId: conversation.agentId, text: parsed.reply, createdAt: now });
+        let duplicateNote: string | null = null;
         const tasks = parsed.plan === null ? [] : createProposedTasks(raw, { projectId: turn.projectId,
-          turnId: turn.id, plan: parsed.plan, engagementId: engagement?.id ?? null });
+          turnId: turn.id, plan: parsed.plan, briefs: parsed.briefs, engagementId: engagement?.id ?? null,
+          onDuplicates: (count) => { duplicateNote = `${count} task(s) in this plan already exist and are still open, so no copy was created.`; } });
         event(turn, { type: "message.appended", message });
         if (parsed.note !== null) systemMessage(turn, parsed.note, now);
+        if (duplicateNote !== null) systemMessage(turn, duplicateNote, now);
+        if (parsed.game !== null && intent === "delegate" && leadWorkflow !== undefined && manifest) {
+          const title = `Game: ${parsed.game.request.slice(0, 60).replace(/\s+/g, " ").trim()}`;
+          try {
+            if (!deps.startWorkflow) throw new Error("Lead workflow starter is not configured");
+            const outcome = deps.startWorkflow({ projectId: turn.projectId, definitionKey: leadWorkflow,
+              packKey: manifest.key, params: parsed.game, title });
+            systemMessage(turn, outcome === "already-running" ? "A build is already running for this project."
+              : `Started workflow "${title}"`, now);
+          } catch (error) {
+            console.error("Lead workflow start failed", error);
+            systemMessage(turn, "The game workflow could not be started. Please try again.", now);
+          }
+        }
         if (parsed.csv !== null && deps.documents) {
           // The plan file is an ordinary project document (kind plan): the operator opens or downloads it in Knowledge
           // and later asks the Lead to apply it. Saving it never creates tasks.

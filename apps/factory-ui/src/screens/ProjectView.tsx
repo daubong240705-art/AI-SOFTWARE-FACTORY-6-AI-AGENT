@@ -4,7 +4,8 @@ import type { Project } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Columns3, GitBranch, LayoutGrid, MessageSquare, Plus, Settings, Users, Workflow, Zap } from 'lucide-react';
+import { BookOpen, Columns3, GitBranch, LayoutGrid, MessageSquare, Play, Plus, Settings, Users, Workflow, Zap } from 'lucide-react';
+import { PreviewDialog } from './PreviewDialog';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { DockedPane } from './DockedPane';
@@ -22,8 +23,8 @@ import { Page } from '../components/Page';
 import { ProjectTile } from './shell/ProjectTile';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { Reveal } from '@/components/motion/Reveal';
+import { useUiProfile, visibleTabs } from '../config/uiProfile';
 
-const tabs = ['overview', 'office', 'board', 'workflow', 'automation', 'knowledge', 'code', 'settings'] as const;
 const tabIcons = { overview: LayoutGrid, office: Users, board: Columns3, workflow: Workflow, automation: Zap, knowledge: BookOpen, code: GitBranch, settings: Settings };
 export function ProjectView({ store, project, tab, onTabChange, openChat = false, onChatOpened, initialTaskId }: {
   store: Store; project: Project; tab?: ProjectTab; onTabChange?: (tab: ProjectTab) => void; openChat?: boolean; onChatOpened?: () => void; initialTaskId?: string | undefined;
@@ -31,11 +32,15 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
   const t = useT(); const id = useId();
   const reduced = useReducedMotion();
   const navigation = useNavigation();
-  const active: ProjectTab = tab ?? navigation.tab ?? 'overview';
+  const profile = useUiProfile();
+  const tabs = visibleTabs(profile);
+  const requestedTab = tab ?? navigation.tab;
+  const active: ProjectTab = tabs.includes(requestedTab) ? requestedTab : 'overview';
   const [chat, setChat] = useState(openChat);
   const [chatVisible, chatExited] = usePanelLayout(chat);
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [preview, setPreview] = useState(false);
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
   const ask = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -43,6 +48,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
   }, [openChat, onChatOpened]);
   useEffect(() => { if (active !== 'board') setSelected(null); }, [active]);
   useEffect(() => { if (initialTaskId) { setChat(false); setSelected(initialTaskId); } }, [initialTaskId]);
+  useEffect(() => { if (profile === 'games') setCreating(false); }, [profile]);
   function select(next: ProjectTab) {
     if (onTabChange) onTabChange(next); else navigation.navigate(`project:${project.id}`, next);
   }
@@ -70,7 +76,8 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         </TabsList>
       </Tabs></LayoutGroup>
       <div className="ml-auto flex shrink-0 items-center gap-2 pl-3">
-        {active === 'board' && <Button variant="default" className="h-9 w-9 border-0 px-0 sm:w-auto sm:px-3" aria-label={t('taskUi.new')} aria-expanded={creating} aria-controls={`${id}-new-task`} onClick={() => setCreating(!creating)}><Plus className="size-4" aria-hidden="true" /><span className="hidden sm:inline">{t('taskUi.new')}</span></Button>}
+        {profile === 'full' && active === 'board' && <Button variant="default" className="h-9 w-9 border-0 px-0 sm:w-auto sm:px-3" aria-label={t('taskUi.new')} aria-expanded={creating} aria-controls={`${id}-new-task`} onClick={() => setCreating(!creating)}><Plus className="size-4" aria-hidden="true" /><span className="hidden sm:inline">{t('taskUi.new')}</span></Button>}
+        {project.workspace.kind === 'git' && <Button variant="outline" className="h-9 w-9 px-0 sm:w-auto sm:px-3" aria-label={t('previewUi.title')} onClick={() => setPreview(true)}><Play className="size-4" aria-hidden="true" /><span className="hidden sm:inline">{t('previewUi.button')}</span></Button>}
         <Button ref={ask} variant="outline" className="h-9 w-9 px-0 sm:w-auto sm:px-3" aria-label={t('projectUi.askLead')} aria-expanded={chat} aria-controls={`${id}-chat`} onClick={() => { setSelected(null); setChat(!chat); }}><MessageSquare className="size-4" aria-hidden="true" /><span className="hidden sm:inline">{t('projectUi.askLead')}</span></Button>
       </div>
     </header></Page>
@@ -91,6 +98,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         <ProjectChat store={store} projectId={project.id} showBudget={active !== 'overview'} onClose={() => { setChat(false); ask.current?.focus(); }} />
       </DockedPane>}</PanelPresence>
     </div>
+    {preview && <PreviewDialog store={store} projectId={project.id} onClose={() => setPreview(false)} />}
   </div>;
 }
 

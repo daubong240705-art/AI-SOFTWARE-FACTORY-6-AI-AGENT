@@ -36,7 +36,7 @@ import type { ModelGateway } from "./models/index.js";
 import { createUpstream, type ModelInfo } from "./models/upstream.js";
 import { createModelProxy, createTokenRegistry, type TokenRegistry } from "./proxy/index.js";
 import type { ModelAccess } from "./dispatch/dispatcher.js";
-import { createOrgHandlers, loadPack, loadPackRegistry, ORG_COMMANDS } from "./org/index.js";
+import { createOrgHandlers, loadPack, loadPackRegistry, registryEntry, ORG_COMMANDS } from "./org/index.js";
 import { budgetsSetHandler, setAutonomyHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
 import { createProjectsCreateHandler } from "./projects/service.js";
 import { openStorage, type Storage } from "./storage/database.js";
@@ -63,6 +63,12 @@ import { createEffectExecutor, type EffectExecutor } from "./effects/executor.js
 import { createKnowledgeIndex, type KnowledgeIndex } from "./knowledge/index.js";
 import { registerKnowledgeRoutes } from "./knowledge/routes.js";
 import { createArtifactTaskRefs } from "./work/artifact-tasks.js";
+import { createPreviewService, type PreviewService } from "./preview/service.js";
+import { registerPreviewRoutes } from "./preview/routes.js";
+import { createPublishService, type PublishService, type PortalConfig } from "./publish/service.js";
+import { registerPublishRoutes } from "./publish/routes.js";
+import { createGameService } from "./games/create.js";
+import { registerGameRoutes } from "./games/routes.js";
 import { registerDocumentRoutes } from "./artifacts/routes.js";
 import { DEFAULT_DOCUMENT_CONFIG, type DocumentConfig } from "./artifacts/limits.js";
 import { createKnowledgeMcp } from "./knowledge/mcp.js";
@@ -111,6 +117,7 @@ async function prepareProxySocket(path: string): Promise<void> {
 }
 
 export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
+  defaultPack: string; packKeys?: string[]; gameStarterDir?: string;
   mcpServers?: McpServersConfig;
   multiTeam: boolean;
   stateDir: string; port: number; backupDir?: string;
@@ -126,6 +133,12 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   pushRemotes: PushRemote[] | null;
   pushSshCommand?: string;
 } {
+  const defaultPack = env.FACTORY_DEFAULT_PACK ?? "software-team";
+  const packKeys = env.FACTORY_PACKS?.split(",").map((key) => key.trim());
+  const validPackKey = (key: string): boolean => /^[a-z0-9-]{2,40}$/.test(key);
+  if (!validPackKey(defaultPack)) throw new Error("FACTORY_DEFAULT_PACK must be a pack key");
+  if (packKeys && (packKeys.length === 0 || packKeys.some((key) => !validPackKey(key))))
+    throw new Error("FACTORY_PACKS must be comma-separated pack keys");
   if (env.FACTORY_MULTI_TEAM !== undefined && env.FACTORY_MULTI_TEAM !== "0" && env.FACTORY_MULTI_TEAM !== "1")
     throw new Error("FACTORY_MULTI_TEAM must be 0 or 1");
   const pushRemotes = env.FACTORY_PUSH_REMOTES === undefined ? null : parsePushRemotes(env.FACTORY_PUSH_REMOTES);
@@ -210,6 +223,9 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
     }
   }
   return {
+    defaultPack,
+    ...(packKeys === undefined ? {} : { packKeys }),
+    ...(env.FACTORY_GAME_STARTER_DIR === undefined ? {} : { gameStarterDir: env.FACTORY_GAME_STARTER_DIR }),
     ...(!env.FACTORY_MCP_SERVERS_FILE ? {} : { mcpServers: loadMcpServers(env.FACTORY_MCP_SERVERS_FILE) }),
     multiTeam: env.FACTORY_MULTI_TEAM === "1", localCli: env.FACTORY_LOCAL_CLI === "1",
     ...(cliPassEnv === undefined ? {} : { cliPassEnv }),
@@ -244,6 +260,7 @@ async function freeLoopbackPort(): Promise<number> {
 }
 
 export async function startHost(options: {
+  defaultPack?: string; packKeys?: readonly string[]; gameStarterDir?: string;
   pushChannel?: PushChannel;
   mcpServers?: McpServersConfig;
   multiTeam?: boolean; packsDir?: string; openLogin?: boolean;
@@ -252,6 +269,7 @@ export async function startHost(options: {
   docWorker?: DocWorkerConfig;
   pushRemotes?: PushRemote[] | null;
   pushSshCommand?: string;
+  portal?: PortalConfig | null;
   monitorStatfs?: MonitorDeps["statfs"];
   timers?: Timers;
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
@@ -317,6 +335,8 @@ export async function startHost(options: {
   let ruleDeps: RuleDeps | undefined;
   let knowledgeTimer: ReturnType<typeof setImmediate> | undefined;
   let extractions: ExtractionService | undefined;
+  let previews: PreviewService | undefined;
+  let publishing: PublishService | undefined;
   let localMcp: FastifyInstance | undefined;
   let localTokens: TokenRegistry | undefined;
   let localMcpUrl: string | undefined;
@@ -332,6 +352,8 @@ export async function startHost(options: {
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
       if (scheduleTimer !== undefined) { clearExpiry(scheduleTimer); scheduleTimer = undefined; }
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
+      await previews?.close();
+      await publishing?.close();
       await extractions?.close();
       await effects?.close();
       await localMcp?.close();
@@ -364,10 +386,23 @@ export async function startHost(options: {
     return closePromise;
   };
   try {
-    const pack = loadPack(options.packDir ?? fileURLToPath(new URL("../../../packs/software-team/", import.meta.url)));
-    const packs = loadPackRegistry(options.packsDir ?? fileURLToPath(new URL("../../../packs/", import.meta.url)), {
+    const packsDir = options.packsDir ?? fileURLToPath(new URL("../../../packs/", import.meta.url));
+    const defaultKey = options.defaultPack ?? "software-team";
+    const namedPack = (key: string) => {
+      if (!/^[a-z0-9-]{2,40}$/.test(key)) throw new Error("Invalid pack key");
+      const dir = join(packsDir, key);
+      if (!existsSync(join(dir, "pack.json"))) throw new Error(`Pack '${key}' does not exist in the packs directory`);
+      try {
+        const loaded = loadPack(dir);
+        if (loaded.manifest.key !== key) throw new Error("Pack key mismatch");
+        return loaded;
+      } catch { throw new Error(`Pack '${key}' could not be loaded`); }
+    };
+    const pack = options.packDir ? loadPack(options.packDir) : namedPack(defaultKey);
+    const packs = options.packKeys === undefined ? loadPackRegistry(packsDir, {
       defaultPack: pack, onError: (message) => { console.error(message); },
-    });
+    }) : [...new Set([...options.packKeys, pack.manifest.key])].sort().map((key) =>
+      registryEntry(key === pack.manifest.key ? pack : namedPack(key), key === pack.manifest.key));
     unlockState = lockStateDirectory(stateDir);
     storage = openStorage(join(stateDir, "host.db"));
     storage.migrate({
@@ -404,6 +439,14 @@ export async function startHost(options: {
       effects.recoverAtStart();
     }
     const approvalRaw = storage.raw;
+    publishing = createPublishService({ raw: approvalRaw, stateDir, portal: options.portal ?? null, clock,
+      projectRootFor(projectId) {
+        const row = approvalRaw.prepare("SELECT workspace_root, workspace_kind FROM projects WHERE id = ?").get(projectId) as
+          { workspace_root: string; workspace_kind: string } | undefined;
+        try { return options.workspace && row?.workspace_kind === "git"
+          ? assertInside(canonicalRoots(options.workspace).projectsRoot, row.workspace_root) : null; } catch { return null; }
+      } });
+    publishing.recoverAtStart();
     const modelSeed: ModelSettingsSeed = {
       leadModel: options.lead?.model ?? DEFAULT_LEAD_CONFIG.model,
       leadEffort: options.lead?.effort ?? DEFAULT_LEAD_CONFIG.effort ?? "medium",
@@ -483,7 +526,22 @@ export async function startHost(options: {
     if (!leadSeat) throw new Error("Pack has no Lead seat");
     runner = createLeadRunner({ storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
       documents: { store: artifacts.store, config: documentConfig, afterRegister },
+      viewRoot: join(stateDir, "lead-view"),
       profileText: readFileSync(join(pack.dir, leadSeat.profile), "utf8"),
+      startWorkflow({ projectId, definitionKey, packKey, params, title }) {
+        return hub.transaction(() => raw.transaction(() => {
+          if (raw.prepare(`SELECT 1 FROM workflow_instances WHERE project_id = ? AND key = ? AND pack_key = ?
+            AND state NOT IN ('completed', 'cancelled') LIMIT 1`).get(projectId, definitionKey, packKey)) return "already-running" as const;
+          const instanceId = resultId();
+          const command = (type: string, payload: unknown): void => {
+            const result = workflowPipeline.execute({ apiVersion: 1, projectId, commandId: resultId(), type, payload }, "lead");
+            if (!result.body.ok) throw new Error(`Workflow command rejected: ${result.body.error.code}: ${result.body.error.message}`);
+          };
+          command("workflows.create", { instanceId, definitionKey, packKey, params, title });
+          command("workflows.start", { instanceId, expectedRevision: 1 });
+          return "started" as const;
+        })());
+      },
       ...(options.lead === undefined ? {} : { config: options.lead }),
       getModelConfig() {
         const settings = effectiveModels();
@@ -746,9 +804,31 @@ export async function startHost(options: {
     };
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
+      registerPublishRoutes(app, guards, publishing!);
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store, tasks: createArtifactTaskRefs(approvalRaw) });
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });
       registerExtractionRoutes(app, guards, extraction);
+      registerGameRoutes(app, guards, {
+        ...(options.gameStarterDir === undefined ? {} : { starterDir: options.gameStarterDir }),
+        ...(options.gameStarterDir && options.workspace ? { games: createGameService({
+          raw: approvalRaw, pipeline, pack, starterDir: options.gameStarterDir,
+          projectsRoot: canonicalRoots(options.workspace).projectsRoot,
+        }) } : {}),
+      });
+      {
+        let previewRoots: ReturnType<typeof canonicalRoots> | null = null;
+        try { if (options.workspace) previewRoots = canonicalRoots(options.workspace); } catch { previewRoots = null; }
+        const roots = previewRoots;
+        if (roots) {
+          previews = createPreviewService({ viewRoot: join(stateDir, "preview"), hostPort: options.port, now: clock,
+            projectRootFor(projectId) {
+              const row = approvalRaw.prepare("SELECT workspace_root, workspace_kind FROM projects WHERE id = ?").get(projectId) as
+                { workspace_root: string; workspace_kind: string } | undefined;
+              try { return row?.workspace_kind === "git" ? assertInside(roots.projectsRoot, row.workspace_root) : null; } catch { return null; }
+            } });
+          registerPreviewRoutes(app, guards, { raw: approvalRaw, preview: previews });
+        }
+      }
       app.get("/system/models", { preHandler: guards.session }, async () => {
         const catalog = await availableModels();
         return { apiVersion: 1, ok: true, settings: effectiveModels(),

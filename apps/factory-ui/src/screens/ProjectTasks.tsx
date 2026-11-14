@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { Board } from './Board';
 import { NewTask } from './NewTask';
+import { useUiProfile } from '../config/uiProfile';
 import { TaskRow } from './TaskRow';
 import { TaskDetail } from './TaskDetail';
 import { Select } from '../components/Select';
@@ -24,7 +25,7 @@ type Filter = typeof filters[number];
 export function ProjectTasks({ store, projectId, selectedTask, onOpenTask, onCloseTask, newTaskOpen, newTaskId }: {
   store: Store; projectId: string; selectedTask?: string | null; onOpenTask?: (id: string) => void; onCloseTask?: () => void; newTaskOpen?: boolean; newTaskId?: string;
 }) {
-  const t = useT();
+  const t = useT(); const profile = useUiProfile();
   const state = store.useStoreSelector(value => value);
   const [filter, setFilter] = useState<Filter>('all');
   const [view, setView] = useState<'board' | 'list'>(() => viewChoices.get(store) ?? 'board');
@@ -46,7 +47,7 @@ export function ProjectTasks({ store, projectId, selectedTask, onOpenTask, onClo
         </ToggleGroup>
         <div className="flex min-w-0 items-center gap-3"><Label htmlFor={id} className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">{t('taskUi.filter')}</Label><Select id={id} className="w-36 min-w-0" value={filter} onValueChange={next => setFilter(next as Filter)} options={filters.map(value => ({ value, label: t(`taskUi.filters.${value}`) }))} /></div>
       </div>
-      <NewTask store={store} projectId={projectId} {...(newTaskOpen === undefined ? {} : { open: newTaskOpen })} {...(newTaskId === undefined ? {} : { formId: newTaskId })} />
+      {profile === 'full' && <NewTask store={store} projectId={projectId} {...(newTaskOpen === undefined ? {} : { open: newTaskOpen })} {...(newTaskId === undefined ? {} : { formId: newTaskId })} />}
       {state.loading.tasks && !state.tasks.length ? <div role="status" aria-label={t('viewStates.loading')} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><span className="sr-only">{t('viewStates.loading')}</span>{[0,1,2,3,4,5].map(key => <Skeleton key={key} className="h-36 rounded-xl" />)}</div> : view === 'board' ? <Board store={store} tasks={tasks} onOpen={open} selectedTask={selected} /> : tasks.length ? <Card className="min-w-0 gap-0 overflow-hidden border-border py-0 shadow-none"><Table aria-label={t('workUi.list')} className="min-w-[800px]"><TableHeader><TableRow>{['taskUi.code', 'taskUi.title', 'team.state', 'team.seats', 'ux4.updated', 'workUi.actions'].map((key, index) => <TableHead key={key} className={cn('text-xs text-muted-foreground', index === 0 && 'pl-4', index === 5 && 'pr-4 text-right')}>{t(key)}</TableHead>)}</TableRow></TableHeader><TableBody>{tasks.map(task => <TaskRow key={task.id} store={store} projectId={projectId} task={task} onOpen={open} selected={selected === task.id} />)}</TableBody></Table></Card> : <Card className="border-border p-5 text-sm text-muted-foreground shadow-none"><MascotEmpty seat="Lead" state={state.tasks.length ? 'thinking' : 'idle'} compact={!!state.tasks.length}><p>{t(state.tasks.length ? 'taskUi.noMatches' : 'tasks.empty')}</p></MascotEmpty></Card>}
     </div>
     <PanelPresence className="project-task-pane min-h-0 min-w-0" fallbackFocus={fallbackFocus} onExitComplete={paneExited}>{selected && <TaskDetail key={selected} store={store} taskId={selected} inline initialTab="progress" onClose={close} fallbackFocus={fallbackFocus} />}</PanelPresence>

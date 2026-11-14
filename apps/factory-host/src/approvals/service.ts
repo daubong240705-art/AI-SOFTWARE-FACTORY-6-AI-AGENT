@@ -123,6 +123,24 @@ export function requestAgentDecision(deps: { raw: Database; hub?: EventHub; now:
   return deps.hub ? deps.hub.transaction(run) : raw.transaction(run).immediate();
 }
 
+const reviewOptions = [
+  { id: "accept", label: "Accept", consequence: "The task is marked done and tasks waiting for it can start." },
+  { id: "request-changes", label: "Request changes", consequence: "A new attempt starts from the previous branch with your comment." },
+];
+function reviewSummary(raw: Database, projectId: string, attemptId: string, reason?: string): string {
+  const rows = raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'state' ORDER BY seq DESC")
+    .all(projectId, attemptId) as { body_json: string }[];
+  const summaries = rows.map((row) => JSON.parse(row.body_json) as { summary?: unknown });
+  let summary = publicApprovalText(summaries.find((body) => typeof body.summary === "string" && body.summary.trim())?.summary as string ?? "Task completed.").trim().slice(0, 3500);
+  if (reason) summary = `Automatic review needs you: ${reason}\n${summary}`.slice(0, 3800);
+  const evidenceRows = raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'evidence' ORDER BY seq DESC")
+    .all(projectId, attemptId) as { body_json: string }[];
+  const totals = evidenceRows.map((row) => JSON.parse(row.body_json) as { totals?: Record<string, unknown> }).find((body) => body.totals)?.totals;
+  const count = (value: unknown): number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  if (totals) summary += `\nEvidence: ${count(totals.files)} files changed, +${count(totals.additions)} -${count(totals.deletions)}.`;
+  return summary;
+}
+
 export function requestTaskReview(deps: { raw: Database; now: () => Date; newId: () => string; hub?: EventHub },
   input: { projectId: string; taskId: string; attemptId: string }, options: { reason?: string } = {}): string | null {
   const { raw } = deps;
@@ -135,25 +153,14 @@ export function requestTaskReview(deps: { raw: Database; now: () => Date; newId:
   if (attempt?.id !== attemptId) return null;
   return raw.transaction(() => {
     for (const entity of finishPending(raw, projectId, taskId, "superseded")) publish(deps.hub, projectId, entity);
-    const rows = raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'state' ORDER BY seq DESC")
-      .all(projectId, attemptId) as { body_json: string }[];
-    const summaries = rows.map((row) => JSON.parse(row.body_json) as { summary?: unknown });
-    let summary = publicApprovalText(summaries.find((body) => typeof body.summary === "string" && body.summary.trim())?.summary as string ?? "Task completed.").trim().slice(0, 3500);
-    if (options.reason) summary = `Automatic review needs you: ${options.reason}\n${summary}`.slice(0, 3800);
-    const evidenceRows = raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'evidence' ORDER BY seq DESC")
-      .all(projectId, attemptId) as { body_json: string }[];
-    const totals = evidenceRows.map((row) => JSON.parse(row.body_json) as { totals?: Record<string, unknown> }).find((body) => body.totals)?.totals;
-    const count = (value: unknown): number => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
-    if (totals) summary += `\nEvidence: ${count(totals.files)} files changed, +${count(totals.additions)} -${count(totals.deletions)}.`;
+    const summary = reviewSummary(raw, projectId, attemptId, options.reason);
     const id = deps.newId();
     const now = deps.now();
     raw.prepare(`INSERT INTO approvals (project_id,id,revision,kind,task_id,subject,summary,options_json,recommendation,
       impact_if_waiting,context_digest,approver,requested_at,expires_at,state)
       VALUES (?,?,1,'review',?,?,?,?,NULL,?,?,'operator',?,?,'pending')`).run(projectId, id, taskId,
-      publicApprovalText(`Review ${task.code}: ${task.title}`).trim().slice(0, 160), summary, JSON.stringify([
-        { id: "accept", label: "Accept", consequence: "The task is marked done and tasks waiting for it can start." },
-        { id: "request-changes", label: "Request changes", consequence: "A new attempt starts from the previous branch with your comment." },
-      ]), "The task stays in review and tasks that depend on it wait.", computeReviewDigest(raw, projectId, taskId),
+      publicApprovalText(`Review ${task.code}: ${task.title}`).trim().slice(0, 160), summary, JSON.stringify(reviewOptions),
+      "The task stays in review and tasks that depend on it wait.", computeReviewDigest(raw, projectId, taskId),
       now.toISOString(), new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString());
     publish(deps.hub, projectId, effect(id, 1));
     return id;
@@ -163,12 +170,13 @@ export function requestTaskReview(deps: { raw: Database; now: () => Date; newId:
 /**
  * Automatic review: the Host accepts a finished task itself when the Lead marked it "automatic" and the result is
  * clean, exactly as an operator "accept" would (task done, documents approved, integration merge, dependents start).
+ * Rework sources with acceptance criteria decide their QA verdict from the latest criterion reports.
  * Anything that needs judgement goes to the operator instead, with the reason: flagged files in the change, an
  * external side effect, or a document that cannot be approved (for example without its summary).
  * Runs after the attempt outcome has committed, in its own transaction.
  */
 export function autoReviewTask(deps: { raw: Database; hub: EventHub; now: () => Date; newId: () => string; dispatcher: Dispatcher; multiTeam?: boolean },
-  input: { projectId: string; taskId: string; attemptId: string }): "accepted" | "asked" | null {
+  input: { projectId: string; taskId: string; attemptId: string }): "accepted" | "asked" | "changes-requested" | null {
   const { raw, hub } = deps;
   const { projectId, taskId, attemptId } = input;
   return hub.transaction(() => {
@@ -189,20 +197,55 @@ export function autoReviewTask(deps: { raw: Database; hub: EventHub; now: () => 
       .get(projectId, attemptId) as { body_json: string } | undefined;
     const flags = evidence ? (JSON.parse(evidence.body_json) as { flags?: Array<{ path?: unknown; kind?: unknown }> }).flags ?? [] : [];
     if (flags.length) return ask(`the change has flagged files (${flags.slice(0, 5).map((flag) => `${String(flag.kind)}: ${String(flag.path)}`).join(", ")}).`);
-    // A run that reports BLOCKED, or that changed nothing and registered nothing, did not deliver: never accept it silently.
+    // BLOCKED always needs the operator. Only a criterion-based QA verdict can finish without new files or documents.
     const summary = (raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'state' ORDER BY seq DESC")
       .all(projectId, attemptId) as { body_json: string }[]).map((row) => (JSON.parse(row.body_json) as { summary?: unknown }).summary)
       .find((value): value is string => typeof value === "string" && value.trim().length > 0) ?? "";
     if (/^[\s*_`#>-]*blocked\b/i.test(summary)) return ask("the agent reported BLOCKED.");
+    // Only a rework source with explicit acceptance criteria can issue its own QA verdict.
+    const automaticVerdict = isReworkSource(raw, projectId, taskId) && task.acceptance.length > 0;
+    const failures: { criterion: string; evidence: string }[] = [];
+    if (automaticVerdict) {
+      const latest = new Map<string, { passed: unknown; evidence: unknown }>();
+      const rows = raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'evidence' ORDER BY seq DESC")
+        .all(projectId, attemptId) as { body_json: string }[];
+      for (const row of rows) {
+        const body = JSON.parse(row.body_json) as { name?: unknown; criterion?: unknown; passed?: unknown; evidence?: unknown };
+        if (body.name === "criterion" && typeof body.criterion === "string" && !latest.has(body.criterion.trim()))
+          latest.set(body.criterion.trim(), { passed: body.passed, evidence: body.evidence });
+      }
+      for (const criterion of task.acceptance) {
+        const result = latest.get(criterion.trim());
+        if (result?.passed !== true) failures.push({ criterion: criterion.trim(),
+          evidence: typeof result?.evidence === "string" && result.evidence.trim() ? result.evidence : "not reported" });
+      }
+    }
     const changedFiles = evidence ? ((JSON.parse(evidence.body_json) as { totals?: { files?: unknown } }).totals?.files ?? 0) : 0;
     const outputs = (raw.prepare("SELECT count(*) AS n FROM artifact_versions WHERE project_id = ? AND produced_by_attempt_id = ?").get(projectId, attemptId) as { n: number }).n;
-    if (changedFiles === 0 && outputs === 0) return ask("the run changed no files and registered no document.");
+    if (!automaticVerdict && changedFiles === 0 && outputs === 0) return ask("the agent finished but delivered nothing new: no changed files and no document. Check its summary: if it only verified earlier work, approve it; otherwise send it back.");
     let effects: EntityRef[] = [];
     try {
       effects = raw.transaction(() => {
+        const verdictEffects: EntityRef[] = [];
+        if (failures.length) {
+          const id = deps.newId();
+          const now = deps.now();
+          raw.prepare(`INSERT INTO approvals (project_id,id,revision,kind,task_id,subject,summary,options_json,recommendation,
+            impact_if_waiting,context_digest,approver,requested_at,expires_at,state,outcome_option_id,outcome_actor_id,decided_at)
+            VALUES (?,?,2,'review',?,?,?,?,NULL,?,?,'operator',?,?,'changes-requested','request-changes','system',?)`)
+            .run(projectId, id, taskId, publicApprovalText(`Review ${task.code}: ${task.title}`).trim().slice(0, 160),
+              reviewSummary(raw, projectId, attemptId), JSON.stringify(reviewOptions),
+              "The task stays in review and tasks that depend on it wait.", computeReviewDigest(raw, projectId, taskId),
+              now.toISOString(), new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(), now.toISOString());
+          const lineText = (text: string): string => publicApprovalText(sanitizeAgentText(text));
+          const comment = [`Automatic QA verdict: ${failures.length} of ${task.acceptance.length} criteria failed or were not reported.`,
+            ...failures.map((failure) => `- ${lineText(failure.criterion)}: ${lineText(failure.evidence)}`)].join("\n").slice(0, 3000);
+          raw.prepare("INSERT INTO approval_comments (project_id,approval_id,comment) VALUES (?,?,?)").run(projectId, id, comment);
+          verdictEffects.push(effect(id, 2));
+        }
         const changed = moveTaskAndAdvance(raw, task, "done", { dispatcher: deps.dispatcher, integrationAt: deps.now().toISOString() });
         const refs = setTaskArtifactStatus(raw, { projectId, taskId, to: "approved", multiTeam: deps.multiTeam === true });
-        return [...changed, ...refs.map((ref): EntityRef => ({ kind: "artifact-version", id: ref.artifactId, revision: ref.version }))];
+        return [...verdictEffects, ...changed, ...refs.map((ref): EntityRef => ({ kind: "artifact-version", id: ref.artifactId, revision: ref.version }))];
       })();
     } catch (error) {
       if (error instanceof ArtifactLifecycleError || error instanceof CommandError) return ask("a document could not be approved automatically.");
@@ -210,7 +253,7 @@ export function autoReviewTask(deps: { raw: Database; hub: EventHub; now: () => 
     }
     for (const entity of effects) publish(hub, projectId, entity);
     workflowChanged(raw, projectId);
-    return "accepted";
+    return failures.length ? "changes-requested" : "accepted";
   });
 }
 

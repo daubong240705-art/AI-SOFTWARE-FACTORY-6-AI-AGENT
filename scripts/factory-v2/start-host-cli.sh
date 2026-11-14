@@ -76,6 +76,11 @@ export FACTORY_LEAD_TIMEOUT_SECONDS="${FACTORY_LEAD_TIMEOUT_SECONDS:-600}"
 export FACTORY_STATE_DIR="${FACTORY_STATE_DIR:-$ROOT/state}"
 export FACTORY_PROJECTS_ROOT="${FACTORY_PROJECTS_ROOT:-$ROOT/workspaces}"
 export FACTORY_WORKTREES_ROOT="${FACTORY_WORKTREES_ROOT:-$ROOT/worktrees}"
+export FACTORY_DEFAULT_PACK="${FACTORY_DEFAULT_PACK:-web-games}"
+export FACTORY_PACKS="${FACTORY_PACKS:-web-games}"
+if [ -z "${FACTORY_GAME_STARTER_DIR+x}" ] && [ -d "$HOME/GitHub/game-portal/starter/turn-based" ]; then
+  export FACTORY_GAME_STARTER_DIR="$HOME/GitHub/game-portal/starter/turn-based"
+fi
 export FACTORY_PORT="${FACTORY_PORT:-8787}"
 # No blocking budget: the largest value the Host accepts. Usage is still recorded per call.
 export FACTORY_BUDGET_TASK_TOKENS="${FACTORY_BUDGET_TASK_TOKENS:-9007199254740991}"

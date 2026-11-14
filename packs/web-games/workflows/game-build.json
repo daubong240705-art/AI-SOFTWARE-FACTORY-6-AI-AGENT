@@ -1,0 +1,143 @@
+{
+  "key": "game-build",
+  "revision": 1,
+  "title": "Build or change a web game",
+  "parameters": [
+    { "name": "mode", "type": "enum", "values": ["create", "update", "fix", "improve"], "default": "create" },
+    { "name": "request", "type": "string", "default": "" },
+    { "name": "touchRules", "type": "bool", "default": true },
+    { "name": "touchUi", "type": "bool", "default": true }
+  ],
+  "phases": ["design", "build", "verify"],
+  "stages": [
+    {
+      "key": "reproduce",
+      "phase": "design",
+      "title": "Reproduce the reported bug",
+      "requiredCapabilities": ["test.gameplay"],
+      "optional": true,
+      "includeIf": { "param": "mode", "op": "eq", "value": "fix" },
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "A test under tests/regression/ reproduces the reported bug and fails on the current code; report the test command, its nonzero exit code and quote the failing output."
+      ]
+    },
+    {
+      "key": "design",
+      "phase": "design",
+      "title": "Specify the game and shared types",
+      "requiredCapabilities": ["game.design"],
+      "optional": true,
+      "includeIf": { "param": "mode", "op": "ne", "value": "fix" },
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "docs/spec.md exists, is under 120 lines and defines core rules, win/draw/lose conditions, player counts, screens, controls and bot behaviour with a numbered list of every test case.",
+        "src/types.ts exports the JSON-compatible State and Action types used by rules and client; game.json metadata, player limits and bot support match docs/spec.md."
+      ]
+    },
+    {
+      "key": "rules",
+      "phase": "build",
+      "title": "Implement deterministic rules and bots",
+      "requiredCapabilities": ["game.rules"],
+      "optional": true,
+      "parallelGroup": "build",
+      "includeIf": { "all": [
+        { "param": "touchRules", "op": "eq", "value": true },
+        { "param": "mode", "op": "ne", "value": "fix" }
+      ] },
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "src/rules.ts implements every rule in docs/spec.md through the pure deterministic RulesModule contract, with JSON state and seeded RNG state only.",
+        "npm test exits 0 with tests for each win and draw condition and at least five distinct illegal actions.",
+        "When game.json has bot: true, the bot returns a legal action for 200 deterministic seeds; report the seed range and passing test name.",
+        "npm run check exits 0."
+      ]
+    },
+    {
+      "key": "art",
+      "phase": "build",
+      "title": "Create the SVG assets and responsive theme",
+      "requiredCapabilities": ["game.ui"],
+      "optional": true,
+      "parallelGroup": "build",
+      "includeIf": { "all": [
+        { "param": "touchUi", "op": "eq", "value": true },
+        { "param": "mode", "op": "ne", "value": "fix" }
+      ] },
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "assets/thumb.svg exists and game.json references its built path thumb.svg.",
+        "src/client/theme.css covers every screen of docs/spec.md at 360 px and 1280 px width, with accessible contrast and touch targets of at least 44 px.",
+        "All art is original SVG and CSS, and no external font, image or other external resource is referenced."
+      ]
+    },
+    {
+      "key": "client",
+      "phase": "build",
+      "title": "Integrate the SDK client and address QA rework",
+      "requiredCapabilities": ["game.client"],
+      "optional": false,
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "The page renders SDK room state, turn, seats, result, disconnected opponents and errors, and sends moves and rematch through connectGame without computing rules itself.",
+        "npm run check, npm test and npm run build each exit 0; report all three exit codes.",
+        "npm run play serves the preview page, its ready URL returns HTTP 200 and the page loads; stop the preview cleanly after checking.",
+        "dist/ contains game.json, its HTML entry, self-contained ESM rules.js and every referenced asset, and HTML loads main.js and theme.css relatively."
+      ]
+    },
+    {
+      "key": "qa",
+      "phase": "verify",
+      "title": "Verify gameplay, bundle and multiplayer in the browser",
+      "requiredCapabilities": ["test.e2e"],
+      "optional": false,
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "a clean `npm install` followed by `npm run check`, `npm test` and `npm run build` all exit 0, report the three exit codes",
+        "a bot-versus-bot simulation over 50 seeds ends every match without an illegal move, and one human-versus-human match is played to a win and one to a draw or loss",
+        "illegal actions are rejected: wrong turn, invalid or occupied target, a move after the match ended",
+        "in the browser at 1280x800 and 390x844 the preview opens with no console errors and a full match can be played",
+        "multiplayer: two browser contexts stay in sync turn by turn and reloading one returns it to the same room and seat, or \"n/a\" with the reason for a game without multiplayer"
+      ]
+    }
+  ],
+  "edges": [
+    { "from": "reproduce", "to": "client", "type": "finish-to-start" },
+    { "from": "design", "to": "rules", "type": "finish-to-start" },
+    { "from": "design", "to": "art", "type": "finish-to-start" },
+    { "from": "rules", "to": "client", "type": "finish-to-start" },
+    { "from": "art", "to": "client", "type": "finish-to-start" },
+    { "from": "client", "to": "qa", "type": "finish-to-start" },
+    {
+      "from": "qa",
+      "to": "client",
+      "type": "rework",
+      "when": { "fact": "review.verdict", "op": "eq", "value": "changes-requested" },
+      "maxLoops": 3
+    }
+  ],
+  "joins": [{ "group": "build", "policy": "all" }],
+  "gates": [],
+  "allowedPatches": {},
+  "autonomy": { "default": "L2" },
+  "timeouts": { "stallAfterMinutes": 180, "maxDurationMinutes": 1440 }
+}

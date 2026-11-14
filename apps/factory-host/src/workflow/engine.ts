@@ -167,8 +167,8 @@ export function advanceWorkflow(deps: WorkflowEngineDeps, projectId: string, ins
           title, goal: title, brief: lines.join("\n"), parentTaskId: null, engagementId: engagement, ownerSeatId: null,
           requiredCapabilities: spec.requiredCapabilities, placement: spec.placement,
           sideEffect: spec.sideEffect === "external" ? "external-irreversible" : spec.sideEffect === "code" ? "artifact" : spec.sideEffect ?? "none",
-          reviewPolicy: "human-final",
-          requiresGo: gates.some((gate) => gate.kind !== "review"), acceptance: spec.outputs.map((output) => `Register a ${output.kind} artifact and reach ${output.mustReach}`), inputs, dependsOn: [] } });
+          reviewPolicy: spec.review ?? "human-final",
+          requiresGo: gates.some((gate) => gate.kind !== "review"), acceptance: spec.acceptance?.length ? spec.acceptance : spec.outputs.map((output) => `Register a ${output.kind} artifact and reach ${output.mustReach}`), inputs, dependsOn: [] } });
       raw.prepare("INSERT INTO workflow_stage_tasks VALUES (?,?,?,?,?,?)").run(projectId, instanceId, spec.key, currentIteration, taskId, now);
       raw.prepare("UPDATE workflow_stages SET engagement_id = ? WHERE project_id = ? AND instance_id = ? AND stage_key = ?")
         .run(engagement, projectId, instanceId, spec.key); stage.engagement_id = engagement;

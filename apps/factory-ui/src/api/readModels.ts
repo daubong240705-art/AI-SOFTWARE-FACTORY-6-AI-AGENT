@@ -61,6 +61,11 @@ const staleReason = object({ becauseArtifactId: identifier, becauseVersion: inte
 const knowledgeVersion = object({ ...documentFields, version: integer(1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), abstractL1: nullable(string(6000)), producedByAttemptId: nullable(identifier), supersedesVersion: nullable(integer(1)), createdAt: timestamp, stale: defaulted(array(staleReason), []), isStale: defaulted(boolean, false) });
 const knowledgeRef = object({ artifactId: identifier, version: integer(1), title: string(500, 1) });
 const knowledgeArtifact = object({ artifactId: identifier, kind: enumeration(knowledgeKinds), title: string(500, 1), versions: knowledgeArray(knowledgeVersion), inputs: knowledgeArray(knowledgeRef), dependants: knowledgeArray(knowledgeRef) });
+const previewState = enumeration(['stopped', 'preparing', 'installing', 'starting', 'running', 'failed'] as const);
+const previewPath: Reader<string> = v => { const path = string(200, 1)(v); return /^\/(?!\/)/.test(path) && !/[\\\s]/.test(path) ? path : invalid(); };
+const preview = object({ state: previewState, url: nullable(string(200)), viewUrl: defaulted(nullable(previewPath), null), port: nullable(integer(1)), sha: nullable(string(80)),
+  startedAt: nullable(timestamp), message: nullable(string(600)), log: string(20_000) });
+export type PreviewStatus = ReturnType<typeof preview>;
 export type KnowledgeResult = ReturnType<typeof knowledgeResult>;
 export type KnowledgeItem = ReturnType<typeof knowledgeItem>;
 export type KnowledgeArtifact = ReturnType<typeof knowledgeArtifact>;
@@ -93,7 +98,7 @@ function envelope<T>(read: Reader<T>) {
 export const readModels = { attempts: envelope(object({ attempts: array(attempt) })), events: envelope(object({ events: array((v) => { const r = record(v); if (!Object.hasOwn(r, 'body')) invalid(); return event(v); }) })), patch: envelope(patch), artifacts: envelope(object({ items: array(artifact) })), content: envelope(content), approvals: envelope(object({ approvals: array(approval) })),
   approval: envelope(object({ approval })), inbox: envelope(inbox(false)), globalInbox: envelope(inbox(true)), remotes: envelope(object({ remotes: array(name) })), effects: envelope(object({ effects: array(effect) })), effect: envelope(object({ effect })),
   knowledgeSearch: envelope(object({ results: knowledgeArray(knowledgeResult) })), knowledgeList: envelope(object({ items: knowledgeArray(knowledgeItem) })), knowledgeGroups: envelope(knowledgeGroups), knowledgeArtifact: envelope(object({ artifact: knowledgeArtifact })),
-  uploadedArtifact: envelope(object({ artifact: knowledgeItem })) };
+  preview: envelope(object({ preview })), uploadedArtifact: envelope(object({ artifact: knowledgeItem })) };
 
 export { m5ReadModels } from './m5Models';
 export type { WorkflowInstance, WorkflowDetail, WorkflowStage, WorkflowGraph, WorkflowDefinition, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './m5Models';
