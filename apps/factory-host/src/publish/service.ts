@@ -273,8 +273,13 @@ export function createPublishService(deps: {
       step = "manifest";
       const dist = checkedDirectory(assertInside(cwd, join(cwd, "dist"))), manifest = assertInside(dist, join(dist, "game.json"));
       const stat = fs.lstatSync(manifest);
-      if (!stat.isFile() || stat.size > 1024 * 1024 || (JSON.parse(fs.readFileSync(manifest, "utf8")) as { id?: unknown })?.id !== row.game_id)
+      if (!stat.isFile() || stat.size > 1024 * 1024) throw new Error();
+      const id = (JSON.parse(fs.readFileSync(manifest, "utf8")) as { id?: unknown })?.id;
+      if (id !== row.game_id) {
+        // Say what differs: the usual cause is an agent renaming the game through its id instead of its name.
+        append(`\ndist/game.json id ${JSON.stringify(typeof id === "string" ? id.slice(0, 60) : id ?? null)} must be "${row.game_id}" (the game folder name). Change the id back; rename the game with "name".\n`);
         throw new Error();
+      }
       step = "archive";
       const tarball = join(temporary, "dist.tar.gz");
       if (!succeeded(await run(cwd, "tar", ["-czf", tarball, "-C", "dist", "."], home, 300_000, append))) throw new Error();

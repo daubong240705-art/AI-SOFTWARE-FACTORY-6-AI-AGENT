@@ -32,7 +32,7 @@ Preserve SDK, room server and build scripts. Use Node 22.20+, erasable TypeScrip
 
 ## game.json
 
-- `id`: `^[a-z0-9][a-z0-9-]{1,39}$`; `name`: 1–60 characters; `description`: at most 300.
+- `id`: `^[a-z0-9][a-z0-9-]{1,39}$`, set by the Factory to the game folder name when the game is created; never change it (publishing refuses a different id). Rename the game with `name` only; `name`: 1–60 characters; `description`: at most 300.
 - `category`: board, card, puzzle, party or other; integer `minPlayers` and `maxPlayers`: 1–8, min <= max.
 - `bot`: boolean; `sdk`: 1; `entry`: `index.html`; `rules`: `rules.js`; `thumbnail`: `thumb.svg` for this pack.
 - All entry, rules and thumbnail paths are relative, without `..`, backslashes or absolute paths. Keep metadata consistent with the spec.
