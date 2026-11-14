@@ -86,7 +86,7 @@ ensure() { grep -q "^$1=" "$ENV_FILE" || echo "$1=$2" >> "$ENV_FILE"; }
 ensure FACTORY_GAME_STARTER_DIR "$ROOT/game-starter"
 ensure FACTORY_PORTAL_URL "$PORTAL_URL"
 ensure FACTORY_PORTAL_ALLOW_PRIVATE_HTTP 1
-ensure FACTORY_NODE_SLOTS 1
+ensure FACTORY_NODE_SLOTS "${SLOTS:-3}"
 # Node (the Host and its Lead gateway) does not use the system certificate store: give it the CA that signs the 9Router address.
 ensure NODE_EXTRA_CA_CERTS "$CA_FILE"
 if [ -n "${LISTEN_HOST:-}" ]; then
@@ -108,7 +108,7 @@ After=network-online.target
 
 [Service]
 Environment=FACTORY_V2_HOME=$ROOT
-ExecStart=/bin/bash $ROOT/start-host-cli.sh --agents codex --lead 9router --slots 1
+ExecStart=/bin/bash $ROOT/start-host-cli.sh --agents codex --lead 9router --slots ${SLOTS:-3}
 Restart=on-failure
 RestartSec=5
 
