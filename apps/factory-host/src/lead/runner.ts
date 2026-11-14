@@ -8,7 +8,7 @@ import { packManifestSchema } from "../org/pack.js";
 import { checkAndReserve, DEFAULT_BUDGET_CONFIG, recordUsage, type BudgetConfig } from "../policy/budget.js";
 import { getProject } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
-import { createProposedTasks, listTasks } from "../work/service.js";
+import { createProposedTasks, createReadySeatTask, listTasks } from "../work/service.js";
 import { buildLeadRequest } from "./prompt.js";
 import type { ContentStore } from "../artifacts/content-store.js";
 import type { DocumentConfig } from "../artifacts/limits.js";
@@ -55,7 +55,7 @@ function namedDocuments(raw: Database, store: ContentStore, projectId: string, u
   }
   return documents;
 }
-import { parseLeadOutput, type LeadGame } from "./protocol.js";
+import { leadGameStages, normalizeLeadGame, parseLeadOutput, type LeadGameParams } from "./protocol.js";
 import { prepareLeadView } from "./view.js";
 
 export interface LeadConfig {
@@ -79,7 +79,9 @@ export function createLeadRunner(deps: {
   /** Where read-only project views for the Lead chat live (Claude Code CLI Lead only); absent: the Lead has no tools. */
   viewRoot?: string;
   /** Synchronous command pipeline call; the Host checks concurrency and creates/starts atomically. */
-  startWorkflow?: (input: { projectId: string; definitionKey: string; packKey: string; params: LeadGame; title: string }) => "started" | "already-running";
+  startWorkflow?: (input: { projectId: string; definitionKey: string; packKey: string; params: LeadGameParams; title: string }) => "started" | "already-running";
+  /** Wake dispatch after an accepted quick task has been made ready. */
+  onTaskReady?: () => void;
 }): LeadRunner {
   const { raw } = deps.storage;
   const { hub, gateway } = deps;
@@ -205,14 +207,31 @@ export function createLeadRunner(deps: {
         event(turn, { type: "message.appended", message });
         if (parsed.note !== null) systemMessage(turn, parsed.note, now);
         if (duplicateNote !== null) systemMessage(turn, duplicateNote, now);
+        if (parsed.task !== null && intent === "delegate") {
+          try {
+            const outcome = createReadySeatTask({ raw, hub, clock, newId, actorId: "operator" }, {
+              projectId: turn.projectId, turnId: turn.id, ...parsed.task,
+            });
+            if (outcome.status === "created") {
+              tasks.push(outcome.task);
+              systemMessage(turn, `Đã giao việc cho ${outcome.seat}: ${outcome.task.code}`, now);
+              deps.onTaskReady?.();
+            } else systemMessage(turn, outcome.status === "already-running"
+              ? "Chưa giao việc: game-build của dự án đang chạy hoặc đang chờ."
+              : "Chưa giao việc: không tìm thấy vị trí không phải Lead trong đội của dự án.", now);
+          } catch {
+            systemMessage(turn, "Không thể giao việc. Vui lòng thử lại.", now);
+          }
+        }
         if (parsed.game !== null && intent === "delegate" && leadWorkflow !== undefined && manifest) {
           const title = `Game: ${parsed.game.request.slice(0, 60).replace(/\s+/g, " ").trim()}`;
           try {
             if (!deps.startWorkflow) throw new Error("Lead workflow starter is not configured");
+            const params = normalizeLeadGame(parsed.game);
             const outcome = deps.startWorkflow({ projectId: turn.projectId, definitionKey: leadWorkflow,
-              packKey: manifest.key, params: parsed.game, title });
+              packKey: manifest.key, params, title });
             systemMessage(turn, outcome === "already-running" ? "A build is already running for this project."
-              : `Started workflow "${title}"`, now);
+              : `Sẽ chạy: ${leadGameStages(params)}`, now);
           } catch (error) {
             console.error("Lead workflow start failed", error);
             systemMessage(turn, "The game workflow could not be started. Please try again.", now);

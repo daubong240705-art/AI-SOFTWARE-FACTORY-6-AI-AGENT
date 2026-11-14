@@ -1,6 +1,6 @@
 {
   "key": "game-build",
-  "revision": 1,
+  "revision": 2,
   "title": "Build or change a web game",
   "parameters": [
     {
@@ -28,6 +28,35 @@
       "name": "touchUi",
       "type": "bool",
       "default": true
+    },
+    {
+      "name": "runDesign",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "runRules",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "runArt",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "runClient",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "qa",
+      "type": "enum",
+      "values": [
+        "full",
+        "quick"
+      ],
+      "default": "full"
     }
   ],
   "phases": [
@@ -45,9 +74,18 @@
       ],
       "optional": true,
       "includeIf": {
-        "param": "mode",
-        "op": "eq",
-        "value": "fix"
+        "all": [
+          {
+            "param": "mode",
+            "op": "eq",
+            "value": "fix"
+          },
+          {
+            "param": "runClient",
+            "op": "eq",
+            "value": true
+          }
+        ]
       },
       "review": "automatic",
       "inputs": [],
@@ -66,9 +104,18 @@
       ],
       "optional": true,
       "includeIf": {
-        "param": "mode",
-        "op": "ne",
-        "value": "fix"
+        "all": [
+          {
+            "param": "mode",
+            "op": "ne",
+            "value": "fix"
+          },
+          {
+            "param": "runDesign",
+            "op": "eq",
+            "value": true
+          }
+        ]
       },
       "review": "automatic",
       "inputs": [],
@@ -99,6 +146,11 @@
             "param": "mode",
             "op": "ne",
             "value": "fix"
+          },
+          {
+            "param": "runRules",
+            "op": "eq",
+            "value": true
           }
         ]
       },
@@ -133,6 +185,11 @@
             "param": "mode",
             "op": "ne",
             "value": "fix"
+          },
+          {
+            "param": "runArt",
+            "op": "eq",
+            "value": true
           }
         ]
       },
@@ -163,7 +220,12 @@
         "npm run check, npm test and npm run build each exit 0; report all three exit codes.",
         "npm run play serves the preview page, its ready URL returns HTTP 200 and the page loads; stop the preview cleanly after checking.",
         "dist/ contains game.json, its HTML entry, self-contained ESM rules.js and every referenced asset, and HTML loads main.js and theme.css relatively."
-      ]
+      ],
+      "includeIf": {
+        "param": "runClient",
+        "op": "eq",
+        "value": true
+      }
     },
     {
       "key": "qa",
@@ -183,6 +245,35 @@
         "illegal actions are rejected: wrong turn, invalid or occupied target, a move after the match ended",
         "in the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling (document scrollHeight is not larger than the window height and the whole board is visible) and a full match can be played",
         "multiplayer: two browser contexts stay in sync turn by turn and reloading one returns it to the same room and seat, or \"n/a\" with the reason for a game without multiplayer"
+      ],
+      "includeIf": {
+        "param": "qa",
+        "op": "eq",
+        "value": "full"
+      }
+    },
+    {
+      "key": "qa-quick",
+      "phase": "verify",
+      "title": "Quickly verify checks and browser gameplay",
+      "requiredCapabilities": [
+        "test.e2e"
+      ],
+      "optional": true,
+      "includeIf": {
+        "param": "qa",
+        "op": "eq",
+        "value": "quick"
+      },
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "A clean npm install followed by npm run check, npm test and npm run build exits 0; report the three check, test and build exit codes.",
+        "A bot-versus-bot run over 20 seeds ends every match without an illegal move; report the seed range and results.",
+        "In the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling and one match is played to the end.",
+        "No file outside tests/ was changed by QA; report the changed paths (or none)."
       ]
     }
   ],
@@ -219,6 +310,42 @@
     },
     {
       "from": "qa",
+      "to": "client",
+      "type": "rework",
+      "when": {
+        "fact": "review.verdict",
+        "op": "eq",
+        "value": "changes-requested"
+      },
+      "maxLoops": 3
+    },
+    {
+      "from": "rules",
+      "to": "qa",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "art",
+      "to": "qa",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "client",
+      "to": "qa-quick",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "rules",
+      "to": "qa-quick",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "art",
+      "to": "qa-quick",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "qa-quick",
       "to": "client",
       "type": "rework",
       "when": {

@@ -19,3 +19,11 @@ export const notificationIdPayloadSchema = z.strictObject({ notificationId: idSc
 export type NotificationView = z.infer<typeof notificationViewSchema>;
 export type NotificationCategory = z.infer<typeof notificationCategorySchema>;
 export type NotificationUrgency = z.infer<typeof notificationUrgencySchema>;
+
+export const notifyErrorKindSchema = z.enum(["retry-later", "permanent", "retryable"]);
+export const notifyStatusSchema = z.strictObject({ telegram: z.boolean(), discord: z.boolean(), baseUrl: z.boolean() });
+export const notifyTestResponseSchema = z.strictObject({ channels: z.array(z.strictObject({
+  name: z.enum(["telegram", "discord"]), ok: z.boolean(), error: notifyErrorKindSchema.nullable(),
+}).refine((value) => value.ok === (value.error === null), "Invalid notification test result")) });
+export type NotifyStatus = z.infer<typeof notifyStatusSchema>;
+export type NotifyTestResponse = z.infer<typeof notifyTestResponseSchema>;

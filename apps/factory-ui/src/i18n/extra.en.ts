@@ -11,7 +11,7 @@ export const extra = {
     frameTitle: 'Playtest {game}', previewLoading: 'Preparing your playtest…', previewEmpty: 'Run the game to playtest it here.',
     feedback: 'Feedback for the team', feedbackType: 'Feedback type', feedbackTypes: { fix: 'Bug', improve: 'Improvement' },
     feedbackPrompt: 'What should the team change?', feedbackPlaceholder: 'Describe what happened or what you would like to improve…',
-    counter: '{count}/500 characters', uiOnly: 'Change only the interface', rulesOnly: 'Change only the rules',
+    counter: '{count}/500 characters', feedbackScope: 'Scope', feedbackScopes: { all: 'Automatic', ui: 'Interface only', rules: 'Rules only', tests: 'Tests only' },
     feedbackBusy: 'Wait for the current game build to finish before sending feedback.',
     feedbackNoBuild: 'Finish a game build before sending feedback.', workflowError: 'Could not verify the build state. Reload the page to try again.',
     sendFeedback: 'Send to the team', sendingFeedback: 'Sending…', feedbackSent: 'Handed to the team', feedbackError: 'Could not send feedback. Retry to continue the same request.',

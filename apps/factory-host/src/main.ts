@@ -10,6 +10,7 @@ import { isSandboxAvailable } from "./sandbox/index.js";
 import { createOpenCodeRuntime } from "./runtimes/index.js";
 import { validateRoots } from "./workspace/paths.js";
 import { portalConfig } from "./publish/service.js";
+import { notificationConfig } from "./notify/channels.js";
 
 function budgetTokens(name: string, input: string | undefined, fallback: number): number {
   if (input === undefined) return fallback;
@@ -27,6 +28,18 @@ try {
   });
   // The credential lives only in the publish service options. Even an explicit CLI passEnv cannot inherit it.
   delete process.env.FACTORY_PORTAL_TOKEN;
+  const telegramToken = process.env.FACTORY_TELEGRAM_BOT_TOKEN;
+  const telegramChat = process.env.FACTORY_TELEGRAM_CHAT_ID;
+  const discordWebhook = process.env.FACTORY_DISCORD_WEBHOOK_URL;
+  const notifyBaseUrl = process.env.FACTORY_NOTIFY_BASE_URL;
+  delete process.env.FACTORY_TELEGRAM_BOT_TOKEN;
+  delete process.env.FACTORY_TELEGRAM_CHAT_ID;
+  delete process.env.FACTORY_DISCORD_WEBHOOK_URL;
+  delete process.env.FACTORY_NOTIFY_BASE_URL;
+  const notify = notificationConfig({
+    ...(telegramToken === undefined ? {} : { botToken: telegramToken }), ...(telegramChat === undefined ? {} : { chatId: telegramChat }),
+    ...(discordWebhook === undefined ? {} : { webhookUrl: discordWebhook }), ...(notifyBaseUrl === undefined ? {} : { baseUrl: notifyBaseUrl }),
+  });
   const { dispatch, workspace, agentProxy, opencode, pushRemotes, pushSshCommand, localCli, cliPassEnv, ...hostOptions } = parseEnv(process.env);
   if (opencode && !await isSandboxAvailable())
     throw new Error("FACTORY_RUNTIME=opencode requires working bubblewrap on Linux");
@@ -94,7 +107,7 @@ try {
   const loginToken = process.env.FACTORY_LOGIN_TOKEN || undefined;
   if (loginToken !== undefined && (loginToken.length < 24 || /\s/.test(loginToken))) throw new Error("FACTORY_LOGIN_TOKEN must be at least 24 characters without whitespace");
   delete process.env.FACTORY_LOGIN_TOKEN;
-  const host = await startHost({ ...hostOptions, portal,
+  const host = await startHost({ ...hostOptions, portal, notify,
     ...(listenHost === undefined ? {} : { listenHost }), ...(allowedHosts.length ? { allowedHosts } : {}), ...(loginToken === undefined ? {} : { loginToken }), dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead, runtimes, pushRemotes,
     localCli: { enabled: localCli, ...(cliPassEnv === undefined ? {} : { passEnv: cliPassEnv }) },
     ...(agentProxy === undefined ? {} : { agentModels: agentProxy.approvedModels }),

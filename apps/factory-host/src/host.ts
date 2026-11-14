@@ -3,6 +3,8 @@ import { createStandingApprovalHandlers, createStandingApprovalMcp, STANDING_COM
 import { tickRules, type RuleDeps } from "./automation/rules.js";
 import { tickTeamBreakers } from "./automation/breakers.js";
 import { tickNotifications, createNotificationHandlers, NOTIFICATION_COMMANDS, type PushChannel } from "./notify/index.js";
+import { createFanOutChannel, type ExternalNotifications } from "./notify/channels.js";
+import { registerNotifyRoutes } from "./notify/routes.js";
 import { createRouteBreaker } from "./policy/breaker.js";
 import { createRuleHandlers, RULE_COMMANDS } from "./automation/ruleCommands.js";
 import { createIntegrationHandlers, INTEGRATION_COMMANDS } from "./integration/commands.js";
@@ -262,6 +264,7 @@ async function freeLoopbackPort(): Promise<number> {
 export async function startHost(options: {
   defaultPack?: string; packKeys?: readonly string[]; gameStarterDir?: string;
   pushChannel?: PushChannel;
+  notify?: ExternalNotifications;
   mcpServers?: McpServersConfig;
   multiTeam?: boolean; packsDir?: string; openLogin?: boolean;
   /** Network access (all three are set from the environment in main.ts): the address to listen on, extra Host/Origin names, and the sign-in token. */
@@ -477,8 +480,11 @@ export async function startHost(options: {
         .then(async () => {
           tickTeamBreakers({ raw: approvalRaw, hub }, clock());
           if (ruleDeps) tickRules(ruleDeps, clock());
+          const pushChannel = options.pushChannel ?? (options.notify?.channels.length ? createFanOutChannel(options.notify.channels) : undefined);
           await tickNotifications({ raw: approvalRaw, hub, utcOffsetMinutes: budgetConfig.utcOffsetMinutes,
-            ...(options.pushChannel === undefined ? {} : { pushChannel: options.pushChannel }) }, clock());
+            ...(options.notify?.baseUrl === undefined ? {} : { baseUrl: options.notify.baseUrl }),
+            ...(options.portal?.publicUrl === undefined ? {} : { publicUrl: options.portal.publicUrl }),
+            ...(pushChannel === undefined ? {} : { pushChannel }) }, clock());
         })
         .finally(() => { monitorTick = undefined; });
       if (options.multiTeam && dispatch) {
@@ -531,6 +537,7 @@ export async function startHost(options: {
       documents: { store: artifacts.store, config: documentConfig, afterRegister },
       viewRoot: join(stateDir, "lead-view"),
       profileText: readFileSync(join(pack.dir, leadSeat.profile), "utf8"),
+      onTaskReady() { dispatch?.kick(); },
       startWorkflow({ projectId, definitionKey, packKey, params, title }) {
         return hub.transaction(() => raw.transaction(() => {
           if (raw.prepare(`SELECT 1 FROM workflow_instances WHERE project_id = ? AND key = ? AND pack_key = ?
@@ -540,7 +547,10 @@ export async function startHost(options: {
             const result = workflowPipeline.execute({ apiVersion: 1, projectId, commandId: resultId(), type, payload }, "lead");
             if (!result.body.ok) throw new Error(`Workflow command rejected: ${result.body.error.code}: ${result.body.error.message}`);
           };
-          command("workflows.create", { instanceId, definitionKey, packKey, params, title });
+          command("workflows.create", { instanceId, definitionKey, packKey, title, params: {
+            mode: params.mode, request: params.request, touchRules: params.touchRules, touchUi: params.touchUi,
+            runDesign: params.runDesign, runRules: params.runRules, runArt: params.runArt, runClient: params.runClient, qa: params.qa,
+          } });
           command("workflows.start", { instanceId, expectedRevision: 1 });
           return "started" as const;
         })());
@@ -812,6 +822,7 @@ export async function startHost(options: {
     };
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
+      registerNotifyRoutes(app, guards, options.notify ?? { channels: [] });
       registerPublishRoutes(app, guards, publishing!);
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store, tasks: createArtifactTaskRefs(approvalRaw) });
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });

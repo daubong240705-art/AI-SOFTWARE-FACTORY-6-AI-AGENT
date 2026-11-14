@@ -99,7 +99,8 @@ export function createGameService(deps: {
       const project = getProject(deps.raw, projectEffect.id);
       if (!project || project.id !== projectId) throw new Error("Created project unavailable");
       const workflowEffect = command("workflows.create", { instanceId, definitionKey, packKey: deps.pack.manifest.key,
-        params: { mode: "create", request: input.request, touchRules: true, touchUi: true } }, "workflow-instance");
+        params: { mode: "create", request: input.request, touchRules: true, touchUi: true,
+          runDesign: true, runRules: true, runArt: true, runClient: true, qa: "full" } }, "workflow-instance");
       const workflow = getWorkflowInstance(deps.raw, project.id, workflowEffect.id);
       if (!workflow || workflow.id !== instanceId) throw new Error("Created workflow unavailable");
       command("workflows.start", { instanceId: workflow.id, expectedRevision: workflow.revision }, "workflow-instance");

@@ -14,7 +14,7 @@ export const extra: Translated<typeof en> = {
     frameTitle: 'Chơi thử {game}', previewLoading: 'Đang chuẩn bị bản chơi thử…', previewEmpty: 'Bấm Chạy để chơi thử game tại đây.',
     feedback: 'Góp ý cho đội', feedbackType: 'Loại góp ý', feedbackTypes: { fix: 'Lỗi', improve: 'Cải thiện' },
     feedbackPrompt: 'Bạn muốn đội thay đổi điều gì?', feedbackPlaceholder: 'Mô tả lỗi gặp phải hoặc điều bạn muốn cải thiện…',
-    counter: '{count}/500 ký tự', uiOnly: 'Chỉ đổi giao diện', rulesOnly: 'Chỉ đổi luật',
+    counter: '{count}/500 ký tự', feedbackScope: 'Phạm vi', feedbackScopes: { all: 'Tự động', ui: 'Chỉ giao diện', rules: 'Chỉ luật', tests: 'Chỉ kiểm thử' },
     feedbackBusy: 'Chờ đội làm xong lượt hiện tại rồi gửi góp ý nhé.',
     feedbackNoBuild: 'Cần làm xong một bản game trước khi gửi góp ý.', workflowError: 'Chưa kiểm tra được trạng thái làm game. Hãy tải lại trang để thử lại.',
     sendFeedback: 'Gửi cho đội', sendingFeedback: 'Đang gửi…', feedbackSent: 'Đã giao cho đội', feedbackError: 'Chưa gửi được góp ý. Bấm Thử lại để tiếp tục yêu cầu này.',

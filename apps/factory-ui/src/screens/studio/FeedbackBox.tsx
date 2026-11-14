@@ -12,7 +12,7 @@ type Attempt = { create: ReturnType<typeof workflowsCreate>; created: boolean; s
 export function FeedbackBox({ store, projectId }: { store: Store; projectId: string }) {
   const t = useT(); const id = useId(); const state = store.useStoreSelector(value => value);
   const [mode, setMode] = useState<'fix' | 'improve'>('fix'); const [request, setRequest] = useState('');
-  const [scope, setScope] = useState<'all' | 'ui' | 'rules'>('all');
+  const [scope, setScope] = useState<'all' | 'ui' | 'rules' | 'tests'>('all');
   const [busy, setBusy] = useState(false); const [success, setSuccess] = useState(false); const [problem, setProblem] = useState('');
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const lock = useRef(false); const mounted = useRef(false);
@@ -31,7 +31,10 @@ export function FeedbackBox({ store, projectId }: { store: Store; projectId: str
     if (lock.current || disabled || !request.trim() || request.length > 500) return;
     lock.current = true; setBusy(true); setSuccess(false); setProblem('');
     const entry = attempt ?? { create: workflowsCreate({ projectId, instanceId: crypto.randomUUID(), definitionKey: 'game-build', packKey: 'web-games',
-      params: { mode, request: request.trim(), touchRules: scope !== 'ui', touchUi: scope !== 'rules' } }), created: false };
+      params: { mode: mode === 'fix' && scope === 'ui' ? 'improve' : mode === 'fix' && scope === 'rules' ? 'update' : mode,
+        request: request.trim(), touchRules: scope === 'all' || scope === 'rules', touchUi: scope === 'all' || scope === 'ui',
+        runDesign: scope === 'all', runRules: scope === 'all' || scope === 'rules', runArt: scope === 'all' || scope === 'ui',
+        runClient: scope !== 'tests', qa: scope === 'ui' ? 'quick' : 'full' } }), created: false };
     setAttempt(entry);
     try {
       if (!entry.created) {
@@ -66,9 +69,11 @@ export function FeedbackBox({ store, projectId }: { store: Store; projectId: str
           <Textarea id={`${id}-request`} required minLength={1} maxLength={500} rows={4} value={request} aria-describedby={`${id}-counter`} onChange={event => { setRequest(event.target.value); setSuccess(false); }} placeholder={t('studioUi.feedbackPlaceholder')} />
           <p id={`${id}-counter`} className="text-right text-xs text-muted-foreground">{t('studioUi.counter').replace('{count}', String(request.length))}</p>
         </div>
-        <div className="flex flex-wrap gap-5 text-sm">
-          <label className="flex items-center gap-2"><input type="checkbox" checked={scope === 'ui'} onChange={event => setScope(event.target.checked ? 'ui' : 'all')} />{t('studioUi.uiOnly')}</label>
-          <label className="flex items-center gap-2"><input type="checkbox" checked={scope === 'rules'} onChange={event => setScope(event.target.checked ? 'rules' : 'all')} />{t('studioUi.rulesOnly')}</label>
+        <div className="space-y-2 text-sm">
+          <label htmlFor={`${id}-scope`} className="block font-medium">{t('studioUi.feedbackScope')}</label>
+          <select id={`${id}-scope`} className="rounded-md border bg-background p-2" value={scope} onChange={event => { setScope(event.target.value as typeof scope); setSuccess(false); }}>
+            {(['all', 'ui', 'rules', 'tests'] as const).map(value => <option key={value} value={value}>{t(`studioUi.feedbackScopes.${value}`)}</option>)}
+          </select>
         </div>
       </fieldset>
       {reason && <p id={`${id}-reason`} className="text-sm text-muted-foreground">{t(reason)}</p>}

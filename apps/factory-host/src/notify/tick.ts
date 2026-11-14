@@ -7,7 +7,7 @@ import { createNotification, notificationKey, type NotificationInput } from "./s
 import { claimDeliveries, sendDeliveries, type PushChannel } from "./push.js";
 import { integrationConflicts } from "../integration/views.js";
 
-export interface NotificationDeps { raw: Database; hub: EventHub; pushChannel?: PushChannel; utcOffsetMinutes?: number }
+export interface NotificationDeps { raw: Database; hub: EventHub; pushChannel?: PushChannel; baseUrl?: string; publicUrl?: string; utcOffsetMinutes?: number }
 interface ApprovalRow { id: string; revision: number; subject: string; summary: string; state: string; requested_at: string; expires_at: string }
 interface BlockerRow { id: string; revision: number; name: string }
 
@@ -60,6 +60,27 @@ function collect(deps: NotificationDeps, projectId: string, now: Date, offset: n
     .all(projectId) as { id: string; revision: number; title: string; state_reason: string | null; last_progress_at: string | null }[];
   for (const row of workflows) add({ dedupKey: notificationKey("workflow", row.id, row.last_progress_at ?? row.revision, "stalled"), category: "action",
     urgency: "normal", title: `Workflow stalled: ${row.title}`, body: row.state_reason ?? "Workflow needs operator attention.", entity: { kind: "workflow-instance", id: row.id } });
+
+  const builds = raw.prepare("SELECT id,title FROM workflow_instances WHERE project_id=? AND key='game-build' AND state='completed' ORDER BY id")
+    .all(projectId) as { id: string; title: string }[];
+  for (const row of builds) add({ dedupKey: notificationKey("game-build", row.id, "completed"), category: "important", urgency: "normal",
+    title: "Hoàn tất bản dựng game", body: `Game ${row.title} đã làm xong, sẵn sàng để chơi thử và phát hành.`, entity: { kind: "workflow-instance", id: row.id } });
+
+  const releases = raw.prepare(`SELECT r.id,r.state,r.version,r.error,r.play_path,p.name AS game_name
+    FROM game_releases r JOIN projects p ON p.id=r.project_id WHERE r.project_id=? AND r.state IN ('done','failed','unknown') ORDER BY r.id`)
+    .all(projectId) as { id: string; state: "done" | "failed" | "unknown"; version: number | null; error: string | null; play_path: string | null; game_name: string }[];
+  for (const row of releases) {
+    // Publish errors may contain a code followed by log lines; never copy that text into a notification.
+    const code = /^[a-z][a-z0-9-]{0,63}(?=$|[:\r\n])/.exec(row.error ?? "")?.[0] ?? "release-failed";
+    const playUrl = row.play_path && /^\/play\/[a-z0-9][a-z0-9-]{1,39}$/.test(row.play_path)
+      ? `${deps.publicUrl ?? ""}${row.play_path}` : "";
+    if (row.state === "done") add({ dedupKey: notificationKey("release", row.id, "done"), category: "important", urgency: "normal",
+      title: "Phát hành hoàn tất", body: `Đã phát hành ${row.game_name} phiên bản ${row.version ?? "?"}.${playUrl ? ` ${playUrl}` : ""}`, entity: { kind: "release", id: row.id } });
+    else if (row.state === "failed") add({ dedupKey: notificationKey("release", row.id, "failed"), category: "action", urgency: "urgent",
+      title: "Phát hành thất bại", body: `Phát hành ${row.game_name} thất bại (${code}).`, entity: { kind: "release", id: row.id } });
+    else add({ dedupKey: notificationKey("release", row.id, "unknown"), category: "action", urgency: "urgent",
+      title: "Phát hành chưa xác nhận", body: "Chưa xác nhận được bản phát hành, cần đối soát.", entity: { kind: "release", id: row.id } });
+  }
 
   const standing = raw.prepare("SELECT id,expires_at FROM standing_approvals WHERE project_id=? AND state='active' ORDER BY id")
     .all(projectId) as { id: string; expires_at: string }[];
@@ -120,7 +141,7 @@ export async function tickNotifications(deps: NotificationDeps, now: Date): Prom
         collect(deps, project.id, now, offset);
         return channel ? claimDeliveries(deps.raw, project.id, channel, now, offset) : [];
       });
-      if (channel) await sendDeliveries(deps.raw, channel, deliveries, now, report);
+      if (channel) await sendDeliveries(deps.raw, channel, deliveries, now, report, deps.baseUrl);
     } catch { report(); }
   } catch { report(); }
 }

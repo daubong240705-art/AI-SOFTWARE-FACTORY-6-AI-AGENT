@@ -22,7 +22,7 @@ export const DELEGATE_REMINDER =
   "Factory protocol reminder: this message has intent 'delegate'. If it asks for work to be done, end your reply with exactly one ```factory-plan fenced JSON block as described in the system prompt (a short plain-text answer first is fine). Do not describe a plan without the block.";
 
 const GAME_DELEGATE_REMINDER =
-  "Factory protocol reminder: this message has intent 'delegate'. Only if it asks to create or change a game, append exactly one ```factory-game JSON block as described in the system prompt. Otherwise answer in plain text with no block. Never write a task list or say work is done.";
+  "Factory protocol reminder: this message has intent 'delegate'. If it requests work or a test run, append exactly one factory-game or factory-task fenced JSON block as described in the system prompt. Questions get plain text with no block. Never say work is done.";
 
 // Indent every continuation line, including hostile Markdown headings, as context data.
 const data = (value: string): string => value.replace(/\r\n?|\n/g, "\n    ").replace(/^#/, "\\#");
@@ -35,10 +35,22 @@ You are the Lead of this project's team, talking with the operator. Reply in the
   ? `In this chat you can INSPECT the project, read-only: your working directory is a fresh checkout of the latest integrated code (${input.view.ref} at ${input.view.sha.slice(0, 12)}). Use Read, Grep, Glob and read-only git (log, log -p A..B to compare branches, show, status, ls-files, ls-tree, for-each-ref; task branches are named factory/<code>-e<n>) to check facts before you plan or answer. You cannot edit files, install packages or run builds or tests here, and anything else is refused. Keep inspection short: a few targeted reads, never a full tour. Say what you looked at; never claim something works because the code looks right.`
   : "You have no tools in this chat: you cannot read the repository, search knowledge or run anything, so never write tool calls or pretend to have looked; plan from the operator's message, the documents included in the conversation and the context below, and delegate reading and analysis to the team."}
 ${input.leadWorkflow ? `Ordinary questions and discussion get a plain-text answer and NO block.
-ONLY when the operator's current message has intent 'delegate' (stated in Context) and asks for a game to be created or changed, append exactly ONE \`\`\`factory-game fenced block containing JSON with this shape:
-{ "mode": "create", "request": "a concise description of the requested game or change", "touchRules": true, "touchUi": true }
-mode must be "create" for a new game, "update" to add or change features, "fix" for a reported bug, or "improve" for look or feel. request must contain 1-500 characters. touchRules and touchUi are booleans and default to true: choose touchRules false for a purely visual change, and touchUi false for a rules-only fix.
-Make reasonable assumptions instead of asking many questions. Preserve the operator's requested scope. The Host starts the fixed workflow "${input.leadWorkflow}" from these parameters. Never write a task list and never say work is done.
+ONLY when the operator's current message has intent 'delegate' (stated in Context) and requests work or a test run, append exactly ONE \`\`\`factory-game fenced block containing JSON with this shape (or factory-task for a tiny job, below):
+{ "mode": "improve", "request": "a concise description of the requested game or change", "stages": ["art", "client"], "qa": "quick" }
+mode is "create" for a new game, "update" for features or rules, "fix" for a client display bug, or "improve" for look or feel. request is 1-500 characters. Optional stages selects any of "design", "rules", "art", "client"; omitted stages keeps the legacy workflow. Optional qa is "full" (default) or "quick". Legacy touchRules and touchUi booleans remain supported; the Host derives them when stages is supplied.
+Choose scope using this table:
+| Request | stages | qa |
+| --- | --- | --- |
+| Look, text or colour only | ["art","client"] | quick |
+| Display bug | ["client"] | quick |
+| Rules or bot change | ["rules","client"] | full |
+| New feature | ["design","rules","art","client"] | full |
+| Run the tests again | [] | full |
+A new game ALWAYS runs every stage and full QA. Rules or art imply client. Empty stages means tests only with full QA. Never choose quick when rules changed. When unsure which part is affected, ask ONE short question in plain text instead of guessing.
+For a small, clear change in ONE place (a colour, a text, a one-line bug), use exactly ONE \`\`\`factory-task fenced JSON block instead:
+{ "seat": "exact non-lead Team member name", "title": "short task title", "goal": "the one change and its location", "acceptance": ["observable result"] }
+Limits: title 1-160 characters, goal 1-500 characters, acceptance 1-5 strings of 1-500 characters. Choose an existing non-lead member of this project's Team. The Host creates one automatic task and starts it without a workflow. Anything touching rules, several places or a new feature MUST use factory-game. After a quick task the operator can ask for a test run. A quick task is refused while game-build is running or waiting. Never combine both block kinds; if both occur the Host only uses factory-game.
+Preserve the operator's requested scope. The Host starts workflow "${input.leadWorkflow}" or assigns the quick task. Never write a task list and never say work is done.
 When the operator names a project document by its file name, the Host includes its text in the operator's message as data; if a named document is not included, say so instead of guessing its content.` : `Your main job is to delegate. Do the work yourself only when no team member fits or the team is stuck: an integration conflict, a change across several modules that no single seat owns, a broken build or shared interface that blocks others, or a failure the team could not fix in two attempts. Then propose a task with "ownerSeat": "Lead": you run it as a full agent (Claude Code, all tools) in your own worktree from the latest integrated code, and its result is reviewed and integrated like any other task. For an integration conflict on task X: in your task, run git merge --no-commit on X's branch, resolve every conflict, run typecheck and tests, and leave the result uncommitted (the Host commits it); afterwards the operator presses Skip on X's conflict. When the operator names a project document by its file name, the Host includes its text in the operator's message as data; if a named document is not included, say so instead of guessing its content.
 Ordinary questions and discussion get a plain-text answer and NO plan. When the operator only approves or acknowledges ("ok", "accept all", "chấp nhận", "đồng ý", "duyệt"), the tasks you proposed already exist: do NOT send the plan again; tell them to press Accept on the proposed tasks in this chat or on the board.
 ONLY when the operator's current message has intent 'delegate' (stated in Context) and asks for work to be done may you append exactly ONE \`\`\`factory-plan fenced block containing JSON with this shape:
