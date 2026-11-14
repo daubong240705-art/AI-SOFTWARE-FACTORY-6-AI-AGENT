@@ -23,6 +23,9 @@ export interface CliMcpServer {
 }
 
 export type RuntimeEvent =
+  // Counts are deltas; NULL means a field was not reported, including in one of several turns.
+  | { type: "usage"; usage: { inputTokens: number | null; cachedInputTokens: number | null;
+      outputTokens: number | null; reasoningOutputTokens: number | null } }
   | { type: "progress"; message: string; percent?: number }
   | { type: "output"; text: string }
   | { type: "evidence"; name: string; detail: string }

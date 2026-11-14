@@ -155,6 +155,7 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
     const queue: RuntimeEvent[] = [], readers: Array<(value: IteratorResult<RuntimeEvent>) => void> = [];
     let ended = false, stopped = false, success = false, summary = "", line = "", diagnostic = "";
     let discard = false, bytes = 0, terminal: Failure | undefined;
+    let usage: Extract<RuntimeEvent, { type: "usage" }>["usage"] | undefined;
     let processHandle: ReturnType<typeof cliProcess> | undefined;
     let totalTimer: ReturnType<typeof setTimeout> | undefined, stallTimer: ReturnType<typeof setTimeout> | undefined;
     let stopPromise: Promise<void> | undefined;
@@ -203,7 +204,22 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
       }
       if (cli === "codex") {
         if (type === "item.completed" && item.type === "agent_message" && typeof item.text === "string") text(item.text);
-        else if (type === "turn.completed") success = true;
+        else if (type === "turn.completed") {
+          success = true;
+          const reported = record(event.usage);
+          const count = (key: string): number | null => {
+            const value = reported[key];
+            return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+          };
+          const turn = { inputTokens: count("input_tokens"), cachedInputTokens: count("cached_input_tokens"),
+            outputTokens: count("output_tokens"), reasoningOutputTokens: count("reasoning_output_tokens") };
+          if (!usage) usage = turn;
+          else for (const key of Object.keys(turn) as Array<keyof typeof turn>) {
+            const previous = usage[key], next = turn[key];
+            // An incomplete turn cannot produce a known total; never substitute zero for missing data.
+            usage[key] = previous !== null && next !== null && Number.isSafeInteger(previous + next) ? previous + next : null;
+          }
+        }
       } else {
         if (type === "assistant") {
           const message = record(event.message);
@@ -264,6 +280,9 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
         if (stopped) { finish(); return; }
         if (line && !discard) parse(line);
         const succeeded = !terminal && !result.errorCode && result.code === 0 && success;
+        if (cli === "codex") emit({ type: "usage", usage: usage ?? {
+          inputTokens: null, cachedInputTokens: null, outputTokens: null, reasoningOutputTokens: null,
+        } });
         // A run that ends without a result gets the last lines of the CLI's own diagnostics, scrubbed.
         if (!terminal && !result.errorCode && !succeeded && diagnostic.trim())
           emit({ type: "progress", message: `${cli} exited (code ${String(result.code)}): ${scrub(diagnostic.trim().split("\n").slice(-3).join(" | ")).slice(-400)}` });

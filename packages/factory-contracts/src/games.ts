@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { idSchema, timestampSchema } from "./base.js";
+import { workflowInstanceStateSchema, workflowKeySchema } from "./workflow.js";
+import { taskStateSchema } from "./work.js";
 
 const gameIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{1,39}$/);
 
@@ -45,3 +47,47 @@ export type ReleasesResponse = z.infer<typeof releasesResponseSchema>;
 export const rollbackRequestSchema = z.strictObject({
   version: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
 });
+
+export const gameSummarySchema = z.strictObject({
+  projectId: idSchema,
+  name: z.string(),
+  gameId: z.string(), // Existing game workflows may use any workspace folder name.
+  workflow: z.strictObject({
+    instanceId: idSchema, state: workflowInstanceStateSchema,
+    currentStage: workflowKeySchema.nullable(), loops: z.number().int().nonnegative(),
+  }).nullable(),
+  release: z.strictObject({
+    version: z.number().int().positive().nullable(), state: releaseStateSchema,
+    playUrl: z.url().nullable(), createdAt: timestampSchema,
+  }).nullable(),
+  updatedAt: timestampSchema,
+});
+export const gamesResponseSchema = z.strictObject({ games: z.array(gameSummarySchema) });
+
+const reportCount = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+export const gameReportTokensSchema = z.strictObject({
+  input: reportCount.nullable(), cachedInput: reportCount.nullable(),
+  output: reportCount.nullable(), reasoning: reportCount.nullable(),
+});
+export const gameReportSchema = z.strictObject({
+  stages: z.array(z.strictObject({
+    key: workflowKeySchema, title: z.string(),
+    iterations: z.array(z.strictObject({
+      iteration: z.number().int().positive(), taskCode: z.string(), state: taskStateSchema,
+      startedAt: timestampSchema.nullable(), endedAt: timestampSchema.nullable(),
+      durationMs: reportCount.nullable(), attempts: reportCount,
+      tokens: gameReportTokensSchema.nullable(),
+    })),
+  })),
+  totals: z.strictObject({ durationMs: reportCount, attempts: reportCount, tokens: gameReportTokensSchema.nullable() }),
+  qaRounds: z.array(z.strictObject({
+    iteration: z.number().int().positive(), taskCode: z.string(),
+    verdict: z.enum(["passed", "changes-requested", "running"]),
+    criteria: z.array(z.strictObject({ criterion: z.string(), passed: z.boolean().nullable(), evidence: z.string().max(300).nullable() })),
+  })),
+});
+export const gameReportResponseSchema = gameReportSchema;
+export type GameSummary = z.infer<typeof gameSummarySchema>;
+export type GamesResponse = z.infer<typeof gamesResponseSchema>;
+export type GameReport = z.infer<typeof gameReportSchema>;
+export type GameReportResponse = GameReport;

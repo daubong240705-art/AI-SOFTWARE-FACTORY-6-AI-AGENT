@@ -24,6 +24,7 @@ import { onRequestTransition, resumeWaiter } from "../requests/waits.js";
 import { integratePending, integrationBlocked } from "../integration/service.js";
 import { getSeatRuntimeConfig } from "../org/runtime-config.js";
 import { LOCAL_CLI_FAILURES } from "../runtimes/failures.js";
+import { recordUsage } from "../policy/budget.js";
 
 export interface DispatcherConfig {
   /** Seats without an override and whose pack declares OpenCode run on this local CLI (FACTORY_DEFAULT_AGENT_CLI). */
@@ -292,6 +293,27 @@ export function createDispatcher(deps: {
     return entry.evidence;
   };
   const run = async (leased: AttemptRecord, entry: Live): Promise<void> => {
+    let cliUsage: Extract<RuntimeEvent, { type: "usage" }>["usage"] | undefined;
+    const saveUsage = (): void => {
+      const a = current(leased.projectId, leased.id);
+      if (a.provider !== "codex-cli" || !["succeeded", "failed", "stopped", "parked"].includes(a.state)
+        || raw.prepare("SELECT 1 FROM usage_records WHERE project_id = ? AND attempt_id = ?").get(a.projectId, a.id)) return;
+      const u = cliUsage;
+      const identity = { id: newId(), projectId: a.projectId, taskId: a.taskId, attemptId: a.id, conversationId: null,
+        provider: a.provider, model: a.model || "cli-default", effort: a.effort, estimatedTokens: null, recordedAt: now() };
+      if (u && u.inputTokens !== null && u.cachedInputTokens !== null && u.outputTokens !== null && u.reasoningOutputTokens !== null) {
+        recordUsage(raw, { ...identity, usage: { inputTokens: u.inputTokens, cachedInputTokens: u.cachedInputTokens,
+          outputTokens: u.outputTokens, reasoningOutputTokens: u.reasoningOutputTokens } });
+      } else {
+        // recordUsage requires complete Usage or a reservation. CLI runs have no Host reservation;
+        // retain partial/absent counts as NULL without inventing tokens or changing proxy reservations.
+        raw.prepare(`INSERT INTO usage_records (project_id,id,task_id,attempt_id,provider,model,effort,
+          input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens,cost_kind,cost_unknown_reason,recorded_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,'unknown','no price list',?)`).run(a.projectId, identity.id, a.taskId, a.id,
+          a.provider, identity.model, a.effort, u?.inputTokens ?? null, u?.cachedInputTokens ?? null,
+          u?.outputTokens ?? null, u?.reasoningOutputTokens ?? null, identity.recordedAt);
+      }
+    };
     let startInvoked = false;
     try {
       const preparing = hub.transaction(() => {
@@ -417,6 +439,13 @@ export function createDispatcher(deps: {
         }
         const event: RuntimeEvent = model && JSON.stringify(item.value).includes(model.token)
           ? { type: "failed", kind: "runtime", message: "runtime failed" } : item.value;
+        if (event.type === "usage") {
+          if (!cliUsage) cliUsage = { ...event.usage };
+          else for (const key of Object.keys(event.usage) as Array<keyof typeof event.usage>) {
+            const previous = cliUsage[key], next = event.usage[key];
+            cliUsage[key] = previous !== null && next !== null && Number.isSafeInteger(previous + next) ? previous + next : null;
+          }
+        }
         if (event.type === "completed" || event.type === "failed") {
           // An agent may finish immediately after receiving the tool response, before the Host's
           // deferred park fires. The decision owns this completion and keeps the task active.
@@ -457,6 +486,7 @@ export function createDispatcher(deps: {
       // An operator stop owns the execution until stop() settles or its deadline expires.
       const stopping = stops.get(`${leased.projectId}:${leased.id}`);
       if (stopping && !stopped) await Promise.race([stopping.catch(() => undefined), shutdown]);
+      try { saveUsage(); } catch { report(new Error("Attempt usage recording failed")); }
       live.delete(leased.id);
       if (!stopped) {
         try { markNodeSlots(raw, LOCAL_NODE_ID); } catch (error) { report(error); }

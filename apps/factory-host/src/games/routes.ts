@@ -1,15 +1,25 @@
 import { stat } from "node:fs/promises";
-import { newGameRequestSchema } from "@factory/contracts";
+import { idSchema, newGameRequestSchema } from "@factory/contracts";
+import type { Database } from "better-sqlite3";
 import type { FastifyInstance } from "fastify";
 import type { ApiGuards } from "../api/server.js";
 import { failure } from "../api/http.js";
 import { createIdGenerator } from "../ids.js";
 import { GameConflictError, type GameService } from "./create.js";
+import { listGameSummaries } from "./summary.js";
+import { gameReport } from "./report.js";
 
 export function registerGameRoutes(app: FastifyInstance, guards: ApiGuards, deps: {
-  starterDir?: string; games?: GameService;
+  raw: Database; publicUrl?: string | null; starterDir?: string; games?: GameService;
 }): void {
   const newId = createIdGenerator();
+  app.get("/games", { preHandler: guards.session }, async () => listGameSummaries(deps.raw, deps.publicUrl ?? null));
+  app.get<{ Params: { projectId: string } }>("/projects/:projectId/game-report", { preHandler: guards.session }, async (request, reply) => {
+    const id = request.params.projectId;
+    if (!idSchema.safeParse(id).success || !deps.raw.prepare("SELECT 1 FROM projects WHERE id=?").get(id))
+      return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+    return gameReport(deps.raw, id);
+  });
   app.post("/games", { preHandler: guards.write }, async (request, reply) => {
     let enabled = false;
     try { enabled = Boolean(deps.starterDir && (await stat(deps.starterDir)).isDirectory()); } catch { /* Optional starter unavailable. */ }

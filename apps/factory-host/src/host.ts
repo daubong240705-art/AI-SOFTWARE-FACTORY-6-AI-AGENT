@@ -817,6 +817,7 @@ export async function startHost(options: {
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });
       registerExtractionRoutes(app, guards, extraction);
       registerGameRoutes(app, guards, {
+        raw: approvalRaw, publicUrl: options.portal?.publicUrl ?? null,
         ...(options.gameStarterDir === undefined ? {} : { starterDir: options.gameStarterDir }),
         ...(options.gameStarterDir && options.workspace ? { games: createGameService({
           raw: approvalRaw, pipeline, pack, starterDir: options.gameStarterDir,
