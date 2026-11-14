@@ -69,3 +69,10 @@ Render room `code`, `status`, `you`, `turn`, `seats` (name, bot, connected), `vi
 - Publish to the separate Game Portal using the Host's offered publishing tool. Never print or write credentials. If unavailable, report BLOCKED with the missing tool's name. The Portal assigns immutable integer versions; report gameId, version and playPath only after observed publication.
 
 Use original names, art and rules; public-domain classics and standard decks are allowed. No gambling or betting. Respect ownership; never commit/push/change git configuration. Report commands and exit codes; unchecked claims are unverified.
+
+## Fit the frame (no scrolling)
+The game runs in a frame whose size you do not control (a phone screen, a browser window, fullscreen). The page must fit it without scrolling at 1280x720 and 390x844.
+- Keep the header, status and instructions compact (one or two lines; put long rules in a collapsible "How to play").
+- Size the board from the space left, not in fixed pixels: use container or viewport units, for example cell size = min(available width, available height) divided by the cell count, or an SVG/canvas with a viewBox that scales.
+- Prefer `100dvh` layouts: a flex column where the board takes the remaining height and scales down.
+- Check with `document.documentElement.scrollHeight <= window.innerHeight` in both sizes before handing off.

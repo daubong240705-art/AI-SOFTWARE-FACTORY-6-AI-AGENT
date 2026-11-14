@@ -3,20 +3,52 @@
   "revision": 1,
   "title": "Build or change a web game",
   "parameters": [
-    { "name": "mode", "type": "enum", "values": ["create", "update", "fix", "improve"], "default": "create" },
-    { "name": "request", "type": "string", "default": "" },
-    { "name": "touchRules", "type": "bool", "default": true },
-    { "name": "touchUi", "type": "bool", "default": true }
+    {
+      "name": "mode",
+      "type": "enum",
+      "values": [
+        "create",
+        "update",
+        "fix",
+        "improve"
+      ],
+      "default": "create"
+    },
+    {
+      "name": "request",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "name": "touchRules",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "touchUi",
+      "type": "bool",
+      "default": true
+    }
   ],
-  "phases": ["design", "build", "verify"],
+  "phases": [
+    "design",
+    "build",
+    "verify"
+  ],
   "stages": [
     {
       "key": "reproduce",
       "phase": "design",
       "title": "Reproduce the reported bug",
-      "requiredCapabilities": ["test.gameplay"],
+      "requiredCapabilities": [
+        "test.gameplay"
+      ],
       "optional": true,
-      "includeIf": { "param": "mode", "op": "eq", "value": "fix" },
+      "includeIf": {
+        "param": "mode",
+        "op": "eq",
+        "value": "fix"
+      },
       "review": "automatic",
       "inputs": [],
       "outputs": [],
@@ -29,9 +61,15 @@
       "key": "design",
       "phase": "design",
       "title": "Specify the game and shared types",
-      "requiredCapabilities": ["game.design"],
+      "requiredCapabilities": [
+        "game.design"
+      ],
       "optional": true,
-      "includeIf": { "param": "mode", "op": "ne", "value": "fix" },
+      "includeIf": {
+        "param": "mode",
+        "op": "ne",
+        "value": "fix"
+      },
       "review": "automatic",
       "inputs": [],
       "outputs": [],
@@ -45,13 +83,25 @@
       "key": "rules",
       "phase": "build",
       "title": "Implement deterministic rules and bots",
-      "requiredCapabilities": ["game.rules"],
+      "requiredCapabilities": [
+        "game.rules"
+      ],
       "optional": true,
       "parallelGroup": "build",
-      "includeIf": { "all": [
-        { "param": "touchRules", "op": "eq", "value": true },
-        { "param": "mode", "op": "ne", "value": "fix" }
-      ] },
+      "includeIf": {
+        "all": [
+          {
+            "param": "touchRules",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "param": "mode",
+            "op": "ne",
+            "value": "fix"
+          }
+        ]
+      },
       "review": "automatic",
       "inputs": [],
       "outputs": [],
@@ -67,13 +117,25 @@
       "key": "art",
       "phase": "build",
       "title": "Create the SVG assets and responsive theme",
-      "requiredCapabilities": ["game.ui"],
+      "requiredCapabilities": [
+        "game.ui"
+      ],
       "optional": true,
       "parallelGroup": "build",
-      "includeIf": { "all": [
-        { "param": "touchUi", "op": "eq", "value": true },
-        { "param": "mode", "op": "ne", "value": "fix" }
-      ] },
+      "includeIf": {
+        "all": [
+          {
+            "param": "touchUi",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "param": "mode",
+            "op": "ne",
+            "value": "fix"
+          }
+        ]
+      },
       "review": "automatic",
       "inputs": [],
       "outputs": [],
@@ -88,14 +150,16 @@
       "key": "client",
       "phase": "build",
       "title": "Integrate the SDK client and address QA rework",
-      "requiredCapabilities": ["game.client"],
+      "requiredCapabilities": [
+        "game.client"
+      ],
       "optional": false,
       "review": "automatic",
       "inputs": [],
       "outputs": [],
       "sideEffect": "code",
       "acceptance": [
-        "The page renders SDK room state, turn, seats, result, disconnected opponents and errors, and sends moves and rematch through connectGame without computing rules itself.",
+        "The page renders SDK room state, turn, seats, result, disconnected opponents and errors, and sends moves and rematch through connectGame without computing rules itself. The whole page fits the game frame without scrolling at 1280x720 and 390x844: compact header, and a board whose cell size comes from the available width and height (for example the smaller of both divided by the number of cells), never a fixed pixel size.",
         "npm run check, npm test and npm run build each exit 0; report all three exit codes.",
         "npm run play serves the preview page, its ready URL returns HTTP 200 and the page loads; stop the preview cleanly after checking.",
         "dist/ contains game.json, its HTML entry, self-contained ESM rules.js and every referenced asset, and HTML loads main.js and theme.css relatively."
@@ -105,7 +169,9 @@
       "key": "qa",
       "phase": "verify",
       "title": "Verify gameplay, bundle and multiplayer in the browser",
-      "requiredCapabilities": ["test.e2e"],
+      "requiredCapabilities": [
+        "test.e2e"
+      ],
       "optional": false,
       "review": "automatic",
       "inputs": [],
@@ -115,29 +181,67 @@
         "a clean `npm install` followed by `npm run check`, `npm test` and `npm run build` all exit 0, report the three exit codes",
         "a bot-versus-bot simulation over 50 seeds ends every match without an illegal move, and one human-versus-human match is played to a win and one to a draw or loss",
         "illegal actions are rejected: wrong turn, invalid or occupied target, a move after the match ended",
-        "in the browser at 1280x800 and 390x844 the preview opens with no console errors and a full match can be played",
+        "in the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling (document scrollHeight is not larger than the window height and the whole board is visible) and a full match can be played",
         "multiplayer: two browser contexts stay in sync turn by turn and reloading one returns it to the same room and seat, or \"n/a\" with the reason for a game without multiplayer"
       ]
     }
   ],
   "edges": [
-    { "from": "reproduce", "to": "client", "type": "finish-to-start" },
-    { "from": "design", "to": "rules", "type": "finish-to-start" },
-    { "from": "design", "to": "art", "type": "finish-to-start" },
-    { "from": "rules", "to": "client", "type": "finish-to-start" },
-    { "from": "art", "to": "client", "type": "finish-to-start" },
-    { "from": "client", "to": "qa", "type": "finish-to-start" },
+    {
+      "from": "reproduce",
+      "to": "client",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "design",
+      "to": "rules",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "design",
+      "to": "art",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "rules",
+      "to": "client",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "art",
+      "to": "client",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "client",
+      "to": "qa",
+      "type": "finish-to-start"
+    },
     {
       "from": "qa",
       "to": "client",
       "type": "rework",
-      "when": { "fact": "review.verdict", "op": "eq", "value": "changes-requested" },
+      "when": {
+        "fact": "review.verdict",
+        "op": "eq",
+        "value": "changes-requested"
+      },
       "maxLoops": 3
     }
   ],
-  "joins": [{ "group": "build", "policy": "all" }],
+  "joins": [
+    {
+      "group": "build",
+      "policy": "all"
+    }
+  ],
   "gates": [],
   "allowedPatches": {},
-  "autonomy": { "default": "L2" },
-  "timeouts": { "stallAfterMinutes": 180, "maxDurationMinutes": 1440 }
+  "autonomy": {
+    "default": "L2"
+  },
+  "timeouts": {
+    "stallAfterMinutes": 180,
+    "maxDurationMinutes": 1440
+  }
 }
