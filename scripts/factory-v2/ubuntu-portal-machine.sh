@@ -47,6 +47,18 @@ sudo install -d -o portal -g portal -m 750 "$DATA" "$APP" "$APP/.home"
 # Install and build as YOU in the source folder: the portal user may not open outgoing connections (see step 5), so it
 # cannot download packages. --ignore-scripts: better-sqlite3 ships its Linux x64 binary; its install step would compile (needs make).
 (cd "$SRC" && PATH="$NODE_DIR/bin:/usr/bin:/bin" npm ci --ignore-scripts --no-audit --no-fund && PATH="$NODE_DIR/bin:/usr/bin:/bin" npm run web:build)
+# Back up the database before the new code and its migrations start. Use sudo for every test: only portal can read $DATA,
+# so a plain [ -e ] as you is always false and would skip the copy without a word.
+if sudo test -f "$DATA/portal.db"; then
+  sudo systemctl stop game-portal 2>/dev/null || true
+  backup="$DATA/backups/$(date +%Y%m%d-%H%M%S)"
+  sudo install -d -o portal -g portal -m 750 "$DATA/backups" "$backup"
+  for f in portal.db portal.db-wal portal.db-shm; do
+    if sudo test -e "$DATA/$f"; then sudo cp -a "$DATA/$f" "$backup/"; fi
+  done
+  sudo test -s "$backup/portal.db" || { echo "database backup failed: $backup/portal.db is missing" >&2; exit 1; }
+  echo "database backup: $backup"
+fi
 sudo rsync -a --delete --exclude data --exclude .git --exclude .home "$SRC"/ "$APP"/
 sudo chown -R portal:portal "$APP"
 
