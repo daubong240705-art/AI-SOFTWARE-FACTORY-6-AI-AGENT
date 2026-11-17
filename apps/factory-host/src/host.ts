@@ -1,4 +1,5 @@
 import { statfs } from "node:fs/promises";
+import { createDependencyCache, type DependencyCache } from "./deps/cache.js";
 import { createStandingApprovalHandlers, createStandingApprovalMcp, STANDING_COMMANDS } from "./standing/index.js";
 import { tickRules, type RuleDeps } from "./automation/rules.js";
 import { tickTeamBreakers } from "./automation/breakers.js";
@@ -351,6 +352,7 @@ export async function startHost(options: {
   let extractions: ExtractionService | undefined;
   let previews: PreviewService | undefined;
   let publishing: PublishService | undefined;
+  let hostDependencyCache: DependencyCache | undefined;
   let portalOps: PortalOpsService | undefined;
   let telegramBot: ReturnType<typeof startTelegramBot> | undefined;
   let localMcp: FastifyInstance | undefined;
@@ -371,6 +373,7 @@ export async function startHost(options: {
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
       await telegramBot?.stop();
       await previews?.close();
+      await hostDependencyCache?.close();
       await publishing?.close();
       await portalOps?.stop();
       await extractions?.close();
@@ -424,6 +427,8 @@ export async function startHost(options: {
       registryEntry(key === pack.manifest.key ? pack : namedPack(key), key === pack.manifest.key));
     if (portalConfigured && !packs.some(p => p.key === "portal-ops")) packs.push(registryEntry(namedPack("portal-ops")));
     unlockState = lockStateDirectory(stateDir);
+    const dependencyCache = createDependencyCache(stateDir);
+    hostDependencyCache = dependencyCache;
     storage = openStorage(join(stateDir, "host.db"));
     storage.migrate({
       migrationsDir: options.migrationsDir ?? fileURLToPath(new URL("../migrations/", import.meta.url)),
@@ -462,7 +467,7 @@ export async function startHost(options: {
       effects.recoverAtStart();
     }
     const approvalRaw = storage.raw;
-    publishing = createPublishService({ raw: approvalRaw, stateDir, portal: options.portal ?? null, clock,
+    publishing = createPublishService({ raw: approvalRaw, stateDir, dependencyCache, portal: options.portal ?? null, clock,
       projectRootFor(projectId) {
         const row = approvalRaw.prepare("SELECT workspace_root, workspace_kind FROM projects WHERE id = ?").get(projectId) as
           { workspace_root: string; workspace_kind: string } | undefined;
@@ -682,7 +687,7 @@ export async function startHost(options: {
           revoke: (attemptId) => localTokens!.revoke(attemptId),
         };
       }
-      dispatch = createDispatcher({ storage, hub, registry, clock, config, multiTeam: options.multiTeam ?? false,
+      dispatch = createDispatcher({ storage, hub, registry, clock, config, dependencyCache, multiTeam: options.multiTeam ?? false,
         ...(options.timers === undefined ? {} : { timers: options.timers }),
         onInReview(input) {
           const policy = (raw.prepare("SELECT review_policy FROM tasks WHERE project_id = ? AND id = ?").get(input.projectId, input.taskId) as { review_policy: string } | undefined)?.review_policy;
@@ -874,7 +879,7 @@ export async function startHost(options: {
         try { if (options.workspace) previewRoots = canonicalRoots(options.workspace); } catch { previewRoots = null; }
         const roots = previewRoots;
         if (roots) {
-          previews = createPreviewService({ viewRoot: join(stateDir, "preview"), hostPort: options.port, now: clock,
+          previews = createPreviewService({ viewRoot: join(stateDir, "preview"), hostPort: options.port, dependencyCache, now: clock,
             projectRootFor(projectId) {
               const row = approvalRaw.prepare("SELECT workspace_root, workspace_kind FROM projects WHERE id = ?").get(projectId) as
                 { workspace_root: string; workspace_kind: string } | undefined;

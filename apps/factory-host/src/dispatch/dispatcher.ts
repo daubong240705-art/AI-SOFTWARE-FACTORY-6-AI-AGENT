@@ -25,6 +25,7 @@ import { integratePending, integrationBlocked } from "../integration/service.js"
 import { getSeatRuntimeConfig } from "../org/runtime-config.js";
 import { LOCAL_CLI_FAILURES } from "../runtimes/failures.js";
 import { recordUsage } from "../policy/budget.js";
+import type { DependencyCache } from "../deps/cache.js";
 
 export interface DispatcherConfig {
   /** Seats without an override and whose pack declares OpenCode run on this local CLI (FACTORY_DEFAULT_AGENT_CLI). */
@@ -84,6 +85,7 @@ export function createDispatcher(deps: {
   storage: Storage; hub: EventHub; registry: RuntimeRegistry; clock?: Clock; newId?: () => string;
   config?: Partial<DispatcherConfig>; timers?: Timers; onError?: (error: unknown) => void;
   workspace?: WorkspaceProvider; projectRootFor?: (projectId: string) => string | null;
+  dependencyCache?: DependencyCache;
   modelAccess?: ModelAccess;
   /** Task inputs (artifact bytes) the Host copies into the attempt worktree before the agent starts. */
   attemptInputs?: (projectId: string, taskId: string) => AttemptInputFile[];
@@ -349,6 +351,11 @@ export function createDispatcher(deps: {
           entry.fenced.then(() => undefined)]);
           if (!prepared) return;
           entry.workspace = prepared;
+          if (deps.dependencyCache) {
+            const cached = await deps.dependencyCache.prepare(prepared.path, preparing.runtime === "native-opencode" ? "isolated" : "host");
+            if (cached.warning) appendAttemptEvent(raw, { projectId: preparing.projectId, attemptId: preparing.id,
+              kind: "progress", at: now(), body: { type: "warning", code: "dependency-cache", message: cached.warning } });
+          }
           if (stopped || entry.controller.signal.aborted || isStaleCallback(current(preparing.projectId, preparing.id), {
             projectId: preparing.projectId, attemptId: preparing.id, epoch: preparing.epoch, leaseId: preparing.leaseId,
           }, clock().getTime())) return;

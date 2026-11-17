@@ -1,5 +1,5 @@
 import { constants, type Stats } from "node:fs";
-import { chmod, copyFile, lstat, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, chmod, copyFile, lstat, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Database } from "better-sqlite3";
 import { newGameResponseSchema, type NewGameRequest, type NewGameResponse } from "@factory/contracts";
@@ -85,6 +85,9 @@ export function createGameService(deps: {
       // The Factory identity is supplied per invocation, without changing the operator's git configuration.
       const git = (args: string[]) => runGit(target, args, { factoryIdentity: true, timeoutMs: 30_000 });
       await git(["init", "-b", "main", "--template="]);
+      // The starter is operator-configured and can live outside this repository. Check its copied ignore rules.
+      const ignored = await runGit(target, ["check-ignore", "--no-index", "node_modules/.factory-ignore-check"], { acceptExitCodes: [1] });
+      if (ignored.exitCode !== 0) await appendFile(join(target, ".gitignore"), "\n# Factory workspace dependencies\nnode_modules/\n");
       await git(["add", "-A"]);
       await git(["commit", "-m", `Start ${input.name} from the web game starter`]);
 

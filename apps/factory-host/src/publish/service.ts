@@ -16,6 +16,7 @@ import { buildSafeEnv, scrubForLog } from "../exec/safe-env.js";
 import { assertInside, checkedDirectory } from "../workspace/paths.js";
 import { INTEGRATION_BRANCH } from "../workspace/integration.js";
 import { createThumbnailLoader, type ReleaseThumbnail } from "./thumbnail.js";
+import { createDependencyCache, type DependencyCache } from "../deps/cache.js";
 
 export interface PortalConfig { url: string; token: string; publicUrl: string }
 
@@ -76,8 +77,10 @@ export class PortalRequestError extends Error {
 export function createPublishService(deps: {
   raw: Database; stateDir: string; portal?: PortalConfig | null; clock?: Clock; newId?: () => string;
   fetchImpl?: typeof fetch; projectRootFor?(projectId: string): string | null;
+  dependencyCache?: DependencyCache;
 }) {
   const { raw } = deps;
+  const dependencyCache = deps.dependencyCache ?? createDependencyCache(deps.stateDir);
   const clock = deps.clock ?? systemClock, newId = deps.newId ?? createIdGenerator(clock);
   // Already validated by portalConfig() (which knows the allowPrivateHttp opt-in); validating again here would drop that context.
   const portal = deps.portal ?? null;
@@ -267,10 +270,15 @@ export function createPublishService(deps: {
       await git(cwd, ["reset", "--hard", "--quiet", row.commit_sha!], home);
       // A second force also removes untracked nested repositories left by a previous build.
       await git(cwd, ["clean", "-fdx", "-f"], home);
+      step = "install";
+      const cached = await dependencyCache.prepare(cwd);
+      available();
+      if (cached.warning) append(`Warning: ${cached.warning}\n`);
       for (const [name, args, timeout] of [
         ["install", fs.existsSync(join(cwd, "package-lock.json")) ? ["ci"] : ["install", "--no-audit", "--no-fund"], 600_000],
         ["check", ["run", "check"], 300_000], ["test", ["test"], 300_000], ["build", ["run", "build"], 300_000],
       ] as const) {
+        if (name === "install" && cached.used) continue;
         step = name; append(`$ npm ${args.join(" ")}\n`);
         if (!succeeded(await run(cwd, "npm", [...args], home, timeout, append))) throw new Error();
       }

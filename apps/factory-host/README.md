@@ -1061,3 +1061,41 @@ For local tests only, `FACTORY_TELEGRAM_API_BASE` may replace the Telegram API w
 an HTTP origin on `127.0.0.1`, `localhost`, or `[::1]`. Paths, credentials, queries,
 and non-loopback overrides are rejected. Credentials stay in memory and transport
 errors expose only the notification error classification.
+
+### Worktree dependency cache
+
+The Host prepares root npm dependencies before an attempt CLI starts and reuses the
+same helper for publish builds and standard npm preview installs. Set
+`FACTORY_DEP_CACHE=0` to skip the cache entirely; agents and existing publish/preview
+install paths can still install dependencies normally.
+
+Entries live at `<stateDir>/dep-cache/<sha256(lockfile bytes + NUL + node-major)>/node_modules`.
+On a miss, a private temporary project containing only `package.json` and
+`package-lock.json` runs `npm ci --ignore-scripts --no-audit --no-fund --prefer-offline`
+with a safe environment and a five-minute timeout. No operator npm configuration
+or credentials are inherited. OpenCode misses use its isolated network policy
+through bubblewrap; local CLI, publish and preview misses use Host networking.
+Installation output stays in bounded, sanitized private `dep-cache/logs/<key>.log`
+files and never enters agent context. Cache failure records an attempt warning
+and allows the attempt to continue. Concurrent users of one key share one install
+(the Host exclusively locks its state directory). Complete entries are renamed
+atomically; interrupted partial directories are removed on startup. The eight
+most recently used entries are retained, using directory mtimes; active users are
+pinned until materialisation finishes.
+
+Materialisation uses `cp --reflink=auto -a`: copy-on-write where supported, otherwise
+independent copies. It deliberately avoids hardlinks, so an agent can write/chmod
+its own dependencies without changing cached inodes. Links escaping the dependency
+tree are rejected. Cache installs ignore lifecycle scripts, so packages requiring
+install-time builds may require the agent to run their build/rebuild step.
+Custom preview preparation commands are preserved. The Host checks a copied
+starter's ignore rules, adds `node_modules/` if needed, excludes dependencies when
+staging attempts, refuses tracked dependencies at checkpoint, and rejects patches
+containing dependency paths.
+
+Offline smoke (uses a local `file:` tarball and no registry):
+
+```bash
+npm run check && npm run build
+node scripts/dep-cache-smoke.mjs
+```

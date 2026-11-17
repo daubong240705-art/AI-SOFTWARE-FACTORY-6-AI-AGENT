@@ -8,7 +8,7 @@ export interface GitOptions {
   stdin?: string; timeoutMs?: number; maxOutputBytes?: number; allowSafeDirectory?: string;
   acceptExitCodes?: readonly number[];
   factoryIdentity?: boolean;
-  /** Treat the agents' `.factory/` scratch directory as ignored, without touching the repository's own ignore files. */
+  /** Ignore attempt scratch and dependency copies without changing the repository's ignore files. */
   excludeScratch?: boolean;
 }
 export interface GitResult { stdout: string; stderr: string; exitCode: number }
@@ -43,7 +43,7 @@ async function execute(cwd: string, args: string[], options: GitOptions,
     if (options.excludeScratch) {
       // An extra ignore source, not a pathspec: an exclude pathspec fails ("paths are ignored") when the repo already ignores it.
       excludesFile = assertInside(home, join(home, "excludes"));
-      fs.writeFileSync(excludesFile, "/.factory/\n", { mode: 0o600, flag: "wx" });
+      fs.writeFileSync(excludesFile, "/.factory/\nnode_modules/\n", { mode: 0o600, flag: "wx" });
       leading.push("-c", `core.excludesFile=${excludesFile}`);
     }
     if (options.allowSafeDirectory !== undefined) {

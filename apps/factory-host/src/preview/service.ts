@@ -2,11 +2,12 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import { homedir } from "node:os";
 import { createServer } from "node:net";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { z } from "zod";
 import { prepareLeadView } from "../lead/view.js";
 import { localCliEnv } from "../runtimes/local-cli-process.js";
 import { createPreviewProxy, type PreviewProxy } from "./proxy.js";
+import { createDependencyCache, type DependencyCache } from "../deps/cache.js";
 
 /**
  * Preview: the Host starts the project from its latest integrated code so the operator can play it. The project says how
@@ -76,8 +77,10 @@ function readManifest(cwd: string): { manifest: PreviewManifest } | { error: str
 
 export function createPreviewService(options: {
   viewRoot: string; hostPort: number; projectRootFor(projectId: string): string | null; now?: () => Date;
+  dependencyCache?: DependencyCache;
 }) {
   const now = options.now ?? (() => new Date());
+  const dependencyCache = options.dependencyCache ?? createDependencyCache(dirname(options.viewRoot));
   const proxy = createPreviewProxy();
   const entries = new Map<string, Entry>();
   const entry = (projectId: string): Entry => {
@@ -136,11 +139,19 @@ export function createPreviewService(options: {
 
       if (fs.existsSync(join(view.cwd, "package.json")) || manifest.install) {
         current.state = "installing";
-        append(current, `$ ${(manifest.install ?? ["npm", "install", "--no-audit", "--no-fund"]).join(" ")}\n`);
-        const code = await runToEnd(current, generation, manifest.install ?? ["npm", "install", "--no-audit", "--no-fund"], view.cwd, base, INSTALL_TIMEOUT_MS);
+        // A custom non-npm install may perform other required preparation; preserve it.
+        const npmInstall = !manifest.install || (manifest.install[0] === "npm" && ["ci", "install"].includes(manifest.install[1] ?? "")
+          && manifest.install.slice(2).every((arg) => ["--ignore-scripts", "--no-audit", "--no-fund", "--prefer-offline"].includes(arg)));
+        const cached = npmInstall ? await dependencyCache.prepare(view.cwd) : { used: false };
         if (!alive()) return;
-        current.child = null;
-        if (code !== 0) return fail(code === null ? "Installing dependencies took too long." : `Installing dependencies failed (exit code ${code}).`);
+        if ("warning" in cached && cached.warning) append(current, `Warning: ${cached.warning}\n`);
+        if (!cached.used) {
+          append(current, `$ ${(manifest.install ?? ["npm", "install", "--no-audit", "--no-fund"]).join(" ")}\n`);
+          const code = await runToEnd(current, generation, manifest.install ?? ["npm", "install", "--no-audit", "--no-fund"], view.cwd, base, INSTALL_TIMEOUT_MS);
+          if (!alive()) return;
+          current.child = null;
+          if (code !== 0) return fail(code === null ? "Installing dependencies took too long." : `Installing dependencies failed (exit code ${code}).`);
+        }
       }
 
       current.state = "starting";

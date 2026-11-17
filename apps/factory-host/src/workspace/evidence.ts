@@ -24,7 +24,10 @@ async function stage(worktree: string): Promise<string> {
   const top = (await runGit(directory, ["rev-parse", "--show-toplevel"])).stdout.replace(/\n$/, "");
   if (top !== directory) throw new WorkspaceError("invalid-input");
   // `.factory/` is the agents' scratch output (browser screenshots, traces, tool logs); it never becomes a result.
-  await runGit(checkedDirectory(directory), ["add", "-A", "--", "."], { excludeScratch: true });
+  await runGit(checkedDirectory(directory), ["add", "-A", "--", ".", ":(exclude)node_modules", ":(exclude)**/node_modules/**"], { excludeScratch: true });
+  // A CLI can force-add ignored files. Refuse those before checkpointing or integrating its commits.
+  const tracked = await runGit(directory, ["ls-files", "-z"]);
+  if (tracked.stdout.split("\0").some((path) => path.split("/").includes("node_modules"))) throw new WorkspaceError("unsafe-content");
   return directory;
 }
 
@@ -173,6 +176,7 @@ export function patchIsSafeToApply(patch: string): { ok: boolean; reasons: strin
     const parts = path.split(/[\\/]/);
     if (parts.includes("..")) reasons.add("parent path");
     if (parts.some((part) => part.toLowerCase() === ".git")) reasons.add("git internal path");
+    if (parts.includes("node_modules")) reasons.add("dependency path");
     if (!path) reasons.add("invalid path");
   };
   let symlink = false;
