@@ -6,6 +6,7 @@ import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { Dialog } from '../components/Dialog';
 import { ProjectView } from './ProjectView';
+import { ProjectLinkState } from './ProjectLinkState';
 import { CreateProject } from './CreateProject';
 import { NewGameDialog } from './NewGameDialog';
 import { Attention, attentionHash } from './Attention';
@@ -81,7 +82,7 @@ export function AppShell({ store }: { store: Store }) {
         : view === 'system' ? <System store={store} />
         : view === 'mascots' ? <Suspense fallback={<LoadingState />}><MascotGallery /></Suspense>
         : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} tab={tab} settingsSection={settingsSection} onTabChange={(next, section) => navigate(view, next, undefined, section)} newTaskRequest={newTaskRequest?.projectId === selected.id ? newTaskRequest.sequence : 0} onNewTaskOpened={() => setNewTaskRequest(null)} openChat={chatProject === selected.id} onChatOpened={() => setChatProject(null)} initialTaskId={initialTask?.projectId === selected.id ? initialTask.taskId : undefined} />
-        : <LoadingState />}
+        : view.startsWith('project:') && !selected ? <ProjectLinkState key={view} store={store} projectId={view.slice(8)} onOverview={() => go('overview')} /> : <LoadingState />}
       </Reveal>
     </main>
     {creating && <CreateProject store={store} onClose={() => setCreating(false)} onCreated={id => go(`project:${id}`)} />}

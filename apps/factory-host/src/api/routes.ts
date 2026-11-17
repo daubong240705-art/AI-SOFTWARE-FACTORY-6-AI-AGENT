@@ -257,7 +257,7 @@ export function createRoutes(deps: {
         catch (error) { return effectFailure(reply, error); }
       });
     const inbox = (projectId?: string) => {
-      const projects = (deps.storage.raw.prepare("SELECT id, name FROM projects ORDER BY id").all() as { id: string; name: string }[])
+      const projects = (deps.storage.raw.prepare("SELECT id, name FROM projects WHERE disposition<>'archived' ORDER BY id").all() as { id: string; name: string }[])
         .filter((project) => projectId === undefined || project.id === projectId);
       const approvals = projects.flatMap((project) => listApprovals(deps.storage.raw, project.id, { states: ["pending"] }).reverse()
         .map((approval) => ({ ...approval, ...(projectId === undefined ? { projectName: publicApprovalText(project.name) } : {}) })))
@@ -399,9 +399,16 @@ export function createRoutes(deps: {
       } catch { /* Scheduling cannot change a committed command response. */ }
       return reply.code(r.status).send(r.body);
     });
-    app.get("/projects", { preHandler: guards.session }, async () => ({
-      apiVersion: API_VERSION, ok: true, projects: listProjects(deps.storage.raw).map((project) => projectSchema.parse(project)),
+    app.get<{ Querystring: { includeArchived?: string } }>("/projects", { preHandler: guards.session }, async request => ({
+      apiVersion: API_VERSION, ok: true, projects: listProjects(deps.storage.raw, request.query.includeArchived === "1").map((project) => projectSchema.parse(project)),
     }));
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId", { preHandler: guards.session }, async (request, reply) => {
+      const id = idSchema.safeParse(request.params.projectId);
+      if (!id.success) return failure(reply, 400, "validation", "Invalid project id.", "correct-input", newId);
+      const project = getProject(deps.storage.raw, id.data);
+      if (!project) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      return { apiVersion: API_VERSION, ok: true, project: projectSchema.parse(project) };
+    });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/conversations", { preHandler: guards.session }, async (request, reply) => {
       const parsed = idSchema.safeParse(request.params.projectId);
       if (!parsed.success) return failure(reply, 400, "validation", "Invalid project id.", "correct-input", newId);

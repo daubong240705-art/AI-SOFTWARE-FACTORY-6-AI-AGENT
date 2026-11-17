@@ -2,6 +2,12 @@ import type { Database } from "better-sqlite3";
 
 const listeners = new WeakMap<Database, (projectId: string) => void>();
 const busy = new WeakSet<Database>();
+/** Bulk cancellation must not dispatch fresh work while individual tasks are being closed. */
+export function withoutWorkflowAdvancement<T>(raw: Database, fn: () => T): T {
+  if (busy.has(raw)) return fn();
+  busy.add(raw);
+  try { return fn(); } finally { busy.delete(raw); }
+}
 export function registerWorkflowLifecycle(raw: Database, listener: (projectId: string) => void): void {
   listeners.set(raw, listener);
 }

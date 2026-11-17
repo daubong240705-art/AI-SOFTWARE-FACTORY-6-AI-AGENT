@@ -900,6 +900,7 @@ export function createStore(options: StoreOptions = {}) {
       anonymous();
     },
     loadProjects: () => loadProjects(),
+    getProject: api.getProject,
     loadWorkflows, loadWorkflow, loadWorkflowDefinitions, loadAutomation, loadSchedules, loadRules, loadMonitors, loadBreakers,
     loadScheduleOccurrences, loadRuleFires, loadMonitorEvents, sendAutomation,
     loadAutonomy, loadStandingApprovals, loadSettings, sendSettings,
@@ -954,6 +955,10 @@ export function createStore(options: StoreOptions = {}) {
       update({ selectedProjectId: id, ...projectState(), errors: {}, loading: {}, pending: {} });
       connect(id, scope);
       await Promise.all([loadNotifications(), loadIntegration(), loadInbox(), loadGlobalInbox(), loadArea('team'), loadArea('tasks'), loadArea('conversations'), loadArea('budget')]);
+    },
+    clearProject() {
+      stop();
+      update({ selectedProjectId: null, ...projectState(), errors: {}, loading: {}, pending: {} });
     },
     loadMessages: (id: string) => loadMessages(id), send,
     openTask(taskId: string) { openTaskCounts.set(taskId, (openTaskCounts.get(taskId) ?? 0) + 1); openTasks.add(taskId); return loadTaskDetail(taskId); },

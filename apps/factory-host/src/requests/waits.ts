@@ -11,6 +11,7 @@ export type WaitOutcome = "delivered" | "declined" | "cancelled" | "expired" | "
 interface Wait { project_id: string; waiter_task_id: string; ctr_task_id: string; attempt_id: string }
 export function resumeWaiter(deps: RequestDeps, projectId: string, taskId: string): void {
   const { raw } = deps;
+  if (raw.prepare("SELECT 1 FROM projects WHERE id=? AND disposition='archived'").get(projectId)) return;
   if (raw.prepare("SELECT 1 FROM task_holds WHERE project_id = ? AND task_id = ? AND kind IN ('cross-team','decision')").get(projectId, taskId)) return;
   const task = getTask(raw, projectId, taskId);
   const previous = listAttempts(raw, projectId, taskId).at(-1);

@@ -45,7 +45,7 @@ export function createGameService(deps: {
 }) {
   const newId = createIdGenerator();
   const pending = new Map<string, Promise<void>>();
-  const workspaceUsed = (root: string): boolean => Boolean(deps.raw.prepare("SELECT 1 FROM projects WHERE workspace_root = ?").get(root));
+  const workspaceUsed = (root: string): boolean => Boolean(deps.raw.prepare("SELECT 1 FROM projects WHERE workspace_root = ? AND disposition<>'archived'").get(root));
 
   async function create(input: NewGameRequest): Promise<NewGameResponse> {
     const previous = pending.get(input.gameId);

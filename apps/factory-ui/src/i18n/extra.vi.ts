@@ -2,6 +2,13 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  projectArchive: {
+    title: 'Vùng nguy hiểm', open: 'Xoá dự án', description: 'Ẩn và lưu trữ dự án này một cách an toàn.',
+    details: 'Dự án bị ẩn và lưu trữ. Workflow và việc dở bị huỷ, phê duyệt đang chờ được thu hồi. Thư mục game được chuyển vào _archived, không xoá file. Bản đã phát hành trên Portal giữ nguyên. Hãy dừng lượt chạy đang hoạt động trước khi tiếp tục.',
+    confirm: 'Nhập chính xác tên dự án: {name}', archiving: 'Đang lưu trữ…',
+    archived: 'Dự án đã được lưu trữ', archivedDescription: 'Lịch sử dự án vẫn được giữ lại. Về tổng quan để mở một dự án đang hoạt động.',
+    errors: { live: 'Hãy dừng lượt chạy đang hoạt động và đối soát lượt chưa rõ kết quả trước khi xoá dự án.', release: 'Hãy chờ bản phát hành đang chờ hoàn tất trước khi xoá dự án.', portal: 'Không thể xoá dự án quản trị Portal.', name: 'Tên xác nhận phải trùng khớp chính xác với tên dự án.', revision: 'Dự án đã thay đổi. Hãy kiểm tra dữ liệu mới và thử lại.', archived: 'Dự án đã được lưu trữ.' },
+  },
   worldUi: {
     more: 'Thêm tùy chọn',
     releaseAnnouncement: 'Đã phát hành {game} v{version}!',

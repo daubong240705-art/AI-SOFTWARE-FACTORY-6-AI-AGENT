@@ -86,6 +86,16 @@ export function createWorldDataController(api: WorldDataApi, options: {
       }),
       read('games', 10000, s => api.listGames(s), v => {
         inputs.games = v;
+        const active = new Set(v.games.map(game => game.projectId));
+        if (inputs.focusProjectId && !active.has(inputs.focusProjectId)) inputs.focusProjectId = null;
+        for (const collection of [inputs.interactions, inputs.tasks, inputs.workflows, inputs.reports, inputs.releases]) {
+          for (const id of Object.keys(collection)) if (!active.has(id)) delete collection[id];
+        }
+        emit({ events: snapshot.events.filter(event => {
+          const id = event.type === 'handoff' ? event.handoff.projectId : event.type === 'release' ? event.release.projectId
+            : event.type === 'poseChanged' ? null : event.bug.projectId;
+          return id === null || active.has(id);
+        }) });
         for (const g of v.games) {
           const sig = g.release ? `${g.release.version}:${g.release.state}` : '';
           const old = releaseSignatures.get(g.projectId);

@@ -57,7 +57,7 @@ function liveAttempts(raw: Database, seatIds: string): LiveRow[] {
       ROW_NUMBER() OVER (PARTITION BY ats.seat_id ORDER BY a.state = 'parked', a.rowid DESC) AS position
     FROM attempt_seats ats JOIN attempts a ON a.project_id = ats.project_id AND a.id = ats.attempt_id
     JOIN tasks t ON t.project_id = a.project_id AND t.id = a.task_id JOIN projects p ON p.id = a.project_id
-    WHERE ats.seat_id IN (SELECT value FROM json_each(?)) AND (a.state IN (${liveSql})
+    WHERE p.disposition<>'archived' AND ats.seat_id IN (SELECT value FROM json_each(?)) AND (a.state IN (${liveSql})
       OR (a.state = 'parked' AND t.state = 'active' AND NOT EXISTS (
         SELECT 1 FROM attempts newer WHERE newer.project_id = a.project_id AND newer.task_id = a.task_id AND newer.epoch > a.epoch)))
     ) SELECT * FROM activity WHERE position <= 8 ORDER BY seatId, position`)
@@ -84,7 +84,8 @@ function attemptEvents(raw: Database, rows: LiveRow[]): Map<string, EventRow> {
 
 function queuedCounts(raw: Database, seatIds: string): Map<string, number> {
   const rows = raw.prepare(`SELECT t.owner_seat_id AS seatId, COUNT(*) AS count FROM tasks t
-    WHERE t.owner_seat_id IN (SELECT value FROM json_each(?)) AND t.state IN ('ready','accepted','awaiting-go')
+    WHERE EXISTS (SELECT 1 FROM projects p WHERE p.id=t.project_id AND p.disposition<>'archived')
+    AND t.owner_seat_id IN (SELECT value FROM json_each(?)) AND t.state IN ('ready','accepted','awaiting-go')
     AND NOT EXISTS (SELECT 1 FROM attempts a WHERE a.project_id = t.project_id AND a.task_id = t.id AND a.state IN (${liveSql}))
     GROUP BY t.owner_seat_id`).all(seatIds, ...liveStates) as { seatId: string; count: number }[];
   return new Map(rows.map((row) => [row.seatId, row.count]));
@@ -101,6 +102,7 @@ function needsYou(raw: Database, seatIds: string): Map<string, Need[]> {
       ROW_NUMBER() OVER (PARTITION BY st.seatId ORDER BY ap.requested_at, ap.project_id, ap.id) AS position
     FROM seat_tasks st JOIN approvals ap ON ap.project_id = st.project_id AND ap.task_id = st.task_id
     JOIN tasks t ON t.project_id = st.project_id AND t.id = st.task_id WHERE ap.state IN ('pending','open')
+    AND EXISTS (SELECT 1 FROM projects p WHERE p.id=t.project_id AND p.disposition<>'archived')
     ) SELECT * FROM pending WHERE position <= 5 ORDER BY seatId, position`)
     .all(seatIds, seatIds, ...liveStates) as (Need & { seatId: string })[];
   const result = new Map<string, Need[]>();
@@ -118,7 +120,8 @@ function lastFinished(raw: Database, seatIds: string): Map<string, Finished> {
       ROW_NUMBER() OVER (PARTITION BY ats.seat_id ORDER BY julianday(a.ended_at) DESC, a.rowid DESC) AS position
     FROM attempt_seats ats JOIN attempts a ON a.project_id = ats.project_id AND a.id = ats.attempt_id
     JOIN tasks t ON t.project_id = a.project_id AND t.id = a.task_id
-    WHERE ats.seat_id IN (SELECT value FROM json_each(?)) AND a.state IN ('succeeded','failed')
+    WHERE EXISTS (SELECT 1 FROM projects p WHERE p.id=a.project_id AND p.disposition<>'archived')
+    AND ats.seat_id IN (SELECT value FROM json_each(?)) AND a.state IN ('succeeded','failed')
     ) SELECT seatId, code, outcome, at FROM finished WHERE position = 1`).all(seatIds) as (Finished & { seatId: string })[];
   return new Map(rows.map((row) => [row.seatId, { code: text(row.code, 80), outcome: row.outcome, at: timestamp(row.at) }]));
 }
@@ -133,7 +136,8 @@ function unresolvedFailures(raw: Database, seatIds: string): Map<string, Finishe
       ROW_NUMBER() OVER (PARTITION BY ats.seat_id ORDER BY julianday(a.ended_at) DESC, a.rowid DESC) AS position
     FROM attempt_seats ats JOIN attempts a ON a.project_id = ats.project_id AND a.id = ats.attempt_id
     JOIN tasks t ON t.project_id = a.project_id AND t.id = a.task_id
-    WHERE ats.seat_id IN (SELECT value FROM json_each(?)) AND a.state = 'failed' AND t.state = 'failed'
+    WHERE EXISTS (SELECT 1 FROM projects p WHERE p.id=a.project_id AND p.disposition<>'archived')
+    AND ats.seat_id IN (SELECT value FROM json_each(?)) AND a.state = 'failed' AND t.state = 'failed'
       AND NOT EXISTS (SELECT 1 FROM attempts newer WHERE newer.project_id = a.project_id AND newer.task_id = a.task_id AND newer.epoch > a.epoch)
     ) SELECT seatId, code, outcome, at FROM failed WHERE position = 1`).all(seatIds) as (Finished & { seatId: string })[];
   return new Map(rows.map((row) => [row.seatId, { code: text(row.code, 80), outcome: row.outcome, at: timestamp(row.at) }]));

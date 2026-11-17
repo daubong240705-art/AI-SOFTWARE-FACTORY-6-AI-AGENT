@@ -137,6 +137,7 @@ export const receiptSchema = z
     projectId: idSchema,
     state: z.enum(["accepted", "completed", "rejected", "outcome-unknown"]),
     effects: z.array(entityRefSchema).max(100),
+    message: z.string().max(12000).optional(),
     error: apiErrorSchema.optional(),
   })
   .superRefine((value, ctx) => {

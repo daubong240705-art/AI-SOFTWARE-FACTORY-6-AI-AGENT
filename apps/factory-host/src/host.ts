@@ -42,6 +42,7 @@ import type { ModelAccess } from "./dispatch/dispatcher.js";
 import { createOrgHandlers, loadPack, loadPackRegistry, registryEntry, ORG_COMMANDS } from "./org/index.js";
 import { budgetsSetHandler, setAutonomyHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
 import { createProjectsCreateHandler } from "./projects/service.js";
+import { createProjectsArchiveHandler } from "./projects/archive.js";
 import { openStorage, type Storage } from "./storage/database.js";
 import { getTask, tasksCreateHandler, tasksTransitionHandler } from "./work/service.js";
 import { extensionFor, mediaKind } from "./artifacts/media.js";
@@ -793,6 +794,8 @@ export async function startHost(options: {
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
       ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
       ...workflowHandlers,
+      "projects.archive": createProjectsArchiveHandler({ cancelWorkflow: workflowHandlers["workflows.cancel"]!,
+        projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") }),
       ...createRequestHandlers({ multiTeam: options.multiTeam ?? false, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
       "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false,
         ...(projectsRootGuard === undefined ? {} : { checkWorkspaceRoot: projectsRootGuard }) }),
@@ -888,8 +891,8 @@ export async function startHost(options: {
           runtime: runtimeFacts };
       });
       const hostStartedAt = clock().toISOString();
-      app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
-        apiVersion: 1, ok: true, commands: ["projects.create", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set", "models.set",
+        app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
+        apiVersion: 1, ok: true, commands: ["projects.create", "projects.archive", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set", "models.set",
           "dossier.refresh",
           ...WORKFLOW_COMMANDS,
           ...SCHEDULE_COMMANDS,

@@ -148,8 +148,8 @@ export type WorkflowInstanceState = z.infer<typeof workflowInstanceStateSchema>;
 export const WORKFLOW_TRANSITIONS: Readonly<Record<WorkflowInstanceState, readonly WorkflowInstanceState[]>> = {
   draft: ["proposed", "cancelled"], proposed: ["active", "cancelled"],
   active: ["awaiting-approval", "paused", "suspended", "stalled", "completed", "failed", "cancelled", "superseded"],
-  "awaiting-approval": ["active", "suspended"], paused: ["resuming", "cancelled"], resuming: ["active", "paused"],
-  suspended: ["resuming", "cancelled"], stalled: ["active", "paused"], completed: [], failed: [], cancelled: [], superseded: [],
+  "awaiting-approval": ["active", "suspended", "cancelled"], paused: ["resuming", "cancelled"], resuming: ["active", "paused", "cancelled"],
+  suspended: ["resuming", "cancelled"], stalled: ["active", "paused", "cancelled"], completed: [], failed: [], cancelled: [], superseded: [],
 };
 export const canTransitionWorkflow = (from: WorkflowInstanceState, to: WorkflowInstanceState): boolean => WORKFLOW_TRANSITIONS[from].includes(to);
 export const isTerminalWorkflowState = (state: WorkflowInstanceState): boolean => WORKFLOW_TRANSITIONS[state].length === 0;

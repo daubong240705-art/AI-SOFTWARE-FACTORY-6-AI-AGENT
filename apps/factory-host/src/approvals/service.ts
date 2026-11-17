@@ -76,6 +76,14 @@ export function computeReviewDigest(raw: Database, projectId: string, taskId: st
 const publish = (hub: EventHub | undefined, projectId: string, entity: EntityRef): void => {
   if (hub) hub.append({ projectId, causationId: entity.id, payload: { type: "entity.changed", entity } });
 };
+/** Withdraw through the same path for task cleanup and whole-project archival. */
+export function withdrawPendingApprovals(raw: Database, projectId: string, taskId?: string): EntityRef[] {
+  const rows = raw.prepare(`SELECT id,revision FROM approvals WHERE project_id=? AND state='pending'
+    AND (? IS NULL OR task_id=?)`).all(projectId, taskId ?? null, taskId ?? null) as { id: string; revision: number }[];
+  for (const row of rows) raw.prepare("UPDATE approvals SET state='withdrawn',revision=revision+1 WHERE project_id=? AND id=?")
+    .run(projectId, row.id);
+  return rows.map(row => effect(row.id, row.revision + 1));
+}
 function finishPending(raw: Database, projectId: string, taskId: string, state: "superseded" | "withdrawn"): EntityRef[] {
   const rows = raw.prepare(`SELECT id, revision FROM approvals WHERE project_id = ? AND task_id = ?
     AND (kind = 'review' OR (? = 'withdrawn' AND kind = 'question')) AND state = 'pending'`)
@@ -85,7 +93,7 @@ function finishPending(raw: Database, projectId: string, taskId: string, state: 
   return rows.map((row) => effect(row.id, row.revision + 1));
 }
 export function withdrawPendingReviews(raw: Database, projectId: string, taskId: string, _now: Date): EntityRef[] {
-  const effects = finishPending(raw, projectId, taskId, "withdrawn");
+  const effects = withdrawPendingApprovals(raw, projectId, taskId);
   const deleted = raw.prepare("DELETE FROM task_holds WHERE project_id = ? AND task_id = ? AND kind = 'decision'").run(projectId, taskId);
   if (deleted.changes) {
     raw.prepare("UPDATE tasks SET revision = revision + 1 WHERE project_id = ? AND id = ?").run(projectId, taskId);

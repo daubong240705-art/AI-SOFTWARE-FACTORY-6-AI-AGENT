@@ -106,7 +106,7 @@ export function createPublishService(deps: {
   const configured = (): PortalConfig => { available(); if (!portal) throw new ReleaseError("disabled"); return portal; };
   const project = (id: string) => {
     if (!idSchema.safeParse(id).success) throw new ReleaseError("not-found");
-    const row = raw.prepare("SELECT workspace_kind, workspace_root FROM projects WHERE id = ?").get(id) as
+    const row = raw.prepare("SELECT workspace_kind, workspace_root FROM projects WHERE id = ? AND disposition<>'archived'").get(id) as
       { workspace_kind: string; workspace_root: string } | undefined;
     if (!row) throw new ReleaseError("not-found");
     return row;

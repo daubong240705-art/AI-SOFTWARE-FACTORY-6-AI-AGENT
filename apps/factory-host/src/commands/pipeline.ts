@@ -13,7 +13,7 @@ import type { Storage } from "../storage/database.js";
 import { CommandError } from "./errors.js";
 
 export interface HandlerContext { raw: Database; hub: EventHub; clock: Clock; newId: () => string; actorId: string; actorIsOperator?: boolean }
-export type HandlerResult = { effects: EntityRef[]; events?: FactoryEvent["payload"][] };
+export type HandlerResult = { effects: EntityRef[]; events?: FactoryEvent["payload"][]; afterCommit?: () => string };
 export type HandlerMap = {
   [T in Command["type"]]: (ctx: HandlerContext, command: Extract<Command, { type: T }>) => HandlerResult;
 };
@@ -49,7 +49,9 @@ export function createCommandPipeline(options: {
   return {
     execute(rawBody, actorId = "operator", actorIsOperator = actorId === "operator") {
       const context: HandlerContext = { raw, hub, clock, newId, actorId, actorIsOperator };
-      return hub.transaction(() => {
+      const externallyOwned = raw.inTransaction;
+      let afterCommit: (() => string) | undefined;
+      const executed = hub.transaction(() => {
         const parsed = commandSchema.safeParse(rawBody);
         if (!parsed.success) {
           const candidate = typeof rawBody === "object" && rawBody !== null && "commandId" in rawBody
@@ -90,9 +92,15 @@ export function createCommandPipeline(options: {
           error = { code: "unsupported", message: "Command is not supported.", nextAction: "contact-host", correlationId: newId() };
         } else {
           try {
+            if (command.type !== "projects.create" && command.type !== "projects.archive"
+              && raw.prepare("SELECT 1 FROM projects WHERE id=? AND disposition='archived'").get(command.projectId))
+              throw new CommandError("conflict", "Dự án đã được lưu trữ.", "refresh");
+            if (command.type === "projects.archive" && externallyOwned)
+              throw new CommandError("conflict", "Lưu trữ dự án cần một giao dịch độc lập.", "refresh");
             const handled = raw.transaction(() => handler(context, command))();
             effects = handled.effects;
             events = handled.events ?? [];
+            afterCommit = handled.afterCommit;
           } catch (caught) {
             if (!(caught instanceof CommandError)) throw caught;
             error = { ...caught.extra, code: caught.code, message: caught.message,
@@ -116,6 +124,21 @@ export function createCommandPipeline(options: {
         }
         return result(error ? STATUS_BY_CODE[error.code] : 200, body);
       });
+      if (afterCommit && executed.body.ok) {
+        // Filesystem work cannot share SQLite's transaction. Persist its result for idempotent replays.
+        let message: string;
+        try { message = afterCommit(); }
+        catch { message = "Dự án đã được lưu trữ nhưng chưa chuyển được thư mục. Không có file nào bị xoá."; }
+        const receipt = receiptSchema.parse({ ...executed.body.receipt, message });
+        const body = successResponseSchema.parse({ apiVersion: API_VERSION, ok: true, receipt });
+        hub.transaction(() => {
+          raw.prepare("UPDATE command_receipts SET response_json=? WHERE command_id=?").run(JSON.stringify(body), receipt.commandId);
+          hub.append({ projectId: receipt.projectId, causationId: receipt.commandId,
+            payload: { type: "command.receipted", receipt } });
+        });
+        return result(executed.status, body);
+      }
+      return executed;
     },
   };
 }

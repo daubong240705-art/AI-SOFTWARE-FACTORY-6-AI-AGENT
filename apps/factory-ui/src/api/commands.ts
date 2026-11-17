@@ -24,6 +24,9 @@ export function standingApprovalsRevoke({ projectId, ...payload }: Of<'standing-
 export function projectsCreate({ name, root, kind = 'directory' }: { name: string; root: string; kind?: 'directory' | 'git' }) {
   return build('projects.create', crypto.randomUUID(), { name, workspace: { kind, root } });
 }
+export function projectsArchive({ projectId, expectedRevision, confirmName }: { projectId: string; expectedRevision: number; confirmName: string }) {
+  return build('projects.archive', projectId, { expectedRevision, confirmName });
+}
 export function conversationsCreate({ projectId, seatId, title }: { projectId: string; seatId: string; title: string }) {
   return build('conversations.create', projectId, { conversationId: crypto.randomUUID(), agentId: seatId, title, workItemId: null });
 }

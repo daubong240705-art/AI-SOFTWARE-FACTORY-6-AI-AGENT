@@ -144,7 +144,7 @@ export async function tickNotifications(deps: NotificationDeps, now: Date): Prom
   const report = (): void => { if (!reported) { reported = true; console.error("Notification tick failed"); } };
   try {
     const offset = deps.utcOffsetMinutes ?? DEFAULT_BUDGET_CONFIG.utcOffsetMinutes;
-    const projects = deps.raw.prepare("SELECT id FROM projects ORDER BY id").all() as { id: string }[];
+    const projects = deps.raw.prepare("SELECT id FROM projects WHERE disposition<>'archived' ORDER BY id").all() as { id: string }[];
     for (const project of projects) try {
       const channel = deps.pushChannel;
       const deliveries = deps.hub.transaction(() => {

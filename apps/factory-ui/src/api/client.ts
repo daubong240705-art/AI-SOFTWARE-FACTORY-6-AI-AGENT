@@ -159,6 +159,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     async session() { const result = await request('/auth/session', auth); csrfToken = result.csrfToken; return result; },
     async logout() { const result = await request('/auth/logout', ok, {}); csrfToken = null; return result; },
     listProjects: () => request('/projects', projects),
+    getProject: (id: string) => request(projectPath(id), ok.extend({ project: projectSchema })),
     getPortal: (signal?: AbortSignal) => request('/portal', portalResponseSchema, undefined, false, signal),
     portalGames: (signal?: AbortSignal) => request('/portal/games', portalJoinedGamesResponseSchema, undefined, false, signal),
     portalStats: (query: { game?: string; from?: string; to?: string } = {}, signal?: AbortSignal) => request(`/portal/stats?${new URLSearchParams(query)}`, portalStatsResponseSchema, undefined, false, signal),

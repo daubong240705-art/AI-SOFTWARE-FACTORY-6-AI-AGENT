@@ -1,4 +1,11 @@
 export const extra = {
+  projectArchive: {
+    title: 'Danger zone', open: 'Delete project', description: 'Hide and archive this project safely.',
+    details: 'The project will be hidden and archived. Unfinished workflows and tasks will be cancelled and pending approvals withdrawn. The game folder will be moved into _archived. No files are deleted. Releases already published on the Portal stay available. Stop any running attempt before continuing.',
+    confirm: 'Type the project name exactly: {name}', archiving: 'Archiving…',
+    archived: 'This project has been archived', archivedDescription: 'Its history is preserved. Return to the overview to open an active project.',
+    errors: { live: 'Stop the running attempt and reconcile any uncertain outcome before deleting this project.', release: 'Wait for the pending release to finish before deleting this project.', portal: 'The Portal manager project cannot be deleted.', name: 'The confirmation must match the project name exactly.', revision: 'The project changed. Review the latest data and try again.', archived: 'This project has already been archived.' },
+  },
   worldUi: {
     more: 'More options',
     releaseAnnouncement: 'Released {game} v{version}!',

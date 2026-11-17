@@ -77,7 +77,7 @@ export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): 
     Object.assign(agent, assign[agent.seatId]);
   const liveProjects = new Set(agents.flatMap(a => a.runs.filter(r => ['queued', 'leased', 'preparing', 'running', 'waiting-input', 'stopping', 'submitting'].includes(r.attemptState)).map(r => r.projectId)));
   const hotProjects = games.filter(g => liveProjects.has(g.projectId) || g.workflow && ['active', 'awaiting-approval', 'stalled', 'paused'].includes(g.workflow.state)).slice(0, 3);
-  const focusProjectId = inputs.focusProjectId ?? hotProjects[0]?.projectId ?? games[0]?.projectId ?? null;
+  const focusProjectId = (games.some(game => game.projectId === inputs.focusProjectId) ? inputs.focusProjectId : null) ?? hotProjects[0]?.projectId ?? games[0]?.projectId ?? null;
   const detail = focusProjectId ? inputs.workflows[focusProjectId] : undefined;
   const workflow = detail?.id === games.find(g => g.projectId === focusProjectId)?.workflow?.instanceId ? detail : undefined;
   const stages = (workflow?.stages ?? []).map(s => ({ key: s.key, state: s.state, loopCount: s.loopCount ?? 0 }));

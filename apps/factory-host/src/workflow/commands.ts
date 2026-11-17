@@ -9,6 +9,9 @@ import { matchWorkflowDefinitions } from "./definitions.js";
 import { getWorkflowInstance } from "./service.js";
 import { validateWorkflowDefinition } from "./validate.js";
 import { advanceWorkflow, type WorkflowEngineDeps } from "./engine.js";
+import { LIVE_ATTEMPT_STATES } from "@factory/contracts";
+import { cancelProjectTasks } from "../projects/cancel-tasks.js";
+import { withoutWorkflowAdvancement } from "./lifecycle.js";
 
 export const WORKFLOW_COMMANDS = ["workflows.create", "workflows.start", "workflows.pause", "workflows.resume", "workflows.cancel", "workflows.assign-stage", "workflows.patch", "workflows.decide-patch"] as const;
 function requireProject(ctx: HandlerContext, projectId: string): void {
@@ -119,7 +122,18 @@ export function createWorkflowHandlers(deps: { packs: readonly RegistryPack[]; e
       if (deps.engine) advanceWorkflow(deps.engine, projectId, payload.instanceId);
       return result;
     },
-    "workflows.cancel": (ctx, { projectId, payload }) => transition(ctx, projectId, payload, "cancelled", undefined, payload.reason),
+    "workflows.cancel": (ctx, { projectId, payload }) => withoutWorkflowAdvancement(ctx.raw, () => {
+      const taskIds = (ctx.raw.prepare("SELECT DISTINCT task_id FROM workflow_stage_tasks WHERE project_id=? AND instance_id=?")
+        .all(projectId, payload.instanceId) as { task_id: string }[]).map(row => row.task_id);
+      const live = [...LIVE_ATTEMPT_STATES];
+      if (ctx.raw.prepare(`SELECT 1 FROM attempts WHERE project_id=? AND task_id IN (SELECT value FROM json_each(?))
+        AND state IN (${live.map(() => "?").join(",")}) LIMIT 1`).get(projectId, JSON.stringify(taskIds), ...live))
+        throw new CommandError("conflict", "Hãy dừng lượt chạy đang hoạt động và đối soát lượt chưa rõ kết quả trước khi huỷ workflow.", "refresh");
+      const result = transition(ctx, projectId, payload, "cancelled", undefined, payload.reason);
+      ctx.raw.prepare(`UPDATE workflow_stages SET state='skipped',blocked_reason=? WHERE project_id=? AND instance_id=?
+        AND state NOT IN ('done','skipped','failed')`).run(payload.reason.slice(0, 300), projectId, payload.instanceId);
+      return { effects: [...result.effects, ...cancelProjectTasks(ctx, projectId, taskIds)] };
+    }),
     "workflows.assign-stage": (ctx, { projectId, payload }) => {
       requireProject(ctx, projectId);
       const row = getWorkflowInstance(ctx.raw, projectId, payload.instanceId);

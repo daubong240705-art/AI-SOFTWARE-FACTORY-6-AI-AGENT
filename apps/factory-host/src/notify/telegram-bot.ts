@@ -306,7 +306,8 @@ export function startTelegramBot(deps: TelegramBotDeps): { stop(): Promise<void>
         await say("Gửi tin nhắn để chat với quản trị Portal.\n/pending — xem tối đa 10 phê duyệt\n/stats [gameId] — thống kê 7 ngày\n/game <gameId> <nội dung> — chat với Lead của game\nDùng nút Duyệt / Yêu cầu sửa hoặc Làm / Không để quyết định."); return;
       }
       if (name === "pending") {
-        const rows = raw.prepare("SELECT project_id,id,subject,summary FROM approvals WHERE state='pending' AND expires_at>? ORDER BY requested_at,id LIMIT 10")
+        const rows = raw.prepare(`SELECT a.project_id,a.id,a.subject,a.summary FROM approvals a JOIN projects p ON p.id=a.project_id
+          WHERE p.disposition<>'archived' AND a.state='pending' AND a.expires_at>? ORDER BY a.requested_at,a.id LIMIT 10`)
           .all(new Date().toISOString()) as { project_id: string; id: string; subject: string; summary: string }[];
         if (!rows.length) await say("Không có mục chờ duyệt.");
         for (const row of rows) await client.sendApproval(chatId, { title: `Approval needed: ${row.subject}`, body: row.summary,

@@ -46,8 +46,9 @@ const projectFromRow = (row: ProjectRow): Project => projectSchema.parse({
   leadAgentId: null, disposition: row.disposition,
 });
 
-export function listProjects(raw: Database): Project[] {
-  return (raw.prepare("SELECT id, revision, name, workspace_kind, workspace_root, disposition FROM projects ORDER BY id").all() as ProjectRow[])
+export function listProjects(raw: Database, includeArchived = false): Project[] {
+  return (raw.prepare(`SELECT id, revision, name, workspace_kind, workspace_root, disposition FROM projects
+    WHERE (? OR disposition <> 'archived') ORDER BY id`).all(Number(includeArchived)) as ProjectRow[])
     .map(projectFromRow);
 }
 

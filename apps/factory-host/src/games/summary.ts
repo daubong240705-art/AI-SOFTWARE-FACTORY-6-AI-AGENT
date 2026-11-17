@@ -26,7 +26,7 @@ export function listGameSummaries(raw: Database, publicUrl: string | null = null
       SELECT id FROM workflow_instances WHERE project_id=p.id AND key='game-build' ORDER BY created_at DESC,id DESC LIMIT 1)
     LEFT JOIN game_releases r ON r.project_id=p.id AND r.id=(
       SELECT id FROM game_releases WHERE project_id=p.id AND kind='publish' ORDER BY created_at DESC,id DESC LIMIT 1)
-    ORDER BY updated_at DESC,p.id`).all() as SummaryRow[];
+    WHERE p.disposition<>'archived' ORDER BY updated_at DESC,p.id`).all() as SummaryRow[];
   const games = rows.map((row): GameSummary => {
     const stages = raw.prepare("SELECT stage_key,state,loop_count FROM workflow_stages WHERE project_id=? AND instance_id=?")
       .all(row.project_id, row.instance_id) as Array<{ stage_key: string; state: string; loop_count: number }>;

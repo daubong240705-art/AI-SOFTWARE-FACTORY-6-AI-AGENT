@@ -86,6 +86,7 @@ export const commandSchema = z.discriminatedUnion("type", [
     }),
   ),
   command("projects.update", z.strictObject({ ...change, name: labelSchema })),
+  command("projects.archive", z.strictObject({ ...change, confirmName: z.string().max(160) })),
   command(
     "agents.configure",
     z.strictObject({

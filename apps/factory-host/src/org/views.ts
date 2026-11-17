@@ -23,7 +23,7 @@ export function teamViews(raw: Database) {
   return listTeams(raw).map((team) => {
     const engagements = raw.prepare(`SELECT e.project_id AS projectId, p.name AS projectName, e.id AS engagementId,
       e.priority, e.max_concurrent AS maxConcurrent, e.state, e.revision FROM engagements e JOIN projects p ON p.id = e.project_id
-      WHERE e.team_id = ? ORDER BY e.priority DESC, e.created_at, e.id`).all(team.id) as {
+      WHERE e.team_id = ? AND p.disposition<>'archived' ORDER BY e.priority DESC, e.created_at, e.id`).all(team.id) as {
         projectId: string; projectName: string; engagementId: string; priority: number; maxConcurrent: number; state: string; revision: number }[];
     return { ...team, seats: listSeats(raw, team.id).map(({ id, name, role, slots, isLead, revision, runtime }) => {
       // Capabilities and tools come from the pinned pack snapshot; absent for v1 packs and teams without one.
@@ -55,7 +55,7 @@ export function teamQueue(raw: Database, teamId: string) {
     LEFT JOIN attempts a ON a.project_id = t.project_id AND a.task_id = t.id AND a.state IN (${states.map(() => "?").join(",")})
     LEFT JOIN attempt_seats ats ON ats.project_id = a.project_id AND ats.attempt_id = a.id
     LEFT JOIN seats s ON s.id = COALESCE(ats.seat_id, t.owner_seat_id)
-    WHERE e.team_id = ? AND t.state IN ('draft','proposed','accepted','ready','awaiting-go','active')
+    WHERE e.team_id = ? AND p.disposition<>'archived' AND t.state IN ('draft','proposed','accepted','ready','awaiting-go','active')
     ORDER BY e.priority DESC, a.rowid IS NULL, a.rowid, t.rowid LIMIT 200`)
     .all(...states, teamId) as { projectId: string; projectName: string; taskId: string; code: string; title: string;
       state: string; engagementPriority: number; queuedAt: string | null; seatName: string | null; liveAttemptState: string | null }[];
