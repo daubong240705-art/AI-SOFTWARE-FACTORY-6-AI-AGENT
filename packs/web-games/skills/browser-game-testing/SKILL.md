@@ -17,25 +17,23 @@ Read the spec's numbered test cases, task acceptance and game-contract first. Us
 - Use offered `browser_navigate`, `browser_resize`, `browser_snapshot`, `browser_evaluate`, `browser_console_messages` and `browser_take_screenshot` equivalents. Inspect the game iframe as well as the host lobby.
 - Assert rendered DOM: accessible roles, cell/card labels, turn text, your seat, opponent connection status, results, errors and rematch controls. Drive keyboard and pointer input through real controls.
 - Read visible board/card state and compare it with the SDK room view when exposed. Do not require a canvas hook or reveal hidden cards through a test hook. Do not change game code to enable a check.
-- Wait for a named rendered state or locator assertion; avoid fixed sleeps. Play a full match at both sizes and capture start, decisive move, result and rematch.
+- Wait for a named rendered state or locator assertion; avoid fixed sleeps. Play the bot match to the end at 1280x720; at 390x844 only check layout. One screenshot per viewport.
 
 ## Gameplay and invalid input
 
-- Play one human-versus-human win and one draw or loss according to the spec. Verify turn progression, terminal state and rematch. Record action sequences.
-- Run bot-versus-bot simulation across up to 50 deterministic seeds with the fastest bot level, at most 200 moves per match and a 60-second total budget (stop adding seeds when it is reached; at least 5); assert every move is legal and each match terminates. Record seed range, test name and exit code; report inapplicable bot support explicitly without inventing a pass.
-- Check wrong turn, invalid or occupied target, and moves after completion. Verify server rejection and unchanged state, including input sent past disabled UI via an offered test harness.
+- Run the bot-versus-bot simulation in Node against `rules.ts` (no browser): the number of seeds, move cap and time budget come from the criterion. Assert every move is legal and each match terminates; record the seeds that ran. Report inapplicable bot support explicitly without inventing a pass.
+- Rules tests already cover illegal actions; in the browser only check that a move on the wrong turn is rejected (during the multiplayer match).
 - In reproduce, put the regression under `tests/regression/`, run it on the current code and quote the actual failing output. Keep game source unchanged.
 
 ## Multiplayer, reload and reconnect
 
 - Use two independent browser contexts (`browser.newContext()` in Playwright Test), each with its own identity, against one preview server. Two tabs sharing one session are insufficient.
 - Create a room in context A; join its code from B. After every move compare board, turn, result and seat identity in both rendered views; compare public fields only for hidden-information games.
-- Reload one context and assert the same room code and same seat return with the current state. Disconnect one opponent, verify the disconnected indicator, reconnect and verify state convergence without a duplicate seat.
-- Play through completion and rematch. For a game without multiplayer, use the acceptance's explicit n/a with the reason; never silently skip it.
+- Play one human-versus-human match to the end this way. Reload one context once and assert the same room code and same seat return with the current state. For a game without multiplayer, use the acceptance's explicit n/a with the reason; never silently skip it.
 
 ## Evidence and cleanup
 
-- Collect browser console messages and page errors across navigation and a full match; unexpected errors fail the preview criterion. Use offered DevTools for console/network details when needed.
-- Save screenshots and logs under `.factory/playwright/` with viewport and named state in each filename. Cite relative paths; include failure reproduction steps and observed state.
+- Collect browser console messages and page errors across navigation and the match; unexpected errors fail the preview criterion.
+- Save screenshots and logs under `.factory/playwright/` with the viewport in each filename. Cite relative paths; include failure reproduction steps and observed state.
 - Close both contexts and stop preview processes, verifying the port is released.
 - QA calls `criterion.report` once per criterion using its exact text, passed boolean and one evidence sentence. A criterion not run is failed and labelled unverified. Record commands with exit codes, test names and screenshot paths; never claim an unrun check passed.

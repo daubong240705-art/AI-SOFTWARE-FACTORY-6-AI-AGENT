@@ -153,14 +153,20 @@ export function advanceWorkflow(deps: WorkflowEngineDeps, projectId: string, ins
         ...spec.inputs.map((input) => `Input: ${input.kind} (${input.required ? "required" : "optional"})`),
         ...spec.outputs.map((output) => `Output: ${output.kind} (${output.mustReach})`),
         ...definition.parameters.map((p) => `${p.name}=${String(params[p.name])}`)];
-      if (stage.loop_count > 0) {
-        const max = definition.edges.find((edge) => edge.type === "rework" && edge.to === spec.key)?.maxLoops ?? stage.loop_count;
-        lines.push(`Rework ${stage.loop_count} of ${max}`);
-        const feedback = raw.prepare(`SELECT c.comment FROM approval_comments c JOIN approvals a ON a.project_id = c.project_id AND a.id = c.approval_id
+      const lastFeedback = (): string | undefined => (raw.prepare(`SELECT c.comment FROM approval_comments c JOIN approvals a ON a.project_id = c.project_id AND a.id = c.approval_id
           JOIN workflow_stage_tasks l ON l.project_id = a.project_id AND l.task_id = a.task_id
           WHERE l.project_id = ? AND l.instance_id = ? AND a.kind = 'review' AND a.outcome_option_id = 'request-changes'
-          ORDER BY a.decided_at DESC, a.rowid DESC LIMIT 1`).get(projectId, instanceId) as { comment: string } | undefined;
-        if (feedback) lines.push(`Reviewer feedback:\n${publicApprovalText(feedback.comment).slice(0, 1000)}`);
+          ORDER BY a.decided_at DESC, a.rowid DESC LIMIT 1`).get(projectId, instanceId) as { comment: string } | undefined)?.comment;
+      if (stage.loop_count > 0) {
+        const max = definition.edges.find((edge) => edge.type === "rework" && edge.to === spec.key)?.maxLoops ?? stage.loop_count;
+        lines.push(`Rework ${stage.loop_count} of ${max}: fix only what the reviewer feedback lists; do not redo work that already passed.`);
+        const feedback = lastFeedback();
+        // The automatic QA verdict is stored up to 3000 characters; cutting it shorter hides the failures the rework must fix.
+        if (feedback) lines.push(`Reviewer feedback:\n${publicApprovalText(feedback).slice(0, 3000)}`);
+      } else if (iteration > 0 && definition.edges.some((edge) => edge.type === "rework" && edge.from === spec.key)) {
+        // A re-check after a rework: tell the reviewer stage what failed last time so it checks that first and in depth.
+        const feedback = lastFeedback();
+        if (feedback) lines.push(`Re-check after a rework. The previous round reported:\n${publicApprovalText(feedback).slice(0, 3000)}`);
       }
       tasksCreateHandler({ raw, hub, clock: deps.clock, newId: deps.newId ?? randomUUID, actorId: "operator" }, {
         apiVersion: 1, commandId: taskId, projectId, type: "tasks.create", payload: { taskId, code: `WF-${String(next + taskIndex - existing.length).padStart(3, "0")}`,

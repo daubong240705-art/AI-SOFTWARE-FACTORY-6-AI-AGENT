@@ -121,6 +121,8 @@ export function createLocalCliRuntime(options: LocalCliRuntimeOptions = {}): Run
       if (cli === "codex") args = ["exec", "--json", "-C", workspace.path, "--skip-git-repo-check", "--ephemeral",
         ...(agent.model ? ["-m", agent.model] : []),
         ...(agent.effort ? ["-c", `model_reasoning_effort=${JSON.stringify(agent.effort)}`] : []),
+        // A seat is one agent: Codex sub-agents would multiply token use for scoped tasks the Host already splits.
+        "-c", "features.multi_agent=false",
         ...(autonomous ? ["--dangerously-bypass-approvals-and-sandbox"] : ["-s", "workspace-write"]),
         "-c", `mcp_servers.factory.url=${JSON.stringify(url.href)}`,
         "-c", 'mcp_servers.factory.bearer_token_env_var="FACTORY_MCP_TOKEN"',

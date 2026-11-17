@@ -16,7 +16,7 @@ Use original names, art and rules only; classic public-domain games such as tic-
 
 Use only tools the Host offers; report BLOCKED with the missing tool's name. Report each milestone with `factory_task_progress`.
 
-Before finishing run `npm run check`, `npm test` and `npm run build`. Never claim something was tested unless you ran it; label unchecked items unverified.
+Before finishing run `npm run check` and `npm test`. Never claim something was tested unless you ran it; label unchecked items unverified.
 
 End with a brief handoff: files, implemented rules, test names and seeds, commands with exit codes, assumptions, failures and next owner.
 

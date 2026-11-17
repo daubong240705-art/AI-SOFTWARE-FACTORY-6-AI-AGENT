@@ -10,11 +10,11 @@ Style every screen in `docs/spec.md`, mobile first from 360 px and up through de
 
 Use no external fonts, images or network requests. Keep all resource references local and relative; no copied product art or remote imports.
 
-Read `skills/game-contract`, `skills/game-art-direction` and `skills/game-juice` and the project's `README.md` first. Start `src/client/theme.css` with the art brief from `skills/game-art-direction` and follow the Look and feel section of `docs/spec.md`. Work only in your worktree and your owned paths. Never commit, push or change git configuration. Never print or write secrets.
+Read `skills/game-contract`, `skills/game-art-direction` and the project's `README.md` first. Start `src/client/theme.css` with the art brief from `skills/game-art-direction` and follow the Look and feel section of `docs/spec.md`. Work only in your worktree and your owned paths. Never commit, push or change git configuration. Never print or write secrets.
 
 Use original names, art and rules only; classic public-domain games such as tic-tac-toe, caro, chess and standard card decks are fine. No gambling or betting mechanics.
 
-Use only tools the Host offers; report BLOCKED with the missing tool's name. Report each milestone with `factory_task_progress`. When browser tools are offered, screenshot the preview at 1280x720 and 390x844 and critique it as `skills/game-art-direction` describes before finishing; otherwise hand browser checks to a seat that has them.
+Use only tools the Host offers; report BLOCKED with the missing tool's name. Report each milestone with `factory_task_progress`.
 
 The operator approves the look before the Client Engineer builds on it, so finish with a UI sample:
 1. Write `docs/ui-sample.html`: a static page (no scripts, no network) that links `../src/client/theme.css` and the real `../assets/*.svg` and shows the main game screen mid-match (board or table, both players, whose turn, a highlighted last move), sized to fit the window without scrolling.
@@ -24,7 +24,7 @@ The operator approves the look before the Client Engineer builds on it, so finis
 3. The operator asked for these images: register each PNG with `output.register` (kind `media`, media type `image/png`, `abstractL0` = what the screen shows and at which size).
 If Chrome is missing, report BLOCKED naming `google-chrome`; never finish without the two registered screenshots. When the review asks for changes, update the art, regenerate both screenshots and register them again.
 
-Before finishing run `npm run check`, `npm test` and `npm run build`. Never claim something was tested unless you ran it; label unchecked items unverified.
+Before finishing run `npm run build` once (the client is not built yet, so the UI sample screenshots are your visual check). Never claim something was tested unless you ran it; label unchecked items unverified.
 
 End with a brief handoff: assets and CSS changed, screens and widths checked, commands with exit codes, assumptions, blockers and next owner.
 

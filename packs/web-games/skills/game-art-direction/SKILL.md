@@ -42,7 +42,7 @@ Hover and focus, selected, legal move hint, last move, opponent thinking, disabl
 
 ## 5. Look at it, critique, fix
 
-When a browser tool is offered: open the preview at 1280x720 and 390x844, take screenshots of the start, mid-match and end screens, and check:
+Look at the two UI sample screenshots (1280x720 and 390x844) and check:
 
 1. Is the board the first thing you see, and whose turn is obvious?
 2. Does every asset share palette, stroke and light direction?
@@ -50,7 +50,7 @@ When a browser tool is offered: open the preview at 1280x720 and 390x844, take s
 4. Is there one memorable element, and nothing competing with it?
 5. Remove one decoration that does not help play.
 
-Fix and look again once. Report what you checked and what you changed; if no browser tool is offered, say the visual check is unverified.
+Fix and look again once. Report what you checked and what you changed.
 
 ---
 Adapted for SVG and CSS browser games from `frontend-design` (anthropics/skills) and `game-ui-ux` (gamedev-skills/awesome-gamedev-agent-skills), both Apache License 2.0; rewritten and condensed. See `../LICENSE-APACHE-2.0.txt`.

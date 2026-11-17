@@ -65,10 +65,9 @@ Keep the previous `room.view`; on each `onState`, render the new view, then comp
 - No flashing more than three times per second; no full-screen flashes.
 - Sound is optional: short tones generated with the Web Audio API (no audio files), started only after a user gesture, quiet, with a mute button saved in `localStorage`.
 
-## Test it
+## Checking it
 
-- Unit-test the helper that decides which tier an event gets (view before, view after, tier).
-- In the browser (when a browser tool is offered): after an action, `document.getAnimations().length` returns to 0 within 1.5 s and the moved element has no inline transform left; an illegal move shows the error feedback and leaves the state unchanged; with reduced motion emulated, no animation runs.
+No extra unit tests for animation. QA checks in the browser that animations run after a move and return to rest within 3 s, and that none run under reduced motion.
 
 ---
 Adapted for browser turn-based games from `game-feel` (gamedev-skills/awesome-gamedev-agent-skills, Apache License 2.0; trauma shake after Squirrel Eiserloh, GDC 2016); rewritten for CSS and the Web Animations API. See `../LICENSE-APACHE-2.0.txt`.

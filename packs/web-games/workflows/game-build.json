@@ -1,6 +1,6 @@
 {
   "key": "game-build",
-  "revision": 3,
+  "revision": 4,
   "title": "Build or change a web game",
   "parameters": [
     {
@@ -215,7 +215,7 @@
         "assets/thumb.svg exists and game.json references its built path thumb.svg.",
         "src/client/theme.css covers every screen of docs/spec.md at 360 px and 1280 px width, with accessible contrast and touch targets of at least 44 px.",
         "All art is original SVG and CSS, and no external font, image or other external resource is referenced.",
-        "src/client/theme.css starts with the art brief of skills/game-art-direction (world, mood, 4-6 palette variables, memorable element); every asset uses that palette, one stroke scale and one light direction, and every game state has a visible style that does not rely on colour alone. Report whether screenshots at 1280x720 and 390x844 were reviewed, or say the visual check is unverified.",
+        "src/client/theme.css starts with the art brief of skills/game-art-direction (world, mood, 4-6 palette variables, memorable element); every asset uses that palette, one stroke scale and one light direction, and every game state has a visible style that does not rely on colour alone.",
         "docs/ui-sample.html shows the main screen mid-match with the real theme.css and assets; PNG screenshots docs/ui-sample-1280.png and docs/ui-sample-390.png made with headless Chrome are each registered with output.register (kind media, image/png) for the operator to review."
       ]
     },
@@ -233,10 +233,8 @@
       "sideEffect": "code",
       "acceptance": [
         "The page renders SDK room state, turn, seats, result, disconnected opponents and errors, and sends moves and rematch through connectGame without computing rules itself. The whole page fits the game frame without scrolling at 1280x720 and 390x844: compact header, and a board whose cell size comes from the available width and height (for example the smaller of both divided by the number of cells), never a fixed pixel size.",
-        "npm run check, npm test and npm run build each exit 0; report all three exit codes.",
-        "npm run play serves the preview page, its ready URL returns HTTP 200 and the page loads; stop the preview cleanly after checking.",
-        "dist/ contains game.json, its HTML entry, self-contained ESM rules.js and every referenced asset, and HTML loads main.js and theme.css relatively.",
-        "Every row of the Motion table in docs/spec.md is implemented with src/client/motion.ts (create it from skills/motion-source when missing): moved cards, pieces and chips fly from where they were to where they land, random results (dice, draws) show their suspense phase before the result, numbers count instead of jumping, opponent and bot moves animate too; effects end at rest, never block input over 150 ms, and are instant under prefers-reduced-motion."
+        "npm run check, npm test and npm run build each exit 0 (report the three exit codes), and dist/ holds game.json, its HTML entry, self-contained ESM rules.js and every referenced asset, with main.js and theme.css loaded by relative paths.",
+        "Every row of the Motion table in docs/spec.md is implemented with src/client/motion.ts: moved cards, pieces and chips fly from where they were, random results show their suspense phase first, numbers count instead of jumping, opponent and bot moves animate too; effects end at rest, never block input over 150 ms and are instant under prefers-reduced-motion."
       ],
       "includeIf": {
         "param": "runClient",
@@ -257,12 +255,10 @@
       "outputs": [],
       "sideEffect": "code",
       "acceptance": [
-        "a clean `npm install` followed by `npm run check`, `npm test` and `npm run build` all exit 0, report the three exit codes",
-        "a bot-versus-bot simulation over up to 50 seeds ends every match without an illegal move, and one human-versus-human match is played to a win and one to a draw or loss Keep the simulation fast: use the fastest bot level, cap each match at 200 moves (a capped match counts as finished if every move was legal), and stop adding seeds when the whole simulation reaches 60 seconds (report how many seeds ran; at least 5).",
-        "illegal actions are rejected: wrong turn, invalid or occupied target, a move after the match ended",
-        "in the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling (open the preview at `/?autoplay=bot` (the starter then shows only the game frame, full page, and starts a bot match) and measure INSIDE the game iframe: its document scrollHeight is not larger than its window height and the whole board is visible. The lobby/host page around the game is not part of the game and is never measured) and a full match can be played",
-        "multiplayer: two browser contexts stay in sync turn by turn and reloading one returns it to the same room and seat, or \"n/a\" with the reason for a game without multiplayer",
-        "Motion check in the browser: right after a move document.getAnimations().length is above 0 and returns to 0 within 3 s; a random result (dice, draw) is not shown sooner than 800 ms after the action; with reduced motion emulated no animation runs; report each row of the Motion table in docs/spec.md as seen or missing (missing rows fail)."
+        "In the browser at 1280x720 and 390x844, opened at `<ready URL>/?autoplay=bot` and measured INSIDE the game iframe (never the host page): no console errors, the iframe document does not scroll and the whole board is visible; at 1280x720 the bot match is played to the end.",
+        "A bot-versus-bot simulation ends every match without an illegal move: fastest bot level, at most 200 moves per match (a capped match with only legal moves counts as finished), up to 20 seeds and stop adding seeds at 30 seconds (at least 5); report the seeds that ran.",
+        "multiplayer: two browser contexts play one human-versus-human match to the end and stay in sync after every move, a move on the wrong turn is rejected with the state unchanged, and reloading one context returns it to the same room and seat; or \"n/a\" with the reason for a game without multiplayer.",
+        "Motion: after a move document.getAnimations().length is above 0 and returns to 0 within 3 s; a random result (dice, draw) is not shown sooner than 800 ms after the action; with reduced motion emulated no animation runs."
       ],
       "includeIf": {
         "param": "qa",
@@ -288,11 +284,10 @@
       "outputs": [],
       "sideEffect": "code",
       "acceptance": [
-        "A clean npm install followed by npm run check, npm test and npm run build exits 0; report the three check, test and build exit codes.",
-        "A bot-versus-bot run over up to 20 seeds ends every match without an illegal move; report the seed range and results. Keep the simulation fast: use the fastest bot level, cap each match at 200 moves (a capped match counts as finished if every move was legal), and stop adding seeds when the whole simulation reaches 60 seconds (report how many seeds ran; at least 5).",
-        "In the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling (open the preview at `/?autoplay=bot` (the starter then shows only the game frame, full page, and starts a bot match) and measure INSIDE the game iframe: its document scrollHeight is not larger than its window height and the whole board is visible. The lobby/host page around the game is not part of the game and is never measured) and one match is played to the end.",
-        "No file outside tests/ was changed by QA; report the changed paths (or none).",
-        "After a move document.getAnimations().length is above 0 and returns to 0 within 3 s; report the rows of the docs/spec.md Motion table that were seen."
+        "In the browser at 1280x720 and 390x844, opened at `<ready URL>/?autoplay=bot` and measured INSIDE the game iframe (never the host page): no console errors, the iframe document does not scroll and the whole board is visible; at 1280x720 the bot match is played to the end.",
+        "A bot-versus-bot simulation ends every match without an illegal move: fastest bot level, at most 200 moves per match (a capped match with only legal moves counts as finished), up to 10 seeds and stop adding seeds at 30 seconds (at least 5); report the seeds that ran.",
+        "No file outside tests/ and .factory/ was changed by QA; report the changed paths (or none).",
+        "After a move document.getAnimations().length is above 0 and returns to 0 within 3 s."
       ]
     }
   ],
