@@ -30,6 +30,7 @@ The starter already ships `factory.preview.json` at the project root with `npm r
 3. Preserve the `Ready: http://127.0.0.1:<port>/` line when the page answers and the runner's SIGINT/SIGTERM cleanup of its child.
 4. No secrets, outbound publishing, startup installation or writes outside the project worktree. The separate Game Portal repository is read-only.
 5. Every URL in the preview page, its scripts and its WebSocket is relative to the page (`./host.js`, `./g/dev/v1/...`, a WebSocket URL built with `new URL("ws", location.href)`), never a path starting with `/`. The Factory Host serves the preview to the operator under `/preview/<token>/` and strips that prefix, so absolute paths break. The page also runs in an opaque origin there: do not rely on cookies, `localStorage` or same-origin access to anything but its own server.
+6. Browser code (preview page and client) runs on plain LAN http in the Factory, which is not a secure context: never use `crypto.randomUUID`, `crypto.subtle`, clipboard or other secure-context-only APIs; use `crypto.getRandomValues` for random ids.
 
 ## Test before handoff
 
