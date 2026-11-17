@@ -12,24 +12,25 @@ try {
   assert.ok(Object.isFrozen(layout) && Object.isFrozen(layout.nodes) && Object.isFrozen(layout.nodes[0].position));
   const { environmentModel, furnitureFootprints, portalBooths, playerSpawnRing, desks, ownerDesk, productionPods, walkwayLanes } = await import(zonesUrl);
   const model = environmentModel();
-  // Seats, primary screen and side screen must keep this shared anchor contract.
+  // Seats stay axial; primary screens turn toward the isometric camera.
   const axial = yaw => Math.abs(yaw / (Math.PI / 2) - Math.round(yaw / (Math.PI / 2))) < 1e-8;
   for (const desk of desks) {
     assert.ok(axial(desk.yaw), `${desk.id}: desk must align to the floor grid`);
     assert.deepEqual(desk.seat, [desk.position[0], desk.position[1] - 0.94]);
     assert.ok(desk.stand[1] < desk.seat[1] - 0.7, `${desk.id}: approach must clear the chair`);
     assert.ok(desk.monitor[1] > desk.position[1] && desk.sideMonitor[0] < desk.seat[0]);
-    const primary = model.artwork.find(p => Math.abs(p.position[0] - desk.monitor[0]) < 1e-8 && Math.abs(p.position[2] - (desk.monitor[1] - 0.046)) < 1e-8);
+    const primary = model.artwork.find(p => Math.abs(p.position[0] - (desk.monitor[0] + Math.sin(0.6) * 0.046)) < 1e-8 && Math.abs(p.position[2] - (desk.monitor[1] + Math.cos(0.6) * 0.046)) < 1e-8);
     const side = model.artwork.find(p => Math.abs(p.position[0] - (desk.sideMonitor[0] + 0.04)) < 1e-8 && p.position[2] === desk.sideMonitor[1]);
-    assert.equal(primary?.yaw, Math.PI, `${desk.id}: primary faces the seated character`);
+    assert.equal(primary?.yaw, 0.6, `${desk.id}: primary faces the +x/+z camera quadrant`);
+    assert.ok(model.parts.some(part => part.position[0] === desk.monitor[0] && part.position[1] === 1.08 && part.position[2] === desk.monitor[1] && part.yaw === primary.yaw), 'Screen and monitor housing must share their angle');
     assert.equal(side?.yaw, Math.PI / 2, `${desk.id}: secondary faces both seat and +x camera`);
     assert.ok(primary.position[1] + primary.height / 2 < 1.3 && side.position[1] + side.height / 2 < 1.3, 'Low monitors must leave heads visible');
   }
   for (const part of model.parts) {
     // The exterior connecting path follows the original Portal route; furniture stays axial.
-    if (part.position[0] <= 18 || part.position[1] > 0.1) assert.ok(axial(part.yaw), 'Furniture must use orthogonal yaw');
+    if (part.position[0] <= 18 || part.position[1] > 0.1) assert.ok(axial(part.yaw) || desks.some(desk => part.position[0] === desk.monitor[0] && part.position[1] === 1.08 && part.position[2] === desk.monitor[1] && part.yaw === 0.6), 'Only desktop screens may turn off the furniture grid');
   }
-  for (const panel of model.artwork) assert.ok(axial(panel.yaw), 'Artwork must align with furniture');
+  for (const panel of model.artwork) assert.ok(axial(panel.yaw) || panel.yaw === 0.6 && panel.position[1] === 1.08, 'Artwork must align with furniture or a turned primary screen');
   assert.deepEqual(productionPods.map(p => p.id), ['design', 'rules', 'art', 'client']);
   assert.equal(ownerDesk.id, 'owner');
   assert.ok(model.artwork.some(p => p.text === 'Lazy Studio'));

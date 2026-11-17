@@ -7,6 +7,7 @@ export type PodKey = 'lead' | 'design' | 'rules' | 'art' | 'client' | 'qa' | 'po
 export type WorldAgent = {
   seatId: string;
   teamId: string;
+  teamName?: string;
   name: string;
   role: string;
   isLead: boolean;
@@ -99,6 +100,8 @@ export type WorldModel = {
   };
   agents: WorldAgent[];
   hotProjects: GameSummary[];
+  games: GameSummary[];
+  productionGames: number;
   focusProjectId: string | null;
   tasks: {
     columns: Record<TaskCard['column'], TaskCard[]>;

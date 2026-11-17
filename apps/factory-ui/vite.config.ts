@@ -26,5 +26,11 @@ export default defineConfig({
       },
     },
   },
-  build: { outDir: "dist", sourcemap: false, target: "es2022" },
+  // Keep the existing eager shell together when world panels reuse its components.
+  // Only the static entry dependency graph is grouped; world/three remain lazy.
+  build: { outDir: "dist", sourcemap: false, target: "es2022",
+    rolldownOptions: { output: { codeSplitting: { groups: [
+      { name: 'shell', tags: ['$initial'] },
+    ] } } },
+  },
 });

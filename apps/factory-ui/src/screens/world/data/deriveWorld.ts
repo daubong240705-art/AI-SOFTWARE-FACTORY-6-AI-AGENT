@@ -68,7 +68,7 @@ export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): 
       let pose: WorldAgent['pose'] = poses[seat.status];
       if (org?.lifecycle === 'paused' || team.lifecycle === 'paused' || seat.status === 'idle' && (!seat.lastFinished?.at || time(generatedAt) - time(seat.lastFinished.at) >= 900000))
         pose = 'resting';
-      agents.push({ seatId: seat.id, teamId: team.id, name: seat.name, role: seat.role, isLead: seat.isLead, slots: seat.slots, status: seat.status, pose, podKey: classifyPod(seat, org), slotIndex: 0, runs: seat.runs, queued: seat.queued, needsYou: seat.needsYou, lastFinished: seat.lastFinished, overflow: false });
+      agents.push({ seatId: seat.id, teamId: team.id, teamName: team.name, name: seat.name, role: seat.role, isLead: seat.isLead, slots: seat.slots, status: seat.status, pose, podKey: classifyPod(seat, org), slotIndex: 0, runs: seat.runs, queued: seat.queued, needsYou: seat.needsYou, lastFinished: seat.lastFinished, overflow: false });
     }
   }
   agents.sort((a, b) => a.seatId.localeCompare(b.seatId));
@@ -146,7 +146,7 @@ export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): 
     assign,
     model: {
       generatedAt, loaded, releaseVersions, bugIds: bugs.map(bug => bug.id),
-      agents, hotProjects, focusProjectId, tasks: {columns: taskColumns, overflow},
+      agents, games, productionGames: games.filter(g => liveProjects.has(g.projectId) || g.workflow && ['active', 'awaiting-approval', 'resuming', 'stalled', 'paused'].includes(g.workflow.state)).length, hotProjects, focusProjectId, tasks: {columns: taskColumns, overflow},
       stages, handoffs, bugs: bugs.slice(0, 12), bugOverflow: Math.max(0, bugs.length - 12),
       gallery: displayGallery, portal,
     },

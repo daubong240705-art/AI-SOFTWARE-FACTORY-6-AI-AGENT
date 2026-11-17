@@ -1,15 +1,26 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, type MutableRefObject, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { CharacterAnimator, characterStats } from '../characters';
+import { Lineup, lineupDimensions } from './Lineup';
+import { Agents, type AgentHover, type AgentPositions } from './Agents';
+import type { WorldModel } from '../data/types';
+import { ownerDesk } from '../layout/zones';
+import { deskForAgent } from '../agentPresentation';
+import { useCameraRig } from '../cameraContext';
+import { useT, i18n } from '@/i18n';
 import { Environment } from './Environment';
 import { CameraRig, type Locate } from './CameraRig';
 import type { CameraState } from '../cameraContext';
 import type { WorldPreferences } from '../preferences';
-import type { RenderStats } from '../debugHook';
+import type { SceneDebug, RenderStats } from '../debugHook';
 import { Ticker } from './Ticker';
 import { softwareRenderer, useWorldQuality, type WorldQuality } from './quality';
 
 type Props = {
+  model: WorldModel; baseline: boolean; lineup: boolean; selected: string | null; attention: number;
+  positions: AgentPositions; sceneDebug: MutableRefObject<SceneDebug>;
+  onSelect: (id: string) => void; onOwner: () => void; onHover: (hover: AgentHover) => void;
   qualityPreference: WorldPreferences['quality']; still: boolean;
   mapRef: RefObject<HTMLDivElement | null>; onCamera: (state: CameraState) => void; onLocate: (locate: Locate | null) => void;
   onReady: () => void; onLoading: () => void; onError: () => void;
@@ -52,6 +63,15 @@ function SceneLifecycle({ onReady, onLoading, onError, onRender, fps }: Pick<Pro
   });
   return null;
 }
+function Cast({ props, quality }: { props: Props; quality: WorldQuality }) {
+  const camera = useCameraRig(); useT();
+  useEffect(() => { if (props.lineup) camera.focusPoint([0, 4], Math.min(62, 900 / lineupDimensions.width, 600 / lineupDimensions.depth)); else { const agent = props.model.agents.find(item => item.seatId === props.selected); const point = props.selected === 'owner' ? ownerDesk.position : props.positions.current.get(props.selected ?? '') ?? (agent ? deskForAgent(agent)?.seat : null); if (point) camera.focusPoint(point, 70); else camera.home(); } }, [props.lineup, camera]);
+  useFrame(() => { props.sceneDebug.current.characters = characterStats(); });
+  return <CharacterAnimator still={props.still}>
+    <Agents agents={props.model.agents} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} />
+    {props.lineup && <Lineup origin={[0, 4]} quality={quality} still={props.still} locale={i18n.locale} />}
+  </CharacterAnimator>;
+}
 export default function WorldCanvas(props: Props) {
   const { quality, fps, measure, setSoftware } = useWorldQuality(props.qualityPreference);
   useEffect(() => props.onQuality(quality), [quality, props.onQuality]);
@@ -67,8 +87,9 @@ export default function WorldCanvas(props: Props) {
     <directionalLight color={sky} position={[-30, 45, -20]} intensity={1.1} />
     <Ticker quality={quality} still={props.still} onMeasure={measure}>
       <SceneLifecycle onReady={props.onReady} onLoading={props.onLoading} onError={props.onError} onRender={props.onRender} fps={fps} />
-      <CameraRig mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
-      <Environment />
+      <CameraRig agentPositions={props.positions} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
+      <group visible={!props.lineup}><Environment /></group>
+      <Cast props={props} quality={quality} />
     </Ticker>
   </Canvas>;
 }

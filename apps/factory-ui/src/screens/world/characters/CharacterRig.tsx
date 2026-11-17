@@ -12,6 +12,7 @@ export type CharacterRigProps = {
 export function CharacterRig({ spec, pose, position, yaw = Math.PI / 4, phase, quality, visible = true }: CharacterRigProps) {
   const invalidate = useThree(state => state.invalidate);
   const character = useMemo(() => createCharacter(spec, quality), [spec, quality]);
+  useEffect(() => { character.traverse(object => { object.raycast = () => {}; }); }, [character]);
   useAnimatedCharacter(character, pose, phase);
   useEffect(() => retainCharacterAssets(invalidate), [invalidate, character]);
   useEffect(() => { invalidate(); }, [invalidate, position, yaw, visible]);

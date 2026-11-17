@@ -1,5 +1,13 @@
 export const extra = {
   worldUi: {
+    roster: 'Staff roster', ownerDesk: 'Your desk', team: 'Team', noAgents: 'No staff yet.', sourceError: 'Could not load data',
+    close: 'Close', follow: 'Follow', unfollow: 'Stop following', projectOffice: 'Open project office',
+    workingCount: 'Agents working', attentionCount: 'Items needing you', productionCount: 'Games in production',
+    createGame: 'Create a new game', assignLead: 'Assign work to Lead', chatLead: 'Chat with Lead', chatGame: 'Choose a game to chat', openAttention: 'Open Needs attention',
+    lineup: 'View characters', backStudio: 'Back to studio',
+    status: { working: 'Working', waiting: 'Needs you', problem: 'Problem', queued: 'Waiting for work', done: 'Just finished', idle: 'Idle', resting: 'Resting' },
+    poses: { idle: 'Idle', thinking: 'Thinking', working: 'Working', attention: 'Attention', success: 'Success', error: 'Error', resting: 'Resting' },
+    codes: { LEAD: 'LEAD', PM: 'PM', BA: 'BA', FE: 'FE', BE: 'BE', DEVOPS: 'DEVOPS', TEST: 'TEST', MINT: 'MINT', PLUM: 'PLUM' },
     title: 'Studio world', map: 'Studio map', toolbar: 'World options',
     mapHint: 'Drag to pan and scroll to zoom. Arrow keys pan, plus and minus zoom, 0 opens the overview, 1–6 focus zones, Escape stops following.',
     home: 'Overview', dragHint: 'Drag to pan · scroll to zoom',

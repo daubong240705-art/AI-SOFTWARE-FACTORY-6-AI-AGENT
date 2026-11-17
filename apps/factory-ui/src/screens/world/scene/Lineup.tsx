@@ -1,9 +1,10 @@
 import { useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CharacterAnimator, CharacterRig, characterCodes, characterSpecs, characterPoses, phaseForSeat, poseLabels } from '../characters';
+import { CharacterAnimator, CharacterRig, characterCodes, characterSpecs, characterPoses, phaseForSeat } from '../characters';
 import { retainCharacterAssets } from '../characters/build';
 import { characterResources, glyphMesh } from '../characters/resources';
+import { createI18n } from '@/i18n';
 import { useWorldPreferences } from '../preferences';
 import type { WorldQuality } from './quality';
 
@@ -12,12 +13,14 @@ export const lineupDimensions = { width: 18, depth: 15, targetHeight: 0.5 } as c
 function Label({ text, position, width = 1.4 }: { text: string; position: [number, number, number]; width?: number }) {
   const invalidate = useThree(state => state.invalidate);
   const label = useMemo(() => glyphMesh(text, width, 0.48), [text, width]);
+  label.raycast = () => {};
   useEffect(() => retainCharacterAssets(invalidate), [invalidate, label]);
   // Labels lie on the floor, with text oriented toward the same camera quadrant as the faces.
   return <group position={position} rotation={[-Math.PI / 2, 0, 0]} dispose={null}><primitive object={label} dispose={null} /></group>;
 }
 function ReviewGrid({ origin, quality, locale }: { origin: [number, number]; quality: WorldQuality; locale: 'vi' | 'en' }) {
   const [ox, oz] = origin;
+  const t = useMemo(() => createI18n(locale).t, [locale]);
   const floor = useMemo(() => {
     const geometry = new THREE.PlaneGeometry(lineupDimensions.width, lineupDimensions.depth);
     const color = new THREE.Color('#F9F4E9');
@@ -27,16 +30,16 @@ function ReviewGrid({ origin, quality, locale }: { origin: [number, number]; qua
   useEffect(() => () => floor.dispose(), [floor]);
   // Rotate the whole rectangular grid around Y so columns remain horizontal in the default camera view.
   return <group position={[ox, 0.23, oz]} rotation={[0, yaw, 0]} name="character-lineup" dispose={null}>
-    <mesh position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} geometry={floor} material={characterResources().toon} />
+    <mesh position={[0, -0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} geometry={floor} material={characterResources().toon} raycast={() => {}} />
     {characterCodes.map((code, column) => {
       const x = (column - 4) * spacingX;
       return <group key={code}>
-        <Label text={code} position={[x, 0.006, 6.9]} />
+        <Label text={t(`worldUi.codes.${code}`)} position={[x, 0.006, 6.9]} />
         {characterPoses.map((pose, row) => <CharacterRig key={pose} spec={characterSpecs[code]} pose={pose}
           position={[x, 0, (row - 3) * spacingZ]} yaw={0} phase={phaseForSeat(`${code}:${pose}`)} quality={quality} />)}
       </group>;
     })}
-    {characterPoses.map((pose, row) => <Label key={pose} text={poseLabels[pose][locale]} position={[-8.05, 0.006, (row - 3) * spacingZ + 0.5]} width={1.55} />)}
+    {characterPoses.map((pose, row) => <Label key={pose} text={t(`worldUi.poses.${pose}`)} position={[-8.05, 0.006, (row - 3) * spacingZ + 0.5]} width={1.55} />)}
   </group>;
 }
 /** Self-contained review scene inside Ticker. Origin is the grid centre in world x/z. Camera focus stays with CameraRig. */

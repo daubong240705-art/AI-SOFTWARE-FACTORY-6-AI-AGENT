@@ -1,0 +1,27 @@
+import { useId, useState } from 'react';
+import { Mascot } from '@/components/mascot';
+import { useT } from '@/i18n';
+import type { WorldAgent } from './data/types';
+import { agentStatusKey } from './agentPresentation';
+
+export function WorldRoster({ agents, error, loading, selected, onSelect, onOwner }: {
+  agents: readonly WorldAgent[]; error: boolean; loading: boolean; selected: string | null;
+  onSelect: (id: string) => void; onOwner: () => void;
+}) {
+  const t = useT(); const id = useId(); const [open, setOpen] = useState(true);
+  const grouped = new Map<string, WorldAgent[]>();
+  for (const agent of agents) { const rows = grouped.get(agent.teamId) ?? []; rows.push(agent); grouped.set(agent.teamId, rows); }
+  return <aside className="world-roster rounded-lg border border-border bg-card/95 text-card-foreground shadow-sm" aria-label={t('worldUi.roster')}>
+    <button className="world-roster-toggle" aria-expanded={open} aria-controls={id} onClick={() => setOpen(value => !value)}>{t('worldUi.roster')} <span aria-hidden="true">{open ? '−' : '+'}</span></button>
+    <div id={id} hidden={!open}>
+      <button className="world-roster-agent" aria-pressed={selected === 'owner'} onClick={onOwner}>{t('worldUi.ownerDesk')}</button>
+      {error ? <p role="status" className="p-3 text-sm">{t('worldUi.sourceError')}</p> : loading ? <p role="status" className="p-3 text-sm">{t('worldUi.loading')}</p> : !agents.length ? <p className="p-3 text-sm">{t('worldUi.noAgents')}</p> : [...grouped].map(([teamId, members]) => <section key={teamId}>
+        <h2 className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground">{members[0]?.teamName || t('worldUi.team')}</h2>
+        {members.map(agent => <button key={agent.seatId} className="world-roster-agent" aria-pressed={selected === agent.seatId} onClick={() => onSelect(agent.seatId)}>
+          <Mascot seat={agent.isLead ? 'Lead' : agent.name} state={agent.pose === 'resting' ? 'offline' : agent.pose} size={32} animated={false} />
+          <span className="min-w-0 flex-1"><span className="block truncate font-medium">{agent.name}</span><span className="world-status" data-status={agent.status}>{t(agentStatusKey(agent))}</span>{agent.runs[0] && <span className="ml-1 font-mono text-xs">{agent.runs[0].code}</span>}</span>
+        </button>)}
+      </section>)}
+    </div>
+  </aside>;
+}

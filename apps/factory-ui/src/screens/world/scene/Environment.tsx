@@ -44,6 +44,7 @@ function makeEnvironment() {
   const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
   model.shadows.forEach((s, i) => shadowMesh.setMatrixAt(i, new THREE.Matrix4().compose(new THREE.Vector3(s.position[0], 0.037, s.position[1]), q, new THREE.Vector3(s.size[0], s.size[1], 1))));
   shadowMesh.computeBoundingSphere(); group.add(shadowMesh);
+  group.traverse(object => { object.raycast = () => {}; });
   return { group, labels: model.labels, artwork: model.artwork, gradient, dispose() { for (const g of Object.values(geometries)) g.dispose(); merged.dispose(); toon.dispose(); screens.dispose(); glass.dispose(); staticMaterial.dispose(); gradient.dispose(); shadowGeometry.dispose(); shadowMaterial.dispose(); shadowTexture.dispose(); group.traverse(o => { if (o instanceof THREE.InstancedMesh) o.dispose(); }); } };
 }
 async function makeLabels(labels: Label[]) {
@@ -64,7 +65,7 @@ async function makeLabels(labels: Label[]) {
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4;
   const geometry = mergeGeometries(pieces)!; pieces.forEach(p => p.dispose());
   const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true, polygonOffset: true, polygonOffsetFactor: -2 });
-  const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 2;
+  const mesh = new THREE.Mesh(geometry, material); mesh.renderOrder = 2; mesh.raycast = () => {};
   return { mesh, dispose() { texture.dispose(); geometry.dispose(); material.dispose(); } };
 }
 function Labels({ labels }: { labels: Label[] }) {
@@ -84,7 +85,7 @@ function Artwork({ panels, gradient }: { panels: ReturnType<typeof environmentMo
     let cancelled = false; let dispose: (() => void) | undefined;
     void makeArtwork(panels, gradient).then(result => {
       if (cancelled) result.dispose();
-      else { dispose = result.dispose; setGroup(result.group); invalidate(); }
+      else { dispose = result.dispose; result.group.traverse(object => { object.raycast = () => {}; }); setGroup(result.group); invalidate(); }
     });
     return () => { cancelled = true; dispose?.(); };
   }, [panels, gradient, invalidate]);
@@ -98,7 +99,7 @@ function GraphOverlay() {
     const vertices = layout.edges.flatMap(([a, b]) => { const from = byId.get(a)!, to = byId.get(b)!; return [from.position[0], 0.065, from.position[1], to.position[0], 0.065, to.position[1]]; });
     const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     const material = new THREE.LineBasicMaterial({ color: '#AF496B', transparent: true, opacity: 0.8 });
-    setObject(new THREE.LineSegments(geometry, material)); invalidate();
+    const lines = new THREE.LineSegments(geometry, material); lines.raycast = () => {}; setObject(lines); invalidate();
     return () => { geometry.dispose(); material.dispose(); };
   }, [invalidate]);
   return object ? <primitive object={object} /> : null;

@@ -3,11 +3,12 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { OrthographicCamera, Vector3, MathUtils } from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { cameraBounds, cameraPresets, fitZoom, isoDistance, type ZoneKey } from '../layout/camera';
-import { zones, type Point } from '../layout/zones';
+import { ownerDesk, zones, type Point } from '../layout/zones';
 import { useCameraBridge, type CameraApi, type CameraState } from '../cameraContext';
 import { useWorldMotion } from './Ticker';
-export type Locate = (kind: 'zone', id: string) => { x: number; y: number } | null;
-export function CameraRig({ mapRef, still, onState, onLocate }: {
+export type Locate = (kind: 'agent' | 'owner' | 'zone', id?: string) => { x: number; y: number } | null;
+export function CameraRig({ mapRef, still, onState, onLocate, agentPositions }: {
+  agentPositions: RefObject<Map<string, Point>>;
   mapRef: RefObject<HTMLDivElement | null>; still: boolean;
   onState: (state: CameraState) => void; onLocate: (locate: Locate | null) => void;
 }) {
@@ -83,9 +84,8 @@ export function CameraRig({ mapRef, still, onState, onLocate }: {
     const focusMap = () => map?.focus({ preventScroll: true });
     map?.addEventListener('keydown', keydown); gl.domElement.addEventListener('pointerdown', focusMap);
     onLocate((kind, id) => {
-      const zone = kind === 'zone' ? zones.find(z => z.id === id) : undefined; if (!zone) return null;
-      camera.updateMatrixWorld();
-      const p = new Vector3(zone.anchor[0], 0.05, zone.anchor[1]).project(camera);
+      const point = kind === 'owner' ? ownerDesk.position : kind === 'agent' ? agentPositions.current.get(id ?? '') : zones.find(z => z.id === id)?.anchor; if (!point) return null;
+      const p = new Vector3(point[0], kind === 'agent' ? 1 : kind === 'owner' ? 0.9 : 0.05, point[1]).project(camera);
       if (p.z < -1 || p.z > 1) return null;
       const rect = gl.domElement.getBoundingClientRect(); return { x: rect.left + (p.x + 1) * rect.width / 2, y: rect.top + (1 - p.y) * rect.height / 2 };
     });
@@ -94,7 +94,7 @@ export function CameraRig({ mapRef, still, onState, onLocate }: {
       map?.removeEventListener('keydown', keydown); gl.domElement.removeEventListener('pointerdown', focusMap);
       register({ focusZone() {}, focusPoint() {}, home() {}, follow() {} }); engine.current = null; animate.current = () => {}; onLocate(null);
     };
-  }, [camera, gl, invalidate, mapRef, motion, onLocate, onState, publish, register]);
+  }, [camera, gl, invalidate, mapRef, motion, onLocate, onState, publish, register, agentPositions]);
   useEffect(() => {
     const e = engine.current; if (!e || !(camera instanceof OrthographicCamera)) return;
     // Fit the isometric projection of the complete bounds [-18,44] × [-26,14].

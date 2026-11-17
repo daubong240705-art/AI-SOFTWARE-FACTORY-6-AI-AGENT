@@ -77,7 +77,7 @@ export function AppShell({ store }: { store: Store }) {
         : view === 'portal' ? <PortalGames store={store} />
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} tab={teamTab} onTabChange={next => navigate('team', 'overview', next)} onTask={openTask} />
-        : view === 'world' ? <Suspense fallback={<LoadingState />}><WorldPage store={store} projects={state.projects} onNavigate={go} /></Suspense>
+        : view === 'world' ? <Suspense fallback={<LoadingState />}><WorldPage store={store} projects={state.projects} onNavigate={go} onCreate={create} onTask={openTask} onChat={id => { setChatProject(id); go(`project:${id}`); }} /></Suspense>
         : view === 'system' ? <System store={store} />
         : view === 'mascots' ? <Suspense fallback={<LoadingState />}><MascotGallery /></Suspense>
         : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} tab={tab} settingsSection={settingsSection} onTabChange={(next, section) => navigate(view, next, undefined, section)} newTaskRequest={newTaskRequest?.projectId === selected.id ? newTaskRequest.sequence : 0} onNewTaskOpened={() => setNewTaskRequest(null)} openChat={chatProject === selected.id} onChatOpened={() => setChatProject(null)} initialTaskId={initialTask?.projectId === selected.id ? initialTask.taskId : undefined} />

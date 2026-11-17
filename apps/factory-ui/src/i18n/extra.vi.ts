@@ -3,6 +3,14 @@ import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
   worldUi: {
+    roster: 'Danh sách nhân viên', ownerDesk: 'Bàn của bạn', team: 'Đội', noAgents: 'Chưa có nhân viên.', sourceError: 'Không tải được dữ liệu',
+    close: 'Đóng', follow: 'Theo dõi', unfollow: 'Thôi theo dõi', projectOffice: 'Mở văn phòng dự án',
+    workingCount: 'Nhân viên đang làm', attentionCount: 'Việc cần bạn', productionCount: 'Game đang sản xuất',
+    createGame: 'Tạo game mới', assignLead: 'Giao việc cho Lead', chatLead: 'Chat với Lead', chatGame: 'Chọn game để chat', openAttention: 'Mở Cần xử lý',
+    lineup: 'Xem bộ nhân vật', backStudio: 'Về studio',
+    status: { working: 'Đang làm', waiting: 'Chờ bạn', problem: 'Gặp lỗi', queued: 'Đang chờ việc', done: 'Vừa xong', idle: 'Rảnh', resting: 'Đang nghỉ' },
+    poses: { idle: 'Đứng yên', thinking: 'Suy nghĩ', working: 'Làm việc', attention: 'Chú ý', success: 'Thành công', error: 'Lỗi', resting: 'Nghỉ' },
+    codes: { LEAD: 'LEAD', PM: 'PM', BA: 'BA', FE: 'FE', BE: 'BE', DEVOPS: 'DEVOPS', TEST: 'TEST', MINT: 'MINT', PLUM: 'PLUM' },
     title: 'Thế giới studio', map: 'Bản đồ studio', toolbar: 'Tùy chọn thế giới',
     mapHint: 'Kéo để di chuyển, cuộn để phóng to. Phím mũi tên di chuyển, cộng và trừ phóng to thu nhỏ, 0 về tổng thể, 1–6 chọn khu, Esc dừng theo dõi.',
     home: 'Về tổng thể', dragHint: 'Kéo để di chuyển · cuộn để phóng to',

@@ -141,3 +141,20 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 .world-fallback { height: 100%; display: grid; place-items: center; padding: 24px; overflow: auto; }
 .world-fallback-card { width: min(100%, 560px); max-height: 100%; overflow: auto; }
 .world-loading { height: 100%; display: flex; justify-content: center; align-items: center; gap: 12px; color: var(--muted-foreground); font-size: 14px; }
+
+.world-left { position: absolute; top: 12px; left: 12px; width: min(410px, calc(100% - 24px)); max-height: calc(100% - 24px); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; pointer-events: none; }
+.world-left > * { pointer-events: auto; }
+.world-left .world-toolbar { position: static; flex: none; max-width: 100% !important; }
+.world-roster { width: 245px; max-width: 100%; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.world-roster-toggle { display: flex; width: 100%; justify-content: space-between; padding: 10px 12px; font-size: 13px; font-weight: 600; }
+.world-roster-agent { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; text-align: left; font-size: 12px; }
+.world-roster-agent:hover, .world-roster-agent[aria-pressed=true] { background: var(--secondary); }
+.world-roster button:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.world-status { display: inline-block; padding: 1px 5px; border-radius: 6px; background: var(--secondary); font-size: 11px; }
+.world-status[data-status=working] { color: var(--run); }
+.world-status[data-status=waiting] { color: var(--need); }
+.world-status[data-status=problem] { color: var(--destructive); }
+.world-status[data-status=done] { color: var(--ok); }
+.world-panel.project-dock { position: absolute; top: 12px; right: 12px; bottom: 12px; width: min(370px, calc(100% - 24px)); border: 1px solid var(--border); border-radius: 12px; z-index: 3; }
+.world-tooltip { position: absolute; z-index: 4; pointer-events: none; max-width: 220px; overflow-wrap: anywhere; }
+@media (max-width: 1100px) { .world-left { width: 310px; } .world-roster { width: 215px; } .world-panel.project-dock { width: 320px; } }

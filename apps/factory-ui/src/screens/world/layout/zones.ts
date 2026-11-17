@@ -158,12 +158,12 @@ export function environmentModel() {
     add('cylinder', palette.ink, [cx, 0.23, cz], [0.12, 0.4, 0.12]);
     box(palette.ink, [cx, 0.08, cz], [0.7, 0.08, 0.12]); box(palette.ink, [cx, 0.08, cz], [0.12, 0.08, 0.7]);
     for (const dx of [-0.28, 0.28]) for (const dz of [-0.28, 0.28]) add('sphere', palette.ink, [cx + dx, 0.07, cz + dz], [0.12, 0.12, 0.12]);
-    // Primary faces the seat (-z); side-mounted secondary faces +x, so the camera sees content.
+    // Low primary screens turn toward +x/+z; the secondary remains readable from +x.
     const [mx, mz] = d.monitor;
-    box(palette.ink, [mx, 1.08, mz], [owner ? 1.08 : 0.78, 0.4, 0.085]);
+    box(palette.ink, [mx, 1.08, mz], [owner ? 1.08 : 0.78, 0.4, 0.085], 0.6);
     box(palette.ink, [mx, 0.94, mz], [0.09, 0.14, 0.12]);
     box(palette.ink, [mx, 0.9, mz], [0.34, 0.035, 0.25]);
-    art(kind, [mx, 1.08, mz - 0.046], owner ? 0.98 : 0.7, 0.32, Math.PI);
+    art(kind, [mx + Math.sin(0.6) * 0.046, 1.08, mz + Math.cos(0.6) * 0.046], owner ? 0.98 : 0.7, 0.32, 0.6);
     const [tx, tz] = d.sideMonitor;
     box(palette.ink, [tx, 1.07, tz], [0.64, 0.36, 0.075], Math.PI / 2);
     box(palette.ink, [tx, 0.93, tz], [0.1, 0.12, 0.15]);
