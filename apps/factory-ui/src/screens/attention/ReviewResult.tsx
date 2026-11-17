@@ -46,14 +46,10 @@ export function ReviewResult({ store, taskId, approval }: { store: Store; taskId
         {(!detail || (detail.loading && !attempt)) && !error && <LoadingState inline />}
         <TabsContent value="result" className="m-0 space-y-5">
           {detail && <>
-            {/* When the run handed over documents or images (a README, UI samples), review those first; the code diff stays one click away. */}
-            {detail.artifacts.length > 0 ? <>
-              <ReviewDocuments store={store} taskId={taskId} documents={detail.artifacts} attemptId={attempt?.id} />
-              {attempt && <Fold title={t('reviewUi.codeChanges')}><ReviewChanges store={store} taskId={taskId} code={task?.code ?? ''} attempt={attempt} /></Fold>}
-            </> : <>
-              {attempt ? <ReviewChanges store={store} taskId={taskId} code={task?.code ?? ''} attempt={attempt} /> : <Section className="text-sm text-muted-foreground">{t('reviewUi.noChanges')}</Section>}
-              <ReviewDocuments store={store} taskId={taskId} documents={detail.artifacts} attemptId={attempt?.id} />
-            </>}
+            {/* The operator reviews documents and images (a README, UI samples); the code diff is always folded away. */}
+            <ReviewDocuments store={store} taskId={taskId} documents={detail.artifacts} attemptId={attempt?.id} />
+            {attempt ? <Fold title={t('reviewUi.codeChanges')}><ReviewChanges store={store} taskId={taskId} code={task?.code ?? ''} attempt={attempt} /></Fold>
+              : <Section className="text-sm text-muted-foreground">{t('reviewUi.noChanges')}</Section>}
             <Fold title={t('reviewUi.history')}>
               <div className="divide-y divide-border">
                 {detail.attempts.slice(1).map(older => <div key={older.id} className="space-y-2 py-3 text-xs text-muted-foreground">

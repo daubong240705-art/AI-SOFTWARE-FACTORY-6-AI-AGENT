@@ -22,7 +22,9 @@ const TEXT = /^(text\/(plain|markdown|csv)|application\/json)(?:;|$)/i;
 export function ReviewDocuments({ store, taskId, documents, attemptId, projectId }: { store: Store; taskId: string; documents: TaskArtifact[]; attemptId: string | undefined; projectId?: string }) {
   const t = useT();
   const current = documents.flatMap(document => {
-    const version = [...document.versions].sort((a, b) => b.version - a.version).find(item => projectId !== undefined || item.producedByAttemptId === attemptId);
+    const versions = [...document.versions].sort((a, b) => b.version - a.version);
+    // Prefer the version this attempt produced; otherwise show the latest, so a document is never hidden by a stale attempt id.
+    const version = projectId !== undefined ? versions[0] : versions.find(item => item.producedByAttemptId === attemptId) ?? versions[0];
     return document.kind !== 'code-ref' && version ? [{ document, version }] : [];
   });
   const images = current.filter(({ version }) => IMAGE.test(version.mediaType));
@@ -70,7 +72,8 @@ function ImageGallery({ store, images, projectId: explicitProjectId }: { store: 
 }
 
 function DocumentRow({ store, taskId, document, version, projectId }: { store: Store; taskId: string; document: TaskArtifact; version: Version; projectId?: string }) {
-  const t = useT(); const state = store.useStoreSelector(value => value); const [open, setOpen] = useState(!!projectId && /readme/i.test(document.title));
+  const t = useT(); const state = store.useStoreSelector(value => value); // Readable documents (a README, a spec) open straight away: they are what the operator reviews.
+  const [open, setOpen] = useState(TEXT.test(version.mediaType) || (!!projectId && /readme/i.test(document.title)));
   const [explicit, setExplicit] = useState<{ content?: { text: string }; loading?: boolean; error?: boolean }>({});
   const [retry, setRetry] = useState(0);
   useEffect(() => {
@@ -82,6 +85,7 @@ function DocumentRow({ store, taskId, document, version, projectId }: { store: S
     }, () => { if (!controller.signal.aborted) setExplicit({ error: true }); });
     return () => controller.abort();
   }, [store, projectId, document.artifactId, version.version, version.mediaType, open, retry]);
+  useEffect(() => { if (!projectId && open && TEXT.test(version.mediaType)) void store.loadArtifactContent(taskId, document.artifactId, version.version); }, [store, projectId, taskId, document.artifactId, version.version, version.mediaType]); // eslint-disable-line react-hooks/exhaustive-deps
   const key = `${document.artifactId}:${version.version}`; const content = projectId ? explicit.content : state.artifactContents[key]; const error = projectId ? explicit.error : state.errors[`content:${key}`];
   const errorText = projectId ? t('worldUi.sourceError') : t(`safeErrors.${state.errors[`content:${key}`]?.code}`);
   const text = TEXT.test(version.mediaType);
