@@ -4,7 +4,13 @@ type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated
 export const extra: Translated<typeof en> = {
   worldUi: {
     title: 'Thế giới studio', map: 'Bản đồ studio', toolbar: 'Tùy chọn thế giới',
-    mapHint: 'Bản đồ chỉ để xem. Dùng thanh tùy chọn để đổi chất lượng hoặc mở bản 2D.',
+    mapHint: 'Kéo để di chuyển, cuộn để phóng to. Phím mũi tên di chuyển, cộng và trừ phóng to thu nhỏ, 0 về tổng thể, 1–6 chọn khu, Esc dừng theo dõi.',
+    home: 'Về tổng thể', dragHint: 'Kéo để di chuyển · cuộn để phóng to',
+    zones: { A: 'Điều hành', B: 'Xưởng', C: 'Cộng tác', D: 'Kiểm thử', E: 'Trưng bày', F: 'Portal' },
+    scene: {
+      owner: 'Bạn', empty: 'Chỗ trống', comingSoon: 'Sắp mở', backlog: 'Chờ làm', working: 'Đang làm', review: 'Chờ duyệt', error: 'Gặp lỗi', done: 'Xong',
+      zones: { A: 'Phòng điều hành', B: 'Xưởng sản xuất', C: 'Bàn cộng tác', D: 'Phòng kiểm thử', E: 'Phòng trưng bày', F: 'Quảng trường Portal' },
+    },
     quality: 'Chất lượng', qualityOptions: { auto: 'Tự động', high: 'Cao', low: 'Thấp' },
     still: 'Chế độ tĩnh', view2d: 'Xem bản 2D', loading: 'Đang dựng thế giới…', retry: 'Thử lại',
     openTeam: 'Mở Phòng đội', openOffice: 'Văn phòng {game}', open3d: 'Mở lại 3D', openStill: 'Mở 3D ở chế độ tĩnh',

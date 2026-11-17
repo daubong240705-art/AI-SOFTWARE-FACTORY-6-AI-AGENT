@@ -1,7 +1,13 @@
 export const extra = {
   worldUi: {
     title: 'Studio world', map: 'Studio map', toolbar: 'World options',
-    mapHint: 'This map is read-only. Use the toolbar to change quality or open the 2D view.',
+    mapHint: 'Drag to pan and scroll to zoom. Arrow keys pan, plus and minus zoom, 0 opens the overview, 1–6 focus zones, Escape stops following.',
+    home: 'Overview', dragHint: 'Drag to pan · scroll to zoom',
+    zones: { A: 'Control', B: 'Workshop', C: 'Collaborate', D: 'Testing', E: 'Gallery', F: 'Portal' },
+    scene: {
+      owner: 'You', empty: 'Empty space', comingSoon: 'Coming soon', backlog: 'To do', working: 'In progress', review: 'Review', error: 'Blocked', done: 'Done',
+      zones: { A: 'Control room', B: 'Production workshop', C: 'Collaboration table', D: 'Testing room', E: 'Gallery', F: 'Portal plaza' },
+    },
     quality: 'Quality', qualityOptions: { auto: 'Automatic', high: 'High', low: 'Low' },
     still: 'Still mode', view2d: 'View in 2D', loading: 'Building the world…', retry: 'Retry',
     openTeam: 'Open Team room', openOffice: '{game} office', open3d: 'Reopen 3D', openStill: 'Open 3D in still mode',

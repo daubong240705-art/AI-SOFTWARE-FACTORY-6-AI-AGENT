@@ -9,10 +9,18 @@ import { emptyRender, useWorldDebug, type FallbackReason, type RenderStats } fro
 import { useWorldPreferences } from './preferences';
 import { SceneErrorBoundary } from './SceneErrorBoundary';
 import { WorldFallback } from './WorldFallback';
+import { CameraRigProvider, initialCamera, type CameraState } from './cameraContext';
+import { layout } from './layout/waypoints';
+import type { Locate } from './scene/CameraRig';
 import { WorldToolbar } from './WorldToolbar';
 
 const WorldCanvas = lazy(() => import('./scene/WorldCanvas'));
 export default function WorldPage({ projects, onNavigate }: { store: Store; projects: readonly Project[]; onNavigate: (view: View) => void }) {
+  const mapRef = useRef<HTMLDivElement>(null);
+  const cameraState = useRef<CameraState>(initialCamera);
+  const locate = useRef<Locate | null>(null);
+  const onCamera = useCallback((value: CameraState) => { cameraState.current = value; }, []);
+  const onLocate = useCallback((value: Locate | null) => { locate.current = value; }, []);
   const t = useT(); const hintId = useId();
   const capability = useWorldCapability();
   const [preferences, change] = useWorldPreferences();
@@ -29,21 +37,21 @@ export default function WorldPage({ projects, onNavigate }: { store: Store; proj
   const onRender = useCallback((value: RenderStats) => { stats.current = value; }, []);
   const onLoading = useCallback(() => { setReady(false); stats.current = emptyRender; }, []);
   useWorldDebug(() => ({ version: 1, mode: reason ? 'fallback' : ready ? '3d' : 'loading', fallbackReason: reason,
-    ready: !reason && ready, quality, still: preferences.still, render: reason ? emptyRender : stats.current }));
-  return <div className="world-page">
+    ready: !reason && ready, quality, still: preferences.still, render: reason ? emptyRender : stats.current, camera: cameraState.current, layout, locate: (kind, id) => reason ? null : locate.current?.(kind, id) ?? null }));
+  return <CameraRigProvider><div className="world-page">
     {reason ? <WorldFallback reason={reason} projects={projects} onNavigate={onNavigate}
       onSwitch={() => { setReady(false); change({ mode: '3d', ...(reason === 'reduced-motion' ? { still: true } : {}) }); }}
       onRetry={() => { setReady(false); setError(false); setAttempt(value => value + 1); }} />
       : <>
-        <div className="world-map" role="region" tabIndex={0} aria-label={t('worldUi.map')} aria-describedby={hintId}>
+        <div ref={mapRef} className="world-map" role="region" tabIndex={0} aria-label={t('worldUi.map')} aria-describedby={hintId}>
           <p id={hintId} className="sr-only">{t('worldUi.mapHint')}</p>
           <SceneErrorBoundary key={attempt} onError={onError}>
             <Suspense fallback={<div className="world-loading" role="status"><Mascot seat="Lead" state="thinking" animated={false} /><span>{t('worldUi.loading')}</span></div>}>
-              <WorldCanvas qualityPreference={preferences.quality} still={preferences.still} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
+              <WorldCanvas mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={preferences.still} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
             </Suspense>
           </SceneErrorBoundary>
         </div>
         <WorldToolbar preferences={preferences} onChange={change} />
       </>}
-  </div>;
+  </div></CameraRigProvider>;
 }
