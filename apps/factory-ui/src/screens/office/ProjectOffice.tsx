@@ -213,7 +213,7 @@ function OfficeFloor({ store, lively, seats, items, now, party, onSelectSeat, on
   </section>;
 }
 
-function Feed({ items, now, party, onOpenTask }: { items: Interaction[]; now: number; party: (value: Party) => string; onOpenTask: (taskId: string) => void }) {
+export function Feed({ items, now, party, onOpenTask }: { items: Interaction[]; now: number; party: (value: Party) => string; onOpenTask: (taskId: string) => void }) {
   const t = useT();
   if (!items.length) return <p className="flex min-h-0 flex-1 items-center justify-center px-4 py-10 text-center text-sm text-muted-foreground">{t('officeUi.empty')}</p>;
   const avatar = (value: Party) => value.kind === 'seat' ? <Mascot seat={value.name} size={22} animated={false} />

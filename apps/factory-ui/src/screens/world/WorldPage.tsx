@@ -26,6 +26,7 @@ import type { AgentHover } from './scene/Agents';
 import { WorldToolbar } from './WorldToolbar';
 import { useWorldData } from './data/useWorldData';
 import { WorldRoster } from './WorldRoster';
+import { WorldActivity } from './WorldActivity';
 import { AgentPanel } from './panels/AgentPanel';
 import { OwnerPanel } from './panels/OwnerPanel';
 import { StagePanel } from './panels/StagePanel';
@@ -98,6 +99,9 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
         </Suspense></SceneErrorBoundary>
       </div>
       <div className="world-left"><WorldToolbar preferences={preferences} onChange={patch => { if (patch.lineup) { camera.follow(null); setSelected(null); setSelectedBug(null); setSelectedRelease(null); setSelectedTask(null); setSelectedStage(null); } change(patch); }} /><FocusGamePicker className="world-focus world-control" games={data.model.games} focusProjectId={data.focusProjectId} onFocusGame={data.setFocusProjectId} locale={i18n.locale} /><WorldRoster agents={data.model.agents} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} onTask={openTask} /></div>
+      {!(selected || selectedBug || selectedRelease || selectedStage || selectedTask) && (() => { const focus = data.model.focusProjectId;
+        return <WorldActivity office={focus ? data.interactions[focus] : undefined} gameName={data.model.games.find(game => game.projectId === focus)?.name ?? null}
+          loading={!!focus && !data.sources[`interactions:${focus}`]} onTask={taskId => { if (focus) openTask(focus, taskId); }} />; })()}
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
       {selectedBug && <DockedPane key={`bug:${selectedBug.id}`} label={t('worldUi.lab.bugDetails')} onClose={close} className="world-panel" fallbackFocus={() => mapRef.current}><BugPanel store={store} bug={data.model.bugs.find(b => b.id === selectedBug.id) ?? selectedBug} gameName={data.model.games.find(g => g.projectId === selectedBug.projectId)?.name ?? selectedBug.projectId} onClose={close} locale={i18n.locale} onTask={openTask} onOpenProject={projectId => onNavigate(`project:${projectId}`)} /></DockedPane>}
       {selectedRelease && <DockedPane key={`release:${selectedRelease.releaseId}`} label={selectedRelease.name} onClose={close} className="world-panel" fallbackFocus={() => mapRef.current}><div className="mb-4 flex justify-end"><Button variant="ghost" size="sm" onClick={close}>{t('worldUi.close')}</Button></div><ReleasePanel item={data.model.gallery.find(item => item.releaseId === selectedRelease.releaseId) ?? selectedRelease} locale={i18n.locale} releaseDate={data.model.releaseVersions[selectedRelease.projectId]?.releaseId === selectedRelease.releaseId ? data.model.releaseVersions[selectedRelease.projectId]?.at ?? null : null} /></DockedPane>}
