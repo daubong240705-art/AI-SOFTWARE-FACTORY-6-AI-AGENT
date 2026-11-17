@@ -1,3 +1,4 @@
+import { anchorsForAgents, deskForAgent } from '../agentPresentation';
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import type { ActivitySeat, ActivityTeam } from '../../../api/activityModels';
@@ -293,7 +294,8 @@ test('controller schedules real sources, retains failed data, changes focus and 
     const entry = [...timer.pending.entries()].find(([, v]) => v.ms === delay);
     assert.ok(entry, `missing interval ${delay}`); timer.pending.delete(entry[0]); entry[1].fn();
   };
-  engine.start(); await flush(); await flush();
+  engine.start(); await flush();
+  assert.deepEqual(engine.getSnapshot().reports.p, report([])); await flush();
   assert.equal(calls.portal, 1); assert.equal(calls['releases:cold'], 1);
   assert.equal(calls['interactions:cold'], undefined); assert.equal(calls['tasks:p'], 1);
   assert.equal(engine.getSnapshot().sources.activity?.state, 'ok');
@@ -365,4 +367,30 @@ test('removing and re-adding a key waits for the aborted request to settle', asy
   poller.sync([job]); poller.sync([]); poller.sync([job]); assert.equal(runs, 1);
   finish(); await flush(); timer.fire(); assert.equal(runs, 2);
   poller.stop(); finish(); await flush();
+});
+
+test('operator placements keep resting agents at desks and reserve unique lounge spots for paused teams', () => {
+  const x = inputs();
+  x.activity!.teams = [team(Array.from({length: 30}, (_, index) => seat(`seat-${String(index).padStart(2, '0')}`)))];
+  const active = deriveWorld(x).model.agents;
+  assert.ok(active.some(agent => agent.pose === 'resting'));
+  const anchors = anchorsForAgents(active);
+  for (const agent of active) {
+    const desk = deskForAgent(agent);
+    if (!desk) { assert.ok(!anchors.has(agent.seatId)); continue; }
+    assert.equal(anchors.get(agent.seatId)!.id, desk.id);
+    assert.deepEqual(anchors.get(agent.seatId)!.point, desk.seat);
+  }
+  x.activity!.teams[0]!.lifecycle = 'paused';
+  const paused = deriveWorld(x).model.agents;
+  const visiting = anchorsForAgents(paused);
+  const lounge = [...visiting.values()].filter(anchor => anchor.id.startsWith('rest-'));
+  assert.equal(lounge.length, Math.min(6, visiting.size));
+  assert.equal(new Set(lounge.map(anchor => anchor.id)).size, lounge.length);
+  assert.equal(new Set(lounge.map(anchor => anchor.point.join(','))).size, lounge.length);
+  assert.deepEqual(anchorsForAgents([...paused].reverse()), visiting);
+  for (const agent of paused) {
+    const anchor = visiting.get(agent.seatId);
+    if (anchor && !anchor.id.startsWith('rest-')) assert.equal(anchor.id, deskForAgent(agent)!.id);
+  }
 });

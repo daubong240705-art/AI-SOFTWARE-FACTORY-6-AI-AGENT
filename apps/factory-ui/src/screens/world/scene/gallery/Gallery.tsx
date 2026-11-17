@@ -8,7 +8,7 @@ import type { WorldQuality } from '../quality';
 import { canvasTexture, drawCoverImage, drawGeneratedCover, loadCoverImage } from './coverTexture';
 import { thumbnailUrl } from './thumbnailUrl';
 import { Celebration, celebrationStats, type CelebrationFrame } from './Celebration';
-import { labels, type GalleryLocale } from './labels';
+import { worldCopy, type GalleryLocale } from '../../copy';
 
 const mountedFrames = new Map<object, number>();
 export function galleryStats() {
@@ -72,11 +72,11 @@ function makeGallery(items: readonly GalleryItem[], locale: GalleryLocale, baseU
       ctx.font = '600 27px "Inter Variable", sans-serif'; ctx.fillText(`${item.name} · v${item.version ?? '—'}`, 256, 352, 490);
       if (item.playing !== null && item.playing > 0) {
         ctx.fillStyle = palette.cream; ctx.fillRect(0, 384, 512, 64); ctx.fillStyle = palette.ink;
-        ctx.fillText(`${labels[locale].playing} ${item.playing}`, 256, 416, 490);
+        ctx.fillText(`${worldCopy[locale].gallery.playing} ${item.playing}`, 256, 416, 490);
       }
       if (newerState(item, index, 'failed')) {
         ctx.fillStyle = '#AF496B'; ctx.beginPath(); ctx.moveTo(0, 448); ctx.lineTo(512, 448); ctx.lineTo(488, 480); ctx.lineTo(512, 512); ctx.lineTo(0, 512); ctx.lineTo(24, 480); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = palette.cream; ctx.fillText(labels[locale].failed, 256, 480, 460);
+        ctx.fillStyle = palette.cream; ctx.fillText(worldCopy[locale].gallery.failed, 256, 480, 460);
       }
       ctx.restore();
     });
@@ -132,6 +132,7 @@ export function Gallery({ items, events = emptyEvents, baselineReady = true, qua
     return { item, position: [anchor.position[0], 0, anchor.position[1]], yaw: anchor.yaw };
   });
   function select(event: ThreeEvent<MouseEvent>) {
+    if (event.delta > 4) return;
     const item = event.object.userData.release as GalleryItem | undefined;
     if (item) { event.stopPropagation(); onSelectRelease?.(item); }
   }

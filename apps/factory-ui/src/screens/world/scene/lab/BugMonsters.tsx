@@ -1,3 +1,4 @@
+import type { WorldLocations } from '../CameraRig';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -7,9 +8,10 @@ import type { WorldEvent } from '../../data/events';
 import { pen, palette } from '../../layout/zones';
 import { useWorldMotion } from '../Ticker';
 import { LabCanvasLabel, labScreenOrigin, makeLabGradient, type LabGame } from './TestingLab';
-import { labels, type LabLocale } from './labels';
+import { worldCopy, type LabLocale } from '../../copy';
 
 export type BugMonstersProps = {
+  locations?: WorldLocations;
   bugs: readonly Bug[];
   bugOverflow?: number;
   events?: readonly WorldEvent[];
@@ -229,7 +231,7 @@ function renderBatch(batch: Batch, bugs: readonly Bug[], slots: Map<string, numb
 }
 
 const noEvents: readonly WorldEvent[] = [], noGames: readonly LabGame[] = [];
-export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = noGames, scopeKey = '', still = false, quality = 'high', locale = 'vi', onSelectBug, onHoverBug }: BugMonstersProps) {
+export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = noGames, scopeKey = '', still = false, quality = 'high', locale = 'vi', onSelectBug, onHoverBug, locations }: BugMonstersProps) {
   const root = useRef<THREE.Group>(null);
   const batch = useRef<Batch | null>(null);
   const slots = useRef(new Map<string, number>());
@@ -269,13 +271,16 @@ export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = 
       const slot = Array.from({ length: 12 }, (_, i) => i).find(i => !used.has(i))!;
       slots.current.set(bug.id, slot); used.add(slot);
     }
+    for (const key of locations?.current.keys() ?? []) if (key.startsWith('bug:') && !ids.has(key.slice(4))) locations?.current.delete(key);
     mountedStats.set(statsToken.current, { bugs: bugs.length + Math.max(0, bugOverflow), retesting: bugs.filter(bug => bug.state === 'retesting').length, defeated: tracker.current.defeated });
     if (batch.current) renderBatch(batch.current, active, slots.current, tracker.current, now, still, quality === 'low');
+    tracker.current.positions.forEach((point, id) => locations?.current.set(`bug:${id}`, [point.x, 0.55, point.z]));
     syncLive(); invalidate();
   }, [bugs, active, events, bugOverflow, scopeKey, still, quality, clock, invalidate, motion]);
   useEffect(() => { if (!still && active.length) return motion.request('ambient'); }, [still, active.length, motion]);
   useEffect(() => () => {
     mountedStats.delete(statsToken.current); liveRelease.current?.(); liveRelease.current = null;
+    for (const id of tracker.current.positions.keys()) locations?.current.delete(`bug:${id}`);
     if (hoveredRef.current) hoverCallback.current?.(null);
   }, []);
   useEffect(() => {
@@ -285,6 +290,7 @@ export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = 
   }, [active, hoveredId]);
   useFrame(state => {
     if (batch.current) renderBatch(batch.current, active, slots.current, tracker.current, state.clock.elapsedTime, still, quality === 'low');
+    tracker.current.positions.forEach((point, id) => locations?.current.set(`bug:${id}`, [point.x, 0.55, point.z]));
     syncLive();
   });
 
@@ -293,7 +299,7 @@ export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = 
     return event.instanceId === undefined ? undefined : cohort?.bugs[event.instanceId];
   };
   const hovered = active.find(bug => bug.id === hoveredId);
-  const copy = labels[locale];
+  const copy = worldCopy[locale].lab;
   const hoverLines = useMemo(() => hovered ? [
     { text: games.find(game => game.projectId === hovered.projectId)?.name ?? hovered.projectId },
     { text: hovered.state === 'retesting' ? copy.retesting : copy.open, color: palette.apricot },
@@ -302,7 +308,7 @@ export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = 
   const overflow = Math.max(0, bugOverflow) + Math.max(0, bugs.length - active.length);
   const overflowLines = useMemo(() => [{ text: `+${overflow} ${copy.bugsOverflow}`, size: 0.08 }], [overflow, copy]);
   return <group ref={root} dispose={null}
-    onClick={event => { const bug = pickedBug(event); if (bug) { event.stopPropagation(); onSelectBug?.(bug); } }}
+    onClick={event => { if (event.delta > 4) return; const bug = pickedBug(event); if (bug) { event.stopPropagation(); onSelectBug?.(bug); } }}
     onPointerOver={event => { const bug = pickedBug(event); if (bug) { event.stopPropagation(); setHoveredId(bug.id); } }}
     onPointerMove={event => { const bug = pickedBug(event); if (bug) { event.stopPropagation(); setHoveredId(bug.id); } }}
     onPointerOut={() => setHoveredId(null)}>

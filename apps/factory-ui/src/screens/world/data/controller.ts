@@ -6,9 +6,9 @@ import type { Assignments, WorldInputs, WorldModel } from './types';
 
 export type WorldDataApi = Pick<ApiClient, 'getOrgActivity' | 'listTeams' | 'listGames' | 'getProjectInteractions' | 'listTasks' | 'getWorkflow' | 'getGameReport' | 'listReleases' | 'getPortal' | 'portalGames' | 'portalStats'>;
 export type WorldSource = {state: 'ok' | 'error' | 'pending'; at: number};
-export type WorldSnapshot = {baseline: boolean; model: WorldModel; events: WorldEvent[]; sources: Record<string, WorldSource>};
+export type WorldSnapshot = {baseline: boolean; model: WorldModel; events: WorldEvent[]; sources: Record<string, WorldSource>; reports: Record<string, import('@factory/contracts').GameReport | undefined>};
 const emptyInputs = (): WorldInputs => ({interactions: {}, tasks: {}, workflows: {}, reports: {}, releases: {}});
-export const emptyWorldSnapshot = (): WorldSnapshot => ({baseline: false, model: deriveWorld(emptyInputs()).model, events: [], sources: {}});
+export const emptyWorldSnapshot = (): WorldSnapshot => ({baseline: false, model: deriveWorld(emptyInputs()).model, events: [], sources: {}, reports: {}});
 
 /** Browser-independent polling coordinator. All time and visibility can be injected. */
 export function createWorldDataController(api: WorldDataApi, options: {
@@ -60,7 +60,7 @@ export function createWorldDataController(api: WorldDataApi, options: {
     const diff = diffWorld(previous, model, seen, now);
     seen = diff.seen;
     previous = model;
-    emit({baseline: seen.baseline, model, events: [...snapshot.events, ...diff.events]});
+    emit({baseline: seen.baseline, model, reports: {...inputs.reports}, events: [...snapshot.events, ...diff.events]});
     sync(model);
   }
   function read<T>(key: string, interval: number, fetch: (signal: AbortSignal) => Promise<T>, accept: (value: T) => void): PollJob {

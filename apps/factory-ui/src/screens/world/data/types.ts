@@ -8,6 +8,7 @@ export type WorldAgent = {
   seatId: string;
   teamId: string;
   teamName?: string;
+  paused?: boolean;
   name: string;
   role: string;
   isLead: boolean;

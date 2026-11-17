@@ -8,11 +8,11 @@ export function WorldRoster({ agents, error, loading, selected, onSelect, onOwne
   agents: readonly WorldAgent[]; error: boolean; loading: boolean; selected: string | null;
   onSelect: (id: string) => void; onOwner: () => void;
 }) {
-  const t = useT(); const id = useId(); const [open, setOpen] = useState(true);
+  const t = useT(); const id = useId(); const [open, setOpen] = useState(false);
   const grouped = new Map<string, WorldAgent[]>();
   for (const agent of agents) { const rows = grouped.get(agent.teamId) ?? []; rows.push(agent); grouped.set(agent.teamId, rows); }
-  return <aside className="world-roster rounded-lg border border-border bg-card/95 text-card-foreground shadow-sm" aria-label={t('worldUi.roster')}>
-    <button className="world-roster-toggle" aria-expanded={open} aria-controls={id} onClick={() => setOpen(value => !value)}>{t('worldUi.roster')} <span aria-hidden="true">{open ? '−' : '+'}</span></button>
+  return <aside className={`${open ? 'world-roster-open' : 'world-roster-closed'} world-roster rounded-lg border border-border bg-card/95 text-card-foreground shadow-sm`} aria-label={t('worldUi.roster')}>
+    <button className="world-roster-toggle" aria-expanded={open} aria-controls={id} onClick={() => setOpen(value => !value)}>{t('worldUi.roster')} ({agents.length}) <span aria-hidden="true">{open ? '−' : '+'}</span></button>
     <div id={id} hidden={!open}>
       <button className="world-roster-agent" aria-pressed={selected === 'owner'} onClick={onOwner}>{t('worldUi.ownerDesk')}</button>
       {error ? <p role="status" className="p-3 text-sm">{t('worldUi.sourceError')}</p> : loading ? <p role="status" className="p-3 text-sm">{t('worldUi.loading')}</p> : !agents.length ? <p className="p-3 text-sm">{t('worldUi.noAgents')}</p> : [...grouped].map(([teamId, members]) => <section key={teamId}>

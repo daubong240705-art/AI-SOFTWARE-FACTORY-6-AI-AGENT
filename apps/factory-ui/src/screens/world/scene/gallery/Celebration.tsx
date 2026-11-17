@@ -6,7 +6,7 @@ import type { WorldEvent } from '../../data/events';
 import type { WorldQuality } from '../quality';
 import { useWorldMotion } from '../Ticker';
 import { canvasTexture } from './coverTexture';
-import { labels, type GalleryLocale } from './labels';
+import { worldCopy, type GalleryLocale } from '../../copy';
 
 export type CelebrationFrame = { item: GalleryItem; position: readonly [number, number, number]; yaw: number };
 export type CelebrationProps = {
@@ -37,7 +37,7 @@ function makeRibbon(text: string) {
 function Ribbon({ locale }: { locale: GalleryLocale }) {
   const invalidate = useThree(state => state.invalidate); const [resource, setResource] = useState<ReturnType<typeof makeRibbon> | null>(null);
   useEffect(() => {
-    const created = makeRibbon(labels[locale].newRelease); setResource(created); invalidate();
+    const created = makeRibbon(worldCopy[locale].gallery.newRelease); setResource(created); invalidate();
     void document.fonts?.load('600 42px "Inter Variable"').then(() => { created.refresh(); invalidate(); }).catch(() => {});
     return created.dispose;
   }, [locale, invalidate]);

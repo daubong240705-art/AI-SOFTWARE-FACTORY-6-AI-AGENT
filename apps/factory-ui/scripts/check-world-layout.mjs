@@ -39,11 +39,11 @@ try {
   // Import the exact render geometry in memory; no browser, GPU or generated files.
   const geometrySource = await source('../src/screens/world/scene/EnvironmentGeometry.ts');
   const geometryUrl = url(geometrySource.replace(/from '([^']+)'/g, (_, name) => `from ${JSON.stringify(import.meta.resolve(name))}`));
-  const { environmentGeometries } = await import(geometryUrl);
+  const { environmentGeometries, geometryForPart } = await import(geometryUrl);
   const geometries = environmentGeometries();
   const trianglesFor = shape => { const geometry = geometries[shape]; return (geometry.index?.count ?? geometry.getAttribute('position').count) / 3; };
   const counts = Object.fromEntries(Object.keys(geometries).map(shape => [shape, model.parts.filter(p => !p.zone && p.shape === shape).length]));
-  const staticTriangles = model.parts.filter(p => p.zone).reduce((n, part) => n + trianglesFor(part.shape), 0);
+  const staticTriangles = model.parts.filter(p => p.zone).reduce((n, part) => { const g = geometryForPart(part, geometries); const count = (g.index?.count ?? g.getAttribute('position').count) / 3; if (part.shape === 'rug') g.dispose(); return n + count; }, 0);
   const triangles = staticTriangles + Object.entries(counts).reduce((n, [shape, count]) => n + count * trianglesFor(shape), 0) + (model.shadows.length + model.labels.length + model.artwork.length) * 2;
   // Static shell + nonempty instance batches + shadow + label atlas + three artwork material batches.
   const calls = 1 + Object.values(counts).filter(Boolean).length + 1 + 1 + 3;

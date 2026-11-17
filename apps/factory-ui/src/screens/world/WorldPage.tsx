@@ -1,7 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { Project } from '@factory/contracts';
 import { Mascot } from '@/components/mascot/Mascot';
-import { useT } from '@/i18n';
+import { useT, i18n } from '@/i18n';
+import type { Bug, GalleryItem, Handoff } from './data/types';
+import { FocusGamePicker } from './panels/FocusGamePicker';
+import { BugPanel } from './panels/BugPanel';
+import { ReleasePanel } from './panels/ReleasePanel';
+import { DockedPane } from '../DockedPane';
+import './world.css';
 import type { Store } from '@/state/store';
 import type { View } from '../shell/navigation';
 import { attentionItems } from '../shell/attention';
@@ -21,15 +27,21 @@ import { useWorldData } from './data/useWorldData';
 import { WorldRoster } from './WorldRoster';
 import { AgentPanel } from './panels/AgentPanel';
 import { OwnerPanel } from './panels/OwnerPanel';
-import { agentStatusKey, deskForAgent, restForAgent } from './agentPresentation';
+import { agentStatusKey, deskForAgent } from './agentPresentation';
 
 type Props = { store: Store; projects: readonly Project[]; onNavigate: (view: View) => void; onTask: (projectId: string, taskId: string) => void; onCreate: (kind: 'game' | 'task' | 'project') => void; onChat: (projectId: string) => void };
 const WorldCanvas = lazy(() => import('./scene/WorldCanvas'));
 export default function WorldPage(props: Props) { return <CameraRigProvider><WorldStudio {...props} /></CameraRigProvider>; }
 function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: Props) {
-  const data = useWorldData(); const camera = useCameraRig();
+  const data = useWorldData(store); const camera = useCameraRig();
   const inbox = store.useStoreSelector(state => state.globalInbox); const attention = attentionItems(inbox).length;
   const [selected, setSelected] = useState<string | null>(null); const [following, setFollowing] = useState(false);
+  const [selectedBug, setSelectedBug] = useState<Bug | null>(null); const [selectedRelease, setSelectedRelease] = useState<GalleryItem | null>(null);
+  const [announcement, setAnnouncement] = useState(''); const [celebration, setCelebration] = useState(0);
+  const courier = useRef<((handoff: Handoff) => void) | null>(null);
+  const locations = useRef(new Map<string, readonly [number, number, number]>());
+  const scope = useRef(0); const previousBaseline = useRef(data.baseline);
+  if (previousBaseline.current && !data.baseline) scope.current++; previousBaseline.current = data.baseline;
   const [hover, setHover] = useState<AgentHover>(null);
   const positions = useRef(new Map<string, Point>()); const sceneDebug = useRef(emptyScene());
   const mapRef = useRef<HTMLDivElement>(null); const cameraState = useRef<CameraState>(initialCamera);
@@ -49,33 +61,39 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
   const onLoading = useCallback(() => { setReady(false); stats.current = emptyRender; }, []);
   const select = useCallback((id: string) => {
     const agent = data.model.agents.find(item => item.seatId === id); if (!agent) return;
-    setSelected(id); setHover(null); change({ lineup: false }); data.setFocusProjectId(agent.runs[0]?.projectId ?? null);
-    const drawn = data.model.agents.filter(item => !item.overflow);
-    const point = positions.current.get(id) ?? (agent.pose === 'resting' ? restForAgent(Math.max(0, drawn.findIndex(item => item.seatId === id))).point : deskForAgent(agent)?.seat);
+    setSelectedBug(null); setSelectedRelease(null); setSelected(id); setHover(null); change({ lineup: false }); data.setFocusProjectId(agent.runs[0]?.projectId ?? null);
+    const point = positions.current.get(id) ?? deskForAgent(agent)?.seat;
     if (point && !agent.overflow) camera.focusPoint(point, 70); else camera.follow(null);
   }, [data.model.agents, data.setFocusProjectId, camera, change]);
-  const openOwner = useCallback(() => { setSelected('owner'); setHover(null); change({ lineup: false }); camera.focusPoint(ownerDesk.position, 70); }, [camera, change]);
-  const close = () => { setSelected(null); camera.follow(null); data.setFocusProjectId(null); };
-  useEffect(() => { if (data.events.length) data.consumeEvents(); }, [data.events, data.consumeEvents]);
+  const openOwner = useCallback(() => { setSelectedBug(null); setSelectedRelease(null); setSelected('owner'); setHover(null); change({ lineup: false }); camera.focusPoint(ownerDesk.position, 70); }, [camera, change]);
+  const close = () => { setSelected(null); setSelectedBug(null); setSelectedRelease(null); camera.follow(null); };
+  const openBug = useCallback((bug: Bug) => { setSelected(null); setSelectedRelease(null); setSelectedBug(bug); setHover(null); camera.follow(null); }, [camera]);
+  const openRelease = useCallback((item: GalleryItem) => { setSelected(null); setSelectedBug(null); setSelectedRelease(item); setHover(null); camera.follow(null); }, [camera]);
+  const celebrate = useCallback((item: GalleryItem) => { setCelebration(performance.now()); setAnnouncement(i18n.t('worldUi.releaseAnnouncement').replace('{game}', item.name).replace('{version}', String(item.version ?? '—'))); }, []);
+  useEffect(() => { if (reason && data.events.length) data.consumeEvents(data.events.map(event => event.id)); }, [reason, data.events, data.consumeEvents]);
   useEffect(() => { if (selected && selected !== 'owner' && !data.model.agents.some(agent => agent.seatId === selected)) { setSelected(null); camera.follow(null); } }, [data.model.agents, selected, camera]);
   const agent = data.model.agents.find(item => item.seatId === selected);
   const hovered = hover ? data.model.agents.find(item => item.seatId === hover.seatId) : null;
   const sourceError = data.sources.activity?.state === 'error' || data.sources.teams?.state === 'error';
   useWorldDebug(() => ({ version: 1, mode: reason ? 'fallback' : ready ? '3d' : 'loading', fallbackReason: reason,
     ready: !reason && ready, quality, still: preferences.still, render: reason ? emptyRender : stats.current, camera: cameraState.current, layout,
-    counts: { agents: data.model.agents.length, drawnAgents: reason || preferences.lineup ? 0 : data.model.agents.filter(item => !item.overflow && deskForAgent(item)).length, overflow: data.model.agents.filter(item => item.overflow).length },
+    counts: { agents: data.model.agents.length, drawnAgents: reason || preferences.lineup ? 0 : data.model.agents.filter(item => !item.overflow && deskForAgent(item)).length, overflow: data.model.agents.filter(item => item.overflow).length, cards: sceneDebug.current.integration.cards, handoffsActive: sceneDebug.current.integration.handoffsActive, handoffsSeen: sceneDebug.current.integration.handoffsSeen, bugs: sceneDebug.current.integration.bugs, galleryFrames: sceneDebug.current.integration.galleryFrames },
+    table: { focusProjectId: data.model.focusProjectId, stages: data.model.stages }, events: { bugsDefeated: sceneDebug.current.integration.bugsDefeated, releasesCelebrated: sceneDebug.current.integration.releasesCelebrated }, celebrating: sceneDebug.current.integration.celebrating,
     agents: data.model.agents.map(item => sceneDebug.current.agents.find(row => row.seatId === item.seatId) ?? { seatId: item.seatId, name: item.name, status: item.status, pose: item.pose, podKey: item.podKey, deskId: deskForAgent(item)?.id ?? null, walking: false }),
-    characters: reason ? emptyScene().characters : sceneDebug.current.characters, director: sceneDebug.current.director, baseline: data.baseline, sources: data.sources, selected,
+    characters: reason ? emptyScene().characters : sceneDebug.current.characters, director: sceneDebug.current.director, baseline: data.baseline, sources: data.sources, selected: selectedBug ? `bug:${selectedBug.id}` : selectedRelease ? `frame:${selectedRelease.releaseId}` : selected,
     locate: (kind, id) => reason || preferences.lineup && kind !== 'zone' ? null : locate.current?.(kind, id) ?? null }));
   return <div className="world-page">
     {reason ? <WorldFallback reason={reason} projects={projects} onNavigate={onNavigate} onSwitch={() => { setReady(false); change({ mode: '3d', ...(reason === 'reduced-motion' ? { still: true } : {}) }); }} onRetry={() => { setReady(false); setError(false); setAttempt(value => value + 1); }} /> : <>
       <div ref={mapRef} className="world-map" role="region" tabIndex={0} aria-label={t('worldUi.map')} aria-describedby={hintId}>
         <p id={hintId} className="sr-only">{t('worldUi.mapHint')}</p>
         <SceneErrorBoundary key={attempt} onError={onError}><Suspense fallback={<div className="world-loading" role="status"><Mascot seat="Lead" state="thinking" animated={false} /><span>{t('worldUi.loading')}</span></div>}>
-          <WorldCanvas model={data.model} baseline={data.baseline} lineup={preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={select} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={preferences.still} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
+          <WorldCanvas events={data.events} reports={data.reports} scopeKey={scope.current} locations={locations} courier={courier} celebration={celebration} onTask={onTask} onBug={openBug} onRelease={openRelease} onCelebrate={celebrate} onEventsConsumed={data.consumeEvents} model={data.model} baseline={data.baseline} lineup={preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={select} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={preferences.still} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
         </Suspense></SceneErrorBoundary>
       </div>
-      <div className="world-left"><WorldToolbar preferences={preferences} onChange={patch => { if (patch.lineup) { camera.follow(null); setSelected(null); } change(patch); }} /><WorldRoster agents={data.model.agents} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} /></div>
+      <div className="world-left"><WorldToolbar preferences={preferences} onChange={patch => { if (patch.lineup) { camera.follow(null); setSelected(null); setSelectedBug(null); setSelectedRelease(null); } change(patch); }} /><FocusGamePicker className="world-focus rounded-lg border border-border bg-card/95 px-2 py-1 text-sm text-card-foreground" games={data.model.games} focusProjectId={data.focusProjectId} onFocusGame={data.setFocusProjectId} locale={i18n.locale} /><WorldRoster agents={data.model.agents} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} /></div>
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">{announcement}</p>
+      {selectedBug && <DockedPane key={`bug:${selectedBug.id}`} label={t('worldUi.lab.bugDetails')} onClose={close} className="world-panel bg-card p-4" fallbackFocus={() => mapRef.current}><BugPanel bug={data.model.bugs.find(b => b.id === selectedBug.id) ?? selectedBug} gameName={data.model.games.find(g => g.projectId === selectedBug.projectId)?.name ?? selectedBug.projectId} onClose={close} locale={i18n.locale} onOpenProject={projectId => onNavigate(`project:${projectId}`)} /></DockedPane>}
+      {selectedRelease && <DockedPane key={`release:${selectedRelease.releaseId}`} label={selectedRelease.name} onClose={close} className="world-panel bg-card p-4" fallbackFocus={() => mapRef.current}><button type="button" className="mb-2" onClick={close}>{t('worldUi.close')}</button><ReleasePanel item={data.model.gallery.find(item => item.releaseId === selectedRelease.releaseId) ?? selectedRelease} locale={i18n.locale} releaseDate={data.model.releaseVersions[selectedRelease.projectId]?.releaseId === selectedRelease.releaseId ? data.model.releaseVersions[selectedRelease.projectId]?.at ?? null : null} /></DockedPane>}
       {agent && <AgentPanel key={agent.seatId} agent={agent} store={store} following={following} onFollow={() => camera.follow(following ? null : () => positions.current.get(agent.seatId) ?? deskForAgent(agent)?.seat ?? [0, 0])} onClose={close} onTask={onTask} onReview={need => { onNavigate('needs-attention'); history.replaceState(null, '', attentionHash(attentionItems(inbox).find(item => item.key === `approval:${need.approvalId}`)?.key ?? (need.kind === 'start-gate' ? `gate:${need.taskId}` : `approval:${need.approvalId}`))); }} onTeam={() => onNavigate('team')} />}
       {selected === 'owner' && <OwnerPanel model={data.model} attention={attention} error={sourceError || data.sources.games?.state === 'error'} onClose={close} onCreate={onCreate} onChat={onChat} onAttention={() => onNavigate('needs-attention')} />}
       {hover && hovered && !preferences.lineup && <div id={tooltipId} role="tooltip" className="world-tooltip rounded-md border border-border bg-popover p-2 text-xs text-popover-foreground shadow-md" style={{ left: Math.max(8, Math.min(hover.x - (mapRef.current?.getBoundingClientRect().left ?? 0) + 14, (mapRef.current?.clientWidth ?? 800) - 230)), top: Math.max(8, Math.min(hover.y - (mapRef.current?.getBoundingClientRect().top ?? 0) + 14, (mapRef.current?.clientHeight ?? 600) - 100)) }}><strong>{hovered.name}</strong><p>{hovered.role}</p><p>{t(agentStatusKey(hovered))}</p>{hovered.runs[0] && <p>{hovered.runs[0].code}{hovered.runs[0].progress?.percent != null ? ` · ${hovered.runs[0].progress.percent}%` : ''}</p>}</div>}

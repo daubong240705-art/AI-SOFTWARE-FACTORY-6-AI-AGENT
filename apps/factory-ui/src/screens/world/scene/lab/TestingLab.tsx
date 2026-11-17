@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import type { GameReport, GameSummary } from '@factory/contracts';
 import { anchors, palette } from '../../layout/zones';
 import { useWorldMotion } from '../Ticker';
-import { labels, type LabLocale } from './labels';
+import { worldCopy, type LabLocale } from '../../copy';
 
 export type LabGame = Pick<GameSummary, 'projectId' | 'name'>;
 type Reports = Readonly<Record<string, GameReport | undefined>>;
@@ -88,7 +88,7 @@ const verdictColors: Record<Verdict, string> = { passed: palette.mint, 'changes-
 
 export function TestingLab({ games, reports, scannerProjectId, quality = 'high', still = false, locale = 'vi' }: TestingLabProps) {
   const rows = useMemo(() => deriveLabRows(games, reports), [games, reports]);
-  const copy = labels[locale];
+  const copy = worldCopy[locale].lab;
   const lines = useMemo<CanvasLine[]>(() => {
     if (!rows.length) return [{ text: copy.testingLab }, { text: copy.noRound }];
     return rows.flatMap(row => [

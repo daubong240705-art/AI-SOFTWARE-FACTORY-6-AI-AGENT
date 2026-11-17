@@ -68,7 +68,7 @@ export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): 
       let pose: WorldAgent['pose'] = poses[seat.status];
       if (org?.lifecycle === 'paused' || team.lifecycle === 'paused' || seat.status === 'idle' && (!seat.lastFinished?.at || time(generatedAt) - time(seat.lastFinished.at) >= 900000))
         pose = 'resting';
-      agents.push({ seatId: seat.id, teamId: team.id, teamName: team.name, name: seat.name, role: seat.role, isLead: seat.isLead, slots: seat.slots, status: seat.status, pose, podKey: classifyPod(seat, org), slotIndex: 0, runs: seat.runs, queued: seat.queued, needsYou: seat.needsYou, lastFinished: seat.lastFinished, overflow: false });
+      agents.push({ paused: org?.lifecycle === 'paused' || team.lifecycle === 'paused', seatId: seat.id, teamId: team.id, teamName: team.name, name: seat.name, role: seat.role, isLead: seat.isLead, slots: seat.slots, status: seat.status, pose, podKey: classifyPod(seat, org), slotIndex: 0, runs: seat.runs, queued: seat.queued, needsYou: seat.needsYou, lastFinished: seat.lastFinished, overflow: false });
     }
   }
   agents.sort((a, b) => a.seatId.localeCompare(b.seatId));

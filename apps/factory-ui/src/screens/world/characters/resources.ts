@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { poseLabels } from './labels';
+import { poseLabels } from '../copy';
 import { characterCodes } from './specs';
 
 export const effectGlyphs = ['…', '!', '✦', '☁ ×', 'Zzz'] as const;

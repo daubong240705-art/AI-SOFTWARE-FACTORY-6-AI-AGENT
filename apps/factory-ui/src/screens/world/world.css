@@ -1,0 +1,8 @@
+.world-left { width: min(340px, calc(100% - 24px)); }
+.world-left .world-toolbar { position: relative; flex-wrap: nowrap; gap: 4px; }
+.world-toolbar-more { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; width: 300px; display: flex; flex-wrap: wrap; gap: 6px; }
+.world-focus { max-width: 100%; }
+.world-focus button { min-width: 28px; min-height: 28px; }
+.world-roster-closed { width: fit-content; }
+.world-roster-toggle { gap: 12px; padding: 6px 10px; }
+.world-roster-open { max-height: min(65vh, 520px); }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { GalleryItem } from '../data/types';
-import { labels, type GalleryLocale } from '../scene/gallery/labels';
+import { worldCopy, type GalleryLocale } from '../copy';
 import { thumbnailUrl } from '../scene/gallery/thumbnailUrl';
 
 export type ReleasePanelProps = {
@@ -19,7 +19,7 @@ function Cover({ item, url }: { item: GalleryItem; url: string | null }) {
   </div>;
 }
 export function ReleasePanel({ item, locale = 'vi', releaseDate, onOpenProject, baseUrl }: ReleasePanelProps) {
-  const text = labels[locale]; const cover = thumbnailUrl(item.projectId, item.releaseId, baseUrl);
+  const text = worldCopy[locale].gallery; const cover = thumbnailUrl(item.projectId, item.releaseId, baseUrl);
   const parsedDate = releaseDate ? new Date(releaseDate) : null;
   const date = parsedDate && Number.isFinite(parsedDate.getTime()) ? parsedDate : null;
   return <aside aria-label={`${item.name} · v${item.version ?? '—'}`} className="w-[min(24rem,calc(100vw-2rem))] rounded-2xl border border-[#E9D4AE] bg-[#FFF8E7] p-4 text-[#4A3B2F] shadow-lg">

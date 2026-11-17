@@ -1,3 +1,10 @@
+> W-8 integration: these components are now mounted by `scene/WorldCanvas.tsx` and
+> `scene/Studio.tsx`, with HTML controls and exclusive side panels in `WorldPage.tsx`.
+> Locale text lives in `src/i18n/extra.{vi,en}.ts` under `worldUi`; `copy.ts` exposes
+> typed lookups. The former per-folder `labels.ts` files have been removed.
+> Workflow colours and debug registrations now live in `scene/workflow/support.ts`.
+> The implementation/validation notes below describe the original component handoff.
+
 World data integration
 
 `useWorldData(store)` accepts the store's stateless read passthroughs;

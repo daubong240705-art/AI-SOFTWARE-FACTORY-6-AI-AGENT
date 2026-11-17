@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { environmentModel, type Label, type Part } from '../layout/zones';
 import { useT, i18n } from '@/i18n';
 import { layout } from '../layout/waypoints';
-import { environmentGeometries } from './EnvironmentGeometry';
+import { environmentGeometries, geometryForPart } from './EnvironmentGeometry';
 import { makeArtwork } from './EnvironmentArt';
 
 function matrix(p: Part) {
@@ -24,14 +24,13 @@ function makeEnvironment() {
   const group = new THREE.Group();
   const staticParts = model.parts.filter(p => p.zone);
   const mergedPieces = staticParts.map(p => {
-    const g = geometries.box.clone().applyMatrix4(matrix(p)); const c = new THREE.Color(p.color); const colors = new Float32Array(g.getAttribute('position').count * 3);
+    const shape = geometryForPart(p, geometries); const g = (shape.index ? shape.toNonIndexed() : shape.clone()).applyMatrix4(matrix(p)); if (p.shape === 'rug') shape.dispose(); const c = new THREE.Color(p.color); const colors = new Float32Array(g.getAttribute('position').count * 3);
     for (let i = 0; i < colors.length; i += 3) { colors[i] = c.r; colors[i + 1] = c.g; colors[i + 2] = c.b; }
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3)); return g;
   });
   const merged = mergeGeometries(mergedPieces)!; mergedPieces.forEach(g => g.dispose()); group.add(new THREE.Mesh(merged, staticMaterial));
-  for (const shape of ['box', 'detail', 'cylinder', 'sphere', 'screen', 'glass'] as const) {
-    const parts = model.parts.filter(p => !p.zone && p.shape === shape); const mesh = new THREE.InstancedMesh(geometries[shape], shape === 'screen' ? screens : shape === 'glass' ? glass : toon, parts.length);
-    if (!parts.length) continue;
+  for (const shape of ['box', 'detail', 'cylinder', 'sphere', 'screen', 'glass', 'rug'] as const) {
+    const parts = model.parts.filter(p => !p.zone && p.shape === shape); if (!parts.length) continue; const mesh = new THREE.InstancedMesh(geometries[shape], shape === 'screen' ? screens : shape === 'glass' ? glass : toon, parts.length);
     parts.forEach((part, i) => { mesh.setMatrixAt(i, matrix(part)); mesh.setColorAt(i, new THREE.Color(part.color)); });
     mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere(); group.add(mesh);

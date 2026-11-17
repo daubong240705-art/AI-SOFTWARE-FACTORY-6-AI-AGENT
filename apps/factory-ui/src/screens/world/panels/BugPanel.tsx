@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { Button } from '@/components/ui/button';
 import type { Bug } from '../data/types';
-import { labels, type LabLocale } from '../scene/lab/labels';
+import { worldCopy, type LabLocale } from '../copy';
 
 export type BugPanelProps = {
   bug: Bug | null;
@@ -15,7 +15,7 @@ export type BugPanelProps = {
 export function BugPanel({ bug, gameName, onOpenProject, onClose, locale = 'vi' }: BugPanelProps) {
   const titleId = useId();
   if (!bug) return null;
-  const copy = labels[locale];
+  const copy = worldCopy[locale].lab;
   return <aside aria-labelledby={titleId} className="w-full max-w-sm rounded-xl border border-border bg-surface p-4 text-foreground shadow-md">
     <div className="flex items-center justify-between gap-3">
       <h2 id={titleId} className="font-semibold">{copy.bugDetails}</h2>

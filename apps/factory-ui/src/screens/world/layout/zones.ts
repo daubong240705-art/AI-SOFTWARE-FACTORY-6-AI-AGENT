@@ -75,7 +75,7 @@ export const furnitureFootprints: Footprint[] = [
   { id: 'qa-partition', position: [9.2, -9], half: [0.1, 4.5], yaw: 0 },
   { id: 'pen', position: [13.75, -4.75], half: [3.75, 1.25], yaw: 0 },
   { id: 'bookshelf', position: anchors.bookshelf, half: [1.2, 0.25], yaw: 0 },
-  { id: 'whiteboard', position: anchors.whiteboard, half: [1.2, 0.18], yaw: 0 },
+  { id: 'whiteboard', position: anchors.whiteboard, half: [1.2, 0.18], yaw: Math.PI / 2 },
   { id: 'snack-shelf', position: loungeProps.snack, half: [0.5, 0.3], yaw: 0 },
   { id: 'console-tv', position: loungeProps.tv, half: [0.9, 0.27], yaw: 0 },
   ...loungeProps.beanbags.map((p, i) => ({ id: `beanbag-${i}`, position: p, half: [0.65, 0.65] as Point, yaw: 0 })),
@@ -85,7 +85,7 @@ export const furnitureFootprints: Footprint[] = [
 ];
 
 export const palette = { cream: '#FFF8E7', rug: '#F6EBD3', wall: '#F1DFBC', trim: '#E9D4AE', wood: '#C99A6B', darkWood: '#A87A50', apricot: '#E0A458', butter: '#F7DC8A', sage: '#B5D3A7', sky: '#AFCFE6', rose: '#F2B8A9', lavender: '#CDBFE6', mint: '#BDE3D2', ink: '#4A3B2F' };
-export type Shape = 'box' | 'detail' | 'cylinder' | 'sphere' | 'screen' | 'glass';
+export type Shape = 'box' | 'detail' | 'cylinder' | 'sphere' | 'screen' | 'glass' | 'rug';
 export type Part = { shape: Shape; position: [number, number, number]; scale: [number, number, number]; yaw: number; color: string; zone?: string };
 export type Label = { text: string; key: string; position: [number, number, number]; width: number; height: number; yaw: number; floor: boolean; color: string };
 export type ArtKind = 'design' | 'rules' | 'art' | 'client' | 'qa' | 'lead' | 'owner' | 'caro' | 'uno' | 'baucua' | 'taixiu' | 'game' | 'sticky' | 'sign';
@@ -105,8 +105,8 @@ export function environmentModel() {
     art('sign', [x + Math.sin(yaw) * 0.085, y, z + Math.cos(yaw) * 0.085], width - 0.1, 0.42, yaw, text);
   };
   // One merged static mesh for the shell; instances share one toon gradient.
-  box('#F4E5CA', [0, -0.2, 0], [36, 0.4, 28], 0, 'slab');
-  box(palette.wood, [0, -0.37, 0], [36.25, 0.16, 28.25], 0, 'slab');
+  add('detail', '#F4E5CA', [0, -0.2, 0], [36, 0.4, 28], 0, 'slab');
+  add('detail', palette.wood, [0, -0.37, 0], [36.25, 0.16, 28.25], 0, 'slab');
   box(palette.wall, [0, 1.8, -14], [36, 3.6, 0.2], 0, 'walls');
   box(palette.wall, [-18, 1.8, 0], [0.2, 3.6, 28], 0, 'walls');
   for (const y of [0.1, 0.9, 3.53]) {
@@ -123,7 +123,7 @@ export function environmentModel() {
     for (let x = -16 + (Math.floor(z) % 2) * 2; x < 18; x += 4) box('#E8D6B7', [x, 0.004, z + 0.5], [0.015, 0.008, 0.98]);
   }
   for (const r of rugs) {
-    box(r.color, [r.position[0], 0.016, r.position[1]], [r.size[0], 0.024, r.size[1]]);
+    add('rug', r.color, [r.position[0], 0.016, r.position[1]], [r.size[0], 0.024, r.size[1]], 0, 'rug');
     for (const side of [-1, 1]) box(palette.cream, [r.position[0], 0.03, r.position[1] + side * (r.size[1] / 2 - 0.14)], [r.size[0] - 0.28, 0.008, 0.035]);
   }
   box(palette.rug, [0, 0.012, -1], [36, 0.016, 1.8]);
@@ -247,9 +247,10 @@ export function environmentModel() {
     box(palette.rose, [dx! + 0.1, 0.95, 6 + dz!], [0.12, 0.01, 0.12]);
   }
   const [wx, wz] = anchors.whiteboard;
-  box(palette.wood, [wx, 1.18, wz], [2.4, 1.3, 0.15]);
-  for (const dx of [-0.8, 0.8]) { box(palette.darkWood, [wx + dx, 0.44, wz], [0.1, 0.88, 0.15]); box(palette.darkWood, [wx + dx, 0.08, wz], [0.16, 0.12, 0.55]); }
-  art('sticky', [wx, 1.18, wz + 0.08], 2.2, 1.1);
+  // Board faces +x: readable from the table and the isometric camera.
+  box(palette.wood, [wx, 1.18, wz], [2.4, 1.3, 0.15], Math.PI / 2);
+  for (const dz of [-0.8, 0.8]) { box(palette.darkWood, [wx, 0.44, wz + dz], [0.15, 0.88, 0.1]); box(palette.darkWood, [wx, 0.08, wz + dz], [0.55, 0.12, 0.16]); }
+  art('sticky', [wx + 0.08, 1.18, wz], 2.2, 1.1, Math.PI / 2);
   add('glass', palette.sky, [9.2, 0.65, -9], [0.14, 1.3, 9]);
   for (const z of [-13.4, -9, -4.6]) box(palette.cream, [9.2, 0.7, z], [0.23, 1.4, 0.23]);
   const [lx, lz] = anchors.labBench;
@@ -298,10 +299,10 @@ export function environmentModel() {
   box(palette.rose, [gx, 0.72, 9.6], [2.4, 0.065, 0.065]);
   box(palette.wood, [anchors.counter[0], 0.55, anchors.counter[1]], [2, 1.1, 1]); box(palette.cream, [anchors.counter[0], 1.13, anchors.counter[1]], [2.2, 0.12, 1.1]);
   const [cx, cz] = anchors.sofa;
-  box(palette.rose, [cx, 0.46, cz], [5, 0.62, 1.3]); box(palette.rose, [cx, 0.95, cz - 0.5], [5, 0.65, 0.3]);
+  box(palette.rose, [cx, 0.46, cz], [5, 0.62, 1.3]); box(palette.rose, [cx, 0.95, cz + 0.5], [5, 0.65, 0.3]);
   for (const dx of [-2.3, 2.3]) box(palette.rose, [cx + dx, 0.8, cz], [0.35, 0.6, 1.4]);
   for (const dx of [-1.25, 0, 1.25]) box(palette.butter, [cx + dx, 0.8, cz - 0.15], [0.8, 0.32, 0.5]); blob(anchors.sofa, 6, 2.3);
-  for (const [i, p] of loungeProps.beanbags.entries()) { add('sphere', colors[i + 3]!, [p[0], 0.35, p[1]], [1.3, 0.7, 1.3]); add('sphere', colors[i + 3]!, [p[0], 0.62, p[1] - 0.27], [0.85, 0.64, 0.8]); blob(p, 1.6, 1.6); }
+  for (const [i, p] of loungeProps.beanbags.entries()) { add('sphere', colors[i + 3]!, [p[0], 0.35, p[1]], [1.3, 0.7, 1.3]); add('sphere', colors[i + 3]!, [p[0], 0.62, p[1] + 0.27], [0.85, 0.64, 0.8]); blob(p, 1.6, 1.6); }
   const [tvx, tvz] = loungeProps.tv;
   box(palette.wood, [tvx, 0.34, tvz], [1.8, 0.68, 0.54]);
   box(palette.ink, [tvx, 1.25, tvz], [1.72, 0.94, 0.1]); art('game', [tvx, 1.25, tvz + 0.06], 1.56, 0.78);
@@ -331,8 +332,8 @@ export function environmentModel() {
   // Mounted signs have no posts in the walking lanes.
   sign(zones[0].name, -14, 2.93, -13.71, 4.6, palette.apricot);
   sign(zones[1].name, 7, 2.93, -13.71, 4.4, palette.sage);
-  sign(zones[2].name, wx, 2.2, wz, 3, palette.sky);
-  for (const dx of [-1, 1]) box(palette.darkWood, [wx + dx, 1.95, wz], [0.06, 0.5, 0.06]);
+  sign(zones[2].name, wx, 2.2, wz, 3, palette.sky, Math.PI / 2);
+  for (const dz of [-1, 1]) box(palette.darkWood, [wx, 1.95, wz + dz], [0.06, 0.5, 0.06]);
   sign(zones[3].name, 13.7, 2.93, -13.71, 4.5, palette.lavender);
   sign(zones[4].name, 13.5, 2.48, 1.75, 4.5, palette.butter);
   sign('Góc nghỉ ngơi', -17.68, 2.85, 10.6, 3, palette.rose, Math.PI / 2);

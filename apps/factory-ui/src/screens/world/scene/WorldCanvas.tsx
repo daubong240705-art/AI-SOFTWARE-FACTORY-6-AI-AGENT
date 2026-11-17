@@ -15,12 +15,16 @@ import type { CameraState } from '../cameraContext';
 import type { WorldPreferences } from '../preferences';
 import type { SceneDebug, RenderStats } from '../debugHook';
 import { Ticker } from './Ticker';
+import { Studio } from './Studio';
+import type { WorldEvent } from '../data/events';
+import type { Bug, GalleryItem, WorldInputs } from '../data/types';
+import type { WorldLocations } from './CameraRig';
 import { softwareRenderer, useWorldQuality, type WorldQuality } from './quality';
 
 type Props = {
-  model: WorldModel; baseline: boolean; lineup: boolean; selected: string | null; attention: number;
-  positions: AgentPositions; sceneDebug: MutableRefObject<SceneDebug>;
-  onSelect: (id: string) => void; onOwner: () => void; onHover: (hover: AgentHover) => void;
+  model: WorldModel; baseline: boolean; events: readonly WorldEvent[]; celebration: number; reports: WorldInputs['reports']; locations: WorldLocations; scopeKey: number; lineup: boolean; selected: string | null; attention: number;
+  positions: AgentPositions; courier: { current: ((handoff: import('../data/types').Handoff) => void) | null }; sceneDebug: MutableRefObject<SceneDebug>;
+  onSelect: (id: string) => void; onTask: (projectId: string, taskId: string) => void; onBug: (bug: Bug) => void; onRelease: (item: GalleryItem) => void; onCelebrate: (item: GalleryItem) => void; onEventsConsumed: (ids: readonly string[]) => void; onOwner: () => void; onHover: (hover: AgentHover) => void;
   qualityPreference: WorldPreferences['quality']; still: boolean;
   mapRef: RefObject<HTMLDivElement | null>; onCamera: (state: CameraState) => void; onLocate: (locate: Locate | null) => void;
   onReady: () => void; onLoading: () => void; onError: () => void;
@@ -68,7 +72,8 @@ function Cast({ props, quality }: { props: Props; quality: WorldQuality }) {
   useEffect(() => { if (props.lineup) camera.focusPoint([0, 4], Math.min(62, 900 / lineupDimensions.width, 600 / lineupDimensions.depth)); else { const agent = props.model.agents.find(item => item.seatId === props.selected); const point = props.selected === 'owner' ? ownerDesk.position : props.positions.current.get(props.selected ?? '') ?? (agent ? deskForAgent(agent)?.seat : null); if (point) camera.focusPoint(point, 70); else camera.home(); } }, [props.lineup, camera]);
   useFrame(() => { props.sceneDebug.current.characters = characterStats(); });
   return <CharacterAnimator still={props.still}>
-    <Agents agents={props.model.agents} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} />
+    <Studio key={props.scopeKey} model={props.model} events={props.events} reports={props.reports} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} scopeKey={props.scopeKey} positions={props.positions} locations={props.locations} debug={props.sceneDebug} courier={props.courier} consumeEvents={props.onEventsConsumed} onTask={props.onTask} onBug={props.onBug} onRelease={props.onRelease} onCelebrate={props.onCelebrate} />
+    <Agents key={props.scopeKey} events={props.events} courier={props.courier} celebration={props.celebration} agents={props.model.agents} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} />
     {props.lineup && <Lineup origin={[0, 4]} quality={quality} still={props.still} locale={i18n.locale} />}
   </CharacterAnimator>;
 }
@@ -87,7 +92,7 @@ export default function WorldCanvas(props: Props) {
     <directionalLight color={sky} position={[-30, 45, -20]} intensity={1.1} />
     <Ticker quality={quality} still={props.still} onMeasure={measure}>
       <SceneLifecycle onReady={props.onReady} onLoading={props.onLoading} onError={props.onError} onRender={props.onRender} fps={fps} />
-      <CameraRig agentPositions={props.positions} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
+      <CameraRig agentPositions={props.positions} locations={props.locations} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
       <group visible={!props.lineup}><Environment /></group>
       <Cast props={props} quality={quality} />
     </Ticker>
