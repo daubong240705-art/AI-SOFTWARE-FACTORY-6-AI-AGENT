@@ -16,7 +16,7 @@ import { ProjectKnowledge } from './ProjectKnowledge';
 import { ProjectCode } from './ProjectCode';
 import { ProjectWorkflow } from './ProjectWorkflow';
 import { ProjectSettingsPage } from './project-settings/ProjectSettingsPage';
-import { ProjectOffice } from './office/ProjectOffice';
+import { ProjectAgents } from './agent/ProjectAgents';
 import { useNavigation, type ProjectTab, type SettingsSection } from './shell/navigation';
 import { Page } from '../components/Page';
 import { ProjectTile } from './shell/ProjectTile';
@@ -83,7 +83,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
       <div className="project-tab-content" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${active}`} tabIndex={0}>
         <Reveal key={active} className="h-full min-h-0">
         {active === 'overview' && <ProjectOverview store={store} onOpenTask={openTask} onOpenSettings={section => select('settings', section)} />}
-        {active === 'agent' && <ProjectOffice key={project.id} store={store} projectId={project.id} onOpenTab={select} />}
+        {active === 'agent' && <ProjectAgents key={project.id} store={store} projectId={project.id} onOpenTask={openTask} onOpenTab={select} />}
         {active === 'board' && <ProjectTasks store={store} projectId={project.id} selectedTask={selected} onOpenTask={openTask} onCloseTask={() => setSelected(null)} newTaskOpen={creating} onCloseNewTask={() => setCreating(false)} newTaskId={`${id}-new-task`} />}
         {active === 'workflow' && <ProjectWorkflow key={project.id} store={store} projectId={project.id} onOpenTask={openTask} />}
         {active === 'settings' && <ProjectSettingsPage key={project.id} store={store} projectId={project.id} section={settingsSection ?? navigation.settingsSection} onSection={section => select('settings', section)} />}

@@ -168,11 +168,11 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     getTeam: (id: string) => request(`${projectPath(id)}/team`, team),
     listTasks: (id: string) => request(`${projectPath(id)}/tasks`, tasks),
     listAttempts: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/attempts`, readModels.attempts),
-    listProjectAttempts: (id: string, options: { since?: string; limit?: number } = {}) => {
+    listProjectAttempts: (id: string, options: { since?: string; limit?: number } = {}, signal?: AbortSignal) => {
       const query = new URLSearchParams();
       if (options.since !== undefined) query.set('since', options.since);
       if (options.limit !== undefined) query.set('limit', String(options.limit));
-      return request(`${projectPath(id)}/attempts${query.size ? `?${query}` : ''}`, readModels.projectAttempts);
+      return request(`${projectPath(id)}/attempts${query.size ? `?${query}` : ''}`, readModels.projectAttempts, undefined, false, signal);
     },
     listAttemptEvents: (id: string, attemptId: string, options: { afterSeq?: number; limit?: number } = {}) => {
       const query = new URLSearchParams();
