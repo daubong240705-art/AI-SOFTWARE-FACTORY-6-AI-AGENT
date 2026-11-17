@@ -28,7 +28,9 @@ try { top = path.resolve(git("rev-parse", "--show-toplevel").trim()); } catch { 
 const name = (value("--name") ?? path.basename(taskFile, path.extname(taskFile))).toLowerCase().replace(/[^a-z0-9-]+/g, "-").slice(0, 60);
 const readOnly = flag("--read-only");
 const timeoutMs = Math.max(1, Number(value("--timeout-min", "30"))) * 60_000;
-const logDir = path.join(top, ".git", "codex-delegate", `${name}-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+// --git-dir also works in a linked worktree, where .git is a file.
+const gitDir = path.resolve(top, git("rev-parse", "--git-dir").trim());
+const logDir = path.join(gitDir, "codex-delegate", `${name}-${new Date().toISOString().replace(/[:.]/g, "-")}`);
 const lastFile = path.join(logDir, "answer.md");
 
 const preamble = `You are a contractor working in ${repo}. Do exactly the task below.
