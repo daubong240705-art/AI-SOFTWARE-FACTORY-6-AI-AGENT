@@ -5,11 +5,13 @@ import { NotifySendError } from "./channels.js";
 
 export interface PushChannel {
   name: string;
-  send(payload: { title: string; body: string; level: "action" | "important" | "digest"; urgency: "normal" | "urgent"; link: string }): Promise<void>;
+  send(payload: { title: string; body: string; level: "action" | "important" | "digest"; urgency: "normal" | "urgent"; link: string;
+    approval?: { projectId: string; approvalId: string } }): Promise<void>;
 }
 interface Delivery {
   project_id: string; notification_id: string; title: string; body: string; category: NotificationCategory; urgency: NotificationUrgency;
   attempts: number; state: string; deliver_after: string | null;
+  entity_kind: string | null; entity_id: string | null;
 }
 export function quietEnd(now: Date, utcOffsetMinutes: number): string | null {
   const local = new Date(now.getTime() + utcOffsetMinutes * 60_000);
@@ -24,7 +26,7 @@ export function quietEnd(now: Date, utcOffsetMinutes: number): string | null {
  * On a process crash an ambiguous in-flight send stays fenced, avoiding a duplicate push. */
 export function claimDeliveries(raw: Database, projectId: string, channel: PushChannel, now: Date, offset: number): Delivery[] {
   const at = now.toISOString(), end = quietEnd(now, offset), claimed: Delivery[] = [];
-  const rows = raw.prepare(`SELECT d.*,n.title,n.body,n.category,n.urgency FROM notification_deliveries d JOIN notifications n
+  const rows = raw.prepare(`SELECT d.*,n.title,n.body,n.category,n.urgency,n.entity_kind,n.entity_id FROM notification_deliveries d JOIN notifications n
     ON n.project_id=d.project_id AND n.id=d.notification_id WHERE d.project_id=? AND d.channel=?
     AND d.state IN ('queued','held-quiet') AND d.attempts<? ORDER BY n.created_at,n.rowid`)
     .all(projectId, channel.name, PUSH_MAX_ATTEMPTS) as Delivery[];
@@ -48,7 +50,9 @@ export async function sendDeliveries(raw: Database, channel: PushChannel, rows: 
   for (const row of rows) {
     try {
       await channel.send({ title: publicApprovalText(row.title).slice(0, 200), body: publicApprovalText(row.body).slice(0, 1000),
-        level: row.category, urgency: row.urgency, link: notificationLink(baseUrl, row.category, row.project_id) });
+        level: row.category, urgency: row.urgency, link: notificationLink(baseUrl, row.category, row.project_id),
+        ...(row.entity_kind === "approval" && row.entity_id && raw.prepare("SELECT 1 FROM approvals WHERE project_id=? AND id=? AND state='pending'").get(row.project_id, row.entity_id)
+          ? { approval: { projectId: row.project_id, approvalId: row.entity_id } } : {}) });
     } catch (error) {
       report();
       const kind = error instanceof NotifySendError ? error.kind : "send-error";

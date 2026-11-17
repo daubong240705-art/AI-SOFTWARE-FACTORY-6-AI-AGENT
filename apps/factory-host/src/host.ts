@@ -5,6 +5,7 @@ import { tickTeamBreakers } from "./automation/breakers.js";
 import { tickNotifications, createNotificationHandlers, NOTIFICATION_COMMANDS, type PushChannel } from "./notify/index.js";
 import { createFanOutChannel, type ExternalNotifications } from "./notify/channels.js";
 import { registerNotifyRoutes } from "./notify/routes.js";
+import { startTelegramBot } from "./notify/telegram-bot.js";
 import { createRouteBreaker } from "./policy/breaker.js";
 import { createRuleHandlers, RULE_COMMANDS } from "./automation/ruleCommands.js";
 import { createIntegrationHandlers, INTEGRATION_COMMANDS } from "./integration/commands.js";
@@ -350,6 +351,7 @@ export async function startHost(options: {
   let previews: PreviewService | undefined;
   let publishing: PublishService | undefined;
   let portalOps: PortalOpsService | undefined;
+  let telegramBot: ReturnType<typeof startTelegramBot> | undefined;
   let localMcp: FastifyInstance | undefined;
   let localTokens: TokenRegistry | undefined;
   let localMcpUrl: string | undefined;
@@ -366,6 +368,7 @@ export async function startHost(options: {
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
       if (scheduleTimer !== undefined) { clearExpiry(scheduleTimer); scheduleTimer = undefined; }
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
+      await telegramBot?.stop();
       await previews?.close();
       await publishing?.close();
       await portalOps?.stop();
@@ -502,11 +505,9 @@ export async function startHost(options: {
         catch { console.error("Request expiry failed"); }
       }
     };
-    sweepApprovals();
-    await monitorTick;
-    expiryTimer = interval(() => { try { sweepApprovals(); } catch { console.error("Approval expiry failed"); } }, 60_000);
     const documentConfig = options.documents ?? DEFAULT_DOCUMENT_CONFIG;
     const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content"), maxObjectBytes: Math.max(8 * 1024 * 1024, documentConfig.maxBytes) }) };
+    options.notify?.telegram?.client.bind(approvalRaw, artifacts.store);
     const knowledge = createKnowledgeIndex({ raw: storage.raw, store: artifacts.store });
     const extraction = createExtractionService({ raw: storage.raw, store: artifacts.store, knowledge, now: clock,
       ...(options.docWorker === undefined ? {} : { config: options.docWorker }) });
@@ -809,6 +810,12 @@ export async function startHost(options: {
         projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") });
     }
     portalOps.start(pipeline);
+    if (options.notify?.telegram) telegramBot = startTelegramBot({ ...options.notify.telegram, raw: approvalRaw, hub, pipeline,
+      lead, portalOps, kickDispatch: () => dispatch?.kick(),
+      ...(options.notify.baseUrl === undefined ? {} : { baseUrl: options.notify.baseUrl }) });
+    sweepApprovals();
+    await monitorTick;
+    expiryTimer = interval(() => { try { sweepApprovals(); } catch { console.error("Approval expiry failed"); } }, 60_000);
     const listenHost = options.listenHost ?? "127.0.0.1";
     const networked = !isLoopbackHost(listenHost);
     // Agents run with the operator's full permissions: whoever gets a session controls this machine.
@@ -842,7 +849,7 @@ export async function startHost(options: {
     };
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
-      registerNotifyRoutes(app, guards, options.notify ?? { channels: [] });
+      registerNotifyRoutes(app, guards, options.notify ?? { channels: [] }, telegramBot);
       registerPublishRoutes(app, guards, publishing!);
       registerPortalOpsRoutes(app, guards, portalOps!, publishing!);
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store, tasks: createArtifactTaskRefs(approvalRaw) });

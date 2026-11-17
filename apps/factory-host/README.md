@@ -1031,3 +1031,33 @@ OpenCode, bubblewrap or the model proxy. It sets:
   counted by the CLI's own subscription, not by Host budgets.
 
 A seat overridden to `native-opencode` fails with `runtime unavailable` in this mode; set it to inherit.
+
+### Two-way Telegram notifications
+
+Set `FACTORY_TELEGRAM_BOT_TOKEN` and `FACTORY_TELEGRAM_CHAT_ID` to enable outbound
+notifications and inbound long polling. `FACTORY_TELEGRAM_ALLOWED_USERS` is a
+comma-separated list of Telegram user IDs. When omitted, a positive numeric chat
+ID is also the sole allowed user; group chats require an explicit allowlist.
+Other chats/users are silently ignored. `GET /system/notify` reports
+`telegramInbound` and the persisted `telegramIgnored` count.
+
+`FACTORY_NOTIFY_BASE_URL` adds approval and project chat links. Telegram review
+notifications include up to four registered task screenshots (each below 5 MiB),
+the latest markdown README, and decision buttons. Telegram albums need at least
+two images, so one image uses `sendPhoto`. Requesting changes prompts for a reply
+within ten minutes. Decisions use the normal operator command pipeline.
+Discord notifications remain text only.
+
+Plain text chats with the Portal manager. `/game <gameId> <text>` chats with that
+game's Lead, `/pending` lists up to ten approvals, `/stats [gameId]` shows the last
+seven days, and `/help` shows Vietnamese instructions. Replies and system messages
+in each project's `Telegram` conversation are forwarded as plain text.
+Portal operation results from the manager's original conversation are also forwarded.
+Poll offsets, callback references, and comment prompts survive restarts. Updates are fenced before
+handling to avoid replaying operator actions; a crash during processing may require
+the operator to resend a message. Polling backs off from 5 to 60 seconds on errors.
+
+For local tests only, `FACTORY_TELEGRAM_API_BASE` may replace the Telegram API with
+an HTTP origin on `127.0.0.1`, `localhost`, or `[::1]`. Paths, credentials, queries,
+and non-loopback overrides are rejected. Credentials stay in memory and transport
+errors expose only the notification error classification.

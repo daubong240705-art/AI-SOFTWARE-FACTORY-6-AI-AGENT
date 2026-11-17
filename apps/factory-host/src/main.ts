@@ -30,14 +30,17 @@ try {
   delete process.env.FACTORY_PORTAL_TOKEN;
   const telegramToken = process.env.FACTORY_TELEGRAM_BOT_TOKEN;
   const telegramChat = process.env.FACTORY_TELEGRAM_CHAT_ID;
+  const telegramAllowedUsers = process.env.FACTORY_TELEGRAM_ALLOWED_USERS;
   const discordWebhook = process.env.FACTORY_DISCORD_WEBHOOK_URL;
   const notifyBaseUrl = process.env.FACTORY_NOTIFY_BASE_URL;
   delete process.env.FACTORY_TELEGRAM_BOT_TOKEN;
   delete process.env.FACTORY_TELEGRAM_CHAT_ID;
+  delete process.env.FACTORY_TELEGRAM_ALLOWED_USERS;
   delete process.env.FACTORY_DISCORD_WEBHOOK_URL;
   delete process.env.FACTORY_NOTIFY_BASE_URL;
   const notify = notificationConfig({
     ...(telegramToken === undefined ? {} : { botToken: telegramToken }), ...(telegramChat === undefined ? {} : { chatId: telegramChat }),
+    ...(telegramAllowedUsers === undefined ? {} : { allowedUsers: telegramAllowedUsers }),
     ...(discordWebhook === undefined ? {} : { webhookUrl: discordWebhook }), ...(notifyBaseUrl === undefined ? {} : { baseUrl: notifyBaseUrl }),
   });
   const { dispatch, workspace, agentProxy, opencode, pushRemotes, pushSshCommand, localCli, cliPassEnv, ...hostOptions } = parseEnv(process.env);

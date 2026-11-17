@@ -5,6 +5,7 @@ import { publicApprovalText } from "../approvals/service.js";
 export interface NotificationInput {
   projectId: string; dedupKey: string; category: NotificationCategory; urgency: NotificationUrgency;
   title: string; body: string; entity?: { kind: string; id: string }; now: Date; id: string;
+  approval?: { projectId: string; approvalId: string };
 }
 /** Canonical tuple: (entity kind, entity id, revision-or-opened-at, class).
  * Reminders use (approval, id, reminder-N); digests use (project, local date, digest).
@@ -12,12 +13,13 @@ export interface NotificationInput {
 export const notificationKey = (...parts: (string | number)[]): string => JSON.stringify(parts);
 
 export function createNotification(raw: Database, input: NotificationInput): { created: boolean } {
+  const entity = input.approval ? { kind: "approval", id: input.approval.approvalId } : input.entity;
   const result = raw.prepare(`INSERT INTO notifications
     (project_id,id,dedup_key,category,urgency,title,body,entity_kind,entity_id,state,created_at,read_at)
     VALUES (?,?,?,?,?,?,?,?,?,'unread',?,NULL) ON CONFLICT(project_id,dedup_key) DO NOTHING`)
     .run(input.projectId, input.id, input.dedupKey, input.category, input.urgency,
       publicApprovalText(input.title).trim().slice(0, 200) || "Notification", publicApprovalText(input.body).slice(0, 1000),
-      input.entity?.kind ?? null, input.entity?.id ?? null, input.now.toISOString());
+      entity?.kind ?? null, entity?.id ?? null, input.now.toISOString());
   return { created: result.changes > 0 };
 }
 

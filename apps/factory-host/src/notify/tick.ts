@@ -28,16 +28,16 @@ function collect(deps: NotificationDeps, projectId: string, now: Date, offset: n
     .all(projectId) as ApprovalRow[];
   for (const approval of approvals) {
     const expires = Date.parse(approval.expires_at), requested = Date.parse(approval.requested_at);
-    const entity = { kind: "approval", id: approval.id };
+    const reference = { projectId, approvalId: approval.id };
     add({ dedupKey: notificationKey("approval", approval.id, approval.revision, "requested"), category: "action",
       urgency: expires - now.getTime() <= 86_400_000 ? "urgent" : "normal",
-      title: `Approval needed: ${approval.subject}`, body: approval.summary, entity });
+      title: `Approval needed: ${approval.subject}`, body: approval.summary, approval: reference });
     if (approval.state !== "pending" || expires <= requested) continue;
     for (const fraction of REMINDER_FRACTIONS) if (now.getTime() - requested >= (expires - requested) * fraction) {
       const percent = fraction * 100;
       add({ dedupKey: notificationKey("approval", approval.id, `reminder-${percent}`), category: "action",
         urgency: fraction === 0.9 ? "urgent" : "normal", title: `Approval reminder (${percent}%): ${approval.subject}`,
-        body: approval.summary, entity });
+        body: approval.summary, approval: reference });
     }
   }
   const breakers = raw.prepare("SELECT team_id,opened_at,reason FROM team_breakers WHERE project_id=? AND state='open' ORDER BY team_id")

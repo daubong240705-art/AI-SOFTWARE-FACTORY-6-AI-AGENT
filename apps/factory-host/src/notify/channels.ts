@@ -1,4 +1,5 @@
 import type { PushChannel } from "./push.js";
+import { TelegramClient, telegramAllowedUsers, type TelegramTransport } from "./telegram-bot.js";
 
 export type NotifyErrorKind = "retry-later" | "permanent" | "retryable";
 
@@ -47,13 +48,12 @@ function validateDiscord(webhookUrl: string): void {
     throw new Error("Invalid Discord webhook configuration");
 }
 
-export function createTelegramChannel(input: { botToken: string; chatId: string; fetchImpl?: FetchLike }): PushChannel {
+export function createTelegramChannel(input: { botToken: string; chatId: string; fetchImpl?: FetchLike; client?: TelegramClient }): PushChannel {
   validateTelegram(input.botToken, input.chatId);
-  const fetchImpl = input.fetchImpl ?? fetch;
+  const client = input.client ?? new TelegramClient({ token: input.botToken, ...(input.fetchImpl === undefined ? {} : { fetchImpl: input.fetchImpl }) });
   return { name: "telegram", async send(payload) {
-    await post(`https://api.telegram.org/bot${input.botToken}/sendMessage`, {
-      chat_id: input.chatId, text: notificationText(payload), disable_web_page_preview: true,
-    }, fetchImpl);
+    if (payload.approval) await client.sendApproval(input.chatId, payload);
+    else await client.sendMessage(input.chatId, notificationText(payload));
   } };
 }
 
@@ -78,10 +78,10 @@ export function createFanOutChannel(channels: readonly PushChannel[]): PushChann
   } };
 }
 
-export interface ExternalNotifications { channels: readonly PushChannel[]; baseUrl?: string }
+export interface ExternalNotifications { channels: readonly PushChannel[]; baseUrl?: string; telegram?: TelegramTransport }
 
 export function notificationConfig(input: {
-  botToken?: string; chatId?: string; webhookUrl?: string; baseUrl?: string; fetchImpl?: FetchLike;
+  botToken?: string; chatId?: string; webhookUrl?: string; baseUrl?: string; fetchImpl?: FetchLike; allowedUsers?: string;
 }): ExternalNotifications {
   let baseUrl: string | undefined;
   if (input.baseUrl !== undefined) {
@@ -94,9 +94,14 @@ export function notificationConfig(input: {
   }
   if ((input.botToken === undefined) !== (input.chatId === undefined)) throw new Error("Telegram requires both bot token and chat ID");
   const channels: PushChannel[] = [];
+  let telegram: TelegramTransport | undefined;
   const fetchOption = input.fetchImpl === undefined ? {} : { fetchImpl: input.fetchImpl };
-  if (input.botToken !== undefined && input.chatId !== undefined)
-    channels.push(createTelegramChannel({ botToken: input.botToken, chatId: input.chatId, ...fetchOption }));
+  if (input.botToken !== undefined && input.chatId !== undefined) {
+    validateTelegram(input.botToken, input.chatId);
+    const client = new TelegramClient({ token: input.botToken, ...fetchOption });
+    telegram = { client, chatId: input.chatId, allowedUsers: telegramAllowedUsers(input.allowedUsers, input.chatId) };
+    channels.push(createTelegramChannel({ botToken: input.botToken, chatId: input.chatId, client }));
+  }
   if (input.webhookUrl !== undefined) channels.push(createDiscordChannel({ webhookUrl: input.webhookUrl, ...fetchOption }));
-  return { channels, ...(baseUrl === undefined ? {} : { baseUrl }) };
+  return { channels, ...(baseUrl === undefined ? {} : { baseUrl }), ...(telegram === undefined ? {} : { telegram }) };
 }
