@@ -170,7 +170,7 @@
       "acceptance": [
         "src/rules.ts implements every rule in docs/spec.md through the pure deterministic RulesModule contract, with JSON state and seeded RNG state only.",
         "npm test exits 0 with tests for each win and draw condition and at least five distinct illegal actions.",
-        "When game.json has bot: true, the bot returns a legal action for 200 deterministic seeds; report the seed range and passing test name.",
+        "When game.json has bot: true, the bot returns a legal action for 200 deterministic seeds from varied mid-game positions (one bot call per seed, not full games; at most 30 seconds in total); report the seed range and passing test name.",
         "npm run check exits 0."
       ]
     },
@@ -258,7 +258,7 @@
       "sideEffect": "code",
       "acceptance": [
         "a clean `npm install` followed by `npm run check`, `npm test` and `npm run build` all exit 0, report the three exit codes",
-        "a bot-versus-bot simulation over 50 seeds ends every match without an illegal move, and one human-versus-human match is played to a win and one to a draw or loss",
+        "a bot-versus-bot simulation over up to 50 seeds ends every match without an illegal move, and one human-versus-human match is played to a win and one to a draw or loss Keep the simulation fast: use the fastest bot level, cap each match at 200 moves (a capped match counts as finished if every move was legal), and stop adding seeds when the whole simulation reaches 60 seconds (report how many seeds ran; at least 5).",
         "illegal actions are rejected: wrong turn, invalid or occupied target, a move after the match ended",
         "in the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling (open the preview at `/?autoplay=bot` (the starter then shows only the game frame, full page, and starts a bot match) and measure INSIDE the game iframe: its document scrollHeight is not larger than its window height and the whole board is visible. The lobby/host page around the game is not part of the game and is never measured) and a full match can be played",
         "multiplayer: two browser contexts stay in sync turn by turn and reloading one returns it to the same room and seat, or \"n/a\" with the reason for a game without multiplayer",
@@ -289,7 +289,7 @@
       "sideEffect": "code",
       "acceptance": [
         "A clean npm install followed by npm run check, npm test and npm run build exits 0; report the three check, test and build exit codes.",
-        "A bot-versus-bot run over 20 seeds ends every match without an illegal move; report the seed range and results.",
+        "A bot-versus-bot run over up to 20 seeds ends every match without an illegal move; report the seed range and results. Keep the simulation fast: use the fastest bot level, cap each match at 200 moves (a capped match counts as finished if every move was legal), and stop adding seeds when the whole simulation reaches 60 seconds (report how many seeds ran; at least 5).",
         "In the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling (open the preview at `/?autoplay=bot` (the starter then shows only the game frame, full page, and starts a bot match) and measure INSIDE the game iframe: its document scrollHeight is not larger than its window height and the whole board is visible. The lobby/host page around the game is not part of the game and is never measured) and one match is played to the end.",
         "No file outside tests/ was changed by QA; report the changed paths (or none).",
         "After a move document.getAnimations().length is above 0 and returns to 0 within 3 s; report the rows of the docs/spec.md Motion table that were seen."

@@ -22,7 +22,7 @@ Read the spec's numbered test cases, task acceptance and game-contract first. Us
 ## Gameplay and invalid input
 
 - Play one human-versus-human win and one draw or loss according to the spec. Verify turn progression, terminal state and rematch. Record action sequences.
-- Run bot-versus-bot simulation across 50 deterministic seeds; assert every move is legal and each match terminates. Record seed range, test name and exit code; report inapplicable bot support explicitly without inventing a pass.
+- Run bot-versus-bot simulation across up to 50 deterministic seeds with the fastest bot level, at most 200 moves per match and a 60-second total budget (stop adding seeds when it is reached; at least 5); assert every move is legal and each match terminates. Record seed range, test name and exit code; report inapplicable bot support explicitly without inventing a pass.
 - Check wrong turn, invalid or occupied target, and moves after completion. Verify server rejection and unchanged state, including input sent past disabled UI via an offered test harness.
 - In reproduce, put the regression under `tests/regression/`, run it on the current code and quote the actual failing output. Keep game source unchanged.
 

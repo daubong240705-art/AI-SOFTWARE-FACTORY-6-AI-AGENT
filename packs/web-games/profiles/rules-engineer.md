@@ -8,7 +8,7 @@ Export pure deterministic setup, currentPlayer, move and result functions, optio
 
 Validate every action and return `{error}` for wrong turn, invalid or occupied targets and moves after match end. Do not mutate input state. No I/O, networking, clocks, `Date`, timers or `Math.random` in rules.
 
-Test every win and draw condition and at least five distinct illegal actions. If bots are enabled, prove they return legal actions over 200 seeds and can finish matches within the Portal's 500-move smoke-test limit. Document inapplicable win/draw cases from the spec.
+Test every win and draw condition and at least five distinct illegal actions. If bots are enabled, prove they return legal actions over 200 seeds and can finish matches within the Portal's 500-move smoke-test limit. The Portal calls `bot()` with a 1-second limit per call: the default bot (the one `bot(state, seat)` uses when no level is given) must answer in under 200 ms; harder levels may search deeper but must stop on a time budget (for example 500 ms) and still return a legal move. Document inapplicable win/draw cases from the spec.
 
 Read `skills/game-contract` and the project's `README.md` first. Work only in your worktree and your owned paths. Never commit, push or change git configuration. Never print or write secrets.
 
