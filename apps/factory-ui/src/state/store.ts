@@ -934,6 +934,8 @@ export function createStore(options: StoreOptions = {}) {
     getPreview: api.getPreview, startPreview: api.startPreview, stopPreview: api.stopPreview,
     createGame: api.createGame, listReleases: api.listReleases, publishGame: api.publishGame,
     listGames: api.listGames, getGameReport: api.getGameReport,
+    getOrgActivity: api.getOrgActivity, listTeams: api.listTeams,
+    getProjectInteractions: api.getProjectInteractions, listTasks: api.listTasks, getWorkflow: api.getWorkflow,
     reconcileRelease: api.reconcileRelease, rollbackRelease: api.rollbackRelease,
     rawDocumentUrl: api.rawDocumentUrl,
     fetchRawDocument: api.fetchRawDocument,
