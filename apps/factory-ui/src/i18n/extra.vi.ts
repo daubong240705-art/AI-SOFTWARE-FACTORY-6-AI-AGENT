@@ -2,6 +2,20 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  worldUi: {
+    title: 'Thế giới studio', map: 'Bản đồ studio', toolbar: 'Tùy chọn thế giới',
+    mapHint: 'Bản đồ chỉ để xem. Dùng thanh tùy chọn để đổi chất lượng hoặc mở bản 2D.',
+    quality: 'Chất lượng', qualityOptions: { auto: 'Tự động', high: 'Cao', low: 'Thấp' },
+    still: 'Chế độ tĩnh', view2d: 'Xem bản 2D', loading: 'Đang dựng thế giới…', retry: 'Thử lại',
+    openTeam: 'Mở Phòng đội', openOffice: 'Văn phòng {game}', open3d: 'Mở lại 3D', openStill: 'Mở 3D ở chế độ tĩnh',
+    reasons: {
+      preference: 'Bạn đang chọn bản 2D. Bạn có thể mở Phòng đội hoặc văn phòng của từng game.',
+      webgl: 'Thiết bị này chưa hỗ trợ WebGL2 để mở thế giới 3D. Bạn vẫn có thể xem đội và các văn phòng.',
+      narrow: 'Màn hình hơi nhỏ để xem bản đồ 3D thoải mái. Hãy mở Phòng đội hoặc văn phòng của game.',
+      'reduced-motion': 'Thế giới đang dùng bản 2D theo tùy chọn giảm chuyển động của bạn.',
+      error: 'Không dựng được thế giới 3D. Bạn có thể thử lại hoặc mở Phòng đội và các văn phòng.',
+    },
+  },
   portalUi: {
     title: 'Quản trị Portal', games: 'Game trên Portal', chat: 'Chat với Quản trị Portal', description: 'Thống kê toàn Portal và đề xuất thay đổi để bạn phê duyệt.',
     enabled: 'Bật', disabled: 'Tắt', version: 'Bản', matches: 'Trận', last7: 'Trận 7 ngày', rooms: 'Phòng trực tiếp', online: 'Đang online', players: 'Người chơi', botWins: 'Thắng bot', draws: 'Hòa', duration: 'Thời lượng TB (giây)', game: 'Game', id: 'Mã game', all: 'Tất cả game', days7: '7 ngày', days30: '30 ngày', period: 'Khoảng thời gian',
@@ -305,7 +319,7 @@ export const extra: Translated<typeof en> = {
       'integration-conflict': 'Xung đột tích hợp', 'quarantined-rule': 'Quy tắc bị cách ly', monitor: 'Chỉ số bất thường',
     },
   },
-  nav: { main: 'Điều hướng chính', overview: 'Tổng quan', attention: 'Cần xử lý', team: 'Đội', settings: 'Cài đặt', preferences: 'Tùy chọn', collapse: 'Thu gọn', expand: 'Mở rộng thanh bên', close: 'Đóng điều hướng', skip: 'Đến nội dung' },
+  nav: { main: 'Điều hướng chính', overview: 'Tổng quan', attention: 'Cần xử lý', team: 'Đội', world: 'Thế giới', settings: 'Cài đặt', preferences: 'Tùy chọn', collapse: 'Thu gọn', expand: 'Mở rộng thanh bên', close: 'Đóng điều hướng', skip: 'Đến nội dung' },
   overview: {
     greeting: 'Xin chào', greetingStart: 'Chào', morning: 'buổi sáng', afternoon: 'buổi chiều', evening: 'buổi tối',
     composer: 'Giao việc hoặc hỏi Lead', message: 'Nội dung gửi Lead',

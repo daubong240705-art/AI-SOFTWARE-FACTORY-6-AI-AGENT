@@ -64,6 +64,7 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 
 /* U-C: Project tabs, full-width board and one docked pane at a time. */
 .content.project-content { padding: 0; overflow: hidden; }
+.content.world-content { padding: 0; overflow: hidden; }
 .project-view { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .project-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; position: relative; }
 .project-body.has-chat { grid-template-columns: minmax(0, 1fr) minmax(0, 420px); }
@@ -132,3 +133,11 @@ kbd { font: 11px var(--mono); padding: 0 4px; border: 1px solid var(--line); bor
 }
 
 @keyframes pop { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+/* World owns the main scroll container; only its fallback card may scroll. */
+.world-page { position: relative; width: 100%; height: 100%; min-height: 0; overflow: hidden; background: #F7EEDC; }
+.world-map { position: absolute; inset: 0; outline-offset: -3px; }
+.world-toolbar { position: absolute; top: 12px; left: 12px; right: 12px; width: fit-content; max-width: calc(100% - 24px); display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.world-fallback { height: 100%; display: grid; place-items: center; padding: 24px; overflow: auto; }
+.world-fallback-card { width: min(100%, 560px); max-height: 100%; overflow: auto; }
+.world-loading { height: 100%; display: flex; justify-content: center; align-items: center; gap: 12px; color: var(--muted-foreground); font-size: 14px; }

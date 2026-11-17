@@ -1,4 +1,18 @@
 export const extra = {
+  worldUi: {
+    title: 'Studio world', map: 'Studio map', toolbar: 'World options',
+    mapHint: 'This map is read-only. Use the toolbar to change quality or open the 2D view.',
+    quality: 'Quality', qualityOptions: { auto: 'Automatic', high: 'High', low: 'Low' },
+    still: 'Still mode', view2d: 'View in 2D', loading: 'Building the world…', retry: 'Retry',
+    openTeam: 'Open Team room', openOffice: '{game} office', open3d: 'Reopen 3D', openStill: 'Open 3D in still mode',
+    reasons: {
+      preference: 'You selected the 2D view. You can open the Team room or each game’s office.',
+      webgl: 'This device does not support WebGL2 for the 3D world. You can still view the team and offices.',
+      narrow: 'This screen is small for a comfortable 3D map. Open the Team room or a game’s office.',
+      'reduced-motion': 'The world is using the 2D view to respect your reduced motion preference.',
+      error: 'The 3D world could not be rendered. Retry or open the Team room and offices.',
+    },
+  },
   portalUi: {
     title: 'Portal management', games: 'Games on Portal', chat: 'Chat with Portal Manager', description: 'Portal statistics and proposed changes for your approval.',
     enabled: 'Enabled', disabled: 'Disabled', version: 'Version', matches: 'Matches', last7: '7-day matches', rooms: 'Live rooms', online: 'Online users', players: 'Players', botWins: 'Bot wins', draws: 'Draws', duration: 'Average duration (seconds)', game: 'Game', id: 'Game ID', all: 'All games', days7: '7 days', days30: '30 days', period: 'Period',
@@ -290,7 +304,7 @@ export const extra = {
   },
   viewStates: { loading: 'Loading…' },
   attention: {"empty": "All caught up.", "list": "Attention items", "detail": "Item details", "move": "move", "approve": "Approve", "answer": "Answer", "requestChanges": "Request changes", "requestChangesConfirm": "Confirm request changes", "reject": "Reject", "open": "Open", "technicalDetails": "Technical details", "identifier": "ID", "instance": "Workflow", "digest": "Context digest", "revision": "Revision", "facts": "Review facts", "checks": "Automatic checks", "noChecks": "No check outcome reported.", "integration": "Integration branch", "release": "Release", "taskUnavailable": "Task unavailable. Refresh to try again.", "selected": "Selected", "kinds": {"review": "Review", "question": "Question", "start-gate": "Start gate", "request": "Request", "plan-patch": "Plan patch", "stalled-workflow": "Stalled workflow", "team-breaker": "Team paused by breaker", "integration-conflict": "Integration conflict", "quarantined-rule": "Quarantined rule", "monitor": "Monitor not healthy"}},
-  nav: { main: 'Main navigation', overview: 'Overview', attention: 'Needs attention', team: 'Team', settings: 'Settings', preferences: 'Preferences', collapse: 'Collapse', expand: 'Expand sidebar', close: 'Close navigation', skip: 'Skip to content' },
+  nav: { main: 'Main navigation', overview: 'Overview', attention: 'Needs attention', team: 'Team', world: 'World', settings: 'Settings', preferences: 'Preferences', collapse: 'Collapse', expand: 'Expand sidebar', close: 'Close navigation', skip: 'Skip to content' },
   overview: {
     greeting: 'Hello', greetingStart: 'Good', morning: 'morning', afternoon: 'afternoon', evening: 'evening',
     composer: 'Ask or delegate to Lead', message: 'Message for Lead',

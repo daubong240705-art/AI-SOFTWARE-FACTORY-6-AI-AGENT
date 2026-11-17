@@ -4,7 +4,7 @@ export type { SettingsSection } from '../project-settings/sections';
 
 export type ProjectTab = 'overview' | 'office' | 'board' | 'workflow' | 'knowledge' | 'code' | 'settings';
 export type TeamTab = 'activity' | 'config';
-export type View = 'portal' | 'overview' | 'needs-attention' | 'team' | 'system' | 'mascots' | `project:${string}`;
+export type View = 'portal' | 'overview' | 'needs-attention' | 'team' | 'world' | 'system' | 'mascots' | `project:${string}`;
 const tabs: ProjectTab[] = ['overview', 'office', 'board', 'workflow', 'knowledge', 'code', 'settings'];
 export function viewHash(view: View, tab: ProjectTab = 'overview', team: TeamTab = 'activity', section?: SettingsSection): string {
   if (view === 'team') return team === 'config' ? '#/team/config' : '#/team';
@@ -21,6 +21,7 @@ export function parseHash(hash: string): View {
   if (hash === '#/system') return 'system';
   if (hash === '#/attention' || hash.startsWith('#/attention/')) return 'needs-attention';
   if (hash === '#/team' || hash === '#/team/config') return 'team';
+  if (hash === '#/world') return 'world';
   const project = /^#\/project\/([^/]+)(?:\/(?:overview|agent|office|board|workflow|knowledge|code|automation)|\/settings(?:\/[^/]+)?)?$/.exec(hash);
   if (project?.[1]) { try { const id = decodeURIComponent(project[1]); if (id.trim()) return `project:${id}`; } catch { /* Invalid encodings return home. */ } }
   return 'overview';
