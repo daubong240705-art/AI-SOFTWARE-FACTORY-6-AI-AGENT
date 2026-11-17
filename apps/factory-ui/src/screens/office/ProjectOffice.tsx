@@ -78,12 +78,12 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
   const [lively, setLively] = useState(true);
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [selectedTaskTab, setSelectedTaskTab] = useState<'overview' | 'process' | 'results'>('process');
+  const [selectedTaskTab, setSelectedTaskTab] = useState<'overview' | 'process' | 'results'>('overview');
   const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
   const selectedSeat = office?.seats.find(seat => seat.id === selectedSeatId) ?? null;
   const party = (value: Party) => value.kind === 'seat' ? value.name : t(value.kind === 'operator' ? 'officeUi.you' : 'officeUi.knowledge');
   const items = useMemo(() => meaningfulOfficeItems(office?.items ?? []), [office?.items]);
-  const openTask: OpenOfficeTask = (taskId, tab = 'process') => {
+  const openTask: OpenOfficeTask = (taskId, tab = 'overview') => {
     setSelectedTaskId(taskId); setSelectedTaskTab(tab); setSelectedSeatId(null);
   };
   const review = (need: OfficeNeed) => {
@@ -106,7 +106,7 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
           <div className="flex items-center gap-2"><Checkbox id={`${id}-progress`} checked={hideProgress} onCheckedChange={value => setHideProgress(value === true)} />
             <Label htmlFor={`${id}-progress`} className="text-xs text-muted-foreground">{t('officeUi.hideProgress')}</Label></div>
         </div>
-        <Feed items={items.filter(item => !hideProgress || item.kind !== 'progress')} now={now} party={party} onOpenTask={taskId => { setSelectedTaskId(taskId); setSelectedTaskTab('process'); }} />
+        <Feed items={items.filter(item => !hideProgress || item.kind !== 'progress')} now={now} party={party} onOpenTask={taskId => { setSelectedTaskId(taskId); setSelectedTaskTab('overview'); }} />
       </section></div>
     </div>}
     <Sheet open={!!selectedSeat} onOpenChange={open => { if (!open) setSelectedSeatId(null); }}>
@@ -118,7 +118,7 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
           <div className="space-y-5 p-5">
             <AgentOverview store={store} seat={selectedSeat} now={now} onOpenTask={openTask} onReview={review} />
             <section className="flex max-h-[65dvh] min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border"><h3 className="border-b border-border p-4 text-sm font-semibold">{t('officeUi.feed')}</h3>
-              <Feed items={items.filter(item => (item.from.kind === 'seat' && item.from.seatId === selectedSeat.id) || (item.to?.kind === 'seat' && item.to.seatId === selectedSeat.id))} now={now} party={party} onOpenTask={taskId => { setSelectedSeatId(null); setSelectedTaskId(taskId); setSelectedTaskTab('process'); }} />
+              <Feed items={items.filter(item => (item.from.kind === 'seat' && item.from.seatId === selectedSeat.id) || (item.to?.kind === 'seat' && item.to.seatId === selectedSeat.id))} now={now} party={party} onOpenTask={taskId => { setSelectedSeatId(null); setSelectedTaskId(taskId); setSelectedTaskTab('overview'); }} />
             </section>
           </div>
         </>}
