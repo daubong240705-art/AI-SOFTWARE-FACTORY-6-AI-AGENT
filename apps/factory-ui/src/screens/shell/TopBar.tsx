@@ -30,7 +30,7 @@ export function TopBar({ store, compact, expanded, onToggle, onCreate, onProject
   }, []);
   const streamLabel = state.stream === 'closed' ? 'shell.offline' : 'shell.reconnecting';
   return <>
-    <header className="col-start-2 flex min-w-0 items-center gap-3 border-b border-border bg-background px-8 2xl:px-12 max-[1179px]:col-start-1 max-sm:gap-2 max-sm:px-4">
+    <header className="col-start-2 flex min-w-0 items-center gap-3 border-b border-border bg-topbar px-8 2xl:px-12 max-[1179px]:col-start-1 max-sm:gap-2 max-sm:px-4">
       {compact && <Button variant="ghost" size="icon" aria-label={t('shell.toggleProjects')} aria-expanded={expanded} aria-controls="factory-navigation" onClick={onToggle}><Menu /></Button>}
       <div className="relative min-w-0 flex-1 sm:max-w-[min(56vw,960px)]">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />

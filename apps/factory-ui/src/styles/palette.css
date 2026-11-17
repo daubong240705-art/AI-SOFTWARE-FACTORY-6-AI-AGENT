@@ -10,13 +10,19 @@
   --p-1: #56c7c2; --p-2: #9d8cff; --p-3: #d58ac9; --p-4: #82b6db;
   --sidebar-bg: #19191b; --on-primary: #151517; --on-need: #1b0b09;
   --control-line: #777780; --error: #c2b6e8; --error-surface: #332d40; --shadow: #00000040;
+  --topbar: var(--bg); --nav-active: var(--raised); --nav-mark: var(--text);
+  --action: var(--text); --action-hover: color-mix(in srgb, var(--text) 88%, var(--bg)); --on-action: var(--on-primary);
 }
+/* Light theme: the Game Portal's milk and beige palette. Text pairs stay at or above 4.5:1, control
+   borders at or above 3:1; the sidebar is separated from the canvas by its own tone and a border. */
 [data-theme="light"] {
-  --bg: #f6f6f8; --surface: #ffffff; --raised: #eeeef2; --line: #d5d5dd;
-  --text: #242429; --muted: #60606c; --need: #bd352a; --run: #925500; --ok: #23734b; --info: #285fb0;
+  --bg: #FFF8E7; --surface: #FFFEF8; --raised: #F6EBD3; --line: #DCC9A6;
+  --text: #3B2E24; --muted: #6E5A47; --need: #B23A2B; --run: #8A5200; --ok: #2F6B45; --info: #2D5E9E;
   --p-1: #18716d; --p-2: #6950be; --p-3: #995487; --p-4: #376f94;
-  --sidebar-bg: #eeeef1; --on-primary: #ffffff; --on-need: #ffffff;
-  --control-line: #777780; --error: #64468a; --error-surface: #f1eaf8; --shadow: #24242924;
+  --sidebar-bg: #F1DFBC; --on-primary: #FFFBEA; --on-need: #ffffff;
+  --control-line: #9C8466; --error: #64468a; --error-surface: #f1eaf8; --shadow: #4A3B2F2E;
+  --topbar: #FFFEF8; --nav-active: #FFFEF8; --nav-mark: #E0A458;
+  --action: #E0A458; --action-hover: #D4924A; --on-action: #2A211A;
 }
 :root, [data-theme] {
   --size-topbar: 56px; --radius-panel: 10px;
