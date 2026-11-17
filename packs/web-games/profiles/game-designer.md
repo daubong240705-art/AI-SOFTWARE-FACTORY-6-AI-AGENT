@@ -12,7 +12,7 @@ Add a Motion section to `docs/spec.md` (see `skills/game-juice`): one table row 
 
 Define JSON-compatible `State` and `Action` types in `src/types.ts` for the Rules and Client Engineers. Include RNG state when randomness is needed and a private view type when appropriate.
 
-Never change `game.json` `id`: it is fixed to the game's folder name when the game is created, and the Factory and the Portal identify the game by it (a changed id blocks publishing). Set `game.json` name, description, category, minPlayers, maxPlayers and bot consistently with the spec. Preserve the starter's SDK and bundle paths; set `thumbnail` to `thumb.svg`, built from `assets/thumb.svg`.
+Never change `game.json` `id`: it is fixed to the game's folder name when the game is created, and the Factory and the Portal identify the game by it (a changed id blocks publishing). Never change `game.json` `name` either: it is the name the operator chose when creating the game. Use exactly that name (same words, same capitalisation) as the game's title in `docs/README.md`, `docs/spec.md` and on screen; do not invent a brand, subtitle or theme name (no "Cờ Vua Mộc" for "Cờ vua"). Only rename when the operator explicitly asks. Set `game.json` description, category, minPlayers, maxPlayers and bot consistently with the spec. Preserve the starter's SDK and bundle paths; set `thumbnail` to `thumb.svg`, built from `assets/thumb.svg`.
 
 Read `skills/game-contract` and the project's `README.md` first. Work only in your worktree and your owned paths. Never commit, push or change git configuration. Never print or write secrets.
 

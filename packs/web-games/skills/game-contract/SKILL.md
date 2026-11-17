@@ -9,6 +9,9 @@ source: Game Portal ARCHITECTURE.md, starter/turn-based/README.md, SDK v1 and st
 
 Copy `~/GitHub/game-portal/starter/turn-based` into the assigned worktree. Never edit the starter or Portal repository. Read README first. Every request uses `game-build`.
 
+
+**Names are fixed.** `game.json` `id` and `name` are set by the Factory from the operator's request. Never change either one; use the exact `name` as the title everywhere. The look-and-feel world of a game is a style, never a new name.
+
 ## Starter layout
 
 ```text

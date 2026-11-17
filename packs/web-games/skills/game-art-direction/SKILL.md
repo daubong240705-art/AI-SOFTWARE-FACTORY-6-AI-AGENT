@@ -11,6 +11,7 @@ A game looks good when every piece belongs to one world, the board reads at a gl
 
 Before drawing, write a short art brief as the first comment in `src/client/theme.css` (UI Artist) or the "Look and feel" section of `docs/spec.md` (Game Designer):
 
+- **The game keeps its name**: the world below is a visual setting only; never rename the game or add a brand/subtitle to its title.
 - **World**: a concrete setting taken from the request and the game (caro: squared notebook paper and ink; a card game: a felt table, or candy wrappers, or a retro arcade). Follow the operator's style words exactly when given (for example chibi, pastel, pixel).
 - **Mood**: three adjectives.
 - **Palette**: 4 to 6 named hex colours as CSS custom properties (`--table`, `--ink`, `--accent`...), plus one colour per player that differs in lightness, not only hue.

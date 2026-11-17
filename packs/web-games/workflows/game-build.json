@@ -131,7 +131,8 @@
         "src/types.ts exports the JSON-compatible State and Action types used by rules and client; game.json metadata, player limits and bot support match docs/spec.md.",
         "docs/spec.md has a Look and feel section: world, mood in three words, palette direction and the one memorable element.",
         "docs/README.md (under 40 lines: name, one-sentence pitch, players and bot, rules summary, controls, look and feel) is registered with output.register (kind requirements, text/markdown, abstractL0 = the one-sentence pitch); the operator reviews it before rules and art start.",
-        "docs/spec.md has a Motion section: a table with every visible event (move, card played or drawn, dice rolled, chips placed, turn change, illegal move, win/draw/loss) and its effect from src/client/motion.ts (pop, flyFrom, flip, rollDice, rattle, countdown, tickNumber, confetti, shake) with a duration; random outcomes get a suspense phase of 0.8 to 2.5 s before the result shows."
+        "docs/spec.md has a Motion section: a table with every visible event (move, card played or drawn, dice rolled, chips placed, turn change, illegal move, win/draw/loss) and its effect from src/client/motion.ts (pop, flyFrom, flip, rollDice, rattle, countdown, tickNumber, confetti, shake) with a duration; random outcomes get a suspense phase of 0.8 to 2.5 s before the result shows.",
+        "game.json id and name are unchanged from the starter commit (the operator's name), and docs/README.md and docs/spec.md use exactly that name as the title."
       ]
     },
     {
