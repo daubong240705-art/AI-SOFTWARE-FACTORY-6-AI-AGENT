@@ -314,7 +314,7 @@ export const extra = {
   },
   previewUi: {
     button: 'Preview', title: 'Preview the game', help: 'Run the project from its latest integrated code on the Host and open the game to play it.',
-    open: 'Open the game', start: 'Start', restart: 'Restart with latest code', stop: 'Stop', close: 'Close', log: 'Preview log', error: 'Could not reach the Host. Try again.',
+    open: 'Play against bots', openLobby: 'Open the lobby (two tabs)', start: 'Start', restart: 'Restart with latest code', stop: 'Stop', close: 'Close', log: 'Preview log', error: 'Could not reach the Host. Try again.',
     states: { stopped: 'Stopped', preparing: 'Preparing the latest code…', installing: 'Installing dependencies…', starting: 'Starting…', running: 'Running', failed: 'Failed' },
   },
   knowledgeUi: {

@@ -1,3 +1,4 @@
+import { withBotAutoplay } from './studio/previewUrl';
 import { useEffect, useId, useRef, useState } from 'react';
 import { ExternalLink, Play, RotateCw, Square } from 'lucide-react';
 import type { PreviewStatus } from '@/api/readModels';
@@ -42,7 +43,8 @@ export function PreviewDialog({ store, projectId, onClose }: { store: Store; pro
         {status?.sha && <span className="font-mono text-xs text-muted-foreground">{status.sha.slice(0, 8)}</span>}</div>
       {status?.message && <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm [overflow-wrap:anywhere]">{status.message}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{t('previewUi.error')}</p>}
-      {state === 'running' && openUrl && <a href={openUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium hover:bg-secondary/70"><ExternalLink className="size-4" aria-hidden="true" />{t('previewUi.open')}</a>}
+      {state === 'running' && openUrl && <div className="flex flex-wrap items-center gap-3"><a href={withBotAutoplay(openUrl)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium hover:bg-secondary/70"><ExternalLink className="size-4" aria-hidden="true" />{t('previewUi.open')}</a>
+        <a href={openUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground underline underline-offset-4">{t('previewUi.openLobby')}</a></div>}
       {!!status?.log && <pre ref={log} aria-label={t('previewUi.log')} className="max-h-56 overflow-auto rounded-lg border border-border bg-muted/40 p-3 font-mono text-xs leading-5 whitespace-pre-wrap [overflow-wrap:anywhere]">{status.log}</pre>}
       <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
         <Button type="button" variant="ghost" onClick={onClose}>{t('previewUi.close')}</Button>

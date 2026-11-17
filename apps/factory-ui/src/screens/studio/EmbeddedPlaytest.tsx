@@ -1,3 +1,4 @@
+import { withBotAutoplay } from './previewUrl';
 import { useEffect, useRef, useState } from 'react';
 import { ExternalLink, Maximize2, Play, Square } from 'lucide-react';
 import type { PreviewStatus } from '@/api/readModels';
@@ -54,7 +55,7 @@ export function EmbeddedPlaytest({ store, projectId, gameName }: { store: Store;
     catch { if (mounted.current) setFullscreenError(true); }
   }
   const state = status?.state;
-  const url = state === 'running' ? status?.viewUrl ?? null : null;
+  const url = state === 'running' && status?.viewUrl ? withBotAutoplay(status.viewUrl) : null;
   const loading = !status && !error || pending || !!state && preparing.has(state);
   return <Card className="min-w-0 gap-4 p-4 sm:p-5">
     <div className="flex flex-wrap items-center gap-3">

@@ -329,7 +329,7 @@ export const extra: Translated<typeof en> = {
   },
   previewUi: {
     button: 'Xem thử', title: 'Xem thử game', help: 'Chạy dự án từ code đã tích hợp mới nhất trên Host rồi mở game để chơi thử.',
-    open: 'Mở game', start: 'Chạy', restart: 'Chạy lại với code mới nhất', stop: 'Dừng', close: 'Đóng', log: 'Nhật ký xem thử', error: 'Không kết nối được tới Host. Hãy thử lại.',
+    open: 'Chơi với bot', openLobby: 'Mở sảnh (chơi 2 thẻ)', start: 'Chạy', restart: 'Chạy lại với code mới nhất', stop: 'Dừng', close: 'Đóng', log: 'Nhật ký xem thử', error: 'Không kết nối được tới Host. Hãy thử lại.',
     states: { stopped: 'Đã dừng', preparing: 'Đang chuẩn bị code mới nhất…', installing: 'Đang cài thư viện…', starting: 'Đang khởi động…', running: 'Đang chạy', failed: 'Lỗi' },
   },
   knowledgeUi: {
