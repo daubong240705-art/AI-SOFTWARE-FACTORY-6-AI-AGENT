@@ -349,6 +349,7 @@ export const extra = {
     attempt: { 'lease-expired': 'Disconnected', unknown: 'Unknown result', reconciling: 'Reconciling', failed: 'Run failed' },
   },
   reviewUi: {
+    codeChanges: 'Show code changes',
     result: 'Result', activity: 'Recent activity', context: 'Context', documents: 'Handoff documents',
     history: 'Previous attempts', noChanges: 'This attempt did not change any files.',
     view: 'View', hide: 'Hide', showLess: 'Show less', changes: 'Changes', summary: 'Summary',

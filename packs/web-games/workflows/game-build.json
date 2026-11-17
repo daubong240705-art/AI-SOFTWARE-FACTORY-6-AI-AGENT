@@ -260,7 +260,7 @@
         "a clean `npm install` followed by `npm run check`, `npm test` and `npm run build` all exit 0, report the three exit codes",
         "a bot-versus-bot simulation over 50 seeds ends every match without an illegal move, and one human-versus-human match is played to a win and one to a draw or loss",
         "illegal actions are rejected: wrong turn, invalid or occupied target, a move after the match ended",
-        "in the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling (document scrollHeight is not larger than the window height and the whole board is visible) and a full match can be played",
+        "in the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling (open the preview at `/?autoplay=bot` (the starter then shows only the game frame, full page, and starts a bot match) and measure INSIDE the game iframe: its document scrollHeight is not larger than its window height and the whole board is visible. The lobby/host page around the game is not part of the game and is never measured) and a full match can be played",
         "multiplayer: two browser contexts stay in sync turn by turn and reloading one returns it to the same room and seat, or \"n/a\" with the reason for a game without multiplayer",
         "Motion check in the browser: right after a move document.getAnimations().length is above 0 and returns to 0 within 3 s; a random result (dice, draw) is not shown sooner than 800 ms after the action; with reduced motion emulated no animation runs; report each row of the Motion table in docs/spec.md as seen or missing (missing rows fail)."
       ],
@@ -290,7 +290,7 @@
       "acceptance": [
         "A clean npm install followed by npm run check, npm test and npm run build exits 0; report the three check, test and build exit codes.",
         "A bot-versus-bot run over 20 seeds ends every match without an illegal move; report the seed range and results.",
-        "In the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling and one match is played to the end.",
+        "In the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling (open the preview at `/?autoplay=bot` (the starter then shows only the game frame, full page, and starts a bot match) and measure INSIDE the game iframe: its document scrollHeight is not larger than its window height and the whole board is visible. The lobby/host page around the game is not part of the game and is never measured) and one match is played to the end.",
         "No file outside tests/ was changed by QA; report the changed paths (or none).",
         "After a move document.getAnimations().length is above 0 and returns to 0 within 3 s; report the rows of the docs/spec.md Motion table that were seen."
       ]

@@ -352,6 +352,7 @@ export const extra: Translated<typeof en> = {
     attempt: { 'lease-expired': 'Mất kết nối', unknown: 'Không rõ kết quả', reconciling: 'Đang đối soát', failed: 'Lần chạy thất bại' },
   },
   reviewUi: {
+    codeChanges: 'Xem thay đổi mã',
     result: 'Kết quả', activity: 'Hoạt động gần đây', context: 'Bối cảnh', documents: 'Tài liệu bàn giao',
     history: 'Các lần chạy trước', noChanges: 'Lần chạy này không thay đổi file nào.',
     view: 'Xem', hide: 'Ẩn', showLess: 'Thu gọn', changes: 'Thay đổi', summary: 'Tóm tắt',

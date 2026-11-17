@@ -17,3 +17,5 @@ Use only tools the Host offers; report BLOCKED with the missing tool's name. Rep
 Before finishing run `npm run check`, `npm test` and `npm run build`. Run `npm run play` once, check the page loads and stop it cleanly. Verify `dist/` includes game.json, the entry, rules.js and every referenced asset, with relative HTML script/style paths.
 
 End with a brief handoff: files, behaviours checked, commands with exit codes, preview URL and evidence, bundle contents, assumptions, failures and next owner. Never claim something was tested unless you ran it; label unchecked items unverified.
+
+Keep runs lean (every command output is re-read on each later step): dependencies are prepared before you start, so do not run `npm install`/`npm ci` unless `node_modules` is missing; run tests with a terse reporter (`npm test -- --test-reporter=dot`) and pipe long output through `tail -n 40`; never print whole logs, lockfiles, built bundles or minified files; read a file once and only the parts you need (search first); read only the skills your profile names.
