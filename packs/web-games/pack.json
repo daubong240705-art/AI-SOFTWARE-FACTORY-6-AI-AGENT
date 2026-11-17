@@ -115,7 +115,8 @@
     "skills/browser-game-testing",
     "skills/local-preview",
     "skills/game-art-direction",
-    "skills/game-juice"
+    "skills/game-juice",
+    "skills/motion-source"
   ],
   "leadWorkflow": "game-build",
   "workflows": [

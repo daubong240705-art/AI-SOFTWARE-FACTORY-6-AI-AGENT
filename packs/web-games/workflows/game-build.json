@@ -127,7 +127,7 @@
       ],
       "sideEffect": "code",
       "acceptance": [
-        "docs/spec.md exists, is under 120 lines and defines core rules, win/draw/lose conditions, player counts, screens, controls and bot behaviour with a numbered list of every test case.",
+        "docs/spec.md exists, is under 80 lines and defines core rules, win/draw/lose conditions, player counts, screens, controls and bot behaviour with a numbered list of every test case.",
         "src/types.ts exports the JSON-compatible State and Action types used by rules and client; game.json metadata, player limits and bot support match docs/spec.md.",
         "docs/spec.md has a Look and feel section: world, mood in three words, palette direction and the one memorable element.",
         "docs/README.md (under 40 lines: name, one-sentence pitch, players and bot, rules summary, controls, look and feel) is registered with output.register (kind requirements, text/markdown, abstractL0 = the one-sentence pitch); the operator reviews it before rules and art start.",
@@ -236,7 +236,7 @@
         "npm run check, npm test and npm run build each exit 0; report all three exit codes.",
         "npm run play serves the preview page, its ready URL returns HTTP 200 and the page loads; stop the preview cleanly after checking.",
         "dist/ contains game.json, its HTML entry, self-contained ESM rules.js and every referenced asset, and HTML loads main.js and theme.css relatively.",
-        "Every row of the Motion table in docs/spec.md is implemented with src/client/motion.ts (create it from skills/game-juice when missing): moved cards, pieces and chips fly from where they were to where they land, random results (dice, draws) show their suspense phase before the result, numbers count instead of jumping, opponent and bot moves animate too; effects end at rest, never block input over 150 ms, and are instant under prefers-reduced-motion."
+        "Every row of the Motion table in docs/spec.md is implemented with src/client/motion.ts (create it from skills/motion-source when missing): moved cards, pieces and chips fly from where they were to where they land, random results (dice, draws) show their suspense phase before the result, numbers count instead of jumping, opponent and bot moves animate too; effects end at rest, never block input over 150 ms, and are instant under prefers-reduced-motion."
       ],
       "includeIf": {
         "param": "runClient",

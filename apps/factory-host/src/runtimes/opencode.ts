@@ -62,7 +62,7 @@ export function promptFor(context: AttemptContext, maxBytes: number, token: stri
     "Work only inside the current directory.",
     "Do not commit or push or change git config.",
     "Do not touch files outside the task scope.",
-    "Run the project's own tests when they exist.",
+    "Run the project's own tests when your task changes code and they exist; follow your profile when it says which checks to run.",
     "Finish with a short summary of what changed and what was verified.",
     `Language: write everything the operator reads in ${operatorLanguage()} (task progress, criterion evidence, decision questions and options, the final summary, and documents written for the operator such as a README). Keep code, identifiers, code comments, file names, commands and quoted errors as they are, in English.`,
     "Tasks start by themselves and the Host accepts a clean result without asking the operator. Keep the result clean: change only files in scope and avoid symlinks, executable bits, .github workflow files, .git content and very large files, which send the result to the operator.",
