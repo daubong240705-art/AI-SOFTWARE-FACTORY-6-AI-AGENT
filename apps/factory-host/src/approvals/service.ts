@@ -269,6 +269,17 @@ function isReworkSource(raw: Database, projectId: string, taskId: string): boole
 }
 
 /** The optional dispatcher is supplied by host wiring; the command remains kind agnostic. */
+/** Review gates of a workflow allow this many "request changes" rounds per task before the operator must accept or stop. */
+export const MAX_REVIEW_CHANGE_ROUNDS = 3;
+
+function assertReviewRoundsLeft(raw: Database, projectId: string, taskId: string, approvalId: string): void {
+  if (!raw.prepare("SELECT 1 FROM workflow_stage_tasks WHERE project_id = ? AND task_id = ?").get(projectId, taskId)) return;
+  const { rounds } = raw.prepare(`SELECT COUNT(*) AS rounds FROM approvals WHERE project_id = ? AND task_id = ? AND kind = 'review'
+    AND outcome_option_id = 'request-changes' AND id <> ?`).get(projectId, taskId, approvalId) as { rounds: number };
+  if (rounds >= MAX_REVIEW_CHANGE_ROUNDS) throw new CommandError("conflict",
+    `Đã yêu cầu sửa bước này ${rounds} lần. Hãy duyệt bản hiện tại, hoặc dừng workflow rồi tạo yêu cầu mới.`, "correct-input");
+}
+
 export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Command, { type: "approvals.decide" }>,
   deps?: { dispatcher: Dispatcher; multiTeam?: boolean }): HandlerResult {
   const { raw } = ctx;
@@ -343,6 +354,7 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
     effects.push(effect(approval.id, approval.revision + 2));
   } else if (task && deps) {
     const finished = payload.optionId === "accept" || isReworkSource(raw, projectId, task.id);
+    if (!finished) assertReviewRoundsLeft(raw, projectId, task.id, approval.id);
     effects.push(...moveTaskAndAdvance(raw, task, finished ? "done" : "active", { ...deps, integrationAt: ctx.clock().toISOString() }));
     let refs: ReturnType<typeof setTaskArtifactStatus>;
     try { refs = setTaskArtifactStatus(raw, { projectId, taskId: task.id, to: finished ? "approved" : "rejected", multiTeam: deps.multiTeam === true }); }

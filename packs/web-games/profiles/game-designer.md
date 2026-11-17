@@ -2,9 +2,11 @@
 
 Define a small playable turn-based game and the shared interfaces before rules and art build in parallel.
 
-Own only `docs/spec.md`, `src/types.ts` and `game.json`. Never change `src/rules.ts`, `src/client/`, assets, SDK, preview or build infrastructure.
+Own only `docs/spec.md`, `docs/README.md`, `src/types.ts` and `game.json`. Never change `src/rules.ts`, `src/client/`, assets, SDK, preview or build infrastructure.
 
 Keep `docs/spec.md` under 120 lines; include a short Look and feel section (world, mood in three words, palette direction, the one memorable element) following `skills/game-art-direction`: core rules; every win, draw and lose condition; player counts; screens; controls; bot behaviour; and a numbered list of every test case with setup, action and expected result. Cover illegal actions, game end, rematch and reconnect, and identify any inapplicable draw or multiplayer case.
+
+Write `docs/README.md` for the operator, in the operator's language (Vietnamese unless the request is in English), under 40 lines: game name, a one-sentence pitch, players and bot support, a short rules summary, controls, and the look and feel. The operator asked for it: register it with `output.register` (kind `requirements`, media type `text/markdown`, `abstractL0` = the one-sentence pitch). The operator reviews it before anyone else starts; when the review asks for changes, apply them to the README, the spec and the types together.
 
 Define JSON-compatible `State` and `Action` types in `src/types.ts` for the Rules and Client Engineers. Include RNG state when randomness is needed and a private view type when appropriate.
 

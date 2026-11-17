@@ -82,6 +82,16 @@ function collect(deps: NotificationDeps, projectId: string, now: Date, offset: n
       title: "Phát hành chưa xác nhận", body: "Chưa xác nhận được bản phát hành, cần đối soát.", entity: { kind: "release", id: row.id } });
   }
 
+  const portalActions = raw.prepare("SELECT id,approval_id,game_id,action,state,version,result_json FROM portal_actions WHERE project_id=? AND state IN ('done','failed','unknown')").all(projectId) as { id: string; approval_id: string; game_id: string; action: string; state: string; version: number | null; result_json: string | null }[];
+  for (const row of portalActions) {
+    const result = row.result_json ? JSON.parse(row.result_json) as { version?: number | null } : {};
+    const title = row.state === "done" ? `Đã ${row.action === "publish" ? "publish" : row.action === "disable" ? "tắt" : row.action === "enable" ? "bật" : "đổi bản"} ${row.game_id}${result.version ?? row.version ? ` v${result.version ?? row.version}` : ""}`
+      : row.state === "unknown" ? `Chưa xác nhận: ${row.game_id}` : `Không làm được: ${row.game_id}`;
+    add({ dedupKey: notificationKey("portal-action", row.id, row.state), category: row.state === "done" ? "important" : "action", urgency: row.state === "done" ? "normal" : "urgent", title,
+      body: row.state === "unknown" ? "Mở Game trên Portal và chọn Kiểm tra lại; không tự gửi lại." : title,
+      entity: { kind: "approval", id: row.approval_id } });
+  }
+
   const standing = raw.prepare("SELECT id,expires_at FROM standing_approvals WHERE project_id=? AND state='active' ORDER BY id")
     .all(projectId) as { id: string; expires_at: string }[];
   for (const row of standing) {

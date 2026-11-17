@@ -31,13 +31,16 @@ export const packManifestSchema = z.strictObject({
   workflows: z.array(relativePathSchema.refine((path) => path.endsWith(".json"), "Expected a .json workflow"))
     .max(8).refine((paths) => new Set(paths.map((path) => path.replaceAll("\\", "/"))).size === paths.length, "duplicate workflow").optional(),
   leadWorkflow: workflowKeySchema.optional(),
-  produces: z.array(artifactKindSchema).max(13).refine((values) => new Set(values).size === values.length,
+  leadPortal: z.boolean().optional(),
+  produces: z.array(artifactKindSchema).max(14).refine((values) => new Set(values).size === values.length,
     "duplicate artifact kind").optional(),
 }).superRefine((manifest, ctx) => {
   if (new Set(manifest.seats.map((seat) => seat.name)).size !== manifest.seats.length)
     ctx.addIssue({ code: "custom", path: ["seats"], message: "Duplicate seat name" });
   if (manifest.seats.filter((seat) => seat.isLead).length !== 1)
     ctx.addIssue({ code: "custom", path: ["seats"], message: "A pack must have exactly one lead seat" });
+  if (manifest.leadWorkflow !== undefined && manifest.leadPortal === true)
+    ctx.addIssue({ code: "custom", path: ["leadPortal"], message: "leadPortal and leadWorkflow are mutually exclusive" });
 });
 
 export type LoadedPack = {

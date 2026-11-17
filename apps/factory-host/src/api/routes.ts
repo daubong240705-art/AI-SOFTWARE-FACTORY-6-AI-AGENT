@@ -391,7 +391,7 @@ export function createRoutes(deps: {
       const hash = isApproval && request.session ? createHash("sha256").update(request.session.id).digest("hex") : undefined;
       const actorId = hash === undefined ? undefined
         : `${hash.slice(0, 8)}-${hash.slice(8, 12)}-8${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
-      const r = deps.pipeline.execute(request.body, actorId);
+      const r = deps.pipeline.execute(request.body, actorId, true);
       try {
         const body = request.body;
         if (typeof body === "object" && body !== null && "type" in body && typeof body.type === "string")

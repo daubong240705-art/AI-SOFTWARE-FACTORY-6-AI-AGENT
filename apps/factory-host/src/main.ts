@@ -107,7 +107,7 @@ try {
   const loginToken = process.env.FACTORY_LOGIN_TOKEN || undefined;
   if (loginToken !== undefined && (loginToken.length < 24 || /\s/.test(loginToken))) throw new Error("FACTORY_LOGIN_TOKEN must be at least 24 characters without whitespace");
   delete process.env.FACTORY_LOGIN_TOKEN;
-  const host = await startHost({ ...hostOptions, portal, notify,
+  const host = await startHost({ ...hostOptions, portal, portalConfigured: Boolean(process.env.FACTORY_PORTAL_URL), notify,
     ...(listenHost === undefined ? {} : { listenHost }), ...(allowedHosts.length ? { allowedHosts } : {}), ...(loginToken === undefined ? {} : { loginToken }), dispatch, workspace, modelGateway, modelProxy, budgetConfig, lead, runtimes, pushRemotes,
     localCli: { enabled: localCli, ...(cliPassEnv === undefined ? {} : { passEnv: cliPassEnv }) },
     ...(agentProxy === undefined ? {} : { agentModels: agentProxy.approvedModels }),

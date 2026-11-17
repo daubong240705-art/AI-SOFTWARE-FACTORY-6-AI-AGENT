@@ -18,6 +18,7 @@ export type ArtifactRef = z.infer<typeof artifactRefSchema>;
 
 export const artifactKindSchema = z.enum([
   "research-report",
+  "report",
   "requirements",
   "adr",
   "data-model",

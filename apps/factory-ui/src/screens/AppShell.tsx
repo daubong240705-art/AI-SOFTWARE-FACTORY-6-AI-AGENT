@@ -1,3 +1,4 @@
+import { PortalGames } from './PortalGames';
 import { shallowSelectionEqual } from '@/state/storeSelector';
 import { MascotEmpty } from '@/components/mascot';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
@@ -64,14 +65,15 @@ export function AppShell({ store }: { store: Store }) {
   function newTask() { setInitialTask(null); setFocusComposer(value => value + 1); go('overview'); }
   function openTask(projectId: string, taskId: string) { setInitialTask({ projectId, taskId }); navigate(`project:${projectId}`, 'board'); setExpanded(false); }
   const navigation = <Sidebar store={store} view={view} collapsed={collapsed && !compact} compact={compact} expanded={expanded} onNavigate={go} onCollapse={() => compact ? setExpanded(false) : setCollapsed(value => !value)} />;
-  const pageName = selected?.name ?? t(view === 'needs-attention' ? 'nav.attention' : view === 'team' ? 'nav.team' : view === 'system' ? 'systemUi.title' : 'nav.overview');
+  const pageName = selected?.name ?? (view === 'portal' ? t('portalUi.games') : t(view === 'needs-attention' ? 'nav.attention' : view === 'team' ? 'nav.team' : view === 'system' ? 'systemUi.title' : 'nav.overview'));
   return <div className={`app${collapsed && !compact ? ' sidebar-collapsed' : ''}`}>
     <a className="skip-link" href="#factory-main" onClick={event => { event.preventDefault(); main.current?.focus(); }}>{t('nav.skip')}</a>
     <TooltipProvider>{!compact && navigation}<TopBar store={store} compact={compact} expanded={expanded} onToggle={() => setExpanded(value => !value)} onCreate={create} onProject={id => go(`project:${id}`)} onTask={openTask} />
     {compact && expanded && <Dialog labelledBy="navigation-title" onClose={() => setExpanded(false)} className="navigation-overlay"><h2 id="navigation-title" className="sr-only">{t('nav.main')}</h2>{navigation}</Dialog>}
     <main ref={main} id="factory-main" className={`content p-0${view === 'needs-attention' ? ' attention-content' : view.startsWith('project:') ? ' project-content' : ''}`} tabIndex={-1} aria-label={pageName} inert={compact && expanded}>
       <Reveal key={view} className="h-full min-h-0">
-      {view === 'overview' ? <Overview store={store} onOpenProject={id => go(`project:${id}`)} onProject={id => { setChatProject(id); go(`project:${id}`); }} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} focusComposer={focusComposer} onTask={openTask} />
+      {view === 'overview' ? <Overview onPortal={() => go('portal')} store={store} onOpenProject={id => go(`project:${id}`)} onProject={id => { setChatProject(id); go(`project:${id}`); }} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} focusComposer={focusComposer} onTask={openTask} />
+        : view === 'portal' ? <PortalGames store={store} />
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} tab={teamTab} onTabChange={next => navigate('team', 'overview', next)} onTask={openTask} />
         : view === 'system' ? <System store={store} />

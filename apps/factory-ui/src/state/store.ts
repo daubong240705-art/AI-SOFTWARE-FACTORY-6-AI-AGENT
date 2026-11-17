@@ -929,6 +929,8 @@ export function createStore(options: StoreOptions = {}) {
     knowledgeTimer: timer,
     uploadDocument,
     resetDocumentUpload: () => { if (!state.knowledge.upload.busy) update(knowledgePatch({ upload: emptyUpload() })); },
+    getPortal: api.getPortal, portalGames: api.portalGames, portalStats: api.portalStats, portalAudit: api.portalAudit,
+    portalActions: api.portalActions, proposePortalAction: api.proposePortalAction, reconcilePortalAction: api.reconcilePortalAction,
     getPreview: api.getPreview, startPreview: api.startPreview, stopPreview: api.stopPreview,
     createGame: api.createGame, listReleases: api.listReleases, publishGame: api.publishGame,
     listGames: api.listGames, getGameReport: api.getGameReport,

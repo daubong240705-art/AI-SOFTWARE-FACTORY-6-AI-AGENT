@@ -43,6 +43,12 @@ function inputsBlock(context: AttemptContext, redact: (text: string) => string):
     + lines.join("\n")), 6000);
 }
 
+/** Language for text the operator reads; FACTORY_OPERATOR_LANGUAGE (for example "English") overrides the default. */
+export function operatorLanguage(): string {
+  const value = process.env.FACTORY_OPERATOR_LANGUAGE?.trim() ?? "";
+  return /^[A-Za-z][A-Za-z -]{1,30}$/.test(value) ? value : "Vietnamese";
+}
+
 export function promptFor(context: AttemptContext, maxBytes: number, token: string): string {
   const redact = (text: string): string => text.replaceAll(token, "[redacted]").replace(/fpx_[A-Za-z0-9_-]+/g, "[redacted]");
   const prompt = redact([
@@ -58,6 +64,7 @@ export function promptFor(context: AttemptContext, maxBytes: number, token: stri
     "Do not touch files outside the task scope.",
     "Run the project's own tests when they exist.",
     "Finish with a short summary of what changed and what was verified.",
+    `Language: write everything the operator reads in ${operatorLanguage()} (task progress, criterion evidence, decision questions and options, the final summary, and documents written for the operator such as a README). Keep code, identifiers, code comments, file names, commands and quoted errors as they are, in English.`,
     "Tasks start by themselves and the Host accepts a clean result without asking the operator. Keep the result clean: change only files in scope and avoid symlinks, executable bits, .github workflow files, .git content and very large files, which send the result to the operator.",
     "Factory tools: factory_task_progress (call it at meaningful milestones, short summary) and factory_output_register (only for a document explicitly requested by the operator in the task scope, register it with its workspace-relative path, a title, a kind and a one-sentence abstract). Never include secrets in them.",
     "Document policy (overrides profiles and skills): create and register documents only when the operator explicitly requests them, such as an SRD. Source code, diffs, test output, task summaries and routine handoffs stay in the workspace or task progress; do not publish them as documents.",

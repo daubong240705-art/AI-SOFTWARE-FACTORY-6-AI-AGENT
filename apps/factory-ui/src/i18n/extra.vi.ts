@@ -2,6 +2,12 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  portalUi: {
+    title: 'Quản trị Portal', games: 'Game trên Portal', chat: 'Chat với Quản trị Portal', description: 'Thống kê toàn Portal và đề xuất thay đổi để bạn phê duyệt.',
+    enabled: 'Bật', disabled: 'Tắt', version: 'Bản', matches: 'Trận', last7: 'Trận 7 ngày', rooms: 'Phòng trực tiếp', online: 'Đang online', players: 'Người chơi', botWins: 'Thắng bot', draws: 'Hòa', duration: 'Thời lượng TB (giây)', game: 'Game', id: 'Mã game', all: 'Tất cả game', days7: '7 ngày', days30: '30 ngày', period: 'Khoảng thời gian',
+    enable: 'Đề xuất bật', disable: 'Đề xuất tắt', setVersion: 'Đề xuất đổi bản', publish: 'Đề xuất publish', reason: 'Lý do (tùy chọn)', attention: 'Mở Cần chú ý để duyệt', proposed: 'Đã tạo đề xuất. Portal đang chờ bạn duyệt.', error: 'Không thực hiện được yêu cầu. Kiểm tra kết nối, game, phiên bản, đề xuất đang mở và điều kiện publish.', refresh: 'Làm mới', audit: 'Nhật ký Portal', actions: 'Thao tác Portal', empty: 'Chưa có dữ liệu.', reconcile: 'Kiểm tra lại', state: 'Trạng thái', at: 'Thời điểm', actor: 'Người thực hiện', action: 'Thao tác', daily: 'Trận mỗi ngày', registered: 'Đã đăng ký', guests: 'Khách', newUsers: 'Người mới',
+    states: { proposed: 'Chờ duyệt', rejected: 'Đã từ chối', running: 'Đang thực hiện', done: 'Hoàn tất', failed: 'Thất bại', unknown: 'Chưa xác nhận' },
+  },
   studioUi: {
     title: 'Xưởng game', hero: 'Cùng đội tạo game, chơi thử và làm game hay hơn mỗi ngày.', games: 'Game của bạn',
     empty: 'Bắt đầu với game đầu tiên. Hãy kể cho đội nghe game bạn muốn chơi.', loadError: 'Không tải được danh sách game.',
@@ -356,7 +362,7 @@ export const extra: Translated<typeof en> = {
     provenance: 'Nguồn gốc', inputs: 'Được tạo từ', dependants: 'Được dùng bởi', noRefs: 'Không có.',
     visibility: { 'team-draft': 'Nháp của đội', project: 'Cả dự án', shared: 'Toàn tổ chức' },
     statuses: { draft: 'Bản nháp', 'in-review': 'Đang xét duyệt', reviewed: 'Đã xét duyệt', approved: 'Đã phê duyệt', superseded: 'Đã thay thế', rejected: 'Đã từ chối', withdrawn: 'Đã rút lại' },
-    kinds: { 'research-report': 'Báo cáo nghiên cứu', requirements: 'Yêu cầu', adr: 'Quyết định kiến trúc', 'data-model': 'Mô hình dữ liệu', 'api-contract': 'Hợp đồng API', 'ui-spec': 'Đặc tả giao diện', 'design-asset': 'Tài nguyên thiết kế', media: 'Đa phương tiện', 'code-ref': 'Tham chiếu mã nguồn', dataset: 'Tập dữ liệu', dossier: 'Hồ sơ', plan: 'Kế hoạch', other: 'Khác' },
+    kinds: { report: 'Báo cáo Portal', 'research-report': 'Báo cáo nghiên cứu', requirements: 'Yêu cầu', adr: 'Quyết định kiến trúc', 'data-model': 'Mô hình dữ liệu', 'api-contract': 'Hợp đồng API', 'ui-spec': 'Đặc tả giao diện', 'design-asset': 'Tài nguyên thiết kế', media: 'Đa phương tiện', 'code-ref': 'Tham chiếu mã nguồn', dataset: 'Tập dữ liệu', dossier: 'Hồ sơ', plan: 'Kế hoạch', other: 'Khác' },
   },
   inboxUi: {
     inbox: 'Hộp thư', title: 'Cần bạn xử lý', count: { one: 'mục cần xử lý', other: 'mục cần xử lý' },

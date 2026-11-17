@@ -1,4 +1,4 @@
-import { taskProposeInputSchema, type TaskProposeInput } from "@factory/contracts";
+import { portalBlockSchema, type PortalBlock, taskProposeInputSchema, type TaskProposeInput } from "@factory/contracts";
 import { z } from "zod";
 import { normalizePlan, parseLenientJson } from "./normalize-plan.js";
 
@@ -61,12 +61,45 @@ function readCsv(body: string): LeadCsv | string {
   return { fileName: `${base || "plan"}.csv`, text: `${text}\n` };
 }
 
-export function parseLeadOutput(text: string, intent: "discuss" | "delegate", protocol: "plan" | "game" = "plan"): {
+export function parseLeadOutput(text: string, intent: "discuss" | "delegate", protocol: "plan" | "game" | "portal" = "plan"): {
   reply: string; plan: TaskProposeInput | null; note: string | null; csv: LeadCsv | null;
   game: LeadGame | null; task: LeadTask | null;
   /** Full task text per plan entry (goal plus anything shortened), stored as each task's brief. */
   briefs: string[];
+  portal: PortalBlock[];
 } {
+  if (protocol === "portal") {
+    const portal: PortalBlock[] = [], notes: string[] = [];
+    let reply = "", cursor = 0, count = 0;
+    // Reuse the outer-fence scan: embedded examples must never execute.
+    let fence: { marker: string; length: number; start: number; body: number; portal: boolean } | null = null;
+    for (const match of text.matchAll(/[^\n]*(?:\n|$)/g)) {
+      const line = match[0].replace(/\r?\n$/, ""), offset = match.index;
+      if (fence) {
+        const close = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(line);
+        if (close?.[1]?.startsWith(fence.marker) && close[1].length >= fence.length) {
+          if (fence.portal) {
+            reply += text.slice(cursor, fence.start); cursor = offset + match[0].length;
+            count++;
+            try {
+              const block = portalBlockSchema.parse(JSON.parse(text.slice(fence.body, offset)) as unknown);
+              if (count <= 5) portal.push(block);
+            } catch { notes.push(`Khối factory-portal thứ ${count} không hợp lệ; chưa thực hiện.`); }
+          }
+          fence = null;
+        }
+      } else {
+        const open = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+        if (open?.[1]) fence = { marker: open[1][0]!, length: open[1].length, start: offset, body: offset + match[0].length,
+          portal: open[1].startsWith("`") && open[2]?.trim() === "factory-portal" };
+      }
+    }
+    if (fence?.portal) { reply += text.slice(cursor, fence.start); cursor = text.length; notes.push("Khối factory-portal chưa đóng; chưa thực hiện."); }
+    if (count > 5) { portal.length = 0; notes.push("Tối đa 5 khối factory-portal mỗi lượt; chưa thực hiện khối nào."); }
+    reply += text.slice(cursor);
+    return { reply: (reply.trim() || "Đã gửi yêu cầu Portal để Host kiểm tra.").slice(0, 60000), portal,
+      plan: null, game: null, task: null, briefs: [], csv: null, note: notes.join("\n") || null };
+  }
   const blocks: Array<{ start: number; end: number; json: string }> = [];
   const csvBlocks: Array<{ start: number; end: number; body: string }> = [];
   const gameBlocks: Array<{ start: number; end: number; json: string }> = [];
@@ -124,7 +157,7 @@ export function parseLeadOutput(text: string, intent: "discuss" | "delegate", pr
       else game = parsed.data;
     }
     return { reply: (reply || (game || task ? "I sent the request to the Host." : "I have no answer for that.")).slice(0, 60_000),
-      plan: null, briefs: [], csv: null, game, task, note };
+      portal: [], plan: null, briefs: [], csv: null, game, task, note };
   }
   let csv: LeadCsv | null = null;
   let csvNote: string | null = null;
@@ -153,5 +186,5 @@ export function parseLeadOutput(text: string, intent: "discuss" | "delegate", pr
     }
   }
   if (!reply) reply = plan ? `I proposed ${plan.tasks.length} task(s) for your review.` : csv ? `I wrote the plan file ${csv.fileName}.` : "I have no answer for that.";
-  return { reply: reply.slice(0, 60_000), plan, briefs, note: [note, csvNote, taskNote].filter((value) => value !== null).join("; ") || null, csv, game: null, task };
+  return { reply: reply.slice(0, 60_000), portal: [], plan, briefs, note: [note, csvNote, taskNote].filter((value) => value !== null).join("; ") || null, csv, game: null, task };
 }

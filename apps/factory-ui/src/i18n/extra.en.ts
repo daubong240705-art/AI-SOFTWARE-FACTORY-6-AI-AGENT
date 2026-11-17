@@ -1,4 +1,10 @@
 export const extra = {
+  portalUi: {
+    title: 'Portal management', games: 'Games on Portal', chat: 'Chat with Portal Manager', description: 'Portal statistics and proposed changes for your approval.',
+    enabled: 'Enabled', disabled: 'Disabled', version: 'Version', matches: 'Matches', last7: '7-day matches', rooms: 'Live rooms', online: 'Online users', players: 'Players', botWins: 'Bot wins', draws: 'Draws', duration: 'Average duration (seconds)', game: 'Game', id: 'Game ID', all: 'All games', days7: '7 days', days30: '30 days', period: 'Period',
+    enable: 'Propose enable', disable: 'Propose disable', setVersion: 'Propose version change', publish: 'Propose publish', reason: 'Reason (optional)', attention: 'Open Need attention to approve', proposed: 'Proposal created. Portal is waiting for your approval.', error: 'Could not complete the request. Check the connection, game, version, open proposals and publish preconditions.', refresh: 'Refresh', audit: 'Portal audit', actions: 'Portal actions', empty: 'No data yet.', reconcile: 'Check again', state: 'State', at: 'Time', actor: 'Actor', action: 'Action', daily: 'Matches per day', registered: 'Registered', guests: 'Guests', newUsers: 'New users',
+    states: { proposed: 'Proposed', rejected: 'Rejected', running: 'Running', done: 'Done', failed: 'Failed', unknown: 'Unknown' },
+  },
   studioUi: {
     title: 'Game studio', hero: 'Create a game, play it, and make it better with your team.', games: 'Your games',
     empty: 'Your first game starts here. Tell the team what you want to play.', loadError: 'Could not load your games.',
@@ -341,7 +347,7 @@ export const extra = {
     provenance: 'Provenance', inputs: 'Built from', dependants: 'Used by', noRefs: 'None.',
     visibility: { 'team-draft': 'Team draft', project: 'Whole project', shared: 'Whole organization' },
     statuses: { draft: 'Draft', 'in-review': 'In review', reviewed: 'Reviewed', approved: 'Approved', superseded: 'Superseded', rejected: 'Rejected', withdrawn: 'Withdrawn' },
-    kinds: { 'research-report': 'Research report', requirements: 'Requirements', adr: 'Architecture decision', 'data-model': 'Data model', 'api-contract': 'API contract', 'ui-spec': 'UI specification', 'design-asset': 'Design asset', media: 'Media', 'code-ref': 'Code reference', dataset: 'Dataset', dossier: 'Dossier', plan: 'Plan', other: 'Other' },
+    kinds: { report: 'Portal report', 'research-report': 'Research report', requirements: 'Requirements', adr: 'Architecture decision', 'data-model': 'Data model', 'api-contract': 'API contract', 'ui-spec': 'UI specification', 'design-asset': 'Design asset', media: 'Media', 'code-ref': 'Code reference', dataset: 'Dataset', dossier: 'Dossier', plan: 'Plan', other: 'Other' },
   },
   inboxUi: {
     inbox: 'Inbox', title: 'Needs attention', count: { one: 'item needing attention', other: 'items needing attention' },

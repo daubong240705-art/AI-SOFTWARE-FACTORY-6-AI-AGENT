@@ -1,3 +1,4 @@
+import { portalResponseSchema, portalJoinedGamesResponseSchema, portalStatsResponseSchema, portalAuditResponseSchema, portalActionsResponseSchema, portalActionResponseSchema, portalActionRequestSchema, type PortalActionRequest } from "@factory/contracts";
 import { officeReadModel } from './officeModels';
 import { m3Models } from './m3Models';
 import { agentClisModel } from './agentRuntime';
@@ -158,6 +159,13 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     async session() { const result = await request('/auth/session', auth); csrfToken = result.csrfToken; return result; },
     async logout() { const result = await request('/auth/logout', ok, {}); csrfToken = null; return result; },
     listProjects: () => request('/projects', projects),
+    getPortal: () => request('/portal', portalResponseSchema),
+    portalGames: () => request('/portal/games', portalJoinedGamesResponseSchema),
+    portalStats: (query: { game?: string; from?: string; to?: string } = {}) => request(`/portal/stats?${new URLSearchParams(query)}`, portalStatsResponseSchema),
+    portalAudit: (game?: string) => request(`/portal/audit?${new URLSearchParams(game ? { game, limit: '30' } : { limit: '30' })}`, portalAuditResponseSchema),
+    portalActions: () => request('/portal/actions', portalActionsResponseSchema),
+    proposePortalAction: (body: PortalActionRequest) => request('/portal/actions', portalActionResponseSchema, portalActionRequestSchema.parse(body)),
+    reconcilePortalAction: (id: string) => request(`/portal/actions/${encodeURIComponent(id)}/reconcile`, portalActionResponseSchema, {}),
     listGames: (signal?: AbortSignal) => request('/games', gamesResponseSchema, undefined, false, signal),
     getGameReport: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/game-report`, gameReportResponseSchema, undefined, false, signal),
     createGame: (body: NewGameRequest) => request('/games', newGameResponseSchema, newGameRequestSchema.parse(body)),

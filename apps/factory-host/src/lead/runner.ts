@@ -56,6 +56,7 @@ function namedDocuments(raw: Database, store: ContentStore, projectId: string, u
   return documents;
 }
 import { leadGameStages, normalizeLeadGame, parseLeadOutput, type LeadGameParams } from "./protocol.js";
+import type { PortalOpsService } from "../portalops/service.js";
 import { prepareLeadView } from "./view.js";
 
 export interface LeadConfig {
@@ -82,6 +83,7 @@ export function createLeadRunner(deps: {
   startWorkflow?: (input: { projectId: string; definitionKey: string; packKey: string; params: LeadGameParams; title: string }) => "started" | "already-running";
   /** Wake dispatch after an accepted quick task has been made ready. */
   onTaskReady?: () => void;
+  portalOps?: Pick<PortalOpsService, "context" | "blocks">;
 }): LeadRunner {
   const { raw } = deps.storage;
   const { hub, gateway } = deps;
@@ -151,6 +153,8 @@ export function createLeadRunner(deps: {
         .get(lead.id) as { manifest: string } | undefined : undefined;
       const manifest = packRow ? packManifestSchema.parse(JSON.parse(packRow.manifest) as unknown) : undefined;
       const leadWorkflow = manifest?.leadWorkflow;
+      const leadPortal = manifest?.leadPortal === true;
+      const portalContext = leadPortal ? await deps.portalOps?.context() ?? "Portal chưa được cấu hình." : "";
       const userText = history.filter((message) => message.speaker === "user").map((message) => message.text).join("\n");
       const documents = deps.documents ? namedDocuments(raw, deps.documents.store, turn.projectId, userText) : [];
       const references = (raw.prepare(`SELECT v.artifact_id AS artifactId, v.title, v.media_type AS mediaType, v.abstract_l1 AS note
@@ -161,7 +165,7 @@ export function createLeadRunner(deps: {
       // The Lead inspects the latest integrated code read-only; without a Git workspace it plans without tools.
       const view = deps.viewRoot && gateway?.providerId === "claude-cli" && project.workspace.kind === "git"
         ? await prepareLeadView(deps.viewRoot, turn.projectId, project.workspace.root) : null;
-      const built = buildLeadRequest({ profileText, ...(view ? { view } : {}),
+      const built = buildLeadRequest({ profileText, leadPortal, portalContext, ...(view ? { view } : {}),
         ...(leadWorkflow === undefined ? {} : { leadWorkflow }),
         project: { name: project.name, workspaceRoot: project.workspace.root }, seats, tasks: listTasks(raw, turn.projectId),
         history, intent, config, documents, references });
@@ -192,7 +196,7 @@ export function createLeadRunner(deps: {
             usage: result.usage, estimatedTokens: built.estimateTokens, recordedAt: clock().toISOString() }));
         return;
       }
-      const parsed = parseLeadOutput(result.text, intent, leadWorkflow === undefined ? "plan" : "game");
+      const parsed = parseLeadOutput(result.text, intent, leadPortal ? "portal" : leadWorkflow === undefined ? "plan" : "game");
       hub.transaction(() => {
         const now = clock().toISOString();
         recordUsage(raw, { id: newId(), projectId: turn.projectId, taskId, attemptId: null,
@@ -254,6 +258,10 @@ export function createLeadRunner(deps: {
         setTurnState(raw, turn.projectId, turn.id, "done", { now, replyMessageId: message.id });
         for (const task of tasks) event(turn, { type: "entity.changed", entity: { kind: "task", id: task.id, revision: task.revision } });
       });
+      if (parsed.portal.length && deps.portalOps) {
+        try { await deps.portalOps.blocks(parsed.portal, conversation.id); }
+        catch { hub.transaction(() => systemMessage(turn, "Không xử lý được yêu cầu Portal. Chưa tự gửi lại; hãy kiểm tra trạng thái thao tác.", clock().toISOString())); }
+      }
     } catch (error) {
       const kind = calling && error instanceof ModelError ? error.kind : "internal";
       const uncertain = ["timeout", "unavailable", "bad-response", "cancelled"].includes(kind);

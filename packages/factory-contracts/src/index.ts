@@ -28,3 +28,4 @@ export * from "./rules.js";
 export * from "./notifications.js";
 export * from "./standing.js";
 export * from "./games.js";
+export * from "./portal.js";

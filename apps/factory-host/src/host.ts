@@ -69,6 +69,11 @@ import { createPreviewService, type PreviewService } from "./preview/service.js"
 import { registerPreviewRoutes } from "./preview/routes.js";
 import { createPublishService, type PublishService, type PortalConfig } from "./publish/service.js";
 import { registerPublishRoutes } from "./publish/routes.js";
+import { withPortalDecision } from "./portalops/decisions.js";
+import { createPortalOpsService, type PortalOpsService } from "./portalops/service.js";
+import { registerPortalOpsRoutes } from "./portalops/routes.js";
+import { ensurePortalProject } from "./portalops/project.js";
+import { registryPack } from "./org/registry.js";
 import { createGameService } from "./games/create.js";
 import { registerGameRoutes } from "./games/routes.js";
 import { registerDocumentRoutes } from "./artifacts/routes.js";
@@ -275,6 +280,7 @@ export async function startHost(options: {
   pushRemotes?: PushRemote[] | null;
   pushSshCommand?: string;
   portal?: PortalConfig | null;
+  portalConfigured?: boolean;
   monitorStatfs?: MonitorDeps["statfs"];
   timers?: Timers;
   stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
@@ -313,6 +319,7 @@ export async function startHost(options: {
   validatePushSshCommand(options.pushSshCommand);
   const pushRemotes = options.pushRemotes?.length
     ? parsePushRemotes(options.pushRemotes.map((remote) => `${remote.name}=${remote.url}`).join(",")) : null;
+  const portalConfigured = options.portalConfigured ?? Boolean(options.portal);
   const clock = options.clock ?? systemClock;
   const routeBreaker = options.modelProxy ? createRouteBreaker({ clock }) : undefined;
   const mcpServers = options.mcpServers === undefined ? undefined : parseMcpServers(options.mcpServers);
@@ -342,6 +349,7 @@ export async function startHost(options: {
   let extractions: ExtractionService | undefined;
   let previews: PreviewService | undefined;
   let publishing: PublishService | undefined;
+  let portalOps: PortalOpsService | undefined;
   let localMcp: FastifyInstance | undefined;
   let localTokens: TokenRegistry | undefined;
   let localMcpUrl: string | undefined;
@@ -360,6 +368,7 @@ export async function startHost(options: {
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
       await previews?.close();
       await publishing?.close();
+      await portalOps?.stop();
       await extractions?.close();
       await effects?.close();
       await localMcp?.close();
@@ -407,8 +416,9 @@ export async function startHost(options: {
     const pack = options.packDir ? loadPack(options.packDir) : namedPack(defaultKey);
     const packs = options.packKeys === undefined ? loadPackRegistry(packsDir, {
       defaultPack: pack, onError: (message) => { console.error(message); },
-    }) : [...new Set([...options.packKeys, pack.manifest.key])].sort().map((key) =>
+    }) : [...new Set([...options.packKeys, pack.manifest.key, ...(portalConfigured ? ["portal-ops"] : [])])].sort().map((key) =>
       registryEntry(key === pack.manifest.key ? pack : namedPack(key), key === pack.manifest.key));
+    if (portalConfigured && !packs.some(p => p.key === "portal-ops")) packs.push(registryEntry(namedPack("portal-ops")));
     unlockState = lockStateDirectory(stateDir);
     storage = openStorage(join(stateDir, "host.db"));
     storage.migrate({
@@ -533,7 +543,9 @@ export async function startHost(options: {
     };
     const leadSeat = pack.manifest.seats.find((seat) => seat.isLead);
     if (!leadSeat) throw new Error("Pack has no Lead seat");
-    runner = createLeadRunner({ storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
+    portalOps = createPortalOpsService({ raw: approvalRaw, hub, clock, publish: publishing, configured: portalConfigured,
+      documents: { store: artifacts.store, config: documentConfig, afterRegister } });
+    runner = createLeadRunner({ portalOps, storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
       documents: { store: artifacts.store, config: documentConfig, afterRegister },
       viewRoot: join(stateDir, "lead-view"),
       profileText: readFileSync(join(pack.dir, leadSeat.profile), "utf8"),
@@ -767,6 +779,7 @@ export async function startHost(options: {
       projectsRootGuard = (root) => { try { assertInside(guardRoots.projectsRoot, root); return true; } catch { return false; } };
     }
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
+      "portal-ops.apply": portalOps.handler,
       ...createNotificationHandlers(),
       ...createStandingApprovalHandlers(),
       ...createRuleHandlers({ packs }),
@@ -783,12 +796,19 @@ export async function startHost(options: {
       "budgets.set": budgetsSetHandler,
       "autonomy.set": setAutonomyHandler,
       "models.set": modelsSetHandler,
-      "approvals.decide": withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: options.multiTeam === true })),
+      "approvals.decide": withPortalDecision(withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: options.multiTeam === true }))),
         ...createKnowledgeHandlers({ multiTeam: options.multiTeam ?? false }),
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
       ...dispatchHandlers,
       "tasks.transition": withKnowledgeEffects(dispatchHandlers["tasks.transition"] ?? tasksTransitionHandler),
     } });
+    if (portalConfigured) {
+      const portalPack = packs.find(p => p.key === "portal-ops");
+      if (!portalPack) throw new Error("Portal pack unavailable.");
+      await ensurePortalProject({ storage, hub, clock, pack: registryPack(portalPack),
+        projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") });
+    }
+    portalOps.start(pipeline);
     const listenHost = options.listenHost ?? "127.0.0.1";
     const networked = !isLoopbackHost(listenHost);
     // Agents run with the operator's full permissions: whoever gets a session controls this machine.
@@ -824,6 +844,7 @@ export async function startHost(options: {
       routes(app, guards);
       registerNotifyRoutes(app, guards, options.notify ?? { channels: [] });
       registerPublishRoutes(app, guards, publishing!);
+      registerPortalOpsRoutes(app, guards, portalOps!, publishing!);
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store, tasks: createArtifactTaskRefs(approvalRaw) });
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });
       registerExtractionRoutes(app, guards, extraction);

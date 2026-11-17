@@ -12,7 +12,7 @@ import { projectsCreateHandler } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
 import { CommandError } from "./errors.js";
 
-export interface HandlerContext { raw: Database; hub: EventHub; clock: Clock; newId: () => string; actorId: string }
+export interface HandlerContext { raw: Database; hub: EventHub; clock: Clock; newId: () => string; actorId: string; actorIsOperator?: boolean }
 export type HandlerResult = { effects: EntityRef[]; events?: FactoryEvent["payload"][] };
 export type HandlerMap = {
   [T in Command["type"]]: (ctx: HandlerContext, command: Extract<Command, { type: T }>) => HandlerResult;
@@ -33,7 +33,7 @@ interface ReceiptRow { fingerprint: string; state: CommandReceipt["state"]; resp
 
 export function createCommandPipeline(options: {
   storage: Storage; hub: EventHub; clock?: Clock; newId?: () => string; handlers?: Partial<HandlerMap>;
-}): { execute(rawBody: unknown, actorId?: string): PipelineResult } {
+}): { execute(rawBody: unknown, actorId?: string, actorIsOperator?: boolean): PipelineResult } {
   const { storage, hub } = options;
   const raw = storage.raw;
   const clock = options.clock ?? systemClock;
@@ -47,8 +47,8 @@ export function createCommandPipeline(options: {
   });
 
   return {
-    execute(rawBody, actorId = "operator") {
-      const context: HandlerContext = { raw, hub, clock, newId, actorId };
+    execute(rawBody, actorId = "operator", actorIsOperator = actorId === "operator") {
+      const context: HandlerContext = { raw, hub, clock, newId, actorId, actorIsOperator };
       return hub.transaction(() => {
         const parsed = commandSchema.safeParse(rawBody);
         if (!parsed.success) {

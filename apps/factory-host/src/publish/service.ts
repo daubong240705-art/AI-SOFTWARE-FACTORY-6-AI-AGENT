@@ -8,7 +8,7 @@ import fs from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import type { Database } from "better-sqlite3";
 import { z } from "zod";
-import { idSchema, releaseViewSchema, rollbackRequestSchema, type ReleaseKind, type ReleaseState,
+import { portalPublishResponseSchema, portalGameIdSchema, portalGamesResponseSchema, portalEnableResponseSchema, portalStatsResponseSchema, portalStatsQuerySchema, portalAuditResponseSchema, portalAuditQuerySchema, portalVersionsResponseSchema, portalRollbackResponseSchema, idSchema, releaseViewSchema, rollbackRequestSchema, type ReleaseKind, type ReleaseState,
   type ReleaseView, type ReleasesResponse } from "@factory/contracts";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import { startProcess, type RunHandle, type RunResult } from "../exec/process-group.js";
@@ -45,11 +45,12 @@ export function portalConfig(input: { url?: string; token?: string; publicUrl?: 
 }
 
 type ReleaseCode = "not-found" | "disabled" | "not-git" | "workflow-not-completed" | "release-in-progress"
-  | "integration-missing" | "workspace-unavailable" | "invalid-game-id" | "not-unknown" | "unreachable" | "closed";
+  | "commit-changed" | "integration-missing" | "workspace-unavailable" | "invalid-game-id" | "not-unknown" | "unreachable" | "closed";
 const messages: Record<ReleaseCode, string> = {
   "not-found": "Project or release not found.", disabled: "The Game Portal is not configured.",
   "not-git": "Publishing requires a Git project.", "workflow-not-completed": "The latest game-build workflow must be completed.",
   "release-in-progress": "A pending or unresolved release prevents publishing.",
+  "commit-changed": "Commit changed after the proposal; create a new proposal.",
   "integration-missing": "The factory/integration branch must exist.", "workspace-unavailable": "The Git workspace is unavailable.",
   "invalid-game-id": "The workspace folder name must be a valid Portal game id.", "not-unknown": "Only unknown releases can be reconciled.",
   unreachable: "The Portal outcome could not be verified.", closed: "Publishing is shutting down.",
@@ -62,13 +63,14 @@ interface Row {
   state: ReleaseState; version: number | null; play_path: string | null; error: string | null;
   log_tail: string | null; created_at: string; completed_at: string | null;
 }
-const positiveVersion = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
-const versionsSchema = z.object({ currentVersion: positiveVersion.nullable(), versions: z.array(z.object({
-  version: positiveVersion, commitSha: z.string().nullable(), createdAt: z.string(),
-})) });
-const successSchema = z.object({ gameId: z.string(), version: positiveVersion, playPath: z.string() });
+const versionsSchema = portalVersionsResponseSchema;
+const successSchema = portalPublishResponseSchema;
 const shaPattern = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/;
 const MAX_BUNDLE = 20 * 1024 * 1024;
+
+export class PortalRequestError extends Error {
+  constructor(readonly uncertain: boolean) { super(uncertain ? "Chưa xác nhận được kết quả Portal; hãy kiểm tra lại." : "Portal từ chối yêu cầu."); }
+}
 
 export function createPublishService(deps: {
   raw: Database; stateDir: string; portal?: PortalConfig | null; clock?: Clock; newId?: () => string;
@@ -305,7 +307,33 @@ export function createPublishService(deps: {
   const background = (row: Row, operation: () => Promise<void>): void => {
     void serialize(row.project_id, operation).catch(() => { update(row, "unknown", stopped ? "host-shutdown" : "job-outcome-unknown"); });
   };
+  const remote = async <T>(path: string, schema: z.ZodType<T>, body?: unknown): Promise<T> => {
+    try {
+      return await request(path, body === undefined ? { method: "GET" } : {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      }, async response => {
+        if (!response.ok) { await response.body?.cancel(); throw new PortalRequestError(false); }
+        return schema.parse(await json(response));
+      });
+    } catch (error) {
+      if (error instanceof PortalRequestError) throw error;
+      throw new PortalRequestError(body !== undefined);
+    }
+  };
+  const queryString = (input: Record<string, string | number | undefined>) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(input)) if (value !== undefined) params.set(key, String(value));
+    return params.size ? `?${params}` : "";
+  };
   const service = {
+    listGames: () => remote("/api/publish/games", portalGamesResponseSchema),
+    setEnabled: (gameId: string, enabled: boolean) => remote(`/api/publish/games/${portalGameIdSchema.parse(gameId)}/enabled`, portalEnableResponseSchema, { enabled }),
+    stats: (query: z.input<typeof portalStatsQuerySchema> = {}) => remote(`/api/publish/stats${queryString(portalStatsQuerySchema.parse(query))}`, portalStatsResponseSchema),
+    audit: (query: z.input<typeof portalAuditQuerySchema> = {}) => remote(`/api/publish/audit${queryString(portalAuditQuerySchema.parse(query))}`, portalAuditResponseSchema),
+    versions: (gameId: string) => remote(`/api/publish/games/${portalGameIdSchema.parse(gameId)}/versions`, portalVersionsResponseSchema),
+    setVersion: (gameId: string, version: number) => remote(`/api/publish/games/${portalGameIdSchema.parse(gameId)}/rollback`, portalRollbackResponseSchema, rollbackRequestSchema.parse({ version })),
+    checkPublish: preconditions,
+    async idle(): Promise<void> { while (queues.size) await Promise.allSettled([...queues.values()]); },
     async list(projectId: string, log = false): Promise<ReleasesResponse> {
       project(projectId);
       let reason: string | null = null;
@@ -313,10 +341,11 @@ export function createPublishService(deps: {
       const rows = raw.prepare("SELECT * FROM game_releases WHERE project_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 50").all(projectId) as Row[];
       return { enabled: portal !== null, canPublish: { allowed: reason === null, reason }, releases: rows.map((row) => view(row, log)) };
     },
-    async publish(projectId: string): Promise<ReleaseView> {
+    async publish(projectId: string, expectedCommitSha?: string): Promise<ReleaseView> {
       configured(); project(projectId); busy(projectId, true);
       return serialize(projectId, async () => {
         const target = await preconditions(projectId);
+        if (expectedCommitSha !== undefined && expectedCommitSha !== target.sha) throw new ReleaseError("commit-changed");
         busy(projectId, true); // No await between the final guard and the durable insert.
         const row = insert(projectId, "publish", target.gameId, target.sha, null), result = view(row);
         background(row, () => build(row, target.root));

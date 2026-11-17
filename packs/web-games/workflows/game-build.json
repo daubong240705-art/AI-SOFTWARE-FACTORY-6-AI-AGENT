@@ -1,6 +1,6 @@
 {
   "key": "game-build",
-  "revision": 2,
+  "revision": 3,
   "title": "Build or change a web game",
   "parameters": [
     {
@@ -117,14 +117,20 @@
           }
         ]
       },
-      "review": "automatic",
+      "review": "human-final",
       "inputs": [],
-      "outputs": [],
+      "outputs": [
+        {
+          "kind": "requirements",
+          "mustReach": "approved"
+        }
+      ],
       "sideEffect": "code",
       "acceptance": [
         "docs/spec.md exists, is under 120 lines and defines core rules, win/draw/lose conditions, player counts, screens, controls and bot behaviour with a numbered list of every test case.",
         "src/types.ts exports the JSON-compatible State and Action types used by rules and client; game.json metadata, player limits and bot support match docs/spec.md.",
-        "docs/spec.md has a Look and feel section: world, mood in three words, palette direction and the one memorable element."
+        "docs/spec.md has a Look and feel section: world, mood in three words, palette direction and the one memorable element.",
+        "docs/README.md (under 40 lines: name, one-sentence pitch, players and bot, rules summary, controls, look and feel) is registered with output.register (kind requirements, text/markdown, abstractL0 = the one-sentence pitch); the operator reviews it before rules and art start."
       ]
     },
     {
@@ -194,15 +200,21 @@
           }
         ]
       },
-      "review": "automatic",
+      "review": "human-final",
       "inputs": [],
-      "outputs": [],
+      "outputs": [
+        {
+          "kind": "media",
+          "mustReach": "approved"
+        }
+      ],
       "sideEffect": "code",
       "acceptance": [
         "assets/thumb.svg exists and game.json references its built path thumb.svg.",
         "src/client/theme.css covers every screen of docs/spec.md at 360 px and 1280 px width, with accessible contrast and touch targets of at least 44 px.",
         "All art is original SVG and CSS, and no external font, image or other external resource is referenced.",
-        "src/client/theme.css starts with the art brief of skills/game-art-direction (world, mood, 4-6 palette variables, memorable element); every asset uses that palette, one stroke scale and one light direction, and every game state has a visible style that does not rely on colour alone. Report whether screenshots at 1280x720 and 390x844 were reviewed, or say the visual check is unverified."
+        "src/client/theme.css starts with the art brief of skills/game-art-direction (world, mood, 4-6 palette variables, memorable element); every asset uses that palette, one stroke scale and one light direction, and every game state has a visible style that does not rely on colour alone. Report whether screenshots at 1280x720 and 390x844 were reviewed, or say the visual check is unverified.",
+        "docs/ui-sample.html shows the main screen mid-match with the real theme.css and assets; PNG screenshots docs/ui-sample-1280.png and docs/ui-sample-390.png made with headless Chrome are each registered with output.register (kind media, image/png) for the operator to review."
       ]
     },
     {

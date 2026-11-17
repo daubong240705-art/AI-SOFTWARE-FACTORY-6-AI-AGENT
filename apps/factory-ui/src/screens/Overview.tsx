@@ -1,3 +1,4 @@
+import { PortalCard } from './PortalCard';
 import { PageHeader, Panel, Section, StatusDot } from '@/components/app';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MascotEmpty } from '@/components/mascot';
@@ -26,8 +27,8 @@ import { Page } from '../components/Page';
 type Intent = 'discuss' | 'delegate';
 // Keep command identities across retries, including unknown transport outcomes.
  type Attempt = { projectId: string; text: string; intent: Intent; create?: Command; send?: Command };
-export function Overview({ store, onProject, onOpenProject, onAttention, onCreate, operatorName, focusComposer, onTask }: {
-  store: Store; onProject: (id: string) => void; onOpenProject: (id: string) => void; onAttention: (item?: AttentionItem) => void; onCreate: (kind: 'task' | 'game' | 'project') => void; operatorName?: string; focusComposer?: number; onTask?: (projectId: string, taskId: string) => void;
+export function Overview({ store, onProject, onOpenProject, onAttention, onCreate, onPortal, operatorName, focusComposer, onTask }: {
+  onPortal: () => void; store: Store; onProject: (id: string) => void; onOpenProject: (id: string) => void; onAttention: (item?: AttentionItem) => void; onCreate: (kind: 'task' | 'game' | 'project') => void; operatorName?: string; focusComposer?: number; onTask?: (projectId: string, taskId: string) => void;
 }) {
   const t = useT(); const id = useId(); const state = store.useStoreSelector(value => value);
   const [text, setText] = useState(''); const [chosen, setChosen] = useState(''); const [intent, setIntent] = useState<Intent>('delegate');
@@ -123,6 +124,7 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
         })}</Stagger>
         <Button type="button" variant="link" className="h-auto px-0" onClick={() => onAttention()}>{t('overview.viewAll')}<ChevronRight className="size-4" /></Button>
       </Section>
+      <PortalCard store={store} onChat={onProject} onGames={onPortal} />
       <ProjectGrid store={store} onProject={onOpenProject} />
       <ActivityFeed store={store} onTask={(projectId, taskId) => { if (onTask) onTask(projectId, taskId); else onProject(projectId); }} />
     </div>

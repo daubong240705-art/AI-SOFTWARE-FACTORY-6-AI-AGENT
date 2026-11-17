@@ -4,7 +4,7 @@ export type { SettingsSection } from '../project-settings/sections';
 
 export type ProjectTab = 'overview' | 'office' | 'board' | 'workflow' | 'knowledge' | 'code' | 'settings';
 export type TeamTab = 'activity' | 'config';
-export type View = 'overview' | 'needs-attention' | 'team' | 'system' | 'mascots' | `project:${string}`;
+export type View = 'portal' | 'overview' | 'needs-attention' | 'team' | 'system' | 'mascots' | `project:${string}`;
 const tabs: ProjectTab[] = ['overview', 'office', 'board', 'workflow', 'knowledge', 'code', 'settings'];
 export function viewHash(view: View, tab: ProjectTab = 'overview', team: TeamTab = 'activity', section?: SettingsSection): string {
   if (view === 'team') return team === 'config' ? '#/team/config' : '#/team';
@@ -15,6 +15,7 @@ export function viewHash(view: View, tab: ProjectTab = 'overview', team: TeamTab
   return `#/project/${id}/${tab}`;
 }
 export function parseHash(hash: string): View {
+  if (hash === '#/portal') return 'portal';
   if (hash === '#/mascots') return 'mascots';
   if (hash === '#/system') return 'system';
   if (hash === '#/attention' || hash.startsWith('#/attention/')) return 'needs-attention';
