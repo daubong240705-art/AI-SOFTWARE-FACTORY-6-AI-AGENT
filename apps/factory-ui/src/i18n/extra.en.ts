@@ -208,7 +208,7 @@ export const extra = {
     levelNumber: 'Level {level} / 4', defaultSource: 'Default', explicitSource: 'Set manually', noProjectLimit: 'No project budget limit', loop: 'Loop {current}/{total}',
   },
   global: { projects: 'Projects' },
-  ux4: {
+  ux4: { empty: 'Empty',
     updated: 'Updated', cancel: 'Cancel',
     titleHint: 'Give the task a short, specific name.', goalHint: 'Describe the outcome you want.',
     criteriaHint: 'One verifiable criterion per line.', teamsTitle: 'Team',
@@ -426,7 +426,7 @@ export const extra = {
   shell: { product: 'Factory', theme: 'Theme', light: 'Light', dark: 'Dark', system: 'System', language: 'Language', english: 'English', vietnamese: 'Tiếng Việt', toggleProjects: 'Toggle projects', live: 'Live', reconnecting: 'Reconnecting', offline: 'Offline', welcome: 'Your projects', chooseProject: 'Select a project or create one to get started.', comingSoon: 'Coming in the next step', projectTabs: 'Project views', searchPlaceholder: 'Find tasks by code or keyword', searchTasks: 'Find tasks', searchDescription: 'Find tasks in the selected project or open a project.', noSearchResults: 'No matching tasks or projects.', projectTasks: 'Tasks in the selected project' },
   tabs: { chat: 'Chat', tasks: 'Tasks', team: 'Team' },
   shellUi: { create: 'Create', newTask: 'New task', newGame: 'New game', newProject: 'New project', projects: 'Games and projects', projectSettings: 'Project settings', automation: 'Automation', budget: 'Budget', autonomy: 'Autonomy', approvals: 'Standing approvals' },
-  projectUi: { summaryTitle: 'Summary', tokensToday: 'Tokens today: {count}', budgetSettings: 'Budget settings', summary: { running: '{count} running', review: '{count} in review', waiting: '{count} waiting for you', done: '{count} done' }, overview: 'Overview', office: 'Office', board: 'Tasks', workflow: 'Workflow', knowledge: 'Documents', code: 'Code', settings: 'Settings', askLead: 'Ask Lead', closeChat: 'Close chat', chat: 'Agent chat', taskDetails: 'Task details', backToBoard: 'Back to board', documents: 'Documents', activeTasks: 'Current tasks', noActiveTasks: 'No tasks are running or waiting for you.', },
+  projectUi: { summaryTitle: 'Summary', tokensToday: 'Tokens today: {count}', budgetSettings: 'Budget settings', summary: { running: '{count} running', review: '{count} in review', waiting: '{count} waiting for you', done: '{count} done' }, overview: 'Overview', office: 'Office', board: 'Board', workflow: 'Workflow', knowledge: 'Documents', code: 'Code', settings: 'Settings', askLead: 'Ask Lead', closeChat: 'Close chat', chat: 'Agent chat', taskDetails: 'Task details', backToBoard: 'Back to board', documents: 'Documents', activeTasks: 'Current tasks', noActiveTasks: 'No tasks are running or waiting for you.', },
   settingsWrite: {
     changeLevel: 'Change level', raiseWarning: 'You are giving the agent more autonomy. Review the permissions before confirming.', understood: 'I understand',
     operatorOnly: 'Budget increases, spending money, external publishing and irreversible actions always require the operator at every level.',

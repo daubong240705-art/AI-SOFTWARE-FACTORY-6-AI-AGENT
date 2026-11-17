@@ -75,8 +75,8 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
       </Tabs></LayoutGroup>
       <Button id={`${id}-settings`} type="button" variant="ghost" size="icon" className={`ml-1 shrink-0 ${active === 'settings' ? 'bg-secondary text-foreground' : 'text-muted-foreground'}`} aria-label={t('projectUi.settings')} aria-current={active === 'settings' ? 'page' : undefined} onClick={() => select('settings')}><Settings aria-hidden="true" /></Button>
       <div className="ml-auto flex shrink-0 items-center gap-2 pl-3">
-        {project.workspace.kind === 'git' && <Button variant="outline" className="h-9 w-9 px-0 sm:w-auto sm:px-3" aria-label={t('previewUi.title')} onClick={() => setPreview(true)}><Play className="size-4" aria-hidden="true" /><span className="hidden sm:inline">{t('previewUi.button')}</span></Button>}
-        <Button ref={ask} variant="outline" className="h-9 w-9 px-0 sm:w-auto sm:px-3" aria-label={t('projectUi.askLead')} aria-expanded={chat} aria-controls={`${id}-chat`} onClick={() => { setSelected(null); setChat(!chat); }}><MessageSquare className="size-4" aria-hidden="true" /><span className="hidden sm:inline">{t('projectUi.askLead')}</span></Button>
+        {project.workspace.kind === 'git' && <Button variant="outline" className="h-9 w-9 px-0 min-[1440px]:w-auto min-[1440px]:px-3" aria-label={t('previewUi.title')} title={t('previewUi.title')} onClick={() => setPreview(true)}><Play className="size-4" aria-hidden="true" /><span className="hidden min-[1440px]:inline">{t('previewUi.button')}</span></Button>}
+        <Button ref={ask} variant="outline" className="h-9 w-9 px-0 min-[1440px]:w-auto min-[1440px]:px-3" aria-label={t('projectUi.askLead')} title={t('projectUi.askLead')} aria-expanded={chat} aria-controls={`${id}-chat`} onClick={() => { setSelected(null); setChat(!chat); }}><MessageSquare className="size-4" aria-hidden="true" /><span className="hidden min-[1440px]:inline">{t('projectUi.askLead')}</span></Button>
       </div>
     </header></Page>
     <div className={`project-body${chatVisible ? ' has-chat' : ''}`}>

@@ -211,7 +211,7 @@ export const extra: Translated<typeof en> = {
     levelNumber: 'Mức {level} / 4', defaultSource: 'Mặc định', explicitSource: 'Đặt thủ công', noProjectLimit: 'Không giới hạn dự án', loop: 'Vòng {current}/{total}',
   },
   global: { projects: 'Dự án' },
-  ux4: {
+  ux4: { empty: 'Trống',
     updated: 'Cập nhật', cancel: 'Hủy',
     titleHint: 'Đặt tên ngắn gọn, cụ thể cho công việc.', goalHint: 'Mô tả kết quả bạn muốn đạt được.',
     criteriaHint: 'Mỗi dòng một tiêu chí, kiểm chứng được.', teamsTitle: 'Đội',
@@ -441,7 +441,7 @@ export const extra: Translated<typeof en> = {
   shell: { product: 'Factory', theme: 'Giao diện', light: 'Sáng', dark: 'Tối', system: 'Hệ thống', language: 'Ngôn ngữ', english: 'English', vietnamese: 'Tiếng Việt', toggleProjects: 'Ẩn hoặc hiện dự án', live: 'Trực tiếp', reconnecting: 'Đang kết nối lại', offline: 'Ngoại tuyến', welcome: 'Dự án của bạn', chooseProject: 'Chọn hoặc tạo dự án để bắt đầu.', comingSoon: 'Sẽ có ở bước tiếp theo', projectTabs: 'Các chế độ xem dự án', searchPlaceholder: 'Tìm việc theo mã hoặc từ khóa', searchTasks: 'Tìm việc', searchDescription: 'Tìm công việc trong dự án được chọn hoặc mở một dự án.', noSearchResults: 'Không có công việc hoặc dự án phù hợp.', projectTasks: 'Công việc của dự án được chọn' },
   tabs: { chat: 'Trò chuyện', tasks: 'Công việc', team: 'Đội ngũ' },
   shellUi: { create: 'Tạo', newTask: 'Việc mới', newGame: 'Game mới', newProject: 'Dự án mới', projects: 'Game và dự án', projectSettings: 'Cài đặt dự án', automation: 'Tự động', budget: 'Ngân sách', autonomy: 'Mức tự chủ', approvals: 'Phê duyệt sẵn' },
-  projectUi: { summaryTitle: 'Tóm tắt', tokensToday: 'Token hôm nay: {count}', budgetSettings: 'Cài đặt ngân sách', summary: { running: '{count} đang chạy', review: '{count} đang duyệt', waiting: '{count} chờ bạn', done: '{count} xong' }, overview: 'Tổng quan', office: 'Văn phòng', board: 'Việc', workflow: 'Quy trình', knowledge: 'Tài liệu', code: 'Mã nguồn', settings: 'Cài đặt', askLead: 'Hỏi Lead', closeChat: 'Đóng trò chuyện', chat: 'Trò chuyện với agent', taskDetails: 'Chi tiết công việc', backToBoard: 'Quay lại bảng việc', documents: 'Tài liệu', activeTasks: 'Công việc hiện tại', noActiveTasks: 'Không có công việc đang chạy hoặc chờ bạn.', },
+  projectUi: { summaryTitle: 'Tóm tắt', tokensToday: 'Token hôm nay: {count}', budgetSettings: 'Cài đặt ngân sách', summary: { running: '{count} đang chạy', review: '{count} đang duyệt', waiting: '{count} chờ bạn', done: '{count} xong' }, overview: 'Tổng quan', office: 'Văn phòng', board: 'Bảng việc', workflow: 'Quy trình', knowledge: 'Tài liệu', code: 'Mã nguồn', settings: 'Cài đặt', askLead: 'Hỏi Lead', closeChat: 'Đóng trò chuyện', chat: 'Trò chuyện với agent', taskDetails: 'Chi tiết công việc', backToBoard: 'Quay lại bảng việc', documents: 'Tài liệu', activeTasks: 'Công việc hiện tại', noActiveTasks: 'Không có công việc đang chạy hoặc chờ bạn.', },
   settingsWrite: {
     changeLevel: 'Đổi mức', raiseWarning: 'Bạn đang cho agent nhiều quyền tự quyết hơn. Hãy xem lại các quyền trước khi xác nhận.', understood: 'Tôi hiểu',
     operatorOnly: 'Ở mọi mức, việc tăng ngân sách, chi tiền, xuất bản ra bên ngoài và hành động không thể hoàn tác luôn cần người vận hành duyệt.',

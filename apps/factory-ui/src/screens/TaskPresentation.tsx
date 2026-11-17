@@ -1,5 +1,3 @@
-import { StatusDot } from '@/components/app';
-import { toneOf } from '@/lib/status';
 import type { Task } from '@factory/contracts';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Mascot, type MascotState } from '@/components/mascot';
@@ -27,5 +25,5 @@ export function TaskTime({ task, state }: { task: Task; state: Pick<StoreState, 
 
 export function DecisionBadge() {
   const t = useT();
-  return <Badge variant="outline" className="max-w-full border-need/30 bg-need/10 text-xs whitespace-normal text-need"><StatusDot tone={toneOf('task', 'approval-required')} label={t('inboxUi.needsDecision')} className="text-xs" /></Badge>;
+  return <Badge variant="outline" className="max-w-full border-need/30 bg-need/10 text-xs whitespace-normal text-need">{t('inboxUi.needsDecision')}</Badge>;
 }
