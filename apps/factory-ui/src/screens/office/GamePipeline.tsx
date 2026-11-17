@@ -57,21 +57,21 @@ export function GamePipeline({ detail, onOpenWorkflow }: { detail: WorkflowDetai
     const state = stage?.state ?? 'pending';
     const { icon: Icon, tone } = states[state];
     const known = [...stageKeys, 'reproduce'].includes(key);
-    const title = known ? t(`agentUi.pipelineStages.${key}`) : detail?.graph?.stages.find(stage => stage.key === key)?.title || key;
+    const title = known ? t(`officeUi.pipelineStages.${key}`) : detail?.graph?.stages.find(stage => stage.key === key)?.title || key;
     const rework = detail?.graph?.edges.find(edge => edge.type === 'rework' && edge.to === key);
     const count = stage?.loopCount ?? Math.max(0, (stage?.iteration ?? 1) - 1);
     const loop = count > 0 && (rework || key === 'client')
-      ? t('agentUi.reworkLoop').replace('{current}', String(count)).replace('{total}', String(rework?.maxLoops ?? 3)) : null;
+      ? t('officeUi.reworkLoop').replace('{current}', String(count)).replace('{total}', String(rework?.maxLoops ?? 3)) : null;
     return <button key={key} type="button" onClick={onOpenWorkflow}
-      aria-label={`${t('agentUi.openWorkflow')}: ${title} · ${t(`m5Ui.states.${state}`)}${loop ? ` · ${loop}` : ''}`}
+      aria-label={`${t('officeUi.openWorkflow')}: ${title} · ${t(`m5Ui.states.${state}`)}${loop ? ` · ${loop}` : ''}`}
       className={cn('inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-2 text-xs font-medium hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring', tone)}>
       <Icon className="size-3.5 shrink-0" aria-hidden="true" /><span>{title}</span>
       <span className="sr-only">{t(`m5Ui.states.${state}`)}</span>
       {loop && <span className="shrink-0 rounded-full bg-background/70 px-1.5 py-0.5 text-xs tabular-nums">{loop}</span>}
     </button>;
   };
-  return <section aria-label={t('agentUi.pipeline')} className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
-    <span className="mr-1 text-xs font-semibold text-muted-foreground">{t('agentUi.pipeline')}</span>
+  return <section aria-label={t('officeUi.pipeline')} className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">
+    <span className="mr-1 text-xs font-semibold text-muted-foreground">{t('officeUi.pipeline')}</span>
     {groups.map(group => <div key={group[0]} role={group.length > 1 ? 'group' : undefined} aria-label={group.length > 1 ? t('workflowGraph.parallel') : undefined}
       className={cn('flex min-w-0 flex-wrap items-center gap-1.5', group.length > 1 && 'rounded-xl border border-dashed border-border p-1')}>
       {group.map(chip)}

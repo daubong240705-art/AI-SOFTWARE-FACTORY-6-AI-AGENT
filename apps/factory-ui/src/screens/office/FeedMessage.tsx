@@ -1,4 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { MarkdownContent } from '@/components/MarkdownContent';
 import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 
@@ -20,11 +21,11 @@ export function FeedMessage({ text }: { text: string }) {
   }, [text]);
   return <div>
     <div id={id} className={cn(!expanded && 'max-h-36 overflow-hidden')}>
-      <div ref={content} className="whitespace-pre-wrap break-words leading-6">{text}</div>
+      <div ref={content}><MarkdownContent content={text} className="space-y-2 leading-6" /></div>
     </div>
     {long && <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}
-      className="pointer-events-auto mt-1 border-0 bg-transparent rounded px-1 py-1 text-xs font-medium text-info underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-      {t(expanded ? 'agentUi.showLess' : 'agentUi.showMore')}
+      className="mt-1 border-0 bg-transparent rounded px-1 py-1 text-xs font-medium text-info underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+      {t(expanded ? 'officeUi.showLess' : 'officeUi.showMore')}
     </button>}
   </div>;
 }
