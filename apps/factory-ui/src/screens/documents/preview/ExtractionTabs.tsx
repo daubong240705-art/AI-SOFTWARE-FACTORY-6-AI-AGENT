@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { Extraction, ExtractionSummary } from '@/api/documents';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
+import { LoadingState } from '@/components/LoadingState';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useT } from '@/i18n';
 import { ExtractionRetry, extractionReason } from '../ExtractionStatus';
@@ -51,7 +51,7 @@ export function ExtractionTabs({ store, projectId, artifactId, version, mediaTyp
         <TabsContent value="outline">
           {extraction ? <ExtractionOutline entries={extraction.outline} onSelect={jumpTo} /> : extractionError
             ? <Alert className="border-border"><AlertDescription className="space-y-2"><p>{t('knowledgeUi.extraction.detailsError')}</p><Button variant="outline" size="sm" onClick={onReloadExtraction}>{t('errors.retry')}</Button></AlertDescription></Alert>
-            : <Spinner aria-label={t('viewStates.loading')} className="m-4 text-muted-foreground" />}
+            : <LoadingState inline />}
         </TabsContent>
       </>}
     </Tabs>

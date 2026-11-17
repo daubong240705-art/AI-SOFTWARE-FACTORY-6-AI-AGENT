@@ -1,6 +1,6 @@
+import { LoadingState } from '@/components/LoadingState';
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 import type { KnowledgeArtifact, KnowledgeItem } from '@/api/readModels';
 import type { Store } from '@/state/store';
 import { MAX_PREVIEW_BYTES } from '@/api/documents';
@@ -30,7 +30,7 @@ export function DocumentPreview({ store, projectId, artifact, version, extractio
     if (type === 'image') return <div className="flex min-h-64 items-center justify-center rounded-lg border border-border bg-muted/20 p-4"><img src={store.rawDocumentUrl(projectId, artifact.artifactId, version.version)} alt={artifact.title} className="max-h-[65dvh] max-w-full object-contain" /></div>;
     if (version.sizeBytes > MAX_PREVIEW_BYTES && type !== 'pdf') return <p className="text-sm text-muted-foreground">{t('knowledgeUi.previewLarge')}</p>;
     if (error) return <Alert variant="destructive"><AlertDescription>{t('knowledgeUi.previewError')}</AlertDescription></Alert>;
-    if (!data) return <Skeleton role="status" aria-label={t('viewStates.loading')} className="h-64 w-full" />;
+    if (!data) return <LoadingState inline className="min-h-64" />;
     if (type === 'pdf') return <PdfPreview data={data} initialPage={initialPage} onPageChange={onPageChange} />;
     if (type === 'docx') return <DocxPreview data={data} />;
     if (type === 'xlsx') return <SpreadsheetPreview data={data} />;

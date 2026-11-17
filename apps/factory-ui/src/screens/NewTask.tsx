@@ -1,3 +1,4 @@
+import { LoadingState } from '@/components/LoadingState';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { Command } from '@factory/contracts';
 import type { KnowledgeItem } from '@/api/readModels';
@@ -56,7 +57,7 @@ export function NewTask({ store, projectId, open = false, formId, onClose }: { s
           <legend className="text-sm font-medium">{t('taskInputs.title')}</legend>
           <p id={`${id}-inputs-hint`} className="text-sm text-muted-foreground">{t('taskInputs.help')}</p>
           <p role="status" className="text-xs text-muted-foreground">{t('taskInputs.selected').replace('{count}', String(selected.length))}</p>
-          {knowledge.loading.knowledge && <p role="status" className="text-sm text-muted-foreground">{t('viewStates.loading')}</p>}
+          {knowledge.loading.knowledge && <LoadingState inline />}
           {knowledge.errors.knowledge && <div className="space-y-2"><ErrorNotice error={knowledge.errors.knowledge} /><Button type="button" variant="outline" onClick={() => { void store.loadKnowledgeList(); }}>{t('errors.retry')}</Button></div>}
           {!knowledge.loading.knowledge && !knowledge.errors.knowledge && !knowledge.list.length && <p className="text-sm text-muted-foreground">{t('knowledgeUi.empty')}</p>}
           <div className="max-h-72 space-y-2 overflow-y-auto">

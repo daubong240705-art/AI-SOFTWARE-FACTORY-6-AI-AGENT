@@ -1,3 +1,4 @@
+import { LoadingState } from '@/components/LoadingState';
 import { useEffect, useRef, useState } from 'react';
 import type { PortalAction, PortalActionRequest, PortalStats } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
@@ -49,7 +50,7 @@ export function PortalGames({ store }: { store: Store }) {
       <label className="w-40 space-y-1"><span>{t('portalUi.period')}</span><Select value={days} onValueChange={setDays} options={[{ value: '7', label: t('portalUi.days7') }, { value: '30', label: t('portalUi.days30') }]} /></label>
       <Button variant="outline" disabled={busy || loading} onClick={() => setRefresh(v => v + 1)}>{t('portalUi.refresh')}</Button>
     </div>
-    {loading && <p role="status">{t('viewStates.loading')}</p>}
+    {loading && <LoadingState inline />}
     {error && <p role="alert" className="text-destructive">{t('portalUi.error')}</p>}
     {proposed && <Panel role="status"><p>{t('portalUi.proposed')}</p><a className="underline" href="#/attention">{t('portalUi.attention')}</a></Panel>}
     <Panel className="overflow-x-auto"><table className="w-full text-left text-sm"><caption className="sr-only">{t('portalUi.games')}</caption><thead><tr>{['game', 'id', 'enabled', 'version', 'last7', 'rooms'].map(key => <th className="p-2" key={key} scope="col">{t(`portalUi.${key}`)}</th>)}</tr></thead><tbody>

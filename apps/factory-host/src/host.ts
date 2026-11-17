@@ -86,7 +86,7 @@ import { createRequestsMcp } from "./requests/mcp.js";
 import { createRequestHandlers, REQUEST_COMMANDS } from "./requests/commands.js";
 import { createDossierHandlers } from "./dossier/commands.js";
 import { createBriefingMcp } from "./dossier/mcp.js";
-import { backfillPackSnapshots } from "./instructions/snapshot.js";
+import { backfillPackSnapshots, followPackUpdates } from "./instructions/snapshot.js";
 import { createSkillsMcp } from "./instructions/mcp.js";
 import { createToolPolicy } from "./mcp/policy.js";
 import { loadMcpServers, parseMcpServers, type McpServersConfig } from "./mcp-external/config.js";
@@ -429,6 +429,9 @@ export async function startHost(options: {
       backupDir: options.backupDir ?? join(stateDir, "backups"), now: clock,
     });
     backfillPackSnapshots(storage.raw, packs, clock());
+    // FACTORY_PACK_FOLLOW: packs whose teams follow pack edits of the same version ("none" to pin every team).
+    const follow = (process.env.FACTORY_PACK_FOLLOW ?? "web-games,portal-ops").split(",").map((key: string) => key.trim()).filter((key: string) => key !== "" && key !== "none");
+    for (const line of followPackUpdates(storage.raw, packs, follow, clock())) console.log(`Team instructions updated: ${line}`);
     if (mcpServers) external = createExternalTools(mcpServers, { raw: storage.raw, now: () => clock().getTime() });
     if (options.periodicBackup) {
       const service = createBackupService({ storage, dir: options.periodicBackup.dir, clock,

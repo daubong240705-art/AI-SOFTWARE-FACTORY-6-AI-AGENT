@@ -8,6 +8,8 @@ Keep `docs/spec.md` under 120 lines; include a short Look and feel section (worl
 
 Write `docs/README.md` for the operator, in the operator's language (Vietnamese unless the request is in English), under 40 lines: game name, a one-sentence pitch, players and bot support, a short rules summary, controls, and the look and feel. The operator asked for it: register it with `output.register` (kind `requirements`, media type `text/markdown`, `abstractL0` = the one-sentence pitch). The operator reviews it before anyone else starts; when the review asks for changes, apply them to the README, the spec and the types together.
 
+Add a Motion section to `docs/spec.md` (see `skills/game-juice`): one table row per visible event (move, card played or drawn, chips placed, dice rolled, turn change, illegal move, win, draw, loss) naming the `src/client/motion.ts` effect and its duration. Random outcomes always get suspense first: dice tumble in a shaken cup, a card is drawn face down then flipped, and the result shows 0.8 to 2.5 s after the action. Nothing should simply appear.
+
 Define JSON-compatible `State` and `Action` types in `src/types.ts` for the Rules and Client Engineers. Include RNG state when randomness is needed and a private view type when appropriate.
 
 Never change `game.json` `id`: it is fixed to the game's folder name when the game is created, and the Factory and the Portal identify the game by it (a changed id blocks publishing). Set `game.json` name, description, category, minPlayers, maxPlayers and bot consistently with the spec. Preserve the starter's SDK and bundle paths; set `thumbnail` to `thumb.svg`, built from `assets/thumb.svg`.

@@ -8,6 +8,7 @@ export const extra: Translated<typeof en> = {
     enable: 'Đề xuất bật', disable: 'Đề xuất tắt', setVersion: 'Đề xuất đổi bản', publish: 'Đề xuất publish', reason: 'Lý do (tùy chọn)', attention: 'Mở Cần chú ý để duyệt', proposed: 'Đã tạo đề xuất. Portal đang chờ bạn duyệt.', error: 'Không thực hiện được yêu cầu. Kiểm tra kết nối, game, phiên bản, đề xuất đang mở và điều kiện publish.', refresh: 'Làm mới', audit: 'Nhật ký Portal', actions: 'Thao tác Portal', empty: 'Chưa có dữ liệu.', reconcile: 'Kiểm tra lại', state: 'Trạng thái', at: 'Thời điểm', actor: 'Người thực hiện', action: 'Thao tác', daily: 'Trận mỗi ngày', registered: 'Đã đăng ký', guests: 'Khách', newUsers: 'Người mới',
     states: { proposed: 'Chờ duyệt', rejected: 'Đã từ chối', running: 'Đang thực hiện', done: 'Hoàn tất', failed: 'Thất bại', unknown: 'Chưa xác nhận' },
   },
+  gameSummary: { client: 'Lập trình', games: 'Game', working: 'Đang làm: {step}', review: 'Chờ bạn duyệt', done: 'Đã xong', stuck: 'Bị kẹt', preparing: 'Chuẩn bị', step: 'Bước hiện tại', more: 'Xem thêm', less: 'Thu gọn', action: 'Xem', },
   studioUi: {
     title: 'Xưởng game', hero: 'Cùng đội tạo game, chơi thử và làm game hay hơn mỗi ngày.', games: 'Game của bạn',
     empty: 'Bắt đầu với game đầu tiên. Hãy kể cho đội nghe game bạn muốn chơi.', loadError: 'Không tải được danh sách game.',
@@ -309,8 +310,8 @@ export const extra: Translated<typeof en> = {
     greeting: 'Xin chào', greetingStart: 'Chào', morning: 'buổi sáng', afternoon: 'buổi chiều', evening: 'buổi tối',
     composer: 'Giao việc hoặc hỏi Lead', message: 'Nội dung gửi Lead',
     placeholder: 'Hỏi hoặc mô tả việc cần làm…', project: 'Dự án', ask: 'Hỏi', delegate: 'Giao việc', toSend: 'để gửi',
-    caughtUp: 'Bạn đã xử lý hết.', viewAll: 'Xem tất cả', conversationUnavailable: 'Cuộc trò chuyện chưa sẵn sàng. Hãy thử lại.',
-    activity: 'Hoạt động', activityFilters: 'Lọc hoạt động theo dự án', allProjects: 'Tất cả', today: 'Hôm nay', yesterday: 'Hôm qua',
+    caughtUp: 'Không có việc nào chờ bạn', viewAll: 'Xem tất cả', conversationUnavailable: 'Cuộc trò chuyện chưa sẵn sàng. Hãy thử lại.',
+    activity: 'Hoạt động gần đây', activityFilters: 'Lọc hoạt động theo dự án', allProjects: 'Tất cả', today: 'Hôm nay', yesterday: 'Hôm qua',
     activityEmpty: 'Chưa có hoạt động để hiển thị.', activityScope: 'Đang hiển thị công việc của dự án được chọn: {project}.',
     activitySelectProject: 'Mở một dự án để xem hoạt động công việc.', undated: 'KHÁC', needsYou: 'Cần bạn', projectStates: { active: 'Đang hoạt động', parked: 'Tạm dừng', archived: 'Đã lưu trữ' },
   },

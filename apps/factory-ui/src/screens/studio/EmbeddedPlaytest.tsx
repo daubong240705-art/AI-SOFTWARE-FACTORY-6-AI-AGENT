@@ -60,7 +60,7 @@ export function EmbeddedPlaytest({ store, projectId, gameName }: { store: Store;
     <div className="flex flex-wrap items-center gap-3">
       <Button disabled={pending || !status || !!state && preparing.has(state) || state === 'running'} onClick={() => { void execute('start'); }}><Play aria-hidden="true" />{t('studioUi.run')}</Button>
       <Button variant="outline" disabled={pending || !status || state === 'stopped'} onClick={() => { void execute('stop'); }}><Square aria-hidden="true" />{t('previewUi.stop')}</Button>
-      <span role="status" className="text-sm">{state ? <Badge variant="outline">{t(`previewUi.states.${state}`)}</Badge> : t('viewStates.loading')}</span>
+      <span role="status" className="text-sm">{state ? <Badge variant="outline">{t(`previewUi.states.${state}`)}</Badge> : null}</span>
       {url && <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-sm text-primary underline"><ExternalLink className="size-4" aria-hidden="true" />{t('studioUi.openTab')}</a>}
       <Button variant="outline" disabled={!url} onClick={() => { void fullscreen(); }}><Maximize2 aria-hidden="true" />{t('studioUi.fullscreen')}</Button>
     </div>

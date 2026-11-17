@@ -1,3 +1,4 @@
+import { LoadingState } from '@/components/LoadingState';
 import { useCallback, useId } from 'react';
 import type { GameReport } from '@factory/contracts';
 import { CheckCircle2, CircleHelp, XCircle } from 'lucide-react';
@@ -31,7 +32,7 @@ export function GameReportCard({ store, projectId, active }: { store: Store; pro
   return <Card className="min-w-0 gap-4 p-5" aria-labelledby={id}>
     <h3 id={id} className="text-lg font-semibold">{t('studioUi.report')}</h3>
     {error && <div role="alert" className="flex flex-wrap items-center gap-3"><p>{t('studioUi.reportError')}</p><Button variant="outline" onClick={reload}>{t('errors.retry')}</Button></div>}
-    {!data && !error && <p role="status">{t('viewStates.loading')}</p>}
+    {!data && !error && <LoadingState inline />}
     {data && <>
       <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3 xl:grid-cols-6">
         <div><dt className="text-muted-foreground">{t('studioUi.duration')}</dt><dd className="font-semibold">{duration(data.totals.durationMs, t)}</dd></div>

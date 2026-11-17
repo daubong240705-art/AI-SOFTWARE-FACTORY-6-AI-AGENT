@@ -84,3 +84,35 @@ export function backfillPackSnapshots(raw: Database, packs: readonly RegistryPac
   } catch { failed = true; }
   if (failed) console.error("Instructions unavailable");
 }
+
+/**
+ * Moves teams of the listed packs to the registered pack of the same key and version when its
+ * content changed (profiles, skills, tools), so existing projects get improved instructions.
+ * Seats are matched by name; a team is skipped when a seat of the team is missing from the new
+ * manifest. Runs at startup, before any attempt starts, so no running attempt changes underneath.
+ */
+export function followPackUpdates(raw: Database, packs: readonly RegistryPack[], keys: readonly string[], now: Date | string): string[] {
+  const moved: string[] = [];
+  if (!keys.length) return moved;
+  const teams = raw.prepare(`SELECT id, name, pack_key, pack_version, pack_digest FROM teams
+    WHERE pack_key IS NOT NULL AND pack_version IS NOT NULL AND pack_digest IS NOT NULL`)
+    .all() as { id: string; name: string; pack_key: string; pack_version: string; pack_digest: string }[];
+  for (const team of teams) {
+    if (!keys.includes(team.pack_key)) continue;
+    const entry = packs.find((pack) => pack.key === team.pack_key && pack.version === team.pack_version);
+    if (!entry) continue;
+    try {
+      const pack = registryPack(entry);
+      if (pack.digest === team.pack_digest) continue;
+      const seatNames = new Set(pack.manifest.seats.map((seat) => seat.name));
+      const seats = raw.prepare("SELECT name FROM seats WHERE team_id = ?").all(team.id) as { name: string }[];
+      if (seats.some((seat) => !seatNames.has(seat.name))) continue;
+      raw.transaction(() => {
+        capturePackSnapshot(raw, pack, now);
+        raw.prepare("UPDATE teams SET pack_digest = ? WHERE id = ? AND pack_digest = ?").run(pack.digest, team.id, team.pack_digest);
+      })();
+      moved.push(`${team.name}: ${team.pack_digest.slice(0, 10)} -> ${pack.digest.slice(0, 10)}`);
+    } catch { console.error("Pack update skipped"); }
+  }
+  return moved;
+}

@@ -1,6 +1,6 @@
 import { PortalCard } from './PortalCard';
-import { PageHeader, Panel, Section, StatusDot } from '@/components/app';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader, Panel, Section } from '@/components/app';
+import { LoadingState } from '@/components/LoadingState';
 import { MascotEmpty } from '@/components/mascot';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useId, useRef, useState } from 'react';
@@ -17,7 +17,6 @@ import { ErrorNotice } from '../components/ErrorNotice';
 import { useT } from '../i18n';
 import { ProjectGrid } from './overview/ProjectGrid';
 import type { Store } from '../state/store';
-import { relativeTime } from '@/lib/inbox';
 import { attentionItems, type AttentionItem } from './shell/attention';
 import { ProjectTile } from './shell/ProjectTile';
 import { Select } from '../components/Select';
@@ -82,7 +81,7 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
       attempt.current = null; setText(''); onProject(entry.projectId);
     } finally { sending.current = false; setBusy(false); }
   }
-  const items = attentionItems(state.globalInbox).slice(0, 3);
+  const items = attentionItems(state.globalInbox).slice(0, 5);
   const hour = new Date().getHours();
   const dayPart = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
   useEffect(() => {
@@ -109,23 +108,17 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
         {error && <ErrorNotice error={error} />}{problem && <p role="alert">{t(problem)}</p>}
         {(error || problem) && <Button type="button" variant="outline" disabled={busy} onClick={() => { void submit(true); }}>{t('errors.retry')}</Button>}
       </form></Panel> : <Panel aria-label={t('overview.composer')}><MascotEmpty seat="Lead"><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button onClick={() => onCreate('game')}>{t('shellUi.newGame')}</Button><Button variant="outline" onClick={() => onCreate('project')}>{t('shellUi.newProject')}</Button></div></MascotEmpty></Panel>}
-      <Section title={t('overview.needsYou')}>
-        {state.loading.globalInbox && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-5 w-4/5" /><Skeleton className="h-4 w-3/5" /></div>}
-        {state.errors.globalInbox && <><ErrorNotice error={state.errors.globalInbox} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></>}
-        {!items.length && !state.loading.globalInbox && !state.errors.globalInbox && <p className="text-sm text-muted-foreground">{t('overview.caughtUp')}</p>}
+      {state.loading.globalInbox ? <LoadingState inline /> : state.errors.globalInbox ? <div><ErrorNotice error={state.errors.globalInbox} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></div> : items.length ? <Section title={t('overview.needsYou')}>
         <Stagger className="m-0 list-none p-0">{items.map((item, index) => {
           const name = item.projectName ?? state.projects.find(project => project.id === item.projectId)?.name ?? t('overview.project');
-          return <StaggerItem key={item.key} index={index}><Button type="button" variant="ghost" className="h-auto w-full flex-wrap justify-start gap-3 px-2 py-3 text-left font-normal whitespace-normal hover:bg-secondary" onClick={() => onAttention(item)}>
-            <StatusDot tone="need" label={t('overview.needsYou')} labelHidden />
-            <strong className="min-w-0 flex-1 text-sm font-medium [overflow-wrap:anywhere]">{item.title}</strong>
-            <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground"><ProjectTile id={item.projectId} name={name} className="size-6 rounded-md" /><span className="max-w-40 truncate">{name}</span></span>
-            {!item.since.startsWith('9999') && <time dateTime={item.since} className="shrink-0 text-xs text-muted-foreground">{relativeTime(item.since)}</time>}
-          </Button></StaggerItem>;
+          return <StaggerItem key={item.key} index={index}><div className="flex items-center gap-3 py-3">
+            <div className="min-w-0 flex-1"><p className="text-sm font-medium [overflow-wrap:anywhere]">{item.title}</p><span className="flex items-center gap-2 text-xs text-muted-foreground"><ProjectTile id={item.projectId} name={name} className="size-5 rounded-md" />{name}</span></div>
+            <Button type="button" variant="outline" size="sm" onClick={() => onAttention(item)}>{t('gameSummary.action')}</Button>
+          </div></StaggerItem>;
         })}</Stagger>
         <Button type="button" variant="link" className="h-auto px-0" onClick={() => onAttention()}>{t('overview.viewAll')}<ChevronRight className="size-4" /></Button>
-      </Section>
-      <PortalCard store={store} onChat={onProject} onGames={onPortal} />
-      <ProjectGrid store={store} onProject={onOpenProject} />
+      </Section> : <p className="text-sm text-muted-foreground">{t('overview.caughtUp')}</p>}
+      <ProjectGrid store={store} onProject={onOpenProject}><PortalCard store={store} onChat={onOpenProject} onGames={onPortal} /></ProjectGrid>
       <ActivityFeed store={store} onTask={(projectId, taskId) => { if (onTask) onTask(projectId, taskId); else onProject(projectId); }} />
     </div>
   </Page>;

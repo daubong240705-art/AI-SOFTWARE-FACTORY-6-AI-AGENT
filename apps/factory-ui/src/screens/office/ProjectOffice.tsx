@@ -1,3 +1,4 @@
+import { LoadingState } from '@/components/LoadingState';
 import { PageHeader } from '@/components/app';
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
@@ -5,7 +6,7 @@ import { ArrowRight, BookOpen, FileText, HelpCircle, Mail, UserRound } from 'luc
 import { meaningfulOfficeItems, type Interaction, type InteractionKind, type OfficeSeat, type Party } from '@/api/officeModels';
 import { AgentCard, AgentOverview, mascotFor, type OfficeNeed, type OpenOfficeTask } from './AgentCard';
 import { OfficePulse, OfficeRoomTrim, CoffeeCorner } from './OfficePulse';
-import { GamePipeline, orderGameSeats } from './GamePipeline';
+import { orderGameSeats } from './orderGameSeats';
 import { FeedMessage } from './FeedMessage';
 import { TaskDetail } from '../TaskDetail';
 import { DecisionDialog } from '../DecisionDialog';
@@ -16,7 +17,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import type { Store } from '@/state/store';
@@ -62,7 +62,7 @@ function useOffice(store: Store, projectId: string) {
   return now;
 }
 
-export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; projectId: string; onOpenTab: (tab: 'knowledge' | 'workflow') => void }) {
+export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; projectId: string; onOpenTab: (tab: 'knowledge') => void }) {
   const t = useT(); const id = useId();
   const now = useOffice(store, projectId);
   const { office, error } = store.useStoreSelector(state => ({ office: state.office, error: state.errors.office }));
@@ -95,21 +95,19 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
 
   return <Page className={cn("flex min-h-full min-w-0 flex-col gap-5", !lively && "office-quiet")}>
     <PageHeader title={t('officeUi.title')} />
-    {workflow && <GamePipeline detail={detail} onOpenWorkflow={() => onOpenTab('workflow')} />}
     {error && <div className="space-y-3"><ErrorNotice error={error} /><Button variant="outline" size="sm" onClick={() => { void store.loadOffice(); }}>{t('errors.retry')}</Button></div>}
-    {!office && !error && <div role="status" aria-label={t('viewStates.loading')} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
-      <Skeleton className="h-96 rounded-2xl" /><Skeleton className="h-96 rounded-2xl" /></div>}
+    {!office && !error && <LoadingState />}
     {office && <OfficePulse store={store} office={office} now={now} lively={lively} onLivelyChange={setLively} />}
-    {office && <div className="grid min-w-0 flex-1 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
+    {office && <div className="grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
       <OfficeFloor store={store} lively={lively} seats={seats} items={items} now={now} party={party} onSelectSeat={seat => setSelectedSeatId(seat.id)} onOpenTask={openTask} onReview={review} onOpenKnowledge={() => onOpenTab('knowledge')} />
-      <section aria-labelledby={`${id}-feed`} className="min-w-0 rounded-2xl border border-border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="min-h-0 min-w-0 lg:[contain:size]"><section aria-labelledby={`${id}-feed`} className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card max-lg:h-[min(32rem,65dvh)] lg:sticky lg:top-4 lg:h-[calc(100dvh-12rem)] lg:max-h-full lg:self-start">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
           <h3 id={`${id}-feed`} className="font-display text-base font-semibold">{t('officeUi.feed')}</h3>
           <div className="flex items-center gap-2"><Checkbox id={`${id}-progress`} checked={hideProgress} onCheckedChange={value => setHideProgress(value === true)} />
             <Label htmlFor={`${id}-progress`} className="text-xs text-muted-foreground">{t('officeUi.hideProgress')}</Label></div>
         </div>
         <Feed items={items.filter(item => !hideProgress || item.kind !== 'progress')} now={now} party={party} onOpenTask={taskId => { setSelectedTaskId(taskId); setSelectedTaskTab('process'); }} />
-      </section>
+      </section></div>
     </div>}
     <Sheet open={!!selectedSeat} onOpenChange={open => { if (!open) setSelectedSeatId(null); }}>
       <SheetContent side="right" className="w-full min-w-0 overflow-y-auto sm:max-w-lg">
@@ -119,7 +117,7 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
           </SheetHeader>
           <div className="space-y-5 p-5">
             <AgentOverview store={store} seat={selectedSeat} now={now} onOpenTask={openTask} onReview={review} />
-            <section className="min-w-0 overflow-hidden rounded-xl border border-border"><h3 className="border-b border-border p-4 text-sm font-semibold">{t('officeUi.feed')}</h3>
+            <section className="flex max-h-[65dvh] min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border"><h3 className="border-b border-border p-4 text-sm font-semibold">{t('officeUi.feed')}</h3>
               <Feed items={items.filter(item => (item.from.kind === 'seat' && item.from.seatId === selectedSeat.id) || (item.to?.kind === 'seat' && item.to.seatId === selectedSeat.id))} now={now} party={party} onOpenTask={taskId => { setSelectedSeatId(null); setSelectedTaskId(taskId); setSelectedTaskTab('process'); }} />
             </section>
           </div>
@@ -217,10 +215,10 @@ function OfficeFloor({ store, lively, seats, items, now, party, onSelectSeat, on
 
 function Feed({ items, now, party, onOpenTask }: { items: Interaction[]; now: number; party: (value: Party) => string; onOpenTask: (taskId: string) => void }) {
   const t = useT();
-  if (!items.length) return <p className="px-4 py-10 text-center text-sm text-muted-foreground">{t('officeUi.empty')}</p>;
+  if (!items.length) return <p className="flex min-h-0 flex-1 items-center justify-center px-4 py-10 text-center text-sm text-muted-foreground">{t('officeUi.empty')}</p>;
   const avatar = (value: Party) => value.kind === 'seat' ? <Mascot seat={value.name} size={22} animated={false} />
     : <span className="flex size-[22px] items-center justify-center rounded-full bg-secondary">{value.kind === 'operator' ? <UserRound className="size-3.5" aria-hidden="true" /> : <BookOpen className="size-3.5" aria-hidden="true" />}</span>;
-  return <ol aria-label={t('officeUi.feed')} className="m-0 max-h-[70vh] list-none divide-y divide-border overflow-y-auto overscroll-contain p-0 [scrollbar-gutter:stable]">
+  return <ol aria-label={t('officeUi.feed')} className="m-0 min-h-0 flex-1 list-none divide-y divide-border overflow-auto overscroll-contain p-0 [scrollbar-gutter:stable]">
     {items.map(item => <li key={item.id} className="min-w-0 space-y-2 px-4 py-4 [overflow-wrap:anywhere]">
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
         {avatar(item.from)}<span className="font-medium">{party(item.from)}</span>

@@ -130,7 +130,8 @@
         "docs/spec.md exists, is under 120 lines and defines core rules, win/draw/lose conditions, player counts, screens, controls and bot behaviour with a numbered list of every test case.",
         "src/types.ts exports the JSON-compatible State and Action types used by rules and client; game.json metadata, player limits and bot support match docs/spec.md.",
         "docs/spec.md has a Look and feel section: world, mood in three words, palette direction and the one memorable element.",
-        "docs/README.md (under 40 lines: name, one-sentence pitch, players and bot, rules summary, controls, look and feel) is registered with output.register (kind requirements, text/markdown, abstractL0 = the one-sentence pitch); the operator reviews it before rules and art start."
+        "docs/README.md (under 40 lines: name, one-sentence pitch, players and bot, rules summary, controls, look and feel) is registered with output.register (kind requirements, text/markdown, abstractL0 = the one-sentence pitch); the operator reviews it before rules and art start.",
+        "docs/spec.md has a Motion section: a table with every visible event (move, card played or drawn, dice rolled, chips placed, turn change, illegal move, win/draw/loss) and its effect from src/client/motion.ts (pop, flyFrom, flip, rollDice, rattle, countdown, tickNumber, confetti, shake) with a duration; random outcomes get a suspense phase of 0.8 to 2.5 s before the result shows."
       ]
     },
     {
@@ -234,7 +235,7 @@
         "npm run check, npm test and npm run build each exit 0; report all three exit codes.",
         "npm run play serves the preview page, its ready URL returns HTTP 200 and the page loads; stop the preview cleanly after checking.",
         "dist/ contains game.json, its HTML entry, self-contained ESM rules.js and every referenced asset, and HTML loads main.js and theme.css relatively.",
-        "Moves, turn changes, illegal moves and the end of the game have feedback following skills/game-juice; every animation ends at its rest state, never blocks input for more than 150 ms, and is replaced by instant changes under prefers-reduced-motion."
+        "Every row of the Motion table in docs/spec.md is implemented with src/client/motion.ts (create it from skills/game-juice when missing): moved cards, pieces and chips fly from where they were to where they land, random results (dice, draws) show their suspense phase before the result, numbers count instead of jumping, opponent and bot moves animate too; effects end at rest, never block input over 150 ms, and are instant under prefers-reduced-motion."
       ],
       "includeIf": {
         "param": "runClient",
@@ -259,7 +260,8 @@
         "a bot-versus-bot simulation over 50 seeds ends every match without an illegal move, and one human-versus-human match is played to a win and one to a draw or loss",
         "illegal actions are rejected: wrong turn, invalid or occupied target, a move after the match ended",
         "in the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling (document scrollHeight is not larger than the window height and the whole board is visible) and a full match can be played",
-        "multiplayer: two browser contexts stay in sync turn by turn and reloading one returns it to the same room and seat, or \"n/a\" with the reason for a game without multiplayer"
+        "multiplayer: two browser contexts stay in sync turn by turn and reloading one returns it to the same room and seat, or \"n/a\" with the reason for a game without multiplayer",
+        "Motion check in the browser: right after a move document.getAnimations().length is above 0 and returns to 0 within 3 s; a random result (dice, draw) is not shown sooner than 800 ms after the action; with reduced motion emulated no animation runs; report each row of the Motion table in docs/spec.md as seen or missing (missing rows fail)."
       ],
       "includeIf": {
         "param": "qa",
@@ -288,7 +290,8 @@
         "A clean npm install followed by npm run check, npm test and npm run build exits 0; report the three check, test and build exit codes.",
         "A bot-versus-bot run over 20 seeds ends every match without an illegal move; report the seed range and results.",
         "In the browser at 1280x720 and 390x844 the preview opens with no console errors, needs no scrolling and one match is played to the end.",
-        "No file outside tests/ was changed by QA; report the changed paths (or none)."
+        "No file outside tests/ was changed by QA; report the changed paths (or none).",
+        "After a move document.getAnimations().length is above 0 and returns to 0 within 3 s; report the rows of the docs/spec.md Motion table that were seen."
       ]
     }
   ],

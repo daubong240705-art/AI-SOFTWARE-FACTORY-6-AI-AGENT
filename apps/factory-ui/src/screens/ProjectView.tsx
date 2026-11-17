@@ -5,7 +5,7 @@ import type { Project } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Columns3, GitBranch, LayoutGrid, MessageSquare, Play, Settings, Users, Workflow } from 'lucide-react';
+import { BookOpen, Columns3, LayoutGrid, MessageSquare, Play, Settings, Users } from 'lucide-react';
 import { PreviewDialog } from './PreviewDialog';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
@@ -14,8 +14,6 @@ import { ProjectChat } from './ProjectChat';
 import { ProjectTasks } from './ProjectTasks';
 import { ProjectOverview } from './ProjectOverview';
 import { ProjectKnowledge } from './ProjectKnowledge';
-import { ProjectCode } from './ProjectCode';
-import { ProjectWorkflow } from './ProjectWorkflow';
 import { ProjectSettingsPage } from './project-settings/ProjectSettingsPage';
 import { ProjectOffice } from './office/ProjectOffice';
 import { useNavigation, type ProjectTab, type SettingsSection } from './shell/navigation';
@@ -24,16 +22,17 @@ import { ProjectTile } from './shell/ProjectTile';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { Reveal } from '@/components/motion/Reveal';
 
-const tabIcons = { overview: LayoutGrid, office: Users, board: Columns3, workflow: Workflow, knowledge: BookOpen, code: GitBranch, settings: Settings };
+const tabIcons = { overview: LayoutGrid, office: Users, board: Columns3, knowledge: BookOpen, settings: Settings };
 export function ProjectView({ store, project, tab, onTabChange, openChat = false, onChatOpened, initialTaskId, settingsSection, newTaskRequest = 0, onNewTaskOpened }: {
   store: Store; project: Project; tab?: ProjectTab; onTabChange?: (tab: ProjectTab, section?: SettingsSection) => void; openChat?: boolean; onChatOpened?: () => void; initialTaskId?: string | undefined; settingsSection?: SettingsSection; newTaskRequest?: number; onNewTaskOpened?: () => void;
 }) {
   const t = useT(); const id = useId();
   const reduced = useReducedMotion();
   const navigation = useNavigation();
-  const tabs: ProjectTab[] = ['overview', 'office', 'board', 'workflow', 'knowledge', 'code'];
+  const tabs: Array<'overview' | 'office' | 'board' | 'knowledge'> = ['overview', 'office', 'board', 'knowledge'];
   const requestedTab = tab ?? navigation.tab;
-  const active = requestedTab;
+  const legacySection = requestedTab === 'workflow' || requestedTab === 'code' ? requestedTab : undefined;
+  const active = legacySection ? 'settings' : requestedTab;
   const [chat, setChat] = useState(openChat);
   const [chatVisible, chatExited] = usePanelLayout(chat);
   const [selected, setSelected] = useState<string | null>(null);
@@ -82,15 +81,13 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
       </div>
     </header></Page>
     <div className={`project-body${chatVisible ? ' has-chat' : ''}`}>
-      <div className="project-tab-content" role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${active}`} tabIndex={0}>
+      <div className="project-tab-content" role="tabpanel" id={`${id}-panel`} aria-labelledby={active === 'settings' ? `${id}-settings` : `${id}-${active}`} tabIndex={0}>
         <Reveal key={active} className="h-full min-h-0">
         {active === 'overview' && <ProjectOverview store={store} onOpenTask={openTask} onOpenSettings={section => select('settings', section)} />}
         {active === 'office' && <ProjectOffice key={project.id} store={store} projectId={project.id} onOpenTab={select} />}
         {active === 'board' && <ProjectTasks store={store} projectId={project.id} selectedTask={selected} onOpenTask={openTask} onCloseTask={() => setSelected(null)} newTaskOpen={creating} onCloseNewTask={() => setCreating(false)} newTaskId={`${id}-new-task`} />}
-        {active === 'workflow' && <ProjectWorkflow key={project.id} store={store} projectId={project.id} onOpenTask={openTask} />}
-        {active === 'settings' && <ProjectSettingsPage key={project.id} store={store} projectId={project.id} section={settingsSection ?? navigation.settingsSection} onSection={section => select('settings', section)} />}
+        {active === 'settings' && <ProjectSettingsPage key={project.id} store={store} projectId={project.id} section={legacySection ?? settingsSection ?? navigation.settingsSection} onOpenTask={openTask} onSection={section => select('settings', section)} />}
         {active === 'knowledge' && <ProjectKnowledge key={project.id} store={store} projectId={project.id} />}
-        {active === 'code' && <ProjectCode key={project.id} store={store} projectId={project.id} />}
         </Reveal>
       </div>
       <PanelPresence className="project-chat-dock min-h-0 min-w-0" fallbackFocus={() => ask.current} onExitComplete={chatExited}>{chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock h-full p-0" onClose={() => setChat(false)} fallbackFocus={() => ask.current}>

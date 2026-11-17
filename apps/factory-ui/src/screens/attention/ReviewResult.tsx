@@ -1,8 +1,8 @@
+import { LoadingState } from '@/components/LoadingState';
 import { useEffect } from 'react';
 import type { Approval } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
 import { Section, TechDetails } from '@/components/app';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ErrorNotice } from '../../components/ErrorNotice';
 import { useT } from '../../i18n';
@@ -43,7 +43,7 @@ export function ReviewResult({ store, taskId, approval }: { store: Store; taskId
     {error && <div className="pt-5"><ErrorNotice error={error} /><Button variant="outline" onClick={() => { void store.loadTaskDetail(taskId); }}>{t('errors.retry')}</Button></div>}
     <div className="grid min-w-0 flex-1 items-start gap-6 pt-6 min-[1400px]:grid-cols-[minmax(0,1fr)_300px]">
       <div className="min-w-0">
-        {(!detail || (detail.loading && !attempt)) && !error && <div role="status" className="space-y-3"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-7 w-2/3" /><Skeleton className="h-64 w-full" /></div>}
+        {(!detail || (detail.loading && !attempt)) && !error && <LoadingState inline />}
         <TabsContent value="result" className="m-0 space-y-5">
           {detail && <>
             {attempt ? <ReviewChanges store={store} taskId={taskId} code={task?.code ?? ''} attempt={attempt} /> : <Section className="text-sm text-muted-foreground">{t('reviewUi.noChanges')}</Section>}

@@ -5,6 +5,7 @@ export const extra = {
     enable: 'Propose enable', disable: 'Propose disable', setVersion: 'Propose version change', publish: 'Propose publish', reason: 'Reason (optional)', attention: 'Open Need attention to approve', proposed: 'Proposal created. Portal is waiting for your approval.', error: 'Could not complete the request. Check the connection, game, version, open proposals and publish preconditions.', refresh: 'Refresh', audit: 'Portal audit', actions: 'Portal actions', empty: 'No data yet.', reconcile: 'Check again', state: 'State', at: 'Time', actor: 'Actor', action: 'Action', daily: 'Matches per day', registered: 'Registered', guests: 'Guests', newUsers: 'New users',
     states: { proposed: 'Proposed', rejected: 'Rejected', running: 'Running', done: 'Done', failed: 'Failed', unknown: 'Unknown' },
   },
+  gameSummary: { client: 'Game code', games: 'Games', working: 'Working: {step}', review: 'Awaiting your approval', done: 'Done', stuck: 'Stuck', preparing: 'Preparing', step: 'Current step', more: 'Show more', less: 'Show less', action: 'View', },
   studioUi: {
     title: 'Game studio', hero: 'Create a game, play it, and make it better with your team.', games: 'Your games',
     empty: 'Your first game starts here. Tell the team what you want to play.', loadError: 'Could not load your games.',
@@ -295,7 +296,7 @@ export const extra = {
     composer: 'Ask or delegate to Lead', message: 'Message for Lead',
     placeholder: 'Ask or describe what needs doing…', project: 'Project', ask: 'Ask', delegate: 'Delegate', toSend: 'to send',
     caughtUp: 'You are all caught up.', viewAll: 'See all', conversationUnavailable: 'The conversation is not available yet. Try again.',
-    activity: 'Activity', activityFilters: 'Filter activity by project', allProjects: 'All', today: 'Today', yesterday: 'Yesterday',
+    activity: 'Recent activity', activityFilters: 'Filter activity by project', allProjects: 'All', today: 'Today', yesterday: 'Yesterday',
     activityEmpty: 'No activity to show yet.', activityScope: 'Showing tasks from {project}, the selected project.',
     activitySelectProject: 'Open a project to see its task activity.', undated: 'OTHER', needsYou: 'Needs you', projectStates: { active: 'Active', parked: 'Parked', archived: 'Archived' },
   },

@@ -9,7 +9,8 @@ import { DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { i18n, useT } from '@/i18n';
 import type { Store } from '@/state/store';
 import { PreviewDialog } from './PreviewDialog';
-import { M5Status } from './M5Shared';
+import { gameStatus, stageName } from './studio/presentation';
+import { LoadingState } from '@/components/LoadingState';
 
 type Confirmation = { kind: 'publish' } | { kind: 'rollback'; version: number };
 type Action = Confirmation | { kind: 'reconcile'; releaseId: string };
@@ -24,7 +25,7 @@ function buildStage(detail: WorkflowDetail | undefined) {
   }));
 }
 
-export function GamePanel({ store, projectId, gameName, workflow, releaseOnly = false }: { store: Store; projectId: string; gameName: string; workflow: WorkflowInstance; releaseOnly?: boolean }) {
+export function GamePanel({ store, projectId, gameName, workflow }: { store: Store; projectId: string; gameName: string; workflow: WorkflowInstance }) {
   const t = useT(); const id = useId();
   const detail = store.useStoreSelector(state => state.m5.workflowDetails[workflow.id]);
   const [data, setData] = useState<ReleasesResponse | null>(null);
@@ -68,30 +69,36 @@ export function GamePanel({ store, projectId, gameName, workflow, releaseOnly = 
   const newestDone = releases.find(release => release.kind === 'publish' && release.state === 'done');
   const allowed = data?.enabled === true && data.canPublish.allowed && !loadError;
   const stages = buildStage(detail);
+  const step = stages[0]?.key;
+  const status = gameStatus(detail?.state ?? workflow.state, step, t);
+  // A successful rollback is also the current Portal release.
+  const live = releases.find(release => release.state === 'done');
   return <Card className="gap-0 rounded-xl border-border py-0 shadow-none" aria-labelledby={id}>
     <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 p-5">
-      <h2 id={id} className="font-display text-lg font-semibold">{t('gameUi.panelTitle')}</h2>
-      <div className="flex flex-wrap items-center gap-2">{!releaseOnly && <Button type="button" variant="outline" onClick={() => setPreview(true)}>{t('previewUi.button')}</Button>}
-        <Button type="button" disabled={!allowed || busy} aria-describedby={!allowed ? `${id}-publish-reason` : undefined} onClick={() => setConfirmation({ kind: 'publish' })}>{t('gameUi.publish')}</Button>
-        {!allowed && <span id={`${id}-publish-reason`} className="max-w-xl text-sm text-muted-foreground [overflow-wrap:anywhere]">{data?.enabled === false ? t('gameUi.publishingDisabled') : loadError ? t('gameUi.loadError') : data ? data.canPublish.reason ?? t('gameUi.publishUnavailable') : t('viewStates.loading')}</span>}
+      <h2 id={id} className="font-display text-lg font-semibold">{gameName}</h2>
+      <div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" onClick={() => setPreview(true)}>{t('previewUi.button')}</Button>
+        <Button type="button" disabled={!allowed || busy} aria-describedby={!allowed && data ? `${id}-publish-reason` : undefined} onClick={() => setConfirmation({ kind: 'publish' })}>{t('gameUi.publish')}</Button>
+        {!allowed && data && <span id={`${id}-publish-reason`} className="max-w-xl text-sm text-muted-foreground [overflow-wrap:anywhere]">{!data.enabled ? t('gameUi.publishingDisabled') : loadError ? t('gameUi.loadError') : data.canPublish.reason ?? t('gameUi.publishUnavailable')}</span>}
       </div>
     </CardHeader>
     <CardContent className="space-y-4 px-5 pb-5">
-      {!releaseOnly && <dl className="grid gap-2 text-sm"><div className="flex flex-wrap items-center gap-2"><dt className="text-muted-foreground">{t('gameUi.buildStatus')}</dt><dd><M5Status value={detail?.state ?? workflow.state} /></dd></div>
-        <div className="flex flex-wrap gap-x-2"><dt className="text-muted-foreground">{t('gameUi.buildStage')}</dt><dd className="space-y-1 [overflow-wrap:anywhere]">{stages.length ? stages.map(stage => <div key={stage.key} className="flex flex-wrap items-center gap-2"><span>{stage.title}</span><M5Status value={stage.state} /></div>) : t('workflowUi.noStages')}</dd></div>
-      </dl>}
+      <div className="flex flex-wrap items-center gap-3">
+        <Badge variant="outline" className={status.className}>{status.label}</Badge>
+        <p className="text-sm text-muted-foreground">{t('gameSummary.step')}: {step ? stageName(step, t) : t('gameSummary.preparing')}</p>
+        {live?.version != null && <Badge variant="secondary">v{live.version}</Badge>}
+        {live?.playUrl && /^https?:\/\//i.test(live.playUrl) && <a href={live.playUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline underline-offset-4">{t('gameUi.openGame')}</a>}
+      </div>
       {actionError && <p role="alert" className="text-sm text-destructive">{t('gameUi.actionError')}</p>}
       {loadError && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive"><span>{t('gameUi.loadError')}</span><Button type="button" variant="outline" size="sm" onClick={() => setRefresh(value => value + 1)}>{t('errors.retry')}</Button></div>}
-      {!data && !loadError && <p role="status" className="text-sm text-muted-foreground">{t('viewStates.loading')}</p>}
+      {!data && !loadError && <LoadingState inline />}
       {data?.enabled && <section aria-labelledby={`${id}-releases`} className="space-y-3 border-t border-border pt-4">
         <h3 id={`${id}-releases`} className="text-sm font-medium">{t('gameUi.releases')}</h3>
         {!releases.length && <p className="text-sm text-muted-foreground">{t('gameUi.noReleases')}</p>}
-        <ul className="m-0 list-none space-y-3 p-0">{releases.map(release => <li key={release.id} className="space-y-2 rounded-lg border border-border p-3">
+        <ul className="m-0 list-none divide-y divide-border p-0">{releases.map(release => <li key={release.id} className="space-y-2 py-2">
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span>{t('gameUi.version').replace('{version}', release.version === null ? t('gameUi.unassignedVersion') : String(release.version))}</span>
             <span>{t(`gameUi.kinds.${release.kind}`)}</span>
             <Badge variant="outline" className={tone[release.state]}>{t(`gameUi.states.${release.state}`)}</Badge>
-            {release.commitSha && <span className="font-mono text-xs" title={release.commitSha}>{release.commitSha.slice(0, 8)}</span>}
             <time dateTime={release.completedAt ?? release.createdAt} className="text-xs text-muted-foreground">{new Date(release.completedAt ?? release.createdAt).toLocaleString(i18n.locale)}</time>
             {release.kind === 'publish' && release.state === 'done' && release.playUrl && /^https?:\/\//i.test(release.playUrl) && <a href={release.playUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-4">{t('gameUi.openGame')}</a>}
           </div>

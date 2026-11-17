@@ -1,6 +1,6 @@
+import { LoadingState } from '@/components/LoadingState';
 import { PortalGames } from './PortalGames';
 import { shallowSelectionEqual } from '@/state/storeSelector';
-import { MascotEmpty } from '@/components/mascot';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
@@ -77,9 +77,9 @@ export function AppShell({ store }: { store: Store }) {
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} tab={teamTab} onTabChange={next => navigate('team', 'overview', next)} onTask={openTask} />
         : view === 'system' ? <System store={store} />
-        : view === 'mascots' ? <Suspense fallback={<MascotEmpty seat="Lead" state="thinking" compact><p role="status">{t('viewStates.loading')}</p></MascotEmpty>}><MascotGallery /></Suspense>
+        : view === 'mascots' ? <Suspense fallback={<LoadingState />}><MascotGallery /></Suspense>
         : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} tab={tab} settingsSection={settingsSection} onTabChange={(next, section) => navigate(view, next, undefined, section)} newTaskRequest={newTaskRequest?.projectId === selected.id ? newTaskRequest.sequence : 0} onNewTaskOpened={() => setNewTaskRequest(null)} openChat={chatProject === selected.id} onChatOpened={() => setChatProject(null)} initialTaskId={initialTask?.projectId === selected.id ? initialTask.taskId : undefined} />
-        : <MascotEmpty seat="Lead" state="thinking" compact><p role="status">{t('viewStates.loading')}</p></MascotEmpty>}
+        : <LoadingState />}
       </Reveal>
     </main>
     {creating && <CreateProject store={store} onClose={() => setCreating(false)} onCreated={id => go(`project:${id}`)} />}

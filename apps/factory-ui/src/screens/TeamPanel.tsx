@@ -1,4 +1,4 @@
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/LoadingState';
 import { MascotEmpty } from '@/components/mascot';
 import { AgentProfileButton } from '@/components/agent-profile/AgentProfileButton';
 import { useT } from '../i18n';
@@ -14,7 +14,7 @@ export function TeamPanel({ store }: { store: Store }) {
   const t = useT();
   const { team, loading, errors } = store.useStoreSelector((state) => state);
   if (loading.team && !team) {
-    return <Card className="border-border p-5 shadow-none"><div role="status" aria-label={t('viewStates.loading')} className="space-y-3"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-6 w-2/5" /><Skeleton className="h-4 w-full" /><Skeleton className="h-24 w-full" /></div></Card>;
+    return <Card className="border-border p-5 shadow-none"><LoadingState inline /></Card>;
   }
 
   return (

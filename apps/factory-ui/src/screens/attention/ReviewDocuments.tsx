@@ -1,3 +1,4 @@
+import { LoadingState } from '@/components/LoadingState';
 import { useState } from 'react';
 import { FileText, NotebookText, FileCode, FileImage, ExternalLink } from 'lucide-react';
 import type { TaskArtifact } from '../../api/client';
@@ -6,7 +7,6 @@ import { Section } from '@/components/app';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useT } from '../../i18n';
 import type { Store } from '../../state/store';
@@ -90,7 +90,7 @@ function DocumentRow({ store, taskId, document, version }: { store: Store; taskI
       </ItemActions>
     </Item>
     <CollapsibleContent className="pb-3">
-      {state.loading[`content:${key}`] && <div role="status"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-24 w-full" /></div>}
+      {state.loading[`content:${key}`] && <LoadingState inline />}
       {error && <Alert className="border-border"><AlertDescription><p>{t(`safeErrors.${error.code}`)}</p><Button variant="outline" size="sm" onClick={load}>{t('errors.retry')}</Button></AlertDescription></Alert>}
       {body()}
       {!text && <p className="text-sm text-muted-foreground">{readableText(version.abstractL1 || version.abstractL0) || t('reviewUi.contentUnavailable')}</p>}

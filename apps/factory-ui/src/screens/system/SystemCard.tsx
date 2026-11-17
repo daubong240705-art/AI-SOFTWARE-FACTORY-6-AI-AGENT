@@ -1,7 +1,7 @@
 import { useId, type ReactNode } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { LoadingState } from '@/components/LoadingState';
 import { ErrorNotice } from '@/components/ErrorNotice';
 import { cn } from '@/lib/utils';
 import { i18n, useT } from '@/i18n';
@@ -22,9 +22,7 @@ export function SystemRead({ store, area, children, showOnError = false }: {
 }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
   const error = state.errors[`system:${area}`]; const data = state.system[area];
-  if (data === null && !error) return <div role="status" aria-label={t('viewStates.loading')} className="space-y-3">
-    <Skeleton className="h-4 w-2/3" /><Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-1/2" />
-  </div>;
+  if (data === null && !error) return <LoadingState inline />;
   return <>
     {error && <div className="space-y-3"><ErrorNotice error={error} />
       <Button type="button" variant="outline" size="sm" disabled={state.loading[`system:${area}`]} onClick={() => void store.loadSystem(area)}>{t('errors.retry')}</Button>

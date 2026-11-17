@@ -1,3 +1,4 @@
+import { LoadingState } from '@/components/LoadingState';
 import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Copy, Download } from 'lucide-react';
 import type { Attempt } from '../../api/client';
@@ -5,7 +6,6 @@ import { Section } from '@/components/app';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useT } from '../../i18n';
 import type { Store } from '../../state/store';
 import { parseDiff } from '../../state/diff';
@@ -30,7 +30,7 @@ export function ReviewChanges({ store, taskId, code, attempt }: { store: Store; 
     finally { link.remove(); if (url) URL.revokeObjectURL(url); }
   }
   if (error) return <Alert className="border-border"><AlertCircle /><AlertTitle>{t('errors.title')}</AlertTitle><AlertDescription><p>{t(`safeErrors.${error.code}`)}</p><Button variant="outline" size="sm" onClick={() => { void store.loadPatch(taskId, attempt.id); }}>{t('errors.retry')}</Button></AlertDescription></Alert>;
-  if (!loaded || state.loading[`patch:${attempt.id}`]) return <div role="status" className="space-y-3"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-7 w-1/2" /><Skeleton className="h-72 w-full" /></div>;
+  if (!loaded || state.loading[`patch:${attempt.id}`]) return <LoadingState inline />;
   if (!patch?.patch.trim()) return <Section className="text-sm text-muted-foreground"><p>{t('reviewUi.noChanges')}</p></Section>;
   return <div className="min-w-0 space-y-3">
     <div className="flex flex-wrap gap-2">{files.map((file, index) => <Badge key={index} variant="outline" className="max-w-full gap-2 rounded-full px-3 py-1 font-mono text-xs font-normal"><span className="truncate">{file.name.replace(/^a\/(.*?) b\/(.*)$/, '$2') || t('workUi.unnamed')}</span><span className="text-ok">+{file.lines.filter(line => line.kind === 'added').length}</span></Badge>)}</div>

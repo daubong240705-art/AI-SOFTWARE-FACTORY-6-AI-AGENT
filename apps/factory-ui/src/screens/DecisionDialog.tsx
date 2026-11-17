@@ -1,3 +1,4 @@
+import { LoadingState } from '@/components/LoadingState';
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Approval, Command } from '@factory/contracts';
 import { MessageSquarePlus } from 'lucide-react';
@@ -9,7 +10,6 @@ import { AttentionPane } from './attention/AttentionPane';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog } from '../components/Dialog';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { i18n, useT } from '../i18n';
@@ -84,7 +84,7 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
   const technical = approval && <Facts mono rows={[[t('attention.identifier'), approval.id], [t('attention.digest'), approval.context.digest], [t('reviewUi.recordNumber'), String(approval.revision)], [t('inboxUi.expires'), new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(approval.expiresAt))]]} />;
   const body = <>
     {inline && approval && <AgentSummary key={approval.id} text={approval.summary} />}
-    {(!ready || state.loading[`approval:${approvalId}`]) && <div role="status" className={inline ? 'space-y-3' : 'space-y-3 px-6 pb-6'}><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-6 w-1/2" /><Skeleton className="h-48 w-full" /></div>}
+    {(!ready || state.loading[`approval:${approvalId}`]) && <LoadingState inline />}
     {state.errors[`approval:${approvalId}`] && <div className={inline ? '' : 'px-6 pb-6'}><ErrorNotice error={state.errors[`approval:${approvalId}`]!} /><Button variant="outline" onClick={() => { void store.loadApproval(approvalId); }}>{t('errors.retry')}</Button></div>}
     {changed && <p role="status" className={inline ? 'text-sm text-muted-foreground' : 'px-6 pb-4 text-sm text-muted-foreground'}>{t('inboxUi.changed')}</p>}
     {approval && <>

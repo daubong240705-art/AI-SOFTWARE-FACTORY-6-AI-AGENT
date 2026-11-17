@@ -1,9 +1,9 @@
+import { LoadingState } from '@/components/LoadingState';
 import { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { i18n, useT } from '@/i18n';
 
 export function PdfPreview({ data, initialPage, onPageChange }: { data: ArrayBuffer; initialPage?: number; onPageChange?: (page: number) => void }) {
@@ -44,7 +44,7 @@ export function PdfPreview({ data, initialPage, onPageChange }: { data: ArrayBuf
   }, [pdf, currentPage, scale]);
   function changePage(next: number) { setPage(next); onPageChange?.(next); }
   if (error) return <Alert className="border-border"><AlertDescription>{t('knowledgeUi.previewError')}</AlertDescription></Alert>;
-  if (!pdf) return <Skeleton role="status" aria-label={t('viewStates.loading')} className="h-64 rounded-lg" />;
+  if (!pdf) return <LoadingState inline className="min-h-64" />;
   const number = (value: number) => new Intl.NumberFormat(i18n.locale).format(value);
   return <div className="space-y-3"><div className="flex flex-wrap items-center justify-center gap-2">
     <Button size="sm" variant="outline" aria-label={t('knowledgeUi.previousPage')} disabled={currentPage <= 1} onClick={() => changePage(currentPage - 1)}><ChevronLeft className="size-4" /></Button>

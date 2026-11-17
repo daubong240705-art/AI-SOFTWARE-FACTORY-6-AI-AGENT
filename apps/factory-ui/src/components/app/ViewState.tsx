@@ -1,9 +1,9 @@
+import { LoadingState } from '@/components/LoadingState';
 import type { ComponentProps, ReactNode } from 'react';
 import { ErrorNotice } from '@/components/ErrorNotice';
 import { MascotEmpty } from '@/components/mascot';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription } from '@/components/ui/empty';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useT } from '@/i18n';
 import type { Store, StoreError } from '@/state/store';
 
@@ -17,7 +17,7 @@ export function ViewState({ loading = false, error, onRetry, empty = false, empt
   seat?: ComponentProps<typeof MascotEmpty>['seat']; mascotState?: ComponentProps<typeof MascotEmpty>['state']; compact?: boolean;
 }) {
   const t = useT();
-  if (loading) return <div role="status" aria-label={t('viewStates.loading')} className="space-y-3 p-4"><Skeleton className="h-4 w-2/3" /><Skeleton className="h-3 w-1/2" /><Skeleton className="h-3 w-4/5" /></div>;
+  if (loading) return <LoadingState inline />;
   if (error) return <div className="space-y-3"><ErrorNotice error={error} />{onRetry && <Button type="button" variant="outline" size="sm" onClick={onRetry}>{t('errors.retry')}</Button>}</div>;
   if (!empty) return null;
   const content = <><EmptyDescription>{emptyText ?? t('m3.empty')}</EmptyDescription>{emptyAction}</>;

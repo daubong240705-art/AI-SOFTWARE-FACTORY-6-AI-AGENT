@@ -10,6 +10,7 @@ export function viewHash(view: View, tab: ProjectTab = 'overview', team: TeamTab
   if (view === 'team') return team === 'config' ? '#/team/config' : '#/team';
   if (!view.startsWith('project:')) return view === 'needs-attention' ? '#/attention' : `#/${view}`;
   const id = encodeURIComponent(view.slice(8));
+  if (tab === 'workflow' || tab === 'code') return `#/project/${id}/settings/${tab}`;
   if (tab === 'overview') return `#/project/${id}`;
   if (tab === 'settings') return `#/project/${id}/settings${section ? `/${section}` : ''}`;
   return `#/project/${id}/${tab}`;
@@ -29,10 +30,12 @@ export function projectTab(hash: string): ProjectTab {
   const value = /^#\/project\/[^/]+\/([^/]+)(?:\/[^/]+)?$/.exec(hash)?.[1];
   // Legacy hash tabs.
   if (value === 'agent') return 'office';
-  if (value === 'automation') return 'settings';
+  if (value === 'automation' || value === 'workflow' || value === 'code') return 'settings';
   return tabs.includes(value as ProjectTab) ? value as ProjectTab : 'overview';
 }
 export function settingsSection(hash: string): SettingsSection {
+  const legacy = /^#\/project\/[^/]+\/(workflow|code)$/.exec(hash)?.[1];
+  if (legacy === 'workflow' || legacy === 'code') return legacy;
   const value = /^#\/project\/[^/]+\/settings\/([^/]+)$/.exec(hash)?.[1];
   return settingsSections.some(section => section === value) ? value as SettingsSection : defaultSettingsSection;
 }
@@ -64,7 +67,7 @@ export function useNavigation() {
   const navigate = useCallback((next: View, nextTab: ProjectTab = 'overview', nextTeam: TeamTab = 'activity', nextSection: SettingsSection = defaultSettingsSection) => {
     const hash = viewHash(next, nextTab, nextTeam, nextSection);
     if (location.hash !== hash) location.hash = hash;
-    setView(next); setTab(nextTab); setTeam(nextTeam); setSection(nextSection);
+    setView(next); setTab(projectTab(hash)); setTeam(nextTeam); setSection(settingsSection(hash));
   }, []);
   return { view, tab, teamTab: team, settingsSection: section, navigate };
 }
