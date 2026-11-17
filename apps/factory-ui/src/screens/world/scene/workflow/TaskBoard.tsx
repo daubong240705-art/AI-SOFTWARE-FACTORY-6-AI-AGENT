@@ -1,3 +1,4 @@
+import { createScreenTexture, type ScreenTexture } from '../screenTexture';
 import type { WorldLocations } from '../CameraRig';
 import { type WorkflowLocale } from '../../copy';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -20,56 +21,55 @@ function ellipsis(ctx: CanvasRenderingContext2D, text: string, width: number) {
   return `${text.slice(0, end)}…`;
 }
 /** Shared canvas atlas utility; all drawing is local, including font completion. */
-export function createWorkflowAtlas(entries: readonly AtlasEntry[], invalidate: () => void) {
-  const canvas = document.createElement('canvas');
-  const tileW = 384, tileH = 160, columns = 4;
-  canvas.width = columns * tileW; canvas.height = Math.max(1, Math.ceil(entries.length / columns)) * tileH;
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace; texture.generateMipmaps = false; texture.minFilter = THREE.LinearFilter;
+export function createWorkflowAtlas(entries: readonly AtlasEntry[], invalidate: () => void, persistent?: ScreenTexture) {
+  const screen = persistent ?? createScreenTexture(1024, 1024, invalidate);
+  const tileW = 256, tileH = 128, columns = 4, atlasSize = 1024;
+  const texture = screen.texture;
   const geometries = new Map<string, THREE.PlaneGeometry>();
-  const draw = () => {
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  let disposed = false;
+  const draw = () => screen.draw(ctx => {
+    if (disposed) return;
+    ctx.clearRect(0, 0, atlasSize, atlasSize);
     entries.forEach((entry, index) => {
       const x = index % columns * tileW, y = Math.floor(index / columns) * tileH;
       ctx.save(); ctx.beginPath(); ctx.rect(x + 2, y + 2, tileW - 4, tileH - 4); ctx.clip();
       if (entry.color) { ctx.fillStyle = entry.color; ctx.beginPath(); ctx.roundRect(x + 5, y + 5, tileW - 10, tileH - 10, 22); ctx.fill(); }
       ctx.fillStyle = '#4A3B2F'; ctx.textBaseline = 'middle';
       if (entry.text !== undefined) {
-        ctx.font = '600 42px "Inter Variable", sans-serif'; ctx.textAlign = 'center';
+        ctx.font = '600 32px "Inter Variable", sans-serif'; ctx.textAlign = 'center';
         ctx.fillText(ellipsis(ctx, entry.text, tileW - 28), x + tileW / 2, y + tileH / 2);
       } else {
-        ctx.textAlign = 'left'; ctx.font = '700 32px "Inter Variable", sans-serif';
+        ctx.textAlign = 'left'; ctx.font = '700 25px "Inter Variable", sans-serif';
         ctx.fillText(ellipsis(ctx, entry.code ?? '', tileW - 36), x + 18, y + 36);
-        ctx.font = '500 30px "Inter Variable", sans-serif';
+        ctx.font = '500 23px "Inter Variable", sans-serif';
         const title = (entry.title ?? '').replace(/\s+/g, ' ').trim();
         let split = 0;
         while (split < title.length && ctx.measureText(title.slice(0, split + 1)).width <= tileW - 36) split++;
         if (split < title.length) { const space = title.lastIndexOf(' ', split); if (space > 0) split = space; }
-        ctx.fillText(title.slice(0, split), x + 18, y + 85);
-        ctx.fillText(ellipsis(ctx, title.slice(split).trim(), tileW - 36), x + 18, y + 123);
+        ctx.fillText(title.slice(0, split), x + 18, y + 70);
+        ctx.fillText(ellipsis(ctx, title.slice(split).trim(), tileW - 36), x + 18, y + 104);
       }
       ctx.restore();
     });
-    texture.needsUpdate = true;
-  };
+  });
   entries.forEach((entry, index) => {
     const geometry = new THREE.PlaneGeometry(1, 1), uv = geometry.getAttribute('uv');
     const x = index % columns * tileW, y = Math.floor(index / columns) * tileH;
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, (x + 2 + uv.getX(i) * (tileW - 4)) / canvas.width,
-      1 - (y + 2 + (1 - uv.getY(i)) * (tileH - 4)) / canvas.height);
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, (x + 2 + uv.getX(i) * (tileW - 4)) / atlasSize,
+      1 - (y + 2 + (1 - uv.getY(i)) * (tileH - 4)) / atlasSize);
     geometries.set(entry.key, geometry);
   });
   const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-  let disposed = false; draw();
-  if (document.fonts) void document.fonts.load('500 30px "Inter Variable"').then(() => {
+  screen.attach(material); draw();
+  if (document.fonts) void document.fonts.load('500 23px "Inter Variable"').then(() => {
     if (!disposed) { draw(); invalidate(); }
   }).catch(() => { /* The local sans-serif fallback remains readable. */ });
   return {
+    attach: screen.attach,
     mesh(key: string, width: number, height: number) {
       const mesh = new THREE.Mesh(geometries.get(key), material); mesh.scale.set(width, height, 1); return mesh;
     },
-    dispose() { disposed = true; texture.dispose(); material.dispose(); geometries.forEach(geometry => geometry.dispose()); },
+    dispose() { disposed = true; screen.cancel(); if (!persistent) screen.dispose(); material.dispose(); geometries.forEach(geometry => geometry.dispose()); },
   };
 }
 let sharedToon: { material: THREE.MeshToonMaterial; gradient: THREE.DataTexture; users: number } | null = null;
@@ -115,6 +115,8 @@ export function TaskBoard({ locations, projectId, columns: inputColumns, overflo
   const { columns, overflow } = useMemo<{ columns: TaskBoardProps['columns']; overflow: TaskBoardProps['overflow'] }>(() => JSON.parse(contentKey), [contentKey]);
   const invalidate = useThree(state => state.invalidate); const motion = useWorldMotion();
   const [resource, setResource] = useState<BoardResource | null>(null);
+  const screen = useRef<ScreenTexture | null>(null);
+  useEffect(() => () => { screen.current?.dispose(); screen.current = null; }, []);
   const current = useRef<BoardResource | null>(null);
   const previous = useRef<{ project: string | null; points: Map<string, { point: THREE.Vector3; column: TaskCard['column'] }> } | null>(null);
   const release = useRef<(() => void) | null>(null); const debugKey = useRef({});
@@ -127,7 +129,7 @@ export function TaskBoard({ locations, projectId, columns: inputColumns, overflo
     const entries: AtlasEntry[] = taskColumns.map(column => ({ key: `column:${column}`, text: ({ todo: 'To do', doing: 'In progress', review: 'In review', failed: 'Failed', done: 'Done' })[column] }));
     cards.forEach(card => entries.push({ key: card.id, code: card.code, title: card.title }));
     taskColumns.forEach(column => { const count = Math.max(0, columns[column].length - rows) + (overflow?.[column] ?? 0); if (count) entries.push({ key: `overflow:${column}`, text: `+${count}`, color: '#E9D4AE' }); });
-    const atlas = createWorkflowAtlas(entries, invalidate), toon = createWorkflowToon();
+    const atlas = createWorkflowAtlas(entries, invalidate, screen.current ??= createScreenTexture(1024, 1024, invalidate)), toon = createWorkflowToon();
     const geometry = new RoundedBoxGeometry(1, 1, 1, quality === 'low' ? 1 : 2, 0.08);
     const body = new THREE.InstancedMesh(geometry, toon.material, Math.max(1, cards.length)); body.count = cards.length; body.frustumCulled = false; group.add(body);
     const backdropGeometry = new THREE.BoxGeometry(10.65, 1.2, 0.025);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import type { WorldEvent } from '../../data/events';
@@ -20,6 +20,7 @@ export type HandoffsProps = {
   /** Courier is called only when senderIdle explicitly confirms idle/done. */
   courier?: (handoff: Handoff) => void;
   senderIdle?: (seatId: string) => boolean;
+  onTask?: (projectId: string, taskId: string) => void;
   onTablePass?: (arrival: TableArrival) => void;
 };
 type Flight = { handoff: Handoff; from: THREE.Vector3; to: THREE.Vector3; viaTable: boolean; start: number; passed: boolean };
@@ -60,11 +61,11 @@ function createResources(quality: 'high' | 'low', invalidate: () => void): Resou
     const face = atlas.mesh(failed ? 'failed' : 'done', 1, 1);
     // Sprite geometry uses the atlas UVs while its shader billboards toward the camera.
     let material = spriteMaterials.get(failed);
-    if (!material) { material = new THREE.SpriteMaterial({ map: (face.material as THREE.MeshBasicMaterial).map, transparent: true, depthWrite: false, toneMapped: false }); spriteMaterials.set(failed, material); } const sprite = new THREE.Sprite(material); sprite.geometry = face.geometry; group.add(sprite); return sprite;
+    if (!material) { material = new THREE.SpriteMaterial({ map: (face.material as THREE.MeshBasicMaterial).map, transparent: true, depthWrite: false, toneMapped: false }); atlas.attach(material); spriteMaterials.set(failed, material); } const sprite = new THREE.Sprite(material); sprite.geometry = face.geometry; group.add(sprite); return sprite;
   }, dispose() { spriteMaterials.forEach(material => material.dispose()); atlas.dispose(); geometry.dispose(); cards.dispose(); marks.dispose(); toon.dispose(); } };
 }
 
-export function Handoffs({ events, positionOf, quality = 'high', still = false, courier, senderIdle, onTablePass }: HandoffsProps) {
+export function Handoffs({ events, positionOf, quality = 'high', still = false, courier, senderIdle, onTablePass, onTask }: HandoffsProps) {
   const invalidate = useThree(state => state.invalidate), motion = useWorldMotion();
   const [resources, setResources] = useState<Resources | null>(null); const current = useRef<Resources | null>(null);
   const seen = useRef(new Map(events.map(event => [event.id, Date.parse(event.at)])));
@@ -136,7 +137,7 @@ export function Handoffs({ events, positionOf, quality = 'high', still = false, 
         if (point && current.current) {
           // Cap transient badges, independently of the three flight slots.
           if (badges.current.length >= 12) { const old = badges.current.shift()!; current.current.group.remove(old.sprite); }
-          const failed = handoff.kind === 'failed'; badges.current.push({ point, start: now, sprite: current.current.badge(failed) });
+          const failed = handoff.kind === 'failed'; badges.current.push({ point, start: now, sprite: Object.assign(current.current.badge(failed), { userData: { handoff } }) });
         }
         continue;
       }
@@ -152,5 +153,9 @@ export function Handoffs({ events, positionOf, quality = 'high', still = false, 
     sample(now); invalidate();
   }, [events, still, quality, motion, invalidate]);
   useFrame(() => { if (!still && release.current) sample(performance.now()); });
-  return resources ? <primitive object={resources.group} dispose={null} /> : null;
+  return resources ? <primitive object={resources.group} dispose={null} onClick={(event: ThreeEvent<MouseEvent>) => {
+    if (event.delta > 4) return;
+    const handoff = event.object.userData.handoff as Handoff | undefined ?? (typeof event.instanceId === 'number' ? active.current[event.instanceId]?.handoff : undefined);
+    if (handoff?.taskId) { event.stopPropagation(); onTask?.(handoff.projectId, handoff.taskId); }
+  }} /> : null;
 }

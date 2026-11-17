@@ -106,11 +106,12 @@ test('task columns exclude parked work, prioritize action holds, cap each column
 test('interaction endpoints cover flights and leave progress/finished/failed as non-flights', () => {
     const x = inputs();
     x.interactions.p = office([
-        ...(['handoff', 'request', 'assign', 'question', 'review', 'start-gate', 'output', 'finished', 'failed', 'progress'] as const).map(kind => interaction(kind, kind)),
+        ...(['handoff', 'request', 'assign', 'question', 'review', 'start-gate', 'output', 'finished', 'failed', 'progress'] as const).map(kind => interaction(kind, kind, { taskId: 'actual-task' })),
         ...(['answer', 'rework', 'message'] as const).map(kind => interaction(kind, kind, { from: { kind: 'operator' } })),
     ]);
     const h = deriveWorld(x).model.handoffs;
     assert.equal(h.length, 10);
+    assert.equal(h.find(h => h.kind === 'handoff')?.taskId, 'actual-task', 'Clicks must preserve the real task reference');
     assert.equal(h.find(h => h.kind === 'question')?.to.kind, 'owner');
     assert.equal(h.find(h => h.kind === 'message')?.from.kind, 'owner');
     assert.equal(h.find(h => h.kind === 'output')?.to.kind, 'knowledge');
@@ -123,6 +124,9 @@ test('QA iteration order, stable bug identity, retesting, passed clearance and o
     assert.equal(a.bugOverflow, 2);
     assert.equal(a.bugIds.length, 14);
     assert.equal(a.bugs[0]?.state, 'retesting');
+    assert.equal(a.bugs[0]?.taskCode, 'QA-001', 'An unfocused game can resolve the QA task by code');
+    x.tasks.p = [task('qa-task', 'failed', { code: 'QA-001' })];
+    assert.equal(deriveWorld(x).model.bugs[0]?.taskId, 'qa-task');
     x.reports.p.qaRounds = [round(3, 'changes-requested')];
     assert.equal(deriveWorld(x).model.bugs[0]?.id, a.bugs[0]?.id);
     x.reports.p.qaRounds.push(round(4, 'passed'));

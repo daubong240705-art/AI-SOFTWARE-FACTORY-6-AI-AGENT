@@ -4,9 +4,9 @@ import { useT } from '@/i18n';
 import type { WorldAgent } from './data/types';
 import { agentStatusKey } from './agentPresentation';
 
-export function WorldRoster({ agents, error, loading, selected, onSelect, onOwner }: {
+export function WorldRoster({ agents, error, loading, selected, onSelect, onOwner, onTask }: {
   agents: readonly WorldAgent[]; error: boolean; loading: boolean; selected: string | null;
-  onSelect: (id: string) => void; onOwner: () => void;
+  onSelect: (id: string) => void; onOwner: () => void; onTask: (projectId: string, taskId: string) => void;
 }) {
   const t = useT(); const id = useId(); const [open, setOpen] = useState(false);
   const grouped = new Map<string, WorldAgent[]>();
@@ -17,10 +17,10 @@ export function WorldRoster({ agents, error, loading, selected, onSelect, onOwne
       <button className="world-roster-agent" aria-pressed={selected === 'owner'} onClick={onOwner}>{t('worldUi.ownerDesk')}</button>
       {error ? <p role="status" className="p-3 text-sm">{t('worldUi.sourceError')}</p> : loading ? <p role="status" className="p-3 text-sm">{t('worldUi.loading')}</p> : !agents.length ? <p className="p-3 text-sm">{t('worldUi.noAgents')}</p> : [...grouped].map(([teamId, members]) => <section key={teamId}>
         <h2 className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground">{members[0]?.teamName || t('worldUi.team')}</h2>
-        {members.map(agent => <button key={agent.seatId} className="world-roster-agent" aria-pressed={selected === agent.seatId} onClick={() => onSelect(agent.seatId)}>
+        {members.map(agent => <div key={agent.seatId}><button className="world-roster-agent" aria-pressed={selected === agent.seatId} onClick={() => onSelect(agent.seatId)}>
           <Mascot seat={agent.name} isLead={agent.isLead} state={agent.pose === 'resting' ? 'offline' : agent.pose} size={32} animated={false} />
-          <span className="min-w-0 flex-1"><span className="block truncate font-medium">{agent.name}</span><span className="world-status" data-status={agent.status}>{t(agentStatusKey(agent))}</span>{agent.runs[0] && <span className="ml-1 font-mono text-xs">{agent.runs[0].code}</span>}</span>
-        </button>)}
+          <span className="min-w-0 flex-1"><span className="block truncate font-medium">{agent.name}</span><span className="world-status" data-status={agent.status}>{t(agentStatusKey(agent))}</span></span>
+        </button>{agent.runs.map(run => <button key={run.taskId} className="ml-3 p-1 font-mono text-xs underline" onClick={() => onTask(run.projectId, run.taskId)}>{run.code}</button>)}</div>)}
       </section>)}
     </div>
   </aside>;

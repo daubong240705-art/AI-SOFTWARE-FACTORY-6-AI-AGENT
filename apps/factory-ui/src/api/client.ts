@@ -174,27 +174,27 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     publishGame: (id: string) => request(`${projectPath(id)}/publish`, releaseResponse, {}),
     reconcileRelease: (id: string, releaseId: string) => request(`${projectPath(id)}/releases/${encodeURIComponent(releaseId)}/reconcile`, releaseResponse, {}),
     rollbackRelease: (id: string, version: number) => request(`${projectPath(id)}/releases/rollback`, releaseResponse, rollbackRequestSchema.parse({ version })),
-    getTeam: (id: string) => request(`${projectPath(id)}/team`, team),
+    getTeam: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/team`, team, undefined, false, signal),
     listTasks: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks`, tasks, undefined, false, signal),
-    listAttempts: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/attempts`, readModels.attempts),
+    listAttempts: (id: string, taskId: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/attempts`, readModels.attempts, undefined, false, signal),
     listProjectAttempts: (id: string, options: { since?: string; limit?: number } = {}) => {
       const query = new URLSearchParams();
       if (options.since !== undefined) query.set('since', options.since);
       if (options.limit !== undefined) query.set('limit', String(options.limit));
       return request(`${projectPath(id)}/attempts${query.size ? `?${query}` : ''}`, readModels.projectAttempts);
     },
-    listAttemptEvents: (id: string, attemptId: string, options: { afterSeq?: number; limit?: number } = {}) => {
+    listAttemptEvents: (id: string, attemptId: string, options: { afterSeq?: number; limit?: number } = {}, signal?: AbortSignal) => {
       const query = new URLSearchParams();
       if (options.afterSeq !== undefined) query.set('afterSeq', String(options.afterSeq));
       if (options.limit !== undefined) query.set('limit', String(options.limit));
-      return request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/events${query.size ? `?${query}` : ''}`, readModels.events);
+      return request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/events${query.size ? `?${query}` : ''}`, readModels.events, undefined, false, signal);
     },
     async getAttemptPatch(id: string, attemptId: string) {
       try { return await request(`${projectPath(id)}/attempts/${encodeURIComponent(attemptId)}/patch`, readModels.patch); }
       catch (error) { if (error instanceof ApiClientError && error.status === 404) return null; throw error; }
     },
-    listTaskArtifacts: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/artifacts`, readModels.artifacts),
-    getArtifactContent: (id: string, artifactId: string, version: number) => request(`${projectPath(id)}/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(version)}/content`, readModels.content),
+    listTaskArtifacts: (id: string, taskId: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/artifacts`, readModels.artifacts, undefined, false, signal),
+    getArtifactContent: (id: string, artifactId: string, version: number, signal?: AbortSignal) => request(`${projectPath(id)}/artifacts/${encodeURIComponent(artifactId)}/versions/${encodeURIComponent(version)}/content`, readModels.content, undefined, false, signal),
     searchKnowledge: (id: string, options: KnowledgePage & { query: string }) => request(`${projectPath(id)}/knowledge/search${knowledgeQuery(options, options.query)}`, readModels.knowledgeSearch),
     listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     listDocuments: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
@@ -249,8 +249,8 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
       };
       xhr.send(file);
     }),
-    listTaskApprovals: (id: string, taskId: string) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/approvals`, readModels.approvals),
-    listWorkflows: (id: string) => request(`${projectPath(id)}/workflows`, m5ReadModels.workflows),
+    listTaskApprovals: (id: string, taskId: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/approvals`, readModels.approvals, undefined, false, signal),
+    listWorkflows: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/workflows`, m5ReadModels.workflows, undefined, false, signal),
     getWorkflow: (id: string, instanceId: string, signal?: AbortSignal) => request(`${projectPath(id)}/workflows/${encodeURIComponent(instanceId)}`, m5ReadModels.workflow, undefined, false, signal),
     getWorkflowDefinitions: (id: string) => request(`${projectPath(id)}/workflow-definitions`, m5ReadModels.workflowDefinitions),
     listSchedules: (id: string) => request(`${projectPath(id)}/schedules`, m5ReadModels.schedules),

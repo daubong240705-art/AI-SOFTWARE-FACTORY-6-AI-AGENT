@@ -12,15 +12,15 @@ export function AgentPanel({ agent, store, following, onFollow, onClose, onTask,
   agent: WorldAgent; store: Store; following: boolean; onFollow: () => void; onClose: () => void;
   onTask: (projectId: string, taskId: string) => void; onReview: (need: OfficeNeed) => void; onTeam: () => void;
 }) {
-  const t = useT(); const projectId = agent.runs[0]?.projectId;
+  const t = useT();
   return <DockedPane label={agent.name} onClose={onClose} className="world-panel min-w-0 max-w-full">
     <div className="mb-4 flex items-start gap-3"><Mascot seat={agent.name} isLead={agent.isLead} state={agent.pose === 'resting' ? 'offline' : agent.pose} size={52} animated={false} /><div className="min-w-0 flex-1"><h2 className="font-semibold">{agent.name}</h2><p className="text-sm text-muted-foreground">{agent.role}</p><span className="world-status" data-status={agent.status}>{t(agentStatusKey(agent))}</span></div><Button size="sm" variant="ghost" onClick={onClose}>{t('worldUi.close')}</Button></div>
+    <div className="mb-3 space-y-2">{agent.runs.map(run => <Button key={run.taskId} variant="outline" size="sm" className="w-full justify-start text-left" onClick={() => onTask(run.projectId, run.taskId)}>{run.code} · {run.title}</Button>)}</div>
     <AgentOverview store={store} seat={officeSeat(agent, { name: agent.teamName || t('worldUi.team') })} now={Date.now()} onOpenTask={taskId => {
       const run = agent.runs.find(item => item.taskId === taskId); if (run) onTask(run.projectId, taskId);
     }} onReview={onReview} />
     <div className="mt-4 flex flex-wrap gap-2">
       <Button variant="outline" size="sm" disabled={agent.overflow} aria-pressed={following} onClick={onFollow}>{t(following ? 'worldUi.unfollow' : 'worldUi.follow')}</Button>
-      {projectId && <Button variant="outline" size="sm" asChild><a href={`#/project/${encodeURIComponent(projectId)}/office`}>{t('worldUi.projectOffice')}</a></Button>}
       <Button variant="outline" size="sm" onClick={onTeam}>{t('worldUi.openTeam')}</Button>
     </div>
   </DockedPane>;

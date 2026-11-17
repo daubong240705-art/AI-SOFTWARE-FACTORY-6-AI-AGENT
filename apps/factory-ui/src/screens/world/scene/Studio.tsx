@@ -22,7 +22,7 @@ export type StudioProps = {
   quality: 'high' | 'low'; still: boolean; hidden: boolean; scopeKey: number;
   positions: AgentPositions; locations: WorldLocations; debug: MutableRefObject<SceneDebug>; courier: Courier;
   consumeEvents: (ids: readonly string[]) => void;
-  onTask: (projectId: string, taskId: string) => void;
+  onTask: (projectId: string, taskId: string) => void; onStage: (key: string) => void;
   onBug: (bug: Bug) => void; onRelease: (release: GalleryItem) => void;
   onCelebrate: (release: GalleryItem) => void;
 };
@@ -70,8 +70,8 @@ export function Studio(props: StudioProps) {
   });
   return <group visible={!props.hidden}>
     <TaskBoard projectId={model.focusProjectId} columns={model.tasks.columns} overflow={model.tasks.overflow} quality={quality} still={still} locale="en" onOpenTask={props.onTask} locations={props.locations} />
-    <Handoffs events={events} positionOf={positionOf} quality={quality} still={still} senderIdle={senderIdle} courier={courier} onTablePass={arrival} />
-    <CollabTable stages={model.stages} handoffs={arrivals} quality={quality} still={still} locale="en" />
+    <Handoffs events={events} positionOf={positionOf} quality={quality} still={still} senderIdle={senderIdle} courier={courier} onTablePass={arrival} onTask={props.onTask} />
+    <CollabTable stages={model.stages} onStage={props.onStage} onTask={props.onTask} handoffs={arrivals} quality={quality} still={still} locale="en" />
     <TestingLab games={model.hotProjects} reports={reports} quality={quality} still={still} locale="en" />
     <BugMonsters bugs={model.bugs} bugOverflow={model.bugOverflow} events={events} games={model.hotProjects} scopeKey={String(scopeKey)} quality={quality} still={still} locale="en" onSelectBug={props.onBug} locations={props.locations} />
     <Gallery items={model.gallery} events={events} baselineReady={props.baseline} quality={quality} still={still} locale="en" onSelectRelease={props.onRelease} onCelebrate={props.onCelebrate} />

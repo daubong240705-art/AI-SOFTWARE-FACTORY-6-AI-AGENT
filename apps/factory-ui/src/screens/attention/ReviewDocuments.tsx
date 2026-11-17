@@ -1,5 +1,5 @@
 import { LoadingState } from '@/components/LoadingState';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FileText, NotebookText, FileCode, FileImage, ExternalLink } from 'lucide-react';
 import type { TaskArtifact } from '../../api/client';
 import { Button } from '@/components/ui/button';
@@ -19,26 +19,30 @@ type Version = TaskArtifact['versions'][number];
 const IMAGE = /^image\/(png|jpeg|gif|webp)(?:;|$)/i;
 const TEXT = /^(text\/(plain|markdown|csv)|application\/json)(?:;|$)/i;
 
-export function ReviewDocuments({ store, taskId, documents, attemptId }: { store: Store; taskId: string; documents: TaskArtifact[]; attemptId: string | undefined }) {
+export function ReviewDocuments({ store, taskId, documents, attemptId, projectId }: { store: Store; taskId: string; documents: TaskArtifact[]; attemptId: string | undefined; projectId?: string }) {
   const t = useT();
   const current = documents.flatMap(document => {
-    const version = [...document.versions].sort((a, b) => b.version - a.version).find(item => item.producedByAttemptId === attemptId);
+    const version = [...document.versions].sort((a, b) => b.version - a.version).find(item => projectId !== undefined || item.producedByAttemptId === attemptId);
     return document.kind !== 'code-ref' && version ? [{ document, version }] : [];
   });
   const images = current.filter(({ version }) => IMAGE.test(version.mediaType));
   const others = current.filter(({ version }) => !IMAGE.test(version.mediaType));
   return <Section title={t('reviewUi.documents')}>
-    {images.length > 0 && <ImageGallery store={store} images={images} />}
-    {others.length > 0 && <ItemGroup className="divide-y divide-border">{others.map(({ document, version }) => <DocumentRow key={document.artifactId} store={store} taskId={taskId} document={document} version={version} />)}</ItemGroup>}
+    {images.length > 0 && <ImageGallery store={store} images={images} {...(projectId ? { projectId } : {})} />}
+    {others.length > 0 && <ItemGroup className="divide-y divide-border">{others.map(({ document, version }) => <DocumentRow key={document.artifactId} store={store} taskId={taskId} document={document} version={version} {...(projectId ? { projectId } : {})} />)}</ItemGroup>}
     {!current.length && <p className="text-sm text-muted-foreground">{t('reviewUi.noDocuments')}</p>}
   </Section>;
 }
 
-function ImageGallery({ store, images }: { store: Store; images: { document: TaskArtifact; version: Version }[] }) {
-  const t = useT(); const projectId = store.useStoreSelector(value => value.selectedProjectId);
+function ImageGallery({ store, images, projectId: explicitProjectId }: { store: Store; images: { document: TaskArtifact; version: Version }[]; projectId?: string }) {
+  const t = useT(); const selectedProjectId = store.useStoreSelector(value => value.selectedProjectId);
+  const projectId = explicitProjectId ?? selectedProjectId;
   const [open, setOpen] = useState<number | null>(null);
   if (!projectId) return null;
-  const url = (item: { document: TaskArtifact; version: Version }) => store.rawDocumentUrl(projectId, item.document.artifactId, item.version.version);
+  const url = (item: { document: TaskArtifact; version: Version }) => {
+    const raw = new URL(store.rawDocumentUrl(projectId, item.document.artifactId, item.version.version), window.location.href);
+    return raw.origin === window.location.origin && /^https?:$/.test(raw.protocol) ? raw.href : undefined;
+  };
   const selected = open === null ? undefined : images[open];
   return <section aria-label={t('reviewUi.images')} className="space-y-2">
     <h4 className="text-xs font-medium text-muted-foreground">{t('reviewUi.images')} ({images.length})</h4>
@@ -65,33 +69,45 @@ function ImageGallery({ store, images }: { store: Store; images: { document: Tas
   </section>;
 }
 
-function DocumentRow({ store, taskId, document, version }: { store: Store; taskId: string; document: TaskArtifact; version: Version }) {
-  const t = useT(); const state = store.useStoreSelector(value => value); const [open, setOpen] = useState(false);
-  const key = `${document.artifactId}:${version.version}`; const content = state.artifactContents[key]; const error = state.errors[`content:${key}`];
+function DocumentRow({ store, taskId, document, version, projectId }: { store: Store; taskId: string; document: TaskArtifact; version: Version; projectId?: string }) {
+  const t = useT(); const state = store.useStoreSelector(value => value); const [open, setOpen] = useState(!!projectId && /readme/i.test(document.title));
+  const [explicit, setExplicit] = useState<{ content?: { text: string }; loading?: boolean; error?: boolean }>({});
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (!projectId || !open || !TEXT.test(version.mediaType)) return;
+    const controller = new AbortController();
+    setExplicit({ loading: true });
+    void store.getArtifactContent(projectId, document.artifactId, version.version, controller.signal).then(content => {
+      if (!controller.signal.aborted) setExplicit({ content });
+    }, () => { if (!controller.signal.aborted) setExplicit({ error: true }); });
+    return () => controller.abort();
+  }, [store, projectId, document.artifactId, version.version, version.mediaType, open, retry]);
+  const key = `${document.artifactId}:${version.version}`; const content = projectId ? explicit.content : state.artifactContents[key]; const error = projectId ? explicit.error : state.errors[`content:${key}`];
+  const errorText = projectId ? t('worldUi.sourceError') : t(`safeErrors.${state.errors[`content:${key}`]?.code}`);
   const text = TEXT.test(version.mediaType);
   const pdf = /^application\/pdf(?:;|$)/i.test(version.mediaType);
   const Icon = document.kind === 'design-asset' || document.kind === 'media' ? FileImage : document.kind === 'api-contract' ? FileCode : document.kind === 'plan' ? NotebookText : FileText;
   // Generated record titles describe storage; the document kind describes the handoff.
   const title = /^(summary|changes|result|output|artifact|review)\b/i.test(document.title) ? t('reviewUi.summary') : readableText(document.title);
-  function load() { if (text) void store.loadArtifactContent(taskId, document.artifactId, version.version); }
+  function load() { if (projectId) { setRetry(value => value + 1); return; } if (text) void store.loadArtifactContent(taskId, document.artifactId, version.version); }
   const body = () => {
     if (!content) return null;
     if (/^text\/markdown(?:;|$)/i.test(version.mediaType)) return <div className="max-h-80 overflow-auto rounded-lg border border-border bg-background p-4"><MarkdownContent content={content.text} /></div>;
     if (/^text\/csv(?:;|$)/i.test(version.mediaType)) return <CsvTable text={content.text} truncatedLabel={t('reviewUi.csvTruncated')} />;
     return <pre className="max-h-80 overflow-auto rounded-lg border border-border bg-background p-4 font-sans text-sm leading-relaxed whitespace-pre-wrap break-words">{readableText(content.text)}</pre>;
   };
-  return <Collapsible open={open} onOpenChange={value => { setOpen(value); if (value) load(); }}>
+  return <Collapsible open={open} onOpenChange={value => { setOpen(value); if (value && !projectId) load(); }}>
     <Item size="sm" className="gap-3 rounded-none px-0">
       <ItemMedia className="text-muted-foreground"><Icon className="size-4" /></ItemMedia>
       <ItemContent className="min-w-0"><ItemTitle className="break-words">{title}</ItemTitle><ItemDescription className="text-xs">{t(`knowledgeUi.kinds.${document.kind}`)}</ItemDescription></ItemContent>
       <ItemActions>
-        {pdf && state.selectedProjectId && <Button variant="ghost" size="sm" asChild><a href={store.rawDocumentUrl(state.selectedProjectId, document.artifactId, version.version)} target="_blank" rel="noopener noreferrer"><ExternalLink className="size-3.5" />{t('reviewUi.openInTab')}</a></Button>}
+        {pdf && (projectId ?? state.selectedProjectId) && <Button variant="ghost" size="sm" asChild><a href={store.rawDocumentUrl((projectId ?? state.selectedProjectId)!, document.artifactId, version.version)} target="_blank" rel="noopener noreferrer"><ExternalLink className="size-3.5" />{t('reviewUi.openInTab')}</a></Button>}
         <CollapsibleTrigger asChild><Button variant="outline" size="sm">{t(open ? 'reviewUi.hide' : 'reviewUi.view')}</Button></CollapsibleTrigger>
       </ItemActions>
     </Item>
     <CollapsibleContent className="pb-3">
-      {state.loading[`content:${key}`] && <LoadingState inline />}
-      {error && <Alert className="border-border"><AlertDescription><p>{t(`safeErrors.${error.code}`)}</p><Button variant="outline" size="sm" onClick={load}>{t('errors.retry')}</Button></AlertDescription></Alert>}
+      {(projectId ? explicit.loading : state.loading[`content:${key}`]) && <LoadingState inline />}
+      {error && <Alert className="border-border"><AlertDescription><p>{errorText}</p><Button variant="outline" size="sm" onClick={load}>{t('errors.retry')}</Button></AlertDescription></Alert>}
       {body()}
       {!text && <p className="text-sm text-muted-foreground">{readableText(version.abstractL1 || version.abstractL0) || t('reviewUi.contentUnavailable')}</p>}
     </CollapsibleContent>

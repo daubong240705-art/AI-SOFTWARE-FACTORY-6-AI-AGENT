@@ -89,10 +89,18 @@ try {
     assert.ok(panel.position[2] - center[2] - housing.scale[2] / 2 >= 0.02 - 1e-8, `${id}: front clears dark back`);
   }
   // Cover texture identity survives a new polling object and count changes.
-  const coverSource = (await source('../src/screens/world/scene/gallery/coverTexture.ts')).replace("'three'", JSON.stringify(import.meta.resolve('three')));
+  const screenSource = (await source('../src/screens/world/scene/screenTexture.ts')).replace("'three'", JSON.stringify(import.meta.resolve('three')));
+  const screenUrl = url(screenSource);
+  const { createScreenTexture } = await import(screenUrl);
+  const coverSource = (await source('../src/screens/world/scene/gallery/coverTexture.ts')).replace("'three'", JSON.stringify(import.meta.resolve('three'))).replace("'../screenTexture'", JSON.stringify(screenUrl));
   const { coverFor } = await import(url(coverSource));
   const context = new Proxy({}, { get: (_, key) => key === 'createLinearGradient' ? () => ({ addColorStop() {} }) : () => {}, set: () => true });
   const originalDocument = globalThis.document;
+  const originalRaf = globalThis.requestAnimationFrame, originalCancel = globalThis.cancelAnimationFrame;
+  const frames = new Map(); let frameId = 0;
+  globalThis.requestAnimationFrame = callback => { frames.set(++frameId, callback); return frameId; };
+  globalThis.cancelAnimationFrame = id => frames.delete(id);
+  const advance = now => { const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback(now)); };
   globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => context }) };
   try {
     const cache = new Map(), item = { gameId: 'game', projectId: 'project', name: 'Game', version: 1, releaseId: 'release-1' };
@@ -101,12 +109,41 @@ try {
     assert.equal(coverFor(cache, { ...item, playing: 12 }, null, () => {}), firstCover, 'Polling must reuse the cover');
     assert.equal(disposed, 0, 'An unchanged release must never dispose its texture');
     const nextCover = coverFor(cache, { ...item, releaseId: 'release-2' }, null, () => {});
-    assert.notEqual(nextCover.texture, firstCover.texture, 'A changed release refreshes the cover');
-    assert.equal(disposed, 1); nextCover.dispose();
+    assert.equal(nextCover.texture, firstCover.texture, 'A changed release must keep its pre-sized texture');
+    assert.equal(disposed, 0); nextCover.dispose(); assert.equal(disposed, 1);
+    // Real screen scheduler, canvas stub: one update per frame, coalescing,
+    // old pixels retained while a fade runs, and no GPU upload during the fade.
+    const a = createScreenTexture(512, 384, () => {}), b = createScreenTexture(512, 384, () => {});
+    const shader = { uniforms: {}, fragmentShader: '#include <map_fragment>' };
+    a.attach({}); const material = {}; a.attach(material); material.onBeforeCompile(shader);
+    assert.ok(!shader.fragmentShader.includes('texture2D( map,'));
+    assert.ok(shader.fragmentShader.includes('currentScreen'));
+    let paints = 0;
+    a.draw(() => { paints += 100; }); a.draw(() => { paints++; }); b.draw(() => { paints++; });
+    assert.equal(paints, 0, 'Never paint synchronously in a render/effect');
+    advance(performance.now()); assert.equal(paints, 1, 'Coalesce the latest screen update');
+    advance(performance.now()); assert.equal(paints, 2, 'Only one screen paints per frame');
+    const firstTexture = shader.uniforms.currentScreen.value;
+    a.draw(() => { paints++; }); advance(performance.now());
+    const nextTexture = shader.uniforms.currentScreen.value;
+    assert.notEqual(firstTexture, nextTexture, 'Swap between the two preallocated textures');
+    assert.equal(shader.uniforms.previousScreen.value, firstTexture);
+    assert.equal(shader.uniforms.screenMix.value, 0, 'Start the cross-fade with the old cover visible');
+    const version = nextTexture.version;
+    advance(performance.now() + 100); assert.ok(shader.uniforms.screenMix.value > 0 && shader.uniforms.screenMix.value < 1);
+    assert.equal(nextTexture.version, version, 'Cross-fade must never upload a texture');
+    advance(performance.now() + 250); assert.equal(shader.uniforms.screenMix.value, 1);
+    a.draw(() => { paints++; }); advance(performance.now());
+    assert.equal(shader.uniforms.currentScreen.value, firstTexture, 'Reuse fixed-size buffers after a fade');
+    assert.equal(firstTexture.image.width, 512); assert.equal(firstTexture.image.height, 384);
+    a.dispose(); b.dispose(); advance(performance.now() + 500);
+    assert.equal(frames.size, 0, 'Disposal cancels pending work');
   } finally {
+    if (originalRaf === undefined) delete globalThis.requestAnimationFrame; else globalThis.requestAnimationFrame = originalRaf;
+    if (originalCancel === undefined) delete globalThis.cancelAnimationFrame; else globalThis.cancelAnimationFrame = originalCancel;
     if (originalDocument === undefined) delete globalThis.document; else globalThis.document = originalDocument;
   }
-  console.log('Other screens: bench, test handheld, lounge TV and arcade face user/camera; unchanged covers keep their texture');
+  console.log('Other screens: bench, test handheld, lounge TV and arcade face user/camera; screens reuse textures; one upload per frame; 200ms cross-fade without uploads');
   // Exercise the actual scheduler with a fake clock: no browser or invented work.
   const { WanderingDirector } = await import(url(await source('../src/screens/world/scene/wandering.ts')));
   const idleAgents = desks.slice(0, 8).map((desk, i) => ({ seatId: `walker-${i}`, idle: true, desk: desk.seat, home: desk.id }));

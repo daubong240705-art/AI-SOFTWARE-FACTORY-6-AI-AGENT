@@ -5,7 +5,8 @@ import { anchors, displayFrames, palette } from '../../layout/zones';
 import type { GalleryItem } from '../../data/types';
 import type { WorldEvent } from '../../data/events';
 import type { WorldQuality } from '../quality';
-import { canvasTexture, coverFor, type CoverResource } from './coverTexture';
+import { createScreenTexture, type ScreenTexture } from '../screenTexture';
+import { coverFor, type CoverResource } from './coverTexture';
 import { thumbnailUrl } from './thumbnailUrl';
 import { Celebration, celebrationStats, type CelebrationFrame } from './Celebration';
 import { worldCopy, type GalleryLocale } from '../../copy';
@@ -29,14 +30,14 @@ export type GalleryProps = {
 const emptyEvents: readonly WorldEvent[] = [];
 const tileSize = 512;
 const atlasSize = 2048;
-function makeGallery(items: readonly GalleryItem[], baseUrl: string | undefined, invalidate: () => void, covers: Map<string, CoverResource>) {
+function makeGallery(items: readonly GalleryItem[], baseUrl: string | undefined, invalidate: () => void, covers: Map<string, CoverResource>, screen: ScreenTexture) {
   const visible = items.slice(0, displayFrames.length); const group = new THREE.Group();
-  const canvas = document.createElement('canvas'); canvas.width = canvas.height = atlasSize;
-  const ctx = canvas.getContext('2d')!; const atlas = canvasTexture(canvas);
+  const atlas = screen.texture;
   let disposed = false;
   const coverMaterials: THREE.Material[] = [];
   const geometries: THREE.BufferGeometry[] = [];
   const material = new THREE.MeshBasicMaterial({ map: atlas, transparent: true, side: THREE.FrontSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  screen.attach(material);
   const gradient = new THREE.DataTexture(new Uint8Array([115, 195, 255]), 3, 1, THREE.RedFormat);
   gradient.unpackAlignment = 1; gradient.minFilter = gradient.magFilter = THREE.NearestFilter; gradient.needsUpdate = true;
   // All scaffolding and curtain folds share the environment's three-step toon style.
@@ -62,7 +63,7 @@ function makeGallery(items: readonly GalleryItem[], baseUrl: string | undefined,
   function newerState(item: GalleryItem, index: number, state: GalleryItem['state']) {
     return item.state === state || items.slice(0, index).some(other => other.projectId === item.projectId && other.state === state && (item.version === null || other.version === null || other.version > item.version));
   }
-  function paint() {
+  function paint() { screen.draw(ctx => {
     ctx.clearRect(0, 0, atlasSize, atlasSize);
     visible.forEach((item, index) => {
       ctx.save(); ctx.translate(index % 3 * tileSize, Math.floor(index / 3) * tileSize);
@@ -79,15 +80,14 @@ function makeGallery(items: readonly GalleryItem[], baseUrl: string | undefined,
       }
       ctx.restore();
     });
-    atlas.needsUpdate = true; invalidate();
-  }
+  }); }
   visible.forEach((item, index) => {
     const anchor = displayFrames[index]!; const frame = new THREE.Group();
     frame.position.set(anchor.position[0], 0, anchor.position[1]); frame.rotation.y = anchor.yaw; group.add(frame);
     // Overlay the existing Environment frames and opaque empty nameplates.
-    const cover = coverFor(covers, item, thumbnailUrl(item.projectId, item.releaseId, baseUrl), invalidate);
+    const cover = coverFor(covers, item, thumbnailUrl(item.projectId, item.releaseId, baseUrl), invalidate, index);
     const coverMaterial = new THREE.MeshBasicMaterial({ map: cover.texture, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    coverMaterials.push(coverMaterial);
+    cover.screen.attach(coverMaterial); coverMaterials.push(coverMaterial);
     const geometry = new THREE.PlaneGeometry(1.36, 0.94); geometries.push(geometry);
     const face = new THREE.Mesh(geometry, coverMaterial); face.position.set(0, 1.43, 0.28); face.userData.release = item; frame.add(face);
     plane(frame, index, 0.67, 320, 64, 1.17, 0.23, 0.32, item);
@@ -117,11 +117,13 @@ function makeGallery(items: readonly GalleryItem[], baseUrl: string | undefined,
   void document.fonts?.load('600 30px "Inter Variable"').then(() => { if (!disposed) paint(); }).catch(() => {});
   return { group, dispose() {
     disposed = true; coverMaterials.forEach(material => material.dispose());
-    geometries.forEach(geometry => geometry.dispose()); atlas.dispose(); material.dispose(); gradient.dispose(); wood.dispose(); curtain.dispose(); gold.dispose();
+    geometries.forEach(geometry => geometry.dispose()); material.dispose(); gradient.dispose(); wood.dispose(); curtain.dispose(); gold.dispose();
   } };
 }
 export function Gallery({ items, events = emptyEvents, baselineReady = true, quality, still, locale = 'vi', baseUrl, onSelectRelease, onCelebrate }: GalleryProps) {
   const invalidate = useThree(state => state.invalidate);
+  const [screen, setScreen] = useState<ScreenTexture | null>(null);
+  useEffect(() => { const value = createScreenTexture(atlasSize, atlasSize, invalidate); setScreen(value); return () => value.dispose(); }, [invalidate]);
   const covers = useRef(new Map<string, CoverResource>());
   const itemsKey = JSON.stringify(items);
   const stableItems = useMemo<readonly GalleryItem[]>(() => JSON.parse(itemsKey), [itemsKey]);
@@ -131,12 +133,13 @@ export function Gallery({ items, events = emptyEvents, baselineReady = true, qua
   }, [baseUrl]);
   const [resource, setResource] = useState<ReturnType<typeof makeGallery> | null>(null); const token = useRef({});
   useEffect(() => {
-    const created = makeGallery(stableItems, baseUrl, invalidate, covers.current); setResource(created);
-    const live = new Set(stableItems.slice(0, displayFrames.length).map(item => `${item.gameId}:${item.version ?? item.releaseId}`));
+    if (!screen) return;
+    const created = makeGallery(stableItems, baseUrl, invalidate, covers.current, screen); setResource(created);
+    const live = new Set(stableItems.slice(0, displayFrames.length).map((_, index) => String(index)));
     for (const [key, cover] of covers.current) if (!live.has(key)) { cover.dispose(); covers.current.delete(key); }
     mountedFrames.set(token.current, Math.min(items.length, displayFrames.length)); const key = token.current;
     return () => { mountedFrames.delete(key); created.dispose(); };
-  }, [stableItems, baseUrl, invalidate]);
+  }, [stableItems, baseUrl, invalidate, screen]);
   const frames: CelebrationFrame[] = items.slice(0, displayFrames.length).map((item, index) => {
     const anchor = displayFrames[index]!;
     return { item, position: [anchor.position[0], 0, anchor.position[1]], yaw: anchor.yaw };

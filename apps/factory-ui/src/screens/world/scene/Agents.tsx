@@ -1,3 +1,4 @@
+import { createScreenTexture, type ScreenTexture } from './screenTexture';
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -20,23 +21,26 @@ const ignore = () => {};
 const nameTagHeight = 1.9; // Clears the above-right pose bubbles while remaining centred on the rig.
 const lampColor = { working: '#E0A458', waiting: '#F2B8A9', problem: '#F05252', done: '#82BF91', queued: '#4A3B2F', idle: '#4A3B2F' };
 function NameTag({ name, register }: { name: string; register: (sprite: THREE.Sprite | null) => void }) {
-  const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
+  const [screen, setScreen] = useState<ScreenTexture | null>(null);
   const invalidate = useThree(state => state.invalidate);
   useEffect(() => {
-    let alive = true; let current: THREE.CanvasTexture | null = null;
-    const draw = () => {
-      if (!alive) return;
-      const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 96;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = '#FFF8E7'; ctx.beginPath(); ctx.roundRect(2, 2, 508, 92, 20); ctx.fill();
-      ctx.fillStyle = '#4A3B2F'; ctx.font = '600 36px "Inter Variable", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(name, 256, 48, 480);
-      current?.dispose(); current = new THREE.CanvasTexture(canvas); current.colorSpace = THREE.SRGBColorSpace; setTexture(current); invalidate();
-    };
-    draw(); void document.fonts.load('600 36px "Inter Variable"').then(draw);
-    return () => { alive = false; current?.dispose(); };
-  }, [name, invalidate]);
-  return texture ? <sprite ref={register} position={[0, nameTagHeight, 0]} scale={[2, 0.375, 1]} raycast={ignore}><spriteMaterial map={texture} transparent depthWrite={false} /></sprite> : null;
+    const value = createScreenTexture(512, 128, invalidate); setScreen(value);
+    return () => value.dispose();
+  }, [invalidate]);
+  useEffect(() => {
+    if (!screen) return;
+    let active = true;
+    const draw = () => screen.draw(ctx => {
+      if (!active) return;
+      ctx.fillStyle = '#FFF8E7'; ctx.beginPath(); ctx.roundRect(2, 2, 508, 124, 20); ctx.fill();
+      ctx.fillStyle = '#4A3B2F'; ctx.font = '600 36px "Inter Variable", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(name, 256, 64, 480);
+    });
+    draw(); void document.fonts.load('600 36px "Inter Variable"').then(() => { if (active) draw(); }).catch(() => {});
+    return () => { active = false; screen.cancel(); };
+  }, [name, screen]);
+  return screen ? <sprite ref={register} position={[0, nameTagHeight, 0]} scale={[2, 0.375, 1]} raycast={ignore}><spriteMaterial ref={material => { if (material) screen.attach(material); }} map={screen.texture} transparent depthWrite={false} /></sprite> : null;
 }
+
 function Feedback({ agent, still }: { agent: WorldAgent; still: boolean }) {
   const desk = deskForAgent(agent)!; const bar = useRef<THREE.Mesh>(null); const motion = useWorldMotion();
   const percent = agent.runs[0]?.progress?.percent ?? null;

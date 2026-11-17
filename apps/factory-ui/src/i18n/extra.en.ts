@@ -7,6 +7,7 @@ export const extra = {
     errors: { live: 'Stop the running attempt and reconcile any uncertain outcome before deleting this project.', release: 'Wait for the pending release to finish before deleting this project.', portal: 'The Portal manager project cannot be deleted.', name: 'The confirmation must match the project name exactly.', revision: 'The project changed. Review the latest data and try again.', archived: 'This project has already been archived.' },
   },
   worldUi: {
+    taskDetails: { title: 'Task details', openProject: 'Open in project', follow: 'Follow assignee', stage: 'Workflow stage', latestRun: 'Latest run', started: 'Started', ended: 'Ended', outcome: 'Outcome', summary: 'Final summary', noRuns: 'No runs yet.', unavailable: 'Task unavailable.', review: 'Open decision / review', noTasks: 'No tasks in this stage.', openTask: 'Open task', releaseTask: 'View release task' },
     more: 'More options',
     releaseAnnouncement: 'Released {game} v{version}!',
     gallery: {

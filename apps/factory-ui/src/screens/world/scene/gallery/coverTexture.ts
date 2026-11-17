@@ -1,3 +1,4 @@
+import { createScreenTexture, type ScreenTexture } from '../screenTexture';
 import { CanvasTexture, SRGBColorSpace } from 'three';
 
 export function coverHue(gameId: string): number {
@@ -23,42 +24,55 @@ export function drawGeneratedCover(ctx: CanvasRenderingContext2D, name: string, 
 export function canvasTexture(canvas: HTMLCanvasElement): CanvasTexture {
   const texture = new CanvasTexture(canvas); texture.colorSpace = SRGBColorSpace; texture.anisotropy = 1; return texture;
 }
-/** Covers remain generated on 404/error. No fetch, blob, data URL or remote image. */
-export function loadCoverImage(url: string | null, onLoad: (image: HTMLImageElement) => void): () => void {
-  if (!url) return () => {};
-  try {
-    const resolved = new URL(url, window.location.href);
-    if (resolved.origin !== window.location.origin || !/^https?:$/.test(resolved.protocol)) return () => {};
-    const image = document.createElement('img'); image.decoding = 'async';
-    // Install handlers before assigning src, including for cached SVG responses.
-    image.onload = () => { if (image.naturalWidth && image.naturalHeight) onLoad(image); };
-    image.onerror = () => {};
-    image.src = resolved.href;
-    return () => { image.onload = null; image.onerror = null; image.removeAttribute('src'); };
-  } catch { return () => {}; }
+/** Same-origin raster request, decoded asynchronously before any canvas work. */
+export function loadCoverImage(url: string | null, onLoad: (image: ImageBitmap | HTMLImageElement) => void): () => void {
+  const controller = new AbortController(); let active = true; let bitmap: ImageBitmap | null = null; let image: HTMLImageElement | null = null;
+  if (url) void (async () => {
+    try {
+      const resolved = new URL(url, window.location.href);
+      if (resolved.origin !== window.location.origin || !/^https?:$/.test(resolved.protocol)) return;
+      if (typeof createImageBitmap === 'function') {
+        const response = await fetch(resolved, { signal: controller.signal, credentials: 'same-origin', redirect: 'error' });
+        if (!response.ok) return;
+        const blob = await response.blob();
+        try {
+          bitmap = await createImageBitmap(blob, { resizeWidth: 512, resizeQuality: 'high' });
+          if (active) onLoad(bitmap); else bitmap.close();
+          return;
+        } catch { /* Some browsers cannot decode SVG thumbnails as bitmaps. */ }
+      }
+      if (!active) return;
+      image = document.createElement('img'); image.decoding = 'async'; image.src = resolved.href;
+      await image.decode(); if (active) onLoad(image);
+    } catch { /* Keep the previous cover, or the generated cover on first load. */ }
+  })();
+  return () => { active = false; controller.abort(); bitmap?.close(); image?.removeAttribute('src'); };
 }
-export function drawCoverImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement, width = 512, height = 320) {
-  const scale = Math.min(width / image.naturalWidth, height / image.naturalHeight);
-  const w = image.naturalWidth * scale; const h = image.naturalHeight * scale;
+export function drawCoverImage(ctx: CanvasRenderingContext2D, image: ImageBitmap | HTMLImageElement, width = 512, height = 384) {
+  const iw = image instanceof HTMLImageElement ? image.naturalWidth : image.width;
+  const ih = image instanceof HTMLImageElement ? image.naturalHeight : image.height;
+  const scale = Math.min(width / iw, height / ih), w = iw * scale, h = ih * scale;
   ctx.fillStyle = '#FFF8E7'; ctx.fillRect(0, 0, width, height);
   ctx.drawImage(image, (width - w) / 2, (height - h) / 2, w, h);
 }
 
-/** A cover owns one texture until it leaves this gallery; frames and arcade share it. */
-export type CoverResource = { releaseId: string; texture: CanvasTexture; dispose: () => void };
-export function coverFor(cache: Map<string, CoverResource>, item: { gameId: string; version: number | null; releaseId: string; projectId: string; name: string }, url: string | null, invalidate: () => void): CoverResource {
-  const key = `${item.gameId}:${item.version ?? item.releaseId}`;
-  const hit = cache.get(key); if (hit?.releaseId === item.releaseId) return hit;
-  hit?.dispose();
-  const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 320;
-  const ctx = canvas.getContext('2d')!;
-  drawGeneratedCover(ctx, item.name, item.gameId);
-  const texture = canvasTexture(canvas);
-  let disposed = false;
-  const cancel = loadCoverImage(url, image => {
-    if (disposed) return;
-    drawCoverImage(ctx, image); texture.needsUpdate = true; invalidate();
-  });
-  const resource = { releaseId: item.releaseId, texture, dispose() { disposed = true; cancel(); texture.dispose(); } };
-  cache.set(key, resource); return resource;
+/** A cover owns one fixed texture pair until it leaves this gallery; frames and arcade share it. */
+export type CoverResource = { releaseId: string; texture: CanvasTexture; screen: ScreenTexture; update: (releaseId: string, url: string | null) => void; dispose: () => void };
+export function coverFor(cache: Map<string, CoverResource>, item: { gameId: string; version: number | null; releaseId: string; projectId: string; name: string }, url: string | null, invalidate: () => void, slot = 0): CoverResource {
+  // A gallery slot owns its textures across releases, games and status updates.
+  const key = String(slot), hit = cache.get(key);
+  if (hit) { if (hit.releaseId !== item.releaseId) hit.update(item.releaseId, url); return hit; }
+  const screen = createScreenTexture(512, 384, invalidate);
+  screen.draw(ctx => drawGeneratedCover(ctx, item.name, item.gameId, 512, 384));
+  let cancel = () => {};
+  const resource: CoverResource = {
+    releaseId: '', texture: screen.texture, screen,
+    update(releaseId, source) {
+      if (resource.releaseId) screen.cancel();
+      resource.releaseId = releaseId; cancel();
+      cancel = loadCoverImage(source, image => screen.draw(ctx => drawCoverImage(ctx, image)));
+    },
+    dispose() { cancel(); screen.dispose(); },
+  };
+  resource.update(item.releaseId, url); cache.set(key, resource); return resource;
 }

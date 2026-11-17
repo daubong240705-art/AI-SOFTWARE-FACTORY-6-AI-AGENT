@@ -1,3 +1,4 @@
+import { createScreenTexture, type ScreenTexture } from '../screenTexture';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -56,33 +57,32 @@ export function LabCanvasLabel({ lines, position, width, height, quality = 'high
   const linesKey = JSON.stringify(lines);
   const stableLines = useMemo<readonly CanvasLine[]>(() => JSON.parse(linesKey), [linesKey]);
   const [mesh, setMesh] = useState<THREE.Mesh | null>(null);
+  const screen = useRef<ScreenTexture | null>(null);
   useLayoutEffect(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = quality === 'low' ? 768 : 1536;
-    canvas.height = Math.max(128, Math.round(canvas.width * height / width));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+    const surface = createScreenTexture(1024, 512, invalidate); screen.current = surface;
     const geometry = new THREE.PlaneGeometry(width, height);
-    const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    const created = new THREE.Mesh(geometry, material);
-    created.raycast = () => {};
+    const material = new THREE.MeshBasicMaterial({ map: surface.texture, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    surface.attach(material);
+    const created = new THREE.Mesh(geometry, material); created.raycast = () => {}; setMesh(created);
+    return () => { screen.current = null; geometry.dispose(); material.dispose(); surface.dispose(); };
+  }, [width, height, invalidate]);
+  useEffect(() => {
     let active = true;
-    const draw = () => {
-      ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const draw = () => screen.current?.draw(ctx => {
+      if (!active) return;
+      const { width: w, height: h } = ctx.canvas;
+      ctx.fillStyle = background; ctx.fillRect(0, 0, w, h);
       ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-      const rowHeight = canvas.height / Math.max(1, stableLines.length);
+      const rowHeight = h / Math.max(1, stableLines.length);
       stableLines.forEach((line, index) => {
         ctx.fillStyle = line.color ?? palette.cream;
-        ctx.font = `600 ${Math.min(rowHeight * 0.7, canvas.width * (line.size ?? 0.032))}px "Inter Variable"`;
-        ctx.fillText(line.text, canvas.width * 0.025, rowHeight * (index + 0.5), canvas.width * 0.95);
+        ctx.font = `600 ${Math.min(rowHeight * 0.7, w * (line.size ?? 0.032))}px "Inter Variable"`;
+        ctx.fillText(line.text, w * 0.025, rowHeight * (index + 0.5), w * 0.95);
       });
-      texture.needsUpdate = true; invalidate();
-    };
-    draw(); setMesh(created);
-    void document.fonts?.load('600 32px "Inter Variable"').then(() => { if (active) draw(); }).catch(() => {});
-    return () => { active = false; geometry.dispose(); material.dispose(); texture.dispose(); };
-  }, [stableLines, width, height, quality, background, invalidate]);
+    });
+    draw(); void document.fonts?.load('600 32px "Inter Variable"').then(() => { if (active) draw(); }).catch(() => {});
+    return () => { active = false; screen.current?.cancel(); };
+  }, [stableLines, width, height, quality, background]);
   return mesh ? <primitive object={mesh} position={position} dispose={null} /> : null;
 }
 

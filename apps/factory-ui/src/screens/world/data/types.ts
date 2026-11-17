@@ -40,6 +40,7 @@ export type Endpoint = {
   kind: 'knowledge';
 };
 export type Handoff = {
+  taskId?: string | null;
   id: string;
   at: string;
   kind: Interaction['kind'];
@@ -50,6 +51,8 @@ export type Handoff = {
   projectId: string;
 };
 export type Bug = {
+  taskCode?: string;
+  taskId?: string | null;
   id: string;
   projectId: string;
   criterion: string;

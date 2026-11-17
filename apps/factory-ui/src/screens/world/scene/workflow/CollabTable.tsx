@@ -1,6 +1,7 @@
+import { createScreenTexture, type ScreenTexture } from '../screenTexture';
 import { worldCopy, type WorkflowLocale } from '../../copy';
 import { useEffect, useRef, useState } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { meetingTable } from '../../layout/zones';
 import type { TableStage } from '../../data/types';
@@ -11,6 +12,8 @@ import type { TableArrival } from './Handoffs';
 
 export type CollabTableProps = {
   stages: readonly TableStage[];
+  onStage?: (key: string) => void;
+  onTask?: (projectId: string, taskId: string) => void;
   /** Actual table arrivals from Handoffs.onTablePass, never interaction history. */
   handoffs?: readonly TableArrival[];
   locale?: WorkflowLocale;
@@ -27,9 +30,11 @@ function labelFor(key: string) {
 }
 type TableResources = { group: THREE.Group; sample: (now: number, wallNow: number) => boolean; dispose: () => void };
 
-export function CollabTable({ stages, handoffs = noHandoffs, locale = 'vi', quality = 'high', still = false }: CollabTableProps) {
+export function CollabTable({ stages, handoffs = noHandoffs, locale = 'vi', quality = 'high', still = false, onStage, onTask }: CollabTableProps) {
   const invalidate = useThree(state => state.invalidate), motion = useWorldMotion();
   const [resource, setResource] = useState<TableResources | null>(null);
+  const screen = useRef<ScreenTexture | null>(null);
+  useEffect(() => () => { screen.current?.dispose(); screen.current = null; }, []);
   const current = useRef<TableResources | null>(null), release = useRef<(() => void) | null>(null), debugKey = useRef({});
   useEffect(() => {
     const group = new THREE.Group(); group.name = 'collaboration-table';
@@ -43,14 +48,14 @@ export function CollabTable({ stages, handoffs = noHandoffs, locale = 'vi', qual
       return arrival.handoff.from.kind === 'seat' && arrival.handoff.to.kind === 'seat' && Number.isFinite(age) && age >= 0 && age < 120000;
     }).sort((a, b) => b.passedAt - a.passedAt).slice(0, 10);
     arrivals.forEach(arrival => entries.push({ key: `handoff:${arrival.handoff.id}`, text: arrival.handoff.code ?? '✉', color: handoffColors[arrival.handoff.kind] ?? '#AFCFE6' }));
-    const atlas = createWorkflowAtlas(entries, invalidate), toon = createWorkflowToon();
+    const atlas = createWorkflowAtlas(entries, invalidate, screen.current ??= createScreenTexture(1024, 1024, invalidate)), toon = createWorkflowToon();
     const geometry = new THREE.CylinderGeometry(0.38, 0.42, 0.12, quality === 'low' ? 12 : 20);
     const body = new THREE.InstancedMesh(geometry, toon.material, Math.max(1, stages.length)); body.count = stages.length; body.frustumCulled = false; group.add(body);
     const puckPositions = stages.map((stage, index) => {
       const angle = index / Math.max(1, stages.length) * Math.PI * 2 - Math.PI / 2;
       const point = new THREE.Vector3(meetingTable.position[0] + Math.cos(angle) * 1.24, 0.99, meetingTable.position[1] + Math.sin(angle) * 1.24);
       body.setColorAt(index, new THREE.Color(stageColor(stage.state)));
-      const label = atlas.mesh(`stage:${index}`, 0.75, 0.21); label.rotation.x = -Math.PI / 2; label.position.copy(point); label.position.y = 1.057; group.add(label);
+      const label = atlas.mesh(`stage:${index}`, 0.75, 0.21); label.userData.stage = stage.key; label.rotation.x = -Math.PI / 2; label.position.copy(point); label.position.y = 1.057; group.add(label);
       if (stage.loopCount > 0) {
         const loop = atlas.mesh(`loop:${index}`, 0.52, 0.14); loop.rotation.x = -Math.PI / 2;
         loop.position.copy(point); loop.position.y = 1.059; loop.position.z += 0.21; group.add(loop);
@@ -59,7 +64,8 @@ export function CollabTable({ stages, handoffs = noHandoffs, locale = 'vi', qual
     });
     const resting = arrivals.map((arrival, index) => {
       const face = atlas.mesh(`handoff:${arrival.handoff.id}`, 0.5, 0.27);
-      const material = (face.material as THREE.MeshBasicMaterial).clone(); face.material = material;
+      face.userData.handoff = arrival.handoff;
+      const material = (face.material as THREE.MeshBasicMaterial).clone(); face.material = material; atlas.attach(material);
       face.rotation.x = -Math.PI / 2; face.rotation.z = index * 0.45;
       const angle = index * 2.4;
       face.position.set(meetingTable.position[0] + Math.cos(angle) * 0.38, 1.075 + index * 0.003, meetingTable.position[1] + Math.sin(angle) * 0.38);
@@ -97,5 +103,11 @@ export function CollabTable({ stages, handoffs = noHandoffs, locale = 'vi', qual
   useFrame(() => {
     if (!still && release.current && current.current && !current.current.sample(performance.now(), Date.now())) { release.current(); release.current = null; }
   });
-  return resource ? <primitive object={resource.group} dispose={null} /> : null;
+  return resource ? <primitive object={resource.group} dispose={null} onClick={(event: ThreeEvent<MouseEvent>) => {
+    if (event.delta > 4) return;
+    const handoff = event.object.userData.handoff as TableArrival['handoff'] | undefined;
+    if (handoff?.taskId) { event.stopPropagation(); onTask?.(handoff.projectId, handoff.taskId); return; }
+    const key = event.object.userData.stage as string | undefined ?? (typeof event.instanceId === 'number' ? stages[event.instanceId]?.key : undefined);
+    if (key) { event.stopPropagation(); onStage?.(key); }
+  }} /> : null;
 }

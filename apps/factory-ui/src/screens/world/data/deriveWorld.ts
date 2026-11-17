@@ -51,7 +51,7 @@ function handoff(item: Interaction, projectId: string): Handoff | null {
   }
   else
     return null; // finished/failed remain badges on the seat, never flights.
-  return { id: `${projectId}:${item.id}`, projectId, at: item.at, kind: item.kind, from, to, code: item.code, text: item.text };
+  return { id: `${projectId}:${item.id}`, taskId: item.taskId, projectId, at: item.at, kind: item.kind, from, to, code: item.code, text: item.text };
 }
 export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): {
   model: WorldModel;
@@ -106,7 +106,7 @@ export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): 
     for (const c of failed.criteria.filter(c => c.passed === false)) {
       const id = `${game.projectId}:${criterionHash(c.criterion)}`;
       if (!bugs.some(b => b.id === id))
-        bugs.push({ id, projectId: game.projectId, criterion: c.criterion, evidence: c.evidence, state: latest.verdict === 'running' ? 'retesting' : 'open' });
+        bugs.push({ id, taskCode: failed.taskCode, taskId: inputs.tasks[game.projectId]?.find(task => task.code === failed.taskCode)?.id ?? null, projectId: game.projectId, criterion: c.criterion, evidence: c.evidence, state: latest.verdict === 'running' ? 'retesting' : 'open' });
     }
   }
   const gallery: (GalleryItem & {
