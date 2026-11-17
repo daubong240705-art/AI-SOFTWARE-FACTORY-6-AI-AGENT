@@ -84,7 +84,7 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
   const technical = approval && <Facts mono rows={[[t('attention.identifier'), approval.id], [t('attention.digest'), approval.context.digest], [t('reviewUi.recordNumber'), String(approval.revision)], [t('inboxUi.expires'), new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(approval.expiresAt))]]} />;
   const body = <>
     {inline && approval && <AgentSummary key={approval.id} text={approval.summary} />}
-    {(!ready || state.loading[`approval:${approvalId}`]) && <LoadingState inline />}
+    {(!ready || (state.loading[`approval:${approvalId}`] && !approval)) && <LoadingState inline />}
     {state.errors[`approval:${approvalId}`] && <div className={inline ? '' : 'px-6 pb-6'}><ErrorNotice error={state.errors[`approval:${approvalId}`]!} /><Button variant="outline" onClick={() => { void store.loadApproval(approvalId); }}>{t('errors.retry')}</Button></div>}
     {changed && <p role="status" className={inline ? 'text-sm text-muted-foreground' : 'px-6 pb-4 text-sm text-muted-foreground'}>{t('inboxUi.changed')}</p>}
     {approval && <>

@@ -87,7 +87,7 @@ export function ProjectKnowledge({ store, projectId }: { store: Store; projectId
       <section aria-label={heading} className="min-w-0 space-y-4">
 
         <div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="flex min-w-0 items-center gap-2 font-display text-xl font-semibold"><span className="truncate">{heading}</span>{selectedGroup?.task && <Badge variant="outline" className="shrink-0 font-sans text-xs font-normal">{t(`taskUi.lifecycle.${selectedGroup.task.state}`)}</Badge>}</h3><p role="status" className="text-xs text-muted-foreground">{number(rows.length)} {plural(t, i18n.locale, rows.length, 'knowledgeUi.count')}</p></div>
-        {loading && <LoadingState inline />}
+        {loading && !rows.length && <LoadingState inline />}
         {knowledge.errors.knowledge && <div className="space-y-3"><ErrorNotice error={knowledge.errors.knowledge} /><Button variant="outline" onClick={() => { void store.searchKnowledge(query, effective); }}>{t('errors.retry')}</Button></div>}
         {!loading && !knowledge.errors.knowledge && !rows.length && <Card className="rounded-xl border-border py-0 shadow-none"><Empty><MascotEmpty seat="BA" state={searching ? 'thinking' : 'idle'} compact={searching} fallback={<EmptyHeader><EmptyDescription>{t(searching ? 'knowledgeUi.noMatches' : 'knowledgeUi.empty')}</EmptyDescription></EmptyHeader>}><EmptyDescription>{t(searching ? 'knowledgeUi.noMatches' : 'knowledgeUi.empty')}</EmptyDescription>{!searching && <p className="text-sm text-muted-foreground">{t('knowledgeUi.drop')}</p>}</MascotEmpty></Empty></Card>}
         {!loading && !!rows.length && <DocumentList store={store} rows={rows} onSelect={select} showTask={searching || !activeGroup} detailed={detailed} />}

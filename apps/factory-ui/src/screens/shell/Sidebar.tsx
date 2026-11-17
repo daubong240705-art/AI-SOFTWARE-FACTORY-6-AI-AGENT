@@ -1,4 +1,4 @@
-import { LoadingState } from '@/components/LoadingState';
+import { Skeleton } from '@/components/ui/skeleton';
 import { shallowSelectionEqual } from '@/state/storeSelector';
 import { deriveDisplayStatus, isLiveAttempt } from '@factory/contracts';
 import { Activity, House, Inbox, PanelLeftClose, PanelLeftOpen, Users, X } from 'lucide-react';
@@ -43,7 +43,7 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
     </div>
     <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block">
       <div className="py-1">
-      {state.loading.projects && <LoadingState inline />}
+      {state.loading.projects && !state.projects.length && <ul className="m-0 flex list-none flex-col gap-1 p-0" role="status" aria-label={t('viewStates.loading')}>{[0, 1, 2].map(row => <li key={row} className="flex h-10 items-center gap-2.5 px-3"><Skeleton className="size-7 rounded-md" /><Skeleton className="h-3.5 flex-1" /></li>)}</ul>}
       {state.errors.projects && <><ErrorNotice error={state.errors.projects} /><Button variant="outline" onClick={() => { void store.loadProjects(); }}>{t('errors.retry')}</Button></>}
       <ul className="m-0 flex list-none flex-col gap-1 p-0">{state.projects.map(project => <li key={project.id} className="h-10 w-full shrink-0">
         <NavButton collapsed={collapsed} aria-label={project.name} title={project.name} aria-current={view === `project:${project.id}` ? 'page' : undefined} onClick={() => onNavigate(`project:${project.id}`)}>
