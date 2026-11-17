@@ -20,7 +20,9 @@ import { autonomyStatus, budgetStatus, DEFAULT_BUDGET_CONFIG, type BudgetConfig 
 import { getProject, listProjects } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
 import { getTask, listTasks } from "../work/service.js";
-import { getAttempt, listAttempts, listAttemptEvents, type Dispatcher } from "../dispatch/index.js";
+import { getAttempt, listAttemptEvents, type Dispatcher } from "../dispatch/index.js";
+import type { AttemptRecord } from "../dispatch/types.js";
+import { attemptUsage } from "../dispatch/usage-summary.js";
 import { failure } from "./http.js";
 import type { ApiGuards } from "./server.js";
 import type { BackupStatus } from "../backup/service.js";
@@ -45,6 +47,20 @@ import { listWorkflowDefinitions } from "../workflow/definitions.js";
 import { orgActivity } from "../org/activity.js";
 import { homedir } from "node:os";
 import { browseDirectory, BrowseError } from "../workspace/browse.js";
+
+type AttemptView = Pick<AttemptRecord, "id" | "taskId" | "epoch" | "revision" | "state" | "outcome" | "runtime" |
+  "seatId" | "startedAt" | "endedAt" | "provider" | "model" | "effort" | "nodeId" | "leaseExpiresAt"> & { seatName: string | null };
+const attemptSelection = `SELECT a.id, a.task_id AS taskId, a.epoch, a.revision, a.state, a.outcome, a.runtime,
+  x.seat_id AS seatId, s.name AS seatName, a.started_at AS startedAt, a.ended_at AS endedAt,
+  a.provider, a.model, a.effort, a.node_id AS nodeId, a.lease_expires_at AS leaseExpiresAt`;
+const attemptJoins = `FROM attempts a LEFT JOIN attempt_seats x ON x.project_id = a.project_id AND x.attempt_id = a.id
+  LEFT JOIN seats s ON s.id = x.seat_id`;
+const queryInteger = (value: unknown, fallback: number, min: number, max: number): number | undefined => {
+  if (value === undefined) return fallback;
+  if (typeof value !== "string" || !/^[0-9]+$/.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= min && parsed <= max ? parsed : undefined;
+};
 
 export function createRoutes(deps: {
   external?: ExternalTools;
@@ -477,14 +493,29 @@ export function createRoutes(deps: {
         const raw = deps.storage.raw;
         if (!getProject(raw, project.data) || !getTask(raw, project.data, task.data))
           return failure(reply, 404, "not-found", "Project or task not found.", "correct-input", newId);
-        const attempts = listAttempts(raw, project.data, task.data).map((attempt) => {
-          const seat = attempt.seatId === null ? undefined
-            : raw.prepare("SELECT name FROM seats WHERE id = ?").get(attempt.seatId) as { name: string } | undefined;
-          return { id: attempt.id, taskId: attempt.taskId, epoch: attempt.epoch, revision: attempt.revision,
-            state: attempt.state, outcome: attempt.outcome, runtime: attempt.runtime, seatId: attempt.seatId,
-            seatName: seat?.name ?? null, startedAt: attempt.startedAt, endedAt: attempt.endedAt };
-        });
+        const rows = raw.prepare(`${attemptSelection} ${attemptJoins}
+          WHERE a.project_id = ? AND a.task_id = ? ORDER BY a.epoch`).all(project.data, task.data) as AttemptView[];
+        const usage = attemptUsage(raw, project.data, rows.map(row => row.id));
+        const attempts = rows.map(attempt => ({ ...attempt, usage: usage.get(attempt.id) ?? null }));
         return { apiVersion: API_VERSION, ok: true, attempts };
+      },
+    );
+    app.get<{ Params: { projectId: string }; Querystring: { since?: unknown; limit?: unknown } }>(
+      "/projects/:projectId/attempts", { preHandler: guards.session }, async (request, reply) => {
+        if (!deps.dispatch) return failure(reply, 404, "not-found", "Dispatch not found.", "correct-input", newId);
+        const project = idSchema.safeParse(request.params.projectId);
+        const limit = queryInteger(request.query.limit, 200, 1, 500);
+        const since = z.string().datetime({ offset: true }).optional().safeParse(request.query.since);
+        if (!project.success || limit === undefined || !since.success)
+          return failure(reply, 400, "validation", "Invalid project, since or limit.", "correct-input", newId);
+        const raw = deps.storage.raw;
+        const rows = raw.prepare(`${attemptSelection}, t.code AS taskCode, substr(t.title, 1, 200) AS taskTitle
+          ${attemptJoins} JOIN tasks t ON t.project_id = a.project_id AND t.id = a.task_id
+          WHERE a.project_id = ? ${since.data === undefined ? "" : "AND julianday(a.started_at) >= julianday(?)"}
+          ORDER BY a.started_at IS NULL, julianday(a.started_at) DESC, a.id DESC LIMIT ?`)
+          .all(project.data, ...(since.data === undefined ? [] : [since.data]), limit) as Array<AttemptView & { taskCode: string; taskTitle: string }>;
+        const usage = attemptUsage(raw, project.data, rows.map(row => row.id));
+        return { apiVersion: API_VERSION, ok: true, attempts: rows.map(attempt => ({ ...attempt, usage: usage.get(attempt.id) ?? null })) };
       },
     );
     app.get<{ Params: { projectId: string; attemptId: string }; Querystring: { afterSeq?: unknown; limit?: unknown } }>(
@@ -497,14 +528,8 @@ export function createRoutes(deps: {
         const raw = deps.storage.raw;
         if (!getProject(raw, project.data) || !getAttempt(raw, project.data, attempt.data))
           return failure(reply, 404, "not-found", "Project or attempt not found.", "correct-input", newId);
-        const integer = (value: unknown, fallback: number, min: number, max: number): number | undefined => {
-          if (value === undefined) return fallback;
-          if (typeof value !== "string" || !/^[0-9]+$/.test(value)) return undefined;
-          const parsed = Number(value);
-          return Number.isSafeInteger(parsed) && parsed >= min && parsed <= max ? parsed : undefined;
-        };
-        const afterSeq = integer(request.query.afterSeq, 0, 0, Number.MAX_SAFE_INTEGER);
-        const limit = integer(request.query.limit, 100, 1, 500);
+        const afterSeq = queryInteger(request.query.afterSeq, 0, 0, Number.MAX_SAFE_INTEGER);
+        const limit = queryInteger(request.query.limit, 100, 1, 500);
         if (afterSeq === undefined || limit === undefined)
           return failure(reply, 400, "validation", "Invalid attempt event pagination.", "correct-input", newId);
         const events = listAttemptEvents(raw, project.data, attempt.data, { afterSeq, limit })
