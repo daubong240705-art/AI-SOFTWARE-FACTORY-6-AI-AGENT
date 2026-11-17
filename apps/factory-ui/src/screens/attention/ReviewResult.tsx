@@ -1,14 +1,14 @@
 import { useEffect } from 'react';
 import type { Approval } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Section, TechDetails } from '@/components/app';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ErrorNotice } from '../../components/ErrorNotice';
 import { useT } from '../../i18n';
 import type { Store } from '../../state/store';
 import { parseDiff } from '../../state/diff';
-import { ProgressTimeline } from '../ProgressTimeline';
+import { AttemptTimeline } from '../agent/AttemptTimeline';
 import { TaskContext } from '../TaskContext';
 import { TaskInputs } from './TaskInputs';
 import { ReviewChanges } from './ReviewChanges';
@@ -35,18 +35,18 @@ export function ReviewResult({ store, taskId, approval }: { store: Store; taskId
   const error = state.errors[`detail:${taskId}`];
   const eventError = attempt ? state.errors[`attempt-events:${taskId}:${attempt.id}`] : undefined;
   return <Tabs defaultValue="result" className="min-w-0 flex-1 gap-0">
-    <div className="px-6">
+    <div>
       <TabsList variant="pills" aria-label={t('workUi.sections')} className="max-w-full">
         {(['result', 'activity', 'context'] as const).map(tab => <TabsTrigger key={tab} value={tab}>{t(`reviewUi.${tab}`)}</TabsTrigger>)}
       </TabsList>
     </div>
-    {error && <div className="px-6 pt-5"><ErrorNotice error={error} /><Button variant="outline" onClick={() => { void store.loadTaskDetail(taskId); }}>{t('errors.retry')}</Button></div>}
-    <div className="grid min-w-0 flex-1 items-start gap-6 p-6 min-[1400px]:grid-cols-[minmax(0,1fr)_300px]">
+    {error && <div className="pt-5"><ErrorNotice error={error} /><Button variant="outline" onClick={() => { void store.loadTaskDetail(taskId); }}>{t('errors.retry')}</Button></div>}
+    <div className="grid min-w-0 flex-1 items-start gap-6 pt-6 min-[1400px]:grid-cols-[minmax(0,1fr)_300px]">
       <div className="min-w-0">
         {(!detail || (detail.loading && !attempt)) && !error && <div role="status" className="space-y-3"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-7 w-2/3" /><Skeleton className="h-64 w-full" /></div>}
         <TabsContent value="result" className="m-0 space-y-5">
           {detail && <>
-            {attempt ? <ReviewChanges store={store} taskId={taskId} code={task?.code ?? ''} attempt={attempt} /> : <Card className="gap-0 border-border p-5 text-sm text-muted-foreground shadow-none">{t('reviewUi.noChanges')}</Card>}
+            {attempt ? <ReviewChanges store={store} taskId={taskId} code={task?.code ?? ''} attempt={attempt} /> : <Section className="text-sm text-muted-foreground">{t('reviewUi.noChanges')}</Section>}
             <ReviewDocuments store={store} taskId={taskId} documents={detail.artifacts} attemptId={attempt?.id} />
             <Fold title={t('reviewUi.history')}>
               <div className="divide-y divide-border">
@@ -58,24 +58,24 @@ export function ReviewResult({ store, taskId, approval }: { store: Store; taskId
                 {detail.attempts.length < 2 && !detail.artifacts.some(document => document.versions.some(version => version.producedByAttemptId !== attempt?.id)) && <p className="py-3 text-xs text-muted-foreground">{t('reviewUi.noHistory')}</p>}
               </div>
             </Fold>
-            <Fold title={t('attention.technicalDetails')}>
+            <TechDetails>
               <Facts rows={[
                 [t('reviewUi.attempt'), String(attempt?.epoch ?? '—')], [t('attention.identifier'), attempt?.id ?? '—'],
                 [t('reviewUi.patchHash'), patch?.sha256 ?? '—'],
                 ...(approval ? [[t('reviewUi.record'), approval.id], [t('attention.digest'), approval.context.digest], [t('reviewUi.recordNumber'), String(approval.revision)]] : []),
                 ...detail.artifacts.map(document => [readableText(document.title), document.artifactId]),
               ]} mono />
-            </Fold>
+            </TechDetails>
           </>}
         </TabsContent>
         <TabsContent value="activity" className="m-0 space-y-4">
           {eventError && <><ErrorNotice error={eventError} /><Button variant="outline" onClick={() => { if (attempt) void store.loadAttemptEvents(taskId, attempt.id); }}>{t('errors.retry')}</Button></>}
-          <ProgressTimeline events={events} />
+          <AttemptTimeline attempts={detail?.attempts ?? []} events={detail?.events ?? {}} onLoadAttempt={id => { void store.loadAttemptEvents(taskId, id); }} />
         </TabsContent>
         <TabsContent value="context" className="m-0 space-y-4">
           {task && <>
-            <Card className="gap-3 border-border p-5 shadow-none"><h3 className="text-sm font-semibold">{t('taskUi.goal')}</h3><p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{readableText(task.goal)}</p>{briefBeyondGoal(task.goal, task.brief) && <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{readableText(task.brief)}</p>}</Card>
-            <Card className="gap-3 border-border p-5 shadow-none"><h3 className="text-sm font-semibold">{t('taskUi.dependencies')}</h3><ul className="space-y-2 text-sm text-muted-foreground">{task.dependsOn.map(dependency => <li key={dependency} className="font-mono">{state.tasks.find(item => item.id === dependency)?.code ?? dependency}</li>)}</ul><Facts rows={task.holds.map(hold => [t(`workUi.holdKinds.${hold.kind}`), readableText(hold.reason)])} /></Card>
+            <Section title={t('taskUi.goal')}><p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{readableText(task.goal)}</p>{briefBeyondGoal(task.goal, task.brief) && <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">{readableText(task.brief)}</p>}</Section>
+            <Section title={t('taskUi.dependencies')}><ul className="space-y-2 text-sm text-muted-foreground">{task.dependsOn.map(dependency => <li key={dependency} className="font-mono">{state.tasks.find(item => item.id === dependency)?.code ?? dependency}</li>)}</ul><Facts rows={task.holds.map(hold => [t(`workUi.holdKinds.${hold.kind}`), readableText(hold.reason)])} /></Section>
             <TaskContext store={store} taskId={taskId} />
             <TaskInputs store={store} taskId={taskId} />
           </>}

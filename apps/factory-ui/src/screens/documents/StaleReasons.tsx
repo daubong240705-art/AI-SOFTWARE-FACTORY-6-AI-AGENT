@@ -8,7 +8,7 @@ import { useT } from '@/i18n';
 import { knowledgePendingKey } from '@/state/knowledgeCommands';
 import type { Store } from '@/state/store';
 import { artifactTitle } from '../artifactPresentation';
-import { relativeTime } from '../Inbox';
+import { relativeTime } from '@/lib/inbox';
 
 type Version = KnowledgeArtifact['versions'][number];
 type Reason = Version['stale'][number];

@@ -13,7 +13,7 @@ import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import type { Store } from '@/state/store';
 import { patchDecisionKey } from '@/state/workflowPatches';
-import { relativeTime } from '../Inbox';
+import { relativeTime } from '@/lib/inbox';
 
 function PatchDecision({ store, detail, patch, decision, onClose }: { store: Store; detail: WorkflowDetail; patch: WorkflowPatch; decision: 'approve' | 'reject'; onClose: () => void }) {
   const t = useT(); const id = useId(); const [comment, setComment] = useState(''); const state = store.useStoreSelector(value => value);

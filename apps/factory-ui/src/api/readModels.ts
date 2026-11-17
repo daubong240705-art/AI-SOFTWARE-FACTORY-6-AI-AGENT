@@ -24,7 +24,19 @@ function object<S extends Record<string, Reader<unknown>>>(shape: S): Reader<{ [
   };
 }
 const states: readonly AttemptState[] = ['queued', 'leased', 'preparing', 'running', 'waiting-input', 'parked', 'stopping', 'stopped', 'submitting', 'succeeded', 'failed', 'lease-expired', 'unknown', 'reconciling', 'requeued'];
-const attempt = object({ id: identifier, taskId: identifier, epoch: integer(1), revision: integer(1), state: enumeration(states), outcome: enumeration(['known', 'unknown'] as const), runtime: enumeration(['fake', 'native-opencode', 'api-agent', 'acp'] as const), seatId: nullable(identifier), seatName: nullable(string()), startedAt: nullable(timestamp), endedAt: nullable(timestamp) });
+const attemptBase = object({ id: identifier, taskId: identifier, epoch: integer(1), revision: integer(1), state: enumeration(states), outcome: enumeration(['known', 'unknown'] as const), runtime: enumeration(['fake', 'native-opencode', 'api-agent', 'acp'] as const), seatId: nullable(identifier), seatName: nullable(string()), startedAt: nullable(timestamp), endedAt: nullable(timestamp) });
+const usage = object({ inputTokens: nullable(integer()), cachedInputTokens: nullable(integer()), outputTokens: nullable(integer()), reasoningOutputTokens: nullable(integer()), records: integer() });
+const attemptExtras = { provider: nullable(string()), model: nullable(string()), effort: nullable(enumeration(['low', 'medium', 'high', 'xhigh'] as const)), nodeId: nullable(string()), leaseExpiresAt: nullable(timestamp), usage: nullable(usage) };
+export type Usage = ReturnType<typeof usage>;
+export type Attempt = ReturnType<typeof attemptBase> & { [K in keyof typeof attemptExtras]?: ReturnType<typeof attemptExtras[K]> };
+const attempt: Reader<Attempt> = value => {
+  const input = record(value);
+  const extras: Record<string, unknown> = {};
+  for (const [key, read] of Object.entries(attemptExtras)) if (input[key] !== undefined) extras[key] = read(input[key]);
+  return { ...attemptBase(value), ...extras };
+};
+const projectAttempt = (value: unknown) => ({ ...attempt(value), ...object({ taskCode: string(40, 1), taskTitle: string(200) })(value) });
+
 const event = object({ seq: integer(1), at: timestamp, kind: enumeration(['progress', 'output', 'evidence', 'question', 'usage', 'state'] as const), body: (v: unknown): unknown => v });
 const patch = object({ patch: string(8_388_608), sha256: hash, bytes: integer() });
 const content = object({ mediaType: string(128, 1), sizeBytes: integer(), contentHash: hash, text: string(8_388_608) });
@@ -95,7 +107,7 @@ function envelope<T>(read: Reader<T>) {
   } };
 }
 // These adapters deliberately copy only validated fields; unknown event bodies stay opaque.
-export const readModels = { attempts: envelope(object({ attempts: array(attempt) })), events: envelope(object({ events: array((v) => { const r = record(v); if (!Object.hasOwn(r, 'body')) invalid(); return event(v); }) })), patch: envelope(patch), artifacts: envelope(object({ items: array(artifact) })), content: envelope(content), approvals: envelope(object({ approvals: array(approval) })),
+export const readModels = { projectAttempts: envelope(object({ attempts: array(projectAttempt) })), attempts: envelope(object({ attempts: array(attempt) })), events: envelope(object({ events: array((v) => { const r = record(v); if (!Object.hasOwn(r, 'body')) invalid(); return event(v); }) })), patch: envelope(patch), artifacts: envelope(object({ items: array(artifact) })), content: envelope(content), approvals: envelope(object({ approvals: array(approval) })),
   approval: envelope(object({ approval })), inbox: envelope(inbox(false)), globalInbox: envelope(inbox(true)), remotes: envelope(object({ remotes: array(name) })), effects: envelope(object({ effects: array(effect) })), effect: envelope(object({ effect })),
   knowledgeSearch: envelope(object({ results: knowledgeArray(knowledgeResult) })), knowledgeList: envelope(object({ items: knowledgeArray(knowledgeItem) })), knowledgeGroups: envelope(knowledgeGroups), knowledgeArtifact: envelope(object({ artifact: knowledgeArtifact })),
   preview: envelope(object({ preview })), uploadedArtifact: envelope(object({ artifact: knowledgeItem })) };
@@ -103,7 +115,6 @@ export const readModels = { attempts: envelope(object({ attempts: array(attempt)
 export { m5ReadModels } from './m5Models';
 export type { WorkflowInstance, WorkflowDetail, WorkflowStage, WorkflowGraph, WorkflowDefinition, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './m5Models';
 export type Effect = ReturnType<typeof effect>;
-export type Attempt = ReturnType<typeof attempt>;
 export type AttemptEvent = ReturnType<typeof event>;
 export type AttemptPatch = ReturnType<typeof patch>;
 export type TaskArtifact = ReturnType<typeof artifact>;

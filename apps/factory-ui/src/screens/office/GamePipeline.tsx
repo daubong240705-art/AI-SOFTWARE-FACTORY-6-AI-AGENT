@@ -64,10 +64,10 @@ export function GamePipeline({ detail, onOpenWorkflow }: { detail: WorkflowDetai
       ? t('officeUi.reworkLoop').replace('{current}', String(count)).replace('{total}', String(rework?.maxLoops ?? 3)) : null;
     return <button key={key} type="button" onClick={onOpenWorkflow}
       aria-label={`${t('officeUi.openWorkflow')}: ${title} · ${t(`m5Ui.states.${state}`)}${loop ? ` · ${loop}` : ''}`}
-      className={cn('inline-flex min-w-0 items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring', tone)}>
+      className={cn('inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-2 text-xs font-medium hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring', tone)}>
       <Icon className="size-3.5 shrink-0" aria-hidden="true" /><span>{title}</span>
       <span className="sr-only">{t(`m5Ui.states.${state}`)}</span>
-      {loop && <span className="shrink-0 rounded-full bg-background/70 px-1.5 py-0.5 text-[10px] tabular-nums">{loop}</span>}
+      {loop && <span className="shrink-0 rounded-full bg-background/70 px-1.5 py-0.5 text-xs tabular-nums">{loop}</span>}
     </button>;
   };
   return <section aria-label={t('officeUi.pipeline')} className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-3">

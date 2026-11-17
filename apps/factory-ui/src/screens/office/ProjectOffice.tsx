@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/app';
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ArrowRight, BookOpen, FileText, HelpCircle, Mail, UserRound } from 'lucide-react';
@@ -77,24 +78,23 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
   const [lively, setLively] = useState(true);
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [selectedTaskTab, setSelectedTaskTab] = useState<'request' | 'progress' | 'actions'>('progress');
+  const [selectedTaskTab, setSelectedTaskTab] = useState<'overview' | 'process' | 'results'>('process');
   const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
   const selectedSeat = office?.seats.find(seat => seat.id === selectedSeatId) ?? null;
   const party = (value: Party) => value.kind === 'seat' ? value.name : t(value.kind === 'operator' ? 'officeUi.you' : 'officeUi.knowledge');
   const items = useMemo(() => meaningfulOfficeItems(office?.items ?? []), [office?.items]);
-  const openTask: OpenOfficeTask = (taskId, tab = 'progress') => {
+  const openTask: OpenOfficeTask = (taskId, tab = 'process') => {
     setSelectedTaskId(taskId); setSelectedTaskTab(tab); setSelectedSeatId(null);
   };
   const review = (need: OfficeNeed) => {
     setSelectedSeatId(null);
-    if (need.kind === 'start-gate') openTask(need.taskId, 'actions');
+    if (need.kind === 'start-gate') openTask(need.taskId, 'overview');
     else setSelectedApprovalId(need.approvalId);
   };
   const closeDecision = () => { setSelectedApprovalId(null); void store.loadOffice(); };
 
   return <Page className={cn("flex min-h-full min-w-0 flex-col gap-5", !lively && "office-quiet")}>
-    <header className="space-y-1"><h2 className="font-display text-2xl font-semibold">{t('officeUi.title')}</h2>
-      <p className="max-w-3xl text-sm text-muted-foreground">{t('officeUi.description')}</p></header>
+    <PageHeader title={t('officeUi.title')} />
     {workflow && <GamePipeline detail={detail} onOpenWorkflow={() => onOpenTab('workflow')} />}
     {error && <div className="space-y-3"><ErrorNotice error={error} /><Button variant="outline" size="sm" onClick={() => { void store.loadOffice(); }}>{t('errors.retry')}</Button></div>}
     {!office && !error && <div role="status" aria-label={t('viewStates.loading')} className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
@@ -108,7 +108,7 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
           <div className="flex items-center gap-2"><Checkbox id={`${id}-progress`} checked={hideProgress} onCheckedChange={value => setHideProgress(value === true)} />
             <Label htmlFor={`${id}-progress`} className="text-xs text-muted-foreground">{t('officeUi.hideProgress')}</Label></div>
         </div>
-        <Feed items={items.filter(item => !hideProgress || item.kind !== 'progress')} now={now} party={party} onOpenTask={taskId => { setSelectedTaskId(taskId); setSelectedTaskTab('progress'); }} />
+        <Feed items={items.filter(item => !hideProgress || item.kind !== 'progress')} now={now} party={party} onOpenTask={taskId => { setSelectedTaskId(taskId); setSelectedTaskTab('process'); }} />
       </section>
     </div>}
     <Sheet open={!!selectedSeat} onOpenChange={open => { if (!open) setSelectedSeatId(null); }}>
@@ -120,7 +120,7 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
           <div className="space-y-5 p-5">
             <AgentOverview store={store} seat={selectedSeat} now={now} onOpenTask={openTask} onReview={review} />
             <section className="min-w-0 overflow-hidden rounded-xl border border-border"><h3 className="border-b border-border p-4 text-sm font-semibold">{t('officeUi.feed')}</h3>
-              <Feed items={items.filter(item => (item.from.kind === 'seat' && item.from.seatId === selectedSeat.id) || (item.to?.kind === 'seat' && item.to.seatId === selectedSeat.id))} now={now} party={party} onOpenTask={taskId => { setSelectedSeatId(null); setSelectedTaskId(taskId); setSelectedTaskTab('progress'); }} />
+              <Feed items={items.filter(item => (item.from.kind === 'seat' && item.from.seatId === selectedSeat.id) || (item.to?.kind === 'seat' && item.to.seatId === selectedSeat.id))} now={now} party={party} onOpenTask={taskId => { setSelectedSeatId(null); setSelectedTaskId(taskId); setSelectedTaskTab('process'); }} />
             </section>
           </div>
         </>}
@@ -187,12 +187,12 @@ function OfficeFloor({ store, lively, seats, items, now, party, onSelectSeat, on
       <OfficeRoomTrim now={now} />
       {!seats.length ? <p className="py-16 text-center text-sm text-muted-foreground">{t('officeUi.noSeats')}</p> : <>
         <div className="office-lead-row grid items-start gap-3">
-          <div ref={register('operator')} className={cn('justify-self-start rounded-2xl border border-border bg-card p-3 text-center', glow('operator'))}>
+          <div ref={register('operator')} className={cn('justify-self-start rounded-2xl border border-border bg-card p-3 text-sm text-center', glow('operator'))}>
             <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-secondary"><UserRound className="size-6" aria-hidden="true" /></span>
             <p className="mt-2 text-sm font-semibold">{t('officeUi.you')}</p>
           </div>
           {lead ? <AgentCard store={store} seat={lead} featured innerRef={register(`seat:${lead.id}`)} className={cn('office-lead-card w-full max-w-80', glow(`seat:${lead.id}`))} bubble={bubble(`seat:${lead.id}`)} now={now} onSelectSeat={onSelectSeat} onOpenTask={onOpenTask} onReview={onReview} /> : <span />}
-          <button type="button" ref={register('knowledge')} onClick={onOpenKnowledge} aria-label={t('officeUi.openKnowledge')} className={cn('justify-self-end rounded-2xl border border-border bg-card p-3 text-center hover:border-info/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring', glow('knowledge'))}>
+          <button type="button" ref={register('knowledge')} onClick={onOpenKnowledge} aria-label={t('officeUi.openKnowledge')} className={cn('justify-self-end rounded-2xl border border-border bg-card p-3 text-sm text-center hover:border-info/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring', glow('knowledge'))}>
             <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-secondary"><BookOpen className="size-6" aria-hidden="true" /></span>
             <span className="mt-2 block text-sm font-semibold">{t('officeUi.knowledge')}</span>
           </button>
@@ -231,7 +231,7 @@ function Feed({ items, now, party, onOpenTask }: { items: Interaction[]; now: nu
         ? <Button type="button" variant="outline" size="sm" className="h-auto max-w-full px-2 py-1 font-mono text-xs text-info" onClick={() => onOpenTask(item.taskId!)}>{item.code}</Button>
         : <span className="font-mono text-xs text-muted-foreground">{item.code}</span>)}
       <FeedMessage text={item.text} />
-      <p className="text-[11px] text-muted-foreground"><time dateTime={item.at}>{activityTime(item.at, now)}</time></p>
+      <p className="text-xs text-muted-foreground"><time dateTime={item.at}>{activityTime(item.at, now)}</time></p>
     </li>)}
   </ol>;
 }

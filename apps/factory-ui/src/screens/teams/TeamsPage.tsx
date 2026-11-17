@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/app';
 import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Page } from '@/components/Page';
@@ -19,18 +20,20 @@ export function TeamsPage({ store, tab, onTabChange, onTask }: {
   const now = useActivity(store, tab === 'activity' && !m3.disabled);
   useEffect(() => store.watchM3('teams', store.loadTeams), [store, selectedProjectId]);
   return <Page className="min-w-0 space-y-6 px-6 2xl:px-6">
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <div className="space-y-2"><h1 className="font-display text-[38px] leading-tight font-bold tracking-tight">{t('activityUi.title')}</h1>
-      <p className="text-base text-muted-foreground">{t(tab === 'config' ? 'ux4.teamsDescription' : 'activityUi.description')}</p></div>
-      {tab === 'activity' && !m3.disabled && <ActivityControls store={store} now={now} onlyMine={onlyMine} onFilter={setOnlyMine} />}
-    </header>
-    {m3.disabled ? <><p role="status" className="text-sm text-muted-foreground">{t('m3.disabled')}</p><TeamPanel store={store} /></> : <Tabs value={tab} onValueChange={value => onTabChange(value as TeamTab)} className="gap-6">
-        <TabsList variant="pills" aria-label={t('nav.team')}>
-          <TabsTrigger value="activity">{t('activityUi.doing')}</TabsTrigger>
-          <TabsTrigger value="config">{t('activityUi.config')}</TabsTrigger>
-        </TabsList>
+    <Tabs value={tab} onValueChange={value => onTabChange(value as TeamTab)} className="gap-6">
+      <PageHeader title={t('activityUi.title')}>
+        {!m3.disabled && <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList variant="pills" aria-label={t('nav.team')}>
+            <TabsTrigger value="activity">{t('activityUi.doing')}</TabsTrigger>
+            <TabsTrigger value="config">{t('activityUi.config')}</TabsTrigger>
+          </TabsList>
+          {tab === 'activity' && <ActivityControls store={store} now={now} onlyMine={onlyMine} onFilter={setOnlyMine} />}
+        </div>}
+      </PageHeader>
+      {m3.disabled ? <><p role="status" className="text-sm text-muted-foreground">{t('m3.disabled')}</p><TeamPanel store={store} /></> : <>
         <TabsContent value="activity"><TeamActivity store={store} onlyMine={onlyMine} now={now} onTask={onTask} /></TabsContent>
         <TabsContent value="config"><TeamConfiguration store={store} /></TabsContent>
-      </Tabs>}
+      </>}
+    </Tabs>
   </Page>;
 }

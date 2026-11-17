@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/app';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { ChevronDown, Upload } from 'lucide-react';
 import type { KnowledgeFilters, KnowledgeGroupKey } from '@/api/readModels';
@@ -75,14 +76,16 @@ export function ProjectKnowledge({ store, projectId }: { store: Store; projectId
     onDragOver={event => { if (hasFiles(event)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; } }}
     onDragLeave={event => { if (hasFiles(event) && --dragDepth.current <= 0) { dragDepth.current = 0; setDragging(false); } }}
     onDrop={event => { if (!hasFiles(event)) return; event.preventDefault(); dragDepth.current = 0; setDragging(false); const file = event.dataTransfer.files[0]; if (file) openUpload(file); }}>
-    <header className="flex items-center justify-between gap-4"><h2 className="font-display text-3xl font-semibold tracking-tight">{t('projectUi.knowledge')}</h2><Button onClick={() => openUpload()}><Upload className="size-4" />{t('knowledgeUi.upload')}</Button></header>
+    <PageHeader title={t('projectUi.knowledge')} actions={<Button onClick={() => openUpload()}><Upload className="size-4" />{t('knowledgeUi.upload')}</Button>}>
+      <DocumentToolbar query={query} filters={filters} totals={selectedGroup ? { all: selectedGroup.documents + selectedGroup.images, images: selectedGroup.images, documents: selectedGroup.documents } : index?.totals ?? null} detailed={detailed} onDetailed={setDetailed} onQuery={value => { store.cancelKnowledgeSearch(); setQuery(value); }} onFilters={value => { store.cancelKnowledgeSearch(); setFilters(value); }} onClear={() => { store.cancelKnowledgeSearch(); setQuery(''); setFilters({}); }} />
+    </PageHeader>
     <Collapsible asChild><section aria-label={t('knowledgeUi.pinned')}><CollapsibleTrigger className="group flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"><ChevronDown aria-hidden="true" className="size-4 transition-transform group-data-[state=closed]:-rotate-90" />{t('knowledgeUi.pinned')}</CollapsibleTrigger><CollapsibleContent className="pt-3"><DossierPanel store={store} /></CollapsibleContent></section></Collapsible>
     <div className="grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
       <aside className={`max-h-72 overflow-y-auto rounded-xl border border-border p-2 lg:sticky lg:top-4 lg:max-h-[calc(100vh-10rem)] ${searching ? 'opacity-60' : ''}`}>
         <DocumentGroups index={index} selected={searching ? 'all' : group ?? 'all'} onSelect={value => { if (searching) { store.cancelKnowledgeSearch(); setQuery(''); } chooseGroup(value); }} />
       </aside>
       <section aria-label={heading} className="min-w-0 space-y-4">
-        <DocumentToolbar query={query} filters={filters} totals={selectedGroup ? { all: selectedGroup.documents + selectedGroup.images, images: selectedGroup.images, documents: selectedGroup.documents } : index?.totals ?? null} detailed={detailed} onDetailed={setDetailed} onQuery={value => { store.cancelKnowledgeSearch(); setQuery(value); }} onFilters={value => { store.cancelKnowledgeSearch(); setFilters(value); }} onClear={() => { store.cancelKnowledgeSearch(); setQuery(''); setFilters({}); }} />
+
         <div className="flex flex-wrap items-baseline justify-between gap-2"><h3 className="flex min-w-0 items-center gap-2 font-display text-xl font-semibold"><span className="truncate">{heading}</span>{selectedGroup?.task && <Badge variant="outline" className="shrink-0 font-sans text-xs font-normal">{t(`taskUi.lifecycle.${selectedGroup.task.state}`)}</Badge>}</h3><p role="status" className="text-xs text-muted-foreground">{number(rows.length)} {plural(t, i18n.locale, rows.length, 'knowledgeUi.count')}</p></div>
         {loading && <div role="status" aria-label={t('viewStates.loading')} className="space-y-3">{[0, 1, 2].map(key => <Skeleton key={key} className="h-12 rounded-xl" />)}</div>}
         {knowledge.errors.knowledge && <div className="space-y-3"><ErrorNotice error={knowledge.errors.knowledge} /><Button variant="outline" onClick={() => { void store.searchKnowledge(query, effective); }}>{t('errors.retry')}</Button></div>}

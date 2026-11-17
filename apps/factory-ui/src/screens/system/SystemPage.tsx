@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/app';
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,11 +36,7 @@ export function System({ store }: { store: Store }) {
     return () => clearInterval(timer);
   }, [store, state.session]);
   return <Page className="min-w-0 space-y-6 px-6 2xl:px-6">
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <div className="space-y-2"><h1 className="font-display text-[38px] leading-tight font-bold tracking-tight">{t('systemUi.title')}</h1>
-        <p className="text-base text-muted-foreground">{t('systemUi.description')}</p></div>
-      <Button type="button" variant="ghost" disabled={busy} onClick={() => { setNow(Date.now()); void store.loadSystem(); void store.loadAgentClis(true); }}><RefreshCw />{t('systemUi.refresh')}</Button>
-    </header>
+    <PageHeader title={t('systemUi.title')} actions={<Button type="button" variant="ghost" disabled={busy} onClick={() => { setNow(Date.now()); void store.loadSystem(); void store.loadAgentClis(true); }}><RefreshCw />{t('systemUi.refresh')}</Button>} />
     <div className="grid min-w-0 items-start gap-5 lg:grid-cols-2"><ModelsCard store={store} /><AgentClisCard store={store} /></div>
     <div className="grid min-w-0 items-start gap-5 lg:grid-cols-2">
       <HostCard store={store} now={now} /><BackupCard store={store} now={now} />

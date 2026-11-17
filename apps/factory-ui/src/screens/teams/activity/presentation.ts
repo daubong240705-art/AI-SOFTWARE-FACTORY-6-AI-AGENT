@@ -1,14 +1,16 @@
+import { toneOf, toneDot, toneText } from '@/lib/status';
 import { i18n } from '@/i18n';
 import type { ActivityRun, ActivityStatus } from '@/api/activityModels';
 
-export const dotClass: Record<ActivityStatus, string> = {
-  waiting: 'bg-need', problem: 'bg-info', working: 'bg-run motion-safe:animate-pulse',
-  queued: 'bg-muted-foreground', done: 'bg-ok', idle: 'bg-muted-foreground',
-};
-export const pillClass: Record<ActivityStatus, string> = {
-  waiting: 'bg-need/10 text-need', problem: 'bg-info/10 text-info', working: 'bg-run/10 text-run',
-  queued: 'bg-secondary text-muted-foreground', done: 'bg-ok/10 text-ok', idle: 'bg-secondary text-muted-foreground',
-};
+const statuses = ['waiting', 'problem', 'working', 'queued', 'done', 'idle'] as const;
+export const dotClass = Object.fromEntries(statuses.map(status => {
+  const tone = toneOf('activity', status);
+  return [status, `${toneDot[tone]}${tone === 'run' ? ' motion-safe:animate-pulse' : ''}`];
+})) as Record<ActivityStatus, string>;
+export const pillClass = Object.fromEntries(statuses.map(status => {
+  const tone = toneOf('activity', status);
+  return [status, `${tone === 'need' || tone === 'error' ? 'bg-need/10' : tone === 'run' ? 'bg-run/10' : tone === 'ok' ? 'bg-ok/10' : 'bg-secondary'} ${toneText[tone]}`];
+})) as Record<ActivityStatus, string>;
 export function activityAttemptLabel(state: ActivityRun['attemptState']) {
   return i18n.t(['lease-expired', 'unknown', 'reconciling', 'failed'].includes(state) ? `activityUi.attempt.${state}` : `workUi.states.${state}`);
 }

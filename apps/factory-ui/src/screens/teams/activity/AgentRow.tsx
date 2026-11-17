@@ -1,4 +1,5 @@
-﻿import { Avatar, AvatarBadge, AvatarFallback } from '@/components/ui/avatar';
+import { AlertCircle } from 'lucide-react';
+import { Avatar, AvatarBadge, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Mascot, mascotState } from '@/components/mascot';
 import { useT } from '@/i18n';
@@ -24,7 +25,7 @@ export function AgentRow({ store, seat, now, onTask }: { store: Store; seat: Act
       className={cn('grid min-w-0 grid-cols-[40px_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2 rounded-lg px-2 py-3 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring', run && 'cursor-pointer hover:bg-secondary/50')}>
       <Mascot seat={seat.isLead ? 'Lead' : seat.name} state={seat.needsYou.length ? 'attention' : mascotState(seat.status)} size={40} fallback={<Avatar className="size-8 overflow-visible rounded-md" aria-hidden="true">
         <AvatarFallback className="rounded-md bg-secondary font-mono text-xs text-foreground">{Array.from(seat.name)[0]?.toLocaleUpperCase()}</AvatarFallback>
-        <AvatarBadge className={cn('top-0 bottom-auto size-2.5 text-foreground ring-card', dotClass[seat.status])} />
+        {seat.status === 'problem' ? <span className="absolute -top-1 -right-1 rounded-full bg-card"><AlertCircle aria-hidden="true" className="size-3.5 text-need" /></span> : <AvatarBadge className={cn('top-0 bottom-auto size-2.5 text-foreground ring-card', dotClass[seat.status])} />}
       </Avatar>} />
       <div className="min-w-0 space-y-1">
         <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5"><span className="text-sm font-medium [overflow-wrap:anywhere]">{seat.name}</span><span className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{seat.role}</span><SeatRuntimeBadge store={store} seatId={seat.id} /></div>

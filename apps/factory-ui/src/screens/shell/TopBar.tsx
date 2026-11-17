@@ -1,5 +1,7 @@
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { shallowSelectionEqual } from '@/state/storeSelector';
 import { useEffect, useRef, useState } from 'react';
-import { Menu, Plus, Search } from 'lucide-react';
+import { FolderPlus, Gamepad2, ListTodo, Menu, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
@@ -10,14 +12,14 @@ import type { Store } from '../../state/store';
 import { ProjectTile } from './ProjectTile';
 import { TaskStatus } from './TaskStatus';
 import { NotificationsBell } from './NotificationsBell';
-import { useUiProfile } from '../../config/uiProfile';
 
-export function TopBar({ store, compact, expanded, onToggle, onNewTask, onProject, onTask }: {
-  store: Store; compact: boolean; expanded: boolean; onToggle: () => void; onNewTask: () => void;
+export function TopBar({ store, compact, expanded, onToggle, onCreate, onProject, onTask }: {
+  store: Store; compact: boolean; expanded: boolean; onToggle: () => void; onCreate: (kind: 'task' | 'game' | 'project') => void;
   onProject: (id: string) => void; onTask: (projectId: string, taskId: string) => void;
 }) {
-  const profile = useUiProfile();
-  const t = useT(); const state = store.useStoreSelector(value => value);
+  const t = useT(); const state = store.useStoreSelector(value => ({ selectedProjectId: value.selectedProjectId, stream: value.stream, tasks: value.tasks, projects: value.projects, liveAttempts: value.liveAttempts }), shallowSelectionEqual);
+  const creating = useRef(false);
+  function create(kind: 'task' | 'game' | 'project') { creating.current = true; onCreate(kind); }
   const [open, setOpen] = useState(false); const search = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
@@ -38,7 +40,14 @@ export function TopBar({ store, compact, expanded, onToggle, onNewTask, onProjec
       <div className="flex-1 max-sm:hidden" />
       {state.selectedProjectId && state.stream !== 'open' && <p role="status" className="hidden items-center gap-2 text-xs text-muted-foreground xl:flex"><span className={`size-[5px] rounded-full ${state.stream === 'closed' ? 'bg-muted-foreground' : 'bg-run'}`} aria-hidden="true" />{t(streamLabel)}</p>}
       {state.selectedProjectId && <NotificationsBell key={state.selectedProjectId} store={store} projectId={state.selectedProjectId} onTask={onTask} />}
-      {profile === 'full' && <Button onClick={onNewTask} className="rounded-lg"><Plus />{t('shell.newTask')}</Button>}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild><Button type="button" aria-label={t('shellUi.create')} className="rounded-lg max-sm:size-9 max-sm:px-0"><Plus aria-hidden="true" /><span className="max-sm:hidden">{t('shellUi.create')}</span></Button></DropdownMenuTrigger>
+        <DropdownMenuContent align="end" onCloseAutoFocus={event => { if (creating.current) event.preventDefault(); creating.current = false; }}>
+          <DropdownMenuItem onSelect={() => create('task')}><ListTodo aria-hidden="true" />{t('shellUi.newTask')}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => create('game')}><Gamepad2 aria-hidden="true" />{t('shellUi.newGame')}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => create('project')}><FolderPlus aria-hidden="true" />{t('shellUi.newProject')}</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent showCloseButton={false} className="overflow-hidden rounded-xl border-border bg-popover p-0 sm:max-w-xl" onCloseAutoFocus={event => { event.preventDefault(); search.current?.focus(); }}>

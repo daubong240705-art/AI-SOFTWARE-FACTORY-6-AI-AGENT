@@ -10,7 +10,7 @@ import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { notificationPendingKey, type NotificationCommand } from '@/state/notifications';
 import type { Store } from '@/state/store';
-import { relativeTime } from '../Inbox';
+import { relativeTime } from '@/lib/inbox';
 
 export function NotificationItem({ store, item, projectId, onOpen }: { store: Store; item: Notification; projectId: string; onOpen: (item: Notification) => void }) {
   const t = useT(); const key = notificationPendingKey(item.id);
@@ -31,7 +31,7 @@ export function NotificationItem({ store, item, projectId, onOpen }: { store: St
       <span className={cn('mt-1.5 size-1.5 shrink-0 rounded-full', item.urgency === 'urgent' && item.state === 'unread' ? 'bg-need' : 'bg-muted-foreground')} aria-label={t(`notificationsUi.urgency.${item.urgency}`)} />
       <span className="min-w-0 flex-1 space-y-1"><span className={cn('block text-sm leading-relaxed', item.state === 'unread' ? 'font-semibold' : 'font-medium')}>{item.title}</span><span className="line-clamp-2 text-xs leading-relaxed font-normal text-muted-foreground">{item.body}</span></span>
     </Button>
-    <div className="flex items-center gap-2 pl-3.5"><Badge variant="secondary" className="text-[10px] font-normal">{t(`notificationsUi.category.${item.category}`)}</Badge><time dateTime={item.createdAt} className="text-xs text-muted-foreground">{relativeTime(item.createdAt)}</time><div className="ml-auto flex gap-1">
+    <div className="flex items-center gap-2 pl-3.5"><Badge variant="secondary" className="text-xs font-normal">{t(`notificationsUi.category.${item.category}`)}</Badge><time dateTime={item.createdAt} className="text-xs text-muted-foreground">{relativeTime(item.createdAt)}</time><div className="ml-auto flex gap-1">
       {item.state === 'unread' && <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="size-7" disabled={Boolean(busy)} aria-label={t('notificationsUi.markRead')} onClick={() => { void act(false); }}><Check className="size-3.5" /></Button></TooltipTrigger><TooltipContent>{t('notificationsUi.markRead')}</TooltipContent></Tooltip>}
       {item.state !== 'dismissed' && <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon" className="size-7" disabled={Boolean(busy)} aria-label={t('notificationsUi.dismiss')} onClick={() => { void act(true); }}><X className="size-3.5" /></Button></TooltipTrigger><TooltipContent>{t('notificationsUi.dismiss')}</TooltipContent></Tooltip>}
     </div></div>{error && <ErrorNotice error={error} />}

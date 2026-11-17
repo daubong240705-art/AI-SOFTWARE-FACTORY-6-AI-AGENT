@@ -1,26 +1,25 @@
+import { Section as AppSection } from '@/components/app';
 import { useEffect, useId, useState, type ReactNode } from 'react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { useT } from '../i18n';
-import { relativeTime } from './Inbox';
-import { M5ReadState, M5Status, TechnicalDetails } from './M5Shared';
-import type { Store } from '../state/store';
-import { Page } from '../components/Page';
-import { AutomationConfirmation, AutomationEditor } from './automation/AutomationDialogs';
-import { RowActions, RowError } from './automation/RowActions';
-import { pendingKey, type Area, type Editor, type Target } from './automation/types';
+import { useT } from '@/i18n';
+import { relativeTime } from '@/lib/inbox';
+import { M5ReadState, M5Status, TechnicalDetails } from '../M5Shared';
+import type { Store } from '@/state/store';
+import { AutomationConfirmation, AutomationEditor } from '../automation/AutomationDialogs';
+import { RowActions, RowError } from '../automation/RowActions';
+import { pendingKey, type Area, type Editor, type Target } from '../automation/types';
 
 const triggers: Record<string, string> = { 'task.status-changed': 'task', 'artifact.status-changed': 'artifact', 'workflow.state-changed': 'workflow', 'monitor.changed': 'monitor' };
 const outcomes = ['started', 'skipped', 'failed', 'done'] as const;
 function Section({ title, count, id, children, action }: { title: string; count: number; id: string; children: ReactNode; action?: ReactNode }) {
-  return <Card role="region" aria-labelledby={id} className="min-w-0 gap-0 rounded-xl border-border py-0 shadow-none"><CardHeader className="flex flex-row flex-wrap items-center gap-2 border-b border-border px-5 py-4"><h3 id={id} className="font-display text-lg font-semibold">{title}</h3><Badge variant="secondary">{count}</Badge>{action && <div className="ml-auto">{action}</div>}</CardHeader><CardContent className="px-5 py-1">{children}</CardContent></Card>;
+  return <AppSection id={id} title={<>{title} <Badge variant="secondary">{count}</Badge></>} actions={action}>{children}</AppSection>;
 }
 function Row({ name, status, detail, time, technical, actions, error }: { name: string; status: string; detail?: ReactNode; time?: string | null; technical?: ReactNode; actions?: ReactNode; error?: ReactNode }) {
   return <li className="min-w-0 space-y-2 py-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1"><div className="flex items-start justify-between gap-3"><span className="min-w-0 font-medium break-words">{name}</span><div className="flex shrink-0 items-center gap-2"><M5Status value={status} />{actions}</div></div>{(detail || time) && <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">{detail && <span>{detail}</span>}{time && <time dateTime={time}>{relativeTime(time)}</time>}</div>}{technical}{error}</li>;
 }
-export function ProjectAutomation({ store, projectId }: { store: Store; projectId: string }) {
+export function AutomationSettings({ store, projectId }: { store: Store; projectId: string }) {
   const t = useT(); const state = store.useStoreSelector(s => s); const id = useId();
   const [editor, setEditor] = useState<Editor | null>(null);
   const [confirmation, setConfirmation] = useState<{ target: Target; action: 'delete' | 'run-now' } | null>(null);
@@ -31,9 +30,7 @@ export function ProjectAutomation({ store, projectId }: { store: Store; projectI
   const rowActions = (target: Target) => ({ actions: <RowActions target={target} store={store} projectId={projectId} onEdit={setEditor} onConfirm={(value, action) => setConfirmation({ target: value, action })} />, error: <RowError store={store} target={target} /> });
   const { schedules, rules, monitors, breakers } = state.m5;
   const routes = breakers.routes.filter(item => item.state !== 'closed'); const teams = breakers.teams.filter(item => item.state !== 'closed');
-  const busy = ['schedules', 'rules', 'monitors', 'breakers'].some(area => state.loading[area]);
-  return <Page className="min-w-0 space-y-6">
-    <header className="flex flex-wrap items-center justify-between gap-4"><div className="space-y-1"><h2 className="font-display text-2xl font-semibold">{t('projectUi.automation')}</h2><p className="text-sm text-muted-foreground">{t('ux5.automationDescription')}</p></div><Button type="button" variant="ghost" disabled={busy} onClick={() => void store.loadAutomation()}><RefreshCw />{t('m5Ui.refresh')}</Button></header>
+  return <div className="min-w-0 space-y-6">
     <Section id={`${id}-schedules`} title={t('automationUi.schedules')} count={schedules.length} action={add('schedules')}>
       <M5ReadState store={store} area="schedules" retry={store.loadSchedules} empty={!schedules.length} emptyKey="automationUi.emptySchedules" />
       <ul className="m-0 list-none divide-y divide-border p-0">{schedules.map(item => <Row {...rowActions({ area: 'schedules', item })} key={item.id} name={item.name} status={item.state === 'active' ? 'enabled' : item.state} time={item.lastRunAt}
@@ -54,5 +51,5 @@ export function ProjectAutomation({ store, projectId }: { store: Store; projectI
     </Section>
     {editor && <AutomationEditor editor={editor} store={store} projectId={projectId} onClose={() => setEditor(null)} />}
     {confirmation && <AutomationConfirmation {...confirmation} store={store} projectId={projectId} onClose={() => setConfirmation(null)} />}
-  </Page>;
+  </div>;
 }

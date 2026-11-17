@@ -12,7 +12,7 @@ import { activityTime } from '../teams/activity/presentation';
 import { StatusPill } from '../teams/activity/StatusPill';
 
 export type OfficeNeed = OfficeSeat['needsYou'][number];
-export type OpenOfficeTask = (taskId: string, tab?: 'request' | 'progress' | 'actions') => void;
+export type OpenOfficeTask = (taskId: string, tab?: 'overview' | 'process' | 'results') => void;
 export const mascotFor: Record<OfficeSeat['status'], MascotState> = {
   working: 'working', waiting: 'attention', problem: 'error', done: 'success', queued: 'thinking', idle: 'idle',
 };
@@ -27,7 +27,7 @@ export function WorkProgress({ percent, label, startedAt, now }: { percent: numb
     : t('officeUi.running');
   return <div className="space-y-2">
     <div className="flex items-baseline justify-between gap-3"><span className="text-xs text-muted-foreground">{label}</span>
-      <span className={cn('shrink-0 font-mono font-semibold tabular-nums', value === null ? 'text-[11px] text-muted-foreground' : 'text-xl text-run')}>{value === null ? running : `${value}%`}</span>
+      <span className={cn('shrink-0 font-mono font-semibold tabular-nums', value === null ? 'text-xs text-muted-foreground' : 'text-xl text-run')}>{value === null ? running : `${value}%`}</span>
     </div>
     <div role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} {...(value === null ? { 'aria-valuetext': running } : { 'aria-valuenow': value })} className="h-2 overflow-hidden rounded-full bg-secondary">
       <span className={cn('block h-full rounded-full bg-run transition-[width] duration-500 motion-reduce:transition-none', value === null && 'office-progress-pending')} style={{ width: value === null ? '30%' : `${value}%` }} />
@@ -65,8 +65,8 @@ export function AgentOverview({ store, seat, now, onOpenTask, onReview }: {
         <WorkProgress percent={run.progress?.percent} label={t('officeUi.taskProgress')} startedAt={run.startedAt} now={now} />
         {task?.goal && <div className="space-y-1"><h5 className="text-xs font-medium text-muted-foreground">{t('taskUi.goal')}</h5><div className="line-clamp-5"><MarkdownContent content={task.goal} className="space-y-1 text-xs leading-5" /></div></div>}
         {!!task?.acceptance.length && <div className="space-y-1"><h5 className="text-xs font-medium text-muted-foreground">{t('taskUi.acceptance')}</h5><ul className="list-disc space-y-1 pl-4 text-xs leading-5">{task.acceptance.slice(0, 3).map((item, index) => <li key={index} className="[overflow-wrap:anywhere]">{item}</li>)}</ul></div>}
-        {run.progress && <div className="space-y-1 border-t border-border pt-3"><p className="text-[11px] text-muted-foreground">{t('officeUi.latestReport')} · {activityTime(run.progress.at, now)}</p><MarkdownContent content={run.progress.message} className="space-y-1 text-xs leading-5 text-muted-foreground" /></div>}
-        <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => onOpenTask(run.taskId, 'request')}>{t('officeUi.taskOverview')}</Button><Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => onOpenTask(run.taskId, 'progress')}>{t('workUi.progress')}<ArrowRight className="size-3.5" /></Button></div>
+        {run.progress && <div className="space-y-1 border-t border-border pt-3"><p className="text-xs text-muted-foreground">{t('officeUi.latestReport')} · {activityTime(run.progress.at, now)}</p><MarkdownContent content={run.progress.message} className="space-y-1 text-xs leading-5 text-muted-foreground" /></div>}
+        <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => onOpenTask(run.taskId, 'overview')}>{t('officeUi.taskOverview')}</Button><Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => onOpenTask(run.taskId, 'process')}>{t('workUi.progress')}<ArrowRight className="size-3.5" /></Button></div>
       </section>;
     })}
     {!seat.runs.length && <div className="rounded-xl border border-dashed border-border p-4 text-center"><Coffee className="mx-auto mb-2 size-6 text-muted-foreground" /><p className="text-sm text-muted-foreground">{t(seat.chat ? 'officeUi.replying' : seat.queued ? 'officeUi.queued' : seat.needsYou.length ? 'officeUi.waitingYou' : 'officeUi.resting').replace('{count}', String(seat.queued))}</p></div>}
@@ -82,7 +82,7 @@ export function AgentCard({ store, seat, featured = false, innerRef, className, 
   const closeAnd = (action: () => void) => { setOpen(false); action(); };
   const needs = seat.needsYou.length;
   return <HoverCard.Root open={open} onOpenChange={setOpen} openDelay={350} closeDelay={200}>
-    <HoverCard.Trigger asChild><button type="button" ref={innerRef} data-status={seat.status} onFocus={() => setOpen(true)} onClick={() => closeAnd(() => onSelectSeat(seat))} aria-label={`${seat.name} · ${t('officeUi.viewAgent')}`} className={cn('office-agent-card group flex h-full min-h-64 w-full min-w-0 flex-col rounded-2xl border border-border bg-card p-4 text-left [overflow-wrap:anywhere] hover:border-info/50 focus-visible:outline-2 focus-visible:outline-ring', featured && 'justify-self-center', className)}>
+    <HoverCard.Trigger asChild><button type="button" ref={innerRef} data-status={seat.status} onFocus={() => setOpen(true)} onClick={() => closeAnd(() => onSelectSeat(seat))} aria-label={`${seat.name} · ${t('officeUi.viewAgent')}`} className={cn('office-agent-card group flex h-full min-h-64 w-full min-w-0 flex-col rounded-2xl border border-border bg-card p-4 text-sm text-left [overflow-wrap:anywhere] hover:border-info/50 focus-visible:outline-2 focus-visible:outline-ring', featured && 'justify-self-center', className)}>
       <div className="flex min-w-0 items-start gap-3"><span className="office-avatar relative shrink-0 rounded-2xl bg-secondary/60 p-1"><Mascot seat={seat.isLead ? 'Lead' : seat.name} state={mascotFor[seat.status]} size={featured ? 52 : 44} fallback={<span className="flex size-11 items-center justify-center text-lg font-semibold">{seat.name.slice(0, 2)}</span>} />{seat.status === 'working' && <span aria-hidden="true" className="absolute -right-1 -bottom-1 flex gap-0.5 rounded-full bg-run px-1.5 py-1"><i /><i /><i /></span>}</span>
         <span className="min-w-0 flex-1 space-y-1"><span className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold">{seat.name}</span><StatusPill status={seat.status} /></span><span className="block truncate text-xs text-muted-foreground">{seat.role}</span></span>
       </div>

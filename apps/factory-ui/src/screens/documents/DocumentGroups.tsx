@@ -29,7 +29,7 @@ const count = (group: KnowledgeGroup) => group.documents + group.images;
 
 function Entry({ selected, onSelect, icon, label, code, total, tone, title }: { selected: boolean; onSelect: () => void; icon?: ReactNode; label: string; code?: string; total: number; tone?: string; title?: string }) {
   return <li><button type="button" aria-current={selected ? 'true' : undefined} onClick={onSelect} title={title}
-    className={cn('flex w-full items-center gap-2 rounded-md border-0 bg-transparent px-2 py-1.5 text-left text-sm transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none', selected && 'bg-secondary font-medium text-foreground')}>
+    className={cn('flex w-full items-center gap-2 rounded-md border-0 bg-transparent px-2 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none', selected && 'bg-secondary font-medium text-foreground')}>
     {icon ?? <span aria-hidden="true" className={cn('ml-1 size-1.5 shrink-0 rounded-full', tone)} />}
     {code && <span className="shrink-0 font-mono text-xs text-muted-foreground">{code}</span>}
     <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -62,7 +62,7 @@ export function DocumentGroups({ index, selected, onSelect }: { index: Knowledge
         <CollapsibleTrigger className="group flex w-full items-center gap-1.5 border-0 bg-transparent px-1 py-1 text-xs font-medium tracking-wide text-muted-foreground uppercase hover:text-foreground"><ChevronDown aria-hidden="true" className="size-3.5 transition-transform group-data-[state=closed]:-rotate-90" />{t(`knowledgeUi.sections.${section.key}`)}<span className="ml-auto tabular-nums">{items.length}</span></CollapsibleTrigger>
         <CollapsibleContent><ul className="m-0 list-none space-y-0.5 p-0 pt-1">
           {limited.map(group => <Entry key={group.key} selected={selected === group.key} onSelect={() => onSelect(group.key)} code={group.task?.code ?? ''} label={group.task?.title ?? ''} title={group.task?.title ?? ""} total={count(group)} tone={stateTone(group.task?.state ?? '')} />)}
-          {limited.length < items.length && <li><button type="button" className="border-0 bg-transparent px-2 py-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => setShowAllDone(true)}>{t('knowledgeUi.showMoreTasks').replace('{count}', String(items.length - limited.length))}</button></li>}
+          {limited.length < items.length && <li><button type="button" className="rounded-md border-0 bg-transparent px-2 py-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => setShowAllDone(true)}>{t('knowledgeUi.showMoreTasks').replace('{count}', String(items.length - limited.length))}</button></li>}
         </ul></CollapsibleContent>
       </Collapsible>;
     })}

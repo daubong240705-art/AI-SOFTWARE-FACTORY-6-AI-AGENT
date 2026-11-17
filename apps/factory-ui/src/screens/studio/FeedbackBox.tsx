@@ -71,7 +71,7 @@ export function FeedbackBox({ store, projectId }: { store: Store; projectId: str
         </div>
         <div className="space-y-2 text-sm">
           <label htmlFor={`${id}-scope`} className="block font-medium">{t('studioUi.feedbackScope')}</label>
-          <select id={`${id}-scope`} className="rounded-md border bg-background p-2" value={scope} onChange={event => { setScope(event.target.value as typeof scope); setSuccess(false); }}>
+          <select id={`${id}-scope`} className="rounded-md border border-input bg-background p-2 text-sm focus-visible:ring-2 focus-visible:ring-ring" value={scope} onChange={event => { setScope(event.target.value as typeof scope); setSuccess(false); }}>
             {(['all', 'ui', 'rules', 'tests'] as const).map(value => <option key={value} value={value}>{t(`studioUi.feedbackScopes.${value}`)}</option>)}
           </select>
         </div>

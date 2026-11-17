@@ -1,4 +1,4 @@
-import { MascotEmpty } from '@/components/mascot';
+import { ViewState, useAreaState } from '@/components/app';
 import { useEffect, useId, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { artifactsTransition, dossierRefresh } from '../api/commands';
@@ -7,26 +7,19 @@ import type { Store } from '../state/store';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Empty, EmptyDescription, EmptyHeader } from '@/components/ui/empty';
 import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ErrorNotice } from '../components/ErrorNotice';
 import { useT } from '../i18n';
 import { useM3Command } from './M3Shared';
-import { relativeTime } from './Inbox';
+import { relativeTime } from '@/lib/inbox';
 import { KnowledgeStatus, KnowledgeText } from './KnowledgePresentation';
 import { KnowledgeArtifact } from './KnowledgeArtifact';
 
 function DossierState({ store, area, empty = false, retry }: { store: Store; area: string; empty?: boolean; retry: () => void }) {
   const t = useT();
-  const state = store.useStoreSelector(value => value);
-  return <div className="space-y-3 empty:hidden">
-    {state.loading[area] && <Skeleton role="status" aria-label={t('viewStates.loading')} className="h-24" />}
-    {state.errors[area] && <><ErrorNotice error={state.errors[area]!} /><Button variant="outline" size="sm" onClick={retry}>{t('errors.retry')}</Button></>}
-    {empty && !state.loading[area] && !state.errors[area] && <Empty className="py-6"><MascotEmpty seat="BA" compact><EmptyHeader><EmptyDescription>{t('m3.empty')}</EmptyDescription></EmptyHeader></MascotEmpty></Empty>}
-  </div>;
+  const state = useAreaState(store, area);
+  return <ViewState {...state} onRetry={retry} empty={empty} emptyText={t('m3.empty')} seat="BA" compact />;
 }
 
 export function DossierPanel({ store }: { store: Store }) {

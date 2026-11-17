@@ -1,26 +1,25 @@
+import { shallowSelectionEqual } from '@/state/storeSelector';
 import { deriveDisplayStatus, isLiveAttempt } from '@factory/contracts';
-import { Activity, House, Inbox, PanelLeftClose, PanelLeftOpen, Plus, Users, X } from 'lucide-react';
+import { Activity, House, Inbox, PanelLeftClose, PanelLeftOpen, Users, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ErrorNotice } from '@/components/ErrorNotice';
 import { cn } from '@/lib/utils';
 import { useT } from '../../i18n';
-import { useUiProfile } from '../../config/uiProfile';
 import type { Store } from '../../state/store';
-import { inboxCount } from '../Inbox';
+import { inboxCount } from '@/lib/inbox';
 import { attentionItems } from './attention';
 import { NavButton } from './NavButton';
 import { ProjectTile } from './ProjectTile';
 import { Settings } from './Settings';
 import type { View } from './navigation';
 
-export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate, onCreate, onCollapse }: {
+export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate, onCollapse }: {
   store: Store; view: View; collapsed: boolean; compact: boolean; expanded: boolean;
-  onNavigate: (view: View) => void; onCreate: () => void; onCollapse: () => void;
+  onNavigate: (view: View) => void; onCollapse: () => void;
 }) {
-  const t = useT(); const state = store.useStoreSelector(value => value); const addLabel = useUiProfile() === 'games' ? t('gameUi.newGame') : t('nav.addProject');
+  const t = useT(); const state = store.useStoreSelector(value => ({ globalInbox: value.globalInbox, selectedProjectId: value.selectedProjectId, tasks: value.tasks, liveAttempts: value.liveAttempts, loading: value.loading, errors: value.errors, projects: value.projects }), shallowSelectionEqual);
   const items = attentionItems(state.globalInbox);
   const labelClass = collapsed ? 'hidden' : 'min-w-0 truncate';
   const CollapseIcon = compact ? X : collapsed ? PanelLeftOpen : PanelLeftClose;
@@ -38,10 +37,8 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
     <NavButton collapsed={collapsed} aria-label={t('nav.overview')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => onNavigate('overview')}><House /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.overview')}</span></NavButton>
     <NavButton collapsed={collapsed} aria-label={`${t('nav.attention')}, ${inboxCount(t, items.length)}`} aria-current={view === 'needs-attention' ? 'page' : undefined} onClick={() => onNavigate('needs-attention')}><Inbox /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.attention')}</span>{items.length > 0 && !collapsed && <Badge key={items.length} className="ml-auto min-w-[22px] animate-[pop_300ms_ease-out] motion-reduce:animate-none border-0 bg-need py-0 text-need-foreground">{items.length}</Badge>}</NavButton>
     <NavButton collapsed={collapsed} aria-label={t('nav.team')} aria-current={view === 'team' ? 'page' : undefined} onClick={() => onNavigate('team')}><Users /><span className={labelClass}>{t('nav.team')}</span></NavButton>
-    <NavButton collapsed={collapsed} aria-label={t('systemUi.title')} aria-current={view === 'system' ? 'page' : undefined} onClick={() => onNavigate('system')}><Activity /><span className={labelClass}>{t('systemUi.title')}</span></NavButton>
-    <div className={cn('mt-4 flex h-8 shrink-0 items-center justify-between px-2.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase', collapsed && 'justify-center px-0')}>
+    <div className={cn('mt-4 flex h-8 shrink-0 items-center justify-between px-2.5 text-xs font-medium tracking-wide text-muted-foreground uppercase', collapsed && 'justify-center px-0')}>
       <span className={collapsed ? 'sr-only' : ''}>{t('global.projects')}</span>
-      <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-xs" className="border-0 bg-transparent" aria-label={addLabel} onClick={onCreate}><Plus /></Button></TooltipTrigger><TooltipContent side="right">{addLabel}</TooltipContent></Tooltip>
     </div>
     <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block">
       <div className="py-1">
@@ -55,9 +52,12 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
       </li>)}</ul>
       </div>
     </ScrollArea>
-    <footer className="mt-auto flex shrink-0 items-center gap-1 border-t border-border pt-3">
+    <footer className="mt-auto flex shrink-0 flex-col gap-1 border-t border-border pt-3">
+      <NavButton collapsed={collapsed} aria-label={t('systemUi.title')} aria-current={view === 'system' ? 'page' : undefined} onClick={() => onNavigate('system')}><Activity /><span className={labelClass}>{t('systemUi.title')}</span></NavButton>
+      <div className="flex w-full items-center gap-1">
       <div className={cn('min-w-0 flex-1', collapsed && '[&_[data-slot=button]]:px-0')}><Settings store={store} collapsed={collapsed} /></div>
       <NavButton collapsed={collapsed} className={cn('w-10 justify-center px-0', collapsed && 'w-6')} aria-label={t(compact ? 'nav.close' : collapsed ? 'nav.expand' : 'nav.collapse')} aria-expanded={compact ? expanded : !collapsed} onClick={onCollapse}><CollapseIcon /></NavButton>
+      </div>
     </footer>
   </nav>;
 }

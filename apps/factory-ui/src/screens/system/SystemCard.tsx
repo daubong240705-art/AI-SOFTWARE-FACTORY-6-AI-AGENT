@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { i18n, useT } from '@/i18n';
 import type { Store } from '@/state/store';
 import type { SystemArea } from '@/state/system';
-import { relativeTime } from '../Inbox';
+import { relativeTime } from '@/lib/inbox';
 
 export function SystemCard({ title, children }: { title: string; children: ReactNode }) {
   const id = useId();

@@ -3,15 +3,15 @@ import { ChevronDown } from 'lucide-react';
 import type { StandingApproval } from '@/api/settingsModels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Section } from '@/components/app';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Progress } from '@/components/ui/progress';
 import { useT } from '@/i18n';
-import type { Store } from '@/state/store';
+import type { Store, StoreState } from '@/state/store';
 import { standingPendingKey } from '@/state/settingsCommands';
-import { relativeTime } from '../Inbox';
+import { relativeTime } from '@/lib/inbox';
 import { M5ReadState, TechnicalDetails } from '../M5Shared';
-import { ApprovalRevokeDialog, StandingApprovalDialog } from './StandingApprovalDialog';
+import { ApprovalRevokeDialog, StandingApprovalDialog } from '../settings/StandingApprovalDialog';
 
 function ApprovalRow({ item, scope, store, onRevoke }: {
   item: StandingApproval; scope: string; store: Store; onRevoke: (item: StandingApproval) => void;
@@ -34,7 +34,7 @@ function ApprovalRow({ item, scope, store, onRevoke }: {
   </li>;
 }
 export function ApprovalsSection({ state, store, projectId, id }: {
-  state: ReturnType<Store['getState']>; store: Store; projectId: string; id: string;
+  state: Pick<StoreState, 'settings' | 'm3' | 'team' | 'loading'>; store: Store; projectId: string; id: string;
 }) {
   const t = useT(); const [adding, setAdding] = useState(false); const [revoking, setRevoking] = useState<StandingApproval | null>(null);
   const approvals = state.settings.standingApprovals?.items ?? [];
@@ -46,16 +46,12 @@ export function ApprovalsSection({ state, store, projectId, id }: {
   const teamOptions = [...teamIds].map(teamId => ({ id: teamId, name: teamName(teamId) }));
   const scope = (item: StandingApproval) => item.scope.kind === 'team' ? teamName(item.scope.ref) : t(`settingsUi.scope.${item.scope.kind}`);
   const rows = (items: StandingApproval[]) => <ul>{items.map(item => <ApprovalRow key={item.id} item={item} scope={scope(item)} store={store} onRevoke={setRevoking} />)}</ul>;
-  return <Card role="region" aria-labelledby={id} className="gap-0 border-border py-0 shadow-none">
-    <CardHeader className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4 sm:flex-row">
-      <h3 id={id} className="font-display text-lg font-semibold">{t('settingsUi.standingApprovals')}</h3>
-      <Button type="button" size="sm" disabled={Boolean(state.loading[standingPendingKey()])} onClick={() => setAdding(true)}>{t('settingsWrite.addApproval')}</Button>
-    </CardHeader>
-    <CardContent className="p-5"><M5ReadState store={store} area="standingApprovals" retry={store.loadStandingApprovals} empty={!approvals.length} emptyKey="settingsUi.emptyApprovals" />
+  return <Section id={id} title={t('shellUi.approvals')} actions={<Button type="button" size="sm" disabled={Boolean(state.loading[standingPendingKey()])} onClick={() => setAdding(true)}>{t('settingsWrite.addApproval')}</Button>}>
+    <div><M5ReadState store={store} area="standingApprovals" retry={store.loadStandingApprovals} empty={!approvals.length} emptyKey="settingsUi.emptyApprovals" />
       {active.length > 0 && rows(active)}
       {inactive.length > 0 && <Collapsible className="mt-3 border-t border-border pt-3"><CollapsibleTrigger asChild><Button type="button" variant="ghost" className="h-auto gap-2 p-0 text-sm text-muted-foreground">{t('settingsUi.inactiveApprovals')}<ChevronDown className="size-4" /></Button></CollapsibleTrigger><CollapsibleContent>{rows(inactive)}</CollapsibleContent></Collapsible>}
-    </CardContent>
+    </div>
     {adding && <StandingApprovalDialog store={store} projectId={projectId} teamOptions={teamOptions} onClose={() => setAdding(false)} />}
     {revoking && <ApprovalRevokeDialog item={revoking} store={store} projectId={projectId} onClose={() => setRevoking(null)} />}
-  </Card>;
+  </Section>;
 }

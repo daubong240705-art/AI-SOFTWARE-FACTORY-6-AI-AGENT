@@ -1,10 +1,12 @@
+import { StatusDot } from '@/components/app';
+import { toneOf } from '@/lib/status';
 import type { Task } from '@factory/contracts';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Mascot, type MascotState } from '@/components/mascot';
 import { Badge } from '@/components/ui/badge';
 import { useT } from '../i18n';
 import type { StoreState } from '../state/store';
-import { relativeTime } from './Inbox';
+import { relativeTime } from '@/lib/inbox';
 import { taskTime } from './shell/taskTime';
 
 export function SeatChip({ name, state = 'idle', size = 28 }: { name: string | undefined; state?: MascotState; size?: number }) {
@@ -12,12 +14,12 @@ export function SeatChip({ name, state = 'idle', size = 28 }: { name: string | u
   if (!name) return <span className="text-xs text-muted-foreground">{t('taskUi.dash')}</span>;
   const initials = name.trim().split(/\s+/).slice(0, 2).map(word => word[0]).join('');
   return <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground" title={name}>
-    <Mascot seat={name} size={size} state={state} fallback={<Avatar className="size-5 rounded-md"><AvatarFallback className="rounded-md bg-muted font-mono text-[9px]">{initials}</AvatarFallback></Avatar>} />
+    <Mascot seat={name} size={size} state={state} fallback={<Avatar className="size-5 rounded-md"><AvatarFallback className="rounded-md bg-muted font-mono text-xs">{initials}</AvatarFallback></Avatar>} />
     <span className="max-w-24 truncate">{name}</span>
   </span>;
 }
 
-export function TaskTime({ task, state }: { task: Task; state: StoreState }) {
+export function TaskTime({ task, state }: { task: Task; state: Pick<StoreState, 'liveAttempts' | 'details' | 'inbox' | 'globalInbox'> }) {
   const t = useT(); const time = taskTime(task, state);
   return time ? <time dateTime={time} className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">{relativeTime(time)}</time>
     : <span className="text-xs text-muted-foreground">{t('taskUi.dash')}</span>;
@@ -25,5 +27,5 @@ export function TaskTime({ task, state }: { task: Task; state: StoreState }) {
 
 export function DecisionBadge() {
   const t = useT();
-  return <Badge variant="outline" className="max-w-full border-need/30 bg-need/10 text-[11px] whitespace-normal text-need">{t('inboxUi.needsDecision')}</Badge>;
+  return <Badge variant="outline" className="max-w-full border-need/30 bg-need/10 text-xs whitespace-normal text-need"><StatusDot tone={toneOf('task', 'approval-required')} label={t('inboxUi.needsDecision')} className="text-xs" /></Badge>;
 }

@@ -6,18 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useT } from '../i18n';
 import { Select as ThemedSelect } from '../components/Select';
-import { MascotEmpty } from '@/components/mascot';
+import { ViewState, useAreaState } from '@/components/app';
 
 export function AreaState({ store, area, empty = false }: { store: Store; area: string; empty?: boolean }) {
   const t = useT();
-  const state = store.useStoreSelector((value) => value);
-  return (
-    <div className="space-y-3 text-sm text-muted-foreground empty:hidden">
-      {state.loading[area] && <MascotEmpty seat="Lead" state="thinking" compact><p role="status">{t('viewStates.loading')}</p></MascotEmpty>}
-      {state.errors[area] && <ErrorNotice error={state.errors[area]!} />}
-      {empty && !state.loading[area] && !state.errors[area] && <MascotEmpty seat="Lead" compact><p>{t('m3.empty')}</p></MascotEmpty>}
-    </div>
-  );
+  const state = useAreaState(store, area);
+  return <ViewState {...state} empty={empty} emptyText={t('m3.empty')} seat="Lead" compact />;
 }
 
 export function Select({ label, value, onChange, options, required = false }: { label: string; value: string; onChange: (v: string) => void; options: Array<[string, string]>; required?: boolean }) {

@@ -2,12 +2,9 @@ import { Crossfade } from '@/components/motion/Crossfade';
 import { AnimatePresence } from 'motion/react';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCheck } from 'lucide-react';
-import { Mascot, MascotEmpty } from '@/components/mascot';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia } from '@/components/ui/empty';
-import { Skeleton } from '@/components/ui/skeleton';
+import { StatusDot, ViewState } from '@/components/app';
+import { shallowSelectionEqual } from '../state/storeSelector';
 import { cn } from '@/lib/utils';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { useT } from '../i18n';
@@ -15,7 +12,7 @@ import type { Store } from '../state/store';
 import { DecisionPanel } from './DecisionDialog';
 import { RequestPanel } from './Requests';
 import { attentionItems, type AttentionItem } from './shell/attention';
-import { relativeTime } from './Inbox';
+import { relativeTime } from '@/lib/inbox';
 import { ProjectTile } from './shell/ProjectTile';
 import { GatePanel, PatchPanel, ReadOnlyPanel, IntegrationConflictPanel } from './attention/Details';
 import { attentionTitle } from './attention/presentation';
@@ -26,7 +23,7 @@ function hashKey(): string | undefined {
   try { return match?.[1] ? decodeURIComponent(match[1]) : undefined; } catch { return undefined; }
 }
 export function Attention({ store }: { store: Store }) {
-  const t = useT(); const state = store.useStoreSelector(value => value);
+  const t = useT(); const state = store.useStoreSelector(value => ({ globalInbox: value.globalInbox, projects: value.projects, tasks: value.tasks, session: value.session, selectedProjectId: value.selectedProjectId, inboxLoading: value.loading.globalInbox, inboxError: value.errors.globalInbox }), shallowSelectionEqual);
   const rows = useMemo(() => attentionItems(state.globalInbox), [state.globalInbox]);
   const [selectedKey, setSelectedKey] = useState<string | undefined>(() => hashKey());
   const [readyProject, setReadyProject] = useState<string | null>(null);
@@ -41,7 +38,7 @@ export function Attention({ store }: { store: Store }) {
     return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync); };
   }, []);
   useEffect(() => {
-    if (state.loading.globalInbox) return;
+    if (state.inboxLoading) return;
     if (!rows.length) { previous.current = []; return; }
     if (!rows.some(row => row.key === selectedKey)) {
       const index = previous.current.findIndex(row => row.key === selectedKey);
@@ -49,16 +46,16 @@ export function Attention({ store }: { store: Store }) {
       if (next) { restoreFocus.current = index >= 0; setSelectedKey(next.key); }
     }
     previous.current = rows;
-  }, [rows, selectedKey, state.loading.globalInbox]);
+  }, [rows, selectedKey, state.inboxLoading]);
   useEffect(() => {
     if (selected && location.hash !== attentionHash(selected.key)) history.replaceState(null, '', attentionHash(selected.key));
-    if (!selected && !state.loading.globalInbox) history.replaceState(null, '', attentionHash());
+    if (!selected && !state.inboxLoading) history.replaceState(null, '', attentionHash());
     // Focus the selected row by its key: a row that was just decided may still be leaving with aria-current.
     if (restoreFocus.current && selected) {
       const button = [...(list.current?.querySelectorAll<HTMLButtonElement>('[data-row-key]') ?? [])].find(node => node.dataset.rowKey === selected.key);
       if (button) { button.focus(); restoreFocus.current = false; }
     }
-  }, [selected?.key, selectedKey, state.loading.globalInbox, rows]);
+  }, [selected?.key, selectedKey, state.inboxLoading, rows]);
   useEffect(() => {
     let active = true; setReadyProject(null);
     if (!selected) return;
@@ -102,21 +99,21 @@ export function Attention({ store }: { store: Store }) {
   if (state.session !== 'authenticated') return null;
   return <div className="grid h-full min-h-0 grid-cols-1 overflow-auto bg-background text-foreground md:grid-cols-[340px_minmax(0,1fr)] md:overflow-hidden">
     <section className="min-h-0 overflow-auto border-b border-border md:border-r md:border-b-0" aria-labelledby="attention-list-title">
-      <header className="flex items-center gap-3 p-6"><h1 id="attention-list-title" className="font-display text-xl font-semibold tracking-tight">{t('nav.attention')}</h1><Badge variant="secondary" className="tabular-nums">{rows.length}</Badge></header>
-      {state.loading.globalInbox && <div role="status" className="space-y-3 px-6 pb-4"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-5 w-4/5" /><Skeleton className="h-4 w-3/5" /></div>}
-      {state.errors.globalInbox && <><ErrorNotice error={state.errors.globalInbox} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></>}
-      {!rows.length && !state.loading.globalInbox && !state.errors.globalInbox && <Empty className="p-6"><MascotEmpty seat="Lead" state="success" fallback={<EmptyHeader><EmptyMedia variant="icon"><CheckCheck /></EmptyMedia><EmptyDescription>{t('attention.empty')}</EmptyDescription></EmptyHeader>}><EmptyDescription>{t('attention.empty')}</EmptyDescription></MascotEmpty><Button asChild variant="outline"><a href="#/overview">{t('nav.overview')}</a></Button></Empty>}
+      <header className="p-6 pb-4"><h1 id="attention-list-title" className="text-2xl font-semibold">{t('nav.attention')}</h1></header>
+      <ViewState loading={!!state.inboxLoading} />
+      {state.inboxError && <><ErrorNotice error={state.inboxError} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></>}
+      {!rows.length && !state.inboxLoading && !state.inboxError && <ViewState empty emptyText={t('attention.empty')} seat="Lead" mascotState="success" emptyAction={<Button asChild variant="outline"><a href="#/overview">{t('nav.overview')}</a></Button>} />}
       <Stagger ref={list} aria-label={t('attention.list')} className="m-0 list-none p-0"><AnimatePresence initial={false}>{rows.map((row, index) => {
         const code = row.code ?? state.tasks.find(task => task.projectId === row.projectId && task.id === state.globalInbox.approvals.find(approval => `approval:${approval.id}` === row.key)?.taskId)?.code;
         return <StaggerItem key={row.key} index={index} collapse><Button type="button" variant="ghost" data-row-key={row.key} aria-current={selected?.key === row.key ? 'true' : undefined} aria-selected={selected?.key === row.key} className={cn('h-auto w-full flex-col items-stretch gap-2 rounded-none border-t border-l-2 border-t-border border-l-transparent px-6 py-3 text-left whitespace-normal hover:bg-card', selected?.key === row.key && 'border-l-need bg-secondary hover:bg-secondary')} onClick={() => select(row)}>
-          <span className="flex items-start gap-3"><Mascot seat={state.activity?.teams.flatMap(team => team.seats).find(seat => seat.needsYou.some(need => `approval:${need.approvalId}` === row.key))?.name ?? 'Lead'} size={32} state="attention" /><strong className="min-w-0 flex-1 text-sm leading-relaxed font-semibold break-words">{attentionTitle(row.title)}</strong>{row.actionable && <span aria-label={t('inboxUi.needsDecision')} className="mt-2 size-1.5 shrink-0 rounded-full bg-need" />}</span>
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal text-muted-foreground"><ProjectTile id={row.projectId} name={name(row)} className="h-5 w-6" /><span>{name(row)}</span>{code && <span className="font-mono">{code}</span>}{!row.since.startsWith('9999') && <time dateTime={row.since} className="ml-auto">{relativeTime(row.since)}</time>}</span>
+          <span className="flex items-start gap-3"><StatusDot tone={['review', 'question', 'request', 'start-gate', 'plan-patch'].includes(row.kind) ? 'need' : 'error'} label={t(`attention.kinds.${row.kind}`)} labelHidden className="mt-1" /><strong className="line-clamp-2 min-w-0 flex-1 text-sm leading-relaxed font-semibold [overflow-wrap:anywhere]">{attentionTitle(row.title)}</strong></span>
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal text-muted-foreground"><ProjectTile id={row.projectId} name={name(row)} className="size-5" /><span>{name(row)}</span>{code && <span className="font-mono">{code}</span>}{!row.since.startsWith('9999') && <time dateTime={row.since} className="ml-auto">{relativeTime(row.since)}</time>}</span>
         </Button></StaggerItem>;
       })}</AnimatePresence></Stagger>
     </section>
     <section ref={pane} tabIndex={-1} className="flex min-h-0 min-w-0 flex-col overflow-auto outline-none" aria-label={t('attention.detail')}>
       {selected && (readyProject === selected.projectId && state.selectedProjectId === selected.projectId
-        ? <Crossfade contentKey={selected.key}><AttentionDetail store={store} row={selected} onSuccess={decided} /></Crossfade> : <MascotEmpty seat="Lead" state="thinking" compact><p role="status">{t('viewStates.loading')}</p></MascotEmpty>)}
+        ? <Crossfade contentKey={selected.key}><AttentionDetail store={store} row={selected} onSuccess={decided} /></Crossfade> : <ViewState loading />)}
     </section>
     <p className="sr-only" role="status" aria-live="polite" aria-atomic="true" data-attention-announcement>{completed ? `${t('inboxUi.decided')} ` : ''}{selected ? `${t('attention.selected')}: ${selected.title}` : t('attention.empty')}</p>
   </div>;

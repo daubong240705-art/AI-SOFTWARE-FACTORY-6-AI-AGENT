@@ -1,5 +1,7 @@
 # Factory V2 — Design baseline F0-02
 
+> **Ghi chú (11/2026):** thư mục này là bản thiết kế gốc, giữ để tham khảo. Màu thật của ứng dụng nằm ở `apps/factory-ui/src/styles/palette.css`. `components.json`, `screens.json` và phần màu trong `tokens.json` không còn là luật bắt buộc; `scripts/factory-v2/verify-design.mjs` cũng chỉ còn là lịch sử. Hướng dẫn hiện hành: [docs/ui/02-huong-dan-giao-dien.md](../../docs/ui/02-huong-dan-giao-dien.md); kiểm tra bằng `npm run check:design` trong `apps/factory-ui`.
+
 Bộ chuẩn triển khai theo [UI/UX 06/11](../../plan/factory-v2/uiux-upgrade.md): Light/Dark/System, Inter, Việt–Anh và chat dạng cửa sổ. **Đây là fixture thiết kế offline, chưa nối Host/model/DB hoặc ứng dụng V1.**
 
 ## Mở bản mẫu

@@ -4,6 +4,8 @@ import { MessageSquarePlus } from 'lucide-react';
 import { approvalsDecide } from '../api/commands';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Section, TechDetails } from '@/components/app';
+import { AttentionPane } from './attention/AttentionPane';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,10 +22,10 @@ import { AgentSummary, Facts, Fold } from './attention/ReviewShared';
 import { attentionTitle, readableText } from './attention/presentation';
 
 export const pendingApproval = (approval: Approval) => approval.state === 'pending' || approval.state === 'requested';
-export function DecisionDialog({ store, approvalId, onClose }: { store: Store; approvalId: string; onClose: () => void }) {
-  return <DecisionPanel store={store} approvalId={approvalId} onClose={onClose} />;
+export function DecisionDialog({ store, approvalId, onClose, onShowResults }: { store: Store; approvalId: string; onClose: () => void; onShowResults?: () => void }) {
+  return <DecisionPanel store={store} approvalId={approvalId} onClose={onClose} {...(onShowResults ? { onShowResults } : {})} />;
 }
-export function DecisionPanel({ store, approvalId, onClose, inline = false, onSuccess }: { store: Store; approvalId: string; onClose: () => void; inline?: boolean; onSuccess?: () => void }) {
+export function DecisionPanel({ store, approvalId, onClose, inline = false, onSuccess, onShowResults }: { store: Store; approvalId: string; onClose: () => void; inline?: boolean; onSuccess?: () => void; onShowResults?: () => void }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
   const id = useId();
@@ -75,25 +77,23 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
     } finally { inFlight.current = false; setBusy(false); }
   }
   if (state.session !== 'authenticated') return null;
-  if (results && approval?.taskId) return <TaskDetail store={store} taskId={approval.taskId} initialTab="results" onClose={() => setResults(false)} />;
+  if (!onShowResults && results && approval?.taskId) return <TaskDetail store={store} taskId={approval.taskId} initialTab="results" onClose={() => setResults(false)} />;
   const review = inline && approval?.kind === 'review';
-  const content = <>
-    <header className="p-6">
-      {!inline && <Button variant="ghost" className="mb-3" disabled={busy} onClick={onClose}>{t('inboxUi.close')}</Button>}
-      {task && <p className="mb-1 font-mono text-xs text-muted-foreground">{task.code} · {state.projects.find(project => project.id === projectId)?.name ?? t('overview.project')}</p>}
-      <h2 id={`${id}-title`} className="font-display text-2xl leading-tight font-semibold tracking-tight">{approval ? review && task ? attentionTitle(task.title) : attentionTitle(approval.subject) : t('inboxUi.decision')}</h2>
-      {approval && <AgentSummary key={approval.id} text={approval.summary} />}
-    </header>
-    {(!ready || state.loading[`approval:${approvalId}`]) && <div role="status" className="space-y-3 px-6 pb-6"><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-6 w-1/2" /><Skeleton className="h-48 w-full" /></div>}
-    {state.errors[`approval:${approvalId}`] && <div className="px-6 pb-6"><ErrorNotice error={state.errors[`approval:${approvalId}`]!} /><Button variant="outline" onClick={() => { void store.loadApproval(approvalId); }}>{t('errors.retry')}</Button></div>}
-    {changed && <p role="status" className="px-6 pb-4 text-sm text-muted-foreground">{t('inboxUi.changed')}</p>}
+  const title = approval ? review && task ? attentionTitle(task.title) : attentionTitle(approval.subject) : t('inboxUi.decision');
+  const outcome = approval?.outcome && <><p className="text-sm">{readableText(approval.options.find(item => item.id === approval.outcome?.optionId)?.label ?? '')}</p><p className="text-sm text-muted-foreground">{readableText(approval.outcome.comment)}</p></>;
+  const technical = approval && <Facts mono rows={[[t('attention.identifier'), approval.id], [t('attention.digest'), approval.context.digest], [t('reviewUi.recordNumber'), String(approval.revision)], [t('inboxUi.expires'), new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(approval.expiresAt))]]} />;
+  const body = <>
+    {inline && approval && <AgentSummary key={approval.id} text={approval.summary} />}
+    {(!ready || state.loading[`approval:${approvalId}`]) && <div role="status" className={inline ? 'space-y-3' : 'space-y-3 px-6 pb-6'}><span className="sr-only">{t('viewStates.loading')}</span><Skeleton className="h-6 w-1/2" /><Skeleton className="h-48 w-full" /></div>}
+    {state.errors[`approval:${approvalId}`] && <div className={inline ? '' : 'px-6 pb-6'}><ErrorNotice error={state.errors[`approval:${approvalId}`]!} /><Button variant="outline" onClick={() => { void store.loadApproval(approvalId); }}>{t('errors.retry')}</Button></div>}
+    {changed && <p role="status" className={inline ? 'text-sm text-muted-foreground' : 'px-6 pb-4 text-sm text-muted-foreground'}>{t('inboxUi.changed')}</p>}
     {approval && <>
       {review && approval.taskId && <ReviewResult store={store} taskId={approval.taskId} approval={approval} />}
-      <div className="space-y-5 px-6 pb-6">
-        {!inline && approval.kind === 'review' && approval.taskId && <Button variant="outline" disabled={busy} onClick={() => setResults(true)}>{t('inboxUi.openResults')}</Button>}
+      <div className={inline ? 'space-y-6' : 'space-y-5 px-6 pb-6'}>
+        {!inline && approval.kind === 'review' && approval.taskId && <Button variant="outline" disabled={busy} onClick={() => { if (onShowResults) onShowResults(); else setResults(true); }}>{t('inboxUi.openResults')}</Button>}
         {expired && <p role="status" className="text-sm text-muted-foreground">{t('inboxUi.expired')}</p>}
         {!editable && !expired && <p className="text-sm text-muted-foreground">{t(`inboxUi.states.${approval.state}`)}</p>}
-        {approval.outcome && <Card className="gap-2 border-border p-4 shadow-none"><h3 className="text-sm font-semibold">{t('inboxUi.outcome')}</h3><p className="text-sm">{readableText(approval.options.find(item => item.id === approval.outcome?.optionId)?.label ?? '')}</p><p className="text-sm text-muted-foreground">{readableText(approval.outcome.comment)}</p></Card>}
+        {outcome && (inline ? <Section title={t('inboxUi.outcome')}>{outcome}</Section> : <Card className="gap-2 border-border p-4 shadow-none"><h3 className="text-sm font-semibold">{t('inboxUi.outcome')}</h3>{outcome}</Card>)}
         {editable && <>
           {!review && <DecisionOptions approval={approval} id={id} value={optionId} onChange={value => { setOptionId(value); if (approval.kind === 'review' && value === 'request-changes') setNoteOpen(true); }} disabled={busy || confirm || !!command} />}
           <Collapsible open={approval.kind !== 'review' || noteOpen || optionId === 'request-changes'} onOpenChange={setNoteOpen}>
@@ -106,15 +106,22 @@ export function DecisionPanel({ store, approvalId, onClose, inline = false, onSu
         </>}
         {!review && <>
           <p className="text-xs leading-relaxed text-muted-foreground">{t('reviewUi.waiting').replace('{impact}', readableText(approval.impactIfWaiting))}</p>
-          <Fold title={t('attention.technicalDetails')}><Facts mono rows={[[t('attention.identifier'), approval.id], [t('attention.digest'), approval.context.digest], [t('reviewUi.recordNumber'), String(approval.revision)], [t('inboxUi.expires'), new Intl.DateTimeFormat(i18n.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(approval.expiresAt))]]} /></Fold>
+          {inline ? <TechDetails>{technical}</TechDetails> : <Fold title={t('attention.technicalDetails')}>{technical}</Fold>}
         </>}
       </div>
-      {editable && <DecisionActions approval={approval} inline={inline} confirm={confirm} command={!!command} busy={busy} valid={valid} optionId={optionId} error={pending?.error} failed={pending?.status === 'failed'} onPrimary={() => {
+    </>}
+  </>;
+  const actions = editable ? <DecisionActions approval={approval} inline={inline} confirm={confirm} command={!!command} busy={busy} valid={valid} optionId={optionId} error={pending?.error} failed={pending?.status === 'failed'} onPrimary={() => {
         if (review) { const accept = approval.options.find(item => item.id === 'accept' || item.id === 'approve'); if (!accept) return; setOptionId(accept.id); }
         else if (!valid) return;
         setConfirm(true);
-      }} onChanges={() => { setOptionId('request-changes'); setNoteOpen(true); commentInput.current?.focus(); }} onConfirmChanges={() => setConfirm(true)} onExecute={() => { void execute(); }} onBack={() => setConfirm(false)} onRetry={() => { void execute(true); }} />}
-    </>}
+      }} onChanges={() => { setOptionId('request-changes'); setNoteOpen(true); commentInput.current?.focus(); }} onConfirmChanges={() => setConfirm(true)} onExecute={() => { void execute(); }} onBack={() => setConfirm(false)} onRetry={() => { void execute(true); }} /> : undefined;
+  const content = <>
+    <header className="p-6"><Button variant="ghost" className="mb-3" disabled={busy} onClick={onClose}>{t('inboxUi.close')}</Button>
+      {task && <p className="mb-1 font-mono text-xs text-muted-foreground">{task.code} · {state.projects.find(project => project.id === projectId)?.name ?? t('overview.project')}</p>}
+      <h2 id={`${id}-title`} className="font-display text-2xl leading-tight font-semibold tracking-tight">{title}</h2>{approval && <AgentSummary key={approval.id} text={approval.summary} />}
+    </header>{body}{actions}
   </>;
-  return inline ? <section className="flex min-h-full flex-col" aria-labelledby={`${id}-title`}>{content}</section> : <Dialog labelledBy={`${id}-title`} onClose={() => { if (!inFlight.current) onClose(); }}>{content}</Dialog>;
+  const inboxItem = state.globalInbox.approvals.find(item => item.id === approvalId && item.projectId === projectId);
+  return inline ? <AttentionPane kind={t(`attention.kinds.${approval?.kind ?? inboxItem?.kind ?? 'question'}`)} projectId={projectId ?? ''} projectName={inboxItem?.projectName ?? state.projects.find(project => project.id === projectId)?.name ?? t('overview.project')} code={task?.code} since={approval?.requestedAt ?? inboxItem?.requestedAt} title={title} titleId={`${id}-title`} actions={actions}>{body}</AttentionPane> : <Dialog labelledBy={`${id}-title`} onClose={() => { if (!inFlight.current) onClose(); }}>{content}</Dialog>;
 }

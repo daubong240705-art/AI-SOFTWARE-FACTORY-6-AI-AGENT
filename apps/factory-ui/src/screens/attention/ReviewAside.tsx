@@ -1,5 +1,5 @@
 import { Circle, CircleCheck, CircleX } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Panel } from '@/components/app';
 import { cn } from '@/lib/utils';
 import type { AttemptEvent } from '../../api/client';
 import { useT } from '../../i18n';
@@ -28,7 +28,7 @@ export function ReviewAside({ store, taskId, events, totals }: { store: Store; t
   const tests = checks.filter(check => /\btests?\b|kiểm thử/i.test(check.text));
   const conflict = state.globalInbox.integrationConflicts?.find(item => item.taskId === taskId);
   return <aside className="grid min-w-0 gap-4 min-[1400px]:sticky min-[1400px]:top-5" aria-label={t('attention.facts')}>
-    <Card className="gap-3 border-border p-4 shadow-none"><h3 className="text-sm font-semibold text-muted-foreground">{t('taskUi.acceptance')}</h3>
+    <Panel className="space-y-3"><h3 className="text-sm font-semibold text-muted-foreground">{t('taskUi.acceptance')}</h3>
       <ul className="m-0 grid list-none gap-3 p-0">{task?.acceptance.map((criterion, index) => {
         // Only an explicit, successful criterion check can mark a criterion verified.
         const report = reports.get(criterion);
@@ -39,8 +39,8 @@ export function ReviewAside({ store, taskId, events, totals }: { store: Store; t
           <span className="min-w-0"><span className="sr-only">{status}: </span>{readableText(criterion)}
             {report?.evidence && <span className="mt-1 block text-xs text-muted-foreground [overflow-wrap:anywhere]">{readableText(report.evidence)}</span>}</span></li>;
       })}</ul>{!task?.acceptance.length && <p className="text-sm text-muted-foreground">{t('reviewUi.noCriteria')}</p>}
-    </Card>
-    <Card className="gap-3 border-border p-4 shadow-none"><h3 className="text-sm font-semibold text-muted-foreground">{t('attention.checks')}</h3>
+    </Panel>
+    <Panel className="space-y-3"><h3 className="text-sm font-semibold text-muted-foreground">{t('attention.checks')}</h3>
       <dl className="divide-y divide-border text-sm">
         <Row label={t('reviewUi.test')} value={tests.map(check => readableText(check.text)).join('; ') || t('reviewUi.notReported')} />
         <Row label={t('reviewUi.changes')} value={changes ? t('reviewUi.changeCount').replace('{files}', String(changes.files)).replace('{added}', String(changes.additions)).replace('{removed}', String(changes.deletions)) : t('reviewUi.notReported')} />
@@ -48,6 +48,6 @@ export function ReviewAside({ store, taskId, events, totals }: { store: Store; t
       </dl>
       {!checks.length && <p className="border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">{t('attention.noChecks')}</p>}
       {checks.filter(check => !tests.includes(check)).map((check, index) => <p key={index} className="text-xs leading-relaxed text-muted-foreground">{readableText(check.text)}</p>)}
-    </Card>
+    </Panel>
   </aside>;
 }

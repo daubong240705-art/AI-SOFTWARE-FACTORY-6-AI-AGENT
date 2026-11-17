@@ -2,7 +2,7 @@ import { useId } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { useT } from '../../i18n';
 import type { Store } from '../../state/store';
-import { relativeTime } from '../Inbox';
+import { relativeTime } from '@/lib/inbox';
 import { AreaState } from '../M3Shared';
 
 export function TeamQueue({ store, teamId, readOnly }: { store: Store; teamId: string; readOnly: boolean }) {

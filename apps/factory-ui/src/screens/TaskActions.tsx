@@ -11,6 +11,9 @@ import type { Store } from '../state/store';
 
 type Action = 'start' | 'stop' | 'retry';
 const stoppable = new Set(['queued', 'leased', 'preparing', 'running', 'waiting-input']);
+export function taskActions(task: Task, attempt: Attempt | undefined): Action[] {
+  return [...(task.state === 'awaiting-go' ? ['start' as const] : []), ...(attempt && isLiveAttempt(attempt.state) && stoppable.has(attempt.state) ? ['stop' as const] : []), ...(task.state === 'failed' ? ['retry' as const] : [])];
+}
 export function TaskActions({ store, task, attempt, attention = false, onSuccess }: { store: Store; task: Task; attempt: Attempt | undefined; attention?: boolean; onSuccess?: () => void }) {
   const t = useT();
   const state = store.useStoreSelector(value => value);
@@ -22,7 +25,7 @@ export function TaskActions({ store, task, attempt, attention = false, onSuccess
   const pending = command ? state.pending[command.commandId] : undefined;
   const conflict = pending?.error?.code === 'conflict';
   const disabled = busy || !!command || state.session !== 'authenticated';
-  const available: Action[] = [...(task.state === 'awaiting-go' ? ['start' as const] : []), ...(attempt && isLiveAttempt(attempt.state) && stoppable.has(attempt.state) ? ['stop' as const] : []), ...(task.state === 'failed' ? ['retry' as const] : [])];
+  const available = taskActions(task, attempt);
   async function execute(created: Command, retry = false) {
     if (inFlight.current || state.session !== 'authenticated') return;
     inFlight.current = true; setBusy(true); setConfirm(null);

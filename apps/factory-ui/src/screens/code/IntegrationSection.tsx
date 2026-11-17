@@ -2,7 +2,7 @@ import { GitBranch, GitMerge } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useT } from '@/i18n';
 import type { Store } from '@/state/store';
-import { relativeTime } from '../Inbox';
+import { relativeTime } from '@/lib/inbox';
 import { CodeCard, CodeStatus } from './CodeCard';
 import { ConflictActions } from './ConflictActions';
 

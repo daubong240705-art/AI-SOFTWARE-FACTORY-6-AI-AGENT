@@ -9,16 +9,14 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Field, FieldDescription, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { nextTaskCode, tasksCreate } from '../api/commands';
 import type { Store } from '../state/store';
 import { useT } from '../i18n';
 import { ErrorNotice } from '../components/ErrorNotice';
 
 type FormErrors = { title?: boolean; goal?: boolean; acceptance?: boolean };
-export function NewTask({ store, projectId, open: controlledOpen, formId }: { store: Store; projectId: string; open?: boolean; formId?: string }) {
+export function NewTask({ store, projectId, open = false, formId, onClose }: { store: Store; projectId: string; open?: boolean; formId?: string; onClose?: () => void }) {
   const t = useT(); const state = store.useStoreSelector(value => value); const id = useId();
-  const [localOpen, setOpen] = useState(false); const open = controlledOpen ?? localOpen;
   const [title, setTitle] = useState(''); const [goal, setGoal] = useState(''); const [acceptance, setAcceptance] = useState('');
   const [errors, setErrors] = useState<FormErrors>({}); const [command, setCommand] = useState<Command | null>(null); const [busy, setBusy] = useState(false); const inFlight = useRef(false);
   const [selection, setSelection] = useState<{ projectId: string; documents: KnowledgeItem[] }>({ projectId, documents: [] });
@@ -34,7 +32,7 @@ export function NewTask({ store, projectId, open: controlledOpen, formId }: { st
   async function execute(created: Command, retry = false) {
     if (inFlight.current) return; inFlight.current = true; setBusy(true);
     try { const result = await (retry ? store.retry(created.commandId) : store.send(created));
-      if (result && store.getState().session === 'authenticated') { await store.loadTasks(); setSelection({ projectId, documents: [] }); setTitle(''); setGoal(''); setAcceptance(''); setCommand(null); setErrors({}); }
+      if (result && store.getState().session === 'authenticated') { await store.loadTasks(); setSelection({ projectId, documents: [] }); setTitle(''); setGoal(''); setAcceptance(''); setCommand(null); setErrors({}); onClose?.(); }
       else if (store.getState().pending[created.commandId]?.error?.code === 'conflict') await store.loadTasks();
     } finally { inFlight.current = false; setBusy(false); }
   }
@@ -46,12 +44,12 @@ export function NewTask({ store, projectId, open: controlledOpen, formId }: { st
     setErrors(invalid); if (Object.keys(invalid).length) return;
     const created = tasksCreate({ projectId, code: nextTaskCode(store.getState().tasks), title: title.trim(), goal: goal.trim(), acceptance: criteria, inputs: selected.map(document => ({ artifactId: document.artifactId, version: knowledge.list.find(item => item.artifactId === document.artifactId)?.version ?? document.version })) }); setCommand(created); void execute(created);
   }
-  return <Card className={cn('border-border shadow-none', open ? 'gap-0' : 'gap-0 p-0')}>
-    {controlledOpen === undefined && <CardHeader className="p-4"><Button type="button" variant="outline" className="self-start" aria-expanded={open} aria-controls={formId ?? `${id}-form`} onClick={() => setOpen(!open)}>{t('taskUi.new')}</Button></CardHeader>}
+  if (!open) return null;
+  return <Card className="gap-0 border-border shadow-none">
     {open && <form id={formId ?? `${id}-form`} onSubmit={submit} noValidate>
       <CardHeader className="gap-1 border-b border-border px-5 py-4"><CardTitle className="font-display text-lg">{t('taskUi.new')}</CardTitle><p className="font-mono text-xs text-muted-foreground">{t('taskUi.code')}: {code}</p></CardHeader>
       <CardContent className="grid gap-4 px-5 py-5">
-        <Field data-invalid={errors.title || undefined}><FieldLabel htmlFor={`${id}-title`}>{t('taskUi.title')}</FieldLabel><Input id={`${id}-title`} value={title} disabled={busy} onChange={event => setTitle(event.target.value)} aria-invalid={errors.title || undefined} aria-describedby={`${id}-title-hint${errors.title ? ` ${id}-title-error` : ''}`} /><FieldDescription id={`${id}-title-hint`}>{t('ux4.titleHint')}</FieldDescription>{errors.title && <FieldError id={`${id}-title-error`}>{t('taskUi.validation.title')}</FieldError>}</Field>
+        <Field data-invalid={errors.title || undefined}><FieldLabel htmlFor={`${id}-title`}>{t('taskUi.title')}</FieldLabel><Input autoFocus id={`${id}-title`} value={title} disabled={busy} onChange={event => setTitle(event.target.value)} aria-invalid={errors.title || undefined} aria-describedby={`${id}-title-hint${errors.title ? ` ${id}-title-error` : ''}`} /><FieldDescription id={`${id}-title-hint`}>{t('ux4.titleHint')}</FieldDescription>{errors.title && <FieldError id={`${id}-title-error`}>{t('taskUi.validation.title')}</FieldError>}</Field>
         <Field data-invalid={errors.goal || undefined}><FieldLabel htmlFor={`${id}-goal`}>{t('taskUi.goal')}</FieldLabel><Textarea id={`${id}-goal`} rows={3} value={goal} disabled={busy} onChange={event => setGoal(event.target.value)} aria-invalid={errors.goal || undefined} aria-describedby={`${id}-goal-hint${errors.goal ? ` ${id}-goal-error` : ''}`} /><FieldDescription id={`${id}-goal-hint`}>{t('ux4.goalHint')}</FieldDescription>{errors.goal && <FieldError id={`${id}-goal-error`}>{t('taskUi.validation.goal')}</FieldError>}</Field>
         <Field data-invalid={errors.acceptance || undefined}><FieldLabel htmlFor={`${id}-acceptance`}>{t('taskUi.acceptance')}</FieldLabel><Textarea id={`${id}-acceptance`} rows={4} value={acceptance} disabled={busy} onChange={event => setAcceptance(event.target.value)} aria-invalid={errors.acceptance || undefined} aria-describedby={`${id}-acceptance-hint${errors.acceptance ? ` ${id}-acceptance-error` : ''}`} /><FieldDescription id={`${id}-acceptance-hint`}>{t('ux4.criteriaHint')}</FieldDescription>{errors.acceptance && <FieldError id={`${id}-acceptance-error`}>{t('taskUi.validation.acceptance')}</FieldError>}</Field>
         <fieldset className="min-w-0 space-y-3" aria-describedby={`${id}-inputs-hint`}>
@@ -78,7 +76,7 @@ export function NewTask({ store, projectId, open: controlledOpen, formId }: { st
         </fieldset>
         {pending?.error && <ErrorNotice error={pending.error} />}
       </CardContent>
-      <CardFooter className="justify-end gap-2 border-t border-border px-5 py-4"><Button type="button" variant="ghost" disabled={busy} onClick={() => { setOpen(false); setErrors({}); }}>{t('ux4.cancel')}</Button>{pending?.status === 'failed' && command ? <Button type="button" variant="outline" disabled={busy || state.session !== 'authenticated'} onClick={() => { if (conflict) submit(); else void execute(command, true); }}>{t(conflict ? 'taskUi.retryNew' : 'errors.retry')}</Button> : <Button type="submit" disabled={busy || !!command || state.session !== 'authenticated'}>{t('taskUi.create')}</Button>}</CardFooter>
+      <CardFooter className="justify-end gap-2 border-t border-border px-5 py-4"><Button type="button" variant="ghost" disabled={busy} onClick={() => { onClose?.(); setErrors({}); }}>{t('ux4.cancel')}</Button>{pending?.status === 'failed' && command ? <Button type="button" variant="outline" disabled={busy || state.session !== 'authenticated'} onClick={() => { if (conflict) submit(); else void execute(command, true); }}>{t(conflict ? 'taskUi.retryNew' : 'errors.retry')}</Button> : <Button type="submit" disabled={busy || !!command || state.session !== 'authenticated'}>{t('taskUi.create')}</Button>}</CardFooter>
     </form>}
   </Card>;
 }

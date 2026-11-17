@@ -2,7 +2,7 @@ import type { Task } from '@factory/contracts';
 import type { StoreState } from '../../state/store';
 
 // Tasks have no createdAt/updatedAt in the current contract. Use only observed times.
-export function taskTime(task: Task, state: StoreState): string | undefined {
+export function taskTime(task: Task, state: Pick<StoreState, 'liveAttempts' | 'details' | 'inbox' | 'globalInbox'>): string | undefined {
   const live = state.liveAttempts[task.id];
   const attempts = state.details[task.id]?.attempts ?? [];
   const approvals = [...state.inbox.approvals, ...state.globalInbox.approvals]

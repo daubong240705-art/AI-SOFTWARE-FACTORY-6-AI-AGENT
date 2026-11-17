@@ -11,8 +11,9 @@ const entries = (value) => object(value) && Object.keys(value).length > 0 &&
 const numeric = (value) => typeof value === 'number' && Number.isFinite(value) && value >= 0;
 
 export function renderTokens(tokens) {
-  const invalid = () => { throw new Error('Invalid tokens.json: expected schemaVersion 2, token groups, typography, and matching light/dark palettes.'); };
-  if (!object(tokens) || tokens.schemaVersion !== 2 || tokens.defaultTheme !== 'light') invalid();
+  // Colours live in src/styles/palette.css; tokens.json keeps its themes only for the historical style guide.
+  const invalid = () => { throw new Error('Invalid tokens.json: expected schemaVersion 2, token groups and typography.'); };
+  if (!object(tokens) || tokens.schemaVersion !== 2) invalid();
   for (const [group] of groups) {
     if (!entries(tokens[group])) invalid();
     if (!Object.values(tokens[group]).every(group === 'fonts'
@@ -23,16 +24,10 @@ export function renderTokens(tokens) {
   for (const values of Object.values(tokens.typography)) {
     if (!object(values) || Object.keys(values).sort().join() !== 'lineHeight,size,weight' || !Object.values(values).every(numeric)) invalid();
   }
-  if (!object(tokens.themes)) invalid();
-  for (const theme of ['light', 'dark']) {
-    if (!entries(tokens.themes[theme]) || !Object.values(tokens.themes[theme]).every((v) => typeof v === 'string' && /^#[\da-f]{6}([\da-f]{2})?$/i.test(v))) invalid();
-  }
-  if (Object.keys(tokens.themes.light).sort().join() !== Object.keys(tokens.themes.dark).sort().join()) invalid();
   const css = groups.flatMap(([group, prefix, suffix]) => Object.entries(tokens[group]).map(([name, value]) => `  --${prefix}-${kebab(name)}: ${value}${suffix};`));
   for (const [name, values] of Object.entries(tokens.typography))
     for (const [key, value] of Object.entries(values)) css.push(`  --type-${name}-${kebab(key)}: ${value}${key === 'weight' ? '' : 'px'};`);
-  const themes = ['light', 'dark'].map((theme) => `${theme === 'light' ? ':root, ' : ''}[data-theme="${theme}"] {\n${Object.entries(tokens.themes[theme]).map(([key, value]) => `  --color-${kebab(key)}: ${value};`).join('\n')}\n}`).join('\n');
-  return `/* Generated from design/factory-v2/tokens.json. */\n@font-face { font-family: 'Inter Variable'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/fonts/InterVariable.woff2') format('woff2'); }\n:root {\n${css.join('\n')}\n}\n${themes}\n`;
+  return `/* Generated from design/factory-v2/tokens.json. */\n@font-face { font-family: 'Inter Variable'; font-style: normal; font-weight: 100 900; font-display: swap; src: url('/fonts/InterVariable.woff2') format('woff2'); }\n:root {\n${css.join('\n')}\n}\n`;
 }
 
 export function buildTokens({ source, output }) {

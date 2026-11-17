@@ -1,5 +1,5 @@
 import { MascotEmpty } from '@/components/mascot';
-import { Monitor } from 'lucide-react';
+import { AlertCircle, Monitor } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Stagger, StaggerItem } from '@/components/motion/Stagger';
@@ -28,7 +28,7 @@ export function ActivityTeamCard({ store, team, nodes, onlyMine, now, onTask }: 
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {(['working', 'waiting', 'problem', 'queued', 'idle'] as const).filter(status => team.counts[status] > 0).map(status => <Badge key={status} variant="outline" className="gap-1.5 font-normal text-muted-foreground">
-          <span aria-hidden="true" className={cn('size-1.5 rounded-full', dotClass[status])} />{t(`activityUi.${status}`).replace('{count}', String(team.counts[status]))}
+          {status === 'problem' ? <AlertCircle aria-hidden="true" className="size-3.5 text-need" /> : <span aria-hidden="true" className={cn('size-1.5 rounded-full', dotClass[status])} />}{t(`activityUi.${status}`).replace('{count}', String(team.counts[status]))}
         </Badge>)}
       </div>
     </CardHeader>

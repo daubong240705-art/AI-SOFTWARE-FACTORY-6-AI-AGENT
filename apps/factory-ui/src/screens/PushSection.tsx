@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { Task } from '@factory/contracts';
 import type { Attempt, AttemptEvent } from '../api/client';
-import { Button } from '../components/Button';
+import { Button } from '@/components/ui/button';
 import { ErrorNotice } from '../components/ErrorNotice';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
@@ -41,13 +41,13 @@ export function PushSection({ store, task, attempt }: { store: Store; task: Task
     finally { inFlight.current = false; }
   }
   if (!state.remotes?.length || task.state !== 'done' || !attempt || !branch) return null;
-  return <section className="stack push-section"><h3>{t('inboxUi.push')}</h3>
+  return <section className="push-section flex flex-col gap-6"><h3>{t('inboxUi.push')}</h3>
     <div className="field"><label htmlFor={id}>{t('inboxUi.remote')}</label><Select id={id} value={selected} disabled={busy || confirm} onValueChange={setRemote} options={state.remotes.map(name => ({ value: name, label: name }))} /></div>
-    <p className="plain-text">{branch}</p>
-    {!blocking && !confirm && <Button disabled={busy || !effectsReady} onClick={() => setConfirm(true)}>{t('inboxUi.push')}</Button>}
-    {confirm && <div role="group" aria-label={t('taskUi.confirmation')} className="confirmation-row"><p>{t('inboxUi.pushConfirm').replace('{branch}', branch).replace('{name}', selected)}</p><Button disabled={busy} onClick={() => { void execute(); }}>{t('workUi.confirm')}</Button><Button disabled={busy} onClick={() => setConfirm(false)}>{t('workUi.back')}</Button></div>}
+    <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{branch}</p>
+    {!blocking && !confirm && <Button type="button" variant="outline" disabled={busy || !effectsReady} onClick={() => setConfirm(true)}>{t('inboxUi.push')}</Button>}
+    {confirm && <div role="group" aria-label={t('taskUi.confirmation')} className="flex flex-wrap items-center gap-2 rounded-lg bg-need/10 p-3 max-[600px]:flex-col max-[600px]:items-stretch max-[767px]:[&>button]:flex-1"><p>{t('inboxUi.pushConfirm').replace('{branch}', branch).replace('{name}', selected)}</p><Button type="button" variant="outline" disabled={busy} onClick={() => { void execute(); }}>{t('workUi.confirm')}</Button><Button type="button" variant="outline" disabled={busy} onClick={() => setConfirm(false)}>{t('workUi.back')}</Button></div>}
     {state.errors[area] && <ErrorNotice error={state.errors[area]!} />}
-    {state.errors[`effects:${task.id}:${attempt.id}`] && <><ErrorNotice error={state.errors[`effects:${task.id}:${attempt.id}`]!} /><Button onClick={() => { void store.loadEffects(task.id, attempt.id); }}>{t('errors.retry')}</Button></>}
-    <ul className="task-list stack" aria-live="polite">{latest.map(effect => <li key={effect.id}><p>{effect.remote} · {t(`inboxUi.effects.${effect.state}`)}{effect.error ? `: ${t(`inboxUi.effectErrors.${effect.error}`)}` : ''}</p>{effect.state === 'unknown' && <><p>{t('inboxUi.reconcileHelp')}</p><Button disabled={busy} onClick={() => { void execute(effect.id); }}>{t('inboxUi.reconcile')}</Button></>}</li>)}</ul>
+    {state.errors[`effects:${task.id}:${attempt.id}`] && <><ErrorNotice error={state.errors[`effects:${task.id}:${attempt.id}`]!} /><Button type="button" variant="outline" onClick={() => { void store.loadEffects(task.id, attempt.id); }}>{t('errors.retry')}</Button></>}
+    <ul className="task-list flex flex-col gap-6" aria-live="polite">{latest.map(effect => <li key={effect.id}><p>{effect.remote} · {t(`inboxUi.effects.${effect.state}`)}{effect.error ? `: ${t(`inboxUi.effectErrors.${effect.error}`)}` : ''}</p>{effect.state === 'unknown' && <><p>{t('inboxUi.reconcileHelp')}</p><Button type="button" variant="outline" disabled={busy} onClick={() => { void execute(effect.id); }}>{t('inboxUi.reconcile')}</Button></>}</li>)}</ul>
   </section>;
 }

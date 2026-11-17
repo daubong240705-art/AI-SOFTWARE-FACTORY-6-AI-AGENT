@@ -1,5 +1,7 @@
 # Factory UI: đề xuất thiết kế lại (bản nháp 11/11/2026, chờ duyệt)
 
+> **Đã thay thế (11/2026):** các nguyên tắc ở đây được thay bằng [02-huong-dan-giao-dien.md](02-huong-dan-giao-dien.md). Giữ trang này để tham khảo lịch sử.
+
 Nguồn yêu cầu: 9 ảnh tham khảo trong `crewhub/` và các yêu cầu của bạn: **ít dữ kiện trùng lặp, không dồn nhiều thứ vào một chỗ, dùng được hằng ngày, bỏ mô tả không cần thiết, phần nội dung chính phải thật lớn.**
 Chưa viết dòng code nào. Skill thiết kế dùng khi làm: [skills/README.md](skills/README.md).
 

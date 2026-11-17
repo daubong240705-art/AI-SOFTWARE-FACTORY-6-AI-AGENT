@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FileText, NotebookText, FileCode, FileImage, ExternalLink } from 'lucide-react';
 import type { TaskArtifact } from '../../api/client';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Section } from '@/components/app';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from '@/components/ui/item';
@@ -27,11 +27,11 @@ export function ReviewDocuments({ store, taskId, documents, attemptId }: { store
   });
   const images = current.filter(({ version }) => IMAGE.test(version.mediaType));
   const others = current.filter(({ version }) => !IMAGE.test(version.mediaType));
-  return <Card className="gap-3 border-border p-4 shadow-none"><h3 className="text-sm font-semibold">{t('reviewUi.documents')}</h3>
+  return <Section title={t('reviewUi.documents')}>
     {images.length > 0 && <ImageGallery store={store} images={images} />}
     {others.length > 0 && <ItemGroup className="divide-y divide-border">{others.map(({ document, version }) => <DocumentRow key={document.artifactId} store={store} taskId={taskId} document={document} version={version} />)}</ItemGroup>}
     {!current.length && <p className="text-sm text-muted-foreground">{t('reviewUi.noDocuments')}</p>}
-  </Card>;
+  </Section>;
 }
 
 function ImageGallery({ store, images }: { store: Store; images: { document: TaskArtifact; version: Version }[] }) {
@@ -44,7 +44,7 @@ function ImageGallery({ store, images }: { store: Store; images: { document: Tas
     <h4 className="text-xs font-medium text-muted-foreground">{t('reviewUi.images')} ({images.length})</h4>
     <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3">
       {images.map((item, index) => <li key={item.document.artifactId} className="min-w-0">
-        <button type="button" onClick={() => setOpen(index)} className="group block w-full overflow-hidden rounded-lg border border-border bg-muted/20 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" aria-label={`${t('reviewUi.openImage')}: ${readableText(item.document.title)}`}>
+        <button type="button" onClick={() => setOpen(index)} className="group block w-full overflow-hidden rounded-lg border border-border bg-muted/20 p-0 text-sm text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none" aria-label={`${t('reviewUi.openImage')}: ${readableText(item.document.title)}`}>
           <img src={url(item)} alt={readableText(item.document.title)} loading="lazy" className="aspect-[4/3] w-full object-contain transition-transform group-hover:scale-[1.02]" />
           <span className="block truncate px-2 py-1.5 text-xs text-muted-foreground">{readableText(item.document.title)}</span>
         </button>

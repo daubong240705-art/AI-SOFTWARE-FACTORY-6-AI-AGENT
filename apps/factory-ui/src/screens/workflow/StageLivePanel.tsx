@@ -19,18 +19,18 @@ function LiveRunRow({ taskId, code, run, now, onOpenTask }: {
         <p className="flex min-w-0 items-center gap-1.5"><LiveDot needsYou={run.needsYou} /><span className="font-medium break-words">{run.seatName}</span></p>
         <p className="text-xs text-muted-foreground break-words">{run.seatRole}</p>
       </div>
-      <span className="max-w-24 shrink-0 truncate font-mono text-[11px] text-muted-foreground" title={code}>{code}</span>
+      <span className="max-w-24 shrink-0 truncate font-mono text-xs text-muted-foreground" title={code}>{code}</span>
     </div>
     <p className="text-xs text-muted-foreground">{activityAttemptLabel(run.attemptState)}{run.needsYou && <span className="text-need"> · {t('activityUi.status.waiting')}</span>}</p>
     {run.progress && <div className="space-y-1.5">
       {run.progress.percent !== null && <div className="flex items-center gap-2">
         <Progress value={run.progress.percent} aria-label={`${t('workUi.progress')} ${code}`} className="h-1 flex-1 bg-secondary [&_[data-slot=progress-indicator]]:bg-run" />
-        <span className="shrink-0 text-[11px] text-muted-foreground">{run.progress.percent}%</span>
+        <span className="shrink-0 text-xs text-muted-foreground">{run.progress.percent}%</span>
       </div>}
       {run.progress.message && <p className="text-xs text-muted-foreground break-words">{run.progress.message}</p>}
-      <p className="text-[11px] text-muted-foreground">{t('activityUi.updated')} <time dateTime={run.progress.at}>{activityTime(run.progress.at, now)}</time></p>
+      <p className="text-xs text-muted-foreground">{t('activityUi.updated')} <time dateTime={run.progress.at}>{activityTime(run.progress.at, now)}</time></p>
     </div>}
-    <p className="text-[11px] text-muted-foreground">{run.startedAt
+    <p className="text-xs text-muted-foreground">{run.startedAt
       ? <time dateTime={run.startedAt}>{t('workflowGraph.live.started').replace('{time}', activityTime(run.startedAt, now))}</time>
       : t('workflowGraph.live.startedUnknown')}</p>
     <div className="flex flex-wrap gap-2">

@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Skeleton } from '@/components/ui/skeleton';
 import { useT } from '@/i18n';
 import type { Store, StoreState } from '@/state/store';
-import { relativeTime } from '../Inbox';
+import { relativeTime } from '@/lib/inbox';
 import { CodeCard, CodeStatus } from './CodeCard';
 
 function taskCode(state: StoreState, attemptId: string) {

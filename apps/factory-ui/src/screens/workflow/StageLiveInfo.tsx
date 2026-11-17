@@ -19,7 +19,7 @@ function waitingState(stage: WorkflowStage) {
 
 function WaitingLine({ stage }: { stage: WorkflowStage }) {
   const t = useT(); const waiting = waitingState(stage);
-  return waiting && <p className={cn('truncate text-[11px] leading-[14px] text-muted-foreground', waiting !== 'awaitingAssignment' && 'text-need')}>{t(`workflowGraph.live.${waiting}`)}</p>;
+  return waiting && <p className={cn('truncate text-xs leading-[14px] text-muted-foreground', waiting !== 'awaitingAssignment' && 'text-need')}>{t(`workflowGraph.live.${waiting}`)}</p>;
 }
 
 export function StageLiveSummary({ stage, liveRuns }: { stage: WorkflowStage; liveRuns: LiveRuns }) {
@@ -30,7 +30,7 @@ export function StageLiveSummary({ stage, liveRuns }: { stage: WorkflowStage; li
   return <div className="min-w-0">
     <div className="flex min-w-0 items-center gap-1.5 leading-4"><LiveDot needsYou={run.needsYou} /><span className="truncate text-xs font-medium leading-4">{run.seatName}</span></div>
     {run.progress && <>
-      <p className="truncate text-[11px] leading-[14px] text-muted-foreground">{run.progress.message}</p>
+      <p className="truncate text-xs leading-[14px] text-muted-foreground">{run.progress.message}</p>
       {run.progress.percent !== null && <Progress value={run.progress.percent} aria-label={`${t('workUi.progress')} ${active.code}`} className="mt-0.5 h-[3px] bg-secondary [&_[data-slot=progress-indicator]]:bg-run" />}
     </>}
   </div>;
@@ -40,12 +40,12 @@ function RunTooltip({ run, code }: { run: LiveRun; code: string }) {
   const t = useT();
   return <div className="space-y-1 text-xs">
     <p className="flex items-center gap-1.5"><LiveDot needsYou={run.needsYou} /><span className="font-medium break-words">{run.seatName}</span><span className="text-muted-foreground">{run.seatRole}</span></p>
-    <p className="font-mono text-[11px] text-muted-foreground">{code}</p>
+    <p className="font-mono text-xs text-muted-foreground">{code}</p>
     <p className="text-muted-foreground">{activityAttemptLabel(run.attemptState)}</p>
     {run.needsYou && <p className="text-need">{t('activityUi.status.waiting')}</p>}
     {run.progress && <>
       <p className="text-muted-foreground break-words">{run.progress.message}</p>
-      {run.progress.percent !== null && <div className="flex items-center gap-2"><Progress value={run.progress.percent} aria-label={`${t('workUi.progress')} ${code}`} className="h-[3px] bg-secondary [&_[data-slot=progress-indicator]]:bg-run" /><span className="shrink-0 text-[11px] text-muted-foreground">{run.progress.percent}%</span></div>}
+      {run.progress.percent !== null && <div className="flex items-center gap-2"><Progress value={run.progress.percent} aria-label={`${t('workUi.progress')} ${code}`} className="h-[3px] bg-secondary [&_[data-slot=progress-indicator]]:bg-run" /><span className="shrink-0 text-xs text-muted-foreground">{run.progress.percent}%</span></div>}
     </>}
   </div>;
 }

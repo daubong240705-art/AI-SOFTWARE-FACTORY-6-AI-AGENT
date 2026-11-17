@@ -24,7 +24,7 @@ export function FeedMessage({ text }: { text: string }) {
       <div ref={content}><MarkdownContent content={text} className="space-y-2 leading-6" /></div>
     </div>
     {long && <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded(value => !value)}
-      className="mt-1 rounded px-1 py-1 text-xs font-medium text-info underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+      className="mt-1 border-0 bg-transparent rounded px-1 py-1 text-xs font-medium text-info underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
       {t(expanded ? 'officeUi.showLess' : 'officeUi.showMore')}
     </button>}
   </div>;

@@ -1,7 +1,8 @@
+import { createSelectorSnapshot, shallowSelectionEqual } from './storeSelector';
 import type { Office } from '@/api/officeModels';
 import type { OrgTeam, RequestItem, RequestDetail, Dossier, Briefing, TaskContext } from '../api/m3Models';
 import type { PackDetail, McpServer } from '../api/agentProfileModels';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { Approval, Command, Conversation, FactoryEvent, Project, Task } from '@factory/contracts';
 import { ApiClientError, DocumentUploadError, createApiClient, type ApiClient, type ArtifactContent, type Attempt, type AttemptEvent, type AttemptPatch, type TaskArtifact, type BudgetResponse, type MessagesResponse, type TeamResponse } from '../api/client';
 import { openProjectEvents, type ProjectEventsOptions, type StreamStatus } from '../api/events';
@@ -74,6 +75,15 @@ const projectState = () => ({ notifications: emptyNotifications(), integration: 
 const errorDetails = (error: unknown): StoreError => error instanceof ApiClientError
   ? { kind: error.kind, message: error.message, ...(error.code ? { code: error.code } : {}), ...(error.correlationId ? { correlationId: error.correlationId } : {}), ...(error.detailKey ? { detailKey: error.detailKey } : {}) }
   : { kind: 'unexpected', message: 'The operation could not be completed.' };
+
+function useSelectedStore<T>(subscribe: (listener: () => void) => () => void, getState: () => StoreState,
+  selector: (state: StoreState) => T, isEqual: (a: T, b: T) => boolean = shallowSelectionEqual): T {
+  const committed = useRef<{ value: T } | null>(null);
+  const getSnapshot = useMemo(() => createSelectorSnapshot(getState, selector, isEqual, committed), [getState, selector, isEqual]);
+  const value = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  useEffect(() => { committed.current = { value }; }, [value]);
+  return value;
+}
 
 export function createStore(options: StoreOptions = {}) {
   let state: StoreState = { system: emptySystem(), packDetails: {}, mcpServers: null, session: 'unknown', projects: [], selectedProjectId: null, ...projectState(), globalInbox: emptyInbox(), remotes: null, announcement: 0, errors: {}, loading: {}, pending: {} };
@@ -570,13 +580,19 @@ export function createStore(options: StoreOptions = {}) {
     const scope = generation;
     if (!id) return Promise.resolve();
     return enqueue(`attempt-events:${taskId}:${attemptId}`, scope, async () => {
-      const events = new Map<number, AttemptEvent>();
-      let afterSeq = 0;
-      while (events.size < 2000 && active(scope)) {
-        const limit = Math.min(500, 2000 - events.size);
+      const previous = state.details[taskId]?.events[attemptId] ?? [];
+      const events = new Map<number, AttemptEvent>(previous.map(event => [event.seq, event]));
+      let afterSeq = previous.at(-1)?.seq ?? 0;
+      // Drain new pages, retaining only the newest 5000 entries even on the first load.
+      while (active(scope)) {
+        const limit = 500;
         const page = await api.listAttemptEvents(id, attemptId, { afterSeq, limit });
-        for (const event of page.events) if (event.seq > afterSeq && events.size < 2000) events.set(event.seq, event);
+        for (const event of page.events) if (event.seq > afterSeq) events.set(event.seq, event);
         const last = Math.max(afterSeq, ...page.events.map(event => event.seq));
+        if (events.size > 5000) {
+          const ordered = [...events.keys()].sort((a, b) => a - b);
+          for (const seq of ordered.slice(0, events.size - 5000)) events.delete(seq);
+        }
         if (page.events.length < limit || last <= afterSeq) break;
         afterSeq = last;
       }
@@ -950,13 +966,12 @@ export function createStore(options: StoreOptions = {}) {
     retry: (commandId: string) => { const pending = state.pending[commandId]; return pending?.status === 'failed' ? send(pending.command) : Promise.resolve(undefined); },
     applyEvent,
     dispose: () => { authGeneration++; unwatchInbox(); stop(); listeners.clear(); submittedCommands.clear(); },
-    useStoreSelector<T>(selector: (state: StoreState) => T): T {
-      // Subscribe to the stable state object so selectors may safely return new objects.
-      return selector(useSyncExternalStore(store.subscribe, store.getState, store.getState));
+    useStoreSelector<T>(selector: (state: StoreState) => T, isEqual?: (a: T, b: T) => boolean): T {
+      return useSelectedStore(store.subscribe, store.getState, selector, isEqual);
     },
   };
   return store;
 }
 export type Store = ReturnType<typeof createStore>;
 export const defaultStore = createStore();
-export function useStoreSelector<T>(selector: (state: StoreState) => T): T { return defaultStore.useStoreSelector(selector); }
+export function useStoreSelector<T>(selector: (state: StoreState) => T, isEqual?: (a: T, b: T) => boolean): T { return defaultStore.useStoreSelector(selector, isEqual); }
