@@ -24,7 +24,9 @@ async function stage(worktree: string): Promise<string> {
   const top = (await runGit(directory, ["rev-parse", "--show-toplevel"])).stdout.replace(/\n$/, "");
   if (top !== directory) throw new WorkspaceError("invalid-input");
   // `.factory/` is the agents' scratch output (browser screenshots, traces, tool logs); it never becomes a result.
-  await runGit(checkedDirectory(directory), ["add", "-A", "--", ".", ":(exclude)node_modules", ":(exclude)**/node_modules/**"], { excludeScratch: true });
+  // node_modules is ignored through the extra excludes file (excludeScratch); an exclude pathspec here would make
+  // `git add` exit 1 ("paths are ignored") whenever the repository already ignores node_modules, failing the checkpoint.
+  await runGit(checkedDirectory(directory), ["add", "-A", "--", "."], { excludeScratch: true });
   // A CLI can force-add ignored files. Refuse those before checkpointing or integrating its commits.
   const tracked = await runGit(directory, ["ls-files", "-z"]);
   if (tracked.stdout.split("\0").some((path) => path.split("/").includes("node_modules"))) throw new WorkspaceError("unsafe-content");
