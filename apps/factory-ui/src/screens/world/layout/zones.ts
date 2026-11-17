@@ -85,6 +85,7 @@ export const furnitureFootprints: Footprint[] = [
 ];
 
 export const palette = { cream: '#FFF8E7', rug: '#F6EBD3', wall: '#F1DFBC', trim: '#E9D4AE', wood: '#C99A6B', darkWood: '#A87A50', apricot: '#E0A458', butter: '#F7DC8A', sage: '#B5D3A7', sky: '#AFCFE6', rose: '#F2B8A9', lavender: '#CDBFE6', mint: '#BDE3D2', ink: '#4A3B2F' };
+export const desktopHeight = 0.89;
 export type Shape = 'box' | 'detail' | 'cylinder' | 'sphere' | 'screen' | 'glass' | 'rug';
 export type Part = { shape: Shape; position: [number, number, number]; scale: [number, number, number]; yaw: number; color: string; zone?: string };
 export type Label = { text: string; key: string; position: [number, number, number]; width: number; height: number; yaw: number; floor: boolean; color: string };
@@ -141,7 +142,7 @@ export function environmentModel() {
     const tint = ({ owner: palette.apricot, qa: palette.lavender, design: palette.butter, rules: palette.mint, art: palette.rose, client: palette.sky, lead: palette.sage } as const)[kind];
     const w = owner ? 2.1 : 1.7;
     box(palette.darkWood, [x, 0.72, z], [w - 0.06, 0.2, 0.84]);
-    box(owner ? palette.butter : palette.wood, [x, 0.81, z], [w, 0.16, 0.88]);
+    box(owner ? palette.butter : palette.wood, [x, desktopHeight - 0.08, z], [w, 0.16, 0.88]);
     box(tint, [x, 0.47, z + 0.29], [w - 0.18, 0.43, 0.1]);
     for (const dx of [-0.64, 0.64]) box(palette.darkWood, [x + dx, 0.36, z], [0.13, 0.7, 0.65]);
     // High backed chair is behind the agent; arms sit below the desktop.
@@ -161,25 +162,25 @@ export function environmentModel() {
     // Low primary screens turn toward +x/+z; the secondary remains readable from +x.
     const [mx, mz] = d.monitor;
     box(palette.ink, [mx, 1.08, mz], [owner ? 1.08 : 0.78, 0.4, 0.085], 0.6);
-    box(palette.ink, [mx, 0.94, mz], [0.09, 0.14, 0.12]);
-    box(palette.ink, [mx, 0.9, mz], [0.34, 0.035, 0.25]);
+    box(palette.ink, [mx, desktopHeight + 0.07, mz], [0.09, 0.14, 0.12]);
+    box(palette.ink, [mx, desktopHeight + 0.0175, mz], [0.34, 0.035, 0.25]);
     art(kind, [mx + Math.sin(0.6) * 0.046, 1.08, mz + Math.cos(0.6) * 0.046], owner ? 0.98 : 0.7, 0.32, 0.6);
     const [tx, tz] = d.sideMonitor;
     box(palette.ink, [tx, 1.07, tz], [0.64, 0.36, 0.075], Math.PI / 2);
-    box(palette.ink, [tx, 0.93, tz], [0.1, 0.12, 0.15]);
+    box(palette.ink, [tx, desktopHeight + 0.06, tz], [0.1, 0.12, 0.15]);
     art(kind, [tx + 0.04, 1.07, tz], 0.56, 0.28, Math.PI / 2);
     // Keyboard, keys, mouse pad and mouse.
-    box(palette.ink, [x + 0.05, 0.9, z - 0.23], [0.6, 0.035, 0.2]);
-    for (let row = 0; row < 3; row++) for (let col = 0; col < 7; col++) box(row === 2 ? tint : palette.cream, [x - 0.18 + col * 0.075, 0.923, z - 0.29 + row * 0.06], [0.053, 0.014, 0.036]);
-    box(tint, [x + 0.52, 0.9, z - 0.22], [0.25, 0.02, 0.27]);
-    add('sphere', palette.cream, [x + 0.52, 0.93, z - 0.22], [0.11, 0.07, 0.15]);
+    box(palette.ink, [x + 0.05, desktopHeight + 0.0175, z - 0.23], [0.6, 0.035, 0.2]);
+    for (let row = 0; row < 3; row++) for (let col = 0; col < 7; col++) box(row === 2 ? tint : palette.cream, [x - 0.18 + col * 0.075, desktopHeight + 0.042, z - 0.29 + row * 0.06], [0.053, 0.014, 0.036]);
+    box(tint, [x + 0.52, desktopHeight + 0.01, z - 0.22], [0.25, 0.02, 0.27]);
+    add('sphere', palette.cream, [x + 0.52, desktopHeight + 0.055, z - 0.22], [0.11, 0.07, 0.15]);
     // Lamp, mug (dark coffee inset), tiny bear figurine and cable tray.
-    add('cylinder', palette.ink, [x + 0.65, 0.9, z + 0.23], [0.17, 0.03, 0.17]);
+    add('cylinder', palette.ink, [x + 0.65, desktopHeight + 0.015, z + 0.23], [0.17, 0.03, 0.17]);
     box(palette.apricot, [x + 0.65, 1.08, z + 0.23], [0.045, 0.34, 0.045]);
     add('sphere', palette.butter, [x + 0.65, 1.25, z + 0.18], [0.25, 0.14, 0.24]);
-    add('cylinder', palette.cream, [x - 0.34, 0.98, z + 0.28], [0.13, 0.17, 0.13]);
-    add('cylinder', palette.darkWood, [x - 0.34, 1.069, z + 0.28], [0.096, 0.008, 0.096]);
-    box(palette.cream, [x - 0.43, 0.98, z + 0.28], [0.07, 0.09, 0.04]);
+    add('cylinder', palette.cream, [x - 0.34, desktopHeight + 0.085, z + 0.28], [0.13, 0.17, 0.13]);
+    add('cylinder', palette.darkWood, [x - 0.34, desktopHeight + 0.174, z + 0.28], [0.096, 0.008, 0.096]);
+    box(palette.cream, [x - 0.43, desktopHeight + 0.085, z + 0.28], [0.07, 0.09, 0.04]);
     add('sphere', tint, [x + 0.4, 0.98, z + 0.26], [0.14, 0.18, 0.13]);
     add('sphere', tint, [x + 0.4, 1.09, z + 0.26], [0.15, 0.14, 0.13]);
     for (const dx of [-0.055, 0.055]) add('sphere', tint, [x + 0.4 + dx, 1.15, z + 0.26], [0.065, 0.065, 0.06]);
@@ -187,13 +188,13 @@ export function environmentModel() {
     box(palette.ink, [x, 0.59, z + 0.2], [0.65, 0.07, 0.16]);
     for (const dx of [-0.2, 0, 0.2]) box(tint, [x + dx, 0.66, z + 0.28], [0.035, 0.13, 0.035]);
     if (index % 4 === 0) {
-      add('cylinder', palette.cream, [x - 0.65, 0.97, z - 0.29], [0.15, 0.17, 0.15]);
+      add('cylinder', palette.cream, [x - 0.65, desktopHeight + 0.085, z - 0.29], [0.15, 0.17, 0.15]);
       add('sphere', palette.sage, [x - 0.65, 1.11, z - 0.29], [0.21, 0.22, 0.21]);
     }
     blob([x, z - 0.25], 2.25, 2.6);
     if (owner) {
-      box(palette.cream, [x - 0.7, 1, z + 0.25], [0.48, 0.2, 0.06]);
-      label('Bạn', 'owner', [x - 0.7, 1, z + 0.285], 0.42, 0.16);
+      box(palette.cream, [x - 0.7, desktopHeight + 0.1, z + 0.25], [0.48, 0.2, 0.06]);
+      label('Bạn', 'owner', [x - 0.7, desktopHeight + 0.1, z + 0.285], 0.42, 0.16);
       add('cylinder', palette.ink, [x + 0.86, 0.98, z - 0.26], [0.12, 0.16, 0.12]);
       add('screen', palette.mint, [x + 0.86, 1.09, z - 0.26], [0.13, 0.08, 0.13]);
     }

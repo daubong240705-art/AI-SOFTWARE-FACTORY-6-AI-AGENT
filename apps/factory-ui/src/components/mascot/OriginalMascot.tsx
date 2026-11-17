@@ -25,7 +25,16 @@ const seatCode: Record<string, ArtCode> = {
   'network engineer': 'PLUM', 'devops engineer': 'DEVOPS',
 };
 export function artCode(seat: string, hash: number): ArtCode {
-  return seatCode[seat.trim().toLowerCase()] ?? codes[hash % codes.length]!;
+  const normalized = seat.trim().toLowerCase();
+  // Portal Manager is the lead of a one-seat portal team, but keeps the PM
+  // fox-cat artwork in every roster, panel, and 2D mascot surface.
+  if (normalized === 'portal manager') return 'PM';
+  return seatCode[normalized] ?? codes[hash % codes.length]!;
+}
+
+/** Name-aware mascot selection for callers that also carry an isLead flag. */
+export function mascotCodeForSeat(seat: string, hash: number, isLead = false): ArtCode {
+  return seat.trim().toLowerCase() === 'portal manager' ? 'PM' : isLead ? 'LEAD' : artCode(seat, hash);
 }
 const url = (code: ArtCode, state: MascotState) => urls[`../../assets/mascot/original/${code}/${code}_${pose[poseOf[state]]}.svg`];
 

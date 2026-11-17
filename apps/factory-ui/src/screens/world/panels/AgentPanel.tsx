@@ -13,8 +13,8 @@ export function AgentPanel({ agent, store, following, onFollow, onClose, onTask,
   onTask: (projectId: string, taskId: string) => void; onReview: (need: OfficeNeed) => void; onTeam: () => void;
 }) {
   const t = useT(); const projectId = agent.runs[0]?.projectId;
-  return <DockedPane label={agent.name} onClose={onClose} className="world-panel bg-card text-card-foreground p-4 shadow-lg">
-    <div className="mb-4 flex items-start gap-3"><Mascot seat={agent.isLead ? 'Lead' : agent.name} state={agent.pose === 'resting' ? 'offline' : agent.pose} size={52} animated={false} /><div className="min-w-0 flex-1"><h2 className="font-semibold">{agent.name}</h2><p className="text-sm text-muted-foreground">{agent.role}</p><span className="world-status" data-status={agent.status}>{t(agentStatusKey(agent))}</span></div><Button size="sm" variant="ghost" onClick={onClose}>{t('worldUi.close')}</Button></div>
+  return <DockedPane label={agent.name} onClose={onClose} className="world-panel">
+    <div className="mb-4 flex items-start gap-3"><Mascot seat={agent.name} isLead={agent.isLead} state={agent.pose === 'resting' ? 'offline' : agent.pose} size={52} animated={false} /><div className="min-w-0 flex-1"><h2 className="font-semibold">{agent.name}</h2><p className="text-sm text-muted-foreground">{agent.role}</p><span className="world-status" data-status={agent.status}>{t(agentStatusKey(agent))}</span></div><Button size="sm" variant="ghost" onClick={onClose}>{t('worldUi.close')}</Button></div>
     <AgentOverview store={store} seat={officeSeat(agent, { name: agent.teamName || t('worldUi.team') })} now={Date.now()} onOpenTask={taskId => {
       const run = agent.runs.find(item => item.taskId === taskId); if (run) onTask(run.projectId, taskId);
     }} onReview={onReview} />

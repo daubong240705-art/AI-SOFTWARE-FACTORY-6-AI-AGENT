@@ -10,7 +10,7 @@ export function OwnerPanel({ model, attention, error, onClose, onCreate, onChat,
 }) {
   const t = useT(); const selectId = useId(); const [choice, setChoice] = useState('');
   const project = model.games.find(game => game.projectId === choice)?.projectId ?? model.games[0]?.projectId;
-  return <DockedPane label={t('worldUi.ownerDesk')} onClose={onClose} className="world-panel bg-card text-card-foreground p-4 shadow-lg">
+  return <DockedPane label={t('worldUi.ownerDesk')} onClose={onClose} className="world-panel">
     <div className="mb-4 flex items-center justify-between gap-2"><h2 className="font-semibold">{t('worldUi.ownerDesk')}</h2><Button variant="ghost" size="sm" onClick={onClose}>{t('worldUi.close')}</Button></div>
     {error ? <p role="status">{t('worldUi.sourceError')}</p> : <dl className="mb-4 grid grid-cols-2 gap-2 text-sm"><dt>{t('worldUi.workingCount')}</dt><dd>{model.loaded.activity ? model.agents.filter(agent => agent.status === 'working').length : '—'}</dd><dt>{t('worldUi.attentionCount')}</dt><dd>{attention}</dd><dt>{t('worldUi.productionCount')}</dt><dd>{model.loaded.games ? model.productionGames : '—'}</dd></dl>}
     <div className="flex flex-col items-stretch gap-2">

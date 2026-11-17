@@ -30,17 +30,26 @@ globalThis.document = { createElement(name) {
 } };
 const local = name => import(new URL(`./${name}.ts`, import.meta.url));
 const { characterSpecs, characterCodes, specForSeat } = await local('specs');
-const { artCode } = await import(new URL('../../../components/mascot/OriginalMascot.tsx', import.meta.url));
+const { artCode, mascotCodeForSeat } = await import(new URL('../../../components/mascot/OriginalMascot.tsx', import.meta.url));
 const { seatHash } = await import(new URL('../../../components/mascot/skins.ts', import.meta.url));
 const { buildCharacter, characterStats, disposeCharacterCache, retainCharacterAssets } = await local('build');
 const { characterPoses, samplePose, blendPose, hopAlong, phaseForSeat } = await local('poses');
 const { poseLabels } = await local('../copy');
 const { glyphGeometry, glyphMesh } = await local('resources');
-const { Box3 } = await import('three');
+const { Box3, Color, Raycaster, Vector3 } = await import('three');
+const { characterFeatures, faceSurface } = await local('features');
 const fixtures = { Lead: 'LEAD', 'Game Designer': 'BA', 'Rules Engineer': 'BE', 'UI Artist': 'FE', 'Client Engineer': 'DEVOPS', 'QA Engineer': 'TEST', 'Product Strategist': 'PM', 'Gameplay Engineer': 'MINT', 'Network Engineer': 'PLUM' };
 for (const [seat, code] of Object.entries(fixtures)) assert.equal(specForSeat(seat).code, code);
 for (const seat of [...Object.keys(fixtures), 'Unknown', 'unicode 🦊']) assert.equal(specForSeat(seat).code, artCode(seat, seatHash(seat)));
 assert.equal(specForSeat('Unmapped', true).code, 'LEAD');
+for (const name of ['Portal Manager', ' portal manager ', 'PORTAL MANAGER']) {
+  for (const isLead of [false, true]) {
+    assert.equal(specForSeat(name, isLead).code, 'PM');
+    assert.equal(mascotCodeForSeat(name, seatHash(name), isLead), 'PM');
+  }
+  assert.equal(artCode(name, seatHash(name)), 'PM');
+}
+assert.equal(mascotCodeForSeat('Lead', seatHash('Lead'), true), 'LEAD');
 assert.equal(new Set(characterCodes.map(code => Math.round(phaseForSeat(code) * 100))).size, 9, 'Short seat names have distinct animation phases');
 const materials = new Set(); let highMax = 0; let lowMax = 0; let trianglesMax = 0;
 function assertFrameClose(actual, expected) {
@@ -50,6 +59,29 @@ function assertFrameClose(actual, expected) {
   }
 }
 for (const code of characterCodes) {
+  const features = characterFeatures(characterSpecs[code]);
+  // These anchors drive build.ts directly, including both open/closed eyes.
+  for (const key of ['eyes', 'cheeks', 'ears']) {
+    const pair = features[key];
+    if (!pair.length) continue;
+    assert.equal(pair.length, 2, `${code}/${key}: paired anchors`);
+    assert(Math.abs(pair[0][0] + pair[1][0]) < 0.01, `${code}/${key}: x mirror symmetry about the face centre`);
+    assert(Math.abs(pair[0][1] - pair[1][1]) < 0.01, `${code}/${key}: matching heights`);
+    assert(Math.abs(pair[0][2] - pair[1][2]) < 0.01, `${code}/${key}: matching depth`);
+  }
+  for (const [x, y, z] of features.eyes) {
+    assert(z > faceSurface(characterSpecs[code], x, y) && z - faceSurface(characterSpecs[code], x, y) < 0.025, `${code}: eyes attached to face`);
+  }
+  for (const [x, y] of features.ears) {
+    const rootY = y - (characterSpecs[code].ears === 'long' ? 0.21 : characterSpecs[code].ears === 'round' ? 0.16 : characterSpecs[code].ears === 'crest' ? 0.1 : 0.175);
+    assert((x / 0.55) ** 2 + ((rootY - 0.4) / 0.44) ** 2 < 1, `${code}: ear root attaches inside head`);
+  }
+  if (code === 'DEVOPS') {
+    for (const [, y] of features.eyes) {
+      assert(y < features.mask.centerY && y - 0.078 > features.mask.bottom && y + 0.078 < features.mask.top, 'Raccoon eyes stay inside the mask, below its centre');
+      assert(features.nose[1] < y - 0.078, 'Raccoon nose sits below the mask eyes');
+    }
+  }
   let previous;
   for (const quality of ['high', 'low']) {
     const group = buildCharacter(characterSpecs[code], quality);
@@ -58,13 +90,31 @@ for (const code of characterCodes) {
     // Measure the body/ears/accessories; invisible effect billboards intentionally sit above the silhouette.
     const bounds = new Box3().setFromObject(group.getObjectByName('solid'), true);
     assert(bounds.max.y < 1.18 && bounds.min.y > 0, `${code} height/ground: ${bounds.min.y}..${bounds.max.y}`);
+    if (code === 'DEVOPS') {
+      const solid = group.getObjectByName('solid'); const maskColor = new Color(characterSpecs[code].face.mask);
+      for (const [x, y] of features.eyes) for (const dy of [-0.075, 0, 0.075]) {
+        const hit = new Raycaster(new Vector3(x, y + dy, 2), new Vector3(0, 0, -1)).intersectObject(solid)[0];
+        assert(hit, 'Raccoon face must be visible behind each eye');
+        const colors = solid.geometry.getAttribute('color');
+        const color = new Color().fromBufferAttribute(colors, hit.face.a);
+        assert(Math.abs(color.r - maskColor.r) + Math.abs(color.g - maskColor.g) + Math.abs(color.b - maskColor.b) < 1e-5, 'Entire raccoon eye must sit on dark mask geometry');
+      }
+    }
     assert(Boolean(group.getObjectByName('outline')) === (quality === 'high'));
     for (const pose of characterPoses) {
       assert(poseLabels[pose].vi && poseLabels[pose].en);
       const frame = samplePose(pose, 2, phaseForSeat(code));
+      for (const point of [...features.eyes, ...features.cheeks, ...features.ears]) {
+        // Every pose transforms both sides with the same rigid frame; test in
+        // face-local coordinates so a deliberate whole-head tilt stays valid.
+        assert(point.every(Number.isFinite), `${code}/${pose}: finite anchors`);
+      }
       group.getObjectByName('eyes-open').visible = !frame.closed; group.getObjectByName('eyes-closed').visible = frame.closed;
       const effects = group.getObjectByName('effects'); effects.visible = frame.effect !== null;
       effects.children.forEach(mark => { mark.visible = mark.name === frame.effect || (frame.effect === '✦' && mark.name === 'sparkle-2'); });
+      effects.children.forEach(mark => {
+        assert(mark.position.x > 0 && mark.position.y - mark.scale.y / 2 - 0.025 > bounds.max.y, `${code}/${pose}: bubble/sparkle must clear the head above-right`);
+      });
       let calls = 0; let triangles = 0;
       group.traverseVisible(object => {
         if (!object.isMesh && !object.isSprite) return;

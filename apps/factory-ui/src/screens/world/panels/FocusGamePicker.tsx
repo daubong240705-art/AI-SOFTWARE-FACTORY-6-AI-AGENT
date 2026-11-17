@@ -17,10 +17,9 @@ export function FocusGamePicker({ games, focusProjectId, onFocusGame, locale = '
     const next = games[(Math.max(0, index) + direction + games.length) % games.length];
     if (next) onFocusGame(next.projectId);
   };
-  return <div className={className} role="group" aria-label={labels.focus}
-    style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: '"Inter Variable", sans-serif' }}>
+  return <div className={className} role="group" aria-label={labels.focus}>
     <button type="button" aria-label={labels.previous} disabled={games.length < 2} onClick={() => move(-1)}>◀</button>
-    <span aria-live="polite" title={focus?.name} style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{focus?.name ?? labels.empty}</span>
+    <span aria-live="polite" title={focus?.name}>{focus?.name ?? labels.empty}</span>
     <button type="button" aria-label={labels.next} disabled={games.length < 2} onClick={() => move(1)}>▶</button>
   </div>;
 }

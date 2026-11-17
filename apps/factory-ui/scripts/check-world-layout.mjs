@@ -10,7 +10,7 @@ try {
   const { layout, navigationAnchors, pathBetween, intersectsFootprint } = await import(url(graphSource));
   assert.equal(layout.blockedEdges, 0);
   assert.ok(Object.isFrozen(layout) && Object.isFrozen(layout.nodes) && Object.isFrozen(layout.nodes[0].position));
-  const { environmentModel, furnitureFootprints, portalBooths, playerSpawnRing, desks, ownerDesk, productionPods, walkwayLanes } = await import(zonesUrl);
+  const { environmentModel, furnitureFootprints, portalBooths, playerSpawnRing, desks, ownerDesk, productionPods, walkwayLanes, desktopHeight, displayFrames } = await import(zonesUrl);
   const model = environmentModel();
   // Seats stay axial; primary screens turn toward the isometric camera.
   const axial = yaw => Math.abs(yaw / (Math.PI / 2) - Math.round(yaw / (Math.PI / 2))) < 1e-8;
@@ -25,6 +25,28 @@ try {
     assert.ok(model.parts.some(part => part.position[0] === desk.monitor[0] && part.position[1] === 1.08 && part.position[2] === desk.monitor[1] && part.yaw === primary.yaw), 'Screen and monitor housing must share their angle');
     assert.equal(side?.yaw, Math.PI / 2, `${desk.id}: secondary faces both seat and +x camera`);
     assert.ok(primary.position[1] + primary.height / 2 < 1.3 && side.position[1] + side.height / 2 < 1.3, 'Low monitors must leave heads visible');
+    const [x, z] = desk.position;
+    // Props must touch the actual top surface, including keyboard keys on their
+    // base and the mouse on its pad; a world-space offset alone is insufficient.
+    const grounded = (px, pz, width, height, surface = desktopHeight) => {
+      const part = model.parts.find(p => Math.abs(p.position[0] - px) < 1e-8 && Math.abs(p.position[2] - pz) < 1e-8 && Math.abs(p.scale[0] - width) < 1e-8 && Math.abs(p.scale[1] - height) < 1e-8);
+      assert.ok(part, `${desk.id}: missing desktop prop`);
+      assert.ok(Math.abs(part.position[1] - part.scale[1] / 2 - surface) < 1e-8, `${desk.id}: floating or sunken desktop prop`);
+    };
+    grounded(desk.monitor[0], desk.monitor[1], 0.34, 0.035);
+    grounded(desk.monitor[0], desk.monitor[1], 0.09, 0.14);
+    grounded(desk.sideMonitor[0], desk.sideMonitor[1], 0.1, 0.12);
+    grounded(x + 0.05, z - 0.23, 0.6, 0.035);
+    grounded(x - 0.18, z - 0.29, 0.053, 0.014, desktopHeight + 0.035);
+    grounded(x + 0.52, z - 0.22, 0.25, 0.02);
+    grounded(x + 0.52, z - 0.22, 0.11, 0.07, desktopHeight + 0.02);
+    grounded(x + 0.65, z + 0.23, 0.17, 0.03);
+    grounded(x - 0.34, z + 0.28, 0.13, 0.17);
+  }
+  for (const frame of displayFrames) {
+    const [x, z] = frame.position, nx = Math.sin(frame.yaw), nz = Math.cos(frame.yaw);
+    const plate = model.labels.find(p => Math.abs(p.position[0] - (x + nx * 0.275)) < 1e-8 && Math.abs(p.position[2] - (z + nz * 0.275)) < 1e-8 && p.position[1] === 0.67);
+    assert.equal(plate?.yaw, frame.yaw, `${frame.id}: centred, straight nameplate`);
   }
   for (const part of model.parts) {
     // The exterior connecting path follows the original Portal route; furniture stays axial.

@@ -16,6 +16,7 @@ export type AgentPositions = MutableRefObject<Map<string, Point>>;
 export type AgentHover = { seatId: string; x: number; y: number } | null;
 type Placement = { pose: WorldAgent['pose']; anchor: string; position: [number, number, number]; trip: HopMotion | null; started: number; pending: string; since: number };
 const ignore = () => {};
+const nameTagHeight = 1.9; // Clears the above-right pose bubbles while remaining centred on the rig.
 const lampColor = { working: '#E0A458', waiting: '#F2B8A9', problem: '#F05252', done: '#82BF91', queued: '#4A3B2F', idle: '#4A3B2F' };
 function NameTag({ name, register }: { name: string; register: (sprite: THREE.Sprite | null) => void }) {
   const [texture, setTexture] = useState<THREE.CanvasTexture | null>(null);
@@ -33,7 +34,7 @@ function NameTag({ name, register }: { name: string; register: (sprite: THREE.Sp
     draw(); void document.fonts.load('600 36px "Inter Variable"').then(draw);
     return () => { alive = false; current?.dispose(); };
   }, [name, invalidate]);
-  return texture ? <sprite ref={register} position={[0, 1.65, 0]} scale={[2, 0.375, 1]} raycast={ignore}><spriteMaterial map={texture} transparent depthWrite={false} /></sprite> : null;
+  return texture ? <sprite ref={register} position={[0, nameTagHeight, 0]} scale={[2, 0.375, 1]} raycast={ignore}><spriteMaterial map={texture} transparent depthWrite={false} /></sprite> : null;
 }
 function Feedback({ agent, still }: { agent: WorldAgent; still: boolean }) {
   const desk = deskForAgent(agent)!; const bar = useRef<THREE.Mesh>(null); const motion = useWorldMotion();
@@ -181,7 +182,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
     for (const agent of [...agents].filter(a => !a.overflow && (camera.zoom >= 40 || a.seatId === hovered || a.seatId === selected || a.needsYou.length)).sort((a, b) => priority(b) - priority(a) || a.seatId.localeCompare(b.seatId))) {
       if (accepted.size >= 8) break;
       const group = groups.current.get(agent.seatId); if (!group) continue;
-      const projected = group.position.clone().add(new THREE.Vector3(0, 1.65 * group.scale.y, 0)).project(camera);
+      const projected = group.position.clone().add(new THREE.Vector3(0, nameTagHeight * group.scale.y, 0)).project(camera);
       const x = (projected.x + 1) * size.width / 2, y = (1 - projected.y) * size.height / 2;
       const w = 2 * camera.zoom + 8, h = 0.375 * camera.zoom * Math.abs(group.scale.y) + 6;
       if (hidden || projected.z < -1 || projected.z > 1 || x - w / 2 < 0 || x + w / 2 > size.width || y - h / 2 < 0 || y + h / 2 > size.height) continue;

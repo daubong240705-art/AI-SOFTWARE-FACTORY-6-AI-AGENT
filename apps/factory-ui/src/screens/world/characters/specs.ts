@@ -1,4 +1,4 @@
-import { artCode, type ArtCode } from '../../../components/mascot/OriginalMascot';
+import { mascotCodeForSeat, type ArtCode } from '../../../components/mascot/OriginalMascot';
 import { seatHash } from '../../../components/mascot/skins';
 import type { CharacterSpec } from './spec';
 
@@ -18,6 +18,6 @@ export const characterSpecs: Record<ArtCode, CharacterSpec> = {
 };
 export const characterCodes: ArtCode[] = ['LEAD', 'PM', 'BA', 'FE', 'BE', 'DEVOPS', 'TEST', 'MINT', 'PLUM'];
 export function specForSeat(name: string, isLead = false): CharacterSpec {
-  const code = isLead ? 'LEAD' : artCode(name, seatHash(name));
+  const code = mascotCodeForSeat(name, seatHash(name), isLead);
   return characterSpecs[code];
 }

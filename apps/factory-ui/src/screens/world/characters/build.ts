@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { characterResources, disposeCharacterResources, glyphMesh, glyphSprite, sharedMaterialCount, subscribeAtlas } from './resources';
 import type { CharacterSpec } from './spec';
+import { characterFeatures, faceSurface, hasFacePatch } from './features';
 import type { WorldQuality } from '../scene/quality';
 
 type Vec3 = [number, number, number];
@@ -33,60 +34,119 @@ function combine(parts: THREE.BufferGeometry[]) {
   if (!merged) throw new Error('Character primitive geometry could not be merged');
   merged.computeBoundingSphere(); return merged;
 }
+/** Subdivide and project paint/frame vertices onto the same curved face as the eyes. */
+function paintFace(out: THREE.BufferGeometry[], spec: CharacterSpec, shape: THREE.Shape, color: string, lift = 0.009) {
+  const geometry = new THREE.ShapeGeometry(shape, 24);
+  const projected: number[] = [];
+  const p = geometry.getAttribute('position'); const indices = geometry.index!;
+  const vertex = (a: THREE.Vector2) => projected.push(a.x, a.y, faceSurface(spec, a.x, a.y) + lift);
+  // Bound the longest edge before projecting. A large, flat triangle would cut
+  // through the curved head, producing missing patches despite valid vertices.
+  const triangle = (a: THREE.Vector2, b: THREE.Vector2, c: THREE.Vector2) => {
+    const ab = a.distanceToSquared(b), bc = b.distanceToSquared(c), ca = c.distanceToSquared(a);
+    if (Math.max(ab, bc, ca) <= 0.04 ** 2) { vertex(a); vertex(b); vertex(c); return; }
+    if (ab >= bc && ab >= ca) {
+      const mid = a.clone().add(b).multiplyScalar(0.5); triangle(a, mid, c); triangle(mid, b, c);
+    } else if (bc >= ca) {
+      const mid = b.clone().add(c).multiplyScalar(0.5); triangle(a, b, mid); triangle(a, mid, c);
+    } else {
+      const mid = c.clone().add(a).multiplyScalar(0.5); triangle(a, b, mid); triangle(mid, b, c);
+    }
+  };
+  for (let i = 0; i < indices.count; i += 3) {
+    const v = (index: number) => new THREE.Vector2(p.getX(indices.getX(index)), p.getY(indices.getX(index)));
+    triangle(v(i), v(i + 1), v(i + 2));
+  }
+  geometry.dispose();
+  const painted = new THREE.BufferGeometry(); painted.setAttribute('position', new THREE.Float32BufferAttribute(projected, 3));
+  painted.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(projected.length / 3 * 2), 2)); painted.computeVertexNormals();
+  part(out, painted, color, [0, 0, 0]);
+}
+function roundedRect(path: THREE.Path, x: number, y: number, width: number, height: number, r: number) {
+  const l = x - width / 2, b = y - height / 2, h = y + height / 2, right = x + width / 2;
+  path.moveTo(l + r, b); path.lineTo(right - r, b); path.quadraticCurveTo(right, b, right, b + r);
+  path.lineTo(right, h - r); path.quadraticCurveTo(right, h, right - r, h);
+  path.lineTo(l + r, h); path.quadraticCurveTo(l, h, l, h - r);
+  path.lineTo(l, b + r); path.quadraticCurveTo(l, b, l + r, b); path.closePath();
+}
 function ears(spec: CharacterSpec, parts: Parts) {
   const { colors: c } = spec; const out = parts.solid;
+  const features = characterFeatures(spec);
   if (spec.ears === 'none') return;
   if (spec.ears === 'crest') {
-    for (let i = 0; i < 3; i += 1) silhouette(parts, sphere(out, i === 1 ? c.body : c.accent, [(i - 1) * 0.065, 0.91 + (i === 1 ? 0.025 : 0), -0.02], [0.067, 0.13, 0.07], [0, 0, -0.35 + i * 0.2]));
+    for (const [x, y, z] of features.ears) silhouette(parts, sphere(out, c.body, [x, y, z - 0.02], [0.067, 0.1, 0.07], [0, 0, -Math.sign(x) * 0.15]));
+    silhouette(parts, sphere(out, c.body, [0, 0.935, -0.02], [0.075, 0.13, 0.07]));
     return;
   }
   for (const side of [-1, 1]) {
-    const x = side * (spec.ears === 'long' ? 0.19 : 0.35);
+    const [x, y] = features.ears[side < 0 ? 0 : 1]!;
     if (spec.ears === 'round') {
-      silhouette(parts, sphere(out, c.body, [x, 0.79, 0], [0.155, 0.16, 0.12]));
-      sphere(out, c.accent, [x, 0.8, 0.1], [0.091, 0.09, 0.035]);
+      silhouette(parts, sphere(out, c.body, [x, y, 0], [0.155, 0.16, 0.12]));
+      sphere(out, c.accent, [x, y + 0.01, 0.1], [0.091, 0.09, 0.035]);
     } else if (spec.ears === 'long') {
-      silhouette(parts, part(out, new THREE.CapsuleGeometry(0.08, 0.26, 6, 12), c.body, [x, 0.91, 0], [1, 1, 0.8], [0, 0, side * -0.12]));
-      part(out, new THREE.CapsuleGeometry(0.039, 0.23, 6, 10), c.inner, [x, 0.92, 0.062], [1, 1, 0.35], [0, 0, side * -0.12]);
+      silhouette(parts, part(out, new THREE.CapsuleGeometry(0.08, 0.26, 6, 12), c.body, [x, y, 0], [1, 1, 0.8], [0, 0, side * -0.12]));
+      part(out, new THREE.CapsuleGeometry(0.039, 0.23, 6, 10), c.inner, [x, y + 0.01, 0.062], [1, 1, 0.35], [0, 0, side * -0.12]);
     } else {
       const earBody = spec.code === 'DEVOPS' ? c.inner : c.body;
-      silhouette(parts, part(out, new THREE.ConeGeometry(0.17, 0.35, 16), earBody, [x, 0.83, 0], [1, 1, 0.65], [0, 0, -side * 0.18]));
-      part(out, new THREE.ConeGeometry(0.105, 0.23, 16), spec.face.mask ?? c.inner, [x, 0.83, 0.074], [1, 1, 0.25], [0, 0, -side * 0.18]);
+      silhouette(parts, part(out, new THREE.ConeGeometry(0.17, 0.35, 16), earBody, [x, y, 0], [1, 1, 0.65], [0, 0, -side * 0.18]));
+      part(out, new THREE.ConeGeometry(0.105, 0.23, 16), spec.face.mask ?? c.inner, [x, y, 0.074], [1, 1, 0.25], [0, 0, -side * 0.18]);
     }
   }
 }
 function face(spec: CharacterSpec, parts: Parts) {
   const { colors: c, face: f } = spec; const out = parts.solid;
-  const patch = c.belly !== c.body || Boolean(f.mask);
-  const eyeZ = patch ? 0.489 : 0.419;
+  const features = characterFeatures(spec);
   // The patch follows the blob surface: its upper edge sits behind the eyes, its lower edge is a broad belly.
-  if (patch) {
+  if (hasFacePatch(spec)) {
     sphere(out, c.belly, [0, 0.4, 0.17], [0.46, 0.345, 0.284]);
     for (const x of [-0.21, 0.21]) sphere(out, c.belly, [x, 0.52, 0.23], [0.22, 0.22, 0.245]);
   }
   if (f.mask) {
-    for (const x of [-0.19, 0.19]) sphere(out, f.mask, [x, 0.56, 0.346], [0.255, 0.136, 0.13], [0, 0, x < 0 ? -0.19 : 0.19]);
+    // Grey forehead, pale lower muzzle, and a pale brow stripe above the mask.
+    const muzzle = new THREE.Shape();
+    muzzle.moveTo(-0.51, 0.45); muzzle.quadraticCurveTo(0, 0.75, 0.51, 0.45);
+    muzzle.quadraticCurveTo(0.5, 0.1, 0.28, 0.06); muzzle.lineTo(-0.28, 0.06);
+    muzzle.quadraticCurveTo(-0.5, 0.1, -0.51, 0.45);
+    paintFace(out, spec, muzzle, c.body, 0.003);
+    const brow = new THREE.Shape();
+    brow.moveTo(-0.43, 0.61); brow.quadraticCurveTo(0, 0.88, 0.43, 0.61);
+    brow.quadraticCurveTo(0, 0.76, -0.43, 0.61);
+    paintFace(out, spec, brow, c.body, 0.003);
+    // A connected, wide double-lobed band painted onto the curved face. The
+    // previous pair of bulging spheres left eyes detached in a three-quarter view.
+    const band = new THREE.Shape();
+    band.moveTo(-0.47, 0.51);
+    band.bezierCurveTo(-0.47, 0.62, -0.25, 0.72, -0.08, 0.61);
+    band.quadraticCurveTo(0, 0.55, 0.08, 0.61);
+    band.bezierCurveTo(0.25, 0.72, 0.47, 0.62, 0.47, 0.51);
+    band.bezierCurveTo(0.47, 0.38, 0.25, 0.35, 0.08, 0.43);
+    band.quadraticCurveTo(0, 0.49, -0.08, 0.43);
+    band.bezierCurveTo(-0.25, 0.35, -0.47, 0.38, -0.47, 0.51);
+    paintFace(out, spec, band, f.mask);
   }
-  for (const side of [-1, 1]) {
-    const x = side * 0.145;
-    sphere(parts.open, c.outline, [x, 0.55, eyeZ], [0.035, 0.074, 0.014]);
-    sphere(parts.open, '#FBFBFB', [x - 0.009, 0.578, eyeZ + 0.013], [0.009, 0.014, 0.005]);
-    part(parts.closed, new THREE.TorusGeometry(0.043, 0.009, 5, 12, Math.PI), c.outline, [x, 0.548, eyeZ + 0.003], [1, 0.6, 0.5], [0, 0, Math.PI]);
-    if (f.cheeks) sphere(out, c.cheek, [side * 0.31, 0.408, 0.366], [0.082, 0.044, 0.019], [0, side * 0.42, 0]);
-    if (f.brows) rod(out, c.outline, [x - 0.065, side < 0 ? 0.69 : 0.655, 0.338], [x + 0.065, side < 0 ? 0.655 : 0.69, 0.338], 0.014);
-    if (f.whiskers) for (const dy of [-0.045, 0.045]) rod(out, f.whiskers, [side * 0.39, 0.414 + dy, 0.37], [side * 0.58, 0.414 + dy * 1.6, 0.33], 0.012);
+  for (const [x, y, z] of features.eyes) {
+    const side = Math.sign(x);
+    sphere(parts.open, c.outline, [x, y, z], [0.044, 0.078, 0.018], [0, side * 0.2, 0]);
+    part(parts.closed, new THREE.TorusGeometry(0.043, 0.009, 5, 12, Math.PI), c.outline, [x, y, z + 0.003], [1, 0.6, 0.5], [0, side * 0.2, Math.PI]);
+    if (f.brows) rod(out, c.outline, [x - 0.05, y + (side < 0 ? 0.155 : 0.12), faceSurface(spec, x - 0.05, y + 0.14) + 0.014], [x + 0.05, y + (side < 0 ? 0.12 : 0.155), faceSurface(spec, x + 0.05, y + 0.14) + 0.014], 0.018);
+    if (f.whiskers) for (const dy of [-0.045, 0.045]) rod(out, f.whiskers, [side * 0.39, 0.414 + dy, faceSurface(spec, 0.39, 0.414 + dy) + 0.01], [side * 0.58, 0.414 + dy * 1.6, 0.33], 0.012);
   }
-  if (f.beak) part(out, new THREE.ConeGeometry(0.038, 0.074, 4), f.beak, [0, 0.438, 0.49], [1, 1, 1], [Math.PI / 2, 0, 0]);
-  else ring(out, c.outline, [0, 0.411, patch ? 0.467 : 0.438], 0.027, 0.007, [0, 0, Math.PI], Math.PI);
+  for (const [x, y, z] of features.cheeks) sphere(out, c.cheek, [x, y, z], [0.078, 0.045, 0.018], [0, Math.sign(x) * 0.5, 0]);
+  if (f.mask) sphere(out, c.outline, features.nose, [0.035, 0.022, 0.018]);
+  else if (f.beak) part(out, new THREE.ConeGeometry(0.038, 0.074, 4), f.beak, [0, 0.438, 0.49], [1, 1, 1], [Math.PI / 2, 0, 0]);
 }
 function accessories(spec: CharacterSpec, parts: Parts) {
   const { colors: c } = spec; const out = parts.solid;
+  const features = characterFeatures(spec);
   for (const accessory of spec.accessories) {
     switch (accessory) {
-      case 'crown':
-        silhouette(parts, part(out, new THREE.CylinderGeometry(0.17, 0.155, 0.065, 20), c.accent, [0, 0.899, 0]));
-        for (let i = 0; i < 5; i += 1) { const angle = i * Math.PI * 2 / 5; silhouette(parts, part(out, new THREE.ConeGeometry(0.048, 0.16, 8), c.accent, [Math.sin(angle) * 0.13, 0.995, Math.cos(angle) * 0.13])); }
+      case 'crown': {
+        const crown = new THREE.Shape();
+        crown.moveTo(-0.15, 0.82); crown.lineTo(-0.19, 1.0); crown.lineTo(-0.085, 0.95);
+        crown.lineTo(0, 1.055); crown.lineTo(0.085, 0.95); crown.lineTo(0.19, 1.0); crown.lineTo(0.15, 0.82); crown.closePath();
+        silhouette(parts, part(out, new THREE.ExtrudeGeometry(crown, { depth: 0.1, bevelEnabled: true, bevelSize: 0.012, bevelThickness: 0.012, bevelSegments: 2, steps: 1 }), c.accent, [0, 0, -0.05]));
         break;
+      }
       case 'headset': {
         silhouette(parts, part(out, new THREE.TorusGeometry(0.535, 0.028, 6, 28, Math.PI), c.dark, [0, 0.4, 0], [1, 0.82, 1]));
         const side = spec.code === 'LEAD' ? 1 : -1;
@@ -96,18 +156,22 @@ function accessories(spec: CharacterSpec, parts: Parts) {
         sphere(out, c.dark, [side * 0.16, 0.26, 0.48], [0.053, 0.027, 0.025]); break;
       }
       case 'glasses':
-        for (const x of [-0.16, 0.16]) ring(out, c.outline, [x, 0.546, 0.5], 0.12, 0.018);
-        rod(out, c.outline, [-0.04, 0.56, 0.5], [0.04, 0.56, 0.5], 0.013);
-        for (const side of [-1, 1]) rod(out, c.outline, [side * 0.28, 0.57, 0.49], [side * 0.46, 0.6, 0.25], 0.012);
+        for (const [x, y] of features.eyes) {
+          const frame = new THREE.Shape(); roundedRect(frame, x, y, 0.25, 0.23, 0.065);
+          const lens = new THREE.Path(); roundedRect(lens, x, y, 0.20, 0.18, 0.04); frame.holes.push(lens);
+          paintFace(out, spec, frame, c.outline, 0.02);
+        }
+        rod(out, c.outline, [-0.02, 0.48, 0.449], [0.02, 0.48, 0.449], 0.015);
+        for (const side of [-1, 1]) rod(out, c.outline, [side * 0.25, 0.51, faceSurface(spec, 0.25, 0.51) + 0.02], [side * 0.46, 0.54, faceSurface(spec, 0.46, 0.54) + 0.01], 0.012);
         break;
       case 'laptop':
-        silhouette(parts, box(out, '#3A3F59', [0.06, 0.084, 0.5], [0.58, 0.048, 0.23]));
-        silhouette(parts, box(out, '#3A3F59', [0.06, 0.24, 0.548], [0.53, 0.31, 0.046], [-0.12, 0, 0]));
+        silhouette(parts, box(out, '#3A3F59', [0.06, 0.084, 0.5], [0.73, 0.048, 0.23]));
+        silhouette(parts, box(out, '#3A3F59', [0.06, 0.24, 0.548], [0.68, 0.31, 0.046], [-0.12, 0, 0]));
         break;
       case 'brush':
-        silhouette(parts, rod(out, '#D48C62', [0.3, 0.1, 0.41], [0.57, 0.4, 0.43], 0.022));
-        rod(out, '#EDEEF3', [0.48, 0.3, 0.425], [0.57, 0.4, 0.43], 0.03);
-        silhouette(parts, sphere(out, '#FA7298', [0.59, 0.45, 0.43], [0.047, 0.1, 0.031], [0, 0, -0.45]));
+        silhouette(parts, rod(out, '#D48C62', [0.29, 0.1, 0.44], [0.53, 0.4, 0.46], 0.042));
+        rod(out, '#EDEEF3', [0.45, 0.3, 0.455], [0.53, 0.4, 0.46], 0.05);
+        silhouette(parts, sphere(out, '#FA7298', [0.55, 0.46, 0.46], [0.09, 0.11, 0.055], [0, 0, -0.45]));
         break;
       case 'gear': {
         const center: Vec3 = [0.45, 0.245, 0.44];
@@ -116,10 +180,10 @@ function accessories(spec: CharacterSpec, parts: Parts) {
         break;
       }
       case 'magnifier':
-        silhouette(parts, ring(out, c.accent, [0.45, 0.44, 0.48], 0.142, 0.028));
-        sphere(out, c.inner, [0.45, 0.44, 0.478], [0.116, 0.116, 0.012]);
-        rod(out, '#FBFBFB', [0.39, 0.46, 0.493], [0.43, 0.51, 0.493], 0.009);
-        silhouette(parts, rod(out, c.accent, [0.51, 0.31, 0.48], [0.59, 0.14, 0.48], 0.032));
+        silhouette(parts, ring(out, c.accent, [0.45, 0.44, 0.48], 0.18, 0.035));
+        sphere(out, c.inner, [0.45, 0.44, 0.478], [0.15, 0.15, 0.012]);
+        rod(out, '#FBFBFB', [0.37, 0.46, 0.493], [0.43, 0.53, 0.493], 0.012);
+        silhouette(parts, rod(out, '#424965', [0.45, 0.25, 0.48], [0.43, 0.12, 0.48], 0.045));
         break;
     }
   }
@@ -150,8 +214,8 @@ export function buildCharacter(spec: CharacterSpec, quality: WorldQuality = 'hig
   const effects = new THREE.Group(); effects.name = 'effects'; effects.visible = false;
   for (const [index, glyph] of ['…', '!', '✦', '☁ ×', 'Zzz'].entries()) {
     const sprite = glyphSprite(glyph, glyph === '✦' ? 0.27 : 0.55, glyph === '✦' ? 0.27 : 0.25);
-    sprite.name = glyph; sprite.position.set(0.12, 1.25, 0); sprite.visible = false; effects.add(sprite);
-    if (index === 2 && quality === 'high') { const second = glyphSprite(glyph, 0.18, 0.18); second.name = 'sparkle-2'; second.position.set(-0.4, 0.95, 0); second.visible = false; effects.add(second); }
+    sprite.name = glyph; sprite.position.set(...characterFeatures(spec).effect); sprite.visible = false; effects.add(sprite);
+    if (index === 2 && quality === 'high') { const second = glyphSprite(glyph, 0.18, 0.18); second.name = 'sparkle-2'; second.position.set(...characterFeatures(spec).sparkle); second.visible = false; effects.add(second); }
   }
   group.add(effects); return group;
 }
