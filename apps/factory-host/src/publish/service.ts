@@ -15,6 +15,7 @@ import { startProcess, type RunHandle, type RunResult } from "../exec/process-gr
 import { buildSafeEnv, scrubForLog } from "../exec/safe-env.js";
 import { assertInside, checkedDirectory } from "../workspace/paths.js";
 import { INTEGRATION_BRANCH } from "../workspace/integration.js";
+import { createThumbnailLoader, type ReleaseThumbnail } from "./thumbnail.js";
 
 export interface PortalConfig { url: string; token: string; publicUrl: string }
 
@@ -82,6 +83,7 @@ export function createPublishService(deps: {
   const portal = deps.portal ?? null;
   const fetchImpl = deps.fetchImpl ?? fetch;
   const queues = new Map<string, Promise<unknown>>(), handles = new Set<RunHandle>(), requests = new Set<AbortController>();
+  const loadThumbnail = portal ? createThumbnailLoader(portal.url, fetchImpl, requests) : null;
   let stopped = false, closing: Promise<void> | undefined;
   const clean = (value: string): string => scrubForLog(value, portal ? [portal.token, portal.url, portal.publicUrl] : [])
     .replace(/https?:\/\/[^\s<>"']+/gi, "[portal-url]").replace(/\r\n?/g, "\n").replace(/[^\P{Cc}\n\t]|\p{Cf}/gu, "");
@@ -326,6 +328,17 @@ export function createPublishService(deps: {
     return params.size ? `?${params}` : "";
   };
   const service = {
+    async thumbnail(projectId: string, releaseId: string): Promise<ReleaseThumbnail> {
+      try {
+        available();
+        if (!loadThumbnail || !idSchema.safeParse(projectId).success || !idSchema.safeParse(releaseId).success)
+          throw new Error();
+        const row = rowOf(projectId, releaseId);
+        if (!row || row.kind !== "publish" || row.state !== "done" || !portalGameIdSchema.safeParse(row.game_id).success
+          || row.version === null || !Number.isSafeInteger(row.version) || row.version <= 0) throw new Error();
+        return await loadThumbnail(row.game_id, row.version);
+      } catch { throw new ReleaseError("not-found"); }
+    },
     listGames: () => remote("/api/publish/games", portalGamesResponseSchema),
     setEnabled: (gameId: string, enabled: boolean) => remote(`/api/publish/games/${portalGameIdSchema.parse(gameId)}/enabled`, portalEnableResponseSchema, { enabled }),
     stats: (query: z.input<typeof portalStatsQuerySchema> = {}) => remote(`/api/publish/stats${queryString(portalStatsQuerySchema.parse(query))}`, portalStatsResponseSchema),

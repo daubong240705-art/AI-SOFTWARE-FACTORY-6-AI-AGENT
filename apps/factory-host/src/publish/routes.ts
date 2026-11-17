@@ -18,6 +18,17 @@ export function registerPublishRoutes(app: FastifyInstance, guards: ApiGuards, s
       try { return await service.list(request.params.projectId, request.query.log === "1"); }
       catch (error) { return failed(reply, error); }
     });
+  app.get<{ Params: { projectId: string; releaseId: string } }>("/projects/:projectId/releases/:releaseId/thumbnail",
+    { preHandler: guards.session }, async (request, reply) => {
+      try {
+        const thumbnail = await service.thumbnail(request.params.projectId, request.params.releaseId);
+        return reply.code(200).type(thumbnail.type)
+          .header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+          .header("X-Content-Type-Options", "nosniff")
+          .header("Cache-Control", "private, max-age=300")
+          .header("Content-Disposition", "inline").send(thumbnail.bytes);
+      } catch { return failed(reply, new ReleaseError("not-found")); }
+    });
   app.post<{ Params: { projectId: string } }>("/projects/:projectId/publish", { preHandler: guards.write }, async (request, reply) => {
     try { return reply.code(202).send({ apiVersion: API_VERSION, ok: true, release: await service.publish(request.params.projectId) }); }
     catch (error) { return failed(reply, error); }

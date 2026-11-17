@@ -90,7 +90,10 @@ export function createApiServer(options: ApiServerOptions): FastifyInstance {
   app.addHook("onRequest", async (request, reply) => checkRequest(request, reply));
 
   app.addHook("onSend", async (request, reply, payload) => {
+    const thumbnail = request.routeOptions.url === "/projects/:projectId/releases/:releaseId/thumbnail"
+      && reply.statusCode === 200 && reply.getHeader("Cache-Control") === "private, max-age=300";
     securityHeaders(reply);
+    if (thumbnail) reply.header("Cache-Control", "private, max-age=300");
     if (isPreviewPath(request.raw.url)) reply.headers(previewHeaders);
     return payload;
   });
