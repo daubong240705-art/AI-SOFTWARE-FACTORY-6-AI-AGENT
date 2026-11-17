@@ -5,7 +5,7 @@ import { normalizePlan, parseLenientJson } from "./normalize-plan.js";
 export interface LeadCsv { fileName: string; text: string }
 export const leadGameSchema = z.strictObject({
   mode: z.enum(["create", "update", "fix", "improve"]),
-  request: z.string().min(1).max(500),
+  request: z.string().min(1).max(4000),
   touchRules: z.boolean().default(true),
   touchUi: z.boolean().default(true),
   stages: z.array(z.enum(["design", "rules", "art", "client"])).optional(),

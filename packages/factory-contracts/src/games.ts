@@ -8,7 +8,7 @@ const gameIdSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{1,39}$/);
 export const newGameRequestSchema = z.strictObject({
   name: z.string().min(2).max(60),
   gameId: gameIdSchema,
-  request: z.string().min(1).max(500),
+  request: z.string().min(1).max(4000),
 });
 export type NewGameRequest = z.infer<typeof newGameRequestSchema>;
 

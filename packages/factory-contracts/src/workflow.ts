@@ -4,7 +4,7 @@ import { artifactKindSchema, artifactStatusSchema } from "./knowledge.js";
 
 export const workflowKeySchema = z.string().regex(/^[a-z0-9][a-z0-9-]{1,39}$/);
 const parameterName = z.string().regex(/^[a-zA-Z][a-zA-Z0-9]{0,39}$/);
-const scalar = z.union([z.boolean(), z.string().max(500), z.number().finite()]);
+const scalar = z.union([z.boolean(), z.string().max(4000), z.number().finite()]);
 export type WorkflowValue = z.infer<typeof scalar>;
 export type Condition =
   | { param: string; op: "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in"; value: WorkflowValue | WorkflowValue[] }

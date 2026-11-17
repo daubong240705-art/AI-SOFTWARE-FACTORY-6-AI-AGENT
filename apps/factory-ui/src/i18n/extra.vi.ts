@@ -39,7 +39,7 @@ export const extra: Translated<typeof en> = {
     requestPlaceholder: 'Game caro (gomoku) online 2 người chơi, có bot, phong cách chibi dễ thương, chơi đẹp trên điện thoại',
     idPattern: '2–40 chữ cái thường không dấu, chữ số hoặc dấu gạch ngang; bắt đầu bằng chữ cái hoặc chữ số. Mẫu: [a-z0-9][a-z0-9-]{1,39}',
     nameValidation: 'Nhập tên game từ 2 đến 60 ký tự.', idValidation: 'Dùng 2–40 chữ cái thường không dấu, chữ số hoặc dấu gạch ngang; bắt đầu bằng chữ cái hoặc chữ số.',
-    requestValidation: 'Mô tả game trong 1–500 ký tự.',
+    requestValidation: 'Mô tả game trong 1–4000 ký tự.',
     exists: 'Đã có game dùng mã này.', creationDisabled: 'Host này chưa bật tính năng tạo game mới (cần đặt FACTORY_GAME_STARTER_DIR).',
     createError: 'Không tạo được game. Vui lòng thử lại.', creating: 'Đang tạo game…',
     panelTitle: 'Game', buildStatus: 'Trạng thái xây dựng:', buildStage: 'Bước hiện tại hoặc gần nhất:',

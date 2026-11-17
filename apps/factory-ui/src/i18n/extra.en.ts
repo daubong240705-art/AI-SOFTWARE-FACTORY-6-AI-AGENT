@@ -36,7 +36,7 @@ export const extra = {
     requestPlaceholder: 'Online 2 player caro (gomoku) with a bot, cute chibi style, nice on phones',
     idPattern: '2–40 lowercase letters, digits or hyphens; start with a letter or digit. Pattern: [a-z0-9][a-z0-9-]{1,39}',
     nameValidation: 'Enter a game name with 2–60 characters.', idValidation: 'Use 2–40 lowercase letters, digits or hyphens, starting with a letter or digit.',
-    requestValidation: 'Describe your game in 1–500 characters.',
+    requestValidation: 'Describe your game in 1–4000 characters.',
     exists: 'A game with this id already exists.', creationDisabled: 'New game is not enabled on this Host (set FACTORY_GAME_STARTER_DIR).',
     createError: 'Could not create the game. Please try again.', creating: 'Creating game…',
     panelTitle: 'Game', buildStatus: 'Build status:', buildStage: 'Current or last stage:',

@@ -68,7 +68,7 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("workflows.patch", z.strictObject({ instanceId: idSchema, ...change, ...workflowPatchSchema.shape })),
   command("workflows.decide-patch", z.strictObject({ patchId: idSchema, decision: z.enum(["approve", "reject"]), comment: z.string().max(500).optional() })),
   command("workflows.create", z.strictObject({ instanceId: idSchema, definitionKey: workflowKeySchema,
-    packKey: workflowKeySchema.optional(), params: z.record(z.string(), z.union([z.boolean(), z.string().max(500), z.number().finite()])).optional(),
+    packKey: workflowKeySchema.optional(), params: z.record(z.string(), z.union([z.boolean(), z.string().max(4000), z.number().finite()])).optional(),
     title: labelSchema.optional() })),
   command("workflows.assign-stage", z.strictObject({ instanceId: idSchema, ...change, stageKey: workflowKeySchema, engagementId: idSchema.nullable() })),
   command("workflows.start", z.strictObject({ instanceId: idSchema, ...change })),

@@ -16,6 +16,8 @@ function gameSlug(name: string) {
   return slug.length >= 2 ? slug : `${slug || 'game'}-game`;
 }
 
+const REQUEST_MAX = 4000;
+
 export function NewGameDialog({ store, onClose, onCreated }: { store: Store; onClose: () => void; onCreated: (id: string) => void }) {
   const t = useT(); const id = useId();
   const [name, setName] = useState(''); const [gameId, setGameId] = useState(''); const [request, setRequest] = useState('');
@@ -63,8 +65,10 @@ export function NewGameDialog({ store, onClose, onCreated }: { store: Store; onC
           {errors.gameId && <FieldError id={`${id}-id-error`}>{t(problem === 'gameUi.exists' ? 'gameUi.exists' : 'gameUi.idValidation')}</FieldError>}
         </Field>
         <Field><FieldLabel htmlFor={`${id}-request`}>{t('gameUi.request')}</FieldLabel>
-          <Textarea id={`${id}-request`} value={request} minLength={1} maxLength={500} required className="min-h-28" placeholder={t('gameUi.requestPlaceholder')}
+          <Textarea id={`${id}-request`} value={request} minLength={1} maxLength={REQUEST_MAX} required rows={8}
+            className="min-h-40 max-h-[45vh] w-full min-w-0 max-w-full resize-y overflow-y-auto whitespace-pre-wrap break-words field-sizing-fixed wrap-anywhere" placeholder={t('gameUi.requestPlaceholder')}
             aria-invalid={!!errors.request} aria-describedby={errors.request ? `${id}-request-error` : undefined} onChange={event => setRequest(event.target.value)} />
+          <FieldDescription className="text-right tabular-nums" aria-live="polite">{request.length}/{REQUEST_MAX}</FieldDescription>
           {errors.request && <FieldError id={`${id}-request-error`}>{t('gameUi.requestValidation')}</FieldError>}
         </Field>
       </fieldset>
