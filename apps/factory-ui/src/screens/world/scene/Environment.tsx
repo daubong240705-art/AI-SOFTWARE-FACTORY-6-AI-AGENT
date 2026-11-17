@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { environmentModel, type Label, type Part } from '../layout/zones';
 import { useT, i18n } from '@/i18n';
 import { layout } from '../layout/waypoints';
+import { environmentGeometries } from './EnvironmentGeometry';
+import { makeArtwork } from './EnvironmentArt';
 
 function matrix(p: Part) {
   return new THREE.Matrix4().compose(new THREE.Vector3(...p.position), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.yaw), new THREE.Vector3(...p.scale));
@@ -19,7 +20,7 @@ function makeEnvironment() {
   const staticMaterial = new THREE.MeshToonMaterial({ color: 'white', vertexColors: true, gradientMap: gradient });
   const glass = new THREE.MeshToonMaterial({ color: 'white', transparent: true, opacity: 0.48, depthWrite: false, gradientMap: gradient });
   const screens = new THREE.MeshToonMaterial({ color: 'white', emissive: '#AFCFE6', emissiveIntensity: 0.3, gradientMap: gradient });
-  const geometries = { box: new RoundedBoxGeometry(1, 1, 1, 2, 0.08), cylinder: new THREE.CylinderGeometry(0.5, 0.5, 1, 12), sphere: new THREE.SphereGeometry(0.5, 8, 6), glass: new RoundedBoxGeometry(1, 1, 1, 2, 0.04), screen: new RoundedBoxGeometry(1, 1, 1, 2, 0.06) };
+  const geometries = environmentGeometries();
   const group = new THREE.Group();
   const staticParts = model.parts.filter(p => p.zone);
   const mergedPieces = staticParts.map(p => {
@@ -28,8 +29,9 @@ function makeEnvironment() {
     g.setAttribute('color', new THREE.BufferAttribute(colors, 3)); return g;
   });
   const merged = mergeGeometries(mergedPieces)!; mergedPieces.forEach(g => g.dispose()); group.add(new THREE.Mesh(merged, staticMaterial));
-  for (const shape of ['box', 'cylinder', 'sphere', 'screen', 'glass'] as const) {
+  for (const shape of ['box', 'detail', 'cylinder', 'sphere', 'screen', 'glass'] as const) {
     const parts = model.parts.filter(p => !p.zone && p.shape === shape); const mesh = new THREE.InstancedMesh(geometries[shape], shape === 'screen' ? screens : shape === 'glass' ? glass : toon, parts.length);
+    if (!parts.length) continue;
     parts.forEach((part, i) => { mesh.setMatrixAt(i, matrix(part)); mesh.setColorAt(i, new THREE.Color(part.color)); });
     mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere(); group.add(mesh);
@@ -42,7 +44,7 @@ function makeEnvironment() {
   const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
   model.shadows.forEach((s, i) => shadowMesh.setMatrixAt(i, new THREE.Matrix4().compose(new THREE.Vector3(s.position[0], 0.037, s.position[1]), q, new THREE.Vector3(s.size[0], s.size[1], 1))));
   shadowMesh.computeBoundingSphere(); group.add(shadowMesh);
-  return { group, labels: model.labels, dispose() { for (const g of Object.values(geometries)) g.dispose(); merged.dispose(); toon.dispose(); screens.dispose(); glass.dispose(); staticMaterial.dispose(); gradient.dispose(); shadowGeometry.dispose(); shadowMaterial.dispose(); shadowTexture.dispose(); group.traverse(o => { if (o instanceof THREE.InstancedMesh) o.dispose(); }); } };
+  return { group, labels: model.labels, artwork: model.artwork, gradient, dispose() { for (const g of Object.values(geometries)) g.dispose(); merged.dispose(); toon.dispose(); screens.dispose(); glass.dispose(); staticMaterial.dispose(); gradient.dispose(); shadowGeometry.dispose(); shadowMaterial.dispose(); shadowTexture.dispose(); group.traverse(o => { if (o instanceof THREE.InstancedMesh) o.dispose(); }); } };
 }
 async function makeLabels(labels: Label[]) {
   await document.fonts.load('600 32px "Inter Variable"');
@@ -75,6 +77,19 @@ function Labels({ labels }: { labels: Label[] }) {
   }, [labels, invalidate, locale, t]);
   return mesh ? <primitive object={mesh} /> : null;
 }
+function Artwork({ panels, gradient }: { panels: ReturnType<typeof environmentModel>['artwork']; gradient: THREE.Texture }) {
+  const [group, setGroup] = useState<THREE.Group | null>(null);
+  const invalidate = useThree(s => s.invalidate);
+  useEffect(() => {
+    let cancelled = false; let dispose: (() => void) | undefined;
+    void makeArtwork(panels, gradient).then(result => {
+      if (cancelled) result.dispose();
+      else { dispose = result.dispose; setGroup(result.group); invalidate(); }
+    });
+    return () => { cancelled = true; dispose?.(); };
+  }, [panels, gradient, invalidate]);
+  return group ? <primitive object={group} /> : null;
+}
 function GraphOverlay() {
   const [object, setObject] = useState<THREE.LineSegments | null>(null);
   const invalidate = useThree(s => s.invalidate);
@@ -97,5 +112,5 @@ export function Environment() {
     return created.dispose;
   }, [invalidate]);
   const debug = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('worldDebug') === '1';
-  return resource ? <><primitive object={resource.group} /><Labels labels={resource.labels} />{debug && <GraphOverlay />}</> : null;
+  return resource ? <><primitive object={resource.group} /><Labels labels={resource.labels} /><Artwork panels={resource.artwork} gradient={resource.gradient} />{debug && <GraphOverlay />}</> : null;
 }
