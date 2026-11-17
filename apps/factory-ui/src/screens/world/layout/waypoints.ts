@@ -27,6 +27,8 @@ export const navigationAnchors: Record<string, Point> = Object.fromEntries(Objec
   ...Object.fromEntries(meetingSpots.map((p, i) => [`table-${i}`, p])),
   ...Object.fromEntries(displayFrames.map(f => [f.id, [f.position[0] + Math.sin(f.yaw) * 1, f.position[1] + Math.cos(f.yaw) * 1] as Point])),
   counter: [16.5, 10.6],
+  coffee: [-15.95, 9],
+  window: [-17, -8.8],
   'lab-bench': [anchors.labBench[0], anchors.labBench[1] + 1],
 }).map(([id, p]) => [id, [round(p[0]!), round(p[1]!)] as Point]));
 // Build an orthogonal visibility grid only during layout construction, then retain

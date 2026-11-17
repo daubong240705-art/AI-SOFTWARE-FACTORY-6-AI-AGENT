@@ -33,7 +33,7 @@ export function deriveLabRows(games: readonly LabGame[], reports: Reports) {
   });
 }
 
-export const labScreenOrigin: readonly [number, number, number] = [anchors.labBench[0] - 0.3, 1.3, anchors.labBench[1] + 0.068];
+export const labScreenOrigin: readonly [number, number, number] = [anchors.labBench[0] - 0.3, 1.3, anchors.labBench[1] + 0.11];
 
 /** Same three-step toon ramp as Environment; shared by every monster batch material. */
 export function makeLabGradient() {
@@ -53,6 +53,8 @@ export function LabCanvasLabel({ lines, position, width, height, quality = 'high
   quality?: 'high' | 'low'; background?: string;
 }) {
   const invalidate = useThree(s => s.invalidate);
+  const linesKey = JSON.stringify(lines);
+  const stableLines = useMemo<readonly CanvasLine[]>(() => JSON.parse(linesKey), [linesKey]);
   const [mesh, setMesh] = useState<THREE.Mesh | null>(null);
   useLayoutEffect(() => {
     const canvas = document.createElement('canvas');
@@ -62,15 +64,15 @@ export function LabCanvasLabel({ lines, position, width, height, quality = 'high
     if (!ctx) return;
     const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
     const geometry = new THREE.PlaneGeometry(width, height);
-    const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
+    const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     const created = new THREE.Mesh(geometry, material);
     created.raycast = () => {};
     let active = true;
     const draw = () => {
       ctx.fillStyle = background; ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-      const rowHeight = canvas.height / Math.max(1, lines.length);
-      lines.forEach((line, index) => {
+      const rowHeight = canvas.height / Math.max(1, stableLines.length);
+      stableLines.forEach((line, index) => {
         ctx.fillStyle = line.color ?? palette.cream;
         ctx.font = `600 ${Math.min(rowHeight * 0.7, canvas.width * (line.size ?? 0.032))}px "Inter Variable"`;
         ctx.fillText(line.text, canvas.width * 0.025, rowHeight * (index + 0.5), canvas.width * 0.95);
@@ -80,15 +82,15 @@ export function LabCanvasLabel({ lines, position, width, height, quality = 'high
     draw(); setMesh(created);
     void document.fonts?.load('600 32px "Inter Variable"').then(() => { if (active) draw(); }).catch(() => {});
     return () => { active = false; geometry.dispose(); material.dispose(); texture.dispose(); };
-  }, [lines, width, height, quality, background, invalidate]);
+  }, [stableLines, width, height, quality, background, invalidate]);
   return mesh ? <primitive object={mesh} position={position} dispose={null} /> : null;
 }
 
 const verdictColors: Record<Verdict, string> = { passed: palette.mint, 'changes-requested': palette.rose, running: palette.apricot };
 
-export function TestingLab({ games, reports, scannerProjectId, quality = 'high', still = false, locale = 'vi' }: TestingLabProps) {
+export function TestingLab({ games, reports, scannerProjectId, quality = 'high', still = false }: TestingLabProps) {
   const rows = useMemo(() => deriveLabRows(games, reports), [games, reports]);
-  const copy = worldCopy[locale].lab;
+  const copy = worldCopy.en.lab;
   const lines = useMemo<CanvasLine[]>(() => {
     if (!rows.length) return [{ text: copy.testingLab }, { text: copy.noRound }];
     return rows.flatMap(row => [

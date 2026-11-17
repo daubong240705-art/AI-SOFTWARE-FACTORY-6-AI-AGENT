@@ -6,7 +6,7 @@ const tileWidth = 256, tileHeight = 160, columns = 4;
 const screens = new Set<ArtKind>(['design', 'rules', 'art', 'client', 'qa', 'lead', 'owner', 'game']);
 const accents = [palette.rose, palette.sky, palette.sage, palette.butter, palette.lavender, palette.mint];
 // All imagery is local canvas drawing: no image requests, logos, blob URLs or external fonts.
-function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string) {
+function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string, aspect = tileWidth / tileHeight) {
   const rect = (color: string, x: number, y: number, w: number, h: number) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
   const circle = (color: string, x: number, y: number, r: number) => { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
   const line = (color: string, points: number[], width = 3) => {
@@ -34,11 +34,15 @@ function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string) {
     for (let i = 0; i < 3; i++) circle(palette.butter, x + w * (0.6 + i * 0.09), y + h * 0.28, h * 0.035);
   };
   if (kind === 'sign') {
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = '600 96px "Inter Variable"';
-    ctx.fillStyle = text === 'Lazy Studio' ? palette.cream : palette.ink;
-    if (text === 'Lazy Studio') { ctx.shadowColor = palette.mint; ctx.shadowBlur = 12; }
-    ctx.fillText(text ?? '', 128, 80, 245); ctx.shadowBlur = 0; return;
+    // Compensate for the wide sign's atlas cell so letters stay proportional.
+    ctx.save();
+    const stretch = tileWidth / tileHeight / aspect;
+    ctx.scale(stretch, 1); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = '600 96px "Inter Variable"'; ctx.fillStyle = palette.ink;
+    const value = text ?? '', available = 245 / stretch;
+    const size = Math.min(96, 96 * available / Math.max(1, ctx.measureText(value).width));
+    ctx.font = `600 ${size}px "Inter Variable"`;
+    ctx.fillText(value, 128 / stretch, 80); ctx.restore(); return;
   }
   rect(screens.has(kind) ? '#293D46' : palette.cream, 0, 0, 256, 160);
   if (screens.has(kind)) {
@@ -90,7 +94,7 @@ function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string) {
       line(palette.mint, [178, 133, 192, 117, 207, 122, 221, 98, 243, 87], 4); break;
     case 'game': game(8, 25, 240, 127); break;
     case 'sticky':
-      words('Ý tưởng cùng nhau', 14, 18, 17);
+      words('Ideas together', 14, 18, 17);
       for (let col = 0; col < 3; col++) {
         line('#B9C7BC', [13 + col * 81, 39, 78 + col * 81, 39], 2);
         for (let row = 0; row < 2; row++) {
@@ -106,7 +110,7 @@ function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string) {
       for (let i = 0; i < 3; i++) { line(palette.ink, [90 + i * 29, 67 + i * 25, 102 + i * 29, 79 + i * 25]); line(palette.ink, [102 + i * 29, 67 + i * 25, 90 + i * 29, 79 + i * 25]); }
       ctx.strokeStyle = palette.rose; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(126, 73, 8, 0, Math.PI * 2); ctx.stroke(); break;
     case 'uno':
-      rect(palette.rose, 0, 0, 256, 160); words('UNO · Đổi màu!', 17, 24, 22);
+      rect(palette.rose, 0, 0, 256, 160); words('UNO · Change color!', 17, 24, 22);
       for (let i = 0; i < 4; i++) { rect(palette.cream, 33 + i * 47, 49 + i % 2 * 10, 43, 86); rect(accents[i + 1]!, 37 + i * 47, 53 + i % 2 * 10, 35, 78); words(String(i + 2), 44 + i * 47, 91 + i % 2 * 10, 27); } break;
     case 'baucua':
       rect(palette.mint, 0, 0, 256, 160); words('Bầu Cua', 18, 23, 24);
@@ -117,7 +121,7 @@ function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string) {
         circle(palette.ink, x - 5, y - 3, 2); circle(palette.ink, x + 5, y - 3, 2);
       } break;
     case 'taixiu':
-      rect(palette.lavender, 0, 0, 256, 160); words('Tài Xỉu · Xúc xắc', 15, 24, 22);
+      rect(palette.lavender, 0, 0, 256, 160); words('Tài Xỉu · Dice', 15, 24, 22);
       for (let i = 0; i < 3; i++) { const x = 28 + i * 78; rect(palette.cream, x, 64, 58, 58); for (let dot = 0; dot <= i; dot++) circle(palette.ink, x + 15 + dot * 13, 80 + dot * 13, 4); } break;
   }
 }
@@ -132,7 +136,7 @@ export async function makeArtwork(panels: ArtPanel[], gradient: THREE.Texture) {
   tiles.forEach((tile, index) => {
     lookup.set(`${tile.kind}:${tile.text ?? ''}`, index);
     ctx.save(); ctx.translate(index % columns * tileWidth, Math.floor(index / columns) * tileHeight);
-    ctx.beginPath(); ctx.rect(0, 0, tileWidth, tileHeight); ctx.clip(); drawTile(ctx, tile.kind, tile.text); ctx.restore();
+    ctx.beginPath(); ctx.rect(0, 0, tileWidth, tileHeight); ctx.clip(); drawTile(ctx, tile.kind, tile.text, tile.width / tile.height); ctx.restore();
   });
   const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4;
   // A half-texel inset prevents neighbouring atlas cells bleeding into monitor edges.
@@ -144,7 +148,7 @@ export async function makeArtwork(panels: ArtPanel[], gradient: THREE.Texture) {
     plane.rotateY(panel.yaw); plane.translate(...panel.position); return plane;
   };
   const printed = new THREE.MeshToonMaterial({ map: texture, gradientMap: gradient, alphaTest: 0.1 });
-  const emissive = new THREE.MeshToonMaterial({ map: texture, emissiveMap: texture, emissive: 'white', emissiveIntensity: 0.55, gradientMap: gradient });
+  const emissive = new THREE.MeshToonMaterial({ map: texture, emissiveMap: texture, emissive: 'white', emissiveIntensity: 0.55, gradientMap: gradient, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
   const neon = new THREE.MeshBasicMaterial({ map: texture, alphaTest: 0.1 });
   const group = new THREE.Group(), geometries: THREE.BufferGeometry[] = [];
   const batches = [panels.filter(p => !screens.has(p.kind) && p.text !== 'Lazy Studio'), panels.filter(p => screens.has(p.kind)), panels.filter(p => p.text === 'Lazy Studio')];

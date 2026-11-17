@@ -3,14 +3,15 @@ import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CharacterRig, characterStats, hopAlong, phaseForSeat, specForSeat, type HopMotion } from '../characters';
 import type { Handoff, WorldAgent } from '../data/types';
-import { anchorsForAgents, deskForAgent } from '../agentPresentation';
-import { ownerDesk, type Point } from '../layout/zones';
-import { pathBetween } from '../layout/waypoints';
+import { deskForAgent } from '../agentPresentation';
+import { ownerDesk, monitorYaw, monitorFaceOffset, type Point } from '../layout/zones';
+import { navigationAnchors, pathBetween } from '../layout/waypoints';
 import { useWorldMotion } from './Ticker';
 import type { AgentDebug, SceneDebug } from '../debugHook';
 import type { WorldQuality } from './quality';
 import type { WorldEvent } from '../data/events';
 import type { Courier } from './Studio';
+import { WanderingDirector } from './wandering';
 
 export type AgentPositions = MutableRefObject<Map<string, Point>>;
 export type AgentHover = { seatId: string; x: number; y: number } | null;
@@ -44,7 +45,7 @@ function Feedback({ agent, still }: { agent: WorldAgent; still: boolean }) {
   useFrame(() => { if (bar.current && sweep) bar.current.position.x = still ? 0 : Math.sin(performance.now() / 650) * 0.4; });
   const amount = percent === null ? 0.3 : Math.max(0, Math.min(100, percent)) / 100;
   return <group>
-    {[desk.monitor, desk.sideMonitor].map((point, index) => <mesh key={index} position={[point[0] + Math.sin(index ? Math.PI / 2 : 0.6) * 0.053, index ? 1.07 : 1.08, point[1] + Math.cos(index ? Math.PI / 2 : 0.6) * 0.053]} rotation={[0, index ? Math.PI / 2 : 0.6, 0]} raycast={ignore}>
+    {[desk.monitor, desk.sideMonitor].map((point, index) => <mesh key={index} position={[point[0] + Math.sin(monitorYaw) * (monitorFaceOffset + 0.03), index ? 1.07 : 1.08, point[1] + Math.cos(monitorYaw) * (monitorFaceOffset + 0.03)]} rotation={[0, monitorYaw, 0]} raycast={ignore}>
       <planeGeometry args={[index ? 0.56 : 0.7, index ? 0.28 : 0.32]} />
       <meshStandardMaterial color={working && (index === 0 || agent.runs.length >= 2) ? '#BDE3D2' : '#425555'} emissive="#BDE3D2" emissiveIntensity={working && (index === 0 || agent.runs.length >= 2) ? 1.1 : 0.02} />
     </mesh>)}
@@ -78,6 +79,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
   const couriers = useRef(new Map<string, { trip: HopMotion; started: number }>());
   const [courierCount, setCourierCount] = useState(0);
   const [celebrants, setCelebrants] = useState(new Set<string>());
+  const wandering = useRef(new WanderingDirector());
   const poseEvents = useRef(new Set(events.map(event => event.id)));
   const motion = useWorldMotion(); const invalidate = useThree(state => state.invalidate);
   useEffect(() => {
@@ -85,47 +87,64 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
       const allowed = new Set(agents.filter(a => !a.overflow && deskForAgent(a)).map(a => a.seatId));
       for (const id of couriers.current.keys()) if (!allowed.has(id)) couriers.current.delete(id);
       setCourierCount(couriers.current.size);
-      const now = performance.now(); const next = new Map<string, Placement>(); let waiting = false;
-      const anchors = anchorsForAgents(agents);
-      agents.filter(agent => !agent.overflow && deskForAgent(agent)).forEach(agent => {
-        const target = anchors.get(agent.seatId)!;
+      const now = performance.now(); const next = new Map<string, Placement>();
+      const drawn = agents.filter(agent => !agent.overflow && deskForAgent(agent));
+      const occupied = new Set(drawn.map(agent => deskForAgent(agent)!.id));
+      const spots = Object.entries(navigationAnchors).filter(([id]) => id.startsWith('rest-') || id.startsWith('table-') && id !== 'table-0' || id === 'coffee' || id === 'window' || occupied.has(id) && id !== 'counter').map(([id, point]) => ({ id, point }));
+      const actions = new Map(wandering.current.update(drawn.map(agent => ({ seatId: agent.seatId, idle: agent.status === 'idle', desk: deskForAgent(agent)!.seat, home: deskForAgent(agent)!.id })), spots, now, baseline && !still && !hidden, Math.max(0, (quality === 'low' ? 1 : 3) - couriers.current.size),
+        new Set([...couriers.current.keys(), ...[...current.current].filter(([, p]) => !!p.trip).map(([id]) => id)])).map(action => [action.seatId, action]));
+      drawn.forEach(agent => {
+        const desk = deskForAgent(agent)!;
         const old = current.current.get(agent.seatId);
+        const action = actions.get(agent.seatId);
         const pending = `${agent.status}:${agent.pose}`;
         const since = old?.pending === pending ? old.since : now;
-        const apply = !old || !baseline || now - since >= 1500;
+        const apply = !old || !baseline || agent.status !== 'idle' || now - since >= 1500;
         const pose = apply ? agent.pose : old.pose;
-        // Idle and resting agents remain at their assigned desk. Lounge spots are reserved for a paused lifecycle.
-        const anchor = target.id;
-        const point = target.point;
-        const position: [number, number, number] = [point[0], target.height, point[1]];
-        let trip = baseline && !still ? old?.trip ?? null : null; let started = old?.started ?? now;
-        if (old && apply && (old.pose !== pose || old.anchor !== anchor)) {
-          if (baseline && old.anchor !== anchor && !still) {
-            const route = pathBetween(old.anchor, anchor);
-            if (route.length) { const actual = groups.current.get(agent.seatId)?.position; trip = hopAlong([actual ? [actual.x, actual.y, actual.z] : old.position, ...route, position], 3.2); started = now; }
-          } else trip = null;
+        const anchor = action?.kind === 'depart' ? action.spot!.id : action || !wandering.current.wandering(agent.seatId) ? desk.id : old?.anchor ?? desk.id;
+        const point = anchor === desk.id ? desk.seat : navigationAnchors[anchor]!;
+        const position: [number, number, number] = [point[0], anchor === desk.id ? 0.57 : 0.04, point[1]];
+        let trip = baseline && !still && !hidden ? old?.trip ?? null : null; let started = old?.started ?? now;
+        // Real work interrupts leisure immediately, including a trip still on its outbound leg.
+        if (agent.status !== 'idle' && couriers.current.has(agent.seatId)) {
+          const actual = groups.current.get(agent.seatId)?.position;
+          couriers.current.delete(agent.seatId);
+          trip = baseline && !still && !hidden && actual ? hopAlong([[actual.x, actual.y, actual.z], position], 3.2) : null; started = now;
         }
-        if (!apply) waiting = true;
+        if (action && old) {
+          couriers.current.delete(agent.seatId);
+          if (action.kind === 'reset' || !baseline || still || hidden) trip = null;
+          else {
+            const actual = groups.current.get(agent.seatId)?.position;
+            const from: [number, number, number] = actual ? [actual.x, actual.y, actual.z] : old.position;
+            const route = action.urgent ? [] : pathBetween(old.anchor, anchor).map(([x, z]) => [x, 0.04, z] as [number, number, number]);
+            trip = hopAlong([from, ...route, position], 3.2); started = now;
+          }
+        }
         next.set(agent.seatId, { pose, anchor, position, trip, started, pending, since });
-        if ((!trip && !couriers.current.has(agent.seatId)) || still) positions.current.set(agent.seatId, point);
+        if ((!trip && !couriers.current.has(agent.seatId)) || still || hidden) positions.current.set(agent.seatId, point);
       });
-      current.current = next; setPlacements(next); invalidate();
-      return waiting;
+      const changed = next.size !== current.current.size || [...next].some(([id, value]) => {
+        const old = current.current.get(id);
+        return !old || old.pose !== value.pose || old.anchor !== value.anchor || old.trip !== value.trip || old.pending !== value.pending;
+      });
+      current.current = next;
+      if (changed) { setPlacements(next); invalidate(); }
     };
     update();
-    const timer = setInterval(() => { if (!update()) clearInterval(timer); }, 100);
+    const timer = setInterval(update, 250);
     return () => clearInterval(timer);
-  }, [agents, baseline, still, positions, invalidate]);
+  }, [agents, baseline, still, hidden, quality, positions, invalidate]);
   useEffect(() => { if (!hidden && !still && [...placements.values()].some(p => p.trip)) return motion.request('live'); }, [placements, hidden, still, motion]);
   useEffect(() => { if (hidden) { setHovered(null); onHover(null); } }, [hidden, onHover]);
   useEffect(() => { const ids = new Set(agents.filter(a => !a.overflow).map(a => a.seatId)); for (const id of positions.current.keys()) if (!ids.has(id)) positions.current.delete(id); }, [agents, positions]);
   useLayoutEffect(() => {
     const launch = (handoff: Handoff) => {
-      if (still || hidden || handoff.from.kind !== 'seat' || couriers.current.size >= 2) return;
+      if (still || hidden || handoff.from.kind !== 'seat' || couriers.current.size >= 1 || couriers.current.size + wandering.current.reservedSpots().size >= (quality === 'low' ? 1 : 3)) return;
       const id = handoff.from.seatId;
       const agent = agents.find(a => a.seatId === id);
       const placement = current.current.get(id);
-      if (!agent || agent.paused || !['idle', 'done'].includes(agent.status) || !placement || placement.trip || couriers.current.has(id)) return;
+      if (!agent || agent.paused || agent.status !== 'idle' || !placement || placement.trip || wandering.current.wandering(id) || couriers.current.has(id)) return;
       const route = pathBetween(placement.anchor, 'table-0');
       if (route.length < 2) return;
       const at = groups.current.get(id)?.position;
@@ -136,7 +155,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
     };
     courier.current = launch;
     return () => { if (courier.current === launch) courier.current = null; };
-  }, [courier, agents, still, hidden, invalidate]);
+  }, [courier, agents, still, hidden, quality, invalidate]);
   useEffect(() => {
     if (still || hidden) { couriers.current.clear(); setCourierCount(0); }
     else if (courierCount) return motion.request('live');
@@ -149,7 +168,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
   }, [events]);
   useEffect(() => {
     if (!celebration || still || hidden || performance.now() - celebration >= 2500) { setCelebrants(new Set()); return; }
-    setCelebrants(new Set(agents.filter(a => a.status === 'idle' && !a.paused && !a.overflow && !couriers.current.has(a.seatId)).map(a => a.seatId)));
+    setCelebrants(new Set(agents.filter(a => a.status === 'idle' && !a.paused && !a.overflow && !couriers.current.has(a.seatId) && !wandering.current.wandering(a.seatId)).map(a => a.seatId)));
     const release = motion.request('live');
     const timer = setTimeout(() => { setCelebrants(new Set()); release(); }, Math.max(0, celebration + 2500 - performance.now()));
     return () => { clearTimeout(timer); release(); };
@@ -164,7 +183,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
         const sample = trip.sample((performance.now() - (courierTrip?.started ?? placement.started)) / 1000);
         group.position.set(...sample.position); group.rotation.y = sample.done ? 0 : sample.yaw - Math.PI / 4; group.scale.y = sample.squash;
         positions.current.set(id, [sample.position[0], sample.position[2]]);
-        if (sample.done) { placement.trip = null; couriers.current.delete(id); finished = true; }
+        if (sample.done) { placement.trip = null; if (!courierTrip) wandering.current.arrive(id, performance.now()); couriers.current.delete(id); finished = true; }
       } else {
         group.position.set(...placement.position); group.rotation.y = 0; group.scale.y = 1;
         const elapsed = (performance.now() - celebration) / 1000;
@@ -174,7 +193,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
       }
     }
     if (finished) { setPlacements(new Map(current.current)); setCourierCount(couriers.current.size); }
-    const rows: AgentDebug[] = agents.map(agent => ({ seatId: agent.seatId, name: agent.name, status: agent.status, pose: current.current.get(agent.seatId)?.pose ?? agent.pose, podKey: agent.podKey, deskId: deskForAgent(agent)?.id ?? null, walking: !hidden && !still && (!!current.current.get(agent.seatId)?.trip || couriers.current.has(agent.seatId)) }));
+    const rows: AgentDebug[] = agents.map(agent => ({ seatId: agent.seatId, name: agent.name, status: agent.status, pose: current.current.get(agent.seatId)?.pose ?? agent.pose, podKey: agent.podKey, deskId: deskForAgent(agent)?.id ?? null, wandering: wandering.current.wandering(agent.seatId), walking: !hidden && !still && (!!current.current.get(agent.seatId)?.trip || couriers.current.has(agent.seatId)) }));
     debug.current = { ...debug.current, agents: rows, characters: characterStats(), director: { transitions: transitions.current } };
     const rectangles: { x: number; y: number; w: number; h: number }[] = [];
     const accepted = new Set<string>();

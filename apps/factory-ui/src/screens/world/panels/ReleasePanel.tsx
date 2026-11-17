@@ -14,20 +14,20 @@ export type ReleasePanelProps = {
 };
 function Cover({ item, url }: { item: GalleryItem; url: string | null }) {
   const [failed, setFailed] = useState(false);
-  return <div className="relative mb-3 flex aspect-video w-full items-center justify-center overflow-hidden rounded-lg bg-secondary p-6 text-center font-semibold">
-    <span aria-hidden="true">{item.name}</span>
-    {url && !failed && <img src={url} alt="" onError={() => setFailed(true)} className="absolute inset-0 h-full w-full bg-card object-contain" />}
+  return <div className="relative mb-3 flex min-w-0 max-w-full w-full items-center justify-center overflow-hidden rounded-lg bg-secondary text-center font-semibold">
+    <span className="p-6" aria-hidden="true" hidden={!!url && !failed}>{item.name}</span>
+    {url && !failed && <img src={url} alt="" onError={() => setFailed(true)} className="h-auto w-full max-w-full bg-card object-contain" />}
   </div>;
 }
 export function ReleasePanel({ item, locale = 'vi', releaseDate, onOpenProject, baseUrl }: ReleasePanelProps) {
   const text = worldCopy[locale].gallery; const cover = thumbnailUrl(item.projectId, item.releaseId, baseUrl);
   const parsedDate = releaseDate ? new Date(releaseDate) : null;
   const date = parsedDate && Number.isFinite(parsedDate.getTime()) ? parsedDate : null;
-  return <aside aria-label={`${item.name} · v${item.version ?? '—'}`} className="world-panel-content">
+  return <aside aria-label={`${item.name} · v${item.version ?? '—'}`} className="world-panel-content min-w-0 max-w-full">
     <Cover key={cover ?? `${item.projectId}:${item.releaseId}`} item={item} url={cover} />
     <h2 className="text-lg font-semibold">{item.name}</h2>
     <p className="text-sm">v{item.version ?? '—'}</p>
-    <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+    <dl className="mt-3 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
       <dt className="font-medium">{text.releaseDate}</dt><dd>{date ? <time dateTime={date.toISOString()}>{new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)}</time> : '—'}</dd>
       <dt className="font-medium">{text.portal}</dt>
       <dd>{item.enabled === null ? '—' : item.enabled ? text.enabled : text.off}{item.current && <span> · {text.current}</span>}</dd>

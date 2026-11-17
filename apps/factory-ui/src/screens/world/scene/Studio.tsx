@@ -4,7 +4,7 @@ import type { WorldEvent } from '../data/events';
 import type { Bug, Endpoint, GalleryItem, Handoff, WorldInputs, WorldModel } from '../data/types';
 import { anchors, displayFrames, ownerDesk } from '../layout/zones';
 import { deskForAgent } from '../agentPresentation';
-import { i18n, useT } from '@/i18n';
+import { useT } from '@/i18n';
 import type { SceneDebug } from '../debugHook';
 import { TaskBoard } from './workflow/TaskBoard';
 import { Handoffs, type TableArrival } from './workflow/Handoffs';
@@ -69,11 +69,11 @@ export function Studio(props: StudioProps) {
     });
   });
   return <group visible={!props.hidden}>
-    <TaskBoard projectId={model.focusProjectId} columns={model.tasks.columns} overflow={model.tasks.overflow} quality={quality} still={still} locale={i18n.locale} onOpenTask={props.onTask} locations={props.locations} />
+    <TaskBoard projectId={model.focusProjectId} columns={model.tasks.columns} overflow={model.tasks.overflow} quality={quality} still={still} locale="en" onOpenTask={props.onTask} locations={props.locations} />
     <Handoffs events={events} positionOf={positionOf} quality={quality} still={still} senderIdle={senderIdle} courier={courier} onTablePass={arrival} />
-    <CollabTable stages={model.stages} handoffs={arrivals} quality={quality} still={still} locale={i18n.locale} />
-    <TestingLab games={model.hotProjects} reports={reports} quality={quality} still={still} locale={i18n.locale} />
-    <BugMonsters bugs={model.bugs} bugOverflow={model.bugOverflow} events={events} games={model.hotProjects} scopeKey={String(scopeKey)} quality={quality} still={still} locale={i18n.locale} onSelectBug={props.onBug} locations={props.locations} />
-    <Gallery items={model.gallery} events={events} baselineReady={props.baseline} quality={quality} still={still} locale={i18n.locale} onSelectRelease={props.onRelease} onCelebrate={props.onCelebrate} />
+    <CollabTable stages={model.stages} handoffs={arrivals} quality={quality} still={still} locale="en" />
+    <TestingLab games={model.hotProjects} reports={reports} quality={quality} still={still} locale="en" />
+    <BugMonsters bugs={model.bugs} bugOverflow={model.bugOverflow} events={events} games={model.hotProjects} scopeKey={String(scopeKey)} quality={quality} still={still} locale="en" onSelectBug={props.onBug} locations={props.locations} />
+    <Gallery items={model.gallery} events={events} baselineReady={props.baseline} quality={quality} still={still} locale="en" onSelectRelease={props.onRelease} onCelebrate={props.onCelebrate} />
   </group>;
 }

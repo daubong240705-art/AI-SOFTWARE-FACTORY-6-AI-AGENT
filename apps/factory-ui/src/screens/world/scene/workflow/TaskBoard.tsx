@@ -1,6 +1,6 @@
 import type { WorldLocations } from '../CameraRig';
-import { worldCopy, type WorkflowLocale } from '../../copy';
-import { useEffect, useRef, useState } from 'react';
+import { type WorkflowLocale } from '../../copy';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -60,7 +60,7 @@ export function createWorkflowAtlas(entries: readonly AtlasEntry[], invalidate: 
       1 - (y + 2 + (1 - uv.getY(i)) * (tileH - 4)) / canvas.height);
     geometries.set(entry.key, geometry);
   });
-  const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, toneMapped: false });
+  const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
   let disposed = false; draw();
   if (document.fonts) void document.fonts.load('500 30px "Inter Variable"').then(() => {
     if (!disposed) { draw(); invalidate(); }
@@ -110,7 +110,9 @@ type BoardResource = {
   sample: (now: number) => boolean;
   dispose: () => void;
 };
-export function TaskBoard({ locations, projectId, columns, overflow, quality = 'high', still = false, locale = 'vi', onOpenTask, onHover }: TaskBoardProps) {
+export function TaskBoard({ locations, projectId, columns: inputColumns, overflow: inputOverflow, quality = 'high', still = false, locale = 'vi', onOpenTask, onHover }: TaskBoardProps) {
+  const contentKey = JSON.stringify({ columns: inputColumns, overflow: inputOverflow });
+  const { columns, overflow } = useMemo<{ columns: TaskBoardProps['columns']; overflow: TaskBoardProps['overflow'] }>(() => JSON.parse(contentKey), [contentKey]);
   const invalidate = useThree(state => state.invalidate); const motion = useWorldMotion();
   const [resource, setResource] = useState<BoardResource | null>(null);
   const current = useRef<BoardResource | null>(null);
@@ -119,11 +121,10 @@ export function TaskBoard({ locations, projectId, columns, overflow, quality = '
   const shown = useRef<TaskCard[]>([]);
   useEffect(() => {
     const group = new THREE.Group(); group.name = 'task-board';
-    const labels = worldCopy[locale].workflow;
     const cards = taskColumns.flatMap(column => columns[column].slice(0, rows)); shown.current = cards;
     const counts = Object.fromEntries(taskColumns.map(column => [column, columns[column].length + (overflow?.[column] ?? 0)])) as Record<TaskCard['column'], number>;
     workflowDebug.boards.set(debugKey.current, counts);
-    const entries: AtlasEntry[] = taskColumns.map(column => ({ key: `column:${column}`, text: labels.columns[column] }));
+    const entries: AtlasEntry[] = taskColumns.map(column => ({ key: `column:${column}`, text: ({ todo: 'To do', doing: 'In progress', review: 'In review', failed: 'Failed', done: 'Done' })[column] }));
     cards.forEach(card => entries.push({ key: card.id, code: card.code, title: card.title }));
     taskColumns.forEach(column => { const count = Math.max(0, columns[column].length - rows) + (overflow?.[column] ?? 0); if (count) entries.push({ key: `overflow:${column}`, text: `+${count}`, color: '#E9D4AE' }); });
     const atlas = createWorkflowAtlas(entries, invalidate), toon = createWorkflowToon();
@@ -157,7 +158,7 @@ export function TaskBoard({ locations, projectId, columns, overflow, quality = '
         item.point.copy(item.from).lerp(item.target, eased);
         if (item.animated) { item.point.z += Math.sin(progress * Math.PI) * 0.32; item.point.y += Math.sin(progress * Math.PI) * 0.09; }
         transform.position.copy(item.point); transform.scale.set(1.88, 0.225, 0.035); transform.updateMatrix(); body.setMatrixAt(index, transform.matrix);
-        item.face.position.copy(item.point); item.face.position.z += 0.021;
+        item.face.position.copy(item.point); item.face.position.z += 0.045;
         const card = cards[index]!; locations?.current.set(`card:${card.id}`, [item.point.x, item.point.y, item.point.z]); locations?.current.set(`card:${card.taskId}`, [item.point.x, item.point.y, item.point.z]);
       });
       body.instanceMatrix.needsUpdate = true;

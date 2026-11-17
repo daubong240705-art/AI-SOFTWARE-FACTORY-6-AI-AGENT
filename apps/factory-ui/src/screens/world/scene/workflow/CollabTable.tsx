@@ -22,8 +22,8 @@ const isActive = (state: string) => state === 'active';
 function stageColor(state: string) {
   return workflowColors[state as keyof typeof workflowColors] ?? workflowColors.pending;
 }
-function labelFor(key: string, locale: WorkflowLocale) {
-  return worldCopy[locale].workflow.stages[key as keyof typeof worldCopy.vi.workflow.stages] ?? key;
+function labelFor(key: string) {
+  return ({ design: 'Design', rules: 'Rules', art: 'Art', client: 'Client', qa: 'QA' } as Record<string, string>)[key] ?? key;
 }
 type TableResources = { group: THREE.Group; sample: (now: number, wallNow: number) => boolean; dispose: () => void };
 
@@ -34,7 +34,7 @@ export function CollabTable({ stages, handoffs = noHandoffs, locale = 'vi', qual
   useEffect(() => {
     const group = new THREE.Group(); group.name = 'collaboration-table';
     const entries: AtlasEntry[] = stages.flatMap((stage, index) => [
-      { key: `stage:${index}`, text: labelFor(stage.key, locale) },
+      { key: `stage:${index}`, text: labelFor(stage.key) },
       ...(stage.loopCount > 0 ? [{ key: `loop:${index}`, text: `${worldCopy[locale].workflow.loop} ${stage.loopCount}` }] : []),
     ]);
     const unique = new Map(handoffs.map(arrival => [arrival.handoff.id, arrival]));

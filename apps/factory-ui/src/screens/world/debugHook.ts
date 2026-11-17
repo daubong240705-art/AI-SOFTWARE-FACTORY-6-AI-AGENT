@@ -6,7 +6,7 @@ import type { layout } from './layout/waypoints';
 
 export type FallbackReason = 'narrow' | 'webgl' | 'reduced-motion' | 'error' | 'preference';
 export type RenderStats = Readonly<{ calls: number; triangles: number; geometries: number; textures: number; fps: number }>;
-export type AgentDebug = Pick<WorldAgent, 'seatId' | 'name' | 'status' | 'pose' | 'podKey'> & { deskId: string | null; walking: boolean };
+export type AgentDebug = Pick<WorldAgent, 'seatId' | 'name' | 'status' | 'pose' | 'podKey'> & { deskId: string | null; walking: boolean; wandering: boolean };
 export type IntegrationStats = { cards: Record<'todo' | 'doing' | 'review' | 'failed' | 'done', number>; handoffsActive: number; handoffsSeen: number; bugs: number; galleryFrames: number; bugsDefeated: number; releasesCelebrated: number; celebrating: number };
 export const emptyIntegration = (): IntegrationStats => ({ cards: { todo: 0, doing: 0, review: 0, failed: 0, done: 0 }, handoffsActive: 0, handoffsSeen: 0, bugs: 0, galleryFrames: 0, bugsDefeated: 0, releasesCelebrated: 0, celebrating: 0 });
 export type SceneDebug = { integration: IntegrationStats; agents: AgentDebug[]; characters: { built: number; drawCallsPerCharacter: number; sharedMaterials: number }; director: { transitions: number } };

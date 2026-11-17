@@ -43,3 +43,22 @@ export function drawCoverImage(ctx: CanvasRenderingContext2D, image: HTMLImageEl
   ctx.fillStyle = '#FFF8E7'; ctx.fillRect(0, 0, width, height);
   ctx.drawImage(image, (width - w) / 2, (height - h) / 2, w, h);
 }
+
+/** A cover owns one texture until it leaves this gallery; frames and arcade share it. */
+export type CoverResource = { releaseId: string; texture: CanvasTexture; dispose: () => void };
+export function coverFor(cache: Map<string, CoverResource>, item: { gameId: string; version: number | null; releaseId: string; projectId: string; name: string }, url: string | null, invalidate: () => void): CoverResource {
+  const key = `${item.gameId}:${item.version ?? item.releaseId}`;
+  const hit = cache.get(key); if (hit?.releaseId === item.releaseId) return hit;
+  hit?.dispose();
+  const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 320;
+  const ctx = canvas.getContext('2d')!;
+  drawGeneratedCover(ctx, item.name, item.gameId);
+  const texture = canvasTexture(canvas);
+  let disposed = false;
+  const cancel = loadCoverImage(url, image => {
+    if (disposed) return;
+    drawCoverImage(ctx, image); texture.needsUpdate = true; invalidate();
+  });
+  const resource = { releaseId: item.releaseId, texture, dispose() { disposed = true; cancel(); texture.dispose(); } };
+  cache.set(key, resource); return resource;
+}

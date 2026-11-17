@@ -16,7 +16,7 @@ export function BugPanel({ bug, gameName, onOpenProject, onClose, locale = 'vi' 
   const titleId = useId();
   if (!bug) return null;
   const copy = worldCopy[locale].lab;
-  return <aside aria-labelledby={titleId} className="world-panel-content">
+  return <aside aria-labelledby={titleId} className="world-panel-content min-w-0 max-w-full">
     <div className="flex items-center justify-between gap-3">
       <h2 id={titleId} className="font-semibold">{copy.bugDetails}</h2>
       {onClose && <Button type="button" variant="ghost" size="sm" onClick={onClose} aria-label={copy.close}>×</Button>}

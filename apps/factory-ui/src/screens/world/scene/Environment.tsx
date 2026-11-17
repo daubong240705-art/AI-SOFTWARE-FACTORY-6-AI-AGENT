@@ -3,7 +3,6 @@ import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { environmentModel, type Label, type Part } from '../layout/zones';
-import { useT, i18n } from '@/i18n';
 import { layout } from '../layout/waypoints';
 import { environmentGeometries, geometryForPart } from './EnvironmentGeometry';
 import { makeArtwork } from './EnvironmentArt';
@@ -68,13 +67,12 @@ async function makeLabels(labels: Label[]) {
   return { mesh, dispose() { texture.dispose(); geometry.dispose(); material.dispose(); } };
 }
 function Labels({ labels }: { labels: Label[] }) {
-  const t = useT(); const locale = i18n.locale;
   const [mesh, setMesh] = useState<THREE.Mesh | null>(null); const invalidate = useThree(s => s.invalidate);
   useEffect(() => {
     let cancelled = false; let dispose: (() => void) | undefined;
-    void makeLabels(labels.map(label => ({ ...label, text: t(label.key) }))).then(result => { if (cancelled) result.dispose(); else { dispose = result.dispose; setMesh(result.mesh); invalidate(); } });
+    void makeLabels(labels).then(result => { if (cancelled) result.dispose(); else { dispose = result.dispose; setMesh(result.mesh); invalidate(); } });
     return () => { cancelled = true; dispose?.(); };
-  }, [labels, invalidate, locale, t]);
+  }, [labels, invalidate]);
   return mesh ? <primitive object={mesh} /> : null;
 }
 function Artwork({ panels, gradient }: { panels: ReturnType<typeof environmentModel>['artwork']; gradient: THREE.Texture }) {

@@ -231,7 +231,7 @@ function renderBatch(batch: Batch, bugs: readonly Bug[], slots: Map<string, numb
 }
 
 const noEvents: readonly WorldEvent[] = [], noGames: readonly LabGame[] = [];
-export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = noGames, scopeKey = '', still = false, quality = 'high', locale = 'vi', onSelectBug, onHoverBug, locations }: BugMonstersProps) {
+export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = noGames, scopeKey = '', still = false, quality = 'high', onSelectBug, onHoverBug, locations }: BugMonstersProps) {
   const root = useRef<THREE.Group>(null);
   const batch = useRef<Batch | null>(null);
   const slots = useRef(new Map<string, number>());
@@ -299,7 +299,7 @@ export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = 
     return event.instanceId === undefined ? undefined : cohort?.bugs[event.instanceId];
   };
   const hovered = active.find(bug => bug.id === hoveredId);
-  const copy = worldCopy[locale].lab;
+  const copy = worldCopy.en.lab;
   const hoverLines = useMemo(() => hovered ? [
     { text: games.find(game => game.projectId === hovered.projectId)?.name ?? hovered.projectId },
     { text: hovered.state === 'retesting' ? copy.retesting : copy.open, color: palette.apricot },
