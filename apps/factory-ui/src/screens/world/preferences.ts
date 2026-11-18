@@ -2,9 +2,11 @@ import { useSyncExternalStore } from 'react';
 
 export type WorldPreferences = Readonly<{
   mode: 'auto' | '3d' | '2d'; quality: 'auto' | 'high' | 'low'; still: boolean; lineup: boolean;
+  /** Character auras and fun effects: full, a light version (flat glows only) or none. */
+  effects: 'full' | 'lite' | 'off';
 }>;
 export const WORLD_PREFERENCES_KEY = 'factory-ui.world.v1';
-const defaults: WorldPreferences = Object.freeze({ mode: 'auto', quality: 'auto', still: false, lineup: false });
+const defaults: WorldPreferences = Object.freeze({ mode: 'auto', quality: 'auto', still: false, lineup: false, effects: 'full' });
 let current = defaults;
 let memoryOnly = false;
 const listeners = new Set<() => void>();
@@ -17,10 +19,11 @@ function read(): WorldPreferences {
       (value.mode === 'auto' || value.mode === '3d' || value.mode === '2d') &&
       (value.quality === 'auto' || value.quality === 'high' || value.quality === 'low') &&
       typeof value.still === 'boolean' && typeof value.lineup === 'boolean') {
-      next = { mode: value.mode, quality: value.quality, still: value.still, lineup: value.lineup };
+      const effects = 'effects' in value && (value.effects === 'full' || value.effects === 'lite' || value.effects === 'off') ? value.effects : 'full';
+      next = { mode: value.mode, quality: value.quality, still: value.still, lineup: value.lineup, effects };
     }
   } catch { /* Invalid JSON or unavailable storage uses defaults. */ }
-  if (next.mode !== current.mode || next.quality !== current.quality || next.still !== current.still || next.lineup !== current.lineup) current = Object.freeze(next);
+  if (next.mode !== current.mode || next.quality !== current.quality || next.still !== current.still || next.lineup !== current.lineup || next.effects !== current.effects) current = Object.freeze(next);
   return current;
 }
 function emit() { listeners.forEach(listener => listener()); }

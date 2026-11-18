@@ -13,6 +13,7 @@ import type { WorldQuality } from './quality';
 import type { WorldEvent } from '../data/events';
 import type { Courier } from './Studio';
 import { WanderingDirector } from './wandering';
+import { Aura, auraFor, type EffectsLevel } from './effects/Aura';
 
 export type AgentPositions = MutableRefObject<Map<string, Point>>;
 export type AgentHover = { seatId: string; x: number; y: number } | null;
@@ -87,7 +88,8 @@ function HitTarget({ position, owner = false, onSelect, onHover }: { position: [
     <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
   </mesh>;
 }
-export function Agents({ events, courier, celebration, agents, baseline, quality, still, hidden, selected, positions, debug, onSelect, onOwner, onHover, attention }: {
+export function Agents({ events, courier, celebration, agents, baseline, quality, still, hidden, selected, positions, debug, onSelect, onOwner, onHover, attention, effects = 'full' }: {
+  effects?: EffectsLevel;
   events: readonly WorldEvent[]; courier: Courier; celebration: number; agents: readonly WorldAgent[]; baseline: boolean; quality: WorldQuality; still: boolean; hidden: boolean; selected: string | null;
   positions: AgentPositions; debug: MutableRefObject<SceneDebug>; onSelect: (id: string) => void; onOwner: () => void; onHover: (hover: AgentHover) => void; attention: number;
 }) {
@@ -214,7 +216,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
       }
     }
     if (finished) { setPlacements(new Map(current.current)); setCourierCount(couriers.current.size); }
-    const rows: AgentDebug[] = agents.map(agent => ({ seatId: agent.seatId, ownerSeatId: agent.ownerSeatId, slot: agent.slot, name: agent.name, status: agent.status, pose: current.current.get(agent.seatId)?.pose ?? agent.pose, podKey: agent.podKey, deskId: deskForAgent(agent)?.id ?? null, wandering: wandering.current.wandering(agent.seatId), walking: !hidden && !still && (!!current.current.get(agent.seatId)?.trip || couriers.current.has(agent.seatId)) }));
+    const rows: AgentDebug[] = agents.map(agent => ({ seatId: agent.seatId, ownerSeatId: agent.ownerSeatId, slot: agent.slot, name: agent.name, status: agent.status, pose: current.current.get(agent.seatId)?.pose ?? agent.pose, podKey: agent.podKey, deskId: deskForAgent(agent)?.id ?? null, wandering: wandering.current.wandering(agent.seatId), aura: effects === 'off' ? null : auraFor({ ...agent, pose: current.current.get(agent.seatId)?.pose ?? agent.pose }), walking: !hidden && !still && (!!current.current.get(agent.seatId)?.trip || couriers.current.has(agent.seatId)) }));
     debug.current = { ...debug.current, agents: rows, characters: characterStats(), director: { transitions: transitions.current } };
     const rectangles: { x: number; y: number; w: number; h: number }[] = [];
     const accepted = new Set<string>();
@@ -240,6 +242,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
         <Feedback agent={agent} still={still || hidden} />
         <group ref={node => { if (node) groups.current.set(agent.seatId, node); else groups.current.delete(agent.seatId); }} position={placement.position}>
           <CharacterRig spec={specForSeat(agent.seatName, agent.isLead)} pose={celebrants.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} />
+          {!hidden && <Aura agent={{ ...agent, pose: placement.pose }} level={effects} quality={quality} still={still || hidden} />}
           {agent.slot > 0 && <SlotBadge number={agent.slot + 1} />}
           {tags.has(agent.seatId) && <NameTag name={agent.name} register={sprite => { if (sprite) tagSprites.current.set(agent.seatId, sprite); else tagSprites.current.delete(agent.seatId); }} />}
           {!hidden && <HitTarget position={[0, 0.55, 0]} onSelect={() => onSelect(agent.seatId)} onHover={event => { setHovered(event ? agent.seatId : null); onHover(event ? { seatId: agent.seatId, x: event.clientX, y: event.clientY } : null); }} />}

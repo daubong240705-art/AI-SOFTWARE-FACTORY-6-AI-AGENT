@@ -16,6 +16,9 @@ export function WorldToolbar({ preferences, onChange }: { preferences: WorldPref
       <label className="flex items-center gap-2 text-sm">{t('worldUi.quality')}<select className="rounded border border-border bg-card p-1" value={preferences.quality} onChange={event => { const quality = event.target.value; if (quality === 'auto' || quality === 'high' || quality === 'low') onChange({ quality }); }}>
         {(['auto', 'high', 'low'] as const).map(q => <option key={q} value={q}>{t(`worldUi.qualityOptions.${q}`)}</option>)}
       </select></label>
+      <label className="flex items-center gap-2 text-sm">{t('worldUi.effects')}<select className="rounded border border-border bg-card p-1" value={preferences.effects} onChange={event => { const effects = event.target.value; if (effects === 'full' || effects === 'lite' || effects === 'off') onChange({ effects }); }}>
+        {(['full', 'lite', 'off'] as const).map(e => <option key={e} value={e}>{t(`worldUi.effectsOptions.${e}`)}</option>)}
+      </select></label>
       <Button variant="outline" size="sm" aria-pressed={preferences.still} onClick={() => onChange({ still: !preferences.still })}>{t('worldUi.still')}</Button>
       <Button variant="outline" size="sm" aria-pressed={preferences.lineup} onClick={() => onChange({ lineup: !preferences.lineup })}>{t(preferences.lineup ? 'worldUi.backStudio' : 'worldUi.lineup')}</Button>
       <Button variant="ghost" size="sm" onClick={() => onChange({ mode: '2d' })}>{t('worldUi.view2d')}</Button>

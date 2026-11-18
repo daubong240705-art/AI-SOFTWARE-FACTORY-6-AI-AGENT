@@ -65,6 +65,7 @@ export const extra = {
       zones: { A: 'Control room', B: 'Production workshop', C: 'Collaboration table', D: 'Testing room', E: 'Gallery', F: 'Portal plaza' },
     },
     quality: 'Quality', qualityOptions: { auto: 'Automatic', high: 'High', low: 'Low' },
+    effects: 'Effects', effectsOptions: { full: 'Full', lite: 'Light', off: 'Off' },
     still: 'Still mode', view2d: 'View in 2D', loading: 'Building the world…', retry: 'Retry',
     openTeam: 'Open Team room', openOffice: '{game} office', open3d: 'Reopen 3D', openStill: 'Open 3D in still mode',
     reasons: {

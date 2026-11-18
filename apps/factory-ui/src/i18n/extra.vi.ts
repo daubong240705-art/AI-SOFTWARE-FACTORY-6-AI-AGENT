@@ -68,6 +68,7 @@ export const extra: Translated<typeof en> = {
       zones: { A: 'Phòng điều hành', B: 'Xưởng sản xuất', C: 'Bàn cộng tác', D: 'Phòng kiểm thử', E: 'Phòng trưng bày', F: 'Quảng trường Portal' },
     },
     quality: 'Chất lượng', qualityOptions: { auto: 'Tự động', high: 'Cao', low: 'Thấp' },
+    effects: 'Hiệu ứng', effectsOptions: { full: 'Đầy đủ', lite: 'Gọn', off: 'Tắt' },
     still: 'Chế độ tĩnh', view2d: 'Xem bản 2D', loading: 'Đang dựng thế giới…', retry: 'Thử lại',
     openTeam: 'Mở Phòng đội', openOffice: 'Văn phòng {game}', open3d: 'Mở lại 3D', openStill: 'Mở 3D ở chế độ tĩnh',
     reasons: {
