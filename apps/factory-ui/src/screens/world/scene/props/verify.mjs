@@ -6,6 +6,8 @@ import ts from 'typescript';
 import assert from 'node:assert/strict';
 registerHooks({
   resolve(specifier, context, next) {
+    // Event trackers do not translate; keep their render-only i18n import inert in this CPU process.
+    if (specifier === '@/i18n') return { url: 'data:text/javascript,export const i18n={t:k=>k};export const useT=()=>i18n.t;', shortCircuit: true };
     if (specifier.startsWith('.') && context.parentURL) {
       const base = new URL(specifier, context.parentURL);
       for (const suffix of ['.ts', '.tsx', '/index.ts']) if (existsSync(fileURLToPath(base) + suffix)) return { url: base.href + suffix, shortCircuit: true };
@@ -33,6 +35,8 @@ for (const low of [false, true]) {
   props.paint({ model, reports: {}, debug, positions, locale: 'en' }, new Date(2026, 10, 19, 23));
   props.sample(10, true);
   assert.equal(props.group.getObjectByName('server-leds').count, 10);
+  const fan = props.group.getObjectByName('standing-fan');
+  assert(fan && fan.position.y < 1.5 && fan.position.x < -10, 'compact lounge fan');
   assert.equal(props.group.getObjectByName('aquarium-fish').count, low ? 3 : 5);
   let draws = 0;
   props.group.traverse(o => {
@@ -66,3 +70,17 @@ assert.equal(auraFor({ ...idle, status: 'waiting' }), 'alarm');
 assert.equal(auraFor({ ...idle, status: 'done' }), 'stars');
 assert.equal(auraFor({ ...idle, status: 'working', runs: [{ startedAt: new Date(0).toISOString() }] }, 21 * 60000), 'super');
 console.log('Aura state selection: PASS');
+
+const { LabEventTracker } = await import('../lab/BugMonsters.tsx');
+const bug = { id: 'b', projectId: 'p', criterion: 'test', evidence: null, state: 'open' };
+const defeated = { type: 'bugDefeated', id: 'qa:passed', at: new Date().toISOString(), bug };
+const tracker = new LabEventTracker();
+tracker.observe([], [bug], 1, false); tracker.positions.set('b', { x: 12, z: -5 });
+tracker.observe([defeated], [], 2, false);
+assert.equal(tracker.struck, 2); assert.equal(tracker.exits.length, 1); assert.equal(tracker.defeated, 1);
+tracker.observe([defeated], [], 2.1, false); assert.equal(tracker.exits.length, 1, 'acknowledgement cannot replay QA');
+tracker.expire(4); assert.equal(tracker.exits.length, 0);
+const quietTracker = new LabEventTracker(); quietTracker.observe([], [bug], 1, true);
+quietTracker.positions.set('b', { x: 12, z: -5 }); quietTracker.observe([defeated], [], 2, true);
+assert.equal(quietTracker.struck, 0); assert.equal(quietTracker.exits.length, 0); assert.equal(quietTracker.puffs.length, 0);
+console.log('QA gong/bug exits: event-only, once, expires, still/off suppression PASS');

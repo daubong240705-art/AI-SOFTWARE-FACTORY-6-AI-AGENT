@@ -1,3 +1,4 @@
+import { Gong } from '../toys/WorldFun';
 import type { WorldLocations } from '../CameraRig';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
@@ -11,6 +12,7 @@ import { LabCanvasLabel, labScreenOrigin, makeLabGradient, type LabGame } from '
 import { worldCopy, type LabLocale } from '../../copy';
 
 export type BugMonstersProps = {
+  effects?: import('../effects/Aura').EffectsLevel;
   locations?: WorldLocations;
   bugs: readonly Bug[];
   bugOverflow?: number;
@@ -65,6 +67,8 @@ export class LabEventTracker {
   baseline = false;
   seen = new Set<string>();
   defeated = 0;
+  struck = 0;
+  exits: (Point & { bug: Bug; started: number })[] = [];
   flights = new Map<string, Flight>();
   puffs: Puff[] = [];
   positions = new Map<string, Point>();
@@ -84,7 +88,10 @@ export class LabEventTracker {
       } else if (event.type === 'bugDefeated') {
         this.defeated++;
         const position = this.positions.get(event.bug.id);
-        if (position && !still) this.puffs.push({ ...position, started: now });
+        if (!still) {
+          this.struck = now;
+          if (position) { this.puffs.push({ ...position, started: now }); this.exits.push({ ...position, bug: event.bug, started: now }); }
+        }
         this.flights.delete(event.bug.id);
       }
     }
@@ -92,11 +99,12 @@ export class LabEventTracker {
     // Also keep a recent tail to survive short queue replacement races.
     if (this.seen.size > 2048) this.seen = new Set([...events.map(event => event.id), ...[...this.seen].slice(-1024)]);
     for (const id of this.flights.keys()) if (!current.has(id)) this.flights.delete(id);
-    if (still) { this.flights.clear(); this.puffs = []; }
-    this.puffs = this.puffs.slice(-12);
+    if (still) { this.flights.clear(); this.puffs = []; this.exits = []; this.struck = 0; }
+    this.puffs = this.puffs.slice(-12); this.exits = this.exits.slice(-12);
   }
 
   expire(now: number) {
+    this.exits = this.exits.filter(exit => now - exit.started < flightSeconds);
     for (const [id, flight] of this.flights) if (now - flight.started >= flightSeconds) this.flights.delete(id);
     this.puffs = this.puffs.filter(puff => now - puff.started < puffSeconds);
   }
@@ -147,8 +155,8 @@ export function makeBugBatch(quality: 'high' | 'low') {
   const nervous = new THREE.MeshToonMaterial({ color: 'white', vertexColors: true, gradientMap: gradient, transparent: true, opacity: 0.56, depthWrite: false });
   const group = new THREE.Group();
   const cohorts = [false, true].map(retesting => {
-    const bodies = new THREE.InstancedMesh(body, retesting ? nervous : toon, 12);
-    const faces = new THREE.InstancedMesh(retesting ? nervousFace : face, toon, 12);
+    const bodies = new THREE.InstancedMesh(body, retesting ? nervous : toon, 24);
+    const faces = new THREE.InstancedMesh(retesting ? nervousFace : face, toon, 24);
     bodies.frustumCulled = faces.frustumCulled = false;
     bodies.instanceMatrix.setUsage(THREE.DynamicDrawUsage); faces.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     faces.raycast = () => {};
@@ -184,7 +192,17 @@ function renderBatch(batch: Batch, bugs: readonly Bug[], slots: Map<string, numb
   const { dummy, tint } = batch;
   for (const cohort of batch.cohorts) {
     cohort.bugs = bugs.filter(bug => (bug.state === 'retesting') === cohort.retesting);
-    cohort.bodies.count = cohort.faces.count = cohort.bugs.length;
+    const exits = still ? [] : tracker.exits.filter(exit => (exit.bug.state === 'retesting') === cohort.retesting).slice(0, low ? 3 : 12);
+    cohort.bodies.count = cohort.faces.count = cohort.bugs.length + exits.length;
+    exits.forEach((exit, i) => {
+      const p = Math.min(1, (now - exit.started) / flightSeconds);
+      // Fly through the north testing-lab window, then disappear outside the studio.
+      dummy.position.set(exit.x + (-2 - exit.x) * p, 0.3 + Math.sin(p * Math.PI) * 1.3 + p * 1.6, exit.z + (-15.4 - exit.z) * p);
+      dummy.rotation.set(p * 8, 0, p * 5); dummy.scale.setScalar(1 - p * 0.5); dummy.updateMatrix();
+      const index = cohort.bugs.length + i;
+      cohort.bodies.setMatrixAt(index, dummy.matrix); cohort.faces.setMatrixAt(index, dummy.matrix);
+      cohort.bodies.setColorAt(index, tint.set(colors[bugHash(exit.bug.projectId) % colors.length]!));
+    });
     cohort.bugs.forEach((bug, index) => {
       const slot = slots.get(bug.id) ?? 0;
       const position = bugSlotPosition(slot, bug.id, now, still);
@@ -231,7 +249,9 @@ function renderBatch(batch: Batch, bugs: readonly Bug[], slots: Map<string, numb
 }
 
 const noEvents: readonly WorldEvent[] = [], noGames: readonly LabGame[] = [];
-export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = noGames, scopeKey = '', still = false, quality = 'high', onSelectBug, onHoverBug, locations }: BugMonstersProps) {
+export function BugMonsters({ effects = 'full', bugs, bugOverflow = 0, events = noEvents, games = noGames, scopeKey = '', still: frozen = false, quality = 'high', onSelectBug, onHoverBug, locations }: BugMonstersProps) {
+  const still = frozen || effects === 'off';
+  const [struck, setStruck] = useState(0);
   const root = useRef<THREE.Group>(null);
   const batch = useRef<Batch | null>(null);
   const slots = useRef(new Map<string, number>());
@@ -247,7 +267,7 @@ export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = 
   const active = useMemo(() => [...new Map(bugs.map(bug => [bug.id, bug])).values()].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0).slice(0, 12), [bugs]);
 
   const syncLive = () => {
-    const needed = !still && (tracker.current.flights.size > 0 || tracker.current.puffs.length > 0);
+    const needed = !still && (tracker.current.flights.size > 0 || tracker.current.puffs.length > 0 || tracker.current.exits.length > 0 || tracker.current.struck > 0 && clock.elapsedTime - tracker.current.struck < 0.8);
     if (needed && !liveRelease.current) liveRelease.current = motion.request('live');
     if (!needed && liveRelease.current) { liveRelease.current(); liveRelease.current = null; }
   };
@@ -264,6 +284,7 @@ export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = 
     // here so that the first resumed frame cannot skip an entire spawn flight.
     const now = clock.getElapsedTime();
     tracker.current.observe(events, active, now, still);
+    setStruck(tracker.current.struck);
     const ids = new Set(active.map(bug => bug.id));
     for (const id of slots.current.keys()) if (!ids.has(id)) slots.current.delete(id);
     const used = new Set(slots.current.values());
@@ -312,6 +333,7 @@ export function BugMonsters({ bugs, bugOverflow = 0, events = noEvents, games = 
     onPointerOver={event => { const bug = pickedBug(event); if (bug) { event.stopPropagation(); setHoveredId(bug.id); } }}
     onPointerMove={event => { const bug = pickedBug(event); if (bug) { event.stopPropagation(); setHoveredId(bug.id); } }}
     onPointerOut={() => setHoveredId(null)}>
+    {effects !== 'off' && <Gong struck={still ? 0 : struck} />}
     {overflow > 0 && <LabCanvasLabel lines={overflowLines} position={[16.8, 0.9, pen.rect[3] + 0.09]} width={1.25} height={0.3} quality={quality} />}
     {hovered && <LabCanvasLabel lines={hoverLines} position={[13.7, 1.4, pen.rect[3] + 0.1]} width={3.5} height={0.72} quality={quality} />}
   </group>;

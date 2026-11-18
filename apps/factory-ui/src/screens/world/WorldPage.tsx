@@ -1,3 +1,6 @@
+import { toys } from './scene/toys/store';
+import { playToy } from './scene/toys/ToyTray';
+import { employeeOfDay } from './scene/toys/employee';
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { Project } from '@factory/contracts';
 import { Mascot } from '@/components/mascot/Mascot';
@@ -61,6 +64,11 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
   const stats = useRef<RenderStats>(emptyRender);
   const reason: FallbackReason | null = preferences.mode === '2d' ? 'preference' : !capability.webgl2 ? 'webgl' : capability.narrow ? 'narrow'
     : capability.reducedMotion && preferences.mode !== '3d' ? 'reduced-motion' : error ? 'error' : null;
+  const still = preferences.still || capability.reducedMotion;
+  const employee = employeeOfDay(data.interactions).worker;
+  useEffect(() => () => toys.clear(), []);
+  useEffect(() => { toys.clear(); }, [scope.current]);
+  const toySelect = (id: string) => { const tool = toys.snapshot().tool; if (tool) playToy(id, tool, still || preferences.effects === 'off'); else select(id); };
   const onReady = useCallback(() => setReady(true), []);
   const onError = useCallback(() => { setReady(false); stats.current = emptyRender; setError(true); }, []);
   const onRender = useCallback((value: RenderStats) => { stats.current = value; }, []);
@@ -84,13 +92,14 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
   const hovered = hover ? data.model.agents.find(item => item.seatId === hover.seatId) : null;
   const sourceError = data.sources.activity?.state === 'error' || data.sources.teams?.state === 'error';
   useWorldDebug(() => ({ version: 1, mode: reason ? 'fallback' : ready ? '3d' : 'loading', fallbackReason: reason,
-    ready: !reason && ready, quality, still: preferences.still, render: reason ? emptyRender : stats.current, camera: cameraState.current, layout,
+    ready: !reason && ready, quality, still, render: reason ? emptyRender : stats.current, camera: cameraState.current, layout,
     counts: { agents: data.model.agents.length, drawnAgents: reason || preferences.lineup ? 0 : data.model.agents.filter(item => !item.overflow && deskForAgent(item)).length, overflow: data.model.agents.filter(item => item.overflow).length, cards: sceneDebug.current.integration.cards, handoffsActive: sceneDebug.current.integration.handoffsActive, handoffsSeen: sceneDebug.current.integration.handoffsSeen, bugs: sceneDebug.current.integration.bugs, galleryFrames: sceneDebug.current.integration.galleryFrames },
     table: { focusProjectId: data.model.focusProjectId, stages: data.model.stages }, events: { bugsDefeated: sceneDebug.current.integration.bugsDefeated, releasesCelebrated: sceneDebug.current.integration.releasesCelebrated }, celebrating: sceneDebug.current.integration.celebrating,
     agents: data.model.agents.map(item => ({
       ...(sceneDebug.current.agents.find(row => row.seatId === item.seatId) ?? { seatId: item.seatId, ownerSeatId: item.ownerSeatId, slot: item.slot, name: item.name, pose: item.pose, podKey: item.podKey, deskId: deskForAgent(item)?.id ?? null, walking: false, wandering: false, activity: null }),
       status: item.status,
     })),
+    toys: { tool: toys.snapshot().tool, active: toys.snapshot().active.map(({ worker, tool, until }) => ({ worker, tool, until })), counts: toys.snapshot().counts },
     characters: reason ? emptyScene().characters : sceneDebug.current.characters, director: sceneDebug.current.director, props: reason || preferences.lineup ? [] : sceneDebug.current.props, baseline: data.baseline, sources: data.sources, selected: selectedTask ? `task:${selectedTask.taskId}` : selectedStage ? `stage:${selectedStage.key}` : selectedBug ? `bug:${selectedBug.id}` : selectedRelease ? `frame:${selectedRelease.releaseId}` : selected,
     locate: (kind, id) => reason || preferences.lineup && kind !== 'zone' ? null : locate.current?.(kind, id) ?? null }));
   return <div className="world-page">
@@ -98,10 +107,10 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
       <div ref={mapRef} className="world-map" role="region" tabIndex={0} aria-label={t('worldUi.map')} aria-describedby={hintId}>
         <p id={hintId} className="sr-only">{t('worldUi.mapHint')}</p>
         <SceneErrorBoundary key={attempt} onError={onError}><Suspense fallback={<div className="world-loading" role="status"><Mascot seat="Lead" state="thinking" animated={false} /><span>{t('worldUi.loading')}</span></div>}>
-          <WorldCanvas events={data.events} reports={data.reports} scopeKey={scope.current} locations={locations} courier={courier} celebration={celebration} onTask={openTask} onStage={openStage} onBug={openBug} onRelease={openRelease} onCelebrate={celebrate} onEventsConsumed={data.consumeEvents} model={data.model} baseline={data.baseline} lineup={preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={select} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={preferences.still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
+          <WorldCanvas employee={employee} events={data.events} reports={data.reports} scopeKey={scope.current} locations={locations} courier={courier} celebration={celebration} onTask={openTask} onStage={openStage} onBug={openBug} onRelease={openRelease} onCelebrate={celebrate} onEventsConsumed={data.consumeEvents} model={data.model} baseline={data.baseline} lineup={preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={toySelect} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
         </Suspense></SceneErrorBoundary>
       </div>
-      <div className="world-left"><WorldToolbar preferences={preferences} onChange={patch => { if (patch.lineup) { camera.follow(null); setSelected(null); setSelectedBug(null); setSelectedRelease(null); setSelectedTask(null); setSelectedStage(null); } change(patch); }} /><FocusGamePicker className="world-focus world-control" games={data.model.games} focusProjectId={data.focusProjectId} onFocusGame={data.setFocusProjectId} locale={i18n.locale} /><WorldRoster agents={data.model.agents} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} onTask={openTask} /></div>
+      <div className="world-left"><WorldToolbar selected={agent?.seatId ?? null} quiet={still || preferences.effects === 'off'} preferences={preferences} onChange={patch => { if (patch.lineup) { camera.follow(null); setSelected(null); setSelectedBug(null); setSelectedRelease(null); setSelectedTask(null); setSelectedStage(null); } change(patch); }} /><FocusGamePicker className="world-focus world-control" games={data.model.games} focusProjectId={data.focusProjectId} onFocusGame={data.setFocusProjectId} locale={i18n.locale} /><WorldRoster agents={data.model.agents} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} onTask={openTask} /></div>
       {!(selected || selectedBug || selectedRelease || selectedStage || selectedTask) && (() => { const focus = data.model.focusProjectId;
         return <WorldActivity office={focus ? data.interactions[focus] : undefined} gameName={data.model.games.find(game => game.projectId === focus)?.name ?? null}
           loading={!!focus && !data.sources[`interactions:${focus}`]} onTask={taskId => { if (focus) openTask(focus, taskId); }} />; })()}

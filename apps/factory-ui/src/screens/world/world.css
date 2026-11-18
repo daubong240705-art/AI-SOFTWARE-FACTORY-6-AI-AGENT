@@ -32,3 +32,7 @@
 .world-activity-body { display: flex; flex: 1; min-height: 0; flex-direction: column; border-top: 1px solid var(--line); }
 .world-activity-body[hidden] { display: none; }
 @media (max-width: 1100px) { .world-page .world-activity { width: min(300px, calc(100% - var(--world-inset) * 2)); } }
+
+.world-toy-tray { position: absolute; top: calc(100% + 6px); left: 0; width: min(370px, calc(100vw - 24px)); padding: 12px; z-index: 6; max-height: 65vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 6px 20px #0002; font-size: 12px; }
+.world-toy-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.world-toy-cursor { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 100; font-size: 26px; }

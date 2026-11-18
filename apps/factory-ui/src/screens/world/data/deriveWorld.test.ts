@@ -490,3 +490,48 @@ test('week achievements require actual completion dates and complete source cove
   assert.deepEqual(achievements(model, {}, now), { released: null, passed: null });
   assert.deepEqual([5, 6, 17, 19].map(hour => daylight(new Date(2026, 10, 19, hour))), ['night', 'day', 'sunset', 'night']);
 });
+
+
+test('employee of the day counts finished senders in this local day, deduplicates, and breaks ties consistently', async () => {
+  const { employeeOfDay } = await import('../scene/toys/employee');
+  const now = new Date(2026, 10, 19, 12), today = new Date(2026, 10, 19, 0).toISOString();
+  const done = (id: string, who: string, timestamp = today) => interaction(id, 'finished', { at: timestamp, from: { kind: 'seat', seatId: who, name: who } });
+  const loaded = { p: office([done('1', 'a'), done('1', 'a'), done('2', 'b'), done('old', 'b', new Date(2026, 10, 18, 23, 59).toISOString()), done('future', 'b', new Date(+now + 1).toISOString()), interaction('other', 'progress'), interaction('owner', 'finished', { at: today, from: { kind: 'operator' } })]), q: office([done('1', 'b')]) };
+  assert.deepEqual(employeeOfDay(loaded, now), { worker: 'b', counts: { a: 1, b: 2 } });
+  assert.equal(employeeOfDay({ p: office([done('1', 'b'), done('2', 'a')]) }, now).worker, 'a');
+  assert.deepEqual(employeeOfDay({}, now), { worker: null, counts: {} });
+});
+
+test('toys stay local, enforce cooldown and concurrency, expire buffs, and roll counters at local midnight', async () => {
+  const { ToyStore, localDay } = await import('../scene/toys/store');
+  const now = +new Date(2026, 10, 19, 23, 59, 50), saved = new Map<string, string>();
+  const storage = { getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => { saved.set(key, value); } };
+  const state = new ToyStore(storage);
+  assert.equal(state.snapshot().sound, false);
+  assert.equal(state.apply('a', 'coffee', false, now), true);
+  assert.equal(state.apply('a', 'hammer', false, now + 999), false);
+  assert.equal(state.apply('b', 'megaphone', false, now), true);
+  assert.equal(state.apply('c', 'whip', false, now), true);
+  assert.equal(state.apply('d', 'cookie', false, now + 1000), false);
+  assert.equal(state.snapshot().active[0]!.until, now + 10000);
+  state.refresh(now + 3000); assert.equal(state.snapshot().active.length, 2);
+  assert.equal(state.apply('d', 'cookie', true, now + 3000), true);
+  assert.equal(state.snapshot().active.find(e => e.worker === 'd')!.quiet, true);
+  state.refresh(now + 10000); assert.equal(state.snapshot().active.length, 0);
+  assert.equal(state.snapshot().day, localDay(new Date(now + 10000))); assert.deepEqual(state.snapshot().counts, {});
+  state.mute(); assert.equal(new ToyStore(storage).snapshot().sound, true);
+  const broken = new ToyStore({ getItem: () => '{broken', setItem: () => { throw Error('blocked'); } });
+  assert.equal(broken.apply('a', 'whip', true, now), true);
+});
+
+test('toy modules have no runtime path to work commands or networking', async () => {
+  const { readFileSync, readdirSync } = await import('node:fs');
+  const folder = new URL('../scene/toys/', import.meta.url);
+  for (const file of readdirSync(folder).filter(f => /\.tsx?$/.test(f))) {
+    const source = readFileSync(new URL(file, folder), 'utf8');
+    assert.doesNotMatch(source, /\b(fetch|XMLHttpRequest|WebSocket|sendBeacon)\b|@\/state|@\/api|\.dispatch\(|\.command\(/, file);
+    for (const match of source.matchAll(/import\s+(?!type\b).*?from ['"]([^'"]+)['"]/g)) {
+      assert.ok(/^(react|three|@react-three\/fiber|@\/i18n|@\/components\/ui\/button|\.\/|\.\.\/(Ticker|screenTexture|props\/geometry)|\.\.\/\.\.\/layout\/zones)/.test(match[1]!), `${file}: ${match[1]}`);
+    }
+  }
+});

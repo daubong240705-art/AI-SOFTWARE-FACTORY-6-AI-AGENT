@@ -1,3 +1,6 @@
+import { useToys } from './toys/useToys';
+import { ToyWorker } from './toys/visuals';
+import { Employee, NeedsBell } from './toys/WorldFun';
 import { createScreenTexture, type ScreenTexture } from './screenTexture';
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
@@ -71,11 +74,12 @@ function HitTarget({ position, owner = false, onSelect, onHover }: { position: [
     <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
   </mesh>;
 }
-export function Agents({ events, courier, celebration, agents, baseline, quality, still, hidden, selected, positions, debug, onSelect, onOwner, onHover, attention, effects = 'full' }: {
-  effects?: EffectsLevel;
+export function Agents({ employee, events, courier, celebration, agents, baseline, quality, still, hidden, selected, positions, debug, onSelect, onOwner, onHover, attention, effects = 'full' }: {
+  employee: string | null; effects?: EffectsLevel;
   events: readonly WorldEvent[]; courier: Courier; celebration: number; agents: readonly WorldAgent[]; baseline: boolean; quality: WorldQuality; still: boolean; hidden: boolean; selected: string | null;
   positions: AgentPositions; debug: MutableRefObject<SceneDebug>; onSelect: (id: string) => void; onOwner: () => void; onHover: (hover: AgentHover) => void; attention: number;
 }) {
+  const toyState = useToys();
   const [placements, setPlacements] = useState(new Map<string, Placement>());
   const current = useRef(placements); current.current = placements;
   const [hovered, setHovered] = useState<string | null>(null);
@@ -175,12 +179,12 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
     }
   }, [events]);
   useEffect(() => {
-    if (!celebration || still || hidden || performance.now() - celebration >= 2500) { setCelebrants(new Set()); return; }
+    if (!celebration || still || hidden || effects === 'off' || performance.now() - celebration >= 2500) { setCelebrants(new Set()); return; }
     setCelebrants(new Set(agents.filter(a => a.status === 'idle' && !a.paused && !a.overflow && !couriers.current.has(a.seatId) && !wandering.current.wandering(a.seatId)).map(a => a.seatId)));
     const release = motion.request('live');
     const timer = setTimeout(() => { setCelebrants(new Set()); release(); }, Math.max(0, celebration + 2500 - performance.now()));
     return () => { clearTimeout(timer); release(); };
-  }, [celebration, still, hidden, motion]);
+  }, [celebration, still, hidden, effects, motion]);
   useFrame(({ camera, size }) => {
     let finished = false;
     for (const [id, placement] of current.current) {
@@ -233,10 +237,15 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
     <DeskFeedback agents={agents.filter(a => !a.overflow && deskForAgent(a))} still={still || hidden} />
     {agents.filter(a => !a.overflow && deskForAgent(a)).map(agent => {
       const placement = placements.get(agent.seatId); if (!placement) return null;
+      const toy = toyState.active.find(e => e.worker === agent.seatId);
+      const toyMotion = !still && !hidden && effects !== 'off' && !toy?.quiet;
       return <group key={agent.seatId}>
         <group ref={node => { if (node) groups.current.set(agent.seatId, node); else groups.current.delete(agent.seatId); }} position={placement.position}>
-          <CharacterRig spec={specForSeat(agent.seatName, agent.isLead)} pose={celebrants.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} />
-          {!hidden && <Aura agent={{ ...agent, pose: placement.pose }} level={effects} quality={quality} still={still || hidden} floorOffset={-placement.position[1]} />}
+          <ToyWorker effect={toy} still={!toyMotion} low={quality === 'low' || effects === 'lite'}>
+          <CharacterRig spec={specForSeat(agent.seatName, agent.isLead)} pose={celebrants.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} speed={toyMotion && toy?.tool === 'megaphone' ? 2 : 1} />
+          </ToyWorker>
+          {effects !== 'off' && agent.slot === 0 && (employee === agent.ownerSeatId || employee === agent.seatId) && <Employee low={quality === 'low' || effects === 'lite'} />}
+          {!hidden && <Aura agent={{ ...agent, pose: placement.pose }} boost={toyMotion && (toy?.tool === 'coffee' || toy?.tool === 'whip' && agent.status === 'working') ? 1 : 0} level={effects} quality={quality} still={still || hidden} floorOffset={-placement.position[1]} />}
           {!hidden && !placement.trip && agent.status === 'idle' && <LeisureItem activity={placement.activity} />}
           {agent.slot > 0 && <SlotBadge number={agent.slot + 1} />}
           {tags.has(agent.seatId) && <NameTag name={agent.name} register={sprite => { if (sprite) tagSprites.current.set(agent.seatId, sprite); else tagSprites.current.delete(agent.seatId); }} />}
@@ -244,6 +253,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
         </group>
       </group>;
     })}
+    {!hidden && <NeedsBell attention={attention} still={still} off={effects === 'off'} />}
     {!hidden && <HitTarget owner position={[ownerDesk.position[0], 1, ownerDesk.position[1]]} onSelect={onOwner} />}
     <mesh position={[ownerDesk.position[0] + 0.86, 1.1, ownerDesk.position[1] - 0.26]} raycast={ignore}><sphereGeometry args={[0.09, 10, 6]} /><meshStandardMaterial color={attention > 0 ? '#F2B8A9' : '#4A3B2F'} emissive="#F2B8A9" emissiveIntensity={attention > 0 ? 1.5 : 0} /></mesh>
   </group>;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
 import type { WorldEvent } from '../../data/events';
 import type { Endpoint, Handoff } from '../../data/types';
 import { meetingTable, anchors } from '../../layout/zones';
@@ -12,6 +12,7 @@ import { workflowDebug, handoffColors } from './support';
 export type HandoffPoint = readonly [number, number] | readonly [number, number, number];
 export type TableArrival = { handoff: Handoff; passedAt: number };
 export type HandoffsProps = {
+  effects?: import('../effects/Aura').EffectsLevel;
   /** Only diffWorld events. The batch present at mount is acknowledged as baseline. */
   events: readonly WorldEvent[];
   positionOf: (endpoint: Endpoint) => HandoffPoint | null;
@@ -50,9 +51,16 @@ export function sampleHandoffFlight(from: THREE.Vector3, to: THREE.Vector3, viaT
 }
 
 type Resources = { group: THREE.Group; cards: THREE.InstancedMesh; marks: THREE.InstancedMesh; badge: (failed: boolean) => THREE.Sprite; dispose: () => void };
-function createResources(quality: 'high' | 'low', invalidate: () => void): Resources {
+function createResources(invalidate: () => void): Resources {
   const group = new THREE.Group(); group.name = 'handoffs';
-  const geometry = new RoundedBoxGeometry(0.32, 0.22, 0.035, quality === 'low' ? 1 : 2, 0.015);
+  // Four folded triangles share a central crease; one instanced draw for all planes.
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute([
+    0,0,0.4, -0.34,0,-0.2, 0,-0.09,-0.12,
+    0,0,0.4, 0,-0.09,-0.12, 0.34,0,-0.2,
+    0,0,0.4, 0,-0.09,-0.12, -0.07,-0.13,-0.24,
+    0,0,0.4, 0.07,-0.13,-0.24, 0,-0.09,-0.12,
+  ], 3)); geometry.computeVertexNormals();
   const toon = createWorkflowToon(); const cards = new THREE.InstancedMesh(geometry, toon.material, 3); cards.count = 0; cards.frustumCulled = false; group.add(cards);
   const atlas = createWorkflowAtlas([{ key: 'envelope', text: '✉' }, { key: 'done', text: '✓', color: '#B5D3A7' }, { key: 'failed', text: '!', color: '#D66B65' }], invalidate);
   const mark = atlas.mesh('envelope', 1, 1); const marks = new THREE.InstancedMesh(mark.geometry, mark.material, 3); marks.count = 0; marks.frustumCulled = false; group.add(marks);
@@ -65,7 +73,8 @@ function createResources(quality: 'high' | 'low', invalidate: () => void): Resou
   }, dispose() { spriteMaterials.forEach(material => material.dispose()); atlas.dispose(); geometry.dispose(); cards.dispose(); marks.dispose(); toon.dispose(); } };
 }
 
-export function Handoffs({ events, positionOf, quality = 'high', still = false, courier, senderIdle, onTablePass, onTask }: HandoffsProps) {
+export function Handoffs({ effects = 'full', events, positionOf, quality = 'high', still: frozen = false, courier, senderIdle, onTablePass, onTask }: HandoffsProps) {
+  const still = frozen || effects === 'off';
   const invalidate = useThree(state => state.invalidate), motion = useWorldMotion();
   const [resources, setResources] = useState<Resources | null>(null); const current = useRef<Resources | null>(null);
   const seen = useRef(new Map(events.map(event => [event.id, Date.parse(event.at)])));
@@ -100,11 +109,11 @@ export function Handoffs({ events, positionOf, quality = 'high', still = false, 
     promote(now);
     active.current.forEach((flight, index) => {
       sampleHandoffFlight(flight.from, flight.to, flight.viaTable, now - flight.start, point);
-      dummy.position.copy(point); dummy.rotation.set(-0.25, Math.sin((now - flight.start) / 500) * 0.2, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); resource.cards.setMatrixAt(index, dummy.matrix);
+      dummy.position.copy(point); dummy.rotation.set(-0.15, Math.atan2(flight.to.x - flight.from.x, flight.to.z - flight.from.z), quality === 'low' ? 0 : Math.sin((now - flight.start) / 180) * 0.12); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); resource.cards.setMatrixAt(index, dummy.matrix);
       resource.cards.setColorAt(index, new THREE.Color(handoffColors[flight.handoff.kind] ?? '#AFCFE6'));
       dummy.translateZ(0.02); dummy.scale.set(0.29, 0.18, 1); dummy.updateMatrix(); resource.marks.setMatrixAt(index, dummy.matrix);
     });
-    resource.cards.count = resource.marks.count = active.current.length;
+    resource.cards.count = active.current.length; resource.marks.count = 0;
     resource.cards.instanceMatrix.needsUpdate = resource.marks.instanceMatrix.needsUpdate = true;
     if (resource.cards.instanceColor) resource.cards.instanceColor.needsUpdate = true;
     badges.current = badges.current.filter(badge => {
@@ -118,7 +127,7 @@ export function Handoffs({ events, positionOf, quality = 'high', still = false, 
     if (!active.current.length && !badges.current.length) { release.current?.(); release.current = null; }
   };
   useEffect(() => {
-    const created = createResources(quality, invalidate); current.current = created; setResources(created); syncStats(); invalidate();
+    const created = createResources(invalidate); current.current = created; setResources(created); syncStats(); invalidate();
     return () => { clear(); current.current = null; created.dispose(); workflowDebug.flights.delete(debugKey.current); };
   }, [quality, invalidate]);
   useEffect(() => {

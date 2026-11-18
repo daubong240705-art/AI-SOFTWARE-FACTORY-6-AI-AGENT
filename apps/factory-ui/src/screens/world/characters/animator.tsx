@@ -5,7 +5,7 @@ import { useWorldMotion } from '../scene/Ticker';
 import { blendPose, samplePose, type PoseFrame } from './poses';
 import type { Pose } from './spec';
 
-type Entry = { root: THREE.Group; pose: Pose; phase: number; frame: PoseFrame; from: PoseFrame; changedAt: number; open: THREE.Object3D; closed: THREE.Object3D; effects: THREE.Object3D };
+type Entry = { speed: number; root: THREE.Group; pose: Pose; phase: number; frame: PoseFrame; from: PoseFrame; changedAt: number; open: THREE.Object3D; closed: THREE.Object3D; effects: THREE.Object3D };
 type Registry = { entries: Set<Entry>; now: number; still: boolean; notify: () => void; owner: symbol | null };
 const registries = new WeakMap<THREE.Scene, Registry>();
 const AnimatorContext = createContext(false);
@@ -46,7 +46,7 @@ export function useCharacterAnimator({ still = false }: { still?: boolean } = {}
     const elapsed = state.clock.getElapsedTime(); registry.now = elapsed;
     for (const entry of registry.entries) {
       if (!visible(entry.root)) continue;
-      const target = samplePose(entry.pose, elapsed, entry.phase, registry.still);
+      const target = samplePose(entry.pose, entry.pose === 'working' ? elapsed * entry.speed : elapsed, entry.phase, registry.still);
       const progress = registry.still ? 1 : (elapsed - entry.changedAt) / 0.3;
       apply(entry, progress < 1 ? blendPose(entry.from, target, progress * progress * (3 - 2 * progress)) : target);
     }
@@ -63,11 +63,11 @@ export function CharacterAnimator({ children, still = false }: { children?: Reac
   const inherited = useContext(AnimatorContext);
   return inherited ? <>{children}</> : <AnimatorOwner still={still}>{children}</AnimatorOwner>;
 }
-export function useAnimatedCharacter(root: THREE.Group, pose: Pose, phase: number) {
+export function useAnimatedCharacter(root: THREE.Group, pose: Pose, phase: number, speed = 1) {
   const scene = useThree(state => state.scene); const registry = useMemo(() => registryFor(scene), [scene]);
   const entry = useMemo<Entry>(() => {
     const frame = samplePose(pose, 0, phase, true);
-    return { root, pose, phase, frame, from: frame, changedAt: -Infinity,
+    return { root, pose, phase, speed, frame, from: frame, changedAt: -Infinity,
       open: root.getObjectByName('eyes-open')!, closed: root.getObjectByName('eyes-closed')!, effects: root.getObjectByName('effects')! };
     // Pose/phase are updated below, without replacing the entry or losing its blend state.
   }, [root]);
@@ -76,6 +76,6 @@ export function useAnimatedCharacter(root: THREE.Group, pose: Pose, phase: numbe
   }, [entry, registry]);
   useEffect(() => {
     if (entry.pose !== pose) { entry.from = { ...entry.frame }; entry.changedAt = registry.now; entry.pose = pose; }
-    entry.phase = phase; registry.notify();
-  }, [entry, pose, phase, registry]);
+    entry.phase = phase; entry.speed = speed; registry.notify();
+  }, [entry, pose, phase, speed, registry]);
 }

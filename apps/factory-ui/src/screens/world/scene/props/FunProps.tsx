@@ -65,10 +65,16 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
     { color: '#A87A50', at: [0, 0.4, 0], size: [0.06, 0.8, 0.06] },
   ]); geometries.push(foliageShape);
   const leaves = new THREE.InstancedMesh(foliageShape, material, plants.length); group.add(leaves);
+  // A compact pedestal fan faces into the lounge; there is no visible ceiling.
+
   const fan = mesh([
-    { color: '#4A3B2F', shape: 'sphere', at: [0, 0, 0], size: [0.35, 0.16, 0.35] },
-    ...[0, 1, 2, 3].map(i => ({ color: '#D8BD97', at: [Math.cos(i * Math.PI / 2) * 0.8, 0, Math.sin(i * Math.PI / 2) * 0.8] as const, size: [1.4, 0.04, 0.24] as const, yaw: -i * Math.PI / 2 })),
-  ]); fan.position.set(0, 3.45, 0);
+    { color: '#4A3B2F', at: [0, -1.22, 0], size: [0.6, 0.16, 0.48] },
+    { color: '#81929C', at: [0, -0.65, 0], size: [0.07, 1.15, 0.07] },
+    { color: '#81929C', shape: 'sphere', at: [0, 0, 0], size: [0.68, 0.68, 0.18] },
+    { color: '#D8BD97', at: [0, 0, 0.1], size: [0.48, 0.07, 0.04] },
+    { color: '#D8BD97', at: [0, 0, 0.1], size: [0.07, 0.48, 0.04] },
+    { color: '#4A3B2F', shape: 'sphere', at: [0, 0, 0.14], size: [0.14, 0.14, 0.08] },
+  ]); fan.name = 'standing-fan'; fan.position.set(-16.2, 1.3, 10.7);
   const cat = mesh([
     { color: '#DEB181', shape: 'sphere', at: [0, 0.2, 0], size: [0.6, 0.32, 0.3] },
     { color: '#F1CB9A', shape: 'sphere', at: [0.25, 0.4, 0], size: [0.31, 0.3, 0.3] },
@@ -120,7 +126,7 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
     for (let i = 0; i < fish.count; i++) { const a = clock * (0.32 + i * 0.025) + i * 1.7; put(fish, i, [ax + Math.sin(a) * 0.85, 1.08 + i % 3 * 0.17 + Math.sin(a * 1.3) * 0.04, az + Math.cos(a) * 0.28], [1, 1, 1], -a); }
     for (let i = 0; i < steam.count; i++) { const p = (clock * 0.18 + i / steam.count) % 1; put(steam, i, [anchors.coffee[0] + Math.sin(clock + i) * 0.08, 1.15 + p * 0.9, anchors.coffee[1] + 0.4], [0.1 + p * 0.18, 0.12 + p * 0.23, 0.1 + p * 0.18]); }
     plants.forEach(([x, z], i) => put(leaves, i, [x, 0.5, z], [1, 1, 1], i, low ? 0 : Math.sin(clock * 0.7 + i) * 0.07));
-    fan.rotation.y = clock * 0.55;
+    fan.rotation.y = low ? 0 : Math.sin(clock * 0.55) * 0.25;
     if (leds.instanceColor) { for (let i = 0; i < leds.count; i++) leds.setColorAt(i, new THREE.Color().setRGB(0.18, moving ? 0.65 + 0.3 * Math.sin(clock * 2 + i) ** 2 : 0.9, 0.4)); leds.instanceColor.needsUpdate = true; }
     if (state) {
       const players = state.debug.current.agents.filter(a => a.activity === 'ping-pong' && !a.walking && a.status === 'idle');

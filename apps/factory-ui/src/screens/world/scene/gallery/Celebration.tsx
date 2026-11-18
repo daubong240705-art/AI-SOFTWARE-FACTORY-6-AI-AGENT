@@ -1,3 +1,4 @@
+import { Rocket } from '../toys/WorldFun';
 import { useEffect, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -132,7 +133,7 @@ export function Celebration({ frames, events, baselineReady = true, quality, sti
     if (!frame || performance.now() >= entry.started + 60000) return null;
     return <group key={entry.key} position={frame.position} rotation={[0, frame.yaw, 0]}>
       <Ribbon locale={locale} />
-      {!still && entry.confetti && <Confetti started={entry.started} quality={quality} seed={entry.key} />}
+      {!still && entry.confetti && <group><Confetti started={entry.started} quality={quality} seed={entry.key} /><Rocket started={entry.started} low={quality === 'low'} /></group>}
     </group>;
   })}</group>;
 }

@@ -19,7 +19,7 @@ import { FunProps } from './props/FunProps';
 
 export type Courier = MutableRefObject<((handoff: Handoff) => void) | null>;
 export type StudioProps = {
-  model: WorldModel; events: readonly WorldEvent[]; reports: WorldInputs['reports']; baseline: boolean;
+  effects: import('./effects/Aura').EffectsLevel; model: WorldModel; events: readonly WorldEvent[]; reports: WorldInputs['reports']; baseline: boolean;
   quality: 'high' | 'low'; still: boolean; hidden: boolean; scopeKey: number;
   positions: AgentPositions; locations: WorldLocations; debug: MutableRefObject<SceneDebug>; courier: Courier;
   consumeEvents: (ids: readonly string[]) => void;
@@ -32,6 +32,7 @@ export function Studio(props: StudioProps) {
   useT();
   const { model, quality, events, reports, scopeKey } = props;
   const still = props.still || props.hidden;
+  const funStill = still || props.effects === 'off';
   const [arrivals, setArrivals] = useState<TableArrival[]>([]);
   const acknowledged = useRef(new Set<string>());
   const latest = useRef(props); latest.current = props;
@@ -71,11 +72,11 @@ export function Studio(props: StudioProps) {
   });
   return <group visible={!props.hidden}>
     <TaskBoard projectId={model.focusProjectId} columns={model.tasks.columns} overflow={model.tasks.overflow} quality={quality} still={still} locale="en" onOpenTask={props.onTask} locations={props.locations} />
-    <Handoffs events={events} positionOf={positionOf} quality={quality} still={still} senderIdle={senderIdle} courier={courier} onTablePass={arrival} onTask={props.onTask} />
+    <Handoffs effects={props.effects} events={events} positionOf={positionOf} quality={quality} still={still} senderIdle={senderIdle} courier={courier} onTablePass={arrival} onTask={props.onTask} />
     <CollabTable stages={model.stages} onStage={props.onStage} onTask={props.onTask} handoffs={arrivals} quality={quality} still={still} locale="en" />
     <TestingLab games={model.hotProjects} reports={reports} quality={quality} still={still} locale="en" />
-    <BugMonsters bugs={model.bugs} bugOverflow={model.bugOverflow} events={events} games={model.hotProjects} scopeKey={String(scopeKey)} quality={quality} still={still} locale="en" onSelectBug={props.onBug} locations={props.locations} />
-    <Gallery items={model.gallery} events={events} baselineReady={props.baseline} quality={quality} still={still} locale="en" onSelectRelease={props.onRelease} onCelebrate={props.onCelebrate} />
+    <BugMonsters effects={props.effects} bugs={model.bugs} bugOverflow={model.bugOverflow} events={events} games={model.hotProjects} scopeKey={String(scopeKey)} quality={quality} still={funStill} locale="en" onSelectBug={props.onBug} locations={props.locations} />
+    <Gallery items={model.gallery} events={events} baselineReady={props.baseline} quality={quality} still={funStill} locale="en" onSelectRelease={props.onRelease} onCelebrate={props.onCelebrate} />
     <FunProps model={model} reports={reports} quality={quality} still={still} hidden={props.hidden} debug={props.debug} positions={props.positions} locale={i18n.locale} />
   </group>;
 }

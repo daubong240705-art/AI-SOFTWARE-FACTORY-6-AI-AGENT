@@ -22,7 +22,7 @@ import type { WorldLocations } from './CameraRig';
 import { softwareRenderer, useWorldQuality, type WorldQuality } from './quality';
 
 type Props = {
-  model: WorldModel; baseline: boolean; events: readonly WorldEvent[]; celebration: number; reports: WorldInputs['reports']; locations: WorldLocations; scopeKey: number; lineup: boolean; selected: string | null; attention: number;
+  employee: string | null; model: WorldModel; baseline: boolean; events: readonly WorldEvent[]; celebration: number; reports: WorldInputs['reports']; locations: WorldLocations; scopeKey: number; lineup: boolean; selected: string | null; attention: number;
   positions: AgentPositions; courier: { current: ((handoff: import('../data/types').Handoff) => void) | null }; sceneDebug: MutableRefObject<SceneDebug>;
   onSelect: (id: string) => void; onTask: (projectId: string, taskId: string) => void; onStage: (key: string) => void; onBug: (bug: Bug) => void; onRelease: (item: GalleryItem) => void; onCelebrate: (item: GalleryItem) => void; onEventsConsumed: (ids: readonly string[]) => void; onOwner: () => void; onHover: (hover: AgentHover) => void;
   qualityPreference: WorldPreferences['quality']; still: boolean; effects: WorldPreferences['effects'];
@@ -72,8 +72,8 @@ function Cast({ props, quality }: { props: Props; quality: WorldQuality }) {
   useEffect(() => { if (props.lineup) camera.focusPoint([0, 4], Math.min(62, 900 / lineupDimensions.width, 600 / lineupDimensions.depth)); else { const agent = props.model.agents.find(item => item.seatId === props.selected); const point = props.selected === 'owner' ? ownerDesk.position : props.positions.current.get(props.selected ?? '') ?? (agent ? deskForAgent(agent)?.seat : null); if (point) camera.focusPoint(point, 70); else camera.home(); } }, [props.lineup, camera]);
   useFrame(() => { props.sceneDebug.current.characters = characterStats(); });
   return <CharacterAnimator still={props.still}>
-    <Studio key={props.scopeKey} model={props.model} events={props.events} reports={props.reports} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} scopeKey={props.scopeKey} positions={props.positions} locations={props.locations} debug={props.sceneDebug} courier={props.courier} consumeEvents={props.onEventsConsumed} onTask={props.onTask} onStage={props.onStage} onBug={props.onBug} onRelease={props.onRelease} onCelebrate={props.onCelebrate} />
-    <Agents key={props.scopeKey} events={props.events} courier={props.courier} celebration={props.celebration} agents={props.model.agents} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} effects={props.effects} />
+    <Studio effects={props.effects} key={props.scopeKey} model={props.model} events={props.events} reports={props.reports} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} scopeKey={props.scopeKey} positions={props.positions} locations={props.locations} debug={props.sceneDebug} courier={props.courier} consumeEvents={props.onEventsConsumed} onTask={props.onTask} onStage={props.onStage} onBug={props.onBug} onRelease={props.onRelease} onCelebrate={props.onCelebrate} />
+    <Agents employee={props.employee} key={props.scopeKey} events={props.events} courier={props.courier} celebration={props.celebration} agents={props.model.agents} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} effects={props.effects} />
     {props.lineup && <Lineup origin={[0, 4]} quality={quality} still={props.still} locale={i18n.locale} />}
   </CharacterAnimator>;
 }

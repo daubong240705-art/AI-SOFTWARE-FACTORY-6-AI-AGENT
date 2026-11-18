@@ -109,7 +109,7 @@ export function Aura({ agent, level, quality, still, boost = 0, floorOffset = 0 
   useEffect(() => { paint(seed, 0.25); }, [kind, lite, seed, height]);
   useFrame(() => { if (animated) paint(performance.now() / 1000 + seed, Math.min(1, (performance.now() - born.current) / 1600)); });
   if (!kind) return null;
-  if (lite) return <mesh geometry={ring} material={ink(flat, 0.75)} position={[0, floorOffset + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={ignore} />;
+  if (lite) return <mesh geometry={ring} material={ink(flat, boost ? 1 : 0.75)} position={[0, floorOffset + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={ignore} />;
   if (kind === 'flame' || kind === 'super') return <group>
     <mesh geometry={shell} material={ink(color, 0.3)} scale={[1, height, 1]} raycast={ignore} />
     <instancedMesh ref={first} args={[tongue, ink(kind === 'super' ? '#FFF3A6' : color, 0.94), 5]} raycast={ignore} />
@@ -117,7 +117,7 @@ export function Aura({ agent, level, quality, still, boost = 0, floorOffset = 0 
     <instancedMesh ref={particles} args={[kind === 'super' ? star : bubble, ink('#FFD36A'), 6]} raycast={ignore} />
   </group>;
   if (kind === 'chill') return <group>
-    <instancedMesh ref={first} args={[bubble, ink('#9BC9BF', 0.72), 4]} raycast={ignore} />
+    <instancedMesh ref={first} args={[bubble, ink(boost ? '#D5FFF0' : '#9BC9BF', boost ? 1 : 0.72), 4]} raycast={ignore} />
     <instancedMesh ref={second} args={[note, ink('#AA8DC4', 0.85), 2]} raycast={ignore} />
   </group>;
   if (kind === 'alarm') return <group>
