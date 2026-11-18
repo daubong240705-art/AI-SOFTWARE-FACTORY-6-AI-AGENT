@@ -10,6 +10,7 @@ export const extra: Translated<typeof en> = {
     errors: { live: 'Hãy dừng lượt chạy đang hoạt động và đối soát lượt chưa rõ kết quả trước khi xoá dự án.', release: 'Hãy chờ bản phát hành đang chờ hoàn tất trước khi xoá dự án.', portal: 'Không thể xoá dự án quản trị Portal.', name: 'Tên xác nhận phải trùng khớp chính xác với tên dự án.', revision: 'Dự án đã thay đổi. Hãy kiểm tra dữ liệu mới và thử lại.', archived: 'Dự án đã được lưu trữ.' },
   },
   worldUi: {
+    props: { achievements: 'Thành tích studio', released: 'Game đã phát hành', qaWeek: 'Vòng QA đạt tuần này', neon: 'AI GAME STUDIO' },
     taskDetails: { title: 'Chi tiết task', openProject: 'Mở trong dự án', follow: 'Theo dõi người làm', stage: 'Bước quy trình', latestRun: 'Lượt chạy mới nhất', started: 'Bắt đầu', ended: 'Kết thúc', outcome: 'Kết quả', summary: 'Tóm tắt cuối', noRuns: 'Chưa có lượt chạy.', unavailable: 'Không tìm thấy task.', review: 'Mở quyết định / duyệt', noTasks: 'Bước này chưa có task.', openTask: 'Mở task', releaseTask: 'Xem task phát hành' },
     more: 'Thêm tùy chọn',
     releaseAnnouncement: 'Đã phát hành {game} v{version}!',

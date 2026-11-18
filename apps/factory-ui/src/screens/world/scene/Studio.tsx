@@ -4,7 +4,7 @@ import type { WorldEvent } from '../data/events';
 import type { Bug, Endpoint, GalleryItem, Handoff, WorldInputs, WorldModel } from '../data/types';
 import { anchors, displayFrames, ownerDesk } from '../layout/zones';
 import { deskForAgent } from '../agentPresentation';
-import { useT } from '@/i18n';
+import { i18n, useT } from '@/i18n';
 import type { SceneDebug } from '../debugHook';
 import { TaskBoard } from './workflow/TaskBoard';
 import { Handoffs, type TableArrival } from './workflow/Handoffs';
@@ -15,6 +15,7 @@ import { BugMonsters, labStats } from './lab/BugMonsters';
 import { Gallery, galleryStats } from './gallery/Gallery';
 import type { AgentPositions } from './Agents';
 import type { WorldLocations } from './CameraRig';
+import { FunProps } from './props/FunProps';
 
 export type Courier = MutableRefObject<((handoff: Handoff) => void) | null>;
 export type StudioProps = {
@@ -75,5 +76,6 @@ export function Studio(props: StudioProps) {
     <TestingLab games={model.hotProjects} reports={reports} quality={quality} still={still} locale="en" />
     <BugMonsters bugs={model.bugs} bugOverflow={model.bugOverflow} events={events} games={model.hotProjects} scopeKey={String(scopeKey)} quality={quality} still={still} locale="en" onSelectBug={props.onBug} locations={props.locations} />
     <Gallery items={model.gallery} events={events} baselineReady={props.baseline} quality={quality} still={still} locale="en" onSelectRelease={props.onRelease} onCelebrate={props.onCelebrate} />
+    <FunProps model={model} reports={reports} quality={quality} still={still} hidden={props.hidden} debug={props.debug} positions={props.positions} locale={i18n.locale} />
   </group>;
 }

@@ -57,19 +57,22 @@ export function drawCoverImage(ctx: CanvasRenderingContext2D, image: ImageBitmap
 }
 
 /** A cover owns one fixed texture pair until it leaves this gallery; frames and arcade share it. */
-export type CoverResource = { releaseId: string; texture: CanvasTexture; screen: ScreenTexture; update: (releaseId: string, url: string | null) => void; dispose: () => void };
+export type CoverResource = { releaseId: string; texture: CanvasTexture; screen: ScreenTexture; update: (releaseId: string, url: string | null, fallback?: { name: string; gameId: string }) => void; dispose: () => void };
 export function coverFor(cache: Map<string, CoverResource>, item: { gameId: string; version: number | null; releaseId: string; projectId: string; name: string }, url: string | null, invalidate: () => void, slot = 0): CoverResource {
   // A gallery slot owns its textures across releases, games and status updates.
   const key = String(slot), hit = cache.get(key);
-  if (hit) { if (hit.releaseId !== item.releaseId) hit.update(item.releaseId, url); return hit; }
+  if (hit) { if (hit.releaseId !== item.releaseId) hit.update(item.releaseId, url, item); return hit; }
   const screen = createScreenTexture(512, 384, invalidate);
   screen.draw(ctx => drawGeneratedCover(ctx, item.name, item.gameId, 512, 384));
   let cancel = () => {};
+  let metadata = { name: item.name, gameId: item.gameId };
   const resource: CoverResource = {
     releaseId: '', texture: screen.texture, screen,
-    update(releaseId, source) {
+    update(releaseId, source, fallback) {
       if (resource.releaseId) screen.cancel();
       resource.releaseId = releaseId; cancel();
+      if (fallback) metadata = fallback;
+      screen.draw(ctx => drawGeneratedCover(ctx, metadata.name, metadata.gameId, 512, 384));
       cancel = loadCoverImage(source, image => screen.draw(ctx => drawCoverImage(ctx, image)));
     },
     dispose() { cancel(); screen.dispose(); },

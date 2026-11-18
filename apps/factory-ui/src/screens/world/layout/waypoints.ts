@@ -1,4 +1,4 @@
-import { anchors, desks, displayFrames, furnitureFootprints, loungeSpots, meetingSpots, portalPath, walkwayLanes, laneJunctions, navigationBounds, type Footprint, type Point } from './zones';
+import { catAnchors, activitySpots, anchors, desks, displayFrames, furnitureFootprints, loungeSpots, meetingSpots, portalPath, walkwayLanes, laneJunctions, navigationBounds, type Footprint, type Point } from './zones';
 export type Waypoint = { readonly id: string; readonly position: Point };
 export type Edge = readonly [string, string];
 const clearance = 0.3;
@@ -26,6 +26,7 @@ export const navigationAnchors: Record<string, Point> = Object.fromEntries(Objec
   ...Object.fromEntries(loungeSpots.map((p, i) => [`rest-${i}`, p])),
   ...Object.fromEntries(meetingSpots.map((p, i) => [`table-${i}`, p])),
   ...Object.fromEntries(displayFrames.map(f => [f.id, [f.position[0] + Math.sin(f.yaw) * 1, f.position[1] + Math.cos(f.yaw) * 1] as Point])),
+  ...activitySpots, ...catAnchors,
   counter: [16.5, 10.6],
   coffee: [-15.95, 9],
   window: [-17, -8.8],
@@ -110,7 +111,7 @@ for (let i = edges.length - 1; i >= 0; i--) {
 const byId = new Map(nodes.map(n => [n.id, n]));
 export function findBlockedEdges(candidateEdges: readonly Edge[] = edges): Edge[] { return candidateEdges.filter(([a, b]) => !clear(byId.get(a)!.position, byId.get(b)!.position)); }
 const blockedEdges = findBlockedEdges();
-if (import.meta.env.DEV) console.assert(blockedEdges.length === 0, 'World walkway edges intersect furniture', blockedEdges);
+if (import.meta.env?.DEV) console.assert(blockedEdges.length === 0, 'World walkway edges intersect furniture', blockedEdges);
 export const layout = Object.freeze({
   nodes: Object.freeze(nodes.map(n => Object.freeze({ ...n, position: Object.freeze([...n.position]) as Point }))),
   edges: Object.freeze(edges.map(e => Object.freeze([...e]) as Edge)),

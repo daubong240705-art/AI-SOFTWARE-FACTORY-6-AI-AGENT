@@ -43,6 +43,9 @@ export const anchors = {
   labBench: [15, -7.5], scanner: [11.3, -7.5], arcade: [14, 8], counter: [16.5, 12.5],
   sofa: [-14.5, 12.4], coffee: [-17, 9], gate: [25, -3],
 } as const satisfies Record<string, Point>;
+export const funProps = { server: [-6.3, 3.6], aquarium: [1.6, 12], pingPong: [-3.2, 2.2], fan: [0, 0], board: [16, -13.65] } as const satisfies Record<string, Point>;
+export const activitySpots = { 'ping-left': [-5.4, 2.2], 'ping-right': [-1, 2.2], cat: [-12.8, 10.1], 'plant-water': [5.5, 10.95] } as const satisfies Record<string, Point>;
+export const catAnchors = { 'cat-perch': [-12.8, 10.95] } as const satisfies Record<string, Point>;
 export const pen = { rect: [10, 17.5, -6, -3.5] as const };
 export const plants: readonly Point[] = [[-5.5, 12], [5.5, 12], [-17, -12], [6.3, -12], [17, 6], [-9.5, 13.2]];
 export const rugs = [
@@ -63,6 +66,9 @@ export const laneJunctions: readonly Point[] = [[-8, -1], [8, -1], [-8, -7.75], 
 export const navigationBounds = { x: [-17.7, 17.8], z: [-13.7, 13.7] } as const;
 export type Footprint = { id: string; position: Point; half: Point; yaw: number; radius?: number };
 export const furnitureFootprints: Footprint[] = [
+  { id: 'server-rack', position: funProps.server, half: [0.45, 0.4], yaw: 0 },
+  { id: 'aquarium', position: funProps.aquarium, half: [1.2, 0.5], yaw: 0 },
+  { id: 'ping-pong', position: funProps.pingPong, half: [1.5, 0.8], yaw: 0 },
   ...desks.flatMap(d => [
     { id: d.id, position: d.position, half: [d.id === 'owner' ? 1.05 : 0.85, 0.44] as Point, yaw: d.yaw },
     { id: `${d.id}-chair`, position: d.seat, half: [0.39, 0.4] as Point, yaw: d.yaw },
@@ -229,7 +235,7 @@ export function environmentModel() {
     // Neutral blank sticky notes are decoration, not invented task status.
     for (let j = 0; j < 3; j++) box(colors[(i + j) % colors.length]!, [x - 0.58 + j * 0.58, 1.48 - (j % 2) * 0.25, -13.58], [0.37, 0.28, 0.015]);
   }
-  sign('Lazy Studio', 0, 2.93, -13.7, 5.2, palette.mint);
+  sign('AI GAME STUDIO', 0, 2.93, -13.7, 5.2, palette.mint);
   // Soft string lights follow the north wall, below its crown trim.
   box(palette.ink, [0, 3.31, -13.64], [35, 0.025, 0.025]);
   for (let i = 0; i < 31; i++) {
@@ -319,16 +325,6 @@ export function environmentModel() {
   for (const [i, [x, z]] of plants.entries()) {
     add('cylinder', i % 2 ? palette.cream : palette.apricot, [x, 0.24, z], [0.6, 0.48, 0.6]);
     add('cylinder', palette.darkWood, [x, 0.49, z], [0.5, 0.025, 0.5]);
-    if (i % 3 === 0) {
-      box(palette.darkWood, [x, 0.86, z], [0.08, 0.75, 0.08]);
-      for (const [dx, dz, y] of [[-0.23, 0, 0.9], [0.23, 0, 1.15], [0, 0.2, 1.4]]) add('sphere', palette.sage, [x + dx!, y!, z + dz!], [0.57, 0.5, 0.48]);
-    } else if (i % 3 === 1) {
-      for (const dx of [-0.22, 0, 0.22]) add('sphere', palette.mint, [x + dx, 0.9 + (dx === 0 ? 0.2 : 0), z], [0.25, 0.9, 0.28]);
-    } else {
-      add('cylinder', palette.sage, [x, 0.9, z], [0.27, 0.85, 0.27]);
-      for (const dx of [-0.23, 0.23]) add('sphere', palette.sage, [x + dx, 0.84, z], [0.31, 0.26, 0.28]);
-      add('sphere', palette.rose, [x, 1.35, z], [0.18, 0.14, 0.18]);
-    }
     blob([x, z], 1.3, 1.3);
   }
   // Mounted signs have no posts in the walking lanes.

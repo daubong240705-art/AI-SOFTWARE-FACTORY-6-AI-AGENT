@@ -417,6 +417,25 @@ test('two runs make both workers work; one run leaves the second idle', () => {
   const one = workers([seat('rules', { slots: 2, status: 'working', runs: [activeRun('a')] })]).model.agents;
   assert.deepEqual(one.map(a => a.status), ['working', 'idle']);
 });
+test('controller keeps Rules Engineer slot 2 working across reordered activity polls', async () => {
+    const { createWorldDataController } = await import('./controller');
+    const timer = fakeClock(); let poll = 0; const seatValue = seat('rules', { name: 'Rules Engineer', slots: 2, status: 'working', runs: [activeRun('attempt-a', 'a', date(0)), activeRun('attempt-b', 'b', date(1000))] });
+    const activity = () => ({ ok: true as const, apiVersion: 1 as const, generatedAt: at, nodes: [], teams: [team([{ ...seatValue, runs: poll % 2 ? [...seatValue.runs].reverse() : seatValue.runs }])] });
+    const api: import('./controller').WorldDataApi = {
+      getOrgActivity: async () => { poll++; return activity(); }, listTeams: async () => ({ teams: [org([])] }), listGames: async () => ({ games: [] }),
+      getProjectInteractions: async () => office([]), listTasks: async () => ({ ok: true, apiVersion: 1, items: [] }), getWorkflow: async () => ({ instance: detail([]) }), getGameReport: async () => report([]), listReleases: async () => ({ enabled: true, canPublish: { allowed: true, reason: null }, releases: [] }), getPortal: async () => ({ configured: false, projectId: null }), portalGames: async () => ({ games: [] }), portalStats: async () => { throw new Error('not configured'); },
+    };
+    const engine = createWorldDataController(api, { hidden: () => false, clock: timer.clock, onSnapshot: () => {} });
+    engine.start(); await flush();
+    const first = engine.getSnapshot().model.agents;
+    assert.deepEqual(first.map(agent => [agent.seatId, agent.status, agent.runs[0]?.attemptId]), [['rules', 'working', 'attempt-a'], ['rules#2', 'working', 'attempt-b']]);
+    const pending = [...timer.pending.entries()].find(([, item]) => item.ms === 5000); assert.ok(pending); timer.pending.delete(pending[0]); pending[1].fn(); await flush();
+    const second = engine.getSnapshot().model.agents;
+    assert.deepEqual(second.map(agent => [agent.seatId, agent.status, agent.runs[0]?.attemptId]), [['rules', 'working', 'attempt-a'], ['rules#2', 'working', 'attempt-b']]);
+    assert.equal(poll, 2);
+    assert.deepEqual(second.map(a => deskForAgent(a)?.id), first.map(a => deskForAgent(a)?.id));
+    engine.stop();
+});
 test('a run keeps its worker and desk when the other run ends', () => {
   const first = workers([seat('rules', { slots: 2, status: 'working', runs: [activeRun('a', 'a', date(0)), activeRun('b', 'b', date(1000))] })]);
   const second = workers([seat('rules', { slots: 2, status: 'working', runs: [activeRun('b', 'b', date(1000))] })], first.assign);
@@ -427,4 +446,47 @@ test('a question goes to the worker whose run it belongs to', () => {
   const need = { approvalId: 'q1', kind: 'question' as const, taskId: 'b', code: 'T-b' };
   const agents = workers([seat('rules', { slots: 2, status: 'waiting', runs: [activeRun('a', 'a', date(0)), activeRun('b', 'b', date(1000))], needsYou: [need] })]).model.agents;
   assert.deepEqual(agents.map(a => [a.status, a.needsYou.length]), [['working', 0], ['waiting', 1]]);
+});
+
+test('activity anchors remain reachable and every navigation edge avoids prop footprints', async () => {
+  const { layout, navigationAnchors, pathBetween } = await import('../layout/waypoints');
+  assert.equal(layout.blockedEdges, 0);
+  for (const id of ['coffee', 'cat', 'plant-water', 'ping-left', 'ping-right', 'rest-1']) {
+    assert.ok(navigationAnchors[id]);
+    assert.ok(pathBetween('rules-2', id).length >= 2, `unreachable ${id}`);
+  }
+});
+test('leisure reserves two real idle players together and real work interrupts both', async () => {
+  const { WanderingDirector } = await import('../scene/wandering');
+  const director = new WanderingDirector();
+  const people = ['a', 'b'].map(seatId => ({ seatId, idle: true, desk: [0, 0] as const, home: seatId }));
+  const spots = [{ id: 'ping-left', point: [-5.4, 2.2] as const }, { id: 'ping-right', point: [-1, 2.2] as const }];
+  director.update(people, spots, 0, true, 3);
+  let departures = director.update(people, spots, 60000, true, 3);
+  for (let i = 1; !departures.length && i < 20; i++) departures = director.update(people, spots, 60000 + i, true, 3);
+  assert.equal(departures.length, 2);
+  assert.equal(director.reservedSpots().size, 2);
+  director.arrive('a', 61000); director.arrive('b', 62000);
+  assert.equal(director.activity('a'), 'ping-pong'); assert.equal(director.activity('b'), 'ping-pong');
+  people[0]!.idle = false;
+  const returns = director.update(people, spots, 63000, true, 3);
+  assert.equal(returns.length, 2); assert.ok(returns.every(a => a.urgent));
+  assert.equal(director.activity('a'), null); assert.equal(director.activity('b'), null);
+  director.update(people, spots, 64000, false, 0);
+  assert.equal(director.reservedSpots().size, 0);
+});
+test('week achievements require actual completion dates and complete source coverage', async () => {
+  const { achievements, daylight } = await import('../scene/props/state');
+  const x = inputs(); x.releases.p = { enabled: true, releases: [release('one', 'done', 1)] };
+  const qa = report([round(1, 'passed')]); x.reports.p = qa;
+  const now = new Date(2026, 10, 19, 12);
+  let model = deriveWorld(x).model;
+  assert.deepEqual(achievements(model, x.reports, now), { released: 1, passed: null });
+  qa.stages = [{ key: 'qa', title: 'QA', iterations: [{ iteration: 1, taskCode: 'QA-001', state: 'done', startedAt: at, endedAt: new Date(2026, 10, 18, 12).toISOString(), durationMs: null, attempts: 1, tokens: null }] }];
+  assert.deepEqual(achievements(model, x.reports, now), { released: 1, passed: 1 });
+  qa.stages[0]!.iterations[0]!.endedAt = new Date(2026, 10, 15, 12).toISOString();
+  assert.equal(achievements(model, x.reports, now).passed, 0);
+  model = deriveWorld({ interactions: {}, tasks: {}, workflows: {}, reports: {}, releases: {} }).model;
+  assert.deepEqual(achievements(model, {}, now), { released: null, passed: null });
+  assert.deepEqual([5, 6, 17, 19].map(hour => daylight(new Date(2026, 10, 19, hour))), ['night', 'day', 'sunset', 'night']);
 });

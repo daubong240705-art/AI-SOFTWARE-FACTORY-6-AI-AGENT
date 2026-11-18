@@ -107,11 +107,18 @@ function makeGallery(items: readonly GalleryItem[], baseUrl: string | undefined,
       const brace = box(frame, [0, 0.68, 0.36], [1.84, 0.045, 0.045], wood, item); brace.rotation.z = Math.PI / 7;
     }
   });
-  const newest = visible[0];
+  const newest = items.find(item => item.state === 'done');
   if (newest) {
+    const index = visible.indexOf(newest);
+    let coverMaterial = index >= 0 ? coverMaterials[index] : undefined;
+    if (!coverMaterial) {
+      const cover = coverFor(covers, newest, thumbnailUrl(newest.projectId, newest.releaseId, baseUrl), invalidate, displayFrames.length);
+      coverMaterial = new THREE.MeshBasicMaterial({ map: cover.texture, toneMapped: false });
+      cover.screen.attach(coverMaterial); coverMaterials.push(coverMaterial);
+    }
     const arcade = new THREE.Group(); arcade.position.set(anchors.arcade[0], 1.42, anchors.arcade[1] + 0.65); group.add(arcade);
     const geometry = new THREE.PlaneGeometry(0.78, 0.52); geometries.push(geometry);
-    const face = new THREE.Mesh(geometry, coverMaterials[0]); face.userData.release = newest; arcade.add(face);
+    const face = new THREE.Mesh(geometry, coverMaterial); face.userData.release = newest; arcade.add(face);
   }
   paint();
   void document.fonts?.load('600 30px "Inter Variable"').then(() => { if (!disposed) paint(); }).catch(() => {});
@@ -136,6 +143,7 @@ export function Gallery({ items, events = emptyEvents, baselineReady = true, qua
     if (!screen) return;
     const created = makeGallery(stableItems, baseUrl, invalidate, covers.current, screen); setResource(created);
     const live = new Set(stableItems.slice(0, displayFrames.length).map((_, index) => String(index)));
+    if (stableItems.some(item => item.state === 'done')) live.add(String(displayFrames.length));
     for (const [key, cover] of covers.current) if (!live.has(key)) { cover.dispose(); covers.current.delete(key); }
     mountedFrames.set(token.current, Math.min(items.length, displayFrames.length)); const key = token.current;
     return () => { mountedFrames.delete(key); created.dispose(); };
