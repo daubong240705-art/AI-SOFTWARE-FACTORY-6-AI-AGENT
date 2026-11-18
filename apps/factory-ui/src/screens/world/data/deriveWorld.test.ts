@@ -398,3 +398,33 @@ test('operator placements keep resting agents at desks and reserve unique lounge
     if (anchor && !anchor.id.startsWith('rest-')) assert.equal(anchor.id, deskForAgent(agent)!.id);
   }
 });
+
+// W-13: one worker per seat slot.
+const activeRun = (attemptId: string, taskId = attemptId, startedAt = at): ActivitySeat['runs'][number] => ({ projectId: 'p', projectName: 'p', taskId, code: `T-${taskId}`, title: taskId, attemptId, attemptState: 'running', nodeId: null, startedAt, progress: null });
+function workers(seats: ActivitySeat[], previous = {}) {
+  const x = inputs(); x.activity!.teams = [team(seats)];
+  return deriveWorld(x, previous);
+}
+test('a seat with two slots becomes two idle workers on different desks', () => {
+  const { model } = workers([seat('rules', { slots: 2 })]);
+  assert.deepEqual(model.agents.map(a => [a.seatId, a.ownerSeatId, a.slot, a.status]), [['rules', 'rules', 0, 'idle'], ['rules#2', 'rules', 1, 'idle']]);
+  assert.notEqual(deskForAgent(model.agents[0]!)?.id, deskForAgent(model.agents[1]!)?.id);
+  assert.equal(model.agents[1]!.name, 'rules #2');
+});
+test('two runs make both workers work; one run leaves the second idle', () => {
+  const both = workers([seat('rules', { slots: 2, status: 'working', runs: [activeRun('a', 'a', date(0)), activeRun('b', 'b', date(1000))] })]).model.agents;
+  assert.deepEqual(both.map(a => [a.status, a.runs.map(r => r.attemptId)]), [['working', ['a']], ['working', ['b']]]);
+  const one = workers([seat('rules', { slots: 2, status: 'working', runs: [activeRun('a')] })]).model.agents;
+  assert.deepEqual(one.map(a => a.status), ['working', 'idle']);
+});
+test('a run keeps its worker and desk when the other run ends', () => {
+  const first = workers([seat('rules', { slots: 2, status: 'working', runs: [activeRun('a', 'a', date(0)), activeRun('b', 'b', date(1000))] })]);
+  const second = workers([seat('rules', { slots: 2, status: 'working', runs: [activeRun('b', 'b', date(1000))] })], first.assign);
+  assert.deepEqual(second.model.agents.map(a => [a.seatId, a.status, a.runs.map(r => r.attemptId)]), [['rules', 'idle', []], ['rules#2', 'working', ['b']]]);
+  assert.deepEqual(second.model.agents.map(a => deskForAgent(a)?.id), first.model.agents.map(a => deskForAgent(a)?.id));
+});
+test('a question goes to the worker whose run it belongs to', () => {
+  const need = { approvalId: 'q1', kind: 'question' as const, taskId: 'b', code: 'T-b' };
+  const agents = workers([seat('rules', { slots: 2, status: 'waiting', runs: [activeRun('a', 'a', date(0)), activeRun('b', 'b', date(1000))], needsYou: [need] })]).model.agents;
+  assert.deepEqual(agents.map(a => [a.status, a.needsYou.length]), [['working', 0], ['waiting', 1]]);
+});

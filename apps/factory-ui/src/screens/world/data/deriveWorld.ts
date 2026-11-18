@@ -1,6 +1,7 @@
 import { meaningfulOfficeItems } from '../../../api/officeModels';
 import type { Interaction } from '../../../api/officeModels';
 import type { Task } from '@factory/contracts';
+import type { ActivitySeat } from '../../../api/activityModels';
 import { classifyPod } from './classify';
 import { assignDesks } from './assignDesks';
 import type { Assignments, Bug, Endpoint, GalleryItem, Handoff, TaskCard, WorldAgent, WorldInputs, WorldModel } from './types';
@@ -53,6 +54,38 @@ function handoff(item: Interaction, projectId: string): Handoff | null {
     return null; // finished/failed remain badges on the seat, never flights.
   return { id: `${projectId}:${item.id}`, taskId: item.taskId, projectId, at: item.at, kind: item.kind, from, to, code: item.code, text: item.text };
 }
+type Worker = { id: string; slot: number; status: ActivitySeat['status']; runs: ActivitySeat['runs']; queued: number; needsYou: ActivitySeat['needsYou'] };
+/** Splits a seat into one worker per slot (at most 4). Each run keeps the worker it had on the last poll; the seat-level state
+ * that belongs to no run (an unmatched question, a problem, queued work) goes to the first worker without a run. */
+export function splitSeat(seat: ActivitySeat, previous: Assignments): Worker[] {
+  const count = Math.min(4, Math.max(1, seat.slots));
+  const workers: Worker[] = Array.from({ length: count }, (_, slot) => ({ id: slot ? `${seat.id}#${slot + 1}` : seat.id, slot, status: 'idle', runs: [], queued: 0, needsYou: [] }));
+  const runs = [...seat.runs].sort((a, b) => (a.startedAt ?? '').localeCompare(b.startedAt ?? '') || a.attemptId.localeCompare(b.attemptId));
+  const pending: ActivitySeat['runs'] = [];
+  for (const run of runs) {
+    const kept = workers.find(w => !w.runs.length && previous[w.id]?.run === run.attemptId);
+    if (kept) kept.runs = [run]; else pending.push(run);
+  }
+  for (const run of pending) {
+    const free = workers.find(w => !w.runs.length);
+    if (free) free.runs = [run]; else workers[0]!.runs = [...workers[0]!.runs, run];
+  }
+  const matched = new Set<string>();
+  for (const worker of workers) {
+    if (!worker.runs.length) continue;
+    worker.needsYou = seat.needsYou.filter(need => worker.runs.some(run => run.taskId === need.taskId));
+    worker.needsYou.forEach(need => matched.add(need.approvalId));
+    worker.status = worker.needsYou.length ? 'waiting' : 'working';
+  }
+  const holder = workers.find(w => !w.runs.length) ?? workers[0]!;
+  const unmatched = seat.needsYou.filter(need => !matched.has(need.approvalId));
+  holder.needsYou = [...holder.needsYou, ...unmatched];
+  holder.queued = seat.queued;
+  if (unmatched.length) holder.status = 'waiting';
+  else if (!seat.runs.length) holder.status = seat.status; // nothing to split: the seat's own state stays on its first worker
+  else if (!holder.runs.length && (['problem', 'done', 'queued'] as const).some(state => state === seat.status)) holder.status = seat.status;
+  return workers;
+}
 export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): {
   model: WorldModel;
   assign: Assignments;
@@ -60,21 +93,31 @@ export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): 
   const generatedAt = inputs.activity?.generatedAt ?? inputs.serverNow ?? '';
   const games = [...(inputs.games?.games ?? [])].sort((a, b) => newest(a, b) || a.projectId.localeCompare(b.projectId));
   const agents: WorldAgent[] = [];
+  const runOf = new Map<string, string | undefined>();
   for (const team of inputs.activity?.teams ?? []) {
     const org = inputs.teams?.teams.find(t => t.id === team.id);
     if (team.lifecycle === 'archived' || org?.lifecycle === 'archived')
       continue;
     for (const seat of team.seats) {
-      let pose: WorldAgent['pose'] = poses[seat.status];
-      if (org?.lifecycle === 'paused' || team.lifecycle === 'paused' || seat.status === 'idle' && (!seat.lastFinished?.at || time(generatedAt) - time(seat.lastFinished.at) >= 900000))
-        pose = 'resting';
-      agents.push({ paused: org?.lifecycle === 'paused' || team.lifecycle === 'paused', seatId: seat.id, teamId: team.id, teamName: team.name, name: seat.name, role: seat.role, isLead: seat.isLead, slots: seat.slots, status: seat.status, pose, podKey: classifyPod(seat, org), slotIndex: 0, runs: seat.runs, queued: seat.queued, needsYou: seat.needsYou, lastFinished: seat.lastFinished, overflow: false });
+      const paused = org?.lifecycle === 'paused' || team.lifecycle === 'paused';
+      const podKey = classifyPod(seat, org);
+      for (const worker of splitSeat(seat, prevAssign)) {
+        let pose: WorldAgent['pose'] = poses[worker.status];
+        if (paused || worker.status === 'idle' && (!seat.lastFinished?.at || time(generatedAt) - time(seat.lastFinished.at) >= 900000))
+          pose = 'resting';
+        agents.push({ paused, seatId: worker.id, ownerSeatId: seat.id, seatName: seat.name, slot: worker.slot, teamId: team.id, teamName: team.name, name: worker.slot ? `${seat.name} #${worker.slot + 1}` : seat.name, role: seat.role, isLead: seat.isLead, slots: seat.slots, status: worker.status, pose, podKey, slotIndex: 0, runs: worker.runs, queued: worker.queued, needsYou: worker.needsYou, lastFinished: worker.slot ? null : seat.lastFinished, overflow: false });
+        runOf.set(worker.id, worker.runs[0]?.attemptId);
+      }
     }
   }
   agents.sort((a, b) => a.seatId.localeCompare(b.seatId));
-  const assign = assignDesks(agents, prevAssign);
-  for (const agent of agents)
-    Object.assign(agent, assign[agent.seatId]);
+  const desks = assignDesks(agents, prevAssign);
+  const assign: Assignments = {};
+  for (const agent of agents) {
+    const desk = desks[agent.seatId]!; const run = runOf.get(agent.seatId);
+    assign[agent.seatId] = { podKey: desk.podKey, slotIndex: desk.slotIndex, overflow: desk.overflow, ...(run === undefined ? {} : { run }) };
+    agent.podKey = desk.podKey; agent.slotIndex = desk.slotIndex; agent.overflow = desk.overflow;
+  }
   const liveProjects = new Set(agents.flatMap(a => a.runs.filter(r => ['queued', 'leased', 'preparing', 'running', 'waiting-input', 'stopping', 'submitting'].includes(r.attemptState)).map(r => r.projectId)));
   const hotProjects = games.filter(g => liveProjects.has(g.projectId) || g.workflow && ['active', 'awaiting-approval', 'stalled', 'paused'].includes(g.workflow.state)).slice(0, 3);
   const focusProjectId = (games.some(game => game.projectId === inputs.focusProjectId) ? inputs.focusProjectId : null) ?? hotProjects[0]?.projectId ?? games[0]?.projectId ?? null;

@@ -71,7 +71,7 @@ export function TaskPanel({ store, projectId, taskId, agents, onTask, onFollow, 
     return () => { active = false; controller.abort(); clearInterval(timer); };
   }, [store, projectId, taskId, retry]);
   const { task, attempts, events } = detail; const latest = attempts[0];
-  const agent = agents.find(agent => agent.seatId === (task?.ownerSeatId ?? latest?.seatId));
+  const agent = agents.find(agent => agent.runs.some(run => run.taskId === taskId)) ?? agents.find(agent => agent.seatId === (task?.ownerSeatId ?? latest?.seatId));
   const stage = detail.report?.stages.find(stage => stage.iterations.some(iteration => iteration.taskCode === task?.code)) ?? detail.stage;
   const round = detail.report?.qaRounds.filter(round => round.taskCode === task?.code).sort((a, b) => b.iteration - a.iteration)[0];
   const criteria = new Map<string, { passed: boolean | null; evidence: string | null }>();

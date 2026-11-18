@@ -41,6 +41,23 @@ function NameTag({ name, register }: { name: string; register: (sprite: THREE.Sp
   return screen ? <sprite ref={register} position={[0, nameTagHeight, 0]} scale={[2, 0.375, 1]} raycast={ignore}><spriteMaterial ref={material => { if (material) screen.attach(material); }} map={screen.texture} transparent depthWrite={false} /></sprite> : null;
 }
 
+/** A small numbered badge on the head of a seat's second, third… worker (one sprite, one draw call). */
+function SlotBadge({ number }: { number: number }) {
+  const [screen, setScreen] = useState<ScreenTexture | null>(null);
+  const invalidate = useThree(state => state.invalidate);
+  useEffect(() => { const value = createScreenTexture(64, 64, invalidate); setScreen(value); return () => value.dispose(); }, [invalidate]);
+  useEffect(() => {
+    if (!screen) return;
+    screen.draw(ctx => {
+      ctx.fillStyle = '#4A3B2F'; ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#FFF8E7'; ctx.beginPath(); ctx.arc(32, 32, 25, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#4A3B2F'; ctx.font = '700 34px "Inter Variable", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(number), 32, 34);
+    });
+    return () => screen.cancel();
+  }, [number, screen]);
+  return screen ? <sprite position={[0.42, 1.28, 0.1]} scale={[0.3, 0.3, 1]} raycast={ignore}><spriteMaterial ref={material => { if (material) screen.attach(material); }} map={screen.texture} transparent depthWrite={false} /></sprite> : null;
+}
+
 function Feedback({ agent, still }: { agent: WorldAgent; still: boolean }) {
   const desk = deskForAgent(agent)!; const bar = useRef<THREE.Mesh>(null); const motion = useWorldMotion();
   const percent = agent.runs[0]?.progress?.percent ?? null;
@@ -197,7 +214,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
       }
     }
     if (finished) { setPlacements(new Map(current.current)); setCourierCount(couriers.current.size); }
-    const rows: AgentDebug[] = agents.map(agent => ({ seatId: agent.seatId, name: agent.name, status: agent.status, pose: current.current.get(agent.seatId)?.pose ?? agent.pose, podKey: agent.podKey, deskId: deskForAgent(agent)?.id ?? null, wandering: wandering.current.wandering(agent.seatId), walking: !hidden && !still && (!!current.current.get(agent.seatId)?.trip || couriers.current.has(agent.seatId)) }));
+    const rows: AgentDebug[] = agents.map(agent => ({ seatId: agent.seatId, ownerSeatId: agent.ownerSeatId, slot: agent.slot, name: agent.name, status: agent.status, pose: current.current.get(agent.seatId)?.pose ?? agent.pose, podKey: agent.podKey, deskId: deskForAgent(agent)?.id ?? null, wandering: wandering.current.wandering(agent.seatId), walking: !hidden && !still && (!!current.current.get(agent.seatId)?.trip || couriers.current.has(agent.seatId)) }));
     debug.current = { ...debug.current, agents: rows, characters: characterStats(), director: { transitions: transitions.current } };
     const rectangles: { x: number; y: number; w: number; h: number }[] = [];
     const accepted = new Set<string>();
@@ -222,7 +239,8 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
       return <group key={agent.seatId}>
         <Feedback agent={agent} still={still || hidden} />
         <group ref={node => { if (node) groups.current.set(agent.seatId, node); else groups.current.delete(agent.seatId); }} position={placement.position}>
-          <CharacterRig spec={specForSeat(agent.name, agent.isLead)} pose={celebrants.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} />
+          <CharacterRig spec={specForSeat(agent.seatName, agent.isLead)} pose={celebrants.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} />
+          {agent.slot > 0 && <SlotBadge number={agent.slot + 1} />}
           {tags.has(agent.seatId) && <NameTag name={agent.name} register={sprite => { if (sprite) tagSprites.current.set(agent.seatId, sprite); else tagSprites.current.delete(agent.seatId); }} />}
           {!hidden && <HitTarget position={[0, 0.55, 0]} onSelect={() => onSelect(agent.seatId)} onHover={event => { setHovered(event ? agent.seatId : null); onHover(event ? { seatId: agent.seatId, x: event.clientX, y: event.clientY } : null); }} />}
         </group>

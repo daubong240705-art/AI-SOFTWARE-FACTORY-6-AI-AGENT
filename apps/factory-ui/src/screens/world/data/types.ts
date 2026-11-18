@@ -4,8 +4,13 @@ import type { OrgTeam } from '@/api/m3Models';
 import type { GameReport, GameSummary, ReleaseView, PortalGame, PortalStats, Task } from '@factory/contracts';
 import type { WorkflowDetail } from '@/api/readModels';
 export type PodKey = 'lead' | 'design' | 'rules' | 'art' | 'client' | 'qa' | 'portal' | 'annex';
+/** One character per seat slot. `seatId` is the unique worker key (slot 0 keeps the real seat id, later slots add `#2`, `#3`);
+ * `ownerSeatId` is the real seat for panels and API calls, `seatName` its name (characters are chosen by it). */
 export type WorldAgent = {
   seatId: string;
+  ownerSeatId: string;
+  seatName: string;
+  slot: number;
   teamId: string;
   teamName?: string;
   paused?: boolean;
@@ -154,4 +159,6 @@ export type Assignments = Record<string, {
   podKey: PodKey;
   slotIndex: number;
   overflow: boolean;
+  /** Attempt this worker showed on the last poll, so a run keeps its character when another run ends. */
+  run?: string;
 }>;
