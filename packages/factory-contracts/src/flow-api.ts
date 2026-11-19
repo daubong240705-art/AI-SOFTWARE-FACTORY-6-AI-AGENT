@@ -15,9 +15,10 @@ export const FLOW_RUN_TRANSITIONS: Readonly<Record<FlowRunState, readonly FlowRu
   waiting: ["running", "paused", "stalled", "succeeded", "failed", "cancelled"],
   paused: ["running", "cancelled"],
   stalled: ["running", "paused", "cancelled", "failed"],
-  succeeded: [], failed: [], cancelled: [],
+  succeeded: [], failed: ["running"], cancelled: [],
 };
-export const isTerminalFlowRunState = (state: FlowRunState): boolean => FLOW_RUN_TRANSITIONS[state].length === 0;
+export const isTerminalFlowRunState = (state: FlowRunState): boolean =>
+  state === "succeeded" || state === "failed" || state === "cancelled";
 
 export const flowNodeRunStateSchema = z.enum(["pending", "ready", "running", "waiting", "succeeded", "failed", "skipped", "cancelled"]);
 export type FlowNodeRunState = z.infer<typeof flowNodeRunStateSchema>;
@@ -120,6 +121,7 @@ export const flowRunsStartPayloadSchema = z.strictObject({
   runId: idSchema, flowId: idSchema,
   /** "draft" = test run of the current draft (must pass validation). */
   version: z.union([z.literal("published"), z.literal("draft"), revisionSchema]).default("published"),
+  test: z.boolean().default(false),
   inputs: z.record(z.string(), z.union([z.string().max(20_000), z.number().finite(), z.boolean()])).default({}),
   /** Test runs only: node outputs to use instead of executing those nodes (agent nodes then create no task). */
   pinned: z.record(flowNodeIdSchema, flowJsonSchema).default({}),

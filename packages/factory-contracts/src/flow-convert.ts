@@ -6,16 +6,16 @@ type NodeInput = z.input<typeof flowDefinitionSchema>["nodes"][number];
 type Rework = WorkflowDefinition["edges"][number];
 type Arc = { from: string; to: string; port: string; loopBack?: boolean };
 
-function convertCondition(condition: Condition): FlowCondition | undefined {
+function convertCondition(condition: Condition, fact?: (leaf: Extract<Condition, { fact: string }>) => FlowCondition | undefined): FlowCondition | undefined {
   if ("param" in condition) return { path: `inputs.${condition.param}`, op: condition.op, value: condition.value };
-  if ("fact" in condition) return undefined;
+  if ("fact" in condition) return fact?.(condition);
   if ("not" in condition) {
-    const not = convertCondition(condition.not);
+    const not = convertCondition(condition.not, fact);
     return not && { not };
   }
   const children: FlowCondition[] = [];
   for (const child of "all" in condition ? condition.all : condition.any) {
-    const converted = convertCondition(child);
+    const converted = convertCondition(child, fact);
     if (!converted) return undefined;
     children.push(converted);
   }
@@ -63,6 +63,7 @@ export function convertWorkflowV1(v1: WorkflowDefinition): { definition: FlowDef
     return [key, id];
   }));
   const entries = new Map<string, string>();
+  const bypass = new Map<string, string>();
   const wrapperArcs: Arc[] = [];
   const firstString = v1.parameters.find(({ type }) => type === "string");
 
@@ -103,11 +104,10 @@ export function convertWorkflowV1(v1: WorkflowDefinition): { definition: FlowDef
     if ((stage.includeIf && !include) || (stage.skipIf && !skip)) {
       notes.push(`Stage ${stage.key} uses facts in includeIf/skipIf; the stage is always included.`);
     } else if (include || skip) {
-      const check = conditionNode("if", [
-        ...(skip ? [{ when: skip, port: "skip" }] : []),
-        ...(include ? [{ when: include, port: "include" }] : []),
-      ]);
-      wrapperArcs.push({ from: check, port: include ? "include" : "else", to: entry });
+      const when = skip ? (include ? { all: [include, negate(skip)] } : negate(skip)) : include!;
+      const check = conditionNode("if", [{ when, port: "include" }]);
+      wrapperArcs.push({ from: check, port: "include", to: entry });
+      bypass.set(id, check);
       entry = check;
     }
     entries.set(id, entry);
@@ -169,27 +169,67 @@ export function convertWorkflowV1(v1: WorkflowDefinition): { definition: FlowDef
     const limits = backEdges.map(({ maxLoops }) => maxLoops ?? 1);
     const maxIterations = Math.min(...limits);
     if (limits.some((limit) => limit !== maxIterations)) notes.push(`Rework ${target} uses the smallest iteration limit (${maxIterations}).`);
-    const conditions = backEdges.map(({ when }) => when && convertCondition(when));
+    const verdictChecks = new Map<string, FlowCondition[]>();
+    const conditions = backEdges.map(({ from, when }) => {
+      if (!when) return undefined;
+      let usesVerdict = false;
+      const condition = convertCondition(when, (leaf) => {
+        if (leaf.fact !== "review.verdict" && leaf.fact !== "check.result") return undefined;
+        const id = stageIds.get(leaf.stage ?? from);
+        const agent = nodes.find((node): node is Extract<NodeInput, { type: "agent" }> => node.id === id && node.type === "agent");
+        if (!agent) return undefined;
+        usesVerdict = true;
+        const value = Array.isArray(leaf.value) ? leaf.value[0] : leaf.value;
+        agent.outputSchema = { type: "object", properties: { verdict: { type: typeof value === "boolean" ? "boolean" :
+          typeof value === "number" ? "number" : "string" } }, required: ["verdict"] };
+        return { path: `nodes.${agent.id}.output.verdict`, op: leaf.op, value: leaf.value };
+      });
+      if (condition && usesVerdict) {
+        const source = stageIds.get(from)!;
+        verdictChecks.set(source, [...(verdictChecks.get(source) ?? []), condition]);
+      }
+      return condition;
+    });
     let until: FlowCondition | undefined;
-    if (conditions.every((condition) => condition !== undefined)) {
+    if (!verdictChecks.size && conditions.every((condition) => condition !== undefined)) {
       const when = conditions.length === 1 ? conditions[0]! : { any: conditions };
       const negated = { not: when };
       const candidate = flowConditionSchema.safeParse(negated).success ? negated : negate(when);
       if (flowConditionSchema.safeParse(candidate).success) until = candidate;
       else notes.push(`Rework ${target} condition cannot be negated within the depth limit.`);
-    } else notes.push(`Rework ${target} uses facts; the loop has no converted until condition.`);
+    } else if (conditions.some((condition) => condition === undefined)) notes.push(`Rework ${target} uses facts that cannot be converted.`);
     nodes.push({ id: loop, type: "loop", title: `${target} rework`, maxIterations, ...(until ? { until } : {}) });
     const sources = new Set(backEdges.map(({ from }) => stageIds.get(from)!));
     const body = new Set([...sources].flatMap((source) => [...reachable(source, arcs, true)]).filter((id) => descendants.has(id)));
+    const checks = new Map<string, string>();
+    for (const [source, rules] of verdictChecks) {
+      const id = allocateId(`${source}-verdict`);
+      nodes.push({ id, type: "condition", title: `${source} verdict`, rules: [{ port: "rework", when: rules.length === 1 ? rules[0]! : { any: rules } }] });
+      checks.set(source, id);
+    }
+    const exits: Arc[] = [];
     arcs = arcs.map((arc) => {
       if (!arc.loopBack && arc.to === target) return { ...arc, to: loop };
       if (!arc.loopBack && sources.has(arc.from) && !body.has(arc.to) && !nodes.some(({ id, type }) => type === "join" && id === arc.to)) {
+        const check = checks.get(arc.from);
+        if (check) exits.push({ from: check, port: "else", to: arc.to });
+        const skip = bypass.get(arc.from);
+        if (skip) exits.push({ from: skip, port: "else", to: arc.to });
         return { from: loop, port: "done", to: arc.to };
       }
       return arc;
     });
-    arcs.push({ from: loop, port: "body", to: target });
-    for (const from of sources) arcs.push({ from, to: loop, port: "out", loopBack: true });
+    arcs.push(...exits, { from: loop, port: "body", to: target });
+    for (const from of sources) {
+      const check = checks.get(from);
+      if (check) arcs.push({ from, port: "out", to: check }, { from: check, to: loop, port: "rework", loopBack: true });
+      else arcs.push({ from, to: loop, port: "out", loopBack: true });
+    }
+  }
+
+  for (const [stage, condition] of bypass) for (const arc of [...arcs]) {
+    if (arc.from !== stage || arc.to === "done" || arc.loopBack || nodes.some((node) => node.id === arc.to && node.type === "condition" && node.rules.some(({ port }) => port === "rework"))) continue;
+    arcs.push({ from: condition, port: "else", to: arc.to });
   }
 
   nodes.push({ id: "done", type: "output", title: "Done", target: "artifact", from: [`nodes.${outputFrom}.output`] });
