@@ -14,6 +14,7 @@
     "check": "tsc --noEmit",
     "check:bundle": "node scripts/check-world-chunk.mjs",
     "check:design": "node scripts/check-design.mjs",
+    "audit": "node e2e/audit/run.mjs",
     "build": "tsc --noEmit && vite build",
     "dev": "vite"
   },
