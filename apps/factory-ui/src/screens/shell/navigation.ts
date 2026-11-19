@@ -22,7 +22,7 @@ export function parseHash(hash: string): View {
   if (hash === '#/attention' || hash.startsWith('#/attention/')) return 'needs-attention';
   if (hash === '#/team' || hash === '#/team/config') return 'team';
   if (hash === '#/world' || hash.startsWith('#/world?')) return 'world';
-  const project = /^#\/project\/([^/]+)(?:\/(?:overview|agent|office|board|workflow|knowledge|code|automation)|\/settings(?:\/[^/]+)?)?$/.exec(hash);
+  const project = /^#\/project\/([^/]+)(?:\/(?:overview|agents|agent|office|board|workflow|knowledge|code|automation)|\/settings(?:\/[^/]+)?)?$/.exec(hash);
   if (project?.[1]) { try { const id = decodeURIComponent(project[1]); if (id.trim()) return `project:${id}`; } catch { /* Invalid encodings return home. */ } }
   return 'overview';
 }

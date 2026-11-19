@@ -13,7 +13,7 @@ import { AgentHistory } from './AgentHistory';
 import { AdminDialog, Choice, DialogButtons, ErrorText, Field, useAgentLabels, useWriteFeedback, type Submit } from './shared';
 import { AgentCapabilities } from './AgentCapabilities';
 
-const blank: AgentConfig = { name: '', role: '', description: '', goals: [], instructions: '', workRules: [], tags: [], runtime: { adapter: 'fake', model: null, effort: null, permission: 'workspace-write', maxConcurrent: 1, timeoutMinutes: 60 }, skills: [], tools: null, delegation: { canAssign: 'none', canProposeAgents: false, maxDepth: 1, maxOpenSubtasks: 5 }, autonomy: null, budget: {} };
+const blank: AgentConfig = { name: '', role: '', description: '', goals: [], instructions: '', workRules: [], tags: [], runtime: { adapter: 'codex', model: null, effort: null, permission: 'workspace-write', maxConcurrent: 1, timeoutMinutes: 60 }, skills: [], tools: null, delegation: { canAssign: 'none', canProposeAgents: false, maxDepth: 1, maxOpenSubtasks: 5 }, autonomy: null, budget: {} };
 const tabs = ['profile', 'runtime', 'capabilities', 'collaboration', 'history'] as const;
 type Tab = typeof tabs[number];
 const tabFor = (path: string): Tab => path.startsWith('runtime') ? 'runtime' : /^(skills|tools)/.test(path) ? 'capabilities' : /^(delegation|budget|autonomy)/.test(path) ? 'collaboration' : 'profile';
