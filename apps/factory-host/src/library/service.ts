@@ -1,21 +1,65 @@
 import type { Database } from "better-sqlite3";
-import { agentConfigSchema, agentTemplateDetailSchema, libraryResponseSchema, skillDetailSchema, skillVersionSchema,
+import { API_VERSION, idSchema, agentConfigSchema, agentTemplateDetailSchema, libraryResponseSchema, skillDetailSchema, skillVersionSchema,
   type AgentConfig, type AgentTemplateDetail, type AgentTemplateSummary, type LibraryResponse, type SkillDetail, type SkillVersion } from "@factory/contracts";
+import type { FastifyInstance } from "fastify";
+import { failure } from "../api/http.js";
+import { CommandError } from "../commands/errors.js";
+import { groupChain, projectGroupId } from "../groups/settings.js";
+import { createIdGenerator } from "../ids.js";
 
 type TemplateRow = Omit<AgentTemplateSummary, "source"> & { packKey: string | null; packVersion: string | null };
 const templateColumns = `t.id, t.name, t.role, t.description, t.latest_revision AS latestRevision,
-  t.source_pack_key AS packKey, t.source_pack_version AS packVersion, t.updated_at AS updatedAt`;
+  t.source_pack_key AS packKey, t.source_pack_version AS packVersion, t.updated_at AS updatedAt, t.group_id AS groupId`;
 
 function templateSummary({ packKey, packVersion, ...summary }: TemplateRow) {
   return { ...summary, source: packKey === null ? null : { packKey, packVersion } };
 }
 
-export function listLibrary(raw: Database): LibraryResponse {
-  const skills = raw.prepare(`SELECT id, name, description, latest_version AS latestVersion, trust, source, updated_at AS updatedAt
-    FROM skills ORDER BY name, id`).all();
-  const templates = raw.prepare<[], TemplateRow>(`SELECT ${templateColumns} FROM agent_templates t ORDER BY t.name, t.id`)
-    .all().map(templateSummary);
+export function listLibrary(raw: Database, { projectId, groupId }: { projectId?: string; groupId?: string } = {}): LibraryResponse {
+  const scoped = projectId !== undefined || groupId !== undefined;
+  const groups = scoped ? groupChain(raw, projectId === undefined ? groupId ?? null : projectGroupId(raw, projectId)).map(({ id }) => id) : [];
+  const condition = scoped ? "WHERE group_id IS NULL OR group_id IN (SELECT value FROM json_each(?))" : "";
+  const args = scoped ? [JSON.stringify(groups)] : [];
+  const skills = raw.prepare(`SELECT id, name, description, latest_version AS latestVersion, trust, source, updated_at AS updatedAt, group_id AS groupId
+    FROM skills ${condition} ORDER BY name, id`).all(...args);
+  const templates = raw.prepare<string[], TemplateRow>(`SELECT ${templateColumns} FROM agent_templates t ${condition} ORDER BY t.name, t.id`)
+    .all(...args).map(templateSummary);
   return libraryResponseSchema.parse({ skills, templates });
+}
+
+export function applyLibraryListScope(app: FastifyInstance, raw: Database): void {
+  const newId = createIdGenerator();
+  app.addHook("onRoute", (route) => {
+    if (route.method !== "GET" || route.url !== "/library") return;
+    route.handler = async (request, reply) => {
+      const { projectId, groupId } = request.query as { projectId?: string; groupId?: string };
+      if ((projectId !== undefined && !idSchema.safeParse(projectId).success)
+        || (groupId !== undefined && !idSchema.safeParse(groupId).success)
+        || (projectId !== undefined && groupId !== undefined))
+        return failure(reply, 400, "validation", "Specify one valid project or group id.", "correct-input", newId);
+      if (projectId !== undefined && !raw.prepare("SELECT 1 FROM projects WHERE id = ?").get(projectId))
+        return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
+      if (groupId !== undefined && !raw.prepare("SELECT 1 FROM groups WHERE id = ?").get(groupId))
+        return failure(reply, 404, "not-found", "Group not found.", "correct-input", newId);
+      return { ok: true, apiVersion: API_VERSION, ...listLibrary(raw, projectId ? { projectId } : groupId ? { groupId } : {}) };
+    };
+  });
+}
+
+export function validateAgentLibraryScope(raw: Database, projectId: string, config: AgentConfig, templateId: string | null): void {
+  const groups = new Set(groupChain(raw, projectGroupId(raw, projectId)).map(({ id }) => id));
+  const skill = raw.prepare<[string], { group_id: string | null }>("SELECT group_id FROM skills WHERE id = ?");
+  for (const { skillId } of config.skills) {
+    const groupId = skill.get(skillId)?.group_id ?? null;
+    if (groupId !== null && !groups.has(groupId))
+      throw new CommandError("validation", "skill is not available in this project's group", "correct-input");
+  }
+  if (templateId !== null) {
+    const groupId = raw.prepare<[string], { group_id: string | null }>("SELECT group_id FROM agent_templates WHERE id = ?")
+      .get(templateId)?.group_id ?? null;
+    if (groupId !== null && !groups.has(groupId))
+      throw new CommandError("validation", "template is not available in this project's group", "correct-input");
+  }
 }
 
 export function getSkillVersion(raw: Database, skillId: string, version: number | "latest"): SkillVersion | undefined {
@@ -43,7 +87,7 @@ export function skillUsage(raw: Database, skillId: string): { agents: number; te
 }
 
 export function getSkillDetail(raw: Database, skillId: string): SkillDetail | undefined {
-  const row = raw.prepare(`SELECT id, name, description, revision, latest_version AS latestVersion, trust, source, updated_at AS updatedAt
+  const row = raw.prepare(`SELECT id, name, description, revision, latest_version AS latestVersion, trust, source, updated_at AS updatedAt, group_id AS groupId
     FROM skills WHERE id = ?`).get(skillId);
   if (!row) return undefined;
   const versions = raw.prepare(`SELECT version, sha256, created_at AS createdAt FROM skill_versions

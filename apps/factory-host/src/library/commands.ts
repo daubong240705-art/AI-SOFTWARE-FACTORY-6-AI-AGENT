@@ -2,9 +2,10 @@ import { createHash } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import { LIBRARY_SCOPE_ID, type AgentConfig, type EntityRef } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
-import type { HandlerMap } from "../commands/pipeline.js";
+import type { HandlerContext, HandlerMap, HandlerResult } from "../commands/pipeline.js";
+import { requireGroup } from "../groups/service.js";
 import { currentAgentConfig, getAgent, validateAgentConfig, writeAgentRevision } from "../org/agents.js";
-import { getTemplateDetail, skillUsage } from "./service.js";
+import { getTemplateDetail, skillUsage, validateAgentLibraryScope } from "./service.js";
 
 export const LIBRARY_COMMANDS = ["skills.create", "skills.update", "skills.delete", "templates.create", "templates.update",
   "templates.delete", "agents.upgrade-from-template", "agents.save-as-template"] as const;
@@ -58,12 +59,15 @@ function insertTemplateRevision(raw: Database, templateId: string, revision: num
     .run(templateId, revision, configJson, now);
 }
 
-function createTemplate(raw: Database, { templateId, config, description }: { templateId: string; config: AgentConfig; description: string }, now: string) {
+function createTemplate(raw: Database, { templateId, config, description, groupId }: {
+  templateId: string; config: AgentConfig; description: string; groupId?: string | undefined;
+}, now: string) {
+  if (groupId !== undefined) requireGroup(raw, groupId);
   if (raw.prepare("SELECT 1 FROM agent_templates WHERE id = ?").get(templateId))
     throw new CommandError("conflict", "agent template id already exists", "correct-input");
   const { configJson } = validateAgentConfig(raw, config);
-  raw.prepare(`INSERT INTO agent_templates (id, revision, name, role, description, latest_revision, created_at, updated_at)
-    VALUES (?, 1, ?, ?, ?, 1, ?, ?)`).run(templateId, config.name, config.role, description, now, now);
+  raw.prepare(`INSERT INTO agent_templates (id, revision, name, role, description, latest_revision, created_at, updated_at, group_id)
+    VALUES (?, 1, ?, ?, ?, 1, ?, ?, ?)`).run(templateId, config.name, config.role, description, now, now, groupId ?? null);
   insertTemplateRevision(raw, templateId, 1, configJson, now);
   return effect("agent-template", templateId, 1);
 }
@@ -74,17 +78,31 @@ function requireAgent(raw: Database, projectId: string, agentId: string) {
   return agent;
 }
 
+export function withAgentLibraryScope<Command extends { projectId: string; payload: { agentId: string } }>(
+  handler: (ctx: HandlerContext, command: Command) => HandlerResult,
+): (ctx: HandlerContext, command: Command) => HandlerResult {
+  return (ctx, command) => {
+    const result = handler(ctx, command);
+    const { projectId, payload: { agentId } } = command;
+    const agent = requireAgent(ctx.raw, projectId, agentId);
+    validateAgentLibraryScope(ctx.raw, projectId, currentAgentConfig(ctx.raw, agentId)!.config, agent.template_id);
+    return result;
+  };
+}
+
+
 export function createLibraryHandlers(): Pick<HandlerMap, (typeof LIBRARY_COMMANDS)[number]> {
   return {
     "skills.create": ({ raw, clock }, { projectId, payload }) => {
       requireLibraryScope(projectId);
-      const { skillId, name, description, content, trust } = payload;
+      const { skillId, name, description, content, trust, groupId } = payload;
+      if (groupId !== undefined) requireGroup(raw, groupId);
       if (raw.prepare("SELECT 1 FROM skills WHERE id = ?").get(skillId))
         throw new CommandError("conflict", "skill id already exists", "correct-input");
       requireOperatorSkillName(raw, name, skillId);
       const now = clock().toISOString();
-      raw.prepare(`INSERT INTO skills (id, revision, name, description, latest_version, trust, created_at, updated_at)
-        VALUES (?, 1, ?, ?, 1, ?, ?, ?)`).run(skillId, name, description, trust, now, now);
+      raw.prepare(`INSERT INTO skills (id, revision, name, description, latest_version, trust, created_at, updated_at, group_id)
+        VALUES (?, 1, ?, ?, 1, ?, ?, ?, ?)`).run(skillId, name, description, trust, now, now, groupId ?? null);
       insertSkillVersion(raw, skillId, 1, { name, description, content, sha256: hashContent(content) }, now);
       return effect("skill", skillId, 1);
     },
@@ -157,6 +175,7 @@ export function createLibraryHandlers(): Pick<HandlerMap, (typeof LIBRARY_COMMAN
       const template = getTemplateDetail(raw, agent.template_id, toRevision);
       if (!template) throw new CommandError("not-found", "agent template revision not found", "correct-input");
       const config = { ...template.config, name: agent.name };
+      validateAgentLibraryScope(raw, projectId, config, agent.template_id);
       const revision = writeAgentRevision(raw, { agentId, projectId, existing: agent, config, actorId, clock,
         note: `upgraded from template r${toRevision}` });
       raw.prepare("UPDATE seats SET template_revision = ? WHERE id = ?").run(toRevision, agentId);
