@@ -5,6 +5,18 @@ function build<T extends Command['type']>(type: T, projectId: string, payload: O
   return commandSchema.parse({ apiVersion: API_VERSION, commandId: crypto.randomUUID(), projectId, type, payload }) as Of<T>;
 }
 
+export function agentsCreate({ projectId, ...payload }: Omit<Of<'agents.create'>['payload'], 'agentId'> & { projectId: string }) { return build('agents.create', projectId, { ...payload, agentId: crypto.randomUUID() }); }
+export function agentsUpdate({ projectId, ...payload }: Of<'agents.update'>['payload'] & { projectId: string }) { return build('agents.update', projectId, payload); }
+export function agentsClone({ projectId, ...payload }: Omit<Of<'agents.clone'>['payload'], 'agentId'> & { projectId: string }) { return build('agents.clone', projectId, { ...payload, agentId: crypto.randomUUID() }); }
+export function agentsSetStatus({ projectId, ...payload }: Of<'agents.set-status'>['payload'] & { projectId: string }) { return build('agents.set-status', projectId, payload); }
+export function agentsSetLead({ projectId, ...payload }: Of<'agents.set-lead'>['payload'] & { projectId: string }) { return build('agents.set-lead', projectId, payload); }
+export function agentsRollback({ projectId, ...payload }: Of<'agents.rollback'>['payload'] & { projectId: string }) { return build('agents.rollback', projectId, payload); }
+export function agentsDelete({ projectId, ...payload }: Of<'agents.delete'>['payload'] & { projectId: string }) { return build('agents.delete', projectId, payload); }
+export function agentTeamsCreate({ projectId, ...payload }: Omit<Of<'teams.create'>['payload'], 'teamId'> & { projectId: string }) { return build('teams.create', projectId, { ...payload, teamId: crypto.randomUUID() }); }
+export function agentTeamsUpdate({ projectId, ...payload }: Of<'teams.update'>['payload'] & { projectId: string }) { return build('teams.update', projectId, payload); }
+export function agentTeamsDelete({ projectId, ...payload }: Of<'teams.delete'>['payload'] & { projectId: string }) { return build('teams.delete', projectId, payload); }
+export function relationsSet({ projectId, ...payload }: Of<'relations.set'>['payload'] & { projectId: string }) { return build('relations.set', projectId, payload); }
+
 export function notificationsMarkRead({ projectId, ...payload }: Of<'notifications.mark-read'>['payload'] & { projectId: string }) { return build('notifications.mark-read', projectId, payload); }
 export function notificationsDismiss({ projectId, ...payload }: Of<'notifications.dismiss'>['payload'] & { projectId: string }) { return build('notifications.dismiss', projectId, payload); }
 export function modelsSet({ projectId, ...payload }: Of<'models.set'>['payload'] & { projectId: string }) { return build('models.set', projectId, payload); }

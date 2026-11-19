@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { defaultSettingsSection, settingsSections, type SettingsSection } from '../project-settings/sections';
 export type { SettingsSection } from '../project-settings/sections';
 
-export type ProjectTab = 'overview' | 'office' | 'board' | 'workflow' | 'knowledge' | 'code' | 'settings';
+export type ProjectTab = 'overview' | 'agents' | 'office' | 'board' | 'workflow' | 'knowledge' | 'code' | 'settings';
 export type TeamTab = 'activity' | 'config';
 export type View = 'portal' | 'overview' | 'needs-attention' | 'team' | 'world' | 'system' | 'mascots' | `project:${string}`;
-const tabs: ProjectTab[] = ['overview', 'office', 'board', 'workflow', 'knowledge', 'code', 'settings'];
+const tabs: ProjectTab[] = ['overview', 'agents', 'office', 'board', 'workflow', 'knowledge', 'code', 'settings'];
 export function viewHash(view: View, tab: ProjectTab = 'overview', team: TeamTab = 'activity', section?: SettingsSection): string {
   if (view === 'team') return team === 'config' ? '#/team/config' : '#/team';
   if (!view.startsWith('project:')) return view === 'needs-attention' ? '#/attention' : `#/${view}`;
