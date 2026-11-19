@@ -94,7 +94,9 @@ import { createRequestHandlers, REQUEST_COMMANDS } from "./requests/commands.js"
 import { createDossierHandlers } from "./dossier/commands.js";
 import { createBriefingMcp } from "./dossier/mcp.js";
 import { backfillPackSnapshots, followPackUpdates } from "./instructions/snapshot.js";
-import { createLibraryHandlers, importPacksToLibrary, LIBRARY_COMMANDS, registerLibraryRoutes } from "./library/index.js";
+import { applyLibraryListScope, createLibraryHandlers, importPacksToLibrary, LIBRARY_COMMANDS, registerLibraryRoutes,
+  withAgentLibraryScope } from "./library/index.js";
+import { createGroupHandlers, GROUP_COMMANDS, registerGroupRoutes } from "./groups/index.js";
 import { migrateProjectsToRosters } from "./org/roster-migration.js";
 import { createSkillsMcp } from "./instructions/mcp.js";
 import { createToolPolicy } from "./mcp/policy.js";
@@ -836,6 +838,7 @@ export async function startHost(options: {
       const guardRoots = canonicalRoots(options.workspace);
       projectsRootGuard = (root) => { try { assertInside(guardRoots.projectsRoot, root); return true; } catch { return false; } };
     }
+    const agents = createAgentHandlers();
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       "portal-ops.apply": portalOps.handler,
       ...createNotificationHandlers(),
@@ -846,8 +849,13 @@ export async function startHost(options: {
       ...createScheduleHandlers({ packs, pipeline: workflowPipeline }),
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
       ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
-      ...createAgentHandlers(),
+      ...agents,
+      "agents.create": withAgentLibraryScope(agents["agents.create"]),
+      "agents.update": withAgentLibraryScope(agents["agents.update"]),
+      "agents.clone": withAgentLibraryScope(agents["agents.clone"]),
+      "agents.rollback": withAgentLibraryScope(agents["agents.rollback"]),
       ...createLibraryHandlers(),
+      ...createGroupHandlers(),
       ...workflowHandlers,
       ...createFlowHandlers({ packs, engine: flowEngine }),
       "projects.archive": createProjectsArchiveHandler({ cancelWorkflow: workflowHandlers["workflows.cancel"]!,
@@ -916,6 +924,8 @@ export async function startHost(options: {
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
       registerFlowRoutes(app, guards, { storage: storage! });
+      registerGroupRoutes(app, guards, { raw: storage!.raw, clock });
+      applyLibraryListScope(app, storage!.raw);
       registerLibraryRoutes(app, guards, { raw: storage!.raw });
       registerNotifyRoutes(app, guards, options.notify ?? { channels: [] }, telegramBot);
       registerPublishRoutes(app, guards, publishing!);
@@ -983,6 +993,7 @@ export async function startHost(options: {
           "seats.set-runtime",
           ...AGENT_COMMANDS,
           ...LIBRARY_COMMANDS,
+          ...GROUP_COMMANDS,
           ...(options.multiTeam ? [...ORG_COMMANDS.filter((command) => command !== "seats.set-runtime"), ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],

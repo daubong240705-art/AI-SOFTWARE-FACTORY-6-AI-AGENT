@@ -5,6 +5,7 @@ import type { HandlerMap } from "../commands/pipeline.js";
 import { agentsFromPack, getPrimaryEngagement, type LoadedPack, type RosterDeps } from "../org/index.js";
 import { ensureRoster } from "../org/agents.js";
 import { registryPack, type RegistryPack } from "../org/registry.js";
+import { requireGroup } from "../groups/service.js";
 
 const createProject: HandlerMap["projects.create"] = ({ raw, hub }, command) => {
   const { projectId, payload } = command;
@@ -12,8 +13,9 @@ const createProject: HandlerMap["projects.create"] = ({ raw, hub }, command) => 
     throw new CommandError("conflict", "project already exists", "refresh");
   if (raw.prepare("SELECT id FROM projects WHERE workspace_root = ? AND disposition <> ?").get(payload.workspace.root, "archived"))
     throw new CommandError("conflict", "workspace already used by another project", "correct-input");
-  raw.prepare("INSERT INTO projects (id, revision, name, workspace_kind, workspace_root, disposition) VALUES (?, ?, ?, ?, ?, ?)")
-    .run(projectId, 1, payload.name, payload.workspace.kind, payload.workspace.root, "active");
+  if (payload.groupId !== undefined) requireGroup(raw, payload.groupId, { active: true });
+  raw.prepare("INSERT INTO projects (id, revision, name, workspace_kind, workspace_root, disposition, group_id) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(projectId, 1, payload.name, payload.workspace.kind, payload.workspace.root, "active", payload.groupId ?? null);
   hub.ensureStream(projectId);
   return { effects: [{ kind: "project", id: projectId, revision: 1 }] };
 };
@@ -54,22 +56,22 @@ export function createProjectsCreateHandler({ pack, packs = [], startEmpty = fal
 }
 
 interface ProjectRow {
-  id: string; revision: number; name: string; workspace_kind: string; workspace_root: string; disposition: string;
+  id: string; revision: number; name: string; workspace_kind: string; workspace_root: string; disposition: string; group_id: string | null;
 }
 const projectFromRow = (row: ProjectRow): Project => projectSchema.parse({
   id: row.id, revision: row.revision, name: row.name,
   workspace: { kind: row.workspace_kind, root: row.workspace_root },
-  leadAgentId: null, disposition: row.disposition,
+  leadAgentId: null, disposition: row.disposition, groupId: row.group_id,
 });
 
 export function listProjects(raw: Database, includeArchived = false): Project[] {
-  return (raw.prepare(`SELECT id, revision, name, workspace_kind, workspace_root, disposition FROM projects
+  return (raw.prepare(`SELECT id, revision, name, workspace_kind, workspace_root, disposition, group_id FROM projects
     WHERE (? OR disposition <> 'archived') ORDER BY id`).all(Number(includeArchived)) as ProjectRow[])
     .map(projectFromRow);
 }
 
 export function getProject(raw: Database, id: string): Project | undefined {
-  const row = raw.prepare("SELECT id, revision, name, workspace_kind, workspace_root, disposition FROM projects WHERE id = ?")
+  const row = raw.prepare("SELECT id, revision, name, workspace_kind, workspace_root, disposition, group_id FROM projects WHERE id = ?")
     .get(id) as ProjectRow | undefined;
   return row === undefined ? undefined : projectFromRow(row);
 }

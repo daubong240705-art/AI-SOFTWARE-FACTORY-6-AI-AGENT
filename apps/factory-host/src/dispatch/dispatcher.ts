@@ -25,7 +25,8 @@ import { onRequestTransition, resumeWaiter } from "../requests/waits.js";
 import { integratePending, integrationBlocked } from "../integration/service.js";
 import { getSeatRuntimeConfig } from "../org/runtime-config.js";
 import { LOCAL_CLI_FAILURES } from "../runtimes/failures.js";
-import { recordUsage } from "../policy/budget.js";
+import { groupBudgetRefusal, recordUsage } from "../policy/budget.js";
+import { resolveProjectSettings } from "../groups/settings.js";
 import type { DependencyCache } from "../deps/cache.js";
 import { DEFAULT_LEAD_CONFIG } from "../lead/runner.js";
 
@@ -197,9 +198,10 @@ export function createDispatcher(deps: {
     // Without an override an unregistered seat runtime falls back to fake; an override must name a registered one.
     const runtime = mock ? "fake" : apiAgent ? "api-agent" : config?.runtime ?? (seat && registry.get(seat.runtime) ? seat.runtime : "fake");
     const provider = apiAgent ? "api-agent" : config?.cli === "codex" ? "codex-cli" : config?.cli === "claude" ? "claude-cli" : "fake";
-    const model = apiAgent ? apiConfig?.model ?? deps.defaultAgentModel?.() ?? DEFAULT_LEAD_CONFIG.model
+    const groupSettings = apiAgent ? resolveProjectSettings(raw, input.projectId) : undefined;
+    const model = apiAgent ? apiConfig?.model ?? groupSettings?.defaultModel.value ?? deps.defaultAgentModel?.() ?? DEFAULT_LEAD_CONFIG.model
       : config?.model ?? (config ? "cli-default" : "fake");
-    const effort = apiConfig?.effort ?? config?.effort ?? "medium";
+    const effort = apiConfig?.effort ?? groupSettings?.defaultEffort.value ?? config?.effort ?? "medium";
     const a = createAttempt(raw, { ...input, id: newId(), runtime, provider,
       model, effort, now: now() });
     if (configuredAgent) {
@@ -233,9 +235,10 @@ export function createDispatcher(deps: {
     // A configured agent that was paused/archived meanwhile cannot take a replacement attempt: reconcile instead.
     const agentReady = a.seatId === null || (raw.prepare(`SELECT 1 FROM seats WHERE id = ? AND (config_revision IS NULL
       OR (status = 'active' AND project_id = ?))`).get(a.seatId, a.projectId) !== undefined);
-    const safe = agentReady && task?.state === "active" && !task.holds.some((hold) => hold.kind === "decision" || hold.kind === "cross-team") && canRequeueAfterLeaseExpiry(task);
+    const refusal = groupBudgetRefusal(raw, a.projectId, clock());
+    const safe = !refusal && agentReady && task?.state === "active" && !task.holds.some((hold) => hold.kind === "decision" || hold.kind === "cross-team") && canRequeueAfterLeaseExpiry(task);
     stateEvent(a, { to: safe ? "requeued" : "unknown", reason: safe
-      ? "lease expired: task is safe to requeue" : "lease expired: execution outcome is unknown; operator reconciliation required" });
+      ? "lease expired: task is safe to requeue" : refusal?.reason ?? "lease expired: execution outcome is unknown; operator reconciliation required" });
     a = move(a, safe ? "requeued" : "unknown");
     if (safe && a.seatId) create({ projectId: a.projectId, taskId: a.taskId, seatId: a.seatId });
     markNodeSlots(raw, LOCAL_NODE_ID);
@@ -771,7 +774,11 @@ export function createDispatcher(deps: {
     },
     enqueue(input) {
       if (stopped) throw new AttemptError("dispatcher-stopped");
-      const a = hub.transaction(() => create(input));
+      const a = hub.transaction(() => {
+        const refusal = groupBudgetRefusal(raw, input.projectId, clock());
+        if (refusal) throw new CommandError("resource-exhausted", refusal.reason, "refresh");
+        return create(input);
+      });
       kick();
       return a;
     },

@@ -1,9 +1,10 @@
 import type { Database } from "better-sqlite3";
 import {
-  billableTokens, budgetSchema, canReserve, evaluateBudget, type Budget, type BudgetVerdict, type Usage,
+  billableTokens, budgetSchema, canReserve, evaluateBudget, groupSettingsSchema, type Budget, type BudgetVerdict, type Usage,
 } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerMap } from "../commands/pipeline.js";
+import { groupChain, projectGroupId, subtreeProjects } from "../groups/settings.js";
 import type { ReasoningEffort } from "../models/gateway.js";
 
 export interface BudgetConfig {
@@ -56,6 +57,30 @@ export function countedTokens(row: Omit<UsageRow, "recorded_at">): number {
     cachedInputTokens: row.cached_input_tokens ?? 0, reasoningOutputTokens: row.reasoning_output_tokens ?? 0 });
 }
 
+export function groupTokenUsage(raw: Database, groupId: string, now: Date): { used: number; unreported: boolean } {
+  const since = new Date(now.getTime() - 30 * 86_400_000).toISOString();
+  // Same counting rule as project budgets: billable tokens, and the reserved estimate for unreported usage.
+  const rows = raw.prepare<[string, string, string], Omit<UsageRow, "recorded_at">>(`${subtreeProjects}
+    SELECT input_tokens, cached_input_tokens, output_tokens, reasoning_output_tokens, estimated_tokens
+    FROM usage_records WHERE project_id IN (SELECT id FROM members) AND recorded_at BETWEEN ? AND ?`)
+    .all(groupId, since, now.toISOString());
+  return { used: rows.reduce((sum, row) => sum + countedTokens(row), 0),
+    unreported: rows.some((row) => row.input_tokens === null || row.output_tokens === null) };
+}
+
+export function groupBudgetRefusal(raw: Database, projectId: string, now: Date, estimateTokens = 0) {
+  for (const { id, name, settings_json } of groupChain(raw, projectGroupId(raw, projectId))) {
+    if (settings_json === null) continue;
+    const { budgetTokens30d: limit } = groupSettingsSchema.parse(JSON.parse(settings_json));
+    if (limit === null) continue;
+    const { used } = groupTokenUsage(raw, id, now);
+    if (used < limit && canReserve({ limitTokens: limit }, used, estimateTokens)) continue;
+    return { ok: false as const, scope: "group" as const, verdict: used >= limit ? "exceeded" as const : "would-exceed" as const,
+      used, limit, reason: `Nhóm ${name} đã chạm ngân sách token 30 ngày hoặc không đủ ngân sách cho công việc mới (${used}/${limit} token).` };
+  }
+  return undefined;
+}
+
 export function usedTokens(raw: Database, projectId: string, scope: Scope, ref: string, config: BudgetConfig): number {
   const rows = (scope === "task"
     ? raw.prepare("SELECT * FROM usage_records WHERE project_id = ? AND task_id = ?").all(projectId, ref)
@@ -81,10 +106,13 @@ export function effectiveBudget(raw: Database, projectId: string, scope: Scope, 
 export function checkAndReserve(raw: Database, input: {
   projectId: string; taskId: string | null; now: Date; estimateTokens: number; config: BudgetConfig;
 }): { ok: true; warnings: Array<{ scope: Scope; verdict: "warn" }> }
-  | { ok: false; scope: Scope; verdict: "exceeded" | "would-exceed"; used: number; limit: number } {
+  | { ok: false; scope: Scope; verdict: "exceeded" | "would-exceed"; used: number; limit: number }
+  | NonNullable<ReturnType<typeof groupBudgetRefusal>> {
   if (!Number.isSafeInteger(input.estimateTokens) || input.estimateTokens < 0)
     throw new Error("estimateTokens must be a nonnegative safe integer");
   const { projectId, taskId, now, config } = input;
+  const refusal = groupBudgetRefusal(raw, projectId, now, input.estimateTokens);
+  if (refusal) return refusal;
   const scopes: Array<{ scope: Scope; ref: string }> = [
     { scope: "day", ref: dayKey(now, config.utcOffsetMinutes) }, { scope: "project", ref: projectId },
   ];
