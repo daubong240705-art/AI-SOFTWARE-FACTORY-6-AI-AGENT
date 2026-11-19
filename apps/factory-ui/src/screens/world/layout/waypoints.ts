@@ -29,7 +29,7 @@ export const navigationAnchors: Record<string, Point> = Object.fromEntries(Objec
   ...activitySpots, ...catAnchors,
   counter: [16.5, 10.6],
   coffee: [-15.95, 9],
-  window: [-17, -8.8],
+  window: [-17.1, -10],
   'lab-bench': [anchors.labBench[0], anchors.labBench[1] + 1],
 }).map(([id, p]) => [id, [round(p[0]!), round(p[1]!)] as Point]));
 // Build an orthogonal visibility grid only during layout construction, then retain

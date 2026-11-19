@@ -22,10 +22,10 @@ function hashKey(): string | undefined {
   const match = /^#\/attention\/([^/]+)$/.exec(location.hash);
   try { return match?.[1] ? decodeURIComponent(match[1]) : undefined; } catch { return undefined; }
 }
-export function Attention({ store }: { store: Store }) {
+export function Attention({ store, embedded = false }: { store: Store; embedded?: boolean }) {
   const t = useT(); const state = store.useStoreSelector(value => ({ globalInbox: value.globalInbox, projects: value.projects, tasks: value.tasks, session: value.session, selectedProjectId: value.selectedProjectId, inboxLoading: value.loading.globalInbox, inboxError: value.errors.globalInbox }), shallowSelectionEqual);
   const rows = useMemo(() => attentionItems(state.globalInbox), [state.globalInbox]);
-  const [selectedKey, setSelectedKey] = useState<string | undefined>(() => hashKey());
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(() => embedded ? undefined : hashKey());
   const [readyProject, setReadyProject] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
   const list = useRef<HTMLUListElement>(null); const pane = useRef<HTMLElement>(null);
@@ -33,10 +33,11 @@ export function Attention({ store }: { store: Store }) {
   const selected = rows.find(row => row.key === selectedKey) ?? rows[0];
   useEffect(() => { void store.loadGlobalInbox(); }, [store]);
   useEffect(() => {
+    if (embedded) return;
     const sync = () => setSelectedKey(hashKey());
     window.addEventListener('hashchange', sync); window.addEventListener('popstate', sync);
     return () => { window.removeEventListener('hashchange', sync); window.removeEventListener('popstate', sync); };
-  }, []);
+  }, [embedded]);
   useEffect(() => {
     if (state.inboxLoading) return;
     if (!rows.length) { previous.current = []; return; }
@@ -48,14 +49,14 @@ export function Attention({ store }: { store: Store }) {
     previous.current = rows;
   }, [rows, selectedKey, state.inboxLoading]);
   useEffect(() => {
-    if (selected && location.hash !== attentionHash(selected.key)) history.replaceState(null, '', attentionHash(selected.key));
-    if (!selected && !state.inboxLoading) history.replaceState(null, '', attentionHash());
+    if (!embedded && selected && location.hash !== attentionHash(selected.key)) history.replaceState(null, '', attentionHash(selected.key));
+    if (!embedded && !selected && !state.inboxLoading) history.replaceState(null, '', attentionHash());
     // Focus the selected row by its key: a row that was just decided may still be leaving with aria-current.
     if (restoreFocus.current && selected) {
       const button = [...(list.current?.querySelectorAll<HTMLButtonElement>('[data-row-key]') ?? [])].find(node => node.dataset.rowKey === selected.key);
       if (button) { button.focus(); restoreFocus.current = false; }
     }
-  }, [selected?.key, selectedKey, state.inboxLoading, rows]);
+  }, [selected?.key, selectedKey, state.inboxLoading, rows, embedded]);
   useEffect(() => {
     let active = true; setReadyProject(null);
     if (!selected) return;
@@ -86,7 +87,7 @@ export function Attention({ store }: { store: Store }) {
   });
   function select(row: AttentionItem, focus = false) {
     restoreFocus.current = focus; setSelectedKey(row.key);
-    if (location.hash !== attentionHash(row.key)) location.hash = attentionHash(row.key);
+    if (!embedded && location.hash !== attentionHash(row.key)) location.hash = attentionHash(row.key);
   }
   function decided() {
     setCompleted(true); restoreFocus.current = true;

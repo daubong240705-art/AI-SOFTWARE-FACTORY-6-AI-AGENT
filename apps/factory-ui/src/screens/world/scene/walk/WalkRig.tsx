@@ -7,6 +7,7 @@ import { useWorldMotion } from '../Ticker';
 import { useCameraBridge } from '../../cameraContext';
 import type { WorldModel } from '../../data/types';
 import type { Point } from '../../layout/zones';
+import { chairmanChair } from '../../layout/chairman';
 import { resolveWalkMove } from './collision';
 import { obstructionDistance } from './obstructions';
 import { useWalkPresence } from './awareness';
@@ -69,7 +70,7 @@ export function WalkRig(props: Props) {
     let locked = false;
     const lockChanged = () => {
       const wasLocked = locked; locked = document.pointerLockElement === canvas; clear();
-      if (wasLocked && !locked && !latest.current.paused && !document.hidden && document.hasFocus()) latest.current.onExit();
+      if (wasLocked && !locked && !state.current.seated && !latest.current.paused && !document.hidden && document.hasFocus()) latest.current.onExit();
     };
     const look = (event: MouseEvent) => {
       if (latest.current.paused || document.hidden || !(document.pointerLockElement === canvas || drag.current)) return;
@@ -79,6 +80,7 @@ export function WalkRig(props: Props) {
     };
     const down = (event: PointerEvent) => {
       // Stop R3F's iso pointer handlers while walking; DOM controls remain usable.
+      if (state.current.seated) return;
       event.stopImmediatePropagation();
       if (latest.current.paused || event.button !== 0) return;
       drag.current = true;
@@ -91,7 +93,7 @@ export function WalkRig(props: Props) {
         playToy(target.id, tool, latest.current.quiet); started.current = Date.now();
       }
     };
-    const stopIso = (event: Event) => event.stopImmediatePropagation();
+    const stopIso = (event: Event) => { if (!state.current.seated) event.stopImmediatePropagation(); };
     const up = () => { drag.current = false; };
     const wheel = (event: WheelEvent) => {
       if (event.altKey) return; // Alt+wheel selects hotbar slots; plain wheel zooms.
@@ -99,6 +101,7 @@ export function WalkRig(props: Props) {
       if (!latest.current.paused) state.current.cameraDistance = THREE.MathUtils.clamp(state.current.cameraDistance + event.deltaY * 0.004, 2.5, 6);
     };
     const keydown = (event: KeyboardEvent) => {
+      if (state.current.seated && event.key === 'Escape') return;
       if (editable(event.target) || event.ctrlKey || event.metaKey || event.altKey || latest.current.paused || document.hidden) return;
       const key = event.key.toLowerCase();
       if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', ' '].includes(key)) { keys.current.add(key); event.preventDefault(); event.stopImmediatePropagation(); }
@@ -123,7 +126,7 @@ export function WalkRig(props: Props) {
   }, [gl, state]);
   useFrame((_, rawDelta) => {
     const walk = state.current, dt = Math.min(rawDelta, 0.05), held = keys.current;
-    const active = !props.paused && !document.hidden;
+    const active = !props.paused && !walk.seated && !document.hidden;
     let forward = active ? Number(held.has('w') || held.has('arrowup')) - Number(held.has('s') || held.has('arrowdown')) : 0;
     let strafe = active ? Number(held.has('d') || held.has('arrowright')) - Number(held.has('a') || held.has('arrowleft')) : 0;
     const length = Math.hypot(forward, strafe); if (length) { forward /= length; strafe /= length; }
@@ -140,7 +143,7 @@ export function WalkRig(props: Props) {
       }
       if (distance < 0.85) { const push = (0.85 - distance) * 3 * dt; dx += (distance > 0.001 ? x / distance : 1) * push; dz += (distance > 0.001 ? z / distance : 0) * push; }
     }
-    const next = resolveWalkMove({ x: walk.position[0], z: walk.position[2] }, { x: dx, z: dz });
+    const next = walk.seated ? { x: chairmanChair[0], z: chairmanChair[1] } : resolveWalkMove({ x: walk.position[0], z: walk.position[2] }, { x: dx, z: dz });
     const moved = Math.hypot(next.x - walk.position[0], next.z - walk.position[2]);
     travel.current += moved * 8;
     if (active && length && jump.current === 0 && moved > 0.002) {
@@ -156,11 +159,12 @@ export function WalkRig(props: Props) {
       velocity.current -= 11 * dt; jump.current = Math.max(0, jump.current + velocity.current * dt);
       if (jump.current === 0) velocity.current = 0;
     }
-    walk.position[1] = jump.current;
-    if (root.current) { root.current.position.set(...walk.position); root.current.rotation.y = walk.yaw + Math.PI; root.current.visible = !walk.firstPerson; }
+    walk.position[1] = walk.seated ? 0.54 : jump.current;
+    if (root.current) { root.current.position.set(...walk.position); root.current.rotation.y = walk.yaw + Math.PI; root.current.visible = !walk.firstPerson || walk.seated; }
     if (avatar.current) {
       const hop = !props.still && active && length ? Math.abs(Math.sin(travel.current)) : 0;
       avatar.current.position.y = hop * 0.16;
+      avatar.current.rotation.x = walk.seated ? -0.1 : 0;
       avatar.current.scale.set(1 + (1 - hop) * (length ? 0.05 : 0), 1 - (1 - hop) * (length ? 0.08 : 0), 1);
     }
     const bob = !props.still && active && length ? Math.sin(travel.current) * 0.025 : 0;
@@ -188,6 +192,7 @@ export function WalkRig(props: Props) {
       scratch.direction.set(0, 0, -1).applyEuler(scratch.aim);
       camera.lookAt(scratch.desired.copy(scratch.focus).addScaledVector(scratch.direction, 1.5).add(scratch.up));
     }
+    if (walk.seated) { camera.position.set(chairmanChair[0] - .85, 2.35, chairmanChair[1] - 1.55); camera.lookAt(-14, 1.3, -7.7); }
     camera.updateMatrixWorld();
     if (hand.current) { hand.current.visible = walk.firstPerson; hand.current.position.copy(camera.position); hand.current.quaternion.copy(camera.quaternion); }
     if (toolNode.current) {
@@ -202,12 +207,15 @@ export function WalkRig(props: Props) {
     if (performance.now() - sampled.current > 80) {
       sampled.current = performance.now(); walk.target = null;
       if (active) {
+        const chairDistance = Math.hypot(walk.position[0] - chairmanChair[0], walk.position[2] - chairmanChair[1]);
+        if (chairDistance < 1.7) walk.target = { kind: 'office', id: 'chair', name: i18n.t('worldUi.walk.owner'), distance: chairDistance };
         // A nearby OIIA is usable even when the third-person crosshair passes above it.
         const cat = scene.getObjectByName('oiia-cat');
         if (cat && Math.hypot(cat.position.x - next.x, cat.position.z - next.z) < 1.9) {
           scratch.ray.set(scratch.focus, scratch.direction.copy(cat.position).setY(0.6).sub(scratch.focus).normalize());
           if (obstructionDistance(scratch.ray, scratch.focus.distanceTo(cat.position)) > Math.hypot(cat.position.x - next.x, cat.position.z - next.z) - 0.6) walk.target = { kind: 'cat', id: 'oiia', name: 'OIIA', distance: 1.9 };
         }
+        if (walk.target?.kind === 'office' && walk.target.id === 'chair') return;
         scratch.raycaster.setFromCamera(scratch.zero, camera); scratch.raycaster.far = walk.firstPerson ? 3.5 : walk.cameraDistance + 4;
         const wall = obstructionDistance(scratch.raycaster.ray, scratch.raycaster.far);
         for (const hit of scratch.raycaster.intersectObjects(scene.children, true)) {

@@ -4,6 +4,7 @@
 import '../../verify-loader.mjs';
 import assert from 'node:assert/strict';
 const { environmentModel, displayFrames, monitorFaceOffset, monitorFeedbackOffset, progressFillOffset, monitorYaw, desks, anchors, funProps } = await import('../../layout/zones.ts');
+const { chairmanSurfaces } = await import('../../layout/chairman.ts');
 const { propWallPanels, galleryFace, galleryPlate } = await import('../../layout/wallPanels.ts');
 const { walkPosters, walkWorkflow, southWindows, eastWindows, walkWindow } = await import('./wallLayout.ts');
 const { walkSceneryParts } = await import('./sceneryModel.ts');
@@ -18,6 +19,7 @@ function panel(id, mount, position, width, height, yaw = 0, polygonOffset = fals
 artwork.forEach((p, i) => panel(`art:${p.kind}:${p.text ?? i}`, p.mount ?? `art:${i}`, p.position, p.width, p.height, p.yaw));
 labels.filter(p => !p.floor).forEach((p, i) => panel(`label:${p.text}:${i}`, p.mount ?? `label:${i}`, p.position, p.width, p.height, p.yaw, true));
 propWallPanels.forEach(p => panel(p.id, p.mount, p.position, p.width, p.height, p.yaw));
+chairmanSurfaces.forEach(p => panel(`${p.id}:face`, p.id, p.position, p.width, p.height, p.yaw));
 for (const f of displayFrames) {
   const world = (y, offset) => [f.position[0] + Math.sin(f.yaw) * offset, y, f.position[1] + Math.cos(f.yaw) * offset];
   const mount = `gallery:${f.id}`;

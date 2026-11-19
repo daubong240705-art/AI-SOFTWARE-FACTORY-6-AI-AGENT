@@ -38,6 +38,6 @@ export function WalkOverlay({ state, positions, paused, agents }: { agents: read
     {!paused && <><span className="world-crosshair" aria-hidden="true">+</span><div className={`world-walk-hint${hint.looked && !hint.name ? ' world-walk-hint-learned' : ''}`} role="status">{hint.name ? t(hint.cat ? 'worldUi.walk.spin' : 'worldUi.walk.open').replace('{name}', hint.name) : t('worldUi.walk.click')}</div></>}
     <span className="sr-only" role="status">{hint.speech}</span>
     <canvas ref={canvas} className="world-minimap" width={220} height={176} aria-label={t('worldUi.walk.minimap')} />
-    <p className="world-walk-controls">{t(paused ? 'worldUi.walk.paused' : 'worldUi.walk.controls').replace('1–7', '1–9').replace('1-7', '1–9') + ' · 1–9: hotbar · Alt + wheel: hotbar · wheel: zoom'}</p>
+    <p className="world-walk-controls">{t(state.current.seated ? 'worldUi.chairman.seated' : paused ? 'worldUi.walk.paused' : 'worldUi.walk.controls').replace('1–7', '1–9').replace('1-7', '1–9') + ' · 1–9: hotbar · Alt + wheel: hotbar · wheel: zoom'}</p>
   </div>;
 }

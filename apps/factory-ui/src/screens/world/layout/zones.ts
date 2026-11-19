@@ -1,3 +1,4 @@
+import { chairmanFurniture, chairmanParts, chairmanWalls } from './chairman';
 export type Point = readonly [number, number];
 export type DeskAnchor = { id: string; position: Point; yaw: number; stand: Point; seat: Point; monitor: Point; sideMonitor: Point };
 export type Zone = { id: string; name: string; rect: readonly [number, number, number, number]; anchor: Point; color: string };
@@ -8,7 +9,7 @@ export const monitorFeedbackOffset = 0.03;
 export const progressFillOffset = 0.03;
 const desk = (id: string, x: number, z: number): DeskAnchor => ({ id, position: [x, z], yaw: 0, stand: [x, z - 1.9], seat: [x, z - 0.94], monitor: [x - 0.16, z + 0.24], sideMonitor: [x - 0.62, z + 0.02] });
 export const zones = [
-  { id: 'A', name: 'Owner’s Office', rect: [-18, -9, -14, -3], anchor: [-13.5, -3.2], color: '#E0A458' },
+  { id: 'A', name: 'Chairman’s Office', rect: [-18, -9, -14, -3], anchor: [-13.5, -3.2], color: '#E0A458' },
   { id: 'B', name: 'Production Studio', rect: [-7, 7, -14, -3], anchor: [0, -3.2], color: '#B5D3A7' },
   { id: 'C', name: 'Collaboration Zone', rect: [-7, 7, 1, 13], anchor: [0, 1.6], color: '#AFCFE6' },
   { id: 'D', name: 'Testing Lab', rect: [9, 18, -14, -3], anchor: [13.5, -2.6], color: '#CDBFE6' },
@@ -49,7 +50,7 @@ export const funProps = { server: [-6.3, 3.6], aquarium: [1.6, 12], pingPong: [-
 export const activitySpots = { 'ping-left': [-5.4, 2.2], 'ping-right': [-1, 2.2], cat: [-12.8, 10.1], 'plant-water': [5.5, 10.95] } as const satisfies Record<string, Point>;
 export const catAnchors = { 'cat-perch': [-12.8, 10.95] } as const satisfies Record<string, Point>;
 export const pen = { rect: [10, 17.5, -6, -3.5] as const };
-export const plants: readonly Point[] = [[-5.5, 12], [5.5, 12], [-17, -12], [6.3, -12], [17, 6], [-9.5, 13.2]];
+export const plants: readonly Point[] = [[-5.5, 12], [5.5, 12], [-17, -13.1], [6.3, -12], [17, 6], [-9.5, 13.2]];
 export const rugs = [
   { position: [-13.4, -8] as Point, size: [8.4, 10] as Point, color: '#E0A458' },
   { position: [0, -10.4] as Point, size: [13, 5.6] as Point, color: '#B5D3A7' },
@@ -69,12 +70,15 @@ export const laneJunctions: readonly Point[] = [[-8, -1], [8, -1], [-8, -7.75], 
 export const navigationBounds = { x: [-17.7, 17.8], z: [-13.7, 13.7] } as const;
 export type Footprint = { id: string; position: Point; half: Point; yaw: number; radius?: number };
 export const furnitureFootprints: Footprint[] = [
+  ...chairmanWalls, ...chairmanFurniture,
+  { id: 'office-door', position: [-16.24, -7.5], half: [0.04, 0.55], yaw: 0 },
+
   { id: 'oiia-cat', position: oiiaSpot, half: [0.5, 0.5], radius: 0.5, yaw: 0 },
   { id: 'server-rack', position: funProps.server, half: [0.45, 0.4], yaw: 0 },
   { id: 'aquarium', position: funProps.aquarium, half: [1.2, 0.5], yaw: 0 },
   { id: 'ping-pong', position: funProps.pingPong, half: [1.5, 0.8], yaw: 0 },
   ...desks.flatMap(d => [
-    { id: d.id, position: d.position, half: [d.id === 'owner' ? 1.05 : 0.85, 0.44] as Point, yaw: d.yaw },
+    { id: d.id, position: d.position, half: [d.id === 'owner' ? 1.55 : 0.85, d.id === 'owner' ? 0.53 : 0.44] as Point, yaw: d.yaw },
     { id: `${d.id}-chair`, position: d.seat, half: [0.39, 0.4] as Point, yaw: d.yaw },
   ]),
   { id: 'meeting-table', position: meetingTable.position, half: [1.8, 1.8], yaw: 0, radius: 1.8 },
@@ -157,9 +161,9 @@ export function environmentModel() {
     const [x, z] = d.position, owner = d.id === 'owner';
     const kind: ArtKind = owner ? 'owner' : d.id.startsWith('qa') ? 'qa' : d.id.startsWith('design') ? 'design' : d.id.startsWith('rules') ? 'rules' : d.id.startsWith('art') ? 'art' : d.id.startsWith('client') ? 'client' : 'lead';
     const tint = ({ owner: palette.apricot, qa: palette.lavender, design: palette.butter, rules: palette.mint, art: palette.rose, client: palette.sky, lead: palette.sage } as const)[kind];
-    const w = owner ? 2.1 : 1.7;
+    const w = owner ? 3.1 : 1.7;
     box(palette.darkWood, [x, 0.72, z], [w - 0.06, 0.2, 0.84]);
-    box(owner ? palette.butter : palette.wood, [x, desktopHeight - 0.08, z], [w, 0.16, 0.88]);
+    box(owner ? palette.darkWood : palette.wood, [x, desktopHeight - 0.08, z], [w, 0.16, 0.88]);
     box(tint, [x, 0.47, z + 0.29], [w - 0.18, 0.43, 0.1]);
     for (const dx of [-0.64, 0.64]) box(palette.darkWood, [x + dx, 0.36, z], [0.13, 0.7, 0.65]);
     // High backed chair is behind the agent; arms sit below the desktop.
@@ -348,7 +352,7 @@ export function environmentModel() {
     blob([x, z], 1.3, 1.3);
   }
   // Mounted signs have no posts in the walking lanes.
-  sign(zones[0].name, -14, 2.93, -13.71, 4.6, palette.apricot);
+  // The office door plate replaces the former wall-wide owner sign.
   sign(zones[1].name, 7, 2.93, -13.71, 4.4, palette.sage);
   sign(zones[2].name, wx, 2.2, wz, 3, palette.sky, Math.PI / 2);
   for (const dz of [-1, 1]) box(palette.darkWood, [wx, 1.95, wz + dz], [0.06, 0.5, 0.06]);
@@ -361,5 +365,5 @@ export function environmentModel() {
   for (const dx of [-1.3, 1.3]) box(palette.wood, [anchors.gate[0] + dx, 1.3, anchors.gate[1]], [0.35, 2.6, 0.4]);
   sign(zones[5].name, 25, 2.65, -3, 4.4, palette.mint);
   label('Coming soon', 'comingSoon', [25, 2.13, -2.74], 2.4, 0.26);
-  return { parts, labels, shadows, artwork };
+  return { parts: [...parts, ...chairmanParts()], labels, shadows, artwork };
 }

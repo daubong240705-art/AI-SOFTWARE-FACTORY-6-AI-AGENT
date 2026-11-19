@@ -16,6 +16,8 @@ import { Gallery, galleryStats } from './gallery/Gallery';
 import type { AgentPositions } from './Agents';
 import type { WorldLocations } from './CameraRig';
 import { FunProps } from './props/FunProps';
+import { ChairmanOffice } from './ChairmanOffice';
+import type { ChairmanTab } from '../panels/chairmanTabs';
 
 export type Courier = MutableRefObject<((handoff: Handoff) => void) | null>;
 export type StudioProps = {
@@ -26,6 +28,7 @@ export type StudioProps = {
   onTask: (projectId: string, taskId: string) => void; onStage: (key: string) => void;
   onBug: (bug: Bug) => void; onRelease: (release: GalleryItem) => void;
   onCelebrate: (release: GalleryItem) => void;
+  onOfficeOpen?: (tab: ChairmanTab | 'chair') => void; approvalPulse?: number; phonePulse?: number; attention?: number;
 };
 /** Keep every event consumer mounted and acknowledge only after their effects run. */
 export function Studio(props: StudioProps) {
@@ -78,5 +81,6 @@ export function Studio(props: StudioProps) {
     <BugMonsters effects={props.effects} bugs={model.bugs} bugOverflow={model.bugOverflow} events={events} games={model.hotProjects} scopeKey={String(scopeKey)} quality={quality} still={funStill} locale="en" onSelectBug={props.onBug} locations={props.locations} />
     <Gallery items={model.gallery} events={events} baselineReady={props.baseline} quality={quality} still={funStill} locale="en" onSelectRelease={props.onRelease} onCelebrate={props.onCelebrate} />
     <FunProps effects={props.effects} model={model} reports={reports} quality={quality} still={still} hidden={props.hidden} debug={props.debug} positions={props.positions} locale={i18n.locale} />
+    <ChairmanOffice model={model} attention={props.attention ?? 0} approvalPulse={props.approvalPulse ?? 0} phonePulse={props.phonePulse ?? 0} still={props.still} hidden={props.hidden} onOpen={props.onOfficeOpen ?? (() => {})} />
   </group>;
 }

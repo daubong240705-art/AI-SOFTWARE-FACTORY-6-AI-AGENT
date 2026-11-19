@@ -21,7 +21,7 @@ export function parseHash(hash: string): View {
   if (hash === '#/system') return 'system';
   if (hash === '#/attention' || hash.startsWith('#/attention/')) return 'needs-attention';
   if (hash === '#/team' || hash === '#/team/config') return 'team';
-  if (hash === '#/world') return 'world';
+  if (hash === '#/world' || hash.startsWith('#/world?')) return 'world';
   const project = /^#\/project\/([^/]+)(?:\/(?:overview|agent|office|board|workflow|knowledge|code|automation)|\/settings(?:\/[^/]+)?)?$/.exec(hash);
   if (project?.[1]) { try { const id = decodeURIComponent(project[1]); if (id.trim()) return `project:${id}`; } catch { /* Invalid encodings return home. */ } }
   return 'overview';
@@ -44,6 +44,7 @@ export function teamTab(hash: string): TeamTab { return hash === '#/team/config'
 /** Normalize legacy links while preserving attention deep links and the bare settings page. */
 export function canonicalHash(hash: string): string {
   const view = parseHash(hash);
+  if (view === 'world' && hash.startsWith('#/world?')) return hash;
   if (view === 'needs-attention' && /^#\/attention\/[^/]+$/.test(hash)) return hash;
   const tab = projectTab(hash);
   if (tab === 'settings' && /\/settings\/[^/]+$/.test(hash) && !settingsSections.some(section => hash.endsWith(`/${section}`))) return viewHash(view, tab, teamTab(hash));

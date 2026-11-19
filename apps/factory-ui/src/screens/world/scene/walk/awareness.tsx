@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { useT } from '@/i18n';
 import type { WorldAgent } from '../../data/types';
 import type { WalkState } from './state';
+import { ownerDesk } from '../../layout/zones';
 import { toys } from '../toys/store';
 import { Bubble } from '../toys/visuals';
 
@@ -25,12 +26,13 @@ export function WorkerAwareness({ agent, still, toyAnimated, children }: { agent
     const active = !!presence?.active;
     node.getWorldPosition(point.current);
     const walk = presence?.state.current;
-    const dx = (walk?.position[0] ?? 1000) - point.current.x, dz = (walk?.position[2] ?? 1000) - point.current.z;
+    const wantsOffice = agent.needsYou.length > 0;
+    const dx = (wantsOffice ? ownerDesk.position[0] : walk?.position[0] ?? 1000) - point.current.x, dz = (wantsOffice ? ownerDesk.position[1] : walk?.position[2] ?? 1000) - point.current.z;
     const sulking = toys.snapshot().sulking.some(s => s.worker === agent.seatId && s.until > Date.now());
     const response = greeting(active ? Math.hypot(dx, dz) : Infinity, agent.status === 'working', agent.status === 'waiting', sulking);
     const now = performance.now() / 1000;
     const parentYaw = node.parent?.rotation.y ?? 0;
-    let yaw = response.notices ? Math.atan2(dx, dz) - Math.PI / 4 - parentYaw + (sulking ? Math.PI : 0) : 0;
+    let yaw = response.notices || wantsOffice ? Math.atan2(dx, dz) - Math.PI / 4 - parentYaw + (sulking ? Math.PI : 0) : 0;
     yaw = Math.atan2(Math.sin(yaw), Math.cos(yaw));
     // The existing toy pose already turns the rig during a sulk; compensate once here.
     const effect = toys.snapshot().active.find(e => e.worker === agent.seatId);

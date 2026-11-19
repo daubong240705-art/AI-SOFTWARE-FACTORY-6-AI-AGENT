@@ -26,8 +26,8 @@ import { Page } from '../components/Page';
 type Intent = 'discuss' | 'delegate';
 // Keep command identities across retries, including unknown transport outcomes.
  type Attempt = { projectId: string; text: string; intent: Intent; create?: Command; send?: Command };
-export function Overview({ store, onProject, onOpenProject, onAttention, onCreate, onPortal, operatorName, focusComposer, onTask }: {
-  onPortal: () => void; store: Store; onProject: (id: string) => void; onOpenProject: (id: string) => void; onAttention: (item?: AttentionItem) => void; onCreate: (kind: 'task' | 'game' | 'project') => void; operatorName?: string; focusComposer?: number; onTask?: (projectId: string, taskId: string) => void;
+export function Overview({ store, onProject, onOpenProject, onAttention, onCreate, onPortal, operatorName, focusComposer, onTask, composerOnly }: {
+  onPortal: () => void; store: Store; onProject: (id: string) => void; onOpenProject: (id: string) => void; onAttention: (item?: AttentionItem) => void; onCreate: (kind: 'task' | 'game' | 'project') => void; operatorName?: string; focusComposer?: number; composerOnly?: { id: string; onChange: (id: string) => void }; onTask?: (projectId: string, taskId: string) => void;
 }) {
   const t = useT(); const id = useId(); const state = store.useStoreSelector(value => value);
   const [text, setText] = useState(''); const [chosen, setChosen] = useState(''); const [intent, setIntent] = useState<Intent>('delegate');
@@ -39,7 +39,7 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
     const frame = requestAnimationFrame(() => composer.current?.focus());
     return () => cancelAnimationFrame(frame);
   }, [focusComposer]);
-  const projectId = state.projects.some(project => project.id === chosen) ? chosen : state.projects[0]?.id ?? '';
+  const projectId = state.projects.some(project => project.id === (composerOnly?.id ?? chosen)) ? (composerOnly?.id ?? chosen) : state.projects[0]?.id ?? '';
   const pending = attempt.current?.send ?? attempt.current?.create;
   const error = pending ? state.pending[pending.commandId]?.error : undefined;
   const tooLong = text.length > 32_000;
@@ -85,11 +85,9 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
   const hour = new Date().getHours();
   const dayPart = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
   useEffect(() => {
-    if (state.projects.length && state.selectedProjectId === null) selecting.current = store.selectProject(state.projects[0]!.id);
-  }, [store, state.projects, state.selectedProjectId]);
-  return <Page className="overview min-w-0"><div className="mx-auto max-w-5xl space-y-6">
-    <PageHeader title={<>{t('overview.greetingStart')} <span className="text-project-1">{t(`overview.${dayPart}`)}</span>{operatorName && <>, {operatorName}</>}</>} />
-      {state.projects.length ? <Panel><form aria-label={t('overview.composer')} onSubmit={event => { event.preventDefault(); void submit(); }}>
+    if (!composerOnly && state.projects.length && state.selectedProjectId === null) selecting.current = store.selectProject(state.projects[0]!.id);
+  }, [store, state.projects, state.selectedProjectId, composerOnly]);
+  const composerPanel = state.projects.length ? <Panel><form aria-label={t('overview.composer')} onSubmit={event => { event.preventDefault(); void submit(); }}>
         <label className="sr-only" htmlFor={`${id}-text`}>{t('overview.message')}</label>
         <Textarea ref={composer} id={`${id}-text`} placeholder={t('overview.placeholder')} value={text} disabled={busy} aria-invalid={tooLong || undefined} aria-describedby={tooLong ? `${id}-limit` : `${id}-shortcut`} className="min-h-[120px] resize-y rounded-lg border border-border bg-background px-3 py-3 text-base shadow-none"
           onChange={event => { setText(event.target.value); attempt.current = null; }} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }}
@@ -97,7 +95,7 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
         {tooLong && <p id={`${id}-limit`} className="mt-2 text-sm text-destructive" role="alert">{t('chatUi.tooLong')}</p>}
         <Separator className="my-4" />
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-3"><label htmlFor={`${id}-project`} className="text-sm whitespace-nowrap text-muted-foreground">{t('overview.project')}</label><Select id={`${id}-project`} value={projectId} disabled={busy} onValueChange={next => { setChosen(next); attempt.current = null; }} options={state.projects.map(project => ({ value: project.id, label: project.name }))} className="w-48" /></div>
+          <div className="flex items-center gap-3"><label htmlFor={`${id}-project`} className="text-sm whitespace-nowrap text-muted-foreground">{t('overview.project')}</label><Select id={`${id}-project`} value={projectId} disabled={busy} onValueChange={next => { setChosen(next); composerOnly?.onChange(next); attempt.current = null; }} options={state.projects.map(project => ({ value: project.id, label: project.name }))} className="w-48" /></div>
           <ToggleGroup type="single" value={intent} disabled={busy} onValueChange={value => { if (value === 'discuss' || value === 'delegate') { setIntent(value); attempt.current = null; } }} aria-label={t('chatUi.intent')} spacing={0} className="rounded-md border border-border">
             <ToggleGroupItem value="discuss" className="h-8 min-h-8 rounded-md border-0 px-3 text-sm font-normal data-[state=on]:bg-secondary">{t('overview.ask')}</ToggleGroupItem>
             <ToggleGroupItem value="delegate" className="h-8 min-h-8 rounded-md border-0 px-3 text-sm font-normal data-[state=on]:bg-secondary">{t('overview.delegate')}</ToggleGroupItem>
@@ -107,7 +105,11 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
         </div>
         {error && <ErrorNotice error={error} />}{problem && <p role="alert">{t(problem)}</p>}
         {(error || problem) && <Button type="button" variant="outline" disabled={busy} onClick={() => { void submit(true); }}>{t('errors.retry')}</Button>}
-      </form></Panel> : <Panel aria-label={t('overview.composer')}><MascotEmpty seat="Lead"><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button onClick={() => onCreate('game')}>{t('shellUi.newGame')}</Button><Button variant="outline" onClick={() => onCreate('project')}>{t('shellUi.newProject')}</Button></div></MascotEmpty></Panel>}
+      </form></Panel> : <Panel aria-label={t('overview.composer')}><MascotEmpty seat="Lead"><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button onClick={() => onCreate('game')}>{t('shellUi.newGame')}</Button><Button variant="outline" onClick={() => onCreate('project')}>{t('shellUi.newProject')}</Button></div></MascotEmpty></Panel>;
+  if (composerOnly) return composerPanel;
+  return <Page className="overview min-w-0"><div className="mx-auto max-w-5xl space-y-6">
+    <PageHeader title={<>{t('overview.greetingStart')} <span className="text-project-1">{t(`overview.${dayPart}`)}</span>{operatorName && <>, {operatorName}</>}</>} />
+      {composerPanel}
       {state.loading.globalInbox ? <LoadingState inline /> : state.errors.globalInbox ? <div><ErrorNotice error={state.errors.globalInbox} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></div> : items.length ? <Section title={t('overview.needsYou')}>
         <Stagger className="m-0 list-none p-0">{items.map((item, index) => {
           const name = item.projectName ?? state.projects.find(project => project.id === item.projectId)?.name ?? t('overview.project');

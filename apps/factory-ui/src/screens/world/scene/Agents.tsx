@@ -60,7 +60,7 @@ function HitTarget({ position, owner = false, onSelect, onHover, walkId }: { pos
     <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
   </mesh>;
 }
-export function Agents({ events, courier, celebration, agents, baseline, quality, still, hidden, selected, positions, debug, onSelect, onOwner, onHover, attention, effects = 'full' }: {
+export function Agents({ events, courier, celebration, agents, baseline, quality, still, hidden, selected, positions, debug, onSelect, onHover, attention, effects = 'full' }: {
   effects?: EffectsLevel;
   events: readonly WorldEvent[]; courier: Courier; celebration: number; agents: readonly WorldAgent[]; baseline: boolean; quality: WorldQuality; still: boolean; hidden: boolean; selected: string | null;
   positions: AgentPositions; debug: MutableRefObject<SceneDebug>; onSelect: (id: string) => void; onOwner: () => void; onHover: (hover: AgentHover) => void; attention: number;
@@ -261,7 +261,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
       </group>;
     })}
     {!hidden && <NeedsBell attention={attention} still={still} off={effects === 'off'} />}
-    {!hidden && <HitTarget owner position={[ownerDesk.position[0], 1, ownerDesk.position[1]]} onSelect={onOwner} />}
+    {/* Office objects provide individual targets; the old desk-sized capsule obscured the inbox. */}
     <mesh position={[ownerDesk.position[0] + 0.86, 1.1, ownerDesk.position[1] - 0.26]} raycast={ignore}><sphereGeometry args={[0.09, 10, 6]} /><meshStandardMaterial color={attention > 0 ? '#F2B8A9' : '#4A3B2F'} emissive="#F2B8A9" emissiveIntensity={attention > 0 ? 1.5 : 0} /></mesh>
   </group>;
 }

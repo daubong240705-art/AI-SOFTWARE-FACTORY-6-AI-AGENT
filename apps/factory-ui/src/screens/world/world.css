@@ -67,3 +67,22 @@
   .world-page.world-panel-open .world-left { max-height: calc(60% - 130px); }
   .world-panel-open .world-walk-controls { display: none; }
 }
+
+.world-page .chairman-hub.project-dock {
+  width: min(60%, 980px); max-width: calc(100% - 32px); bottom: 108px;
+  padding: 0; display: flex; flex-direction: column; overflow: hidden; z-index: 5;
+}
+.chairman-hub header, .chairman-tabs { flex-shrink: 0; }
+.chairman-tabs { display: flex; gap: 4px; overflow-x: auto; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.chairman-tabs button { flex-shrink: 0; padding: 8px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; }
+.chairman-tabs [aria-selected="true"] { background: var(--secondary); color: var(--text); box-shadow: inset 0 -2px var(--info); }
+.chairman-tabs button:focus-visible { outline: 2px solid var(--info); outline-offset: -2px; }
+.chairman-content { flex: 1; min-height: 0; overflow: auto; }
+.chairman-chat { height: min(560px, 65vh); min-height: 360px; border-top: 1px solid var(--line); }
+.world-page:has(.chairman-hub) .world-left { width: min(300px, 32%); }
+.world-page:has(.chairman-hub) .world-hotbar { bottom: 10px; }
+@media (max-width: 1100px) {
+  .world-page.world-panel-open .chairman-hub.project-dock { top: 16px; left: auto; right: 16px; bottom: 108px; height: auto; width: min(72%, 980px); }
+  .world-page:has(.chairman-hub) .world-left { width: 22%; }
+}
+.world-page .world-toolbar { flex-wrap: wrap; height: auto; min-height: 36px; padding-block: 4px; }
