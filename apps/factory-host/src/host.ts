@@ -22,7 +22,6 @@ import type { FastifyInstance } from "fastify";
 import { createServer } from "node:net";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { chmod, lstat, unlink } from "node:fs/promises";
-import { homedir } from "node:os";
 import { dirname, isAbsolute, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApiServer, createRoutes, isLoopbackHost, listenLoopback, listenOn, originsFor, registerStaticUi } from "./api/index.js";
@@ -37,7 +36,9 @@ import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { createIdGenerator, systemClock, type Clock } from "./ids.js";
 import { createLeadRunner, type LeadConfig, type LeadRunner } from "./lead/runner.js";
 import { DEFAULT_LEAD_CONFIG } from "./lead/runner.js";
-import { agentModelsSchema, reasoningEffortSchema } from "@factory/contracts";
+import { API_VERSION, agentModelsSchema, reasoningEffortSchema } from "@factory/contracts";
+import { configError, directoryDefaults, type ConfigEnv } from "./config/index.js";
+import { registerDoctorRoute } from "./system/doctor-route.js";
 import { modelsSetHandler, readModelSettings, type ModelSettingsSeed } from "./models/settings.js";
 import type { ModelGateway } from "./models/index.js";
 import { createUpstream, type ModelInfo } from "./models/upstream.js";
@@ -133,7 +134,15 @@ async function prepareProxySocket(path: string): Promise<void> {
   } catch { throw new Error("Invalid proxy socket configuration"); }
 }
 
-export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
+export function parseEnv(env: ConfigEnv): ReturnType<typeof parseHostEnv> {
+  try { return parseHostEnv(env); }
+  catch (error) {
+    const keys = error instanceof Error ? error.message.match(/\bFACTORY_[A-Z0-9_]+\b/g) ?? [] : [];
+    throw configError([...new Set(keys)].filter((key) => Object.hasOwn(env, key)).join(" / ") || "FACTORY_CONFIG");
+  }
+}
+
+function parseHostEnv(env: ConfigEnv): {
   defaultPack: string; packKeys?: string[]; gameStarterDir?: string;
   mcpServers?: McpServersConfig;
   multiTeam: boolean;
@@ -168,7 +177,8 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   const minutes = env.FACTORY_BACKUP_INTERVAL_MINUTES ?? "60";
   if (!/^[0-9]+$/.test(minutes) || !Number.isSafeInteger(Number(minutes)) || Number(minutes) < 1 || Number(minutes) > 1440)
     throw new Error("FACTORY_BACKUP_INTERVAL_MINUTES must be an integer from 1 to 1440");
-  const stateDir = env.FACTORY_STATE_DIR ?? join(homedir(), "factory-v2", "state");
+  const dirs = directoryDefaults(env);
+  const stateDir = env.FACTORY_STATE_DIR ?? dirs.FACTORY_STATE_DIR!;
   const slots = env.FACTORY_NODE_SLOTS ?? "2";
   const defaultAgentCli = env.FACTORY_DEFAULT_AGENT_CLI === undefined || env.FACTORY_DEFAULT_AGENT_CLI === "" ? undefined : env.FACTORY_DEFAULT_AGENT_CLI;
   if (defaultAgentCli !== undefined && defaultAgentCli !== "codex" && defaultAgentCli !== "claude") throw new Error("FACTORY_DEFAULT_AGENT_CLI must be codex or claude");
@@ -189,7 +199,7 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   const documentMaxBytes = documentNumber("FACTORY_DOC_MAX_BYTES", env.FACTORY_DOC_MAX_BYTES, 25 * 1024 * 1024, 1024 * 1024, 100 * 1024 * 1024);
   const documentQuotaBytes = documentNumber("FACTORY_DOC_QUOTA_BYTES", env.FACTORY_DOC_QUOTA_BYTES, 2 * 1024 * 1024 * 1024, 1, Number.MAX_SAFE_INTEGER);
   const runtime = env.FACTORY_RUNTIME ?? "fake";
-  if (runtime !== "fake" && runtime !== "opencode") throw new Error("unsupported runtime");
+  if (runtime !== "fake" && runtime !== "opencode") throw new Error("Unsupported FACTORY_RUNTIME");
   let opencode: { dir: string } | undefined;
   if (runtime === "opencode") {
     for (const name of ["FACTORY_OPENCODE_DIR", "FACTORY_PROXY_SOCKET", "FACTORY_AGENT_MODELS", "NINE_ROUTER_API_KEY", "FACTORY_GATEWAY_URL"] as const)
@@ -221,9 +231,8 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
   let workspace: { projectsRoot: string; worktreesRoot: string };
   try {
     workspace = canonicalRoots({
-      projectsRoot: env.FACTORY_PROJECTS_ROOT ?? (existsSync("/srv/factory/workspaces")
-        ? resolve("/srv/factory/workspaces") : join(homedir(), "factory-v2", "workspaces")),
-      worktreesRoot: env.FACTORY_WORKTREES_ROOT ?? join(homedir(), "factory-v2", "worktrees"),
+      projectsRoot: env.FACTORY_PROJECTS_ROOT ?? dirs.FACTORY_PROJECTS_ROOT!,
+      worktreesRoot: env.FACTORY_WORKTREES_ROOT ?? dirs.FACTORY_WORKTREES_ROOT!,
     });
   } catch { throw new Error(runtime === "opencode"
     ? "FACTORY_PROJECTS_ROOT and FACTORY_WORKTREES_ROOT must be absolute, separate directories outside /mnt"
@@ -251,13 +260,13 @@ export function parseEnv(env: Readonly<Record<string, string | undefined>>): {
     ...(opencode === undefined ? {} : { opencode }),
     ...(approvedModels === undefined ? {} : { agentProxy: { port: Number(proxyPort), approvedModels,
       ...(socketPath === undefined ? {} : { socketPath }) } }),
-    ...(env.FACTORY_MIGRATION_BACKUP_DIR === undefined ? {} : { backupDir: env.FACTORY_MIGRATION_BACKUP_DIR }),
+    backupDir: env.FACTORY_MIGRATION_BACKUP_DIR ?? dirs.FACTORY_MIGRATION_BACKUP_DIR!,
     periodicBackup: {
-      dir: env.FACTORY_BACKUP_DIR ?? (existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(stateDir, "backups", "periodic")),
+      dir: env.FACTORY_BACKUP_DIR ?? dirs.FACTORY_BACKUP_DIR!,
       intervalMs: Number(minutes) * 60_000,
     },
     documents: { maxBytes: documentMaxBytes, quotaBytes: documentQuotaBytes },
-    docWorker: docWorkerConfig(env),
+    docWorker: docWorkerConfig({ ...dirs, ...env }),
   };
 }
 
@@ -277,6 +286,7 @@ async function freeLoopbackPort(): Promise<number> {
 }
 
 export async function startHost(options: {
+  config?: ConfigEnv;
   defaultPack?: string; packKeys?: readonly string[]; gameStarterDir?: string;
   pushChannel?: PushChannel;
   notify?: ExternalNotifications;
@@ -467,7 +477,7 @@ export async function startHost(options: {
       console.log(`Roster migration ${report.projectId}: ${report.status}${report.detail ? ` ${report.detail}` : ""}`);
     }
     // FACTORY_PACK_FOLLOW: packs whose teams follow pack edits of the same version ("none" to pin every team).
-    const follow = (process.env.FACTORY_PACK_FOLLOW ?? "web-games,portal-ops").split(",").map((key: string) => key.trim()).filter((key: string) => key !== "" && key !== "none");
+    const follow = ((options.config ?? process.env).FACTORY_PACK_FOLLOW ?? "web-games,portal-ops").split(",").map((key: string) => key.trim()).filter((key: string) => key !== "" && key !== "none");
     for (const line of followPackUpdates(storage.raw, packs, follow, clock())) console.log(`Team instructions updated: ${line}`);
     if (mcpServers) external = createExternalTools(mcpServers, { raw: storage.raw, now: () => clock().getTime() });
     const hub = new EventHub(storage.raw, { clock });
@@ -943,6 +953,20 @@ export async function startHost(options: {
           gateway: { configured: listModels !== undefined, keyPresent: listModels !== undefined },
           available: catalog === null ? null : catalog.map((model) => model.id), catalog, efforts: reasoningEffortSchema.options,
           runtime: runtimeFacts };
+      });
+      registerDoctorRoute(app, guards, API_VERSION, () => {
+        const models = effectiveModels();
+        const upstream = options.modelProxy?.upstream;
+        return {
+          config: { NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS, ...options.config,
+            ...(upstream && !options.config ? { FACTORY_MODEL_BASE_URL: upstream.baseUrl, FACTORY_MODEL_API_KEY: upstream.apiKey } : {}),
+            FACTORY_LISTEN_HOST: listenHost, FACTORY_LOGIN_TOKEN: options.loginToken,
+            FACTORY_BACKUP_DIR: options.periodicBackup?.dir, FACTORY_RUNTIME: runtimeFacts.opencode ? "opencode" : "fake",
+            FACTORY_LEAD_MODEL: models.leadModel, FACTORY_AGENT_MODELS: models.agentModels.join(","),
+          }, stateDir, port, ...(options.uiDir === undefined ? {} : { uiDir: options.uiDir }),
+          running: app.server.listening,
+          ...(upstream?.fetchImpl === undefined ? {} : { fetch: upstream.fetchImpl }),
+        };
       });
       const hostStartedAt = clock().toISOString();
         app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
