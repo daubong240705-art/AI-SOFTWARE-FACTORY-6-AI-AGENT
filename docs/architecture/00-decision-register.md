@@ -226,6 +226,8 @@ Chi tiết và lý do ở [17 · Universal Multi-Agent Platform](17-universal-ag
 | U-11 | Test | `node:test` cho engine và selector từ U0 | **Đã duyệt** (19/11/2026) |
 | U-12 | Thứ tự | U0 → U8 (17 §13); bắt đầu từ U0 + U1 | **Đã duyệt** (19/11/2026) |
 
+| U-13 | Phần game và thiết kế cũ | **Gỡ hẳn** module game/Portal/preview, Lead protocol game, workflow v1, trang Đội cũ (pack/engagement), bot Telegram/Discord, pack `web-games`/`game-studio`/`portal-ops`. **Giữ và thiết kế lại** Văn phòng và Thế giới 3D theo agent/quy trình/task. Project game trên `.12` được **lưu trữ**. Thay U-01 phần "game factory thành một extension" và U-10 | **Đã duyệt** (19/11/2026) |
+| U-14 | Dự án mới | Mặc định **không có agent**; chỉ khi người dùng chọn "Mẫu đội" thì mới chép agent từ mẫu | **Đã duyệt** (19/11/2026) |
 ---
 
 ## 4. Quy tắc chọn sau spike Paperclip (cho D-02 và OSS-01)
@@ -265,3 +267,4 @@ Dùng checklist ở [oss-options §2.5](oss-options.md).
 | 07/11/2026 | Push nhánh `feature/m0-contracts-v2` lên GitHub `origin`; bỏ qua dùng thử M1 và bắt đầu M2 (PD-8, PD-9); thêm tài liệu 09 |
 | 19/11/2026 | Tái kiến trúc thành Universal Multi-Agent Platform: thêm §3G (U-01..U-12) ở trạng thái Đề xuất chọn; tài liệu [17](17-universal-agent-platform.md) |
 | 19/11/2026 | Người dùng duyệt toàn bộ U-01..U-12 (gồm U-10); bắt đầu U0 + U1 |
+| 19/11/2026 | Thêm U-13 (gỡ game và thiết kế cũ, giữ Văn phòng/Thế giới 3D) và U-14 (dự án mới mặc định trống) |
