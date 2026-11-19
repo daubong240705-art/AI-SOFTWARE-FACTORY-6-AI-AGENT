@@ -14,8 +14,10 @@ export const getSeatRuntimeConfig = (raw: Database, seatId: string): SeatRuntime
 export const seatsSetRuntimeHandler: HandlerMap["seats.set-runtime"] = ({ raw, clock }, { projectId, payload }) => {
   if (!raw.prepare("SELECT id FROM projects WHERE id = ?").get(projectId))
     throw new CommandError("not-found", "project not found", "correct-input");
-  const seat = raw.prepare("SELECT revision FROM seats WHERE id = ?").get(payload.seatId) as { revision: number } | undefined;
+  const seat = raw.prepare("SELECT revision, config_revision FROM seats WHERE id = ?").get(payload.seatId) as { revision: number; config_revision: number | null } | undefined;
   if (!seat) throw new CommandError("not-found", "seat not found", "correct-input");
+  if (seat.config_revision !== null)
+    throw new CommandError("conflict", "configure this agent with agents.update", "correct-input");
   const previous = getSeatRuntimeConfig(raw, payload.seatId);
   if ((previous?.revision ?? null) !== payload.expectedRevision)
     throw new CommandError("conflict", "runtime configuration revision changed", "refresh",

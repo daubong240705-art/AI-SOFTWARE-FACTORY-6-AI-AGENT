@@ -3,7 +3,7 @@ import { skillGetInputSchema } from "@factory/contracts";
 import type { TokenGrant } from "../proxy/tokens.js";
 import { assertActiveGrant, McpToolError } from "../mcp/security.js";
 import type { ToolResult } from "../mcp/tools.js";
-import { getSkill } from "./snapshot.js";
+import { getAttemptInstructionPin, getSkill } from "./snapshot.js";
 
 function boundedText(content: string): string {
   const bytes = Buffer.from(content);
@@ -35,7 +35,8 @@ export function createSkillsMcp(deps: { raw: Database; now?: () => Date }) {
       if (name !== "skill.get" || !parsed.success) throw new McpToolError("invalid tool input");
       const seat = deps.raw.prepare("SELECT seat_id FROM attempt_seats WHERE project_id = ? AND attempt_id = ?")
         .get(grant.projectId, grant.attemptId) as { seat_id: string } | undefined;
-      const content = seat ? getSkill(deps.raw, { seatId: seat.seat_id, name: parsed.data.name }) : null;
+      const pin = getAttemptInstructionPin(deps.raw, grant.projectId, grant.attemptId);
+      const content = seat ? getSkill(deps.raw, { seatId: seat.seat_id, name: parsed.data.name, ...(pin ? { pin } : {}) }) : null;
       if (content === null) throw new McpToolError("skill not found");
       return result(boundedText(content));
     } catch (error) {
