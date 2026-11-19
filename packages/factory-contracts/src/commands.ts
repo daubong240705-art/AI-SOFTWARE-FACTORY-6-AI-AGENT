@@ -10,6 +10,8 @@ import {
   agentsCreatePayloadSchema, agentsUpdatePayloadSchema, agentsClonePayloadSchema, agentsSetStatusPayloadSchema,
   agentsSetLeadPayloadSchema, agentsRollbackPayloadSchema, agentsDeletePayloadSchema, agentTeamsCreatePayloadSchema,
   agentTeamsUpdatePayloadSchema, agentTeamsDeletePayloadSchema, relationsSetPayloadSchema,
+  skillsCreatePayloadSchema, skillsUpdatePayloadSchema, skillsDeletePayloadSchema, templatesCreatePayloadSchema,
+  templatesUpdatePayloadSchema, templatesDeletePayloadSchema, agentsUpgradeFromTemplatePayloadSchema, agentsSaveAsTemplatePayloadSchema,
 } from "./agents.js";
 import { scheduleInputSchema, schedulePatchSchema } from "./schedule.js";
 import { workflowKeySchema, workflowPatchSchema } from "./workflow.js";
@@ -232,6 +234,15 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("teams.update", agentTeamsUpdatePayloadSchema),
   command("teams.delete", agentTeamsDeletePayloadSchema),
   command("relations.set", relationsSetPayloadSchema),
+  // U2: library (projectId = LIBRARY_SCOPE_ID) and template links (project-scoped).
+  command("skills.create", skillsCreatePayloadSchema),
+  command("skills.update", skillsUpdatePayloadSchema),
+  command("skills.delete", skillsDeletePayloadSchema),
+  command("templates.create", templatesCreatePayloadSchema),
+  command("templates.update", templatesUpdatePayloadSchema),
+  command("templates.delete", templatesDeletePayloadSchema),
+  command("agents.upgrade-from-template", agentsUpgradeFromTemplatePayloadSchema),
+  command("agents.save-as-template", agentsSaveAsTemplatePayloadSchema),
   command("seats.update", z.strictObject({
     ...change, seatId: idSchema, slots: z.number().int().min(1).max(8).optional(),
   })),

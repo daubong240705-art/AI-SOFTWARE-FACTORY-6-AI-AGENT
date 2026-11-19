@@ -210,3 +210,45 @@ export const agentTemplateDetailSchema = z.strictObject({
   config: agentConfigSchema,
 });
 export type AgentTemplateDetail = z.infer<typeof agentTemplateDetailSchema>;
+
+// ---- U2: library commands ------------------------------------------------------------------------
+/**
+ * Library entities are global. Their commands use this fixed scope id as `projectId` so command receipts stay
+ * idempotent; the Host emits no project events for them (clients refetch GET /library after a command).
+ */
+export const LIBRARY_SCOPE_ID = "00000000-0000-4000-8000-000000000000";
+export const skillTrustSchema = z.enum(["instructions", "assets", "scripts"]);
+const skillContentSchema = z.string().min(1).max(65_536);
+export const skillsCreatePayloadSchema = z.strictObject({
+  skillId: idSchema, name: skillNameSchema, description: z.string().trim().min(1).max(1_024), content: skillContentSchema,
+  trust: skillTrustSchema.default("instructions"),
+});
+/** Each update with new content creates the next skill version; description/name changes alone bump only the row. */
+export const skillsUpdatePayloadSchema = z.strictObject({
+  skillId: idSchema, expectedRevision: revisionSchema, name: skillNameSchema.optional(),
+  description: z.string().trim().min(1).max(1_024).optional(), content: skillContentSchema.optional(),
+});
+/** Refused while any non-archived agent or template revision references the skill. */
+export const skillsDeletePayloadSchema = z.strictObject({ skillId: idSchema, expectedRevision: revisionSchema });
+export const templatesCreatePayloadSchema = z.strictObject({
+  templateId: idSchema, config: agentConfigSchema, description: z.string().max(2_000).default(""),
+});
+export const templatesUpdatePayloadSchema = z.strictObject({
+  templateId: idSchema, expectedRevision: revisionSchema, config: agentConfigSchema, description: z.string().max(2_000).optional(),
+});
+/** Refused while a linked agent still points at the template. */
+export const templatesDeletePayloadSchema = z.strictObject({ templateId: idSchema, expectedRevision: revisionSchema });
+/** Project-scoped: replace a linked agent's config with the template revision (agent-specific overrides are not kept in U2). */
+export const agentsUpgradeFromTemplatePayloadSchema = z.strictObject({
+  agentId: idSchema, expectedRevision: revisionSchema, toRevision: revisionSchema,
+});
+/** Project-scoped: save an agent's current config as a new library template. */
+export const agentsSaveAsTemplatePayloadSchema = z.strictObject({
+  agentId: idSchema, templateId: idSchema, description: z.string().max(2_000).default(""),
+});
+export const skillDetailSchema = z.strictObject({
+  skill: skillSummarySchema.safeExtend({ revision: revisionSchema }),
+  versions: z.array(z.strictObject({ version: revisionSchema, sha256: z.string(), createdAt: timestampSchema })).max(500),
+  usedBy: z.strictObject({ agents: z.number().int().min(0), templates: z.number().int().min(0) }),
+});
+export type SkillDetail = z.infer<typeof skillDetailSchema>;
