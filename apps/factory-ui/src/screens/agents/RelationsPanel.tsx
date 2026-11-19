@@ -77,11 +77,11 @@ function RelationGraph({ agents, relations }: { agents: AgentSummary[]; relation
     dagre.layout(graph);
     const nodes: Node[] = members.map(agent => {
       const { x, y } = graph.node(agent.id);
-      return { id: agent.id, position: { x: x - width / 2, y: y - height / 2 }, data: { label: <span className="block truncate" title={agent.name}>{agent.name}</span> }, width, height, sourcePosition: Position.Right, targetPosition: Position.Left, style: { borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--foreground)', padding: 10 } };
+      return { id: agent.id, position: { x: x - width / 2, y: y - height / 2 }, data: { label: <span className="block truncate" title={agent.name}>{agent.name}</span> }, width, height, sourcePosition: Position.Right, targetPosition: Position.Left, style: { borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-card)', color: 'var(--color-foreground)', padding: 10 } };
     });
     return { nodes, links };
   }, [agents, relations]);
-  const edges: Edge[] = links.map(({ relation, id }) => ({ id, source: relation.from, target: relation.to, type: 'smoothstep', label: t(`relations.kinds.${relation.kind}`), markerEnd: { type: MarkerType.ArrowClosed }, labelStyle: { fill: 'var(--foreground)' }, labelBgStyle: { fill: 'var(--card)' } }));
+  const edges: Edge[] = links.map(({ relation, id }) => ({ id, source: relation.from, target: relation.to, type: 'smoothstep', label: t(`relations.kinds.${relation.kind}`), markerEnd: { type: MarkerType.ArrowClosed }, labelStyle: { fill: 'var(--color-foreground)' }, labelBgStyle: { fill: 'var(--color-card)' } }));
   if (!nodes.length) return null;
   return <div className="space-y-2"><h4 className="text-sm font-medium">{t('relations.graph')}</h4>
     <div className="h-72 overflow-hidden rounded-lg border border-border" role="region" aria-label={t('relations.graph')}><ReactFlow nodes={nodes} edges={edges} fitView minZoom={0.05} nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} deleteKeyCode={null} zoomOnScroll={false} edgesFocusable={false} nodesFocusable={false} proOptions={{ hideAttribution: true }}>

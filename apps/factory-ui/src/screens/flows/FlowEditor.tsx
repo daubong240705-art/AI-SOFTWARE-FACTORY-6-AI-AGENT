@@ -24,6 +24,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
   const { data, error, loading } = useRead(read, refreshKey);
   const rosterRead = useRead(useCallback((signal: AbortSignal) => api.listProjectAgents(projectId, signal), [api, projectId]));
   const roster = rosterRead.data;
+  const agentNames = useMemo(() => new Map((roster?.agents ?? []).map(agent => [agent.id, agent.name])), [roster]);
   const [draft, setDraft] = useState<{ definition: FlowDefinition; revision: number } | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const [settings, setSettings] = useState(false);
@@ -154,7 +155,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
       </aside>
       <main className="flex min-h-[420px] min-w-0 flex-col gap-2 lg:min-h-0">
         {pane && <><NodePicker definition={pane} current={selection?.kind === 'node' ? selection.id : undefined} onChange={id => select(id ? { kind: 'node', id } : null)} />
-          <div className="min-h-0 flex-1"><FlowCanvas key={previewVersion ?? 'draft'} definition={pane} selection={selection} onSelect={select} issues={previewVersion === null ? issues : []} fitKey={fitKey}
+          <div className="min-h-0 flex-1"><FlowCanvas key={previewVersion ?? 'draft'} agentNames={agentNames} definition={pane} selection={selection} onSelect={select} issues={previewVersion === null ? issues : []} fitKey={fitKey}
             {...(writable ? { edit: { move: (id, position) => update(current => ({ ...current, layout: { ...current.layout, [id]: position } })), connect, remove, add } } : {})} /></div></>}
         {!pane && <p role="status" className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">{label(versions.loading || snapshot.loading ? 'loading' : 'versionBodyUnavailable')}</p>}
         {previewVersion !== null && <Badge variant="outline">{label('readOnlyVersion', { version: previewVersion })}</Badge>}

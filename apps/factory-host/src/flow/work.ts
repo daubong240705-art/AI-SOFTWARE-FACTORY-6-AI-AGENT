@@ -56,7 +56,7 @@ function makeTask(deps: FlowEngineDeps, run: RunRow, row: NodeRow, owner: Seat, 
       taskId, code: `FL-${String(serial.next).padStart(3, "0")}`, title, goal: brief.slice(0, 500), brief,
       parentTaskId: spec.parent ?? null, engagementId: engagement.id, ownerSeatId: owner.id, requiredCapabilities: [],
       placement: "portable", sideEffect: "none", reviewPolicy: spec.human ? "human-final" : "automatic", requiresGo: false,
-      acceptance: spec.acceptance.map((text) => text.trim().slice(0, 500) || "Complete the task"), inputs: spec.inputs ?? [], dependsOn: [],
+      acceptance: spec.acceptance.map((text) => text.trim().slice(0, 500) || "Hoàn thành công việc"), inputs: spec.inputs ?? [], dependsOn: [],
     },
   });
   raw.prepare("INSERT INTO flow_tasks VALUES(?,?,?,?,?,?)").run(run.project_id, taskId, run.id, row.node_id, row.iteration, spec.role ?? "agent");
@@ -99,16 +99,16 @@ function createApproval(deps: FlowEngineDeps, run: RunRow, row: NodeRow, item: E
   const prompt = publicApprovalText(render(item.prompt, context, missing)).slice(0, 4000) || item.title;
   const requested = deps.clock();
   const expiry = new Date(requested.getTime() + (item.timeoutMinutes ?? 10080) * 60000).toISOString();
-  const options = [{ id: "approve", label: "Approve", consequence: "Take the approved branch" },
-    { id: "reject", label: "Reject", consequence: "Take the rejected branch" }];
+  const options = [{ id: "approve", label: "Duyệt", consequence: "Quy trình đi tiếp theo nhánh đã duyệt" },
+    { id: "reject", label: "Từ chối", consequence: "Quy trình đi theo nhánh bị từ chối" }];
   deps.raw.prepare(`INSERT INTO approvals(project_id,id,revision,kind,task_id,subject,summary,options_json,recommendation,impact_if_waiting,context_digest,approver,requested_at,expires_at,state)
-    VALUES(?,?,1,'question',NULL,?,?,?,NULL,'Workflow is waiting for a decision',?,?,?,?,'pending')`).run(run.project_id, id, item.title, prompt,
+    VALUES(?,?,1,'question',NULL,?,?,?,NULL,'Quy trình đang chờ quyết định này',?,?,?,?,'pending')`).run(run.project_id, id, item.title, prompt,
     JSON.stringify(options), hash(JSON.stringify({ id, prompt, options })), seat ? "team-lead" : "operator", requested.toISOString(), expiry);
   const patch: Partial<NodeRow> = { approval_id: id };
   if (seat) {
     deps.raw.prepare("INSERT INTO flow_approvers VALUES(?,?,?)").run(run.project_id, id, seat.id);
     patch.task_id = makeTask(deps, run, row, seat, { title: item.title,
-      brief: `${prompt}\nReport {"verdict":"approve"} or {"verdict":"reject"} using task.result.`, acceptance: ["Report a decision"], role: "subtask" });
+      brief: `${prompt}\nBáo quyết định bằng công cụ task.result với {"verdict":"approve"} (duyệt) hoặc {"verdict":"reject"} (từ chối).`, acceptance: ["Báo quyết định duyệt hoặc từ chối"], role: "subtask" });
   }
   emit(deps.hub, run.project_id, run.id, { kind: "approval", id, revision: 1 });
   arm(deps, run, row, "approval-timeout", expiry);
@@ -237,7 +237,7 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
     if (verdict !== "approve" && verdict !== "reject") return { kind: "failed", error: "approver did not report a decision" };
     const result = withoutWorkflowAdvancement(deps.raw, () => approvalsDecideHandler({ ...deps, actorId: task.ownerSeatId ?? "flow" }, {
       apiVersion: API_VERSION, projectId: run.project_id, commandId: deps.newId(), type: "approvals.decide", payload: {
-        approvalId: row.approval_id!, expectedRevision: approval.revision, contextDigest: approval.context_digest, optionId: verdict, comment: "Agent decision",
+        approvalId: row.approval_id!, expectedRevision: approval.revision, contextDigest: approval.context_digest, optionId: verdict, comment: "Quyết định của agent",
       },
     }));
     for (const entity of result.effects) emit(deps.hub, run.project_id, run.id, entity);
@@ -265,7 +265,7 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
       try {
         makeTask(deps, run, row, reviewer, { title: `Review: ${task.title}`, parent: task.id, role: "subtask",
           brief: `Review ${task.title}. Report {"verdict":"accepted"} or {"verdict":"changes-requested"} using task.result.`,
-          acceptance: ["Report a review verdict"], inputs: output.artifacts.map(({ artifactId, version }) => ({ artifactId, version })) });
+          acceptance: ["Báo kết luận phản biện"], inputs: output.artifacts.map(({ artifactId, version }) => ({ artifactId, version })) });
       } catch (error) {
         if (error instanceof CommandError) return { kind: "failed", error: error.message };
         throw error;

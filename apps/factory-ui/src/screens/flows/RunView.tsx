@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { ArrowLeft, Pause, Play, RotateCcw, Square } from 'lucide-react';
 import { FLOW_RUN_TRANSITIONS, type FlowNodeRun } from '@factory/contracts';
 import type { ApiClient } from '@/api/client';
@@ -18,6 +18,8 @@ export function RunView({ api, projectId, runId, onBack, onOpenTask, onOpenAppro
   const [refreshKey, refresh] = useReducer(value => value + 1, 0);
   const read = useCallback((signal: AbortSignal) => api.getFlowRun(projectId, runId, signal), [api, projectId, runId]);
   const { data, error, loading } = useRead(read, refreshKey);
+  const rosterRead = useRead(useCallback((signal: AbortSignal) => api.listProjectAgents(projectId, signal), [api, projectId]));
+  const agentNames = useMemo(() => new Map((rosterRead.data?.agents ?? []).map(agent => [agent.id, agent.name])), [rosterRead.data]);
   const [selection, setSelection] = useState<Selection>(null);
   const [dialog, setDialog] = useState<'pause' | 'cancel' | null>(null);
   const [reason, setReason] = useState('');
@@ -57,7 +59,7 @@ export function RunView({ api, projectId, runId, onBack, onOpenTask, onOpenAppro
     <div className="grid min-h-0 flex-1 gap-2 overflow-auto p-2 lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_23rem]">
       <div className="flex min-h-[420px] min-w-0 flex-col gap-2 lg:min-h-0">
         <NodePicker definition={definition} current={node?.id} onChange={id => setSelection(id ? { kind: 'node', id } : null)} />
-        <div className="min-h-0 flex-1"><FlowCanvas definition={definition} selection={selection} onSelect={setSelection} runs={nodeRuns} /></div>
+        <div className="min-h-0 flex-1"><FlowCanvas agentNames={agentNames} definition={definition} selection={selection} onSelect={setSelection} runs={nodeRuns} /></div>
       </div>
       <aside className="min-w-0 space-y-3 rounded-xl border bg-card p-3 lg:overflow-auto">
         <FlowError error={error ?? (!dialog && write.error)} />
