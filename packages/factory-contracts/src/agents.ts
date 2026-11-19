@@ -145,6 +145,8 @@ export const skillNameSchema = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
 export const skillSummarySchema = z.strictObject({
   id: idSchema, name: skillNameSchema, description: z.string().max(1_024), latestVersion: revisionSchema,
   trust: z.enum(["instructions", "assets", "scripts"]), source: z.string().max(300).nullable(), updatedAt: timestampSchema,
+  /** U9: null = global library; otherwise visible to that group's subtree only. */
+  groupId: idSchema.nullable().default(null),
 });
 export type SkillSummary = z.infer<typeof skillSummarySchema>;
 export const skillVersionSchema = z.strictObject({
@@ -156,6 +158,8 @@ export type SkillVersion = z.infer<typeof skillVersionSchema>;
 export const agentTemplateSummarySchema = z.strictObject({
   id: idSchema, name: labelSchema, role: labelSchema, description: z.string().max(2_000), latestRevision: revisionSchema,
   source: z.strictObject({ packKey: z.string().max(40), packVersion: z.string().max(40) }).nullable(), updatedAt: timestampSchema,
+  /** U9: null = global library; otherwise visible to that group's subtree only. */
+  groupId: idSchema.nullable().default(null),
 });
 export type AgentTemplateSummary = z.infer<typeof agentTemplateSummarySchema>;
 
@@ -222,6 +226,8 @@ const skillContentSchema = z.string().min(1).max(65_536);
 export const skillsCreatePayloadSchema = z.strictObject({
   skillId: idSchema, name: skillNameSchema, description: z.string().trim().min(1).max(1_024), content: skillContentSchema,
   trust: skillTrustSchema.default("instructions"),
+  /** U9: scope the skill to a group (and its subtree); omitted = global. */
+  groupId: idSchema.optional(),
 });
 /** Each update with new content creates the next skill version; description/name changes alone bump only the row. */
 export const skillsUpdatePayloadSchema = z.strictObject({
@@ -232,6 +238,8 @@ export const skillsUpdatePayloadSchema = z.strictObject({
 export const skillsDeletePayloadSchema = z.strictObject({ skillId: idSchema, expectedRevision: revisionSchema });
 export const templatesCreatePayloadSchema = z.strictObject({
   templateId: idSchema, config: agentConfigSchema, description: z.string().max(2_000).default(""),
+  /** U9: scope the template to a group (and its subtree); omitted = global. */
+  groupId: idSchema.optional(),
 });
 export const templatesUpdatePayloadSchema = z.strictObject({
   templateId: idSchema, expectedRevision: revisionSchema, config: agentConfigSchema, description: z.string().max(2_000).optional(),

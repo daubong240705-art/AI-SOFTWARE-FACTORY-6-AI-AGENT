@@ -51,6 +51,8 @@ export const entityKindSchema = z.enum([
   // U4: Workflow v2.
   "flow",
   "flow-run",
+  // U9
+  "group",
 ]);
 export const entityRefSchema = z.strictObject({
   kind: entityKindSchema,

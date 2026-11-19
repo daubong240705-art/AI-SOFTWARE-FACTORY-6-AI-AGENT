@@ -45,6 +45,8 @@ export const projectSchema = z.strictObject({
   }),
   leadAgentId: idSchema.nullable(),
   disposition: z.enum(["active", "parked", "archived"]),
+  /** U9: containing group, null at the root (defaulted for older Hosts). */
+  groupId: idSchema.nullable().default(null),
 });
 export const workCategorySchema = z.enum([
   "backlog",

@@ -7,6 +7,10 @@ import { modelSettingsSetSchema } from "./model-settings.js";
 import { z } from "zod";
 import { seatRuntimeInputSchema } from "./org.js";
 import {
+  groupsCreatePayloadSchema, groupsUpdatePayloadSchema, groupsMovePayloadSchema, groupsArchivePayloadSchema,
+  groupsDeletePayloadSchema, groupsSetSettingsPayloadSchema, projectsSetGroupPayloadSchema,
+} from "./groups.js";
+import {
   flowsCreatePayloadSchema, flowsSaveDraftPayloadSchema, flowsPublishPayloadSchema, flowsArchivePayloadSchema, flowsImportV1PayloadSchema,
   flowRunsStartPayloadSchema, flowRunsPausePayloadSchema, flowRunsResumePayloadSchema, flowRunsCancelPayloadSchema, flowRunsRetryNodePayloadSchema,
 } from "./flow-api.js";
@@ -96,6 +100,8 @@ export const commandSchema = z.discriminatedUnion("type", [
       }),
       /** U1: a pack key whose seats become the project's first agents. Omitted = the project starts with no agents. */
       teamTemplate: z.string().regex(/^[a-z0-9-]{2,40}$/).optional(),
+      /** U9: the group the project is created in (root when omitted). */
+      groupId: idSchema.optional(),
     }),
   ),
   command("projects.update", z.strictObject({ ...change, name: labelSchema })),
@@ -260,6 +266,14 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("flow-runs.resume", flowRunsResumePayloadSchema),
   command("flow-runs.cancel", flowRunsCancelPayloadSchema),
   command("flow-runs.retry-node", flowRunsRetryNodePayloadSchema),
+  // U9: GitLab-like groups (projectId = SYSTEM_SCOPE_ID) and project placement (project-scoped).
+  command("groups.create", groupsCreatePayloadSchema),
+  command("groups.update", groupsUpdatePayloadSchema),
+  command("groups.move", groupsMovePayloadSchema),
+  command("groups.archive", groupsArchivePayloadSchema),
+  command("groups.delete", groupsDeletePayloadSchema),
+  command("groups.set-settings", groupsSetSettingsPayloadSchema),
+  command("projects.set-group", projectsSetGroupPayloadSchema),
   command("seats.update", z.strictObject({
     ...change, seatId: idSchema, slots: z.number().int().min(1).max(8).optional(),
   })),
