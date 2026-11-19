@@ -5,7 +5,7 @@ import type { Project } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Bot, Columns3, LayoutGrid, MessageSquare, Play, Settings, Users } from 'lucide-react';
+import { BookOpen, Bot, Columns3, LayoutGrid, MessageSquare, Play, Settings, Users, Workflow } from 'lucide-react';
 import { PreviewDialog } from './PreviewDialog';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
@@ -23,9 +23,10 @@ import { ProjectTile } from './shell/ProjectTile';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { Reveal } from '@/components/motion/Reveal';
 
-const tabIcons = { overview: LayoutGrid, agents: Bot, office: Users, board: Columns3, knowledge: BookOpen, settings: Settings };
-const tabs = ['overview', 'agents', 'office', 'board', 'knowledge'] as const;
+const tabIcons = { overview: LayoutGrid, agents: Bot, flows: Workflow, office: Users, board: Columns3, knowledge: BookOpen, settings: Settings };
+const tabs = ['overview', 'agents', 'flows', 'office', 'board', 'knowledge'] as const;
 const ProjectAgents = lazy(() => import('./agents/ProjectAgents').then(module => ({ default: module.ProjectAgents })));
+const ProjectFlows = lazy(() => import('./flows/ProjectFlows'));
 export function ProjectView({ store, project, tab, onTabChange, openChat = false, onChatOpened, initialTaskId, settingsSection, newTaskRequest = 0, onNewTaskOpened }: {
   store: Store; project: Project; tab?: ProjectTab; onTabChange?: (tab: ProjectTab, section?: SettingsSection) => void; openChat?: boolean; onChatOpened?: () => void; initialTaskId?: string | undefined; settingsSection?: SettingsSection; newTaskRequest?: number; onNewTaskOpened?: () => void;
 }) {
@@ -67,9 +68,9 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         <TabsList aria-label={t('shell.projectTabs')} className="justify-start gap-1 bg-transparent p-0">
           {tabs.map((value, index) => {
             const Icon = tabIcons[value];
-            return <TabsTrigger key={value} ref={node => { buttons.current[index] = node; }} value={value} id={`${id}-${value}`} aria-controls={`${id}-panel`} onClick={() => select(value)} onKeyDown={event => navigate(event, index)} className="h-9 flex-none gap-2 rounded-lg border-0 px-3 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground data-[state=active]:!bg-transparent data-[state=active]:!text-foreground group-data-[variant=default]/tabs-list:data-[state=active]:shadow-none">
+            return <TabsTrigger key={value} ref={node => { buttons.current[index] = node; }} value={value} id={`${id}-${value}`} aria-controls={`${id}-panel`} onClick={() => { if (active !== 'flows' || value === 'flows') select(value); }} onKeyDown={event => navigate(event, index)} className="h-9 flex-none gap-2 rounded-lg border-0 px-3 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground data-[state=active]:!bg-transparent data-[state=active]:!text-foreground group-data-[variant=default]/tabs-list:data-[state=active]:shadow-none">
               {active === value && <motion.span layoutId="pill" aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-lg bg-secondary/70" transition={reduced ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 32 }} />}
-              <Icon className="relative size-4" aria-hidden="true" /><span className="relative">{t(value === 'agents' ? 'agentsAdmin.title' : `projectUi.${value}`)}</span>
+              <Icon className="relative size-4" aria-hidden="true" /><span className="relative">{t(value === 'agents' ? 'agentsAdmin.title' : value === 'flows' ? 'flowsUi.title' : `projectUi.${value}`)}</span>
               {active === value && <motion.span layoutId="underline" aria-hidden="true" className="pointer-events-none absolute right-3 bottom-0 left-3 h-0.5 rounded-full bg-tab-accent" transition={reduced ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 32 }} />}
             </TabsTrigger>;
           })}
@@ -87,6 +88,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         <Reveal key={active} className="h-full min-h-0">
         {active === 'overview' && <ProjectOverview store={store} onOpenTask={openTask} onOpenSettings={section => select('settings', section)} />}
         {active === 'agents' && <Suspense fallback={<LoadingState />}><ProjectAgents key={project.id} projectId={project.id} /></Suspense>}
+        {active === 'flows' && <Suspense fallback={<LoadingState />}><ProjectFlows key={project.id} projectId={project.id} route={navigation.flowRoute} store={store} onOpenTask={openTask} /></Suspense>}
         {active === 'office' && <ProjectOffice key={project.id} store={store} projectId={project.id} onOpenTab={select} />}
         {active === 'board' && <ProjectTasks store={store} projectId={project.id} selectedTask={selected} onOpenTask={openTask} onCloseTask={() => setSelected(null)} newTaskOpen={creating} onCloseNewTask={() => setCreating(false)} newTaskId={`${id}-new-task`} />}
         {active === 'settings' && <ProjectSettingsPage key={project.id} store={store} projectId={project.id} section={legacySection ?? settingsSection ?? navigation.settingsSection} onOpenTask={openTask} onSection={section => select('settings', section)} />}

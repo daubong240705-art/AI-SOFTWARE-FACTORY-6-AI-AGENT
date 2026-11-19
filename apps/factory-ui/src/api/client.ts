@@ -2,6 +2,7 @@ import { portalResponseSchema, portalJoinedGamesResponseSchema, portalStatsRespo
 import { officeReadModel } from './officeModels';
 import { m3Models } from './m3Models';
 import { agentModels } from './agentModels';
+import { flowModels, type FlowIssue } from './flowModels';
 import { agentClisModel } from './agentRuntime';
 import { packDetailModel, mcpServersModel } from './agentProfileModels';
 import { automationErrorKey } from './automationErrors';
@@ -91,12 +92,18 @@ export class AgentCommandError extends ApiClientError {
   }
 }
 
+export class FlowCommandError extends ApiClientError {
+  constructor(status: number, error: ApiError, readonly issues: FlowIssue[]) {
+    super('api', status, error);
+  }
+}
+
 export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, onUnauthorized }: {
   baseUrl?: string; fetchImpl?: typeof fetch; onUnauthorized?: () => void;
 } = {}) {
   let csrfToken: string | null = null;
   const base = baseUrl.replace(/\/$/, '');
-  async function request<T>(path: string, schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } }, body?: unknown, commandDetails: boolean | 'agents' = false, signal?: AbortSignal): Promise<T> {
+  async function request<T>(path: string, schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } }, body?: unknown, commandDetails: boolean | 'agents' = false, signal?: AbortSignal, flowErrors = false): Promise<T> {
     const headers: Record<string, string> = {};
     if (body !== undefined) {
       headers['content-type'] = 'application/json';
@@ -113,6 +120,12 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     }
     let raw: unknown;
     try { raw = await response.json(); } catch { throw new ApiClientError('bad-response', response.status); }
+    if (flowErrors) {
+      const failure = flowModels.failure.safeParse(raw);
+      const receipt = flowModels.receipt.safeParse(raw);
+      const error = failure.success ? failure.data.error : receipt.success ? receipt.data.receipt.error : undefined;
+      if (error) throw new FlowCommandError(response.status, error, error.details?.issues ?? []);
+    }
     const commandError = (error: ApiError) => commandDetails === 'agents'
       ? new AgentCommandError(response.status, error)
       : new ApiClientError('api', response.status, error, commandDetails);
@@ -148,6 +161,15 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     getProjectInteractions: (id: string, limit = 120, signal?: AbortSignal) => request(`${projectPath(id)}/interactions?limit=${limit}`, officeReadModel, undefined, false, signal),
     listTeams: (signal?: AbortSignal) => request('/teams', m3Models.teams, undefined, false, signal),
     listProjectAgents: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/agents`, agentModels.project, undefined, false, signal),
+    listProjectFlows: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/flows`, flowModels.list, undefined, false, signal),
+    getFlow: (id: string, flowId: string, signal?: AbortSignal) => request(`${projectPath(id)}/flows/${encodeURIComponent(flowId)}`, flowModels.detail, undefined, false, signal),
+    getFlowRun: (id: string, runId: string, signal?: AbortSignal) => request(`${projectPath(id)}/flow-runs/${encodeURIComponent(runId)}`, flowModels.run, undefined, false, signal),
+    sendFlowCommand: async (command: Command) => {
+      const parsed = commandSchema.safeParse(command);
+      if (!parsed.success) throw new ApiClientError('bad-response');
+      if (!csrfToken) csrfToken = (await request('/auth/session', auth)).csrfToken;
+      return request('/commands', successResponseSchema, parsed.data, true, undefined, true);
+    },
     getAgent: (id: string, agentId: string, signal?: AbortSignal) => request(`${projectPath(id)}/agents/${encodeURIComponent(agentId)}`, agentModels.detail, undefined, false, signal),
     getAgentRevision: (id: string, agentId: string, revision: number, signal?: AbortSignal) => request(`${projectPath(id)}/agents/${encodeURIComponent(agentId)}/revisions/${encodeURIComponent(revision)}`, agentModels.revision, undefined, false, signal),
     getAgentLibrary: (signal?: AbortSignal) => request('/library', agentModels.library, undefined, false, signal),
