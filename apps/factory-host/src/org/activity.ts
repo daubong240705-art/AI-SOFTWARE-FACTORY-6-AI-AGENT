@@ -3,7 +3,6 @@ import { LIVE_ATTEMPT_STATES, type AttemptState } from "@factory/contracts";
 import { sanitizeAgentText } from "../mcp/security.js";
 import { meaningfulProgressSql } from "../dispatch/progress.js";
 import { listSeats } from "./service.js";
-import { listTeams } from "./views.js";
 
 type Status = "waiting" | "problem" | "working" | "queued" | "done" | "idle";
 interface Node {
@@ -174,7 +173,8 @@ function status(signals: Signals | undefined, needs: Need[], queued: number, fin
 }
 
 export function orgActivity(raw: Database, now: Date): { generatedAt: string; nodes: Node[]; teams: Team[] } {
-  const teams = listTeams(raw);
+  const teams = raw.prepare<[], { id: string; name: string; lifecycle: string }>(`SELECT id, name, lifecycle FROM teams
+    WHERE kind IN ('pack', 'roster') ORDER BY name, id`).all();
   const seats = listSeats(raw, undefined, 200);
   const seatIds = JSON.stringify(seats.map((seat) => seat.id));
   const live = liveAttempts(raw, seatIds);

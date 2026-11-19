@@ -34,8 +34,9 @@ export function createOrgHandlers(deps: { multiTeam?: boolean; packs: readonly R
       enabled(); requireProject(ctx.raw, projectId);
       const entry = deps.packs.find((pack) => pack.key === payload.packKey && pack.version === payload.packVersion);
       if (!entry) throw new CommandError("not-found", "pack version not found", "correct-input");
-      const existing = getTeam(ctx.raw, payload.teamId);
-      if (existing && (existing.pack?.key !== payload.packKey || existing.pack.version !== payload.packVersion))
+      const existing = ctx.raw.prepare("SELECT kind, pack_key, pack_version FROM teams WHERE id = ?").get(payload.teamId) as
+        { kind: string; pack_key: string | null; pack_version: string | null } | undefined;
+      if (existing && (existing.kind !== "pack" || existing.pack_key !== payload.packKey || existing.pack_version !== payload.packVersion))
         throw new CommandError("conflict", "team id already exists", "correct-input");
       const result = ensureTeamFromPack(ctx.raw, registryPack(entry), { ...ctx, teamId: payload.teamId });
       const team = getTeam(ctx.raw, result.teamId)!;

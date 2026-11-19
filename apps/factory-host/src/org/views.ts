@@ -15,7 +15,7 @@ export function projectEngagements(raw: Database, projectId: string) {
 
 export function listTeams(raw: Database) {
   return raw.prepare(`SELECT id, name, charter, pack_key AS packKey, pack_version AS packVersion, lifecycle, revision
-    FROM teams ORDER BY name, id`).all() as { id: string; name: string; charter: string; packKey: string | null;
+    FROM teams WHERE kind = 'pack' ORDER BY name, id`).all() as { id: string; name: string; charter: string; packKey: string | null;
       packVersion: string | null; lifecycle: string; revision: number }[];
 }
 

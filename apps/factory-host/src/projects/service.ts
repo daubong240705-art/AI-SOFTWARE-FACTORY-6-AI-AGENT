@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import { projectSchema, type Project } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerMap } from "../commands/pipeline.js";
-import { ensureEngagement, ensureTeamFromPack, type LoadedPack } from "../org/index.js";
+import { agentsFromPack, getPrimaryEngagement, type LoadedPack, type RosterDeps } from "../org/index.js";
 
 const createProject: HandlerMap["projects.create"] = ({ raw, hub }, command) => {
   const { projectId, payload } = command;
@@ -18,8 +18,8 @@ const createProject: HandlerMap["projects.create"] = ({ raw, hub }, command) => 
 
 export const projectsCreateHandler: HandlerMap["projects.create"] = createProject;
 
-export function createProjectsCreateHandler({ pack, multiTeam = false, checkWorkspaceRoot }: {
-  pack: LoadedPack; multiTeam?: boolean; checkWorkspaceRoot?: (root: string) => boolean;
+export function createProjectsCreateHandler({ pack, multiTeam = false, checkWorkspaceRoot, defaultAgentCli }: {
+  pack: LoadedPack; multiTeam?: boolean; checkWorkspaceRoot?: (root: string) => boolean; defaultAgentCli?: RosterDeps["defaultAgentCli"];
 }): HandlerMap["projects.create"] {
   return (ctx, command) => {
     // Agents run in worktrees of a clone under the Host's projects root; any other path would fail at the first task.
@@ -27,12 +27,11 @@ export function createProjectsCreateHandler({ pack, multiTeam = false, checkWork
       throw new CommandError("validation", "workspace must be a clone under the Host projects root", "correct-input");
     const result = createProject(ctx, command);
     // With multi-team the operator adds teams explicitly (teams.create-from-pack, engagements.create); no default team.
-    // Without it there is no other way to get a team, so the single default team stays.
     if (multiTeam) return result;
-    const team = ensureTeamFromPack(ctx.raw, pack, ctx);
-    const engagement = ensureEngagement(ctx.raw, { projectId: command.projectId, teamId: team.teamId }, ctx);
-    if (team.created) result.effects.push({ kind: "team", id: team.teamId, revision: 1 });
-    result.effects.push({ kind: "engagement", id: engagement.engagementId, revision: 1 });
+    const roster = agentsFromPack(ctx.raw, { projectId: command.projectId, pack, actorId: ctx.actorId }, { ...ctx, defaultAgentCli });
+    result.effects.push({ kind: "team", id: roster.rosterId, revision: 1 });
+    result.effects.push({ kind: "engagement", id: getPrimaryEngagement(ctx.raw, command.projectId)!.id, revision: 1 });
+    result.effects.push(...[...roster.agentIds.values()].map((id) => ({ kind: "seat" as const, id, revision: 1 })));
     return result;
   };
 }

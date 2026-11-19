@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { Storage } from "../storage/database.js";
 import type { EventHub } from "../events/hub.js";
 import type { LoadedPack } from "../org/pack.js";
+import type { RosterDeps } from "../org/roster.js";
 import { createCommandPipeline } from "../commands/pipeline.js";
 import { createProjectsCreateHandler } from "../projects/service.js";
 import { conversationsCreateHandler } from "../chat/service.js";
@@ -15,7 +16,8 @@ export function portalProjectId(raw: Storage["raw"]): string | null {
   return (raw.prepare("SELECT project_id FROM portal_settings WHERE singleton=1").get() as { project_id: string } | undefined)?.project_id ?? null;
 }
 
-export async function ensurePortalProject(deps: { storage: Storage; hub: EventHub; pack: LoadedPack; projectsRoot: string; clock: Clock }): Promise<string> {
+export async function ensurePortalProject(deps: { storage: Storage; hub: EventHub; pack: LoadedPack; projectsRoot: string; clock: Clock;
+  defaultAgentCli?: RosterDeps["defaultAgentCli"] }): Promise<string> {
   const { storage, hub, clock } = deps, raw = storage.raw;
   const existing = portalProjectId(raw);
   if (existing) return existing;
@@ -33,7 +35,7 @@ export async function ensurePortalProject(deps: { storage: Storage; hub: EventHu
   await git(["add", "-A"]);
   await git(["commit", "-m", "Initialize Portal reports"]);
   const newId = createIdGenerator(clock), projectId = newId();
-  const create = createProjectsCreateHandler({ pack: deps.pack });
+  const create = createProjectsCreateHandler({ pack: deps.pack, defaultAgentCli: deps.defaultAgentCli });
   const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
     "projects.create": (ctx, command) => {
       const result = create(ctx, command);
