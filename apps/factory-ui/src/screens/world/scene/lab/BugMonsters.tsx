@@ -193,6 +193,7 @@ function renderBatch(batch: Batch, bugs: readonly Bug[], slots: Map<string, numb
   for (const cohort of batch.cohorts) {
     cohort.bugs = bugs.filter(bug => (bug.state === 'retesting') === cohort.retesting);
     const exits = still ? [] : tracker.exits.filter(exit => (exit.bug.state === 'retesting') === cohort.retesting).slice(0, low ? 3 : 12);
+    cohort.bodies.userData.walkTargets = cohort.faces.userData.walkTargets = [...cohort.bugs.map(bug => ({ kind: 'bug', id: bug.id, name: bug.criterion })), ...exits.map(() => null)];
     cohort.bodies.count = cohort.faces.count = cohort.bugs.length + exits.length;
     exits.forEach((exit, i) => {
       const p = Math.min(1, (now - exit.started) / flightSeconds);

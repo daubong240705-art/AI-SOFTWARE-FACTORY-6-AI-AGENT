@@ -36,3 +36,11 @@
 .world-toy-tray { position: absolute; top: calc(100% + 6px); left: 0; width: min(370px, calc(100vw - 24px)); padding: 12px; z-index: 6; max-height: 65vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: 0 6px 20px #0002; font-size: 12px; }
 .world-toy-tools { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .world-toy-cursor { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 100; font-size: 26px; }
+
+.world-walk-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.world-crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: white; text-shadow: 0 1px 3px #000; font: 24px monospace; }
+.world-walk-hint { position: absolute; left: 50%; top: calc(50% + 28px); transform: translateX(-50%); padding: 6px 12px; border-radius: 8px; background: #302719d9; color: #fff8e7; text-align: center; font-size: 13px; max-width: 50%; }
+.world-minimap { position: absolute; right: var(--world-inset); bottom: 46px; width: 190px; height: 152px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--world-shadow); opacity: .9; }
+.world-walk-controls { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); margin: 0; padding: 5px 10px; border-radius: 8px; background: #302719d9; color: #fff8e7; font-size: 11px; text-align: center; }
+.world-walking .world-toolbar h1 { display: none; }
+.world-walking .world-map canvas { cursor: crosshair; }

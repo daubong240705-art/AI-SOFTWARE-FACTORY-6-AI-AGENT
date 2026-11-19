@@ -51,11 +51,12 @@ export function CollabTable({ stages, handoffs = noHandoffs, locale = 'vi', qual
     const atlas = createWorkflowAtlas(entries, invalidate, screen.current ??= createScreenTexture(1024, 1024, invalidate)), toon = createWorkflowToon();
     const geometry = new THREE.CylinderGeometry(0.38, 0.42, 0.12, quality === 'low' ? 12 : 20);
     const body = new THREE.InstancedMesh(geometry, toon.material, Math.max(1, stages.length)); body.count = stages.length; body.frustumCulled = false; group.add(body);
+    body.userData.walkTargets = stages.map(item => ({ kind: 'stage', id: item.key, name: labelFor(item.key) }));
     const puckPositions = stages.map((stage, index) => {
       const angle = index / Math.max(1, stages.length) * Math.PI * 2 - Math.PI / 2;
       const point = new THREE.Vector3(meetingTable.position[0] + Math.cos(angle) * 1.24, 0.99, meetingTable.position[1] + Math.sin(angle) * 1.24);
       body.setColorAt(index, new THREE.Color(stageColor(stage.state)));
-      const label = atlas.mesh(`stage:${index}`, 0.75, 0.21); label.userData.stage = stage.key; label.rotation.x = -Math.PI / 2; label.position.copy(point); label.position.y = 1.057; group.add(label);
+      const label = atlas.mesh(`stage:${index}`, 0.75, 0.21); label.userData.stage = stage.key; label.userData.walkTarget = { kind: 'stage', id: stage.key, name: labelFor(stage.key) }; label.rotation.x = -Math.PI / 2; label.position.copy(point); label.position.y = 1.057; group.add(label);
       if (stage.loopCount > 0) {
         const loop = atlas.mesh(`loop:${index}`, 0.52, 0.14); loop.rotation.x = -Math.PI / 2;
         loop.position.copy(point); loop.position.y = 1.059; loop.position.z += 0.21; group.add(loop);

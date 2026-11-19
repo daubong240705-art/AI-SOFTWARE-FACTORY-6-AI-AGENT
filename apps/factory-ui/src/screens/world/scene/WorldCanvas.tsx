@@ -1,3 +1,5 @@
+import { WalkRig } from './walk/WalkRig';
+import type { WalkState, WalkTarget } from './walk/state';
 import { useEffect, useRef, type MutableRefObject, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -23,6 +25,7 @@ import type { WorldLocations } from './CameraRig';
 import { softwareRenderer, useWorldQuality, type WorldQuality } from './quality';
 
 type Props = {
+  onWalkExit: () => void; walking: boolean; walk: RefObject<WalkState>; paused: boolean; onWalkInteract: (target: WalkTarget) => void;
   employee: string | null; model: WorldModel; baseline: boolean; events: readonly WorldEvent[]; celebration: number; reports: WorldInputs['reports']; locations: WorldLocations; scopeKey: number; lineup: boolean; selected: string | null; attention: number;
   positions: AgentPositions; courier: { current: ((handoff: import('../data/types').Handoff) => void) | null }; sceneDebug: MutableRefObject<SceneDebug>;
   onSelect: (id: string) => void; onTask: (projectId: string, taskId: string) => void; onStage: (key: string) => void; onBug: (bug: Bug) => void; onRelease: (item: GalleryItem) => void; onCelebrate: (item: GalleryItem) => void; onEventsConsumed: (ids: readonly string[]) => void; onOwner: () => void; onHover: (hover: AgentHover) => void;
@@ -91,12 +94,13 @@ export default function WorldCanvas(props: Props) {
     <color attach="background" args={[background]} />
     <hemisphereLight args={[sky, ground, 1.1]} />
     <directionalLight color={sky} position={[-30, 45, -20]} intensity={1.1} />
-    <Ticker quality={quality} still={props.still} onMeasure={measure}>
+    <Ticker interactive={props.walking} quality={quality} still={props.still} onMeasure={measure}>
       <ToyPrewarm />
       <SceneLifecycle onReady={props.onReady} onLoading={props.onLoading} onError={props.onError} onRender={props.onRender} fps={fps} />
-      <CameraRig agentPositions={props.positions} locations={props.locations} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
+      <CameraRig enabled={!props.walking} returnPoint={props.walk} agentPositions={props.positions} locations={props.locations} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
       <group visible={!props.lineup}><Environment /></group>
       <Cast props={props} quality={quality} />
+      {props.walking && <WalkRig onExit={props.onWalkExit} state={props.walk} positions={props.positions} model={props.model} paused={props.paused} still={props.still} quiet={props.still || props.effects === 'off'} quality={quality} onInteract={props.onWalkInteract} />}
     </Ticker>
   </Canvas>;
 }

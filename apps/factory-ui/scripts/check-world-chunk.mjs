@@ -40,8 +40,8 @@ for (const file of await javascriptFiles(dist)) {
   if (content.includes('WebGLRenderer') && !entries.has(file)) lazy.push({ name: path.relative(dist, file), gz: gzipSync(content).length });
 }
 if (!lazy.length) failures.push('No lazy WebGLRenderer chunk found');
-// W-18b: operator approved richer procedural toys; entry isolation remains mandatory.
-const worldLimit = 384 * 1024;
+// W-19: world budget lifted for Walk mode; entry isolation remains mandatory.
+const worldLimit = 768 * 1024;
 const lazyJsGz = lazy.reduce((total, chunk) => total + chunk.gz, 0);
 const growth = entryJsGz - baseline.entryJsGz;
 const entryGrowthLimit = 4 * 1024;

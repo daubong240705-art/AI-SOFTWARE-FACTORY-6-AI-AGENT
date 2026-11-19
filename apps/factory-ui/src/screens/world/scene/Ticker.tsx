@@ -10,8 +10,8 @@ export function useWorldMotion(): Motion {
   if (!motion) throw new Error('World motion requires Ticker');
   return motion;
 }
-export function Ticker({ quality, still, onMeasure, children }: {
-  quality: WorldQuality; still: boolean; children: ReactNode;
+export function Ticker({ quality, still, interactive = false, onMeasure, children }: {
+  quality: WorldQuality; still: boolean; interactive?: boolean; children: ReactNode;
   onMeasure: (fps: number, live: boolean, now: number) => void;
 }) {
   const invalidate = useThree(state => state.invalidate);
@@ -35,7 +35,7 @@ export function Ticker({ quality, still, onMeasure, children }: {
   });
   useEffect(() => {
     let raf = 0; let previous = 0;
-    const target = () => still || document.hidden ? 0 : counts.current.live > 0 ? quality === 'low' ? 30 : 60
+    const target = () => still && !interactive || document.hidden ? 0 : counts.current.live > 0 ? quality === 'low' ? 30 : 60
       : counts.current.ambient > 0 ? quality === 'low' ? 12 : 30 : 0;
     const tick = (now: number) => {
       raf = 0;
@@ -54,6 +54,6 @@ export function Ticker({ quality, still, onMeasure, children }: {
     document.addEventListener('visibilitychange', restart);
     restart(); invalidate();
     return () => { wake.current = () => {}; cancelAnimationFrame(raf); document.removeEventListener('visibilitychange', restart); };
-  }, [quality, still, invalidate, onMeasure]);
+  }, [quality, still, interactive, invalidate, onMeasure]);
   return <WorldMotionContext.Provider value={motion}>{children}</WorldMotionContext.Provider>;
 }

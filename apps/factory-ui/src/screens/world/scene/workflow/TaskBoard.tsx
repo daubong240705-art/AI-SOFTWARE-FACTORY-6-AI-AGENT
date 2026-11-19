@@ -148,10 +148,11 @@ export function TaskBoard({ locations, projectId, columns: inputColumns, overflo
       const target = targetOf(columnIndex, rowIndex), old = baseline?.points.get(card.id);
       const from = old && old.column !== card.column && !still ? old.point.clone() : target.clone();
       const point = from.clone(); next.set(card.id, { point, column: card.column });
-      const face = atlas.mesh(card.id, 1.8, 0.22); face.userData.taskIndex = index; group.add(face);
+      const face = atlas.mesh(card.id, 1.8, 0.22); face.userData.walkTarget = { kind: 'task', id: card.taskId, projectId: card.projectId, name: card.title }; face.userData.taskIndex = index; group.add(face);
       body.setColorAt(index, new THREE.Color(workflowColors[card.column]));
       return { target, from, point, face, animated: !from.equals(target) };
     });
+    body.userData.walkTargets = cards.map(card => ({ kind: 'task', id: card.taskId, projectId: card.projectId, name: card.title }));
     previous.current = { project: projectId, points: next };
     const transform = new THREE.Object3D();
     const sample = (now: number) => {

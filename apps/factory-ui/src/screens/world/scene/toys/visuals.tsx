@@ -52,6 +52,28 @@ export function ToyWorker({ effect, still, low, children }: { effect: ToyEffect 
     </>}
   </group>;
 }
+/** W-18 anticipation, impact and follow-through, shared by world toys and the walk hand. */
+export function animateToyTool(root: THREE.Group, tool: ToyEffect['tool'], started: number, combo = 1) {
+  const raw = (Date.now() - started) / 1000;
+  const t = tool === 'whip' || tool === 'hammer' ? actionAge(started) : raw;
+  // Anticipation 0–0.55, impact 0.68, readable follow-through to 2.35, exit to 3.0.
+  const enter = smooth(t / 0.4), leave = smooth((t - 2.35) / 0.58);
+  const hit = smooth((t - 0.5) / 0.16) * (1 - smooth((t - 0.85) / 0.55));
+  root.position.set(-0.65 - (1 - enter) * 1.4 - leave * 0.5, 0.85 + Math.sin(clamp(t / 0.52) * Math.PI) * 0.45, 1.25);
+  root.scale.setScalar((1 - leave * 0.25) * (1 + hit * Math.min(0.3, (combo - 1) * 0.06)));
+  root.rotation.set(0, 0, 0);
+  switch (tool) {
+    case 'whip': root.position.x = -0.95; root.position.y = 0.9; root.rotation.z = -Math.sin(smooth(t / 0.68) * Math.PI) * 1.25 + Math.sin(t * 12) * hit * 0.17; break;
+    case 'taser': root.position.x = -0.8 - (1 - enter) * 1.4; root.rotation.z = Math.sin(t * 32) * hit * 0.045; break;
+    case 'coffee': root.position.x = 0.15 - (1 - enter) * 1.5; root.rotation.z = -hit * 0.6; root.rotation.x = 0.18; break;
+    case 'hammer': root.position.set(-0.35, 1 + (1 - enter) * 1.3 + leave * 0.35, 1.1); root.rotation.z = -1.5 * (1 - smooth((t - 0.2) / 0.48)) + Math.sin(t * 9) * hit * 0.1; break;
+    case 'feather': root.position.x += Math.sin(t * 22) * hit * 0.28; root.rotation.z = Math.sin(t * 17) * 0.28; break;
+    case 'megaphone': root.position.x = -0.85 - (1 - enter) * 1.3; root.rotation.z = -hit * 0.09; break;
+    case 'cookie': root.position.x = -1.8 + enter * 1.95; root.position.y += Math.sin(clamp(t / 0.7) * Math.PI) * 0.4; root.rotation.z = t < 0.7 ? t * 9 : Math.sin(t * 18) * 0.1; break;
+  }
+  return t;
+}
+
 function ToyAnimation({ effect, low }: { effect: ToyEffect; low: boolean }) {
   const model = useRef<THREE.Group>(null), facing = useRef<THREE.Group>(null);
   const scratch = useMemo(() => ({ rotation: new THREE.Quaternion(), iso: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4) }), []);
@@ -64,24 +86,8 @@ function ToyAnimation({ effect, low }: { effect: ToyEffect; low: boolean }) {
       facing.current.parent.getWorldQuaternion(scratch.rotation);
       facing.current.quaternion.copy(scratch.rotation.invert()).multiply(scratch.iso);
     }
-    const raw = (Date.now() - effect.started) / 1000;
-    const t = effect.tool === 'whip' || effect.tool === 'hammer' ? actionAge(effect.started) : raw;
+    const t = animateToyTool(root, effect.tool, effect.started, effect.combo);
     if (leather) leather.clock.value = t;
-    // Anticipation 0–0.55, impact 0.68, readable follow-through to 2.35, exit to 3.0.
-    const enter = smooth(t / 0.4), leave = smooth((t - 2.35) / 0.58);
-    const hit = smooth((t - 0.5) / 0.16) * (1 - smooth((t - 0.85) / 0.55));
-    root.position.set(-0.65 - (1 - enter) * 1.4 - leave * 0.5, 0.85 + Math.sin(clamp(t / 0.52) * Math.PI) * 0.45, 1.25);
-    root.scale.setScalar((1 - leave * 0.25) * (1 + hit * Math.min(0.3, (effect.combo - 1) * 0.06)));
-    root.rotation.set(0, 0, 0);
-    switch (effect.tool) {
-      case 'whip': root.position.x = -0.95; root.position.y = 0.9; root.rotation.z = -Math.sin(smooth(t / 0.68) * Math.PI) * 1.25 + Math.sin(t * 12) * hit * 0.17; break;
-      case 'taser': root.position.x = -0.8 - (1 - enter) * 1.4; root.rotation.z = Math.sin(t * 32) * hit * 0.045; break;
-      case 'coffee': root.position.x = 0.15 - (1 - enter) * 1.5; root.rotation.z = -hit * 0.6; root.rotation.x = 0.18; break;
-      case 'hammer': root.position.set(-0.35, 1 + (1 - enter) * 1.3 + leave * 0.35, 1.1); root.rotation.z = -1.5 * (1 - smooth((t - 0.2) / 0.48)) + Math.sin(t * 9) * hit * 0.1; break;
-      case 'feather': root.position.x += Math.sin(t * 22) * hit * 0.28; root.rotation.z = Math.sin(t * 17) * 0.28; break;
-      case 'megaphone': root.position.x = -0.85 - (1 - enter) * 1.3; root.rotation.z = -hit * 0.09; break;
-      case 'cookie': root.position.x = -1.8 + enter * 1.95; root.position.y += Math.sin(clamp(t / 0.7) * Math.PI) * 0.4; root.rotation.z = t < 0.7 ? t * 9 : Math.sin(t * 18) * 0.1; break;
-    }
   });
   return <group ref={facing} rotation={[0, Math.PI / 4, 0]} position={[0.35, 0, 0.35]}>
     <group ref={model}>

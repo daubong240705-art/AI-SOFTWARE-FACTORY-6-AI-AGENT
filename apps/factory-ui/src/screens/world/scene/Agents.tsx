@@ -66,9 +66,9 @@ function SlotBadge({ number }: { number: number }) {
   return screen ? <sprite position={[0.42, 1.28, 0.1]} scale={[0.3, 0.3, 1]} raycast={ignore}><spriteMaterial ref={material => { if (material) screen.attach(material); }} map={screen.texture} transparent depthWrite={false} /></sprite> : null;
 }
 
-function HitTarget({ position, owner = false, onSelect, onHover }: { position: [number, number, number]; owner?: boolean; onSelect: () => void; onHover?: (event: ThreeEvent<PointerEvent> | null) => void }) {
+function HitTarget({ position, owner = false, onSelect, onHover, walkId }: { position: [number, number, number]; owner?: boolean; walkId?: string; onSelect: () => void; onHover?: (event: ThreeEvent<PointerEvent> | null) => void }) {
   const down = useRef<[number, number] | null>(null);
-  return <mesh position={position} onPointerDown={event => { down.current = [event.clientX, event.clientY]; }} onPointerUp={event => {
+  return <mesh userData={{ walkTarget: owner ? { kind: 'owner', id: 'owner' } : { kind: 'agent', id: walkId } }} position={position} onPointerDown={event => { down.current = [event.clientX, event.clientY]; }} onPointerUp={event => {
     const start = down.current; down.current = null;
     if (start && Math.hypot(event.clientX - start[0], event.clientY - start[1]) <= 4 && event.delta <= 4) { event.stopPropagation(); onSelect(); }
   }} onPointerOver={event => { event.stopPropagation(); onHover?.(event); }} onPointerMove={event => { if (down.current && Math.hypot(event.clientX - down.current[0], event.clientY - down.current[1]) > 4) down.current = null; event.stopPropagation(); onHover?.(event); }} onPointerOut={() => { down.current = null; onHover?.(null); }}>
@@ -271,7 +271,7 @@ export function Agents({ employee, events, courier, celebration, agents, baselin
           {!hidden && !placement.trip && agent.status === 'idle' && <LeisureItem activity={placement.activity} />}
           {agent.slot > 0 && <SlotBadge number={agent.slot + 1} />}
           {tags.has(agent.seatId) && <NameTag name={agent.name} register={sprite => { if (sprite) tagSprites.current.set(agent.seatId, sprite); else tagSprites.current.delete(agent.seatId); }} />}
-          {!hidden && <HitTarget position={[0, 0.55, 0]} onSelect={() => onSelect(agent.seatId)} onHover={event => { setHovered(event ? agent.seatId : null); onHover(event ? { seatId: agent.seatId, x: event.clientX, y: event.clientY } : null); }} />}
+          {!hidden && <HitTarget walkId={agent.seatId} position={[0, 0.55, 0]} onSelect={() => onSelect(agent.seatId)} onHover={event => { setHovered(event ? agent.seatId : null); onHover(event ? { seatId: agent.seatId, x: event.clientX, y: event.clientY } : null); }} />}
         </group>
       </group>;
     })}

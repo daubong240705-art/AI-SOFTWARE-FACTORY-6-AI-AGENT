@@ -9,12 +9,16 @@ import { toys } from './toys/store';
 import { useWorldMotion } from './Ticker';
 export type WorldLocations = RefObject<Map<string, readonly [number, number, number]>>;
 export type Locate = (kind: 'agent' | 'owner' | 'zone' | 'card' | 'bug' | 'frame', id?: string) => { x: number; y: number } | null;
-export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, locations }: {
+export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, locations, enabled = true, returnPoint }: {
+  enabled?: boolean; returnPoint?: RefObject<import('./walk/state').WalkState>;
   agentPositions: RefObject<Map<string, Point>>; locations: WorldLocations;
   mapRef: RefObject<HTMLDivElement | null>; still: boolean;
   onState: (state: CameraState) => void; onLocate: (locate: Locate | null) => void;
 }) {
-  const { camera, gl, size, invalidate } = useThree();
+  const { gl, size, invalidate, get } = useThree();
+  const camera = useRef(useThree(state => state.camera)).current;
+  const enabledRef = useRef(enabled); enabledRef.current = enabled;
+  const wasWalking = useRef(false);
   const { register, publish } = useCameraBridge();
   const motion = useWorldMotion();
   const viewport = useRef(size); viewport.current = size;
@@ -23,7 +27,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
   const animate = useRef<(now: number, delta: number) => void>(() => {});
   useEffect(() => {
     if (!(camera instanceof OrthographicCamera)) return;
-    const controls = new MapControls(camera, gl.domElement);
+    const controls = new MapControls(camera, gl.domElement); controls.enabled = enabledRef.current;
     controls.enableRotate = false; controls.screenSpacePanning = false; controls.zoomToCursor = true;
     controls.maxZoom = 120; controls.enableDamping = false;
     let tween: { from: Vector3; to: Vector3; zoom: number; toZoom: number; at: number } | null = null;
@@ -43,6 +47,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
       onState(state); publish(state);
     };
     const move = (point: Point, zoom: number) => {
+      if (!enabledRef.current) return;
       cancel();
       const toZoom = MathUtils.clamp(zoom, controls.minZoom, 120);
       if (stillRef.current) { controls.target.set(point[0], 0, point[1]); camera.zoom = toZoom; clamp(); report(); invalidate(); return; }
@@ -55,12 +60,12 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
       focusZone(key) { const [x, z, zoom] = cameraPresets[key]; move([x, z], zoom * scale()); },
       focusPoint(point, zoom) { move(point, zoom === undefined ? camera.zoom : zoom * scale()); },
       home() { move([0, 0], fitZoom(viewport.current.width, viewport.current.height)); },
-      follow(next) { cancel(); getter = next; if (next && !stillRef.current) release = motion.request('live'); report(); invalidate(); },
+      follow(next) { if (!enabledRef.current) return; cancel(); getter = next; if (next && !stillRef.current) release = motion.request('live'); report(); invalidate(); },
     };
     const changed = () => { clamp(); report(); invalidate(); };
     const start = () => { cancel(); report(); };
     controls.addEventListener('start', start); controls.addEventListener('change', changed);
-    engine.current = { controls, api }; register(api);
+    engine.current = { controls, api }; if (enabledRef.current) register(api);
     animate.current = (now, delta) => {
       if (getter) { const [x, z] = getter(); controls.target.lerp(new Vector3(x, 0, z), stillRef.current ? 1 : 1 - Math.exp(-8 * delta)); }
       if (tween) {
@@ -72,7 +77,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
     };
     const map = mapRef.current;
     const keydown = (event: KeyboardEvent) => {
-      if (event.target !== map) return;
+      if (!enabledRef.current || event.target !== map) return;
       const key = event.key; const arrows: Record<string, Point> = { ArrowLeft: [-1, 1], ArrowRight: [1, -1], ArrowUp: [-1, -1], ArrowDown: [1, 1] };
       const direction = arrows[key];
       if (direction) { cancel(); const step = 50 / camera.zoom; controls.target.add(new Vector3(direction[0] * step, 0, direction[1] * step)); changed(); }
@@ -83,12 +88,12 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
       else return;
       event.preventDefault();
     };
-    const focusMap = () => map?.focus({ preventScroll: true });
+    const focusMap = () => { if (enabledRef.current) map?.focus({ preventScroll: true }); };
     map?.addEventListener('keydown', keydown); gl.domElement.addEventListener('pointerdown', focusMap);
     onLocate((kind, id) => {
       const object = locations.current.get(`${kind}:${id}`);
       const point = kind === 'owner' ? ownerDesk.position : kind === 'agent' ? agentPositions.current.get(id ?? '') : kind === 'zone' ? zones.find(z => z.id === id)?.anchor : object ? [object[0], object[2]] : null; if (!point) return null;
-      const p = new Vector3(point[0], object?.[1] ?? (kind === 'agent' ? 1 : kind === 'owner' ? 0.9 : 0.05), point[1]).project(camera);
+      const p = new Vector3(point[0], object?.[1] ?? (kind === 'agent' ? 1 : kind === 'owner' ? 0.9 : 0.05), point[1]).project(get().camera);
       if (p.z < -1 || p.z > 1) return null;
       const rect = gl.domElement.getBoundingClientRect(); return { x: rect.left + (p.x + 1) * rect.width / 2, y: rect.top + (1 - p.y) * rect.height / 2 };
     });
@@ -97,7 +102,19 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
       map?.removeEventListener('keydown', keydown); gl.domElement.removeEventListener('pointerdown', focusMap);
       register({ focusZone() {}, focusPoint() {}, home() {}, follow() {} }); engine.current = null; animate.current = () => {}; onLocate(null);
     };
-  }, [camera, gl, invalidate, mapRef, motion, onLocate, onState, publish, register, agentPositions, locations]);
+  }, [camera, gl, invalidate, get, mapRef, motion, onLocate, onState, publish, register, agentPositions, locations]);
+  useEffect(() => {
+    const e = engine.current; if (!e) return;
+    e.controls.enabled = enabled;
+    if (!enabled) { wasWalking.current = true; return; }
+    register(e.api);
+    if (wasWalking.current && returnPoint) {
+      wasWalking.current = false;
+      const p = returnPoint.current.position;
+      e.controls.target.set(p[0], 0, p[2]);
+      animate.current(performance.now(), 0); invalidate();
+    }
+  }, [enabled, register, returnPoint, invalidate]);
   useEffect(() => {
     const e = engine.current; if (!e || !(camera instanceof OrthographicCamera)) return;
     // Fit the isometric projection of the complete bounds [-18,44] × [-26,14].
@@ -106,6 +123,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
   }, [camera, size.width, size.height]);
   useEffect(() => { invalidate(); }, [still, invalidate]);
   useFrame((_, delta) => {
+    if (!enabled) return;
     animate.current(performance.now(), Math.min(delta, 0.1));
     if(still) return;
     const now=Date.now();

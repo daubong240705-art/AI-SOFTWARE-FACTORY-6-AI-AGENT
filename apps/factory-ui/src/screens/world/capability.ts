@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export type WorldCapability = { webgl2: boolean; narrow: boolean; reducedMotion: boolean };
+export type WorldCapability = { webgl2: boolean; finePointer: boolean; narrow: boolean; reducedMotion: boolean };
 const narrowQuery = '(max-width: 767px)';
 const motionQuery = '(prefers-reduced-motion: reduce)';
 function matches(query: string): boolean {
@@ -17,7 +17,7 @@ export function worldCapability(): WorldCapability {
     } catch { /* Context creation can fail on restricted or weak GPUs. */ }
     canvas.remove();
   }
-  return { webgl2, narrow: matches(narrowQuery), reducedMotion: matches(motionQuery) };
+  return { webgl2, finePointer: matches('(pointer: fine)'), narrow: matches(narrowQuery), reducedMotion: matches(motionQuery) };
 }
 export function useWorldCapability(): WorldCapability {
   const [capability, setCapability] = useState(worldCapability);
@@ -25,10 +25,11 @@ export function useWorldCapability(): WorldCapability {
     if (typeof matchMedia !== 'function') return;
     const narrow = matchMedia(narrowQuery);
     const motion = matchMedia(motionQuery);
-    const update = () => setCapability(previous => ({ ...previous, narrow: narrow.matches, reducedMotion: motion.matches }));
+    const pointer = matchMedia('(pointer: fine)');
+    const update = () => setCapability(previous => ({ ...previous, finePointer: pointer.matches, narrow: narrow.matches, reducedMotion: motion.matches }));
     update();
-    narrow.addEventListener('change', update); motion.addEventListener('change', update);
-    return () => { narrow.removeEventListener('change', update); motion.removeEventListener('change', update); };
+    narrow.addEventListener('change', update); motion.addEventListener('change', update); pointer.addEventListener('change', update);
+    return () => { narrow.removeEventListener('change', update); motion.removeEventListener('change', update); pointer.removeEventListener('change', update); };
   }, []);
   return capability;
 }

@@ -5,6 +5,7 @@ import { useT } from '@/i18n';
 import { oiiaSpot } from '../../layout/zones';
 import { useWorldMotion } from '../Ticker';
 import { toys } from '../toys/store';
+import { useToys } from '../toys/useToys';
 import { tone } from '../toys/sound';
 import { Bubble } from '../toys/visuals';
 import { Burst } from '../toys/particles';
@@ -46,10 +47,11 @@ export function sampleOiia(t: number, result = { yaw: 0, tilt: 0, bow: 0 }) {
   result.yaw = yaw; result.tilt = t < 3.6 ? Math.sin(t * 12) * 0.09 * Math.sin(Math.min(1, t / 3.6) * Math.PI) : 0; result.bow = bow; return result;
 }
 export function OiiaCat({ still, off, low }: { still: boolean; off: boolean; low: boolean }) {
-  const t = useT(), motion = useWorldMotion();
+  const t = useT(), motion = useWorldMotion(), toyState = useToys();
   const cat = useRef<THREE.Group>(null), trails = useRef<THREE.Group>(null), rings = useRef<THREE.Group>(null), letters = useRef<THREE.Group>(null);
   const [started, setStarted] = useState(0), [bubble, setBubble] = useState(0), [mega, setMega] = useState(false);
   const lastClick = useRef(0), sample = useRef({ yaw: 0, tilt: 0, bow: 0 });
+  const externalSpin = useRef(0);
   const down = useRef<[number, number] | null>(null);
   const spin = useCallback((gesture = false, megaSpin = false) => {
     if (off) return;
@@ -63,6 +65,10 @@ export function OiiaCat({ still, off, low }: { still: boolean; off: boolean; low
     const timer = setTimeout(() => spin(), 45000 + Math.random() * 45000);
     return () => clearTimeout(timer);
   }, [off, still, started, spin]);
+  useEffect(() => {
+    const spinState = toyState.catSpin;
+    if (spinState.started && spinState.started !== externalSpin.current) { externalSpin.current = spinState.started; setStarted(spinState.started); setMega(spinState.mega); }
+  }, [toyState.catSpin]);
   useEffect(() => {
     if (!started || still || off) return;
     const stop = motion.request('live'), timer = setTimeout(() => { setStarted(0); setMega(false); }, Math.max(1, started + (mega ? 5500 : 4000) - Date.now()));
@@ -101,7 +107,7 @@ export function OiiaCat({ still, off, low }: { still: boolean; off: boolean; low
     const start = down.current; down.current = null; event.stopPropagation();
     if (start && event.delta <= 4 && Math.hypot(event.clientX - start[0], event.clientY - start[1]) <= 4) { const now = Date.now(); const double = now - lastClick.current < 360; lastClick.current = now; spin(true, double); }
   };
-  return <group name="oiia-cat" position={[oiiaSpot[0], 0, oiiaSpot[1]]}>
+  return <group userData={{ walkTarget: { kind: 'cat', id: 'oiia', name: 'OIIA' } }} name="oiia-cat" position={[oiiaSpot[0], 0, oiiaSpot[1]]}>
     <mesh dispose={null} geometry={rug} material={rugInk} position={[0, 0.033, 0]} onPointerDown={e => { e.stopPropagation(); down.current = [e.clientX, e.clientY]; }} onPointerUp={up} />
     <group ref={cat} position={[0, 0.035, 0]} onPointerDown={e => { e.stopPropagation(); down.current = [e.clientX, e.clientY]; }} onPointerUp={up}>
       <mesh dispose={null} geometry={oiiaModel} material={toyInk} />
