@@ -50,7 +50,8 @@ export function isKnownToolPattern(name: string): boolean {
     || (/^[a-z0-9]+(?:\\.[a-z0-9]+)*\\.\\*$/.test(name) && tool.startsWith(name.slice(0, -1))));
 }
 
-function validateConfig(raw: Database, config: AgentConfig): void {
+export function validateAgentConfig(raw: Database, config: AgentConfig) {
+  const runtime = seatRuntime(config.runtime.adapter);
   for (const grant of config.tools ?? []) if (!isKnownToolPattern(grant.tool))
     throw new CommandError("validation", `unknown tool pattern: ${grant.tool}`, "correct-input");
   const names = new Set<string>();
@@ -58,6 +59,9 @@ function validateConfig(raw: Database, config: AgentConfig): void {
     if (names.has(skill.name)) throw new CommandError("validation", `duplicate skill name: ${skill.name}`, "correct-input");
     names.add(skill.name);
   }
+  const configJson = JSON.stringify(config);
+  if ([...configJson].length > 262144) throw new CommandError("validation", "agent configuration is too large", "correct-input");
+  return { runtime, configJson };
 }
 
 export function ensureRoster(raw: Database, projectId: string, deps: AgentDeps): { id: string; revision: number } {
@@ -91,10 +95,7 @@ export function writeAgentRevision(raw: Database, input: {
   agentId: string; projectId: string; config: AgentConfig; actorId: string; note?: string; clock: Clock;
 } & ({ existing: AgentRow } | { teamId: string; isLead: boolean; template?: { id: string; revision: number; link: boolean } })): number {
   const config = agentConfigSchema.parse(input.config);
-  const runtime = seatRuntime(config.runtime.adapter);
-  validateConfig(raw, config);
-  const configJson = JSON.stringify(config);
-  if ([...configJson].length > 262144) throw new CommandError("validation", "agent configuration is too large", "correct-input");
+  const { runtime, configJson } = validateAgentConfig(raw, config);
   const existing = "existing" in input ? input.existing : undefined;
   const teamId = "teamId" in input ? input.teamId : input.existing.team_id;
   const names = raw.prepare("SELECT name FROM seats WHERE (project_id = ? OR team_id = ?) AND id <> ?")
