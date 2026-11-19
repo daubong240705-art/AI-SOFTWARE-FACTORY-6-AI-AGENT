@@ -29,6 +29,13 @@ export function deterministicUuid(value: string): string {
 }
 
 export function listSeats(raw: Database, teamId?: string, limit = -1): Seat[] {
+  // Dispatch must never select paused or archived project agents; legacy pack seats remain active.
+  return (raw.prepare(`SELECT * FROM seats WHERE status = 'active' ${teamId === undefined ? "" : "AND team_id = ?"}
+    ORDER BY team_id, is_lead DESC, name, id LIMIT ?`)
+    .all(...(teamId === undefined ? [] : [teamId]), limit) as SeatRow[]).map(seatFromRow);
+}
+
+export function listAllSeats(raw: Database, teamId?: string, limit = -1): Seat[] {
   return (raw.prepare(`SELECT * FROM seats ${teamId === undefined ? "" : "WHERE team_id = ?"}
     ORDER BY team_id, is_lead DESC, name, id LIMIT ?`)
     .all(...(teamId === undefined ? [] : [teamId]), limit) as SeatRow[]).map(seatFromRow);
@@ -67,7 +74,7 @@ export function ensureEngagement(raw: Database, input: { projectId: string; team
 }
 
 export function findLeadSeat(raw: Database, teamId: string): Seat | undefined {
-  const row = raw.prepare("SELECT * FROM seats WHERE team_id = ? AND is_lead = ?").get(teamId, 1) as SeatRow | undefined;
+  const row = raw.prepare("SELECT * FROM seats WHERE team_id = ? AND is_lead = ? AND status = 'active'").get(teamId, 1) as SeatRow | undefined;
   return row === undefined ? undefined : seatFromRow(row);
 }
 

@@ -10,7 +10,8 @@ import {
 } from "./attempts.js";
 import { buildHandoff } from "./handoff.js";
 import { buildContextPack, renderContextPack, storeContextPack } from "../context/pack.js";
-import { getSeatInstructions } from "../instructions/snapshot.js";
+import { getAttemptInstructionPin, getSeatInstructions } from "../instructions/snapshot.js";
+import { CommandError } from "../commands/errors.js";
 import { engagementLoad, ensureLocalNode, LOCAL_NODE_ID, markNodeSlots, nodeLoad, seatLoad } from "./node.js";
 import type { AttemptContext, RuntimeEvent, RuntimeRegistry, RuntimeSession } from "./runtime.js";
 import { applyAttemptOutcome, eventsForAttempt, eventsForTask } from "./tasks.js";
@@ -176,14 +177,26 @@ export function createDispatcher(deps: {
     return entry.stopSession;
   };
   const create = (input: { projectId: string; taskId: string; seatId: string }): AttemptRecord => {
-    const seat = raw.prepare("SELECT runtime FROM seats WHERE id = ?").get(input.seatId) as { runtime: RuntimeKind } | undefined;
-    const config = getSeatRuntimeConfig(raw, input.seatId) ?? (defaultAgentCli !== undefined && seat?.runtime === "native-opencode"
+    const seat = raw.prepare("SELECT runtime, config_revision, status, project_id FROM seats WHERE id = ?").get(input.seatId) as
+      { runtime: RuntimeKind; config_revision: number | null; status: string; project_id: string | null } | undefined;
+    const configuredAgent = seat !== undefined && seat.config_revision !== null;
+    if (configuredAgent && (seat.status !== "active" || seat.project_id !== input.projectId))
+      throw new CommandError("conflict", "agent is not active in this project", "correct-input");
+    const config = getSeatRuntimeConfig(raw, input.seatId) ?? (!configuredAgent && defaultAgentCli !== undefined && seat?.runtime === "native-opencode"
       ? { runtime: "acp" as const, cli: defaultAgentCli, model: null, effort: null, permission: "autonomous" as const } : undefined);
     // Without an override an unregistered seat runtime falls back to fake; an override must name a registered one.
     const runtime = config?.runtime ?? (seat && registry.get(seat.runtime) ? seat.runtime : "fake");
     const provider = config?.cli === "codex" ? "codex-cli" : config?.cli === "claude" ? "claude-cli" : "fake";
     const a = createAttempt(raw, { ...input, id: newId(), runtime, provider,
       model: config?.model ?? (config ? "cli-default" : "fake"), effort: config?.effort ?? "medium", now: now() });
+    if (configuredAgent) {
+      const captured = getSeatInstructions(raw, { seatId: input.seatId })!;
+      const bytes = Buffer.byteLength(captured.profile) + Buffer.byteLength(JSON.stringify(captured.skills));
+      raw.prepare(`INSERT INTO attempt_instructions (project_id, attempt_id, pack_digest, profile_path, skills_count, bytes,
+        agent_revision, skill_versions_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(a.projectId, a.id, captured.packDigest, captured.profilePath, captured.skills.length, bytes,
+          captured.agentRevision, JSON.stringify(captured.skillVersions));
+    }
     // Snapshot the override with the attempt, so queued work cannot change CLI mid-flight.
     if (config) stateEvent(a, { to: "runtime-configured", agent: { ...(config.cli ? { cli: config.cli } : {}),
       model: config.model, effort: config.effort, permission: config.permission } });
@@ -203,7 +216,10 @@ export function createDispatcher(deps: {
     if (a.state !== "lease-expired") a = move(a, "lease-expired");
     const task = getTask(raw, a.projectId, a.taskId);
     // A cancelled task cannot accept a replacement attempt.
-    const safe = task?.state === "active" && !task.holds.some((hold) => hold.kind === "decision" || hold.kind === "cross-team") && canRequeueAfterLeaseExpiry(task);
+    // A configured agent that was paused/archived meanwhile cannot take a replacement attempt: reconcile instead.
+    const agentReady = a.seatId === null || (raw.prepare(`SELECT 1 FROM seats WHERE id = ? AND (config_revision IS NULL
+      OR (status = 'active' AND project_id = ?))`).get(a.seatId, a.projectId) !== undefined);
+    const safe = agentReady && task?.state === "active" && !task.holds.some((hold) => hold.kind === "decision" || hold.kind === "cross-team") && canRequeueAfterLeaseExpiry(task);
     stateEvent(a, { to: safe ? "requeued" : "unknown", reason: safe
       ? "lease expired: task is safe to requeue" : "lease expired: execution outcome is unknown; operator reconciliation required" });
     a = move(a, safe ? "requeued" : "unknown");
@@ -396,12 +412,15 @@ export function createDispatcher(deps: {
       } catch { console.error("Context pack unavailable"); }
       let instructions: AttemptContext["instructions"] = null;
       try {
-        const captured = getSeatInstructions(raw, { seatId: seat.id });
+        const pin = getAttemptInstructionPin(raw, preparing.projectId, preparing.id);
+        const captured = getSeatInstructions(raw, { seatId: seat.id, ...(pin ? { pin } : {}) });
         const bytes = captured ? Buffer.byteLength(captured.profile) + Buffer.byteLength(JSON.stringify(captured.skills)) : 0;
         raw.prepare(`INSERT OR REPLACE INTO attempt_instructions
-          (project_id, attempt_id, pack_digest, profile_path, skills_count, bytes) VALUES (?, ?, ?, ?, ?, ?)`)
+          (project_id, attempt_id, pack_digest, profile_path, skills_count, bytes, agent_revision, skill_versions_json)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
           .run(preparing.projectId, preparing.id, captured?.packDigest ?? null, captured?.profilePath ?? null,
-            captured?.skills.length ?? 0, bytes);
+            captured?.skills.length ?? 0, bytes, captured?.agentRevision ?? null,
+            captured?.agentRevision == null ? null : JSON.stringify(captured.skillVersions));
         instructions = captured ? { profile: captured.profile, skills: captured.skills } : null;
       } catch { console.error("Instructions unavailable"); }
       const context: AttemptContext = {

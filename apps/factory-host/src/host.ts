@@ -40,7 +40,7 @@ import type { ModelGateway } from "./models/index.js";
 import { createUpstream, type ModelInfo } from "./models/upstream.js";
 import { createModelProxy, createTokenRegistry, type TokenRegistry } from "./proxy/index.js";
 import type { ModelAccess } from "./dispatch/dispatcher.js";
-import { createOrgHandlers, loadPack, loadPackRegistry, registryEntry, ORG_COMMANDS } from "./org/index.js";
+import { AGENT_COMMANDS, createAgentHandlers, createOrgHandlers, loadPack, loadPackRegistry, registryEntry, ORG_COMMANDS } from "./org/index.js";
 import { budgetsSetHandler, setAutonomyHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
 import { createProjectsCreateHandler } from "./projects/service.js";
 import { createProjectsArchiveHandler } from "./projects/archive.js";
@@ -798,6 +798,7 @@ export async function startHost(options: {
       ...createScheduleHandlers({ packs, pipeline: workflowPipeline }),
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
       ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
+      ...createAgentHandlers(),
       ...workflowHandlers,
       "projects.archive": createProjectsArchiveHandler({ cancelWorkflow: workflowHandlers["workflows.cancel"]!,
         projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") }),
@@ -844,7 +845,7 @@ export async function startHost(options: {
           if (result.body.ok && (type === "approvals.decide" || type === "tasks.transition" || INTEGRATION_COMMANDS.some((command) => command === type))) dispatch?.kick();
         if (result.body.ok && (type === "schedules.resume" || type === "schedules.run-now")) sweepSchedules();
         if (type === "chat.send") lead.kick();
-        if (result.body.ok && ORG_COMMANDS.some((command) => command === type) && dispatch) {
+        if (result.body.ok && [...ORG_COMMANDS, ...AGENT_COMMANDS].some((command) => command === type) && dispatch) {
           dispatch.kick();
         }
       },
@@ -907,6 +908,7 @@ export async function startHost(options: {
           ...NOTIFICATION_COMMANDS,
           ...STANDING_COMMANDS,
           "seats.set-runtime",
+          ...AGENT_COMMANDS,
           ...(options.multiTeam ? [...ORG_COMMANDS.filter((command) => command !== "seats.set-runtime"), ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],

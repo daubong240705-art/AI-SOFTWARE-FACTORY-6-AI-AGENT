@@ -1,10 +1,28 @@
 import type { Database } from "better-sqlite3";
+import type { AgentConfig } from "@factory/contracts";
+import { agentRevision, currentAgentConfig, parseAgentConfig, resolveSkills, type SkillPin } from "../org/agents.js";
 import { packManifestSchema, type LoadedPack } from "../org/pack.js";
 import { registryPack, type RegistryPack } from "../org/registry.js";
 
 export interface SeatInstructions {
-  packDigest: string; profilePath: string; profile: string;
+  packDigest: string | null; agentRevision: number | null; skillVersions: SkillPin[]; profilePath: string; profile: string;
   skills: { name: string; description: string }[];
+}
+
+export interface AgentInstructionPin { revision: number; skillVersions: SkillPin[] }
+
+export function getAttemptInstructionPin(raw: Database, projectId: string, attemptId: string): AgentInstructionPin | undefined {
+  const row = raw.prepare(`SELECT agent_revision, skill_versions_json FROM attempt_instructions
+    WHERE project_id = ? AND attempt_id = ? AND agent_revision IS NOT NULL`).get(projectId, attemptId) as
+    { agent_revision: number; skill_versions_json: string } | undefined;
+  return row && { revision: row.agent_revision, skillVersions: JSON.parse(row.skill_versions_json) as SkillPin[] };
+}
+
+function agentProfile(config: AgentConfig): string {
+  const bullets = (items: string[]) => items.map((item) => `- ${item}`).join("\n");
+  return [`# ${config.name} — ${config.role}`, config.description, config.goals.length && `## Goals\n${bullets(config.goals)}`,
+    config.instructions && `## Instructions\n${config.instructions}`,
+    config.workRules.length && `## Work rules\n${bullets(config.workRules)}`].filter(Boolean).join("\n\n");
 }
 
 export function capturePackSnapshot(raw: Database, pack: LoadedPack, now: Date | string): string {
@@ -33,19 +51,38 @@ function pinnedSeat(raw: Database, input: { seatId: string }) {
 
 /** Position of the seat in its pinned manifest: the pack author's order of preference for default work. */
 export function getSeatOrder(raw: Database, input: { seatId: string }): number | null {
+  if (raw.prepare("SELECT 1 FROM seats WHERE id = ? AND config_revision IS NOT NULL").get(input.seatId)) return null;
   return pinnedSeat(raw, input)?.index ?? null;
 }
 
 export function getSeatCapabilities(raw: Database, input: { seatId: string }): string[] | null {
+  const agent = currentAgentConfig(raw, input.seatId);
+  if (agent) return agent.config.tags;
   const pinned = pinnedSeat(raw, input);
   return pinned === null ? null : pinned.seat.capabilities ?? null;
 }
 
 export function getSeatTools(raw: Database, input: { seatId: string }): string[] | null {
+  const agent = currentAgentConfig(raw, input.seatId);
+  if (agent) return allowedAgentTools(agent.config.tools);
   return pinnedSeat(raw, input)?.seat.tools ?? null;
 }
 
-export function getSeatInstructions(raw: Database, input: { seatId: string }): SeatInstructions | null {
+export function allowedAgentTools(tools: AgentConfig["tools"]): string[] | null {
+  if (tools === null) return null;
+  const denied = new Set(tools.filter(({ mode }) => mode === "deny").map(({ tool }) => tool));
+  return tools.filter(({ mode, tool }) => mode === "allow" && !denied.has(tool)).map(({ tool }) => tool);
+}
+
+export function getSeatInstructions(raw: Database, input: { seatId: string; pin?: AgentInstructionPin }): SeatInstructions | null {
+  const agent = currentAgentConfig(raw, input.seatId);
+  if (agent) {
+    const revision = input.pin?.revision ?? agent.revision;
+    const config = revision === agent.revision ? agent.config : parseAgentConfig(agentRevision(raw, input.seatId, revision)!);
+    const skills = resolveSkills(raw, input.pin?.skillVersions ?? config.skills);
+    return { packDigest: null, agentRevision: revision, profilePath: `agent:${revision}`, profile: agentProfile(config),
+      skills: skills.map(({ name, description }) => ({ name, description })), skillVersions: skills.map(({ skillId, version }) => ({ skillId, version })) };
+  }
   const row = pinnedSeat(raw, input);
   if (!row) return null;
   const { seat } = row;
@@ -54,10 +91,12 @@ export function getSeatInstructions(raw: Database, input: { seatId: string }): S
   if (!profile) return null;
   const skills = raw.prepare(`SELECT name, description FROM pack_files WHERE digest = ? AND kind = 'skill' ORDER BY path`)
     .all(row.digest) as { name: string; description: string }[];
-  return { packDigest: row.digest, profilePath: seat.profile, profile: profile.content, skills };
+  return { packDigest: row.digest, agentRevision: null, skillVersions: [], profilePath: seat.profile, profile: profile.content, skills };
 }
 
-export function getSkill(raw: Database, input: { seatId: string; name: string }): string | null {
+export function getSkill(raw: Database, input: { seatId: string; name: string; pin?: AgentInstructionPin }): string | null {
+  const agent = currentAgentConfig(raw, input.seatId);
+  if (agent) return resolveSkills(raw, input.pin?.skillVersions ?? agent.config.skills).find(({ name }) => name === input.name)?.content ?? null;
   const row = raw.prepare(`SELECT f.content FROM seats s JOIN teams t ON t.id = s.team_id
     JOIN pack_files f ON f.digest = t.pack_digest AND f.kind = 'skill' WHERE s.id = ? AND f.name = ?`)
     .get(input.seatId, input.name) as { content: string } | undefined;

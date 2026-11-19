@@ -6,13 +6,15 @@ import { listStandingApprovals } from "../standing/service.js";
 import type { RouteBreaker } from "../policy/breaker.js";
 import { pendingPatches } from "../workflow/patch.js";
 import { getSchedule, listSchedules, listOccurrences } from "../schedule/service.js";
-import { API_VERSION, contextPackSchema, conversationSchema, idSchema, messageSchema, projectSchema } from "@factory/contracts";
+import { API_VERSION, agentDetailSchema, agentRevisionViewSchema, contextPackSchema, conversationSchema, idSchema,
+  messageSchema, projectAgentsResponseSchema, projectSchema } from "@factory/contracts";
 import type { FastifyInstance } from "fastify";
 import type { createCommandPipeline, PipelineResult } from "../commands/pipeline.js";
 import { getConversation, listConversations, listMessages } from "../chat/index.js";
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
-import { getPrimaryEngagement, getTeam, listSeats } from "../org/service.js";
+import { getPrimaryEngagement, getTeam, listAllSeats } from "../org/service.js";
+import { agentDetailView, agentRevisionView, projectAgentsView } from "../org/agent-views.js";
 import { registryPack, type RegistryPack } from "../org/registry.js";
 import { projectEngagements, teamQueue, teamViews } from "../org/views.js";
 import { projectInteractions } from "../org/interactions.js";
@@ -479,6 +481,26 @@ export function createRoutes(deps: {
         return { apiVersion: API_VERSION, ok: true,
           ...projectInteractions(deps.storage.raw, parsed.data, (deps.clock ?? systemClock)(), limit.data) };
       });
+    app.get<{ Params: { projectId: string } }>("/projects/:projectId/agents", { preHandler: guards.session }, async (request, reply) => {
+      const view = projectAgentsView(deps.storage.raw, request.params.projectId);
+      return view ? { apiVersion: API_VERSION, ok: true, ...projectAgentsResponseSchema.parse(view) }
+          : failure(reply, 404, "not-found", "Agent not found.", "correct-input", newId);
+    });
+    app.get<{ Params: { projectId: string; agentId: string } }>("/projects/:projectId/agents/:agentId",
+      { preHandler: guards.session }, async (request, reply) => {
+        const { projectId, agentId } = request.params;
+        const view = agentDetailView(deps.storage.raw, projectId, agentId);
+        return view ? { apiVersion: API_VERSION, ok: true, ...agentDetailSchema.parse(view) }
+          : failure(reply, 404, "not-found", "Agent not found.", "correct-input", newId);
+      });
+    app.get<{ Params: { projectId: string; agentId: string; revision: string } }>("/projects/:projectId/agents/:agentId/revisions/:revision",
+      { preHandler: guards.session }, async (request, reply) => {
+        const { projectId, agentId, revision } = request.params;
+        const value = queryInteger(revision, 0, 1, Number.MAX_SAFE_INTEGER);
+        const view = value === undefined ? undefined : agentRevisionView(deps.storage.raw, projectId, agentId, value);
+        return view ? { apiVersion: API_VERSION, ok: true, ...agentRevisionViewSchema.parse(view) }
+          : failure(reply, 404, "not-found", "Agent not found.", "correct-input", newId);
+      });
     app.get<{ Params: { projectId: string } }>("/projects/:projectId/team", { preHandler: guards.session }, async (request, reply) => {
       const parsed = idSchema.safeParse(request.params.projectId);
       if (!parsed.success) return failure(reply, 400, "validation", "Invalid project id.", "correct-input", newId);
@@ -487,7 +509,7 @@ export function createRoutes(deps: {
       const engagement = getPrimaryEngagement(deps.storage.raw, parsed.data);
       const team = engagement === undefined ? undefined : getTeam(deps.storage.raw, engagement.teamId);
       if (!engagement || !team) return failure(reply, 404, "not-found", "Project team not found.", "correct-input", newId);
-      return { apiVersion: API_VERSION, ok: true, team, seats: listSeats(deps.storage.raw, team.id), engagement,
+      return { apiVersion: API_VERSION, ok: true, team, seats: listAllSeats(deps.storage.raw, team.id), engagement,
         engagements: projectEngagements(deps.storage.raw, parsed.data) };
     });
     app.get<{ Params: { projectId: string; taskId: string } }>(
