@@ -5,6 +5,7 @@ import { MapControls } from 'three/addons/controls/MapControls.js';
 import { cameraBounds, cameraPresets, fitZoom, isoDistance, type ZoneKey } from '../layout/camera';
 import { ownerDesk, zones, type Point } from '../layout/zones';
 import { useCameraBridge, type CameraApi, type CameraState } from '../cameraContext';
+import { toys } from './toys/store';
 import { useWorldMotion } from './Ticker';
 export type WorldLocations = RefObject<Map<string, readonly [number, number, number]>>;
 export type Locate = (kind: 'agent' | 'owner' | 'zone' | 'card' | 'bug' | 'frame', id?: string) => { x: number; y: number } | null;
@@ -104,6 +105,15 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
     e.api.home();
   }, [camera, size.width, size.height]);
   useEffect(() => { invalidate(); }, [still, invalidate]);
-  useFrame((_, delta) => animate.current(performance.now(), Math.min(delta, 0.1)));
+  useFrame((_, delta) => {
+    animate.current(performance.now(), Math.min(delta, 0.1));
+    if(still) return;
+    const now=Date.now();
+    for(const effect of toys.snapshot().active){
+      if(effect.quiet || effect.tool!=='whip' && effect.tool!=='hammer')continue;
+      const age=(now-effect.started)/1000-.68;
+      if(age>=0&&age<.22){const amplitude=.027*(1-age/.22);camera.position.x+=Math.sin(age*110)*amplitude;camera.position.y+=Math.sin(age*91)*amplitude*.6;}
+    }
+  });
   return null;
 }

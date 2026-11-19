@@ -21,5 +21,5 @@ export function useWorldQuality(preference: WorldPreferences['quality']) {
     if (now - monitor.slowSince >= 3000) setSlow(true);
   }, [monitor]);
   const quality: WorldQuality = preference === 'auto' ? software || slow ? 'low' : 'high' : preference;
-  return { quality, fps, measure, setSoftware };
+  return { quality, fps, measure, setSoftware, software };
 }

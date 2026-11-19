@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { characterResources, disposeCharacterResources, glyphMesh, glyphSprite, sharedMaterialCount, subscribeAtlas } from './resources';
+import { makeReactionMarks, disposeReactionMarkAssets } from './reactionMarks';
 import type { CharacterSpec } from './spec';
 import { characterFeatures, faceSurface, hasFacePatch } from './features';
 import type { WorldQuality } from '../scene/quality';
@@ -223,7 +224,7 @@ export function buildCharacter(spec: CharacterSpec, quality: WorldQuality = 'hig
     sprite.name = glyph; sprite.position.set(...characterFeatures(spec).effect); sprite.visible = false; effects.add(sprite);
     if (index === 2 && quality === 'high') { const second = glyphSprite(glyph, 0.18, 0.18); second.name = 'sparkle-2'; second.position.set(...characterFeatures(spec).sparkle); second.visible = false; effects.add(second); }
   }
-  group.add(effects); return group;
+  group.add(effects); group.add(makeReactionMarks(spec)); return group;
 }
 // Bake a small normal expansion once; one inverted-hull draw, no postprocessing or extra material per character.
 const outlineExpansion = 0.014;
@@ -247,5 +248,5 @@ export function retainCharacterAssets(invalidate: () => void) {
 /** Only call when no rigs/labels remain. React users release automatically, including StrictMode effect replay. */
 export function disposeCharacterCache() {
   for (const geometry of cache.values()) Object.values(geometry).forEach(item => item.dispose());
-  cache.clear(); disposeCharacterResources();
+  cache.clear(); disposeReactionMarkAssets(); disposeCharacterResources();
 }

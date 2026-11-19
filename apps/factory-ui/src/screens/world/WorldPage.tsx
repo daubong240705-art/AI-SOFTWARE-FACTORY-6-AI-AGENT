@@ -99,7 +99,7 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
       ...(sceneDebug.current.agents.find(row => row.seatId === item.seatId) ?? { seatId: item.seatId, ownerSeatId: item.ownerSeatId, slot: item.slot, name: item.name, pose: item.pose, podKey: item.podKey, deskId: deskForAgent(item)?.id ?? null, walking: false, wandering: false, activity: null }),
       status: item.status,
     })),
-    toys: { oiiaSpins: toys.snapshot().oiiaSpins, tool: toys.snapshot().tool, active: toys.snapshot().active.map(({ worker, tool, until }) => ({ worker, tool, until })), counts: toys.snapshot().counts },
+    toys: { combo: toys.snapshot().combo, sulking: toys.snapshot().sulking, catSpin: toys.snapshot().catSpin, oiiaMegaSpins: toys.snapshot().oiiaMegaSpins, oiiaSpins: toys.snapshot().oiiaSpins, tool: toys.snapshot().tool, active: toys.snapshot().active.map(({ worker, tool, until }) => ({ worker, tool, until })), counts: toys.snapshot().counts },
     characters: reason ? emptyScene().characters : sceneDebug.current.characters, director: sceneDebug.current.director, props: reason || preferences.lineup ? [] : sceneDebug.current.props, baseline: data.baseline, sources: data.sources, selected: selectedTask ? `task:${selectedTask.taskId}` : selectedStage ? `stage:${selectedStage.key}` : selectedBug ? `bug:${selectedBug.id}` : selectedRelease ? `frame:${selectedRelease.releaseId}` : selected,
     locate: (kind, id) => reason || preferences.lineup && kind !== 'zone' ? null : locate.current?.(kind, id) ?? null }));
   return <div className="world-page">

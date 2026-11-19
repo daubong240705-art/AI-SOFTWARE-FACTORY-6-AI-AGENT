@@ -70,3 +70,22 @@ export function Gong({ struck }: { struck: number }) {
     <mesh dispose={null} ref={stick} geometry={mallet} material={material} position={[0.15, 0.75, 0.3]} raycast={ignore} />
   </group>;
 }
+
+const clapHand = colouredGeometry([
+  { shape: 'sphere', color: '#FFF0CD', at: [0, 0, 0], size: [0.18, 0.22, 0.1] },
+  { shape: 'sphere', color: '#FFD7AA', at: [0.075, -0.04, 0], size: [0.08, 0.1, 0.1] },
+]);
+/** Two shared mitten meshes make the rare cat audience visibly clap. */
+export function CatClap() {
+  const group = useRef<THREE.Group>(null);
+  useFrame(() => {
+    if (!group.current) return;
+    const beat = (1 + Math.sin(Date.now() / 90)) / 2;
+    for (let i = 0; i < 2; i++) {
+      const hand = group.current.children[i]!;
+      hand.position.set((i ? 1 : -1) * (0.07 + beat * 0.25), 0.55, 0.61);
+      hand.rotation.z = (i ? -1 : 1) * (0.15 + beat * 0.55);
+    }
+  });
+  return <group ref={group} rotation={[0, Math.PI / 4, 0]}>{[0, 1].map(i => <mesh dispose={null} key={i} geometry={clapHand} material={material} raycast={ignore} />)}</group>;
+}

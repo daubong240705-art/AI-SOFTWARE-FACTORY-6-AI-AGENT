@@ -1,6 +1,8 @@
+import { oiiaSpot } from '../layout/zones';
+import { tone } from './toys/sound';
 import { useToys } from './toys/useToys';
 import { ToyWorker } from './toys/visuals';
-import { Employee, NeedsBell } from './toys/WorldFun';
+import { Employee, NeedsBell, CatClap } from './toys/WorldFun';
 import { createScreenTexture, type ScreenTexture } from './screenTexture';
 import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
@@ -89,6 +91,7 @@ export function Agents({ employee, events, courier, celebration, agents, baselin
   const couriers = useRef(new Map<string, { trip: HopMotion; started: number }>());
   const [courierCount, setCourierCount] = useState(0);
   const [celebrants, setCelebrants] = useState(new Set<string>());
+  const [catAudience, setCatAudience] = useState(new Set<string>());
   const wandering = useRef(new WanderingDirector());
   const poseEvents = useRef(new Set(events.map(event => event.id)));
   const motion = useWorldMotion(); const invalidate = useThree(state => state.invalidate);
@@ -185,6 +188,19 @@ export function Agents({ employee, events, courier, celebration, agents, baselin
     const timer = setTimeout(() => { setCelebrants(new Set()); release(); }, Math.max(0, celebration + 2500 - performance.now()));
     return () => { clearTimeout(timer); release(); };
   }, [celebration, still, hidden, effects, motion]);
+  useEffect(() => {
+    const spin = toyState.catSpin;
+    if (still || hidden || effects === 'off' || !spin.audience || Date.now() - spin.started > 3000) { setCatAudience(new Set()); return; }
+    const audience = new Set(agents.filter(a => {
+      const p = current.current.get(a.seatId);
+      return a.status === 'idle' && !a.paused && !a.overflow && p && !p.trip && !couriers.current.has(a.seatId) && !wandering.current.wandering(a.seatId) && Math.hypot(p.position[0] - oiiaSpot[0], p.position[2] - oiiaSpot[1]) < 7;
+    }).slice(0, 2).map(a => a.seatId));
+    setCatAudience(audience);
+    if (audience.size && toyState.sound) tone('clap');
+    const stop = audience.size ? motion.request('live') : undefined;
+    const timer = setTimeout(() => setCatAudience(new Set()), 3500);
+    return () => { clearTimeout(timer); stop?.(); };
+  }, [toyState.catSpin, still, hidden, effects, agents, motion]);
   useFrame(({ camera, size }) => {
     let finished = false;
     for (const [id, placement] of current.current) {
@@ -207,6 +223,11 @@ export function Agents({ employee, events, courier, celebration, agents, baselin
           if (placement.activity === 'pet-cat' || placement.activity === 'water-plant') group.rotation.y = -Math.PI / 4;
           if (placement.activity === 'water-plant') group.rotation.z = Math.sin(activityTime * 1.3) * 0.06;
         } else group.rotation.z = 0;
+        if (catAudience.has(id) && agents.some(a => a.seatId === id && a.status === 'idle') && !still && !hidden) {
+          group.rotation.y = Math.atan2(oiiaSpot[0] - group.position.x, oiiaSpot[1] - group.position.z) - Math.PI / 4;
+          group.scale.x = 1 + Math.abs(Math.sin(Date.now() / 100)) * 0.06;
+          group.scale.y = 1 - Math.abs(Math.sin(Date.now() / 100)) * 0.05;
+        } else group.scale.x = 1;
         const elapsed = (performance.now() - celebration) / 1000;
         if (!still && !hidden && celebrants.has(id) && elapsed >= 0 && elapsed < 2.5 && agents.some(a => a.seatId === id && a.status === 'idle')) {
           group.position.y += Math.sin(Math.min(1, elapsed / 0.65) * Math.PI) * 0.18;
@@ -242,8 +263,9 @@ export function Agents({ employee, events, courier, celebration, agents, baselin
       return <group key={agent.seatId}>
         <group ref={node => { if (node) groups.current.set(agent.seatId, node); else groups.current.delete(agent.seatId); }} position={placement.position}>
           <ToyWorker effect={toy} still={!toyMotion} low={quality === 'low' || effects === 'lite'}>
-          <CharacterRig reaction={toyMotion ? toy : undefined} spec={specForSeat(agent.seatName, agent.isLead)} pose={celebrants.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} speed={toyMotion && toy?.tool === 'megaphone' ? 2 : 1} />
+          <CharacterRig reaction={toyMotion ? toy : undefined} spec={specForSeat(agent.seatName, agent.isLead)} pose={(celebrants.has(agent.seatId) || catAudience.has(agent.seatId)) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} speed={toyMotion && toy?.tool === 'megaphone' ? 2 : 1} />
           </ToyWorker>
+          {catAudience.has(agent.seatId) && agent.status === 'idle' && !still && !hidden && effects !== 'off' && <CatClap />}
           {effects !== 'off' && agent.slot === 0 && (employee === agent.ownerSeatId || employee === agent.seatId) && <Employee low={quality === 'low' || effects === 'lite'} />}
           {!hidden && <Aura agent={{ ...agent, pose: placement.pose }} boost={toyMotion && (toy?.tool === 'coffee' || toy?.tool === 'whip' && agent.status === 'working') ? 1 : 0} level={effects} quality={quality} still={still || hidden} floorOffset={-placement.position[1]} />}
           {!hidden && !placement.trip && agent.status === 'idle' && <LeisureItem activity={placement.activity} />}

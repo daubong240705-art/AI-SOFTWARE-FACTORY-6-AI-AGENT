@@ -14,6 +14,7 @@ import { CameraRig, type Locate } from './CameraRig';
 import type { CameraState } from '../cameraContext';
 import type { WorldPreferences } from '../preferences';
 import type { SceneDebug, RenderStats } from '../debugHook';
+import { ToyPrewarm } from './toys/prewarm';
 import { Ticker } from './Ticker';
 import { Studio } from './Studio';
 import type { WorldEvent } from '../data/events';
@@ -78,9 +79,9 @@ function Cast({ props, quality }: { props: Props; quality: WorldQuality }) {
   </CharacterAnimator>;
 }
 export default function WorldCanvas(props: Props) {
-  const { quality, fps, measure, setSoftware } = useWorldQuality(props.qualityPreference);
+  const { quality, fps, measure, setSoftware, software } = useWorldQuality(props.qualityPreference);
   useEffect(() => props.onQuality(quality), [quality, props.onQuality]);
-  return <Canvas key={quality} orthographic flat frameloop="demand" dpr={[1, quality === 'low' ? 1 : 2]}
+  return <Canvas key={quality} orthographic flat frameloop="demand" dpr={[1, quality === 'low' || software ? 1 : 2]}
     gl={{ antialias: quality === 'high', powerPreference: 'default' }}
     camera={{ position: cameraPosition, near: 0.1, far: 300, zoom: 16 }} aria-hidden="true"
     onCreated={({ gl }) => {
@@ -91,6 +92,7 @@ export default function WorldCanvas(props: Props) {
     <hemisphereLight args={[sky, ground, 1.1]} />
     <directionalLight color={sky} position={[-30, 45, -20]} intensity={1.1} />
     <Ticker quality={quality} still={props.still} onMeasure={measure}>
+      <ToyPrewarm />
       <SceneLifecycle onReady={props.onReady} onLoading={props.onLoading} onError={props.onError} onRender={props.onRender} fps={fps} />
       <CameraRig agentPositions={props.positions} locations={props.locations} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
       <group visible={!props.lineup}><Environment /></group>

@@ -40,12 +40,15 @@ for (const file of await javascriptFiles(dist)) {
   if (content.includes('WebGLRenderer') && !entries.has(file)) lazy.push({ name: path.relative(dist, file), gz: gzipSync(content).length });
 }
 if (!lazy.length) failures.push('No lazy WebGLRenderer chunk found');
+// W-18b: operator approved richer procedural toys; entry isolation remains mandatory.
+const worldLimit = 384 * 1024;
 const lazyJsGz = lazy.reduce((total, chunk) => total + chunk.gz, 0);
 const growth = entryJsGz - baseline.entryJsGz;
-if (growth > 3072) failures.push(`Entry growth ${growth} exceeds 3072 bytes`);
-if (lazyJsGz > 300 * 1024) failures.push(`Lazy renderer gzip ${lazyJsGz} exceeds 307200 bytes`);
-console.log(`World bundle: entry/preload ${entryJsGz} B gzip; baseline ${baseline.entryJsGz} B; growth ${growth >= 0 ? '+' : ''}${growth} B (limit +3072 B)`);
-console.log(`Lazy renderer: ${lazyJsGz} B gzip (limit 307200 B); ${lazy.map(chunk => `${chunk.name}: ${chunk.gz} B`).join(', ')}`);
+const entryGrowthLimit = 4 * 1024;
+if (growth > entryGrowthLimit) failures.push(`Entry growth ${growth} exceeds ${entryGrowthLimit} bytes`);
+if (lazyJsGz > worldLimit) failures.push(`Lazy renderer gzip ${lazyJsGz} exceeds ${worldLimit} bytes`);
+console.log(`World bundle: entry/preload ${entryJsGz} B gzip; baseline ${baseline.entryJsGz} B; growth ${growth >= 0 ? '+' : ''}${growth} B (limit +${entryGrowthLimit} B)`);
+console.log(`Lazy renderer: ${lazyJsGz} B gzip (limit ${worldLimit} B); ${lazy.map(chunk => `${chunk.name}: ${chunk.gz} B`).join(', ')}`);
 console.log(`Entry 3D isolation: ${failures.some(failure => failure.startsWith('3D code leaked')) ? 'FAIL' : 'PASS'}`);
 if (failures.length) { failures.forEach(failure => console.error(failure)); process.exitCode = 1; }
 else console.log('World bundle guard: PASS');

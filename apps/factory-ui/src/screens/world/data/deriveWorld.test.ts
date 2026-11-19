@@ -542,12 +542,12 @@ test('toy reactions are additive, finite, spring back, and expire without changi
   const { tools, ToyStore } = await import('../scene/toys/store');
   for (const tool of tools) {
     const reaction = { tool, started: 10000 };
-    for (let age = 0; age < 2000; age += 17) {
+    for (let age = 0; age < 3100; age += 17) {
       const result = reactToToy(base, reaction, 10000 + age);
       assert(Object.values(result.frame).filter(v => typeof v === 'number').every(Number.isFinite));
       assert(result.frame.sx > 0 && result.frame.sy > 0 && result.frame.sz > 0);
     }
-    assert.deepEqual(reactToToy(base, reaction, 12000).frame, base);
+    assert.deepEqual(reactToToy(base, reaction, 13100).frame, base);
   }
   assert.equal(base.sy, 1);
   assert(reactToToy(base, { tool: 'hammer', started: 10000 }, 10750).frame.sy < 0.25);
@@ -557,4 +557,44 @@ test('toy reactions are additive, finite, spring back, and expire without changi
   assert.equal(reactToToy(base, undefined, 10800).flash, false);
   const store = new ToyStore(); store.spin(); store.spin();
   assert.equal(store.snapshot().oiiaSpins, 2); assert.equal(store.snapshot().active.length, 0);
+});
+
+
+test('W-18b combos expire, six hits sulk locally, treats bypass cooldown, and moods are not persisted', async () => {
+  const { ToyStore } = await import('../scene/toys/store');
+  const now = +new Date(2026, 10, 19, 12), saved = new Map<string, string>();
+  const storage = { getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => { saved.set(key, value); } };
+  for (const treat of ['coffee', 'cookie'] as const) {
+    const state = new ToyStore(storage);
+    for (let i = 0; i < 6; i++) assert.equal(state.apply('a', 'whip', false, now + i * 1100), true);
+    assert.equal(state.snapshot().combo[0]!.count, 6);
+    assert.equal(state.snapshot().sulking[0]!.until, now + 15500);
+    assert.equal(state.apply('a', 'hammer', false, now + 6600), false, 'sulking ignores rough toys');
+    assert.equal(state.apply('a', treat, false, now + 5600), true, 'treat cheers immediately during cooldown');
+    assert.equal(state.snapshot().sulking.length, 0);
+    assert.equal(state.snapshot().active[0]!.cheered, true);
+    assert.equal(state.snapshot().combo[0]!.count, 1);
+    state.refresh(now + 9600); assert.equal(state.snapshot().combo.length, 0);
+    assert.equal(state.apply('b', 'taser', false, now + 9600), true);
+    assert.equal(state.snapshot().active.find(e => e.worker === 'b')!.until, now + 15800);
+    const restored = new ToyStore(storage);
+    assert.equal(restored.snapshot().sulking.length, 0); assert.equal(restored.snapshot().combo.length, 0);
+  }
+  const state = new ToyStore();
+  for(let i=0;i<6;i++) state.apply('a','feather',true,now+i*1100);
+  state.refresh(now+15500);assert.equal(state.snapshot().sulking.length,0);
+  assert.equal(state.apply('a','whip',false,now+15500),true);
+  assert.equal(state.snapshot().combo[0]!.count,1);
+  state.spin(true,true,now); assert.equal(state.snapshot().oiiaMegaSpins,1); assert.equal(state.snapshot().catSpin.audience,true);
+  state.clear(); assert.equal(state.snapshot().sulking.length,0); assert.equal(state.snapshot().catSpin.started,0);
+});
+
+test('W-18b impact hold lasts 70ms, combos intensify knockback, and sulking restores facing', async () => {
+  const { reactToToy } = await import('../characters/reaction');
+  const base = { y: 0, sx: 1, sy: 1, sz: 1, rx: 0, ry: 0, rz: 0, closed: false, effect: null, effectY: 0, sparkle: 1 };
+  const reaction = { tool: 'whip' as const, started: 10000, combo: 3, sulkUntil: 21000 };
+  assert.deepEqual(reactToToy(base,reaction,10680),reactToToy(base,reaction,10749));
+  assert(reactToToy(base,reaction,10850).x > reactToToy(base,{...reaction,combo:1},10850).x);
+  assert.equal(reactToToy(base,reaction,13000).frame.ry,Math.PI);
+  assert.equal(reactToToy(base,reaction,21000).frame.ry,0);
 });

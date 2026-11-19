@@ -21,7 +21,7 @@ registerHooks({
 });
 const noop = () => {};
 const labels = [];
-const ctx = new Proxy({ createLinearGradient: () => ({ addColorStop: noop }), fillText: label => labels.push(label) }, { get: (o, key) => o[key] ?? noop, set: (o, key, value) => { o[key] = value; return true; } });
+const ctx = new Proxy({ createLinearGradient: () => ({ addColorStop: noop }), createRadialGradient: () => ({ addColorStop: noop }), fillText: label => labels.push(label) }, { get: (o, key) => o[key] ?? noop, set: (o, key, value) => { o[key] = value; return true; } });
 globalThis.document = { createElement: () => ({ width: 0, height: 0, getContext: () => ctx }) };
 const { makeFunProps } = await import('./FunProps.tsx');
 const { deriveWorld } = await import('../../data/deriveWorld.ts');
@@ -114,3 +114,45 @@ assert.notEqual(cat.getObjectByName('office-cat-tail').rotation.y, 0);
 props.sample(0, false); assert.equal(cat.getObjectByName('office-cat-tail').rotation.y, 0);
 props.dispose();
 console.log('W-18: merged toys, spin acceleration/braking/bow, footprint, blockedEdges=0, cat facing/upright/walk cycle PASS');
+
+// W-18b: geometry, shared particle capacity and reaction paint can be checked without a GPU.
+const { detailedToys, lightToys, actionAge, createWhipMaterials } = await import('../toys/models.ts');
+for (const name of Object.keys(detailedToys)) {
+  const rich = detailedToys[name], light = lightToys[name];
+  assert(light.solid.attributes.position.count < rich.solid.attributes.position.count, `${name}: low LOD is smaller`);
+  for (const g of [rich.solid, rich.hull, light.solid]) {
+    assert.equal(g.groups.length, 0);
+    for (const attr of Object.values(g.attributes)) assert(Array.from(attr.array).every(Number.isFinite));
+  }
+  assert.equal(rich.solid.attributes.position.count, rich.hull.attributes.position.count, 'outline follows detail');
+  rich.solid.computeBoundingBox();
+}
+assert(detailedToys.whip.solid.boundingBox.max.x - detailedToys.whip.solid.boundingBox.min.x > 2);
+assert(detailedToys.hammer.solid.boundingBox.max.x - detailedToys.hammer.solid.boundingBox.min.x > 1);
+assert(detailedToys.feather.solid.boundingBox.max.y - detailedToys.feather.solid.boundingBox.min.y > 1.4);
+assert(detailedToys.taser.glow.attributes.position.count > 0, 'separate luminous prongs/battery');
+assert.equal(actionAge(10000, 10680), actionAge(10000, 10749));
+const leather = createWhipMaterials(), shader = { uniforms: {}, vertexShader: '#include <begin_vertex>' };
+leather.solid.onBeforeCompile(shader);
+assert(shader.vertexShader.includes('transformed.y += wave'));
+assert.equal(shader.uniforms.uToyAge, leather.clock);
+leather.solid.dispose(); leather.outline.dispose();
+const { particleGeometry, lightParticleGeometry, lightningGeometry, particleMaterial, prepareParticleAtlas } = await import('../toys/particles.tsx');
+prepareParticleAtlas(); assert(particleMaterial.uniforms.uAtlas.value.isCanvasTexture);
+assert(particleGeometry.isInstancedBufferGeometry); assert.equal(particleGeometry.instanceCount, 64);
+assert.equal(lightParticleGeometry.instanceCount, 12);
+assert.equal(lightningGeometry.attributes.position.count, 7 * 7 * 6, 'seven branching zigzags, single glow/core draw');
+const { makeReactionMarks, updateReactionMarks, disposeRigMarks, disposeReactionMarkAssets } = await import('../../characters/reactionMarks.ts');
+const spec = { code: 'LEAD', colors: { body: '#FBDE72', belly: '#FBDE72', accent: '#FACF4F', inner: '#FAC078', dark: '#393F57', cheek: '#FAC078', outline: '#0E0E16' }, ears: 'none', face: { eyes: 'oval', cheeks: true }, accessories: ['crown', 'headset'] };
+const marks = makeReactionMarks(spec);
+const unpainted = makeReactionMarks({ ...spec, code: 'PM', face: { ...spec.face, cheeks: false } });
+assert(unpainted.getObjectByName('blush').geometry.attributes.position.count > 0, 'every worker can blush, even without painted base cheeks');
+for (const mark of [...marks.children, ...unpainted.children]) for (const attr of Object.values(mark.geometry.attributes)) assert(Array.from(attr.array).every(Number.isFinite));
+updateReactionMarks(marks, { tool: 'taser', started: 10000 }, 11200, false);
+const soot = marks.getObjectByName('soot'); assert.equal(soot.material.opacity, 1);
+updateReactionMarks(marks, { tool: 'taser', started: 10000 }, 13700, false); assert(Math.abs(soot.material.opacity - 0.5) < 1e-9);
+updateReactionMarks(marks, { tool: 'cookie', started: 10000 }, 11000, false); assert(marks.getObjectByName('crumbs').visible);
+updateReactionMarks(marks, { tool: 'feather', started: 10000 }, 11000, false); assert(marks.getObjectByName('blush').visible);
+updateReactionMarks(marks, { tool: 'taser', started: 10000 }, 11500, true); assert(!marks.visible, 'no face effects in still mode');
+disposeRigMarks(marks); disposeRigMarks(unpainted); disposeReactionMarkAssets();
+console.log('W-18b: tool size/LOD, braided shader, 70ms hold, GPU particle capacities, seven electric branches, face paint/five-second soot fade/still suppression PASS');

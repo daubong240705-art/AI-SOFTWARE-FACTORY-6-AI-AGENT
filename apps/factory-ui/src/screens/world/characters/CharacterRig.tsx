@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useThree } from '@react-three/fiber';
 import type { WorldQuality } from '../scene/quality';
 import { createCharacter, retainCharacterAssets } from './build';
+import { disposeRigMarks } from './reactionMarks';
 import { useAnimatedCharacter } from './animator';
 import type { Reaction } from './reaction';
 import type { CharacterSpec, Pose } from './spec';
@@ -15,7 +16,7 @@ export function CharacterRig({ spec, pose, position, yaw = Math.PI / 4, phase, q
   const character = useMemo(() => createCharacter(spec, quality), [spec, quality]);
   useEffect(() => { character.traverse(object => { object.raycast = () => {}; }); }, [character]);
   useAnimatedCharacter(character, pose, phase, speed, reaction);
-  useEffect(() => retainCharacterAssets(invalidate), [invalidate, character]);
+  useEffect(() => { const release = retainCharacterAssets(invalidate); return () => { disposeRigMarks(character); release(); }; }, [invalidate, character]);
   useEffect(() => { invalidate(); }, [invalidate, position, yaw, visible]);
   return <group name={`rig-${spec.code}`} position={position} rotation={[0, yaw, 0]} visible={visible} dispose={null}>
     <primitive object={character} dispose={null} />

@@ -5,15 +5,21 @@ import { icons, tools, toys, type Tool } from './store';
 import { useToys } from './useToys';
 import { tone, unlockSound } from './sound';
 export function playToy(worker: string, tool: Tool, quiet: boolean) {
-  if (toys.apply(worker, tool, quiet) && toys.snapshot().sound && !quiet) tone(tool);
+  if (toys.apply(worker, tool, quiet) && toys.snapshot().sound && !quiet) {
+    const effect = toys.snapshot().active.find(e => e.worker === worker)!;
+    tone(tool, effect.combo);
+    if (effect.cheered) tone('cheer');
+    if (effect.sulkUntil) tone('sulk');
+  }
 }
 export function ToyTray({ selected, quiet }: { selected: string | null; quiet: boolean }) {
   const state = useToys(), t = useT(); const badge = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    if (!state.active.length) return;
-    const timer = setTimeout(() => toys.refresh(), Math.max(1, Math.min(...state.active.map(effect => effect.until)) - Date.now()));
+    const deadlines = [...state.active.map(effect => effect.until), ...state.combo.map(c => c.until), ...state.sulking.map(s => s.until)];
+    if (!deadlines.length) return;
+    const timer = setTimeout(() => toys.refresh(), Math.max(1, Math.min(...deadlines) - Date.now()));
     return () => clearTimeout(timer);
-  }, [state.active]);
+  }, [state.active, state.combo, state.sulking]);
   useEffect(() => {
     if (!state.open) return;
     toys.refresh();
