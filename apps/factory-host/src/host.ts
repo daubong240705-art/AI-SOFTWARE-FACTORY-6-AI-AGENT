@@ -708,7 +708,8 @@ export async function startHost(options: {
         createFakeRuntime(stepMs === undefined ? {} : { stepMs }), ...(adapters ?? []), ...(options.runtimes ?? []),
         ...(options.localCli?.enabled ? [createLocalCliRuntime({ codexCommand: localCliCommands.codex, claudeCommand: localCliCommands.claude,
           ...(options.localCli.passEnv === undefined ? {} : { passEnv: options.localCli.passEnv }) })] : []),
-        ...(modelAccess === undefined ? [] : [createApiAgentRuntime()]),
+        // api-agent talks to the model proxy; without one its tasks fail loudly with "runtime unavailable".
+        ...(modelAccess === undefined || options.modelProxy === undefined ? [] : [createApiAgentRuntime()]),
       ]);
       dispatch = createDispatcher({ storage, hub, registry, clock, config, dependencyCache, multiTeam: options.multiTeam ?? false,
         defaultAgentModel: () => effectiveModels().leadModel,

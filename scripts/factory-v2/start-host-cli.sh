@@ -8,6 +8,7 @@
 #   bash scripts/factory-v2/start-host-cli.sh --agents codex   # ... or on Codex
 #   bash scripts/factory-v2/start-host-cli.sh --slots 8        # agents running at the same time (default: from cores and RAM)
 #   bash scripts/factory-v2/start-host-cli.sh --agents codex --lead 9router   # no Claude login: seats on Codex, Lead through the 9Router gateway
+#   ... --api-models <model>   # also run api-agent agents (research/writing) through the Host model proxy
 #
 # Codex configured with a provider key (for example 9Router with env_key NINE_ROUTER_API_KEY): export that variable in
 # this shell; it is passed to the CLIs only (FACTORY_CLI_PASS_ENV, default NINE_ROUTER_API_KEY when it is set).
@@ -19,13 +20,15 @@ ROOT="${FACTORY_V2_HOME:-$HOME/factory-v2}"
 CHECK=0
 AGENTS=claude
 LEAD=claude
+API_MODELS=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --check) CHECK=1 ;;
     --agents) shift; case "${1:-}" in codex|claude) AGENTS="$1" ;; *) echo "--agents needs codex or claude" >&2; exit 1 ;; esac ;;
     --lead) shift; case "${1:-}" in claude|9router) LEAD="$1" ;; *) echo "--lead needs claude or 9router" >&2; exit 1 ;; esac ;;
     --slots) shift; export FACTORY_NODE_SLOTS="${1:-}" ;;
-    *) echo "Usage: $0 [--check] [--agents codex|claude] [--lead claude|9router] [--slots N]" >&2; exit 1 ;;
+    --api-models) shift; API_MODELS="${1:-}" ;;
+    *) echo "Usage: $0 [--check] [--agents codex|claude] [--lead claude|9router] [--slots N] [--api-models m1,m2]" >&2; exit 1 ;;
   esac
   shift
 done
@@ -77,11 +80,17 @@ case "${FACTORY_LISTEN_HOST:-127.0.0.1}" in
      if [ "${#login_token}" -ge 24 ]; then ok "network access on $FACTORY_LISTEN_HOST, sign-in with FACTORY_LOGIN_TOKEN (value not shown)"
      else bad "FACTORY_LOGIN_TOKEN (24+ characters) is required when FACTORY_LISTEN_HOST is a network address: put it in $ENV_FILE"; fi ;;
 esac
+if [ -n "$API_MODELS" ]; then
+  [ -n "${NINE_ROUTER_API_KEY:-}" ] && ok "api-agent models: $API_MODELS (through the Host model proxy)" \
+    || bad "NINE_ROUTER_API_KEY (api-agent needs it for the model proxy)"
+fi
 if [ "$fail" -ne 0 ]; then echo "Preflight failed: nothing started." >&2; exit 1; fi
 if [ "$CHECK" -eq 1 ]; then echo "Preflight passed. Start without --check to run the Host."; exit 0; fi
 
 # OpenCode, its sandbox and the model proxy stay off: none of their variables reach the Host.
 unset FACTORY_RUNTIME FACTORY_OPENCODE_DIR FACTORY_PROXY_SOCKET FACTORY_PROXY_PORT FACTORY_AGENT_MODELS FACTORY_LEAD_MAX_OUTPUT_TOKENS
+# --api-models turns on the loopback model proxy only for api-agent agents (no OpenCode, no sandbox).
+if [ -n "$API_MODELS" ]; then export FACTORY_AGENT_MODELS="$API_MODELS" FACTORY_GATEWAY_URL="${FACTORY_GATEWAY_URL:-https://ai.lazy.local/v1}"; fi
 mkdir -p "$ROOT/workspaces" "$ROOT/worktrees" "$ROOT/state"
 export FACTORY_LOCAL_CLI=1 FACTORY_DEFAULT_AGENT_CLI="$AGENTS"
 # Lead on the Claude Code CLI login, or (FACTORY_LEAD_CLI unset) through the 9Router chat gateway with NINE_ROUTER_API_KEY.
