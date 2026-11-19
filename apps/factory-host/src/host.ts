@@ -89,7 +89,7 @@ import { createRequestHandlers, REQUEST_COMMANDS } from "./requests/commands.js"
 import { createDossierHandlers } from "./dossier/commands.js";
 import { createBriefingMcp } from "./dossier/mcp.js";
 import { backfillPackSnapshots, followPackUpdates } from "./instructions/snapshot.js";
-import { importPacksToLibrary, registerLibraryRoutes } from "./library/index.js";
+import { createLibraryHandlers, importPacksToLibrary, LIBRARY_COMMANDS, registerLibraryRoutes } from "./library/index.js";
 import { migrateProjectsToRosters } from "./org/roster-migration.js";
 import { createSkillsMcp } from "./instructions/mcp.js";
 import { createToolPolicy } from "./mcp/policy.js";
@@ -812,6 +812,7 @@ export async function startHost(options: {
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
       ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
       ...createAgentHandlers(),
+      ...createLibraryHandlers(),
       ...workflowHandlers,
       "projects.archive": createProjectsArchiveHandler({ cancelWorkflow: workflowHandlers["workflows.cancel"]!,
         projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") }),
@@ -925,6 +926,7 @@ export async function startHost(options: {
           ...STANDING_COMMANDS,
           "seats.set-runtime",
           ...AGENT_COMMANDS,
+          ...LIBRARY_COMMANDS,
           ...(options.multiTeam ? [...ORG_COMMANDS.filter((command) => command !== "seats.set-runtime"), ...REQUEST_COMMANDS] : []),
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],
