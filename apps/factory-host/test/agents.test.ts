@@ -89,6 +89,14 @@ test("update projects the next revision and rejects a stale seat revision", (t) 
     [{ revision: 1, note: null }, { revision: 2, note: "new runtime" }]);
 });
 
+test("update with an unchanged configuration creates no revision", (t) => {
+  const { raw, create, execute } = fixture(t);
+  const agentId = create({ ...baseConfig, runtime: { adapter: "codex" } });
+  assert.deepEqual(accepted(execute("agents.update", { agentId, expectedRevision: 1, config: { ...baseConfig, runtime: { adapter: "codex" } } })),
+    [{ kind: "seat", id: agentId, revision: 1 }]);
+  assert.equal((raw.prepare("SELECT count(*) AS n FROM agent_revisions WHERE agent_id = ?").get(agentId) as { n: number }).n, 1);
+});
+
 test("create rejects unavailable adapter, unknown tools and missing skills without a roster side effect", (t) => {
   const { raw, execute, newId, roster } = fixture(t);
   const agentId = newId();

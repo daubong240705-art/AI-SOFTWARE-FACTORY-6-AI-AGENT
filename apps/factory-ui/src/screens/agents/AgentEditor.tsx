@@ -53,7 +53,7 @@ export function AgentEditor({ api, projectId, detail, library, initial, template
       setErrors(paths); setTab(tabFor(paths[0] ?? '')); return;
     }
     setErrors([]);
-    void writer.run(() => detail ? agentsUpdate({ projectId, agentId: detail.id, expectedRevision: draft.revision!, config: parsed.data, ...(note.trim() ? { note: note.trim() } : {}) }) : agentsCreate({ projectId, config: parsed.data, teamIds: [], isLead: false, ...(template ? { template } : {}) }), afterWrite);
+    void writer.run(() => detail ? agentsUpdate({ projectId, agentId: detail.id, expectedRevision: draft.revision!, config: parsed.data, ...(note.trim() ? { note: note.trim() } : {}) }) : agentsCreate({ projectId, config: parsed.data, teamIds: [], isLead: false, ...(template ? { template } : {}) }), close);
   };
   const blocked = writer.busy || !!loading || stale || !!awaiting;
   const rollback = (revision: number) => { if (detail && !blocked) void writer.run(() => agentsRollback({ projectId, agentId: detail.id, expectedRevision: draft.revision!, toRevision: revision }), afterWrite); };

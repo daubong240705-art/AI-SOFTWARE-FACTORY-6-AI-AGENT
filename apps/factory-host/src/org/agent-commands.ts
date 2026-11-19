@@ -1,5 +1,5 @@
 import type { Database } from "better-sqlite3";
-import type { AgentRelation, EntityRef } from "@factory/contracts";
+import { agentConfigSchema, type AgentRelation, type EntityRef } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerContext, HandlerMap } from "../commands/pipeline.js";
 import { agentRevision, currentAgentConfig, ensureRoster, getAgent, getGroup, groupIdsForAgent, parseAgentConfig,
@@ -146,6 +146,10 @@ export function createAgentHandlers(): Pick<HandlerMap, typeof AGENT_COMMANDS[nu
       const agent = requireAgent(ctx.raw, projectId, payload.agentId);
       checkRevision(agent.revision, payload.expectedRevision);
       if (agent.status === "archived") throw new CommandError("conflict", "archived agent cannot be updated", "correct-input");
+      // Saving an unchanged configuration is a no-op: no new revision, nothing to re-pin.
+      const current = currentAgentConfig(ctx.raw, agent.id);
+      if (current && JSON.stringify(agentConfigSchema.parse(payload.config)) === JSON.stringify(current.config))
+        return { effects: [seatEffect(agent.id, agent.revision)] };
       const revision = writeAgentRevision(ctx.raw, { agentId: agent.id, projectId, config: payload.config,
         actorId: ctx.actorId, clock: ctx.clock, existing: agent, ...(payload.note === undefined ? {} : { note: payload.note }) });
       return { effects: [seatEffect(agent.id, revision)] };
