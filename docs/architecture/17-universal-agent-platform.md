@@ -701,3 +701,12 @@ Thứ tự có chủ đích: **U1 trước U4** vì workflow v2 tham chiếu age
 | Stage | Node | |
 | Lead (cố định mỗi team) | Bất kỳ agent có quyền giao việc; node Orchestrate | |
 | Cross-Team Request | Giao việc trực tiếp trong project; CTR cho xuyên project | |
+
+---
+
+## Phụ lục B · Việc còn mở sau U4-0 (19/11/2026)
+
+Bộ chuyển đổi v1 → v2 (`packages/factory-contracts/src/flow-convert.ts`) cho ra đồ thị hợp lệ với mọi workflow trong `packs/`, nhưng còn hai điểm lệch ngữ nghĩa phải sửa cùng engine U4, kèm test so sánh nhánh với engine v1:
+
+1. **Bước bị bỏ qua phải nối vòng.** Ở v1, stage bị `skipIf`/`includeIf` loại vẫn tính là "xong" cho các stage sau. Ở v2, cổng `else` của Condition `<stage>-if` phải nối thẳng tới các node kế tiếp của stage đó; nếu không, cơ chế lan truyền bỏ qua (§8.4 bước 1) sẽ bỏ luôn các bước sau.
+2. **Điều kiện làm lại từ fact.** Cạnh `rework` dùng fact (`review.verdict`, `check.result`) chưa thành `until` của Loop. Cách sửa: node Agent của bước QA khai báo `outputSchema` có `verdict`, bộ chuyển đổi sinh Condition trên `nodes.<qa>.output.verdict` để chọn giữa `loopBack` và đi tiếp.
