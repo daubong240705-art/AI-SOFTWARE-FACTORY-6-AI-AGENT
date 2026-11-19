@@ -67,7 +67,7 @@ async function smoke() {
   assert.ok(session && csrf, 'Open login did not establish a session');
   if (mode === 'create') {
     const projectId = randomUUID();
-    const root = join(home, 'projects', 'install-smoke');
+    const root = join(home, 'workspaces', 'install-smoke');
     mkdirSync(root, { recursive: true });
     execFileSync('git', ['init', '-q', root]);
     execFileSync('git', ['-C', root, 'commit', '-q', '--allow-empty', '-m', 'Smoke fixture']);
