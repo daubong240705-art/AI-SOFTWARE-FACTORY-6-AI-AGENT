@@ -203,3 +203,10 @@ export const agentTeamsDeletePayloadSchema = z.strictObject({ teamId: idSchema, 
 export const relationsSetPayloadSchema = z.strictObject({
   expectedRevision: z.number().int().min(0), relations: z.array(agentRelationSchema).max(2_000),
 });
+
+export const agentTemplateDetailSchema = z.strictObject({
+  template: agentTemplateSummarySchema,
+  revision: revisionSchema,
+  config: agentConfigSchema,
+});
+export type AgentTemplateDetail = z.infer<typeof agentTemplateDetailSchema>;
