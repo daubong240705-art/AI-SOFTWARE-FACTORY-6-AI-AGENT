@@ -51,7 +51,7 @@ export function AgentEditor({ api, projectId, detail, library, initial, template
   const invalid = (path: string) => errors.some(issue => issue === path || issue.startsWith(`${path}.`)) ? t('invalid') : undefined;
   const afterWrite = () => { if (detail) setAwaiting(detail); else close(); };
   const save = () => {
-    if (stale || templateStale || loading || awaiting || config.runtime.adapter === 'api-agent' || tab === 'history') return;
+    if (stale || templateStale || loading || awaiting || tab === 'history') return;
     const input: AgentConfigInput = { ...config, runtime: { ...config.runtime, model: config.runtime.model?.trim() || null } };
     const parsed = agentConfigSchema.safeParse(input);
     if (!parsed.success) {
@@ -66,7 +66,7 @@ export function AgentEditor({ api, projectId, detail, library, initial, template
   const rollback = (revision: number) => { if (detail && projectId && !blocked) void writer.run(() => agentsRollback({ projectId, agentId: detail.id, expectedRevision: draft.revision!, toRevision: revision }), afterWrite); };
   const set = <T extends keyof AgentConfig>(key: T, value: AgentConfig[T]) => setDraft(previous => ({ ...previous, config: { ...previous.config, [key]: value } }));
   const editorHelp = templateMode ? libraryLabel('templateEditorHelp') : t('editorHelp');
-  return <AdminDialog wide title={templateMode?.title ?? (detail ? `${t('edit')}: ${detail.name}` : t('create'))} description={editorHelp} close={close} busy={writer.busy} onSubmit={save} footer={<DialogButtons close={close} label={t('save')} busy={writer.busy} disabled={blocked || config.runtime.adapter === 'api-agent' || tab === 'history'} />}>
+  return <AdminDialog wide title={templateMode?.title ?? (detail ? `${t('edit')}: ${detail.name}` : t('create'))} description={editorHelp} close={close} busy={writer.busy} onSubmit={save} footer={<DialogButtons close={close} label={t('save')} busy={writer.busy} disabled={blocked || tab === 'history'} />}>
     {templateMode ? <LibraryError error={writer.error} stale={templateStale} /> : <ErrorText error={writer.error} />}
     <ErrorText error={readError} />
     {(stale || awaiting || readError) && <div className="flex flex-wrap items-center gap-2 text-sm" role="status">
@@ -88,7 +88,7 @@ export function AgentEditor({ api, projectId, detail, library, initial, template
       <StringList key={`tags:${draft.revision}`} field="tags" values={config.tags} limit={16} set={values => set('tags', values)} invalid={invalid('tags')} />
     </TabsContent>
     <TabsContent value="runtime" className="grid gap-4 sm:grid-cols-2">
-      <Field label={t('fields.adapter')} invalid={invalid('runtime.adapter')} hint={t('futureAdapter')}>{props => <Choice {...props} value={config.runtime.adapter} onChange={event => set('runtime', { ...config.runtime, adapter: agentAdapterSchema.parse(event.target.value) })}>{agentAdapterSchema.options.map(adapter => <option key={adapter} value={adapter} disabled={adapter === 'api-agent'}>{adapter === 'api-agent' ? t('futureAdapter') : adapter}</option>)}</Choice>}</Field>
+      <Field label={t('fields.adapter')} invalid={invalid('runtime.adapter')} hint={t('adapterHint')}>{props => <Choice {...props} value={config.runtime.adapter} onChange={event => set('runtime', { ...config.runtime, adapter: agentAdapterSchema.parse(event.target.value) })}>{agentAdapterSchema.options.map(adapter => <option key={adapter} value={adapter}>{t(`adapters.${adapter}`)}</option>)}</Choice>}</Field>
       <Field label={t('fields.model')} invalid={invalid('runtime.model')} hint={t('default')}>{props => <Input {...props} value={config.runtime.model ?? ''} onChange={event => set('runtime', { ...config.runtime, model: event.target.value || null })} maxLength={256} />}</Field>
       <Field label={t('fields.effort')}>{props => <Choice {...props} value={config.runtime.effort ?? ''} onChange={event => set('runtime', { ...config.runtime, effort: (event.target.value || null) as AgentConfig['runtime']['effort'] })}><option value="">{t('default')}</option>{(['low', 'medium', 'high', 'xhigh'] as const).map(value => <option key={value} value={value}>{t(`effort.${value}`)}</option>)}</Choice>}</Field>
       <Field label={t('fields.permission')} hint={config.runtime.permission === 'autonomous' ? t('autonomousWarning') : undefined}>{props => <Choice {...props} value={config.runtime.permission} onChange={event => set('runtime', { ...config.runtime, permission: event.target.value as AgentConfig['runtime']['permission'] })}><option value="workspace-write">{t('permission.workspace-write')}</option><option value="autonomous">{t('permission.autonomous')}</option></Choice>}</Field>

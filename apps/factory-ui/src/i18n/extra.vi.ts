@@ -28,7 +28,7 @@ export const extra: Translated<typeof en> = {
     effort: { low: 'Thấp', medium: 'Vừa', high: 'Cao', xhigh: 'Rất cao' },
     assignment: { none: 'Không ai', relations: 'Agent có quan hệ', team: 'Thành viên trong đội', project: 'Agent trong dự án' },
     tagHelp: 'Dùng 1–40 ký tự: chữ thường, số, dấu chấm hoặc gạch nối. Bắt đầu bằng chữ hoặc số.',
-    autonomousWarning: 'Chế độ tự chủ có thể thao tác ngoài vùng làm việc. Chỉ bật cho agent bạn tin cậy.', futureAdapter: 'api-agent (có ở U3)', projectDefault: 'Theo dự án',
+    autonomousWarning: 'Chế độ tự chủ có thể thao tác ngoài vùng làm việc. Chỉ bật cho agent bạn tin cậy.', adapterHint: 'Cách agent được chạy. Claude Code/Codex/OpenCode có shell và sửa file; api-agent chỉ gọi model và công cụ (hợp cho nghiên cứu, viết, phân tích; cần Host bật --api-models).', adapters: { 'claude-code': 'Claude Code (CLI)', codex: 'Codex (CLI)', opencode: 'OpenCode (sandbox)', 'api-agent': 'api-agent (gọi model + công cụ)', fake: 'Giả lập (không tốn token)' }, projectDefault: 'Theo dự án',
     defaultTools: 'Dùng bộ công cụ mặc định', toolPattern: 'Mẫu tên công cụ', toolMode: 'Quyền truy cập', allow: 'Cho phép', deny: 'Từ chối',
     librarySkill: 'Chọn kỹ năng', noSkills: 'Chưa gán kỹ năng nào.', skillVersion: 'Phiên bản kỹ năng {name}', latest: 'Mới nhất', pinVersion: 'Ghim phiên bản',
     historyHelp: 'Chọn một phiên bản để so sánh với cấu hình đã lưu.', current: 'Hiện tại', noDiff: 'Cấu hình không có khác biệt.',

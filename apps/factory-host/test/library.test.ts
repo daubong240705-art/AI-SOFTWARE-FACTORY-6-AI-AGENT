@@ -30,7 +30,7 @@ test("imports the software-team skills and a template with pinned skills for eac
     assert.equal(skill.created, true);
     const file = pack.files.skills.find(({ name }) => name === skill.name)!;
     const version = getSkillVersion(raw, skill.skillId, 1);
-    assert.equal(version?.description, pack.manifest.description);
+    assert.equal(version?.description, (file.description.trim() || pack.manifest.description).slice(0, 1_024));
     assert.equal(version?.sha256, createHash("sha256").update(file.content).digest("hex"));
   }
   for (const template of templates) {

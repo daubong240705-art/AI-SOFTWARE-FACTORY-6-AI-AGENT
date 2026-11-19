@@ -25,7 +25,7 @@ export const extra = {
     effort: { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra high' },
     assignment: { none: 'Nobody', relations: 'Related agents', team: 'Team members', project: 'Project agents' },
     tagHelp: 'Use 1–40 lowercase letters, digits, dots, or hyphens; start with a letter or digit.',
-    autonomousWarning: 'Autonomous mode may act outside the workspace. Enable it only for agents you trust.', futureAdapter: 'api-agent (available in U3)', projectDefault: 'Inherit from project',
+    autonomousWarning: 'Autonomous mode may act outside the workspace. Enable it only for agents you trust.', adapterHint: 'How the agent runs. Claude Code/Codex/OpenCode have a shell and edit files; api-agent only calls the model and tools (good for research, writing, analysis; the Host needs --api-models).', adapters: { 'claude-code': 'Claude Code (CLI)', codex: 'Codex (CLI)', opencode: 'OpenCode (sandbox)', 'api-agent': 'api-agent (model + tools)', fake: 'Simulated (no tokens)' }, projectDefault: 'Inherit from project',
     defaultTools: 'Use the default tool set', toolPattern: 'Tool pattern', toolMode: 'Access', allow: 'Allow', deny: 'Deny',
     librarySkill: 'Choose a skill', noSkills: 'No skills assigned.', skillVersion: 'Skill version for {name}', latest: 'Latest', pinVersion: 'Pin version',
     historyHelp: 'Choose a revision to compare with the saved configuration.', current: 'Current', noDiff: 'No configuration differences.',

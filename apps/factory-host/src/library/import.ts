@@ -63,16 +63,20 @@ function importPack(raw: Database, pack: LoadedPack, deps: LibraryDeps, warnings
         continue;
       }
       const name = skillName(file.name);
+      // The skill's own frontmatter description; the pack description only when the skill has none.
+      const skillDescription = (file.description.trim() || description).slice(0, 1_024);
       const existing = lookupSkill.get(name, source);
       const hash = createHash("sha256").update(file.content, "utf8").digest("hex");
       if (existing?.sha256 === hash) {
+        // Rows imported before this fix carried the pack description: correct them in place (no new version).
+        raw.prepare("UPDATE skills SET description = ? WHERE id = ? AND description = ?").run(skillDescription, existing.id, description);
         result.skills.push({ name, skillId: existing.id, version: existing.version, created: false });
         continue;
       }
       const skillId = existing?.id ?? idSchema.parse(deps.newId());
       const version = (existing?.version ?? 0) + 1;
-      if (!existing) insertSkill.run(skillId, name, description, source, now, now);
-      insertVersion.run(skillId, version, name, description, file.content, hash, now);
+      if (!existing) insertSkill.run(skillId, name, skillDescription, source, now, now);
+      insertVersion.run(skillId, version, name, skillDescription, file.content, hash, now);
       if (existing) advanceSkill.run(version, now, skillId);
       result.skills.push({ name, skillId, version, created: true });
     }
