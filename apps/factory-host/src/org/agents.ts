@@ -79,12 +79,11 @@ function ensureRosterEngagement(raw: Database, projectId: string, teamId: string
       VALUES (?, ?, ?, 1, 60, 4, 'active', ?)`).run(projectId, deps.newId(), teamId, deps.clock().toISOString());
 }
 
-function seatRuntime(adapter: AgentConfig["runtime"]["adapter"]): { runtime: "acp" | "native-opencode" | "fake"; cli: "claude" | "codex" | null } {
+function seatRuntime(adapter: AgentConfig["runtime"]["adapter"]): { runtime: "acp" | "native-opencode" | "fake" | "api-agent"; cli: "claude" | "codex" | null } {
   if (adapter === "claude-code") return { runtime: "acp", cli: "claude" };
   if (adapter === "codex") return { runtime: "acp", cli: "codex" };
   if (adapter === "opencode") return { runtime: "native-opencode", cli: null };
-  if (adapter === "fake") return { runtime: "fake", cli: null };
-  throw new CommandError("unsupported", "runtime adapter api-agent is not available yet", "correct-input");
+  return { runtime: adapter, cli: null };
 }
 
 export function writeAgentRevision(raw: Database, input: {
@@ -116,7 +115,7 @@ export function writeAgentRevision(raw: Database, input: {
   }
   raw.prepare(`INSERT INTO agent_revisions (agent_id, revision, config_json, actor_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
     .run(input.agentId, revision, configJson, input.actorId, input.note ?? null, now);
-  if (runtime.runtime === "fake") raw.prepare("DELETE FROM seat_runtime_config WHERE seat_id = ?").run(input.agentId);
+  if (runtime.runtime === "fake" || runtime.runtime === "api-agent") raw.prepare("DELETE FROM seat_runtime_config WHERE seat_id = ?").run(input.agentId);
   else raw.prepare(`INSERT INTO seat_runtime_config (seat_id, revision, runtime, cli, model, effort, permission, updated_at)
     VALUES (?, 1, ?, ?, ?, ?, ?, ?) ON CONFLICT(seat_id) DO UPDATE SET revision=seat_runtime_config.revision + 1, runtime=excluded.runtime,
     cli=excluded.cli, model=excluded.model, effort=excluded.effort, permission=excluded.permission, updated_at=excluded.updated_at`)
