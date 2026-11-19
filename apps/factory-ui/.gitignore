@@ -2,3 +2,4 @@ node_modules/
 dist/
 src/styles/tokens.css
 public/fonts/
+.audit/
