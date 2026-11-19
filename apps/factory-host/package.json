@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": { "factory": "dist/cli/factory.js" },
   "description": "Factory V2 control plane (Host): storage, events, API. Independent of V1.",
   "engines": {
     "node": ">=22.20.0"
