@@ -71,7 +71,7 @@ async function checkModel(input: DoctorInput): Promise<DoctorCheck> {
   const base = input.config.FACTORY_MODEL_BASE_URL ?? input.config.FACTORY_GATEWAY_URL;
   const provider = input.config.FACTORY_MODEL_PROVIDER;
   const key = input.config.FACTORY_MODEL_API_KEY ?? input.config.NINE_ROUTER_API_KEY;
-  if (provider === "none" || !base) return fail("D-MODEL", "required", "chưa cấu hình nhà cung cấp model.", "Đặt FACTORY_MODEL_BASE_URL nếu dùng Lead qua API hoặc api-agent.");
+  if (provider === "none" || !base) return fail("D-MODEL", "optional", "Chưa cấu hình nhà cung cấp model (cần cho Lead chat và agent api-agent).", "Chạy: factory setup");
   try {
     const models = await probeModels(base, key, input.fetch);
     if (models.length === 0) return fail("D-MODEL", "required", "Nhà cung cấp không có model nào.", "Kiểm tra quyền API và danh sách model.");
@@ -112,9 +112,12 @@ export async function runDoctor(input: DoctorInput): Promise<DoctorReport> {
   const nodeOk = node.code === 0 && version !== null && (Number(version[1]) > 22 || (Number(version[1]) === 22 && Number(version[2]) >= 20));
   checks.push(nodeOk ? pass("D-NODE", "required", `Node.js ${version![0]}.`) : fail("D-NODE", "required", "Node.js phải từ 22.20 trở lên.", "Cài Node.js 22.20 hoặc mới hơn."));
   checks.push(state);
-  checks.push(git.code === 0 && name.code === 0 && Boolean(name.stdout.trim()) && email.code === 0 && Boolean(email.stdout.trim())
-    ? pass("D-GIT", "required", "Git và danh tính commit đã cấu hình.")
-    : fail("D-GIT", "required", "Git hoặc danh tính commit chưa sẵn sàng.", "Cài Git và cấu hình git config --global user.name/user.email."));
+  // The Host commits agent work with its own identity ("Factory"), so only the git binary is required.
+  const identity = name.code === 0 && Boolean(name.stdout.trim()) && email.code === 0 && Boolean(email.stdout.trim());
+  checks.push(git.code !== 0
+    ? fail("D-GIT", "required", "Chưa cài Git.", "Cài Git bằng trình quản lý gói của hệ điều hành.")
+    : pass("D-GIT", "required", identity ? "Git sẵn sàng." : "Git sẵn sàng; Host tự dùng danh tính commit \"Factory\".",
+      identity ? undefined : "Chưa đặt git config --global user.name/user.email; chỉ cần khi bạn tự commit."));
   const listenHost = input.config.FACTORY_LISTEN_HOST?.trim() || "127.0.0.1";
   const portError = input.running ? undefined : await checkPort(input.port, listenHost);
   checks.push(portError === undefined ? pass("D-PORT", "required", input.running ? "Host đang chạy trên cổng cấu hình." : "Cổng Host còn trống.")
