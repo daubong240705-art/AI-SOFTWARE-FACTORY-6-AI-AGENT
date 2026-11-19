@@ -535,3 +535,26 @@ test('toy modules have no runtime path to work commands or networking', async ()
     }
   }
 });
+
+test('toy reactions are additive, finite, spring back, and expire without changing work pose', async () => {
+  const { reactToToy } = await import('../characters/reaction');
+  const base = { y: 0, sx: 1, sy: 1, sz: 1, rx: 0.12, ry: 0, rz: 0, closed: false, effect: null, effectY: 0, sparkle: 1 };
+  const { tools, ToyStore } = await import('../scene/toys/store');
+  for (const tool of tools) {
+    const reaction = { tool, started: 10000 };
+    for (let age = 0; age < 2000; age += 17) {
+      const result = reactToToy(base, reaction, 10000 + age);
+      assert(Object.values(result.frame).filter(v => typeof v === 'number').every(Number.isFinite));
+      assert(result.frame.sx > 0 && result.frame.sy > 0 && result.frame.sz > 0);
+    }
+    assert.deepEqual(reactToToy(base, reaction, 12000).frame, base);
+  }
+  assert.equal(base.sy, 1);
+  assert(reactToToy(base, { tool: 'hammer', started: 10000 }, 10750).frame.sy < 0.25);
+  assert(reactToToy(base, { tool: 'hammer', started: 10000 }, 11250).frame.y > 0.3);
+  assert(reactToToy(base, { tool: 'whip', started: 10000 }, 10850).x > 0.2);
+  assert(reactToToy(base, { tool: 'taser', started: 10000 }, 10800).ears > 0.9);
+  assert.equal(reactToToy(base, undefined, 10800).flash, false);
+  const store = new ToyStore(); store.spin(); store.spin();
+  assert.equal(store.snapshot().oiiaSpins, 2); assert.equal(store.snapshot().active.length, 0);
+});

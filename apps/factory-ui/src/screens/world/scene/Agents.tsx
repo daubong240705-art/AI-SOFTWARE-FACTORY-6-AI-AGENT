@@ -242,7 +242,7 @@ export function Agents({ employee, events, courier, celebration, agents, baselin
       return <group key={agent.seatId}>
         <group ref={node => { if (node) groups.current.set(agent.seatId, node); else groups.current.delete(agent.seatId); }} position={placement.position}>
           <ToyWorker effect={toy} still={!toyMotion} low={quality === 'low' || effects === 'lite'}>
-          <CharacterRig spec={specForSeat(agent.seatName, agent.isLead)} pose={celebrants.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} speed={toyMotion && toy?.tool === 'megaphone' ? 2 : 1} />
+          <CharacterRig reaction={toyMotion ? toy : undefined} spec={specForSeat(agent.seatName, agent.isLead)} pose={celebrants.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} speed={toyMotion && toy?.tool === 'megaphone' ? 2 : 1} />
           </ToyWorker>
           {effects !== 'off' && agent.slot === 0 && (employee === agent.ownerSeatId || employee === agent.seatId) && <Employee low={quality === 'low' || effects === 'lite'} />}
           {!hidden && <Aura agent={{ ...agent, pose: placement.pose }} boost={toyMotion && (toy?.tool === 'coffee' || toy?.tool === 'whip' && agent.status === 'working') ? 1 : 0} level={effects} quality={quality} still={still || hidden} floorOffset={-placement.position[1]} />}

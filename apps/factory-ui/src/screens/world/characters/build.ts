@@ -198,6 +198,12 @@ function geometryFor(spec: CharacterSpec): Cached {
   silhouette(parts, part(parts.solid, body, spec.face.mask ? spec.colors.inner : spec.colors.body, [0, 0.4, 0], [1.1, 0.88, 0.86]));
   ears(spec, parts); face(spec, parts); accessories(spec, parts);
   const geometries = { solid: combine(parts.solid), hull: combine(parts.silhouette), open: combine(parts.open), closed: combine(parts.closed) };
+  // Shared morph lifts only the ear/hair tips; each rig owns its influence.
+  for (const geometry of [geometries.solid, geometries.hull]) {
+    const source = geometry.getAttribute('position'), raised = source.clone();
+    for (let i = 0; i < source.count; i++) raised.setY(i, source.getY(i) + Math.max(0, source.getY(i) - 0.8) * 0.9);
+    geometry.morphAttributes.position = [raised];
+  }
   cache.set(spec.code, geometries); return geometries;
 }
 /** New group per seat; rigid geometry and all four materials are shared across codes/poses. +Z is the face direction. */

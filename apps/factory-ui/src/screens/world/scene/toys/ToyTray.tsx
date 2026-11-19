@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useT } from '@/i18n';
 import { icons, tools, toys, type Tool } from './store';
 import { useToys } from './useToys';
-import { tone } from './sound';
+import { tone, unlockSound } from './sound';
 export function playToy(worker: string, tool: Tool, quiet: boolean) {
   if (toys.apply(worker, tool, quiet) && toys.snapshot().sound && !quiet) tone(tool);
 }
@@ -39,7 +39,7 @@ export function ToyTray({ selected, quiet }: { selected: string | null; quiet: b
     {state.open && <div className="world-toy-tray" role="group" aria-label={t('worldUi.toys.title')}>
       <p>{t('worldUi.toys.note')}</p>
       <div className="world-toy-tools">{tools.map((tool, i) => <Button key={tool} variant={state.tool === tool ? 'default' : 'outline'} size="sm" aria-pressed={state.tool === tool} onClick={() => toys.select(state.tool === tool ? null : tool)}>{i + 1} {icons[tool]} {t(`worldUi.toys.${tool}`)}</Button>)}</div>
-      <Button variant="ghost" size="sm" aria-pressed={state.sound} onClick={toys.mute}>{t(state.sound ? 'worldUi.toys.soundOn' : 'worldUi.toys.soundOff')}</Button>
+      <Button variant="ghost" size="sm" aria-pressed={state.sound} onClick={() => { toys.mute(); if (toys.snapshot().sound) unlockSound(); }}>{t(state.sound ? 'worldUi.toys.soundOn' : 'worldUi.toys.soundOff')}</Button>
       <Button variant="ghost" size="sm" onClick={() => toys.select(null)}>{t('worldUi.toys.pointer')}</Button>
       <p>{t('worldUi.toys.keyboard')}</p>
       {state.tool && <p role="status">{t(state.tool === 'whip' ? 'worldUi.toys.whipCount' : 'worldUi.toys.count').replace('{tool}', t(`worldUi.toys.${state.tool}`)).replace('{count}', String(state.counts[state.tool] ?? 0))}</p>}

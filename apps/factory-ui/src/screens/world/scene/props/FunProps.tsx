@@ -12,6 +12,8 @@ import { worldCopy, type WorldLocale } from '../../copy';
 import { useWorldMotion } from '../Ticker';
 import type { AgentPositions } from '../Agents';
 import { colouredGeometry, type Piece } from './geometry';
+import { OiiaCat } from './OiiaCat';
+import type { EffectsLevel } from '../effects/Aura';
 import { achievements, daylight, propIds, setCatPettable } from './state';
 
 const ignore = () => {};
@@ -80,8 +82,9 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
     { color: '#F1CB9A', shape: 'sphere', at: [0.25, 0.4, 0], size: [0.31, 0.3, 0.3] },
     ...[-1, 1].map(side => ({ color: '#DEB181', shape: 'cone' as const, at: [0.25, 0.58, side * 0.09] as const, size: [0.14, 0.2, 0.12] as const })),
     ...[-1, 1].map(side => ({ color: '#3D454C', shape: 'sphere' as const, at: [0.385, 0.43, side * 0.075] as const, size: [0.025, 0.045, 0.028] as const })),
-    { color: '#9E7656', shape: 'sphere', at: [-0.34, 0.29, 0], size: [0.3, 0.12, 0.12] },
+    ...[-1, 1].flatMap(x => [-1, 1].map(z => ({ color: '#DEB181', at: [x * 0.19, 0.08, z * 0.1] as const, size: [0.08, 0.16, 0.08] as const }))),
   ]); cat.name = 'office-cat'; cat.position.set(-15.8, 0.8, 12.2);
+  const tail = mesh([{ color: '#9E7656', shape: 'sphere', at: [-0.13, 0, 0], size: [0.32, 0.1, 0.1] }]); tail.name = 'office-cat-tail'; group.remove(tail); cat.add(tail); tail.position.set(-0.25, 0.29, 0);
   const ball = instance(sphere, '#FFF8E7', 1); ball.name = 'ping-pong-ball'; ball.count = 0;
   const lamp = instance(sphere, '#FFD888', desks.length, 0.25);
   desks.forEach((desk, i) => put(lamp, i, [desk.position[0] + 0.65, 1.25, desk.position[1] + 0.18], [0.27, 0.15, 0.25])); updateInstances(lamp);
@@ -146,7 +149,10 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
         const crowded = [...state.positions.current.values()].some(p => Math.hypot(p[0] - position.position[0], p[1] - position.position[2]) < 0.75);
         if (!crowded) {
           if (catBlockedAt !== null) { catPaused += clock - catBlockedAt; catBlockedAt = null; }
-          cat.position.set(...position.position); cat.rotation.y = position.yaw + Math.PI / 2;
+          cat.position.set(...position.position);
+          // hopAlong yaw faces +Z; the cat's head and eyes face +X.
+          if (!position.done) cat.rotation.set(0, position.yaw - Math.PI / 2, 0);
+          if (!position.done) cat.position.y = 0.04 + Math.abs(Math.sin(clock * 9)) * 0.025;
         } else if (catBlockedAt === null) catBlockedAt = clock;
         if (position.done && !crowded) { catTrip = null; catDue = clock + (petting ? 8 : 15); }
       }
@@ -155,6 +161,8 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
       if (petting && catAnchor === 'cat-perch' && !catTrip) catDue = clock + 10;
       if (!catTrip && catAnchor === 'rest-1' && !petting) { cat.position.set(-15.8, 0.8, 12.2); cat.scale.set(1, 0.65, 1); } else cat.scale.set(1, 1, 1);
     }
+    tail.rotation.y = moving && catTrip && catBlockedAt === null ? Math.sin(clock * 9) * 0.4 : 0;
+    cat.rotation.x = 0; cat.rotation.z = 0;
     updateInstances(fish, steam, leaves, ball);
   };
   sample(0, false);
@@ -162,7 +170,7 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
   return { group, paint, sample, clock: () => time, dispose() { setCatPettable(false); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); texture.dispose(); group.traverse(o => { if (o instanceof THREE.InstancedMesh) o.dispose(); }); } };
 }
 
-export function FunProps({ model, reports, quality, still, hidden, debug, positions, locale }: State & { quality: 'high' | 'low'; still: boolean; hidden: boolean }) {
+export function FunProps({ effects, model, reports, quality, still, hidden, debug, positions, locale }: State & { effects: EffectsLevel; quality: 'high' | 'low'; still: boolean; hidden: boolean }) {
   const [resource, setResource] = useState<ReturnType<typeof makeFunProps> | null>(null);
   const current = useRef(resource); current.current = resource;
   const motion = useWorldMotion(), invalidate = useThree(s => s.invalidate);
@@ -177,5 +185,5 @@ export function FunProps({ model, reports, quality, still, hidden, debug, positi
   useEffect(() => { if (!hidden && !still) return motion.request('ambient'); }, [hidden, still, motion]);
   useEffect(() => { if (still) resource?.sample(0, false); }, [still, resource]);
   useFrame(() => { if (!hidden && !still) current.current?.sample(performance.now() / 1000, true); });
-  return resource && !hidden ? <primitive object={resource.group} /> : null;
+  return resource && !hidden ? <><primitive object={resource.group} /><OiiaCat still={still} off={effects === 'off'} low={quality === 'low' || effects === 'lite'} /></> : null;
 }

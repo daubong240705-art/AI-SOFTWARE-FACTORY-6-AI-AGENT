@@ -3,12 +3,12 @@ export const tools = ['whip', 'taser', 'coffee', 'hammer', 'feather', 'megaphone
 export type Tool = typeof tools[number];
 export const icons: Record<Tool, string> = { whip: '〰', taser: 'ϟ', coffee: '☕', hammer: '🔨', feather: '🪶', megaphone: '📣', cookie: '🍪' };
 export type ToyEffect = Readonly<{ worker: string; tool: Tool; started: number; until: number; quiet: boolean }>;
-export type ToySnapshot = Readonly<{ tool: Tool | null; open: boolean; sound: boolean; day: string; counts: Readonly<Partial<Record<Tool, number>>>; active: readonly ToyEffect[] }>;
+export type ToySnapshot = Readonly<{ tool: Tool | null; open: boolean; sound: boolean; oiiaSpins: number; day: string; counts: Readonly<Partial<Record<Tool, number>>>; active: readonly ToyEffect[] }>;
 export const localDay = (now: Date) => `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
 const key = 'factory-ui.world.toys.v1';
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>;
 export class ToyStore {
-  private state: ToySnapshot = { tool: null, open: false, sound: false, day: '', counts: {}, active: [] };
+  private state: ToySnapshot = { tool: null, open: false, sound: false, oiiaSpins: 0, day: '', counts: {}, active: [] };
   private listeners = new Set<() => void>();
   private cooldown = new Map<string, number>();
   private storage: Storage | undefined;
@@ -42,6 +42,7 @@ export class ToyStore {
   open = (open: boolean) => this.update({ open, tool: open ? this.state.tool : null });
   select = (tool: Tool | null) => this.update({ tool });
   mute = () => this.update({ sound: !this.state.sound }, true);
+  spin = () => this.update({ oiiaSpins: this.state.oiiaSpins + 1 });
   clear = () => { this.cooldown.clear(); this.update({ active: [], tool: null, open: false }); };
   apply(worker: string, tool: Tool, quiet: boolean, now = Date.now()) {
     this.refresh(now);

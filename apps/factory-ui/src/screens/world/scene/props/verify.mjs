@@ -84,3 +84,33 @@ const quietTracker = new LabEventTracker(); quietTracker.observe([], [bug], 1, t
 quietTracker.positions.set('b', { x: 12, z: -5 }); quietTracker.observe([defeated], [], 2, true);
 assert.equal(quietTracker.struck, 0); assert.equal(quietTracker.exits.length, 0); assert.equal(quietTracker.puffs.length, 0);
 console.log('QA gong/bug exits: event-only, once, expires, still/off suppression PASS');
+
+const { toyModels } = await import('../toys/models.ts');
+for (const [name, geometry] of Object.entries(toyModels)) {
+  assert.equal(geometry.groups.length, 0, `${name}: one merged draw`);
+  for (const attribute of Object.values(geometry.attributes)) assert(Array.from(attribute.array).every(Number.isFinite));
+}
+const { sampleOiia, oiiaModel } = await import('./OiiaCat.tsx');
+assert.equal(oiiaModel.groups.length, 0);
+assert(Math.abs(sampleOiia(4).yaw - Math.PI * 32) < 1e-9, 'spin settles to its original facing');
+assert.equal(sampleOiia(4).bow, 0); assert(sampleOiia(3.8).bow > 0.25);
+const speedAt = t => (sampleOiia(t + 0.001).yaw - sampleOiia(t).yaw) / 0.001;
+assert(speedAt(0.4) > speedAt(0.1)); assert(speedAt(3.5) < speedAt(3.1));
+const { furnitureFootprints, oiiaSpot } = await import('../../layout/zones.ts');
+const { layout } = await import('../../layout/waypoints.ts');
+assert.deepEqual(furnitureFootprints.find(f => f.id === 'oiia-cat').position, oiiaSpot);
+assert.equal(layout.blockedEdges, 0);
+// +X is the office cat's nose; after the yaw correction it must align with hopAlong's +Z tangent.
+const { Vector3 } = await import('three');
+const props = makeFunProps(false, noop);
+props.paint({ model, reports: {}, debug, positions, locale: 'en' }, new Date());
+props.sample(10, true); props.sample(10.2, true);
+const cat = props.group.getObjectByName('office-cat'), previous = cat.position.clone();
+props.sample(10.4, true);
+const travel = cat.position.clone().sub(previous); travel.y = 0; travel.normalize();
+assert(new Vector3(1, 0, 0).applyEuler(cat.rotation).dot(travel) > 0.98, 'cat walks nose first');
+assert.equal(cat.rotation.x, 0); assert.equal(cat.rotation.z, 0);
+assert.notEqual(cat.getObjectByName('office-cat-tail').rotation.y, 0);
+props.sample(0, false); assert.equal(cat.getObjectByName('office-cat-tail').rotation.y, 0);
+props.dispose();
+console.log('W-18: merged toys, spin acceleration/braking/bow, footprint, blockedEdges=0, cat facing/upright/walk cycle PASS');

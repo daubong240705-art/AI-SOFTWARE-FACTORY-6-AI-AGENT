@@ -111,7 +111,7 @@ export function Aura({ agent, level, quality, still, boost = 0, floorOffset = 0 
   if (!kind) return null;
   if (lite) return <mesh geometry={ring} material={ink(flat, boost ? 1 : 0.75)} position={[0, floorOffset + 0.035, 0]} rotation={[-Math.PI / 2, 0, 0]} raycast={ignore} />;
   if (kind === 'flame' || kind === 'super') return <group>
-    <mesh geometry={shell} material={ink(color, 0.3)} scale={[1, height, 1]} raycast={ignore} />
+    <mesh geometry={shell} material={ink(color, boost ? 0.5 : 0.3)} scale={[1, height, 1]} raycast={ignore} />
     <instancedMesh ref={first} args={[tongue, ink(kind === 'super' ? '#FFF3A6' : color, 0.94), 5]} raycast={ignore} />
     <instancedMesh ref={second} args={[tongue, ink(color, 0.38), 5]} raycast={ignore} />
     <instancedMesh ref={particles} args={[kind === 'super' ? star : bubble, ink('#FFD36A'), 6]} raycast={ignore} />

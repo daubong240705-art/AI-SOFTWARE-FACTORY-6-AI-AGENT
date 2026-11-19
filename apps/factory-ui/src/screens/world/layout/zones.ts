@@ -58,6 +58,7 @@ export const rugs = [
   { position: [-13.6, 10.7] as Point, size: [8, 5.6] as Point, color: '#F2B8A9' },
 ];
 // Floor-standing additions are also navigation obstacles; wall/desktop details need no footprint.
+export const oiiaSpot: Point = [-10.1, 10.6];
 export const loungeProps = { snack: [-17.2, 6.7] as Point, tv: [-11.2, 8] as Point, beanbags: [[-10.8, 12.3], [-11.8, 9.2]] as readonly Point[] };
 export const walkwayLanes: readonly (readonly [Point, Point])[] = [
   [[-17.5, -1], [17.7, -1]], [[-8, -13], [-8, 13.4]], [[8, -13], [8, 13.4]], [[-8, -7.75], [8, -7.75]],
@@ -66,6 +67,7 @@ export const laneJunctions: readonly Point[] = [[-8, -1], [8, -1], [-8, -7.75], 
 export const navigationBounds = { x: [-17.7, 17.8], z: [-13.7, 13.7] } as const;
 export type Footprint = { id: string; position: Point; half: Point; yaw: number; radius?: number };
 export const furnitureFootprints: Footprint[] = [
+  { id: 'oiia-cat', position: oiiaSpot, half: [0.5, 0.5], radius: 0.5, yaw: 0 },
   { id: 'server-rack', position: funProps.server, half: [0.45, 0.4], yaw: 0 },
   { id: 'aquarium', position: funProps.aquarium, half: [1.2, 0.5], yaw: 0 },
   { id: 'ping-pong', position: funProps.pingPong, half: [1.5, 0.8], yaw: 0 },

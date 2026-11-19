@@ -77,6 +77,6 @@ export function Studio(props: StudioProps) {
     <TestingLab games={model.hotProjects} reports={reports} quality={quality} still={still} locale="en" />
     <BugMonsters effects={props.effects} bugs={model.bugs} bugOverflow={model.bugOverflow} events={events} games={model.hotProjects} scopeKey={String(scopeKey)} quality={quality} still={funStill} locale="en" onSelectBug={props.onBug} locations={props.locations} />
     <Gallery items={model.gallery} events={events} baselineReady={props.baseline} quality={quality} still={funStill} locale="en" onSelectRelease={props.onRelease} onCelebrate={props.onCelebrate} />
-    <FunProps model={model} reports={reports} quality={quality} still={still} hidden={props.hidden} debug={props.debug} positions={props.positions} locale={i18n.locale} />
+    <FunProps effects={props.effects} model={model} reports={reports} quality={quality} still={still} hidden={props.hidden} debug={props.debug} positions={props.positions} locale={i18n.locale} />
   </group>;
 }

@@ -12,7 +12,7 @@ export const emptyIntegration = (): IntegrationStats => ({ cards: { todo: 0, doi
 export type SceneDebug = { integration: IntegrationStats; agents: AgentDebug[]; characters: { built: number; drawCallsPerCharacter: number; sharedMaterials: number }; director: { transitions: number }; props: string[] };
 export const emptyScene = (): SceneDebug => ({ integration: emptyIntegration(), agents: [], characters: { built: 0, drawCallsPerCharacter: 0, sharedMaterials: 0 }, director: { transitions: 0 }, props: [] });
 export type WorldDebugSnapshot = Readonly<{
-  toys: { tool: import('./scene/toys/store').Tool | null; active: readonly { worker: string; tool: import('./scene/toys/store').Tool; until: number }[]; counts: Readonly<Partial<Record<import('./scene/toys/store').Tool, number>>> };
+  toys: { oiiaSpins: number; tool: import('./scene/toys/store').Tool | null; active: readonly { worker: string; tool: import('./scene/toys/store').Tool; until: number }[]; counts: Readonly<Partial<Record<import('./scene/toys/store').Tool, number>>> };
   version: 1; mode: 'loading' | '3d' | 'fallback'; fallbackReason: FallbackReason | null;
   camera: CameraState; layout: typeof layout; locate: (kind: 'agent' | 'owner' | 'zone' | 'card' | 'bug' | 'frame', id?: string) => { x: number; y: number } | null;
   counts: { agents: number; drawnAgents: number; overflow: number } & Pick<IntegrationStats, 'cards' | 'handoffsActive' | 'handoffsSeen' | 'bugs' | 'galleryFrames'>;
