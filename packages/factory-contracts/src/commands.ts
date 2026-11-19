@@ -7,6 +7,10 @@ import { modelSettingsSetSchema } from "./model-settings.js";
 import { z } from "zod";
 import { seatRuntimeInputSchema } from "./org.js";
 import {
+  flowsCreatePayloadSchema, flowsSaveDraftPayloadSchema, flowsPublishPayloadSchema, flowsArchivePayloadSchema, flowsImportV1PayloadSchema,
+  flowRunsStartPayloadSchema, flowRunsPausePayloadSchema, flowRunsResumePayloadSchema, flowRunsCancelPayloadSchema, flowRunsRetryNodePayloadSchema,
+} from "./flow-api.js";
+import {
   agentsCreatePayloadSchema, agentsUpdatePayloadSchema, agentsClonePayloadSchema, agentsSetStatusPayloadSchema,
   agentsSetLeadPayloadSchema, agentsRollbackPayloadSchema, agentsDeletePayloadSchema, agentTeamsCreatePayloadSchema,
   agentTeamsUpdatePayloadSchema, agentTeamsDeletePayloadSchema, relationsSetPayloadSchema,
@@ -243,6 +247,17 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("templates.delete", templatesDeletePayloadSchema),
   command("agents.upgrade-from-template", agentsUpgradeFromTemplatePayloadSchema),
   command("agents.save-as-template", agentsSaveAsTemplatePayloadSchema),
+  // U4: Workflow v2 (doc 17 §8).
+  command("flows.create", flowsCreatePayloadSchema),
+  command("flows.save-draft", flowsSaveDraftPayloadSchema),
+  command("flows.publish", flowsPublishPayloadSchema),
+  command("flows.archive", flowsArchivePayloadSchema),
+  command("flows.import-v1", flowsImportV1PayloadSchema),
+  command("flow-runs.start", flowRunsStartPayloadSchema),
+  command("flow-runs.pause", flowRunsPausePayloadSchema),
+  command("flow-runs.resume", flowRunsResumePayloadSchema),
+  command("flow-runs.cancel", flowRunsCancelPayloadSchema),
+  command("flow-runs.retry-node", flowRunsRetryNodePayloadSchema),
   command("seats.update", z.strictObject({
     ...change, seatId: idSchema, slots: z.number().int().min(1).max(8).optional(),
   })),
