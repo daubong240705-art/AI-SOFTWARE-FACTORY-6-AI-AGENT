@@ -1,0 +1,290 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2016
+set -euo pipefail
+umask 077
+
+wrapper=$HOME/.local/bin/factory
+default_home=$HOME/.factory
+if [[ -f ${wrapper}.home ]]; then IFS= read -r default_home < "${wrapper}.home"; fi
+FACTORY_HOME=${FACTORY_HOME:-$default_home}
+export FACTORY_HOME
+if [[ ! -d $FACTORY_HOME ]]; then echo "Factory chưa được cài tại $FACTORY_HOME" >&2; exit 3; fi
+NODE_DIR=
+if [[ -f $FACTORY_HOME/node-path ]]; then IFS= read -r NODE_DIR < "$FACTORY_HOME/node-path"; fi
+if [[ -z $NODE_DIR || ! -x $NODE_DIR/node ]]; then NODE_DIR=$FACTORY_HOME/node/bin; fi
+NODE=$NODE_DIR/node
+[[ -x $NODE ]] || { echo 'Không tìm thấy Node.js; chạy lại scripts/install.sh.' >&2; exit 3; }
+export PATH="${NODE_DIR}:$HOME/.local/bin:$PATH"
+
+config=$FACTORY_HOME/config/factory.env
+read_config() {
+  local wanted=$1 line key value found=
+  [[ -f $config ]] || return 0
+  while IFS= read -r line || [[ -n $line ]]; do
+    [[ -z $line || $line == \#* ]] && continue
+    [[ $line == *=* ]] || continue
+    key=${line%%=*}; value=${line#*=}
+    [[ $key == "$wanted" ]] || continue
+    [[ $key =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    found=${value%$'\r'}
+  done < "$config"
+  printf '%s' "${found:-}"
+}
+extra_ca=$(read_config NODE_EXTRA_CA_CERTS || true)
+if [[ -n $extra_ca && -f $extra_ca ]]; then export NODE_EXTRA_CA_CERTS=$extra_ca; fi
+host_dir=$FACTORY_HOME/app/apps/factory-host
+host=$host_dir/dist/main.js
+cli=$FACTORY_HOME/app/apps/factory-host/dist/cli/factory.js
+pidfile=$FACTORY_HOME/run/host.pid
+logfile=$FACTORY_HOME/logs/host.log
+unit=factory.service
+plist=$HOME/Library/LaunchAgents/com.factory.host.plist
+unit_file=$HOME/.config/systemd/user/$unit
+label=com.factory.host
+domain=gui/$(id -u)
+marker=factory-managed:$FACTORY_HOME
+
+has_cli() { [[ -f $cli ]]; }
+run_cli() {
+  if ! has_cli; then echo 'SKIPPED: cli not built' >&2; return 3; fi
+  exec "$NODE" "$cli" "$@"
+}
+service_kind() {
+  if [[ -f $unit_file ]] && command -v systemctl >/dev/null 2>&1 && systemctl --user show-environment >/dev/null 2>&1; then echo systemd; return; fi
+  if command -v launchctl >/dev/null 2>&1 && [[ -f $plist ]]; then echo launchd; return; fi
+  echo pidfile
+}
+run_host() {
+  local mode=${1:-service} output='' args=()
+  if [[ ! -f $host_dir/config/factory.env.example ]]; then args+=("--env-file=$config"); fi
+  if [[ $mode == pidfile || $(uname -s) == Darwin ]]; then output=$logfile; fi
+  exec "$NODE" --input-type=module -e '
+    import { spawn } from "node:child_process";
+    import { appendFileSync, existsSync, renameSync, statSync } from "node:fs";
+    import { createInterface } from "node:readline";
+    const [, , log, ...args] = process.argv;
+    const child = spawn(process.execPath, args, { stdio: ["ignore", "pipe", "pipe"] });
+    for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => child.kill(sig));
+    for (const [input, output] of [[child.stdout, process.stdout], [child.stderr, process.stderr]]) {
+      createInterface({ input }).on("line", (line) => {
+        if (/bootstrap token/i.test(line)) return;
+        for (const [key, value] of Object.entries(process.env)) {
+          if (value && /(?:KEY|TOKEN|SECRET|PASSWORD|WEBHOOK)/i.test(key)) line = line.replaceAll(value, "[REDACTED]");
+        }
+        if (!log) { output.write(`${line}\n`); return; }
+        if (existsSync(log) && statSync(log).size + Buffer.byteLength(line) + 1 > 10 * 1024 * 1024) {
+          for (let index = 2; index >= 0; index--) {
+            const old = index ? `${log}.${index}` : log;
+            if (existsSync(old)) renameSync(old, `${log}.${index + 1}`);
+          }
+        }
+        appendFileSync(log, `${line}\n`, { mode: 0o600 });
+      });
+    }
+    child.on("error", () => { console.error("Không chạy được Factory Host."); process.exitCode = 4; });
+    child.on("close", (code) => { process.exitCode = code ?? 4; });
+  ' "$marker" "$output" ${args[@]+"${args[@]}"} "$host"
+}
+pid_alive() {
+  [[ -s $pidfile ]] && IFS= read -r pid < "$pidfile" && [[ $pid =~ ^[1-9][0-9]*$ ]] &&
+    [[ $(ps -ww -p "$pid" -o command= 2>/dev/null) == *" $marker "* ]]
+}
+start_pid() {
+  [[ -f $host ]] || { echo "Thiếu Host: $host" >&2; return 4; }
+  if pid_alive; then echo "Factory đang chạy (PID $(cat "$pidfile"))."; return 0; fi
+  mkdir -p -- "$FACTORY_HOME/run" "$FACTORY_HOME/logs"
+  rm -f -- "$pidfile"
+  nohup "$wrapper" __run pidfile </dev/null >/dev/null 2>&1 &
+  printf '%s\n' "$!" > "$pidfile"
+  sleep 1
+  pid_alive || { echo 'Host không khởi động được; log 40 dòng cuối:' >&2; tail -40 "$logfile" >&2 || true; return 4; }
+  echo "Factory đã chạy (PID $(cat "$pidfile"))."
+}
+stop_pid() {
+  if ! pid_alive; then rm -f -- "$pidfile"; echo 'Factory không chạy.'; return 0; fi
+  kill "$(cat "$pidfile")" 2>/dev/null || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do pid_alive || break; sleep 1; done
+  if pid_alive; then echo 'Host chưa dừng sau 10 giây.' >&2; return 4; fi
+  rm -f -- "$pidfile"; echo 'Factory đã dừng.'
+}
+wait_health() {
+  local endpoint deadline=$((SECONDS+60))
+  endpoint=$(url)/health
+  while ((SECONDS < deadline)); do
+    if curl --noproxy '*' --max-time 1 -fsS "$endpoint" 2>/dev/null | "$NODE" -e 'let data=""; process.stdin.on("data",c=>data+=c); process.stdin.on("end",()=>{try{const r=JSON.parse(data);process.exitCode=r.ok===true&&r.apiVersion===1?0:1}catch{process.exitCode=1}})'; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
+install_service() {
+  local template_dir=$1 autostart=$2 template rendered kind active=0
+  case $(uname -s) in
+    Darwin) kind=launchd; rendered=$plist; template=$template_dir/$label.plist
+      if launchctl print "$domain/$label" 2>/dev/null | grep -q 'state = running'; then active=1; fi;;
+    Linux) kind=systemd; rendered=$unit_file; template=$template_dir/$unit
+      if ! command -v systemctl >/dev/null || ! systemctl --user show-environment >/dev/null 2>&1; then
+        echo 'Không có systemd user session; chạy factory start thủ công.'; return 0
+      fi
+      if systemctl --user is-active --quiet "$unit"; then active=1; fi;;
+    *) return 2;;
+  esac
+  mkdir -p -- "${rendered%/*}" || return 4
+  python3 - "$template" "$rendered" "$kind" "$FACTORY_HOME" "$wrapper" "$autostart" <<'PY' || return 4
+import os, sys, tempfile
+from pathlib import Path
+from xml.sax.saxutils import escape
+
+source, target, kind, root, wrapper, start = sys.argv[1:]
+def unit_quote(value):
+    return '"' + value.replace('\\', '\\\\').replace('"', '\\"').replace('%', '%%').replace('$', '$$') + '"'
+values = {'@HOME@': escape(root), '@WRAPPER@': escape(wrapper), '@AUTOSTART@': 'true' if start == '1' else 'false'}
+if kind == 'systemd':
+    values = {'@HOME@': unit_quote('FACTORY_HOME=' + root).replace('$$', '$'), '@WRAPPER@': unit_quote(wrapper).replace('$$', '$')}
+from re import sub
+text = sub(r'@(?:HOME|WRAPPER|AUTOSTART)@', lambda match: values[match[0]], Path(source).read_text())
+with tempfile.NamedTemporaryFile(dir=Path(target).parent, delete=False) as file:
+    file.write(text.encode())
+os.replace(file.name, target)
+PY
+  if pid_alive; then stop_pid || return; active=1; fi
+  if [[ $kind == systemd ]]; then
+    systemctl --user daemon-reload && systemctl --user enable "$unit" || return 4
+    if [[ $active == 1 ]]; then systemctl --user restart "$unit" || return 4
+    elif [[ $autostart == 1 ]]; then systemctl --user start "$unit" || return 4; fi
+    printf 'Cho máy chủ: loginctl enable-linger %s\n' "$(id -un)"
+  else
+    if launchctl print "$domain/$label" >/dev/null 2>&1; then launchctl bootout "$domain/$label" || return 4; fi
+    launchctl enable "$domain/$label" && launchctl bootstrap "$domain" "$plist" || return 4
+    if [[ $active == 1 && $autostart == 0 ]]; then launchctl kickstart "$domain/$label" || return 4; fi
+  fi
+}
+has_provider() {
+  local provider gateway
+  provider=${FACTORY_MODEL_PROVIDER:-$(read_config FACTORY_MODEL_PROVIDER)}
+  gateway=${FACTORY_MODEL_BASE_URL:-$(read_config FACTORY_MODEL_BASE_URL)}
+  [[ -n $gateway || -n ${FACTORY_GATEWAY_URL:-$(read_config FACTORY_GATEWAY_URL)} || ( -n $provider && $provider != none ) ]]
+}
+url() {
+  local listen port
+  listen=${FACTORY_LISTEN_HOST:-$(read_config FACTORY_LISTEN_HOST)}
+  port=${FACTORY_PORT:-$(read_config FACTORY_PORT)}
+  case $listen in ''|0.0.0.0) listen=127.0.0.1;; ::) listen='[::1]';; *:*) listen="[$listen]";; esac
+  printf 'http://%s:%s' "$listen" "${port:-8787}"
+}
+state_dir() {
+  local state
+  state=${FACTORY_STATE_DIR:-$(read_config FACTORY_STATE_DIR)}
+  printf '%s\n' "${state:-$FACTORY_HOME/state}"
+}
+backup() {
+  local state dest
+  state=$(state_dir)
+  [[ -f $state/host.db ]] || { echo 'Chưa có DB để sao lưu.' >&2; return 4; }
+  dest=$(mktemp -d "$FACTORY_HOME/backup.XXXXXXXX") || return 4
+  if ! "$NODE" - "$host_dir" "$state/host.db" "$dest/host.db" <<'JS'
+const [host, source, target] = process.argv.slice(2);
+const requireHost = require('node:module').createRequire(`${host}/package.json`);
+const db = new (requireHost('better-sqlite3'))(source, { readonly: true, fileMustExist: true });
+db.backup(target).then(() => db.close(), () => { db.close(); process.exitCode = 1; });
+JS
+  then rm -rf -- "$dest"; echo 'Sao lưu DB thất bại.' >&2; return 4; fi
+  printf '%s\n' "$dest/host.db"
+}
+start_host() {
+  if pid_alive; then start_pid; return; fi
+  case $(service_kind) in
+    systemd) systemctl --user start "$unit";;
+    launchd)
+      if ! launchctl print "$domain/$label" >/dev/null 2>&1; then launchctl bootstrap "$domain" "$plist" || return; fi
+      launchctl kickstart "$domain/$label";;
+    pidfile) start_pid;;
+  esac
+}
+stop_host() {
+  if pid_alive; then stop_pid; return; fi
+  case $(service_kind) in
+    systemd) systemctl --user stop "$unit";;
+    launchd) if launchctl print "$domain/$label" >/dev/null 2>&1; then launchctl bootout "$domain/$label"; fi;;
+    pidfile) stop_pid;;
+  esac
+}
+restore() {
+  local state tool=$host_dir/dist/backup/cli.js
+  state=$(state_dir)
+  [[ -f $tool ]] || { echo 'Bản Host này không có CLI khôi phục; không ghi đè DB.' >&2; return 4; }
+  "$NODE" "$tool" restore "$1" "$state" --migrations "$host_dir/migrations"
+}
+swap_previous() { "$FACTORY_HOME/installer/install.sh" --internal-rollback "$FACTORY_HOME"; }
+upgrade() {
+  local source remote ref snapshot args=() result=0
+  { IFS= read -r source && IFS= read -r remote && IFS= read -r ref; } < "$FACTORY_HOME/app/.source" || return 4
+  if (($#)); then [[ $# == 2 && $1 == --ref && -n $2 ]] || return 2; ref=$2; fi
+  if [[ -n $remote ]]; then args+=(--git-url "$remote"); else args+=(--source "$source"); fi
+  if [[ -n $ref ]]; then args+=(--ref "$ref"); fi
+  stop_host || return 4
+  snapshot=
+  if [[ -f $(state_dir)/host.db ]]; then
+    snapshot=$(backup) || { start_host || true; return 4; }
+    printf 'Sao lưu DB: %s\n' "$snapshot"
+  fi
+  "$FACTORY_HOME/installer/install.sh" --prefix "$FACTORY_HOME" --yes --internal-upgrade "${args[@]}" || result=$?
+  if ((result)); then start_host || true; return "$result"; fi
+  if start_host && wait_health; then echo 'Nâng cấp thành công.'; return 0; fi
+  echo 'Bản mới không khỏe; khôi phục app và DB trước nâng cấp.' >&2
+  stop_host && swap_previous || return 4
+  if [[ -n $snapshot ]]; then restore "$snapshot" || return 4; fi
+  start_host && wait_health && echo 'Đã chạy lại bản trước.' >&2
+  return 4
+}
+
+command=${1:-status}; shift || true
+case $command in
+  __run) run_host "$@";;
+  __has-provider) has_provider;;
+  __install-service) install_service "$@";;
+  __url) url;;
+  start) start_host;;
+  stop) stop_host;;
+  restart) stop_host; start_host;;
+  status)
+    if pid_alive; then printf 'running (PID %s)\n' "$(cat "$pidfile")"; exit 0; fi
+    case $(service_kind) in
+      systemd) systemctl --user is-active "$unit";;
+      launchd) launchctl print "$domain/$label" 2>/dev/null | awk '/state = running/{running=1} END{print running?"running":"stopped"; exit !running}' || exit 1;;
+      pidfile) echo stopped; exit 1;;
+    esac;;
+  logs)
+    if [[ $(service_kind) == systemd ]] && ! pid_alive; then
+      if [[ ${1:-} == -f ]]; then exec journalctl --user -u "$unit" -f; fi
+      exec journalctl --user -u "$unit" --no-pager -n 100
+    fi
+    if [[ ! -f $logfile ]]; then echo 'Chưa có log.'
+    elif [[ ${1:-} == -f ]]; then exec tail -F "$logfile"; else tail -100 "$logfile"; fi;;
+  doctor|setup|config) run_cli "$command" "$@";;
+  version) [[ -f $FACTORY_HOME/app/VERSION ]] && cat "$FACTORY_HOME/app/VERSION" || echo 'unknown';;
+  backup) backup;;
+  restore)
+    [[ $# == 1 && -f $1 ]] || { echo 'Usage: factory restore FILE' >&2; exit 2; }
+    stop_host; restore "$1";;
+  upgrade) upgrade "$@";;
+  rollback)
+    [[ -d $FACTORY_HOME/app.prev ]] || { echo 'Không có app.prev.' >&2; exit 4; }
+    stop_host; swap_previous; start_host;;
+  uninstall)
+    keep=1
+    if [[ ${1:-} == --keep-data ]]; then :
+    elif (($#)); then exit 2
+    elif [[ -t 0 ]] && read -r -p 'Xóa cấu hình và state? Gõ XOA: ' answer && [[ $answer == XOA ]] &&
+      read -r -p 'Xác nhận lần hai, gõ XOA: ' answer && [[ $answer == XOA ]]; then keep=0; fi
+    [[ $FACTORY_HOME != / && $FACTORY_HOME != "$HOME" && $FACTORY_HOME == "$default_home" ]] || exit 2
+    kind=$(service_kind); stop_host
+    if [[ $kind == systemd ]]; then systemctl --user disable "$unit"; fi
+    rm -f -- "$unit_file" "$plist" "$wrapper" "$wrapper.home"
+    if [[ $kind == systemd ]]; then systemctl --user daemon-reload; fi
+    if [[ $keep == 0 ]]; then
+      rm -rf -- "$FACTORY_HOME/config" "$FACTORY_HOME/state" "$FACTORY_HOME/projects" "$FACTORY_HOME/worktrees" "$FACTORY_HOME"/backup.*
+    fi
+    rm -rf -- "$FACTORY_HOME/app" "$FACTORY_HOME/app.prev" "$FACTORY_HOME/app.new" "$FACTORY_HOME/installer" "$FACTORY_HOME/node" "$FACTORY_HOME/node-path" "$FACTORY_HOME/run"
+    echo 'Đã gỡ Factory; dữ liệu còn lại được giữ nếu chọn --keep-data.';;
+  *) echo 'Usage: factory start|stop|restart|status|logs [-f]|doctor|setup|config show|path|upgrade [--ref REF]|rollback|backup|restore FILE|version|uninstall [--keep-data]' >&2; exit 2;;
+esac
