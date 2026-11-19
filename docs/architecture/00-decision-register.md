@@ -207,6 +207,27 @@ Nguồn: contracts 0.2.0 (commit `b9f541b`, nhánh `feature/m0-contracts-v2`).
 
 ---
 
+## 3G. Tái kiến trúc Universal Multi-Agent Platform (tài liệu 17, 19/11/2026)
+
+Chi tiết và lý do ở [17 · Universal Multi-Agent Platform](17-universal-agent-platform.md) §15.
+
+| ID | Quyết định | Phương án chọn | Trạng thái |
+|---|---|---|---|
+| U-01 | Hướng sản phẩm | Universal Multi-Agent Platform; game factory thành một extension | **Đã duyệt** (19/11/2026) |
+| U-02 | Cách làm | Refactor lõi hiện có, không viết lại (17 §1.2) | **Đã duyệt** (19/11/2026) |
+| U-03 | Nguồn cấu hình | DB + revision; `packs/` chỉ là template import/export; gỡ `FACTORY_PACK_FOLLOW` | **Đã duyệt** (19/11/2026) |
+| U-04 | Mô hình agent | Agent thuộc project; tái dùng qua template (sao chép mặc định, liên kết tùy chọn); bảng `seats` giữ làm định danh | **Đã duyệt** (19/11/2026) |
+| U-05 | Tổ chức | Đồ thị quan hệ `manages/reviews/collaborates/approves`; team tùy chọn | **Đã duyệt** (19/11/2026) |
+| U-06 | Workflow | Đồ thị node v2 + engine xác định trong Host; v1 đóng băng rồi gỡ; không dùng n8n/Temporal | **Đã duyệt** (19/11/2026) |
+| U-07 | Dữ liệu workflow | Một context JSON + tham chiếu artifact; biểu thức có giới hạn, không `eval` | **Đã duyệt** (19/11/2026) |
+| U-08 | Runtime | Thêm `api-agent` (worker process) và fallback runtime | **Đã duyệt** (19/11/2026) |
+| U-09 | Credential | Mã hóa bằng khóa trong `state/secret.key` hoặc env; chỉ ghi, không đọc qua API | **Đã duyệt** (19/11/2026) |
+| U-10 | Màn hình game/3D | Giữ chức năng; dời vào "Chế độ xem" và extension | **Đã duyệt** (19/11/2026) |
+| U-11 | Test | `node:test` cho engine và selector từ U0 | **Đã duyệt** (19/11/2026) |
+| U-12 | Thứ tự | U0 → U8 (17 §13); bắt đầu từ U0 + U1 | **Đã duyệt** (19/11/2026) |
+
+---
+
 ## 4. Quy tắc chọn sau spike Paperclip (cho D-02 và OSS-01)
 
 > **Hiện không áp dụng:** người dùng đã chọn tự xây Factory V2 và không chạy thử (07/11/2026). Giữ quy tắc này để dùng nếu chạy thử Paperclip tại mốc xét lại của D-02 (sau F2, hoặc khi F3 chậm đáng kể).
@@ -242,3 +263,5 @@ Dùng checklist ở [oss-options §2.5](oss-options.md).
 | 07/11/2026 | Duyệt Fastify (PD-6) và phát triển tự động bằng Codex (PD-7); hoàn tất mô-đun events và lớp bảo mật API của M1 |
 | 07/11/2026 | M1 hoàn tất về kỹ thuật (Host, Lead chat, UI, e2e); chờ người dùng dùng thử 2–3 ngày theo roadmap. Runbook: [docs/factory-v2-m1-runbook.md](../factory-v2-m1-runbook.md) |
 | 07/11/2026 | Push nhánh `feature/m0-contracts-v2` lên GitHub `origin`; bỏ qua dùng thử M1 và bắt đầu M2 (PD-8, PD-9); thêm tài liệu 09 |
+| 19/11/2026 | Tái kiến trúc thành Universal Multi-Agent Platform: thêm §3G (U-01..U-12) ở trạng thái Đề xuất chọn; tài liệu [17](17-universal-agent-platform.md) |
+| 19/11/2026 | Người dùng duyệt toàn bộ U-01..U-12 (gồm U-10); bắt đầu U0 + U1 |
