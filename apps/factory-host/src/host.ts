@@ -57,6 +57,7 @@ import { assertInside, canonicalRoots } from "./workspace/index.js";
 import { createWorkspaceProvider, type WorkspaceProvider } from "./dispatch/workspace-provider.js";
 import { canonicalPath, refuseMount } from "./workspace/paths.js";
 import { SANDBOX_RELAY_PORT } from "./sandbox/index.js";
+import { startRelay } from "./sandbox/relay-main.js";
 import { createContentStore, type ContentStore } from "./artifacts/content-store.js";
 import { approvalsDecideHandler, createApprovalsDecideHandler, expirePendingApprovals, requestAgentDecision, requestTaskReview, autoReviewTask } from "./approvals/service.js";
 import type { Timers } from "./dispatch/dispatcher.js";
@@ -101,6 +102,7 @@ import { createExtractionService, type ExtractionService } from "./documents/ser
 import { registerExtractionRoutes } from "./documents/routes.js";
 import { createAgentCliProbe } from "./runtimes/probe.js";
 import { createLocalCliRuntime } from "./runtimes/local-cli.js";
+import { createApiAgentRuntime } from "./runtimes/api-agent.js";
 import { validatePassEnv } from "./runtimes/local-cli-process.js";
 import Fastify from "fastify";
 
@@ -339,6 +341,7 @@ export async function startHost(options: {
   let workspace: WorkspaceProvider | null = null;
   let effects: EffectExecutor | null = null;
   let modelProxy: ReturnType<typeof createModelProxy> | undefined;
+  let modelRelay: Awaited<ReturnType<typeof startRelay>> | undefined;
   let proxy: { port: number; socketPath?: string; tokens: TokenRegistry } | null = null;
   let ownsSocket = false;
   let modelAccess: ModelAccess | undefined;
@@ -386,7 +389,7 @@ export async function startHost(options: {
       try { await runner?.stop(); } finally {
         try {
           proxy?.tokens.revokeAll();
-          try { await modelProxy?.close(); } finally {
+          try { await modelRelay?.close(); await modelProxy?.close(); } finally {
             if (ownsSocket && socketPath) {
               ownsSocket = false;
               try { await unlink(socketPath); }
@@ -645,7 +648,8 @@ export async function startHost(options: {
       modelAccess = { issue(input) {
         const approvedModels = effectiveModels().agentModels;
         const { token } = tokens.issue({ ...input, allowedModels: approvedModels });
-        return { token, models: [...approvedModels], baseUrl: `http://127.0.0.1:${modelPort}/v1`,
+        const mcpBaseUrl = `http://127.0.0.1:${modelPort}`;
+        return { token, models: [...approvedModels], baseUrl: `${mcpBaseUrl}/v1`, mcpBaseUrl,
           ...(socketPath === undefined ? {} : { socketPath }) };
       }, revoke: (attemptId) => tokens.revoke(attemptId) };
       const raw = storage.raw;
@@ -666,18 +670,18 @@ export async function startHost(options: {
         } catch { throw new Error("Proxy socket unavailable"); }
       }
       // Until the actual port is known the default allow-list rejects every request.
-      modelPort = socketPath === undefined ? listeningPort : SANDBOX_RELAY_PORT;
-      if (configured.allowedHosts === undefined) allowedHosts.push(`127.0.0.1:${modelPort}`, `localhost:${modelPort}`);
+      if (socketPath !== undefined && dispatcher) modelRelay = await startRelay({ listenPort: 0, socketPath });
+      modelPort = socketPath === undefined ? listeningPort : modelRelay?.port ?? SANDBOX_RELAY_PORT;
+      if (configured.allowedHosts === undefined) {
+        const sandboxPort = socketPath === undefined ? modelPort : SANDBOX_RELAY_PORT;
+        allowedHosts.push(`127.0.0.1:${sandboxPort}`, `localhost:${sandboxPort}`);
+      }
+      if (modelRelay) allowedHosts.push(`127.0.0.1:${modelRelay.port}`);
       proxy = { port: listeningPort, tokens, ...(socketPath === undefined ? {} : { socketPath }) };
       };
     }
     if (options.dispatch) {
       const { stepMs, adapters, ...config } = options.dispatch;
-      const registry = new RuntimeRegistry([
-        createFakeRuntime(stepMs === undefined ? {} : { stepMs }), ...(adapters ?? []), ...(options.runtimes ?? []),
-        ...(options.localCli?.enabled ? [createLocalCliRuntime({ codexCommand: localCliCommands.codex, claudeCommand: localCliCommands.claude,
-          ...(options.localCli.passEnv === undefined ? {} : { passEnv: options.localCli.passEnv }) })] : []),
-      ]);
       const raw = storage.raw;
       let roots: ReturnType<typeof canonicalRoots> | null = null;
       try { if (options.workspace) roots = canonicalRoots(options.workspace); }
@@ -700,7 +704,14 @@ export async function startHost(options: {
           revoke: (attemptId) => localTokens!.revoke(attemptId),
         };
       }
+      const registry = new RuntimeRegistry([
+        createFakeRuntime(stepMs === undefined ? {} : { stepMs }), ...(adapters ?? []), ...(options.runtimes ?? []),
+        ...(options.localCli?.enabled ? [createLocalCliRuntime({ codexCommand: localCliCommands.codex, claudeCommand: localCliCommands.claude,
+          ...(options.localCli.passEnv === undefined ? {} : { passEnv: options.localCli.passEnv }) })] : []),
+        ...(modelAccess === undefined ? [] : [createApiAgentRuntime()]),
+      ]);
       dispatch = createDispatcher({ storage, hub, registry, clock, config, dependencyCache, multiTeam: options.multiTeam ?? false,
+        defaultAgentModel: () => effectiveModels().leadModel,
         ...(options.timers === undefined ? {} : { timers: options.timers }),
         onInReview(input) {
           const policy = (raw.prepare("SELECT review_policy FROM tasks WHERE project_id = ? AND id = ?").get(input.projectId, input.taskId) as { review_policy: string } | undefined)?.review_policy;

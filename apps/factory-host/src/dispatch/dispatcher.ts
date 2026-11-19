@@ -1,4 +1,4 @@
-import { canRequeueAfterLeaseExpiry, type AttemptState, type Task } from "@factory/contracts";
+import { agentConfigSchema, canRequeueAfterLeaseExpiry, type AttemptState, type Task } from "@factory/contracts";
 import { writeAttemptInputs, type AttemptInputFile, type WrittenInput } from "../workspace/inputs.js";
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
@@ -27,6 +27,7 @@ import { getSeatRuntimeConfig } from "../org/runtime-config.js";
 import { LOCAL_CLI_FAILURES } from "../runtimes/failures.js";
 import { recordUsage } from "../policy/budget.js";
 import type { DependencyCache } from "../deps/cache.js";
+import { DEFAULT_LEAD_CONFIG } from "../lead/runner.js";
 
 export interface DispatcherConfig {
   /** Seats without an override and whose pack declares OpenCode run on this local CLI (FACTORY_DEFAULT_AGENT_CLI). */
@@ -88,6 +89,7 @@ export function createDispatcher(deps: {
   workspace?: WorkspaceProvider; projectRootFor?: (projectId: string) => string | null;
   dependencyCache?: DependencyCache;
   modelAccess?: ModelAccess;
+  defaultAgentModel?: () => string;
   /** Task inputs (artifact bytes) the Host copies into the attempt worktree before the agent starts. */
   attemptInputs?: (projectId: string, taskId: string) => AttemptInputFile[];
   /** CLI-native MCP servers for a seat (local CLI runtimes only). */
@@ -182,13 +184,20 @@ export function createDispatcher(deps: {
     const configuredAgent = seat !== undefined && seat.config_revision !== null;
     if (configuredAgent && (seat.status !== "active" || seat.project_id !== input.projectId))
       throw new CommandError("conflict", "agent is not active in this project", "correct-input");
-    const config = getSeatRuntimeConfig(raw, input.seatId) ?? (!configuredAgent && defaultAgentCli !== undefined && seat?.runtime === "native-opencode"
+    const apiAgent = seat?.runtime === "api-agent";
+    const agentRevision = apiAgent && configuredAgent ? raw.prepare("SELECT config_json FROM agent_revisions WHERE agent_id = ? AND revision = ?")
+      .get(input.seatId, seat.config_revision) as { config_json: string } | undefined : undefined;
+    const apiConfig = agentRevision ? agentConfigSchema.parse(JSON.parse(agentRevision.config_json)).runtime : undefined;
+    const config = apiAgent ? undefined : getSeatRuntimeConfig(raw, input.seatId) ?? (!configuredAgent && defaultAgentCli !== undefined && seat?.runtime === "native-opencode"
       ? { runtime: "acp" as const, cli: defaultAgentCli, model: null, effort: null, permission: "autonomous" as const } : undefined);
     // Without an override an unregistered seat runtime falls back to fake; an override must name a registered one.
-    const runtime = config?.runtime ?? (seat && registry.get(seat.runtime) ? seat.runtime : "fake");
-    const provider = config?.cli === "codex" ? "codex-cli" : config?.cli === "claude" ? "claude-cli" : "fake";
+    const runtime = apiAgent ? "api-agent" : config?.runtime ?? (seat && registry.get(seat.runtime) ? seat.runtime : "fake");
+    const provider = apiAgent ? "api-agent" : config?.cli === "codex" ? "codex-cli" : config?.cli === "claude" ? "claude-cli" : "fake";
+    const model = apiAgent ? apiConfig?.model ?? deps.defaultAgentModel?.() ?? DEFAULT_LEAD_CONFIG.model
+      : config?.model ?? (config ? "cli-default" : "fake");
+    const effort = apiConfig?.effort ?? config?.effort ?? "medium";
     const a = createAttempt(raw, { ...input, id: newId(), runtime, provider,
-      model: config?.model ?? (config ? "cli-default" : "fake"), effort: config?.effort ?? "medium", now: now() });
+      model, effort, now: now() });
     if (configuredAgent) {
       const captured = getSeatInstructions(raw, { seatId: input.seatId })!;
       const bytes = Buffer.byteLength(captured.profile) + Buffer.byteLength(JSON.stringify(captured.skills));
@@ -198,7 +207,8 @@ export function createDispatcher(deps: {
           captured.agentRevision, JSON.stringify(captured.skillVersions));
     }
     // Snapshot the override with the attempt, so queued work cannot change CLI mid-flight.
-    if (config) stateEvent(a, { to: "runtime-configured", agent: { ...(config.cli ? { cli: config.cli } : {}),
+    if (apiAgent) stateEvent(a, { to: "runtime-configured", agent: { model, effort, timeoutMinutes: apiConfig?.timeoutMinutes ?? 60 } });
+    else if (config) stateEvent(a, { to: "runtime-configured", agent: { ...(config.cli ? { cli: config.cli } : {}),
       model: config.model, effort: config.effort, permission: config.permission } });
     changed(a);
     return a;

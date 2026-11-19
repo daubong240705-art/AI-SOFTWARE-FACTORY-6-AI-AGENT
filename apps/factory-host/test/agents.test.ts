@@ -97,12 +97,10 @@ test("update with an unchanged configuration creates no revision", (t) => {
   assert.equal((raw.prepare("SELECT count(*) AS n FROM agent_revisions WHERE agent_id = ?").get(agentId) as { n: number }).n, 1);
 });
 
-test("create rejects unavailable adapter, unknown tools and missing skills without a roster side effect", (t) => {
+test("create rejects unknown tools and missing skills without a roster side effect", (t) => {
   const { raw, execute, newId, roster } = fixture(t);
   const agentId = newId();
   const request = (config: AgentConfigInput) => execute("agents.create", { agentId, config });
-  assert.equal(rejected(request({ ...baseConfig, runtime: { adapter: "api-agent" } }), "unsupported").message,
-    "runtime adapter api-agent is not available yet");
   assert.match(rejected(request({ ...baseConfig, tools: [{ mode: "allow", tool: "unknown.tool" }] }), "validation").message, /unknown\.tool/);
   assert.match(rejected(request({ ...baseConfig, skills: [{ skillId: newId(), version: "latest" }] }), "not-found").message, /skill not found/);
   assert.equal(roster(), undefined);
