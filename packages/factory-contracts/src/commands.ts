@@ -6,6 +6,11 @@ import { autonomyLevelSchema } from "./autonomy.js";
 import { modelSettingsSetSchema } from "./model-settings.js";
 import { z } from "zod";
 import { seatRuntimeInputSchema } from "./org.js";
+import {
+  agentsCreatePayloadSchema, agentsUpdatePayloadSchema, agentsClonePayloadSchema, agentsSetStatusPayloadSchema,
+  agentsSetLeadPayloadSchema, agentsRollbackPayloadSchema, agentsDeletePayloadSchema, agentTeamsCreatePayloadSchema,
+  agentTeamsUpdatePayloadSchema, agentTeamsDeletePayloadSchema, relationsSetPayloadSchema,
+} from "./agents.js";
 import { scheduleInputSchema, schedulePatchSchema } from "./schedule.js";
 import { workflowKeySchema, workflowPatchSchema } from "./workflow.js";
 import {
@@ -215,6 +220,18 @@ export const commandSchema = z.discriminatedUnion("type", [
   })),
   // Seats remain elastic; dedicated node assignment arrives in M4.
   command("seats.set-runtime", seatRuntimeInputSchema),
+  // U1 (doc 17 §5.7): project-scoped agents, teams and relations configured in the database.
+  command("agents.create", agentsCreatePayloadSchema),
+  command("agents.update", agentsUpdatePayloadSchema),
+  command("agents.clone", agentsClonePayloadSchema),
+  command("agents.set-status", agentsSetStatusPayloadSchema),
+  command("agents.set-lead", agentsSetLeadPayloadSchema),
+  command("agents.rollback", agentsRollbackPayloadSchema),
+  command("agents.delete", agentsDeletePayloadSchema),
+  command("teams.create", agentTeamsCreatePayloadSchema),
+  command("teams.update", agentTeamsUpdatePayloadSchema),
+  command("teams.delete", agentTeamsDeletePayloadSchema),
+  command("relations.set", relationsSetPayloadSchema),
   command("seats.update", z.strictObject({
     ...change, seatId: idSchema, slots: z.number().int().min(1).max(8).optional(),
   })),

@@ -45,6 +45,9 @@ export const entityKindSchema = z.enum([
   "notification",
   "standing-approval",
   "model-settings",
+  // U1: library entities.
+  "skill",
+  "agent-template",
 ]);
 export const entityRefSchema = z.strictObject({
   kind: entityKindSchema,
