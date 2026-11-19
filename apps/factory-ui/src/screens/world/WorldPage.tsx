@@ -2,8 +2,8 @@ import { WalkOverlay } from './scene/walk/WalkOverlay';
 import { initialWalk, type WalkTarget } from './scene/walk/state';
 import { toys } from './scene/toys/store';
 import { tone } from './scene/toys/sound';
-import { playToy } from './scene/toys/ToyTray';
-import { employeeOfDay } from './scene/toys/employee';
+import { WorldHotbar } from './WorldHotbar';
+import { playToy } from './scene/toys/playToy';
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { Project } from '@factory/contracts';
 import { Mascot } from '@/components/mascot/Mascot';
@@ -73,10 +73,8 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
   const reason: FallbackReason | null = preferences.mode === '2d' ? 'preference' : !capability.webgl2 ? 'webgl' : capability.narrow ? 'narrow'
     : capability.reducedMotion && !walking && preferences.mode !== '3d' ? 'reduced-motion' : error ? 'error' : null;
   const still = preferences.still || capability.reducedMotion;
-  const employee = employeeOfDay(data.interactions).worker;
   useEffect(() => () => toys.clear(), []);
   useEffect(() => { toys.clear(); }, [scope.current]);
-  const toySelect = (id: string) => { const tool = toys.snapshot().tool; if (tool) playToy(id, tool, still || preferences.effects === 'off'); else select(id); };
   const onReady = useCallback(() => setReady(true), []);
   const onError = useCallback(() => { setReady(false); stats.current = emptyRender; setError(true); }, []);
   const onRender = useCallback((value: RenderStats) => { stats.current = value; }, []);
@@ -87,6 +85,8 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
     const point = positions.current.get(id) ?? deskForAgent(agent)?.seat;
     if (point && !agent.overflow) camera.focusPoint(point, 70); else camera.follow(null);
   }, [data.model.agents, data.setFocusProjectId, camera, change]);
+  const toySelect = useCallback((id: string) => { const tool = toys.snapshot().tool; if (tool) playToy(id, tool, still || preferences.effects === 'off'); else select(id); }, [still, preferences.effects, select]);
+  const walkExit = useCallback(() => change({ view: 'iso' }), [change]);
   const openOwner = useCallback(() => { setSelectedBug(null); setSelectedRelease(null); setSelectedTask(null); setSelectedStage(null); setSelected('owner'); setHover(null); change({ lineup: false }); camera.focusPoint(ownerDesk.position, 70); }, [camera, change]);
   const close = () => { setSelected(null); setSelectedBug(null); setSelectedRelease(null); setSelectedTask(null); setSelectedStage(null); camera.follow(null); };
   const openBug = useCallback((bug: Bug) => { setSelected(null); setSelectedRelease(null); setSelectedTask(null); setSelectedStage(null); setSelectedBug(bug); setHover(null); camera.follow(null); }, [camera]);
@@ -106,7 +106,7 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
     }
     change({ view: walking ? 'iso' : 'walk', lineup: false });
   };
-  const onWalkInteract = (target: WalkTarget) => {
+  const onWalkInteract = useCallback((target: WalkTarget) => {
     if (target.kind === 'agent') select(target.id);
     else if (target.kind === 'owner') openOwner();
     else if (target.kind === 'task' && target.projectId) openTask(target.projectId, target.id);
@@ -114,7 +114,7 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
     else if (target.kind === 'cat') { toys.spin(false, true); if (toys.snapshot().sound && !still && preferences.effects !== 'off') tone('oiia'); }
     else if (target.kind === 'bug') { const bug = data.model.bugs.find(item => item.id === target.id); if (bug) openBug(bug); }
     else if (target.kind === 'release') { const item = data.model.gallery.find(item => item.releaseId === target.id); if (item) openRelease(item); }
-  };
+  }, [select, openOwner, openTask, openStage, openBug, openRelease, still, preferences.effects, data.model.bugs, data.model.gallery]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable="true"]')) return;
@@ -138,16 +138,17 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
     toys: { combo: toys.snapshot().combo, sulking: toys.snapshot().sulking, catSpin: toys.snapshot().catSpin, oiiaMegaSpins: toys.snapshot().oiiaMegaSpins, oiiaSpins: toys.snapshot().oiiaSpins, tool: toys.snapshot().tool, active: toys.snapshot().active.map(({ worker, tool, until }) => ({ worker, tool, until })), counts: toys.snapshot().counts },
     characters: reason ? emptyScene().characters : sceneDebug.current.characters, director: sceneDebug.current.director, props: reason || preferences.lineup ? [] : sceneDebug.current.props, baseline: data.baseline, sources: data.sources, selected: selectedTask ? `task:${selectedTask.taskId}` : selectedStage ? `stage:${selectedStage.key}` : selectedBug ? `bug:${selectedBug.id}` : selectedRelease ? `frame:${selectedRelease.releaseId}` : selected,
     locate: (kind, id) => reason || preferences.lineup && kind !== 'zone' ? null : locate.current?.(kind, id) ?? null }));
-  return <div className={`world-page${walking ? ' world-walking' : ''}`}>
+  return <div className={`world-page${walking ? ' world-walking' : ''}${panelOpen ? ' world-panel-open' : ''}`}>
     {reason ? <WorldFallback reason={reason} projects={projects} onNavigate={onNavigate} onSwitch={() => { setReady(false); change({ mode: '3d', ...(reason === 'reduced-motion' ? { still: true } : {}) }); }} onRetry={() => { setReady(false); setError(false); setAttempt(value => value + 1); }} /> : <>
       <div ref={mapRef} className="world-map" role="region" tabIndex={0} aria-label={t('worldUi.map')} aria-describedby={hintId}>
         <p id={hintId} className="sr-only">{t('worldUi.mapHint')}</p>
         <SceneErrorBoundary key={attempt} onError={onError}><Suspense fallback={<div className="world-loading" role="status"><Mascot seat="Lead" state="thinking" animated={false} /><span>{t('worldUi.loading')}</span></div>}>
-          <WorldCanvas onWalkExit={() => change({ view: 'iso' })} walking={walking} walk={walk} paused={panelOpen} onWalkInteract={onWalkInteract} employee={employee} events={data.events} reports={data.reports} scopeKey={scope.current} locations={locations} courier={courier} celebration={celebration} onTask={openTask} onStage={openStage} onBug={openBug} onRelease={openRelease} onCelebrate={celebrate} onEventsConsumed={data.consumeEvents} model={data.model} baseline={data.baseline} lineup={!walking && preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={toySelect} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
+          <WorldCanvas onWalkExit={walkExit} walking={walking} walk={walk} paused={panelOpen} onWalkInteract={onWalkInteract} events={data.events} reports={data.reports} scopeKey={scope.current} locations={locations} courier={courier} celebration={celebration} onTask={openTask} onStage={openStage} onBug={openBug} onRelease={openRelease} onCelebrate={celebrate} onEventsConsumed={data.consumeEvents} model={data.model} baseline={data.baseline} lineup={!walking && preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={toySelect} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
         </Suspense></SceneErrorBoundary>
         {walking && <WalkOverlay state={walk} positions={positions} paused={panelOpen} agents={data.model.agents} />}
       </div>
-      <div className="world-left"><WorldToolbar canWalk={canWalk} walking={walking} onWalk={toggleWalk} showActivity={showWalkActivity} onActivity={() => setShowWalkActivity(value => !value)} selected={agent?.seatId ?? null} quiet={still || preferences.effects === 'off'} preferences={preferences} onChange={patch => { if (patch.lineup && walking) patch = { ...patch, view: 'iso' }; if (patch.lineup) { camera.follow(null); setSelected(null); setSelectedBug(null); setSelectedRelease(null); setSelectedTask(null); setSelectedStage(null); } change(patch); }} /><FocusGamePicker className="world-focus world-control" games={data.model.games} focusProjectId={data.focusProjectId} onFocusGame={data.setFocusProjectId} locale={i18n.locale} /><WorldRoster agents={data.model.agents} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} onTask={openTask} /></div>
+      <WorldHotbar walking={walking} collapsed={preferences.hotbarCollapsed} onCollapse={hotbarCollapsed => change({ hotbarCollapsed })} />
+      <div className="world-left"><WorldToolbar canWalk={canWalk} walking={walking} onWalk={toggleWalk} showActivity={showWalkActivity} onActivity={() => setShowWalkActivity(value => !value)} preferences={preferences} onChange={patch => { if (patch.lineup && walking) patch = { ...patch, view: 'iso' }; if (patch.lineup) { camera.follow(null); setSelected(null); setSelectedBug(null); setSelectedRelease(null); setSelectedTask(null); setSelectedStage(null); } change(patch); }} /><FocusGamePicker className="world-focus world-control" games={data.model.games} focusProjectId={data.focusProjectId} onFocusGame={data.setFocusProjectId} locale={i18n.locale} /><WorldRoster agents={data.model.agents} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} onTask={openTask} /></div>
       {(!walking || showWalkActivity) && !(selected || selectedBug || selectedRelease || selectedStage || selectedTask) && (() => { const focus = data.model.focusProjectId;
         return <WorldActivity office={focus ? data.interactions[focus] : undefined} gameName={data.model.games.find(game => game.projectId === focus)?.name ?? null}
           loading={!!focus && !data.sources[`interactions:${focus}`]} onTask={taskId => { if (focus) openTask(focus, taskId); }} />; })()}

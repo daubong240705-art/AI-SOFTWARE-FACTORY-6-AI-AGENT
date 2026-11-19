@@ -12,10 +12,9 @@ import { obstructionDistance } from './obstructions';
 import { useWalkPresence } from './awareness';
 import { tone } from '../toys/sound';
 import type { WalkState, WalkTarget } from './state';
-import { toys, tools } from '../toys/store';
+import { toys } from '../toys/store';
 import { useToys } from '../toys/useToys';
-import { playToy } from '../toys/ToyTray';
-import { animateToyTool } from '../toys/visuals';
+import { playToy } from '../toys/playToy';
 import { detailedToys, lightToys, toyInk, toyOutlineInk, toyGlowInk, createWhipMaterials } from '../toys/models';
 
 type Props = { onExit: () => void; state: RefObject<WalkState>; positions: RefObject<Map<string, Point>>; model: WorldModel; paused: boolean; still: boolean; quiet: boolean; quality: 'high' | 'low'; onInteract: (target: WalkTarget) => void };
@@ -95,6 +94,7 @@ export function WalkRig(props: Props) {
     const stopIso = (event: Event) => event.stopImmediatePropagation();
     const up = () => { drag.current = false; };
     const wheel = (event: WheelEvent) => {
+      if (event.altKey) return; // Alt+wheel selects hotbar slots; plain wheel zooms.
       event.preventDefault(); event.stopImmediatePropagation();
       if (!latest.current.paused) state.current.cameraDistance = THREE.MathUtils.clamp(state.current.cameraDistance + event.deltaY * 0.004, 2.5, 6);
     };
@@ -105,7 +105,6 @@ export function WalkRig(props: Props) {
       if (event.repeat) return;
       if (key === 'c') { state.current.firstPerson = !state.current.firstPerson; event.preventDefault(); }
       else if (key === 'e' && state.current.target) { clear(); latest.current.onInteract(state.current.target); event.preventDefault(); }
-      else if (/^[1-7]$/.test(key)) { toys.select(tools[Number(key) - 1] ?? null); event.preventDefault(); event.stopImmediatePropagation(); }
     };
     const keyup = (event: KeyboardEvent) => keys.current.delete(event.key.toLowerCase());
     canvas.addEventListener('pointerdown', down, true);
@@ -193,7 +192,9 @@ export function WalkRig(props: Props) {
     if (hand.current) { hand.current.visible = walk.firstPerson; hand.current.position.copy(camera.position); hand.current.quaternion.copy(camera.quaternion); }
     if (toolNode.current) {
       if (toy.tool && !props.still && started.current && Date.now() - started.current < 3000) {
-        const t = animateToyTool(toolNode.current, toy.tool, started.current);
+        const t = (Date.now() - started.current) / 1000;
+        toolNode.current.rotation.z = Math.sin(Math.min(1, t / 0.8) * Math.PI) * 0.12;
+        toolNode.current.position.y = Math.sin(Math.min(1, t / 0.8) * Math.PI) * 0.08;
         if (leather) leather.clock.value = t;
       } else { toolNode.current.position.set(0, 0, 0); toolNode.current.rotation.set(0, 0, 0); toolNode.current.scale.setScalar(1); }
 

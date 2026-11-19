@@ -100,7 +100,6 @@ function face(spec: CharacterSpec, parts: Parts) {
   // The patch follows the blob surface: its upper edge sits behind the eyes, its lower edge is a broad belly.
   if (hasFacePatch(spec)) {
     sphere(out, c.belly, [0, 0.4, 0.17], [0.46, 0.345, 0.284]);
-    for (const x of [-0.21, 0.21]) sphere(out, c.belly, [x, 0.52, 0.23], [0.22, 0.22, 0.245]);
   }
   if (f.mask) {
     // Grey forehead, pale lower muzzle, and a pale brow stripe above the mask.
@@ -204,12 +203,17 @@ function geometryFor(spec: CharacterSpec): Cached {
   for (let i = 0; i < pos.count; i += 1) pos.setY(i, Math.max(-0.41, pos.getY(i)));
   body.computeVertexNormals();
   silhouette(parts, part(parts.solid, body, spec.face.mask ? spec.colors.inner : spec.colors.body, [0, 0.4, 0], [1.1, 0.88, 0.86]));
-  ears(spec, parts); face(spec, parts); accessories(spec, parts);
+  const count = (items: THREE.BufferGeometry[]) => items.reduce((n, g) => n + g.getAttribute('position').count, 0);
+  const earStart = { solid: count(parts.solid), hull: count(parts.silhouette) };
+  ears(spec, parts);
+  const earEnd = { solid: count(parts.solid), hull: count(parts.silhouette) };
+  face(spec, parts); accessories(spec, parts);
   const geometries = { solid: combine(parts.solid), hull: combine(parts.silhouette), open: combine(parts.open), closed: combine(parts.closed) };
   // Shared morph lifts only the ear/hair tips; each rig owns its influence.
-  for (const geometry of [geometries.solid, geometries.hull]) {
+  for (const name of ['solid', 'hull'] as const) {
+    const geometry = geometries[name];
     const source = geometry.getAttribute('position'), raised = source.clone();
-    for (let i = 0; i < source.count; i++) raised.setY(i, source.getY(i) + Math.max(0, source.getY(i) - 0.8) * 0.9);
+    for (let i = earStart[name]; i < earEnd[name]; i++) raised.setY(i, source.getY(i) + Math.max(0, source.getY(i) - 0.8) * 0.9);
     geometry.morphAttributes.position = [raised];
   }
   cache.set(spec.code, geometries); return geometries;
@@ -239,7 +243,11 @@ function expandHulls() {
   for (const geometries of cache.values()) {
     if (geometries.hull.userData.expanded) continue;
     const p = geometries.hull.getAttribute('position'); const n = geometries.hull.getAttribute('normal');
-    for (let i = 0; i < p.count; i += 1) p.setXYZ(i, p.getX(i) + n.getX(i) * outlineExpansion, p.getY(i) + n.getY(i) * outlineExpansion, p.getZ(i) + n.getZ(i) * outlineExpansion);
+    // Absolute morph targets need the same outline expansion as the rest mesh;
+    // otherwise a taser also shrinks the entire hull into the character.
+    for (const attribute of [p, ...(geometries.hull.morphAttributes.position ?? [])]) {
+      for (let i = 0; i < p.count; i += 1) attribute.setXYZ(i, attribute.getX(i) + n.getX(i) * outlineExpansion, attribute.getY(i) + n.getY(i) * outlineExpansion, attribute.getZ(i) + n.getZ(i) * outlineExpansion);
+    }
     p.needsUpdate = true; geometries.hull.computeBoundingSphere(); geometries.hull.userData.expanded = true;
   }
 }

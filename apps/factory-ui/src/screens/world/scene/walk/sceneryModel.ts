@@ -1,4 +1,5 @@
-import { anchors, desks, displayFrames, loungeProps, monitorYaw, palette, type Part } from '../../layout/zones';
+import { southWindows, eastWindows, walkWindow, workflowBay } from './wallLayout';
+import { desks, monitorYaw, palette, type Part } from '../../layout/zones';
 
 export const walkFixtures = [
   { id: 'water-cooler', position: [17, 13.1] as const, half: [0.4, 0.4] as const, yaw: 0 },
@@ -14,15 +15,17 @@ export function walkSceneryParts(): Part[] {
     const scale = (width: number, height: number): Part['scale'] => east ? [0.2, height, width] : [width, height, 0.2];
     const middle = (start + end) / 2, width = end - start;
     box(palette.wall, p(middle, 0.57), scale(width, 1.14));
-    box(palette.wall, p(middle, 3.2), scale(width, 0.8));
+    box(palette.wall, p(middle, 3.125), scale(width, 0.95));
     // Actual window openings rather than opaque walls with a glass overlay.
-    box(palette.sky, p(middle, 1.97), east ? [0.025, 1.66, width] : [width, 1.66, 0.025]);
+    box(palette.sky, p(middle, walkWindow.centerY), east ? [0.025, walkWindow.height, width - 0.3] : [width - 0.3, walkWindow.height, 0.025]);
     parts[parts.length - 1]!.shape = 'glass';
-    for (let a = start; a <= end; a += 2.5) box(palette.cream, p(a, 1.97), east ? [0.24, 1.7, 0.06] : [0.06, 1.7, 0.24]);
-    for (const y of [0.12, 1.14, 2.8, 3.53]) box(palette.wood, p(middle, y), scale(width, 0.07));
+    for (let a = start; a <= end; a += 2.5) box(palette.cream, p(a, walkWindow.centerY), east ? [0.24, walkWindow.height, 0.06] : [0.06, walkWindow.height, 0.24]);
+    for (const y of [0.12, 1.14, walkWindow.top, 3.53]) box(palette.wood, p(middle, y), scale(width, 0.07));
   };
-  for (const [a, b] of [[-18, -9.1], [-6.9, 6.9], [9.1, 18]]) wall(a!, b!);
-  for (const [a, b] of [[-14, -2.1], [0.1, 14]]) wall(a!, b!, true);
+  for (const [a, b] of southWindows) wall(a!, b!);
+  box(palette.wall, workflowBay.position, workflowBay.size);
+  for (const y of [0.12, 0.9, 3.53]) box(palette.wood, [4.9, y, 13.94], [4, 0.07, 0.12]);
+  for (const [a, b] of eastWindows) wall(a!, b!, true);
   for (const x of [-8, 8]) {
     box(palette.wall, [x, 3, 14], [2.2, 1.2, 0.2]);
     for (const dx of [-1.1, 1.1]) box(palette.wood, [x + dx, 1.2, 13.94], [0.12, 2.4, 0.3]);
@@ -57,14 +60,8 @@ export function walkSceneryParts(): Part[] {
       for (let i = 0; i < 4; i++) box('#81929C', [mx + nx * 0.054 + Math.cos(backYaw) * (i * 0.045 - 0.07), 0.96, mz + nz * 0.054 - Math.sin(backYaw) * (i * 0.045 - 0.07)], [0.025, 0.012, 0.01], backYaw);
     }
   }
-  // Finish freestanding art backs, the TV housing and board trays.
-  for (const f of displayFrames) {
-    const nx = Math.sin(f.yaw), nz = Math.cos(f.yaw);
-    box('#7E6A54', [f.position[0] + nx * 0.065, 1.43, f.position[1] + nz * 0.065], [1.48, 1.08, 0.035], f.yaw);
-    box('#3D454C', [f.position[0] - nx * 0.105, 2.05, f.position[1] - nz * 0.105], [0.18, 0.04, 0.03], f.yaw);
-  }
-  box('#34404B', [loungeProps.tv[0], 1.25, loungeProps.tv[1] - 0.065], [1.6, 0.8, 0.05]);
-  box('#81929C', [anchors.whiteboard[0] - 0.09, 1.18, anchors.whiteboard[1]], [0.025, 1.14, 2.22]);
+  // Gallery frames, the TV and whiteboard belong to the shared iso environment.
+  // Recreating their backs here put two coplanar quads in the same wall space.
   // Cooler and coat rack occupy the otherwise empty corners.
   box('#D8E5E1', [17, 0.57, 13.1], [0.65, 1.14, 0.65]);
   box('#34404B', [17, 0.7, 12.76], [0.4, 0.3, 0.04]);

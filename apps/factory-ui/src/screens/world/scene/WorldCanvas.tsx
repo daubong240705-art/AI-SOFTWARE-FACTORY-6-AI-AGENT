@@ -1,9 +1,10 @@
+import { setScreenUploader } from './screenTexture';
 import { WalkRig } from './walk/WalkRig';
 import { OperatorAvatar } from './walk/OperatorAvatar';
 import { WalkScenery, WalkLighting } from './walk/WalkScenery';
 import { WalkPresenceContext, type WalkPresence } from './walk/awareness';
 import type { WalkState, WalkTarget } from './walk/state';
-import { useEffect, useRef, type MutableRefObject, type RefObject } from 'react';
+import { memo, useEffect, useRef, type MutableRefObject, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CharacterAnimator, characterStats } from '../characters';
@@ -29,7 +30,7 @@ import { softwareRenderer, useWorldQuality, type WorldQuality } from './quality'
 
 type Props = {
   onWalkExit: () => void; walking: boolean; walk: RefObject<WalkState>; paused: boolean; onWalkInteract: (target: WalkTarget) => void;
-  employee: string | null; model: WorldModel; baseline: boolean; events: readonly WorldEvent[]; celebration: number; reports: WorldInputs['reports']; locations: WorldLocations; scopeKey: number; lineup: boolean; selected: string | null; attention: number;
+  model: WorldModel; baseline: boolean; events: readonly WorldEvent[]; celebration: number; reports: WorldInputs['reports']; locations: WorldLocations; scopeKey: number; lineup: boolean; selected: string | null; attention: number;
   positions: AgentPositions; courier: { current: ((handoff: import('../data/types').Handoff) => void) | null }; sceneDebug: MutableRefObject<SceneDebug>;
   onSelect: (id: string) => void; onTask: (projectId: string, taskId: string) => void; onStage: (key: string) => void; onBug: (bug: Bug) => void; onRelease: (item: GalleryItem) => void; onCelebrate: (item: GalleryItem) => void; onEventsConsumed: (ids: readonly string[]) => void; onOwner: () => void; onHover: (hover: AgentHover) => void;
   qualityPreference: WorldPreferences['quality']; still: boolean; effects: WorldPreferences['effects'];
@@ -44,6 +45,7 @@ const cameraPosition: [number, number, number] = [80 / Math.sqrt(3), 80 / Math.s
 
 function SceneLifecycle({ onReady, onLoading, onError, onRender, fps }: Pick<Props, 'onReady' | 'onLoading' | 'onError' | 'onRender'> & { fps: number }) {
   const { gl } = useThree();
+  useEffect(() => { setScreenUploader(texture => gl.initTexture(texture)); return () => setScreenUploader(undefined); }, [gl]);
   const ready = useRef(false);
   const disposal = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const alive = useRef(false);
@@ -80,11 +82,11 @@ function Cast({ props, quality }: { props: Props; quality: WorldQuality }) {
   useFrame(() => { props.sceneDebug.current.characters = characterStats(); });
   return <CharacterAnimator still={props.still}>
     <Studio effects={props.effects} key={props.scopeKey} model={props.model} events={props.events} reports={props.reports} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} scopeKey={props.scopeKey} positions={props.positions} locations={props.locations} debug={props.sceneDebug} courier={props.courier} consumeEvents={props.onEventsConsumed} onTask={props.onTask} onStage={props.onStage} onBug={props.onBug} onRelease={props.onRelease} onCelebrate={props.onCelebrate} />
-    <Agents employee={props.employee} key={props.scopeKey} events={props.events} courier={props.courier} celebration={props.celebration} agents={props.model.agents} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} effects={props.effects} />
+    <Agents key={props.scopeKey} events={props.events} courier={props.courier} celebration={props.celebration} agents={props.model.agents} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} effects={props.effects} />
     {props.lineup && <Lineup origin={[0, 4]} quality={quality} still={props.still} locale={i18n.locale} />}
   </CharacterAnimator>;
 }
-export default function WorldCanvas(props: Props) {
+function WorldCanvas(props: Props) {
   const { quality, fps, measure, setSoftware, software } = useWorldQuality(props.qualityPreference);
   useEffect(() => props.onQuality(quality), [quality, props.onQuality]);
   const bumps = useRef(new Map<string, number>());
@@ -122,3 +124,5 @@ function ReturnMarker({ state, quality }: { state: RefObject<WalkState>; quality
     <mesh rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[0.1, 12]} /><meshBasicMaterial color="#FFF8E7" /></mesh>
   </group>;
 }
+
+export default memo(WorldCanvas);

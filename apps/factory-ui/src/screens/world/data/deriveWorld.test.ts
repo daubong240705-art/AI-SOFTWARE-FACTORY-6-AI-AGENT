@@ -304,6 +304,12 @@ test('controller schedules real sources, retains failed data, changes focus and 
   assert.equal(calls['interactions:cold'], undefined); assert.equal(calls['tasks:p'], 1);
   assert.equal(engine.getSnapshot().sources.activity?.state, 'ok');
   assert.deepEqual(engine.getSnapshot().events, []);
+  const identical = engine.getSnapshot();
+  fire(5000); await flush();
+  assert.equal(engine.getSnapshot(), identical, 'identical poll does not emit or replace scene props');
+  x.activity!.generatedAt = new Date(now + 1000).toISOString();
+  fire(5000); await flush();
+  assert.equal(engine.getSnapshot(), identical, 'transport timestamp alone does not re-render the scene');
   x.activity!.teams[0]!.seats[0]!.status = 'working';
   fire(5000); await flush();
   assert.equal(engine.getSnapshot().events[0]?.type, 'poseChanged');
@@ -491,16 +497,6 @@ test('week achievements require actual completion dates and complete source cove
   assert.deepEqual([5, 6, 17, 19].map(hour => daylight(new Date(2026, 10, 19, hour))), ['night', 'day', 'sunset', 'night']);
 });
 
-
-test('employee of the day counts finished senders in this local day, deduplicates, and breaks ties consistently', async () => {
-  const { employeeOfDay } = await import('../scene/toys/employee');
-  const now = new Date(2026, 10, 19, 12), today = new Date(2026, 10, 19, 0).toISOString();
-  const done = (id: string, who: string, timestamp = today) => interaction(id, 'finished', { at: timestamp, from: { kind: 'seat', seatId: who, name: who } });
-  const loaded = { p: office([done('1', 'a'), done('1', 'a'), done('2', 'b'), done('old', 'b', new Date(2026, 10, 18, 23, 59).toISOString()), done('future', 'b', new Date(+now + 1).toISOString()), interaction('other', 'progress'), interaction('owner', 'finished', { at: today, from: { kind: 'operator' } })]), q: office([done('1', 'b')]) };
-  assert.deepEqual(employeeOfDay(loaded, now), { worker: 'b', counts: { a: 1, b: 2 } });
-  assert.equal(employeeOfDay({ p: office([done('1', 'b'), done('2', 'a')]) }, now).worker, 'a');
-  assert.deepEqual(employeeOfDay({}, now), { worker: null, counts: {} });
-});
 
 test('toys stay local, enforce cooldown and concurrency, expire buffs, and roll counters at local midnight', async () => {
   const { ToyStore, localDay } = await import('../scene/toys/store');

@@ -19,6 +19,9 @@ registerHooks({
     return { format: 'module', source: ts.transpileModule(readFileSync(fileURLToPath(url), 'utf8'), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX } }).outputText, shortCircuit: true };
   },
 });
+const frames = [];
+globalThis.requestAnimationFrame = fn => { frames.push(fn); return frames.length; };
+const flush = () => { while (frames.length) frames.shift()(0); };
 const noop = () => {};
 const labels = [];
 const ctx = new Proxy({ createLinearGradient: () => ({ addColorStop: noop }), createRadialGradient: () => ({ addColorStop: noop }), fillText: label => labels.push(label) }, { get: (o, key) => o[key] ?? noop, set: (o, key, value) => { o[key] = value; return true; } });
@@ -33,6 +36,7 @@ const positions = { current: new Map() }, debug = { current: { agents: [] } };
 for (const low of [false, true]) {
   const props = makeFunProps(low, noop);
   props.paint({ model, reports: {}, debug, positions, locale: 'en' }, new Date(2026, 10, 19, 23));
+  flush();
   props.sample(10, true);
   assert.equal(props.group.getObjectByName('server-leds').count, 10);
   const fan = props.group.getObjectByName('standing-fan');

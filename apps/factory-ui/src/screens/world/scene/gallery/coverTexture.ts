@@ -1,5 +1,5 @@
 import { createScreenTexture, type ScreenTexture } from '../screenTexture';
-import { CanvasTexture, SRGBColorSpace } from 'three';
+import { Texture } from 'three';
 
 export function coverHue(gameId: string): number {
   let hash = 2166136261;
@@ -21,32 +21,35 @@ export function drawGeneratedCover(ctx: CanvasRenderingContext2D, name: string, 
   ctx.fillStyle = '#4A3B2F'; ctx.font = '600 30px "Inter Variable", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(name, 256, 270, 460); ctx.restore();
 }
-export function canvasTexture(canvas: HTMLCanvasElement): CanvasTexture {
-  const texture = new CanvasTexture(canvas); texture.colorSpace = SRGBColorSpace; texture.anisotropy = 1; return texture;
-}
 /** Same-origin raster request, decoded asynchronously before any canvas work. */
 export function loadCoverImage(url: string | null, onLoad: (image: ImageBitmap | HTMLImageElement) => void): () => void {
-  const controller = new AbortController(); let active = true; let bitmap: ImageBitmap | null = null; let image: HTMLImageElement | null = null;
+  const controller = new AbortController(); let active = true; let bitmap: ImageBitmap | null = null; let image: HTMLImageElement | null = null; let objectUrl: string | null = null;
   if (url) void (async () => {
     try {
       const resolved = new URL(url, window.location.href);
       if (resolved.origin !== window.location.origin || !/^https?:$/.test(resolved.protocol)) return;
+      const response = await fetch(resolved, { signal: controller.signal, credentials: 'same-origin', redirect: 'error' });
+      if (!response.ok) return;
+      const blob = await response.blob();
+      if (!active) return;
       if (typeof createImageBitmap === 'function') {
-        const response = await fetch(resolved, { signal: controller.signal, credentials: 'same-origin', redirect: 'error' });
-        if (!response.ok) return;
-        const blob = await response.blob();
         try {
           bitmap = await createImageBitmap(blob, { resizeWidth: 512, resizeQuality: 'high' });
+          if (bitmap.height > 512) {
+            const portrait = bitmap;
+            bitmap = await createImageBitmap(portrait, { resizeHeight: 512, resizeQuality: 'high' });
+            portrait.close();
+          }
           if (active) onLoad(bitmap); else bitmap.close();
           return;
         } catch { /* Some browsers cannot decode SVG thumbnails as bitmaps. */ }
       }
       if (!active) return;
-      image = document.createElement('img'); image.decoding = 'async'; image.src = resolved.href;
+      image = document.createElement('img'); image.decoding = 'async'; objectUrl = URL.createObjectURL(blob); image.src = objectUrl;
       await image.decode(); if (active) onLoad(image);
     } catch { /* Keep the previous cover, or the generated cover on first load. */ }
   })();
-  return () => { active = false; controller.abort(); bitmap?.close(); image?.removeAttribute('src'); };
+  return () => { active = false; controller.abort(); bitmap?.close(); image?.removeAttribute('src'); if (objectUrl) URL.revokeObjectURL(objectUrl); };
 }
 export function drawCoverImage(ctx: CanvasRenderingContext2D, image: ImageBitmap | HTMLImageElement, width = 512, height = 384) {
   const iw = image instanceof HTMLImageElement ? image.naturalWidth : image.width;
@@ -56,23 +59,25 @@ export function drawCoverImage(ctx: CanvasRenderingContext2D, image: ImageBitmap
   ctx.drawImage(image, (width - w) / 2, (height - h) / 2, w, h);
 }
 
-/** A cover owns one fixed texture pair until it leaves this gallery; frames and arcade share it. */
-export type CoverResource = { releaseId: string; texture: CanvasTexture; screen: ScreenTexture; update: (releaseId: string, url: string | null, fallback?: { name: string; gameId: string }) => void; dispose: () => void };
+/** A cover owns one fixed texture until it leaves this gallery; frames and arcade share it. */
+export type CoverResource = { releaseId: string; texture: Texture; screen: ScreenTexture; update: (releaseId: string, url: string | null, fallback?: { name: string; gameId: string }) => void; dispose: () => void };
 export function coverFor(cache: Map<string, CoverResource>, item: { gameId: string; version: number | null; releaseId: string; projectId: string; name: string }, url: string | null, invalidate: () => void, slot = 0): CoverResource {
   // A gallery slot owns its textures across releases, games and status updates.
   const key = String(slot), hit = cache.get(key);
   if (hit) { if (hit.releaseId !== item.releaseId) hit.update(item.releaseId, url, item); return hit; }
   const screen = createScreenTexture(512, 384, invalidate);
-  screen.draw(ctx => drawGeneratedCover(ctx, item.name, item.gameId, 512, 384));
   let cancel = () => {};
   let metadata = { name: item.name, gameId: item.gameId };
   const resource: CoverResource = {
     releaseId: '', texture: screen.texture, screen,
     update(releaseId, source, fallback) {
-      if (resource.releaseId) screen.cancel();
+      if (resource.releaseId === releaseId) return;
+      screen.cancel();
+      const first = !resource.releaseId;
       resource.releaseId = releaseId; cancel();
       if (fallback) metadata = fallback;
-      screen.draw(ctx => drawGeneratedCover(ctx, metadata.name, metadata.gameId, 512, 384));
+      // Retain the previous image while the next release decodes.
+      if (first || !source) screen.draw(ctx => drawGeneratedCover(ctx, metadata.name, metadata.gameId, 512, 384));
       cancel = loadCoverImage(source, image => screen.draw(ctx => drawCoverImage(ctx, image)));
     },
     dispose() { cancel(); screen.dispose(); },

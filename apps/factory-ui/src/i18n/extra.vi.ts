@@ -63,7 +63,7 @@ export const extra: Translated<typeof en> = {
     poses: { idle: 'Đứng yên', thinking: 'Suy nghĩ', working: 'Làm việc', attention: 'Chú ý', success: 'Thành công', error: 'Lỗi', resting: 'Nghỉ' },
     codes: { LEAD: 'LEAD', PM: 'PM', BA: 'BA', FE: 'FE', BE: 'BE', DEVOPS: 'DEVOPS', TEST: 'TEST', MINT: 'MINT', PLUM: 'PLUM' },
     title: 'Thế giới studio', map: 'Bản đồ studio', toolbar: 'Tùy chọn thế giới',
-    mapHint: 'Kéo để di chuyển, cuộn để phóng to. Phím mũi tên di chuyển, cộng và trừ phóng to thu nhỏ, 0 về tổng thể, 1–6 chọn khu, Esc dừng theo dõi.',
+    mapHint: 'Kéo để di chuyển, cuộn để phóng to. Phím mũi tên di chuyển, cộng và trừ phóng to thu nhỏ, 0 về tổng thể, Shift+1–6 chọn khu, 1–9 chọn ô công cụ, Esc dừng theo dõi.',
     home: 'Về tổng thể', dragHint: 'Kéo để di chuyển · cuộn để phóng to',
     zones: { A: 'Điều hành', B: 'Xưởng', C: 'Cộng tác', D: 'Kiểm thử', E: 'Trưng bày', F: 'Portal' },
     scene: {

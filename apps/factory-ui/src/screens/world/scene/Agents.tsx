@@ -3,9 +3,9 @@ import { oiiaSpot } from '../layout/zones';
 import { tone } from './toys/sound';
 import { useToys } from './toys/useToys';
 import { ToyWorker } from './toys/visuals';
-import { Employee, NeedsBell, CatClap } from './toys/WorldFun';
+import { NeedsBell, CatClap } from './toys/WorldFun';
 import { createScreenTexture, type ScreenTexture } from './screenTexture';
-import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CharacterRig, characterStats, hopAlong, phaseForSeat, specForSeat, type HopMotion } from '../characters';
@@ -50,23 +50,6 @@ function NameTag({ name, register }: { name: string; register: (sprite: THREE.Sp
   return screen ? <sprite ref={register} position={[0, nameTagHeight, 0]} scale={[2, 0.375, 1]} raycast={ignore}><spriteMaterial ref={material => { if (material) screen.attach(material); }} map={screen.texture} transparent depthWrite={false} /></sprite> : null;
 }
 
-/** A small numbered badge on the head of a seat's second, third… worker (one sprite, one draw call). */
-function SlotBadge({ number }: { number: number }) {
-  const [screen, setScreen] = useState<ScreenTexture | null>(null);
-  const invalidate = useThree(state => state.invalidate);
-  useEffect(() => { const value = createScreenTexture(64, 64, invalidate); setScreen(value); return () => value.dispose(); }, [invalidate]);
-  useEffect(() => {
-    if (!screen) return;
-    screen.draw(ctx => {
-      ctx.fillStyle = '#4A3B2F'; ctx.beginPath(); ctx.arc(32, 32, 30, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#FFF8E7'; ctx.beginPath(); ctx.arc(32, 32, 25, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#4A3B2F'; ctx.font = '700 34px "Inter Variable", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(number), 32, 34);
-    });
-    return () => screen.cancel();
-  }, [number, screen]);
-  return screen ? <sprite position={[0.42, 1.28, 0.1]} scale={[0.3, 0.3, 1]} raycast={ignore}><spriteMaterial ref={material => { if (material) screen.attach(material); }} map={screen.texture} transparent depthWrite={false} /></sprite> : null;
-}
-
 function HitTarget({ position, owner = false, onSelect, onHover, walkId }: { position: [number, number, number]; owner?: boolean; walkId?: string; onSelect: () => void; onHover?: (event: ThreeEvent<PointerEvent> | null) => void }) {
   const down = useRef<[number, number] | null>(null);
   return <mesh userData={{ walkTarget: owner ? { kind: 'owner', id: 'owner' } : { kind: 'agent', id: walkId } }} position={position} onPointerDown={event => { down.current = [event.clientX, event.clientY]; }} onPointerUp={event => {
@@ -77,12 +60,13 @@ function HitTarget({ position, owner = false, onSelect, onHover, walkId }: { pos
     <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
   </mesh>;
 }
-export function Agents({ employee, events, courier, celebration, agents, baseline, quality, still, hidden, selected, positions, debug, onSelect, onOwner, onHover, attention, effects = 'full' }: {
-  employee: string | null; effects?: EffectsLevel;
+export function Agents({ events, courier, celebration, agents, baseline, quality, still, hidden, selected, positions, debug, onSelect, onOwner, onHover, attention, effects = 'full' }: {
+  effects?: EffectsLevel;
   events: readonly WorldEvent[]; courier: Courier; celebration: number; agents: readonly WorldAgent[]; baseline: boolean; quality: WorldQuality; still: boolean; hidden: boolean; selected: string | null;
   positions: AgentPositions; debug: MutableRefObject<SceneDebug>; onSelect: (id: string) => void; onOwner: () => void; onHover: (hover: AgentHover) => void; attention: number;
 }) {
   const toyState = useToys();
+  const drawnAgents = useMemo(() => agents.filter(a => !a.overflow && deskForAgent(a)), [agents]);
   const [placements, setPlacements] = useState(new Map<string, Placement>());
   const current = useRef(placements); current.current = placements;
   const [hovered, setHovered] = useState<string | null>(null);
@@ -254,9 +238,9 @@ export function Agents({ employee, events, courier, celebration, agents, baselin
     tagSprites.current.forEach((sprite, id) => { sprite.visible = accepted.has(id); });
     const key = [...accepted].join('|'); if (key !== tagsKey.current) { tagsKey.current = key; setTags(accepted); }
 
-  });
+  }, -1);
   return <group visible={!hidden}>
-    <DeskFeedback agents={agents.filter(a => !a.overflow && deskForAgent(a))} still={still || hidden} />
+    <DeskFeedback agents={drawnAgents} still={still || hidden} />
     {agents.filter(a => !a.overflow && deskForAgent(a)).map(agent => {
       const placement = placements.get(agent.seatId); if (!placement) return null;
       const toy = toyState.active.find(e => e.worker === agent.seatId);
@@ -269,10 +253,8 @@ export function Agents({ employee, events, courier, celebration, agents, baselin
           </ToyWorker>
           </WorkerAwareness>
           {catAudience.has(agent.seatId) && agent.status === 'idle' && !still && !hidden && effects !== 'off' && <CatClap />}
-          {effects !== 'off' && agent.slot === 0 && (employee === agent.ownerSeatId || employee === agent.seatId) && <Employee low={quality === 'low' || effects === 'lite'} />}
           {!hidden && <Aura agent={{ ...agent, pose: placement.pose }} boost={toyMotion && (toy?.tool === 'coffee' || toy?.tool === 'whip' && agent.status === 'working') ? 1 : 0} level={effects} quality={quality} still={still || hidden} floorOffset={-placement.position[1]} />}
           {!hidden && !placement.trip && agent.status === 'idle' && <LeisureItem activity={placement.activity} />}
-          {agent.slot > 0 && <SlotBadge number={agent.slot + 1} />}
           {tags.has(agent.seatId) && <NameTag name={agent.name} register={sprite => { if (sprite) tagSprites.current.set(agent.seatId, sprite); else tagSprites.current.delete(agent.seatId); }} />}
           {!hidden && <HitTarget walkId={agent.seatId} position={[0, 0.55, 0]} onSelect={() => onSelect(agent.seatId)} onHover={event => { setHovered(event ? agent.seatId : null); onHover(event ? { seatId: agent.seatId, x: event.clientX, y: event.clientY } : null); }} />}
         </group>

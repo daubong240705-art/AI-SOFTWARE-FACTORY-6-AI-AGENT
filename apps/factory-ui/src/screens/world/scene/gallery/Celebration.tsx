@@ -6,7 +6,7 @@ import type { GalleryItem } from '../../data/types';
 import type { WorldEvent } from '../../data/events';
 import type { WorldQuality } from '../quality';
 import { useWorldMotion } from '../Ticker';
-import { canvasTexture } from './coverTexture';
+import { createScreenTexture } from '../screenTexture';
 import { type GalleryLocale } from '../../copy';
 
 export type CelebrationFrame = { item: GalleryItem; position: readonly [number, number, number]; yaw: number };
@@ -26,19 +26,18 @@ export function celebrationStats() {
   return { celebrating: [...activeCounts.values()].reduce((sum, count) => sum + count, 0), celebrated };
 }
 const releaseKey = (item: GalleryItem) => `${item.projectId}:${item.releaseId}`;
-function makeRibbon(text: string) {
-  const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 96;
-  const ctx = canvas.getContext('2d')!; const texture = canvasTexture(canvas); let disposed = false;
-  function paint() {
-    ctx.clearRect(0, 0, 512, 96); ctx.fillStyle = '#AF496B'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(512, 0); ctx.lineTo(488, 48); ctx.lineTo(512, 96); ctx.lineTo(0, 96); ctx.lineTo(24, 48); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#FFF8E7'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 42px "Inter Variable", sans-serif'; ctx.fillText(text, 256, 48, 450); texture.needsUpdate = true;
-  }
-  paint(); return { texture, refresh: () => { if (!disposed) paint(); }, dispose: () => { disposed = true; texture.dispose(); } };
+function makeRibbon(text: string, invalidate: () => void) {
+  const screen = createScreenTexture(512, 96, invalidate); let disposed = false;
+  const paint = () => screen.draw(ctx => {
+    ctx.fillStyle = '#AF496B'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(512, 0); ctx.lineTo(488, 48); ctx.lineTo(512, 96); ctx.lineTo(0, 96); ctx.lineTo(24, 48); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#FFF8E7'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '600 42px "Inter Variable", sans-serif'; ctx.fillText(text, 256, 48, 450);
+  });
+  paint(); return { texture: screen.texture, refresh: () => { if (!disposed) paint(); }, dispose: () => { disposed = true; screen.dispose(); } };
 }
 function Ribbon({ locale }: { locale: GalleryLocale }) {
   const invalidate = useThree(state => state.invalidate); const [resource, setResource] = useState<ReturnType<typeof makeRibbon> | null>(null);
   useEffect(() => {
-    const created = makeRibbon('New!'); setResource(created); invalidate();
+    const created = makeRibbon('New!', invalidate); setResource(created); invalidate();
     void document.fonts?.load('600 42px "Inter Variable"').then(() => { created.refresh(); invalidate(); }).catch(() => {});
     return created.dispose;
   }, [locale, invalidate]);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useT } from '@/i18n';
@@ -6,7 +6,9 @@ import { createScreenTexture, type ScreenTexture } from '../screenTexture';
 import { useWorldMotion } from '../Ticker';
 import { colouredGeometry } from '../props/geometry';
 import { toys, type ToyEffect } from './store';
-import { detailedToys, lightToys, toyInk, toyGlowInk, toyOutlineInk, clamp, smooth, actionAge, createWhipMaterials } from './models';
+import { detailedToys, lightToys, toyInk, toyGlowInk, toyOutlineInk, actionAge, createWhipMaterials } from './models';
+import { placeToy, placementScratch } from './placement';
+import { furnitureFootprints } from '../../layout/zones';
 import { Burst, Lightning } from './particles';
 const ignore = () => {};
 
@@ -30,6 +32,8 @@ const cloudInk = toyInk;
 
 export function ToyWorker({ effect, still, low, children }: { effect: ToyEffect | undefined; still: boolean; low: boolean; children: ReactNode }) {
   const t = useT(), motion = useWorldMotion();
+  const anchor = useRef<THREE.Group>(null), rig = useRef<THREE.Object3D | null>(null);
+  useLayoutEffect(() => { anchor.current?.traverse(node => { if (node.name.startsWith('mochi-')) rig.current = node; }); });
   const [phase, setPhase] = useState(0);
   const quiet = still || !!effect?.quiet;
   useEffect(() => {
@@ -42,60 +46,59 @@ export function ToyWorker({ effect, still, low, children }: { effect: ToyEffect 
     const rest = setTimeout(() => stop?.(), Math.max(1, liveUntil - Date.now()));
     return () => { clearTimeout(expiry); clearTimeout(end); clearTimeout(rest); stop?.(); };
   }, [effect, quiet, motion]);
-  return <group>
+  return <group ref={anchor}>
     {children}
     {effect && phase === 1 && <Bubble text={t(effect.sulkUntil ? 'worldUi.toys.sulking' : `worldUi.toys.bubbles.${effect.tool}`)} />}
     {effect && phase === 1 && effect.combo > 1 && <Bubble text={t('worldUi.toys.combo').replace('{count}', String(effect.combo))} position={[0, 2.85, 0.05]} width={1.65} />}
     {effect && !quiet && <>
-      {phase === 1 && <ToyAnimation key={`${effect.started}:${effect.tool}`} effect={effect} low={low} />}
+      {phase === 1 && <ToyAnimation key={`${effect.started}:${effect.tool}`} effect={effect} low={low} rig={rig} />}
       {effect.sulkUntil > Date.now() && <group position={[0, 0.15, 0]}><mesh dispose={null} geometry={cloud} material={cloudInk} position={[0, 1.85, 0]} raycast={ignore} /><Burst started={effect.started} kind="storm" low={low} loop /></group>}
     </>}
   </group>;
 }
-/** W-18 anticipation, impact and follow-through, shared by world toys and the walk hand. */
-export function animateToyTool(root: THREE.Group, tool: ToyEffect['tool'], started: number, combo = 1) {
-  const raw = (Date.now() - started) / 1000;
-  const t = tool === 'whip' || tool === 'hammer' ? actionAge(started) : raw;
-  // Anticipation 0–0.55, impact 0.68, readable follow-through to 2.35, exit to 3.0.
-  const enter = smooth(t / 0.4), leave = smooth((t - 2.35) / 0.58);
-  const hit = smooth((t - 0.5) / 0.16) * (1 - smooth((t - 0.85) / 0.55));
-  root.position.set(-0.65 - (1 - enter) * 1.4 - leave * 0.5, 0.85 + Math.sin(clamp(t / 0.52) * Math.PI) * 0.45, 1.25);
-  root.scale.setScalar((1 - leave * 0.25) * (1 + hit * Math.min(0.3, (combo - 1) * 0.06)));
-  root.rotation.set(0, 0, 0);
-  switch (tool) {
-    case 'whip': root.position.x = -0.95; root.position.y = 0.9; root.rotation.z = -Math.sin(smooth(t / 0.68) * Math.PI) * 1.25 + Math.sin(t * 12) * hit * 0.17; break;
-    case 'taser': root.position.x = -0.8 - (1 - enter) * 1.4; root.rotation.z = Math.sin(t * 32) * hit * 0.045; break;
-    case 'coffee': root.position.x = 0.15 - (1 - enter) * 1.5; root.rotation.z = -hit * 0.6; root.rotation.x = 0.18; break;
-    case 'hammer': root.position.set(-0.35, 1 + (1 - enter) * 1.3 + leave * 0.35, 1.1); root.rotation.z = -1.5 * (1 - smooth((t - 0.2) / 0.48)) + Math.sin(t * 9) * hit * 0.1; break;
-    case 'feather': root.position.x += Math.sin(t * 22) * hit * 0.28; root.rotation.z = Math.sin(t * 17) * 0.28; break;
-    case 'megaphone': root.position.x = -0.85 - (1 - enter) * 1.3; root.rotation.z = -hit * 0.09; break;
-    case 'cookie': root.position.x = -1.8 + enter * 1.95; root.position.y += Math.sin(clamp(t / 0.7) * Math.PI) * 0.4; root.rotation.z = t < 0.7 ? t * 9 : Math.sin(t * 18) * 0.1; break;
-  }
-  return t;
-}
-
-function ToyAnimation({ effect, low }: { effect: ToyEffect; low: boolean }) {
-  const model = useRef<THREE.Group>(null), facing = useRef<THREE.Group>(null);
-  const scratch = useMemo(() => ({ rotation: new THREE.Quaternion(), iso: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4) }), []);
+function ToyAnimation({ effect, low, rig }: { effect: ToyEffect; low: boolean; rig: { current: THREE.Object3D | null } }) {
+  const model = useRef<THREE.Group>(null), facing = useRef<THREE.Group>(null), impact = useRef<THREE.Group>(null);
+  const scratch = useMemo(() => ({ placement: placementScratch(), inverse: new THREE.Matrix4(), direction: new THREE.Vector3(), center: new THREE.Vector3() }), []);
   const assets = (low ? lightToys : detailedToys)[effect.tool];
   const leather = useMemo(() => effect.tool === 'whip' ? createWhipMaterials() : null, [effect.tool]);
   useEffect(() => () => { leather?.solid.dispose(); leather?.outline.dispose(); }, [leather]);
-  useFrame(() => {
-    const root = model.current; if (!root) return;
-    if (facing.current?.parent) {
-      facing.current.parent.getWorldQuaternion(scratch.rotation);
-      facing.current.quaternion.copy(scratch.rotation.invert()).multiply(scratch.iso);
-    }
-    const t = animateToyTool(root, effect.tool, effect.started, effect.combo);
+  useFrame(({ camera }) => {
+    const root = model.current, parent = facing.current?.parent, character = rig.current;
+    if (!root || !facing.current || !parent || !character) return;
+    character.updateWorldMatrix(true, false);
+    scratch.center.set(0, 0.55, 0).applyMatrix4(character.matrixWorld);
+    if (camera instanceof THREE.OrthographicCamera) camera.getWorldDirection(scratch.direction);
+    else scratch.direction.copy(scratch.center).sub(camera.position).normalize();
+    const t = effect.tool === 'whip' || effect.tool === 'hammer' ? actionAge(effect.started) : (Date.now() - effect.started) / 1000;
+    const placement = placeToy(effect.tool, character.matrixWorld, scratch.direction, t, scratch.placement, direction => {
+      let clearance = 4;
+      for (const item of furnitureFootprints) {
+        if (item.id.endsWith('-chair')) continue;
+        const dx = item.position[0] - scratch.center.x, dz = item.position[1] - scratch.center.z;
+        const along = dx * direction.x + dz * direction.z;
+        if (along < 0) continue;
+        const across = Math.abs(dx * direction.z - dz * direction.x);
+        if (across < Math.max(...item.half) + 0.3) clearance = Math.min(clearance, along);
+      }
+      return clearance;
+    });
+    parent.updateWorldMatrix(true, false);
+    facing.current.matrix.copy(scratch.inverse.copy(parent.matrixWorld).invert());
+    // The effect root cancels all parent transforms, then uses the world matrix
+    // computed from the animated rig (hops, awareness, sulks and leisure poses).
+    root.matrix.copy(placement.matrix);
+    // Particle geometry predates the placement helper and has a baked
+    // (0, .8, .6) origin. Cancel it so sparks start at the contact point.
+    impact.current?.position.copy(placement.contact).add(scratch.center.set(0, -0.8, -0.6));
     if (leather) leather.clock.value = t;
   });
-  return <group ref={facing} rotation={[0, Math.PI / 4, 0]} position={[0.35, 0, 0.35]}>
-    <group ref={model}>
+  return <group ref={facing} matrixAutoUpdate={false}>
+    <group ref={model} matrixAutoUpdate={false}>
       <mesh dispose={null} geometry={assets.solid} material={leather?.solid ?? toyInk} frustumCulled={false} raycast={ignore} />
       {!low && <mesh dispose={null} geometry={assets.hull} material={leather?.outline ?? toyOutlineInk} frustumCulled={false} raycast={ignore} />}
       {assets.glow && <mesh dispose={null} geometry={assets.glow} material={toyGlowInk} raycast={ignore} />}
     </group>
-    <group position={[0, 0, 0.55]}>
+    <group ref={impact}>
       <Burst started={effect.started} kind={effect.cheered ? 'hearts' : effect.tool} low={low} power={1 + Math.min(5, effect.combo - 1) * 0.15} />
       {effect.tool === 'taser' && <Lightning started={effect.started} />}
     </group>

@@ -54,7 +54,7 @@ export function WorkerAwareness({ agent, still, toyAnimated, children }: { agent
         arm.rotation.x = agent.status === 'working' ? -1.25 + (still ? 0 : Math.sin(now * 18 + i * Math.PI) * 0.1) : 0;
       });
     }
-  });
+  }, -0.5);
   return <group ref={pivot}>
     {children}
     <group ref={arms} visible={false}>{[-1, 1].map(side => <group key={side} position={[side * 0.4, 0.59, 0]}>

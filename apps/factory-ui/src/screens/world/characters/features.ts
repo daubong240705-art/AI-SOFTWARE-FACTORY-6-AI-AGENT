@@ -12,7 +12,6 @@ export function faceSurface(spec: CharacterSpec, x: number, y: number): number {
   const surfaces: Ellipsoid[] = [{ center: [0, 0.4, 0], radius: [0.55, 0.44, 0.43] }];
   if (hasFacePatch(spec)) surfaces.push(
     { center: [0, 0.4, 0.17], radius: [0.46, 0.345, 0.284] },
-    ...[-0.21, 0.21].map(cx => ({ center: [cx, 0.52, 0.23] as FeaturePoint, radius: [0.22, 0.22, 0.245] as FeaturePoint })),
   );
   return Math.max(...surfaces.map(shape => surface(x, y, shape)));
 }

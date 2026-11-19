@@ -60,7 +60,7 @@ export const extra = {
     poses: { idle: 'Idle', thinking: 'Thinking', working: 'Working', attention: 'Attention', success: 'Success', error: 'Error', resting: 'Resting' },
     codes: { LEAD: 'LEAD', PM: 'PM', BA: 'BA', FE: 'FE', BE: 'BE', DEVOPS: 'DEVOPS', TEST: 'TEST', MINT: 'MINT', PLUM: 'PLUM' },
     title: 'Studio world', map: 'Studio map', toolbar: 'World options',
-    mapHint: 'Drag to pan and scroll to zoom. Arrow keys pan, plus and minus zoom, 0 opens the overview, 1–6 focus zones, Escape stops following.',
+    mapHint: 'Drag to pan and scroll to zoom. Arrow keys pan, plus and minus zoom, 0 opens the overview, Shift+1–6 focus zones, 1–9 pick a hotbar slot, Escape stops following.',
     home: 'Overview', dragHint: 'Drag to pan · scroll to zoom',
     zones: { A: 'Control', B: 'Workshop', C: 'Collaborate', D: 'Testing', E: 'Gallery', F: 'Portal' },
     scene: {

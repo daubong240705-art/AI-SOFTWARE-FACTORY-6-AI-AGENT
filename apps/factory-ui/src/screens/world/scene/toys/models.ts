@@ -113,8 +113,9 @@ export function createWhipMaterials() {
       float windup = sin(clamp(uToyAge / 0.68, 0.0, 1.0) * 3.14159265);
       float follow = max(0.0, 1.0 - abs(uToyAge - 0.92) / 0.65);
       float wave = sin(along * 6.0 - uToyAge * 19.0);
-      transformed.y += wave * along * (windup * 0.36 + follow * 0.14);
-      transformed.z += cos(along * 5.0 - uToyAge * 16.0) * along * windup * 0.08;
+      float taper = 1.0 - smoothstep(1.65, 1.82, position.x);
+      transformed.y += wave * along * taper * (windup * 0.36 + follow * 0.14);
+      transformed.z += cos(along * 5.0 - uToyAge * 16.0) * along * taper * windup * 0.08;
     }`;
   for (const material of [solid, outline]) {
     material.onBeforeCompile = shader => {

@@ -166,3 +166,30 @@ releaseB(); await new Promise(resolve => setTimeout(resolve, 5));
 assert.equal(characterStats().built, 0); assert.equal(characterStats().sharedMaterials, 0);
 disposeCharacterCache();
 console.log('Geometry, mapping, poses, still frames, vi/en labels, paths and disposal: PASS (canvas stub; no WebGL/browser).');
+
+// W-21: one smooth pale patch; no cheek spheres above the eyes. Verify actual
+// ray intersections against the same ellipsoid used for eye attachment.
+const { hasFacePatch } = await local('features');
+const { reactToToy } = await local('reaction');
+for (const code of characterCodes) {
+  const spec = characterSpecs[code], group = buildCharacter(spec, 'high'), solid = group.getObjectByName('solid');
+  if (hasFacePatch(spec)) for (const x of [-.21,0,.21]) for (const y of [.58,.64,.68]) {
+    const hit = new Raycaster(new Vector3(x,y,2),new Vector3(0,0,-1)).intersectObject(solid)[0];
+    assert(hit, `${code}: continuous forehead patch`);
+    assert(Math.abs(hit.point.z-faceSurface(spec,x,y))<.012,`${code}: smooth patch follows one ellipsoid, no forehead lumps`);
+  }
+  for (const name of ['solid','outline']) {
+    const geometry = group.getObjectByName(name).geometry, rest = geometry.getAttribute('position'), raised = geometry.morphAttributes.position[0];
+    let lifted=0;
+    for(let i=0;i<rest.count;i++) if(Math.abs(rest.getY(i)-raised.getY(i))>1e-6) {
+      lifted++;
+      assert(rest.getY(i)>(name==='outline' ? .78 : .8) && Math.abs(rest.getZ(i))<.2,`${code}: taser lifts ear/crest only, not the patch or accessories`);
+    }
+    assert(spec.ears==='none' ? lifted===0 : lifted>0,`${code}: crest/ears retained`);
+  }
+  const frame = samplePose('idle',0,0,true), out={frame:{...frame},x:0,ears:0,flash:false}, started=1000;
+  assert(reactToToy(frame,{tool:'taser',started},1700,out).ears>0);
+  assert.equal(reactToToy(frame,{tool:'taser',started},8000,out).ears,0,'expired raised ears return to rest');
+  assert.equal(reactToToy(frame,undefined,8001,out).ears,0,'no reaction resets morph');
+}
+console.log('W-21: all pale patches smooth; crest retained; ear-only taser morph restores rest PASS');

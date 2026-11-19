@@ -83,7 +83,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
       if (direction) { cancel(); const step = 50 / camera.zoom; controls.target.add(new Vector3(direction[0] * step, 0, direction[1] * step)); changed(); }
       else if (key === '+' || key === '=' || key === '-') { cancel(); camera.zoom *= key === '-' ? 1 / 1.15 : 1.15; changed(); }
       else if (key === '0') api.home();
-      else if (/^[1-6]$/.test(key)) api.focusZone(String.fromCharCode(64 + Number(key)) as ZoneKey);
+      else if (event.shiftKey && /^Digit[1-6]$/.test(event.code)) api.focusZone(String.fromCharCode(64 + Number(event.code.slice(5))) as ZoneKey); // 1-9 belong to the hotbar
       else if (key === 'Escape') { cancel(); report(); }
       else return;
       event.preventDefault();

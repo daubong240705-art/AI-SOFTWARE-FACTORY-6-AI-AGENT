@@ -1,3 +1,4 @@
+import { galleryFace, galleryPlate } from '../../layout/wallPanels';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -30,8 +31,9 @@ export type GalleryProps = {
 const emptyEvents: readonly WorldEvent[] = [];
 const tileSize = 512;
 const atlasSize = 2048;
-function makeGallery(items: readonly GalleryItem[], baseUrl: string | undefined, invalidate: () => void, covers: Map<string, CoverResource>, screen: ScreenTexture) {
-  const visible = items.slice(0, displayFrames.length); const group = new THREE.Group();
+export function makeGallery(initialItems: readonly GalleryItem[], baseUrl: string | undefined, invalidate: () => void, covers: Map<string, CoverResource>, screen: ScreenTexture) {
+  const placeholder: GalleryItem = { projectId: '__empty', gameId: '__empty', name: '', version: null, playUrl: null, state: 'pending', current: false, enabled: null, playing: null, releaseId: '__empty' };
+  let items = initialItems, visible = items.slice(0, displayFrames.length); const group = new THREE.Group();
   const atlas = screen.texture;
   let disposed = false;
   const coverMaterials: THREE.Material[] = [];
@@ -55,7 +57,7 @@ function makeGallery(items: readonly GalleryItem[], baseUrl: string | undefined,
     const geometry = new THREE.PlaneGeometry(worldWidth, worldHeight); geometries.push(geometry);
     const uv = geometry.getAttribute('uv'); const x = slot % 3 * tileSize; const top = Math.floor(slot / 3) * tileSize + tileY;
     for (let v = 0; v < uv.count; v += 1) uv.setXY(v, (x + uv.getX(v) * tileSize) / atlasSize, 1 - (top + (1 - uv.getY(v)) * height) / atlasSize);
-    const mesh = new THREE.Mesh(geometry, material); mesh.position.set(0, y, z); mesh.userData.release = item; parent.add(mesh);
+    const mesh = new THREE.Mesh(geometry, material); mesh.position.set(0, y, z); mesh.userData.release = item; parent.add(mesh); return mesh;
   }
   function box(parent: THREE.Group, position: [number, number, number], scale: [number, number, number], mat: THREE.Material, item: GalleryItem) {
     const mesh = new THREE.Mesh(boxGeometry, mat); mesh.position.set(...position); mesh.scale.set(...scale); mesh.userData.release = item; parent.add(mesh); return mesh;
@@ -81,48 +83,57 @@ function makeGallery(items: readonly GalleryItem[], baseUrl: string | undefined,
       ctx.restore();
     });
   }); }
-  visible.forEach((item, index) => {
-    const anchor = displayFrames[index]!; const frame = new THREE.Group();
+  const slots = displayFrames.map((anchor, index) => {
+    const item = visible[index] ?? placeholder;
+    const frame = new THREE.Group();
     frame.position.set(anchor.position[0], 0, anchor.position[1]); frame.rotation.y = anchor.yaw; group.add(frame);
-    // Overlay the existing Environment frames and opaque empty nameplates.
-    const cover = coverFor(covers, item, thumbnailUrl(item.projectId, item.releaseId, baseUrl), invalidate, index);
-    const coverMaterial = new THREE.MeshBasicMaterial({ map: cover.texture, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    cover.screen.attach(coverMaterial); coverMaterials.push(coverMaterial);
-    const geometry = new THREE.PlaneGeometry(1.36, 0.94); geometries.push(geometry);
-    const face = new THREE.Mesh(geometry, coverMaterial); face.position.set(0, 1.43, 0.28); face.userData.release = item; frame.add(face);
-    plane(frame, index, 0.67, 320, 64, 1.17, 0.23, 0.32, item);
-    if (item.playing !== null && item.playing > 0) plane(frame, index, 0.38, 384, 64, 1.24, 0.20, 0.29, item);
-    if (newerState(item, index, 'failed')) plane(frame, index, 1.98, 448, 64, 1.48, 0.22, 0.34, item);
-    if (item.current) { const mesh = new THREE.Mesh(starGeometry, gold); mesh.position.set(0.58, 1.78, 0.32); mesh.userData.release = item; frame.add(mesh); }
-    if (item.enabled === false) {
-      // Two half-drawn folded curtains leave the middle of the cover visible.
-      for (const side of [-1, 1]) for (let fold = 0; fold < 4; fold += 1) {
-        box(frame, [side * (0.635 - fold * 0.085), 1.43, 0.29 + (fold % 2) * 0.025], [0.09, 0.93 - fold * 0.04, 0.055], curtain, item);
-      }
-      box(frame, [0, 1.91, 0.31], [1.38, 0.06, 0.06], curtain, item);
+    // Materials and geometry belong to the slot for the whole mounted lifetime.
+    const coverMaterial = new THREE.MeshBasicMaterial({ map: atlas, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+    coverMaterials.push(coverMaterial);
+    const geometry = new THREE.PlaneGeometry(galleryFace.width, galleryFace.height); geometries.push(geometry);
+    const face = new THREE.Mesh(geometry, coverMaterial); face.position.set(0, galleryFace.y, galleryFace.offset); face.userData.release = item; frame.add(face);
+    plane(frame, index, galleryPlate.y, 320, 64, galleryPlate.width, galleryPlate.height, galleryPlate.offset, item);
+    const playing = plane(frame, index, 0.38, 384, 64, 1.24, 0.20, 0.29, item);
+    const failed = plane(frame, index, 1.98, 448, 64, 1.48, 0.22, 0.34, item);
+    const starMesh = new THREE.Mesh(starGeometry, gold); starMesh.position.set(0.58, 1.78, 0.32); frame.add(starMesh);
+    const curtains = new THREE.Group(); frame.add(curtains);
+    for (const side of [-1, 1]) for (let fold = 0; fold < 4; fold++) {
+      box(curtains, [side * (0.635 - fold * 0.085), 1.43, 0.29 + (fold % 2) * 0.025], [0.09, 0.93 - fold * 0.04, 0.055], curtain, item);
     }
-    if (newerState(item, index, 'pending')) {
-      for (const side of [-1, 1]) box(frame, [side * 0.83, 1.01, 0.36], [0.055, 1.98, 0.055], wood, item);
-      for (const y of [0.23, 1.13, 2.08]) box(frame, [0, y, 0.36], [1.8, 0.055, 0.10], wood, item);
-      const brace = box(frame, [0, 0.68, 0.36], [1.84, 0.045, 0.045], wood, item); brace.rotation.z = Math.PI / 7;
-    }
+    box(curtains, [0, 1.91, 0.31], [1.38, 0.06, 0.06], curtain, item);
+    const scaffold = new THREE.Group(); frame.add(scaffold);
+    for (const side of [-1, 1]) box(scaffold, [side * 0.83, 1.01, 0.36], [0.055, 1.98, 0.055], wood, item);
+    for (const y of [0.23, 1.13, 2.08]) box(scaffold, [0, y, 0.36], [1.8, 0.055, 0.10], wood, item);
+    box(scaffold, [0, 0.68, 0.36], [1.84, 0.045, 0.045], wood, item).rotation.z = Math.PI / 7;
+    return { frame, coverMaterial, playing, failed, starMesh, curtains, scaffold };
   });
-  const newest = items.find(item => item.state === 'done');
-  if (newest) {
-    const index = visible.indexOf(newest);
-    let coverMaterial = index >= 0 ? coverMaterials[index] : undefined;
-    if (!coverMaterial) {
-      const cover = coverFor(covers, newest, thumbnailUrl(newest.projectId, newest.releaseId, baseUrl), invalidate, displayFrames.length);
-      coverMaterial = new THREE.MeshBasicMaterial({ map: cover.texture, toneMapped: false });
-      cover.screen.attach(coverMaterial); coverMaterials.push(coverMaterial);
+  const arcadeMaterial = new THREE.MeshBasicMaterial({ map: atlas, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
+  coverMaterials.push(arcadeMaterial);
+  const arcadeGeometry = new THREE.PlaneGeometry(.78,.52); geometries.push(arcadeGeometry);
+  const arcade = new THREE.Mesh(arcadeGeometry,arcadeMaterial); arcade.position.set(anchors.arcade[0],1.42,anchors.arcade[1]+.65); group.add(arcade);
+  function update(next: readonly GalleryItem[]) {
+    items = next; visible = items.slice(0,displayFrames.length);
+    slots.forEach((slot,index) => {
+      const item = visible[index]; slot.frame.visible = !!item;
+      if (!item) return;
+      const cover = coverFor(covers,item,thumbnailUrl(item.projectId,item.releaseId,baseUrl),invalidate,index);
+      slot.coverMaterial.map = cover.texture;
+      slot.playing.visible = item.playing !== null && item.playing > 0;
+      slot.failed.visible = newerState(item,index,'failed'); slot.starMesh.visible = item.current;
+      slot.curtains.visible = item.enabled === false; slot.scaffold.visible = newerState(item,index,'pending');
+      slot.frame.traverse(object => { object.userData.release = item; });
+    });
+    const newest = items.find(item=>item.state==='done'); arcade.visible = !!newest;
+    if (newest) {
+      const index = visible.indexOf(newest);
+      arcadeMaterial.map = coverFor(covers,newest,thumbnailUrl(newest.projectId,newest.releaseId,baseUrl),invalidate,index>=0?index:displayFrames.length).texture;
+      arcade.userData.release = newest;
     }
-    const arcade = new THREE.Group(); arcade.position.set(anchors.arcade[0], 1.42, anchors.arcade[1] + 0.65); group.add(arcade);
-    const geometry = new THREE.PlaneGeometry(0.78, 0.52); geometries.push(geometry);
-    const face = new THREE.Mesh(geometry, coverMaterial); face.userData.release = newest; arcade.add(face);
+    paint(); invalidate();
   }
-  paint();
+  update(initialItems);
   void document.fonts?.load('600 30px "Inter Variable"').then(() => { if (!disposed) paint(); }).catch(() => {});
-  return { group, dispose() {
+  return { group, update, dispose() {
     disposed = true; coverMaterials.forEach(material => material.dispose());
     geometries.forEach(geometry => geometry.dispose()); material.dispose(); gradient.dispose(); wood.dispose(); curtain.dispose(); gold.dispose();
   } };
@@ -141,13 +152,15 @@ export function Gallery({ items, events = emptyEvents, baselineReady = true, qua
   const [resource, setResource] = useState<ReturnType<typeof makeGallery> | null>(null); const token = useRef({});
   useEffect(() => {
     if (!screen) return;
-    const created = makeGallery(stableItems, baseUrl, invalidate, covers.current, screen); setResource(created);
-    const live = new Set(stableItems.slice(0, displayFrames.length).map((_, index) => String(index)));
-    if (stableItems.some(item => item.state === 'done')) live.add(String(displayFrames.length));
-    for (const [key, cover] of covers.current) if (!live.has(key)) { cover.dispose(); covers.current.delete(key); }
-    mountedFrames.set(token.current, Math.min(items.length, displayFrames.length)); const key = token.current;
-    return () => { mountedFrames.delete(key); created.dispose(); };
-  }, [stableItems, baseUrl, invalidate, screen]);
+    const created = makeGallery([], baseUrl, invalidate, covers.current, screen); setResource(created);
+    return () => created.dispose();
+  }, [baseUrl, invalidate, screen]);
+  useEffect(() => {
+    resource?.update(stableItems);
+    const key = token.current;
+    mountedFrames.set(key, Math.min(stableItems.length, displayFrames.length));
+    return () => { mountedFrames.delete(key); };
+  }, [stableItems, resource]);
   const frames: CelebrationFrame[] = items.slice(0, displayFrames.length).map((item, index) => {
     const anchor = displayFrames[index]!;
     return { item, position: [anchor.position[0], 0, anchor.position[1]], yaw: anchor.yaw };

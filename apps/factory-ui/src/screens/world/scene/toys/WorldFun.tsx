@@ -8,18 +8,6 @@ import { colouredGeometry } from '../props/geometry';
 import { Bubble } from './visuals';
 const ignore = () => {};
 const material = new THREE.MeshBasicMaterial({ vertexColors: true });
-const crown = colouredGeometry([
-  { color: '#FFD56A', at: [0, 0, 0], size: [0.48, 0.12, 0.35] },
-  ...[-1, 0, 1].map(x => ({ shape: 'cone' as const, color: '#FFD56A', at: [x * 0.17, 0.15, 0] as const, size: [0.16, 0.27, 0.22] as const })),
-]);
-const cone = new THREE.ConeGeometry(0.85, 4, 12, 1, true);
-const glow = new THREE.MeshBasicMaterial({ color: '#FFD56A', opacity: 0.1, transparent: true, depthWrite: false, side: THREE.DoubleSide, forceSinglePass: true });
-export function Employee({ low }: { low: boolean }) {
-  return <group>
-    <mesh dispose={null} geometry={crown} material={material} position={[0, 1.7, 0]} rotation={[0, Math.PI / 4, 0]} raycast={ignore} />
-    {!low && <mesh dispose={null} geometry={cone} material={glow} position={[0, 2, 0]} raycast={ignore} />}
-  </group>;
-}
 const bell = colouredGeometry([
   { shape: 'cone', color: '#E7AE24', at: [0, 0, 0], size: [0.32, 0.25, 0.32] },
   { shape: 'sphere', color: '#4A3B2F', at: [0, -0.13, 0], size: [0.1, 0.1, 0.1] },

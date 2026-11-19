@@ -1,10 +1,12 @@
+import { propWallPanels } from '../../layout/wallPanels';
+import { createScreenTexture } from '../screenTexture';
 import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { WorldInputs, WorldModel } from '../../data/types';
 import type { SceneDebug } from '../../debugHook';
-import { anchors, desks, funProps, plants, windows } from '../../layout/zones';
+import { anchors, desks, funProps, plants } from '../../layout/zones';
 import { useWalkPresence } from '../walk/awareness';
 import { resolveWalkMove } from '../walk/collision';
 import { navigationAnchors, pathBetween } from '../../layout/waypoints';
@@ -51,7 +53,7 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
   for (const dz of [-0.77, 0, 0.77]) add('#FFF8E7', [px, 1, pz + dz], [2.98, 0.012, 0.025]);
   add('#C4DBCD', [px, 1.14, pz], [0.035, 0.28, 1.66]);
   for (const dx of [-1.47, 1.47]) add('#FFF8E7', [px + dx, 1, pz], [0.025, 0.012, 1.6]);
-  const [bx, bz] = funProps.board; add('#A87A50', [bx, 2, bz], [3.4, 1.25, 0.08]);
+  const [bx, bz] = funProps.board; add('#A87A50', [bx, 1.85, bz], [3.4, 1.25, 0.08]);
   mesh(staticPieces);
   const glass = instance(unitBox, '#67C5D4', 1, low ? 0.16 : 0.23); put(glass, 0, [ax, 1.28, az], [2.29, 0.82, 0.91]); updateInstances(glass);
   const fishShape = colouredGeometry([
@@ -91,8 +93,7 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
   const lamp = instance(sphere, '#FFD888', desks.length, 0.25);
   desks.forEach((desk, i) => put(lamp, i, [desk.position[0] + 0.65, 1.25, desk.position[1] + 0.18], [0.27, 0.15, 0.25])); updateInstances(lamp);
   // One canvas atlas: board, neon lettering and all five local-clock windows in one draw.
-  const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 512;
-  const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.generateMipmaps = false; texture.minFilter = THREE.LinearFilter;
+  const screen = createScreenTexture(1024, 512, invalidate), texture = screen.texture;
   const textMaterial = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false }); materials.push(textMaterial);
   const panels: THREE.BufferGeometry[] = [];
   function panel(at: Piece['at'], size: readonly [number, number], tile: number, yaw = 0) {
@@ -100,16 +101,14 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
     for (let i = 0; i < uv.count; i++) uv.setY(i, (uv.getY(i) + 3 - tile) / 4);
     geometry.rotateY(yaw).translate(...at); panels.push(geometry);
   }
-  panel([bx, 2, bz + 0.05], [3.2, 1.08], 0);
-  panel([0, 2.93, -13.60], [5, 0.44], 1);
-  windows.forEach(([x, z]) => { const yaw = x < -17 ? Math.PI / 2 : 0; panel([x + (yaw ? 0.105 : 0), 1.9, z + (yaw ? 0 : 0.105)], [3.55, 1.02], 2, yaw); });
+  propWallPanels.forEach(p => panel(p.position, [p.width, p.height], p.tile, p.yaw));
   const textGeometry = mergeGeometries(panels)!; geometries.push(textGeometry); panels.forEach(p => p.dispose()); group.add(new THREE.Mesh(textGeometry, textMaterial));
   let time = new Date(); let state: State | null = null; let night = false;
   let catBlockedAt: number | null = null, catPaused = 0;
   let catAnchor = 'rest-1', catTrip: HopMotion | null = null, catStarted = 0, catDue = 0, catTarget: string | null = null;
   const paint = (next: State, date: Date) => {
     state = next; time = date;
-    const ctx = canvas.getContext('2d'); if (!ctx) return;
+    screen.draw(ctx => {
     const counts = achievements(next.model, next.reports, date), copy = worldCopy[next.locale].props;
     ctx.fillStyle = '#FFF8E7'; ctx.fillRect(0, 0, 1024, 128); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#4A3B2F'; ctx.font = '600 28px sans-serif';
     ctx.fillText(copy.achievements, 512, 23); ctx.font = '26px sans-serif';
@@ -119,7 +118,9 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
     const gradient = ctx.createLinearGradient(0, 256, 0, 384); gradient.addColorStop(0, night ? '#182947' : day === 'sunset' ? '#E6908E' : '#85CFE6'); gradient.addColorStop(1, night ? '#405577' : day === 'sunset' ? '#F9CE8C' : '#D8F0E5'); ctx.fillStyle = gradient; ctx.fillRect(0, 256, 1024, 128);
     ctx.fillStyle = night ? '#FFF2C5' : '#FFF1B3'; ctx.beginPath(); ctx.arc(780, night ? 287 : day === 'sunset' ? 350 : 287, night ? 16 : 23, 0, Math.PI * 2); ctx.fill();
     if (night) for (let i = 0; i < 25; i++) { ctx.fillRect(20 + (i * 137 % 980), 265 + (i * 37 % 90), 3, 3); }
-    texture.needsUpdate = true; (lamp.material as THREE.MeshBasicMaterial).opacity = night ? 0.6 : 0.18;
+    });
+    night = daylight(date) === 'night';
+    (lamp.material as THREE.MeshBasicMaterial).opacity = night ? 0.6 : 0.18;
     const working = next.model.agents.filter(a => a.status === 'working').length;
     leds.count = working;
     for (let i = 0; i < working; i++) { put(leds, i, [rx + 0.06 + i % 4 * 0.09, 0.25 + Math.floor(i / 4) * 0.29, rz + 0.46], [0.05, 0.05, 0.025]); leds.setColorAt(i, new THREE.Color('#65E1A5')); }
@@ -188,7 +189,7 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
   };
   sample(0, false);
   group.traverse(o => { o.raycast = ignore; });
-  return { group, paint, sample, clock: () => time, dispose() { setCatPettable(false); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); texture.dispose(); group.traverse(o => { if (o instanceof THREE.InstancedMesh) o.dispose(); }); } };
+  return { group, paint, sample, clock: () => time, dispose() { setCatPettable(false); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); screen.dispose(); group.traverse(o => { if (o instanceof THREE.InstancedMesh) o.dispose(); }); } };
 }
 
 export function FunProps({ effects, model, reports, quality, still, hidden, debug, positions, locale }: State & { effects: EffectsLevel; quality: 'high' | 'low'; still: boolean; hidden: boolean }) {

@@ -5,12 +5,12 @@ export const icons: Record<Tool, string> = { whip: '〰', taser: 'ϟ', coffee: '
 export type ToyEffect = Readonly<{ worker: string; tool: Tool; started: number; until: number; quiet: boolean; combo: number; cheered: boolean; sulkUntil: number }>;
 export type Combo = Readonly<{ worker: string; count: number; until: number }>;
 export type Sulk = Readonly<{ worker: string; started: number; until: number; quiet: boolean }>;
-export type ToySnapshot = Readonly<{ tool: Tool | null; open: boolean; sound: boolean; oiiaSpins: number; oiiaMegaSpins: number; catSpin: Readonly<{ started: number; mega: boolean; audience: boolean }>; combo: readonly Combo[]; sulking: readonly Sulk[]; day: string; counts: Readonly<Partial<Record<Tool, number>>>; active: readonly ToyEffect[] }>;
+export type ToySnapshot = Readonly<{ tool: Tool | null; sound: boolean; oiiaSpins: number; oiiaMegaSpins: number; catSpin: Readonly<{ started: number; mega: boolean; audience: boolean }>; combo: readonly Combo[]; sulking: readonly Sulk[]; day: string; counts: Readonly<Partial<Record<Tool, number>>>; active: readonly ToyEffect[] }>;
 export const localDay = (now: Date) => `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
 const key = 'factory-ui.world.toys.v1';
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem'>;
 export class ToyStore {
-  private state: ToySnapshot = { tool: null, open: false, sound: false, oiiaSpins: 0, oiiaMegaSpins: 0, catSpin: { started: 0, mega: false, audience: false }, combo: [], sulking: [], day: '', counts: {}, active: [] };
+  private state: ToySnapshot = { tool: null, sound: false, oiiaSpins: 0, oiiaMegaSpins: 0, catSpin: { started: 0, mega: false, audience: false }, combo: [], sulking: [], day: '', counts: {}, active: [] };
   private listeners = new Set<() => void>();
   private hits = new Map<string, number[]>();
   private cooldown = new Map<string, number>();
@@ -27,7 +27,7 @@ export class ToyStore {
         }
         this.state = { ...this.state, sound: value.sound === true, day: typeof value.day === 'string' ? value.day : '', counts };
       }
-    } catch { /* Storage is optional; the tray remains usable in memory. */ }
+    } catch { /* Storage is optional; the hotbar remains usable in memory. */ }
     this.refresh();
   }
   snapshot = () => this.state;
@@ -44,11 +44,10 @@ export class ToyStore {
     for (const [id, until] of this.cooldown) if (until <= now) this.cooldown.delete(id);
     if (day !== this.state.day || active.length !== this.state.active.length || combo.length !== this.state.combo.length || sulking.length !== this.state.sulking.length) this.update({ combo, sulking, day, counts: day === this.state.day ? this.state.counts : {}, active }, day !== this.state.day);
   }
-  open = (open: boolean) => this.update({ open, tool: open ? this.state.tool : null });
   select = (tool: Tool | null) => this.update({ tool });
   mute = () => this.update({ sound: !this.state.sound }, true);
   spin = (mega = false, audience = false, now = Date.now()) => this.update({ oiiaSpins: this.state.oiiaSpins + 1, oiiaMegaSpins: this.state.oiiaMegaSpins + (mega ? 1 : 0), catSpin: Object.freeze({ started: now, mega, audience }) });
-  clear = () => { this.cooldown.clear(); this.hits.clear(); this.update({ active: [], combo: [], sulking: [], catSpin: { started: 0, mega: false, audience: false }, tool: null, open: false }); };
+  clear = () => { this.cooldown.clear(); this.hits.clear(); this.update({ active: [], combo: [], sulking: [], catSpin: { started: 0, mega: false, audience: false }, tool: null }); };
   apply(worker: string, tool: Tool, quiet: boolean, now = Date.now()) {
     this.refresh(now);
     const sulk = this.state.sulking.find(s => s.worker === worker);

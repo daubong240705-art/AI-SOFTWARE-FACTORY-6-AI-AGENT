@@ -4,6 +4,8 @@ export type Zone = { id: string; name: string; rect: readonly [number, number, n
 // Screen fronts face the seat (-z) and the camera (+x), turned 34 degrees from +x.
 export const monitorYaw = Math.PI / 2 + 0.6;
 export const monitorFaceOffset = 0.075;
+export const monitorFeedbackOffset = 0.03;
+export const progressFillOffset = 0.03;
 const desk = (id: string, x: number, z: number): DeskAnchor => ({ id, position: [x, z], yaw: 0, stand: [x, z - 1.9], seat: [x, z - 0.94], monitor: [x - 0.16, z + 0.24], sideMonitor: [x - 0.62, z + 0.02] });
 export const zones = [
   { id: 'A', name: 'Owner’s Office', rect: [-18, -9, -14, -3], anchor: [-13.5, -3.2], color: '#E0A458' },
@@ -30,7 +32,7 @@ export const displayFrames = [
 ];
 export const portalBooths = Array.from({ length: 8 }, (_, i) => { const a = i * Math.PI / 4; return [34 + Math.cos(a) * 7, -16 + Math.sin(a) * 7] as Point; });
 export const playerSpawnRing = Array.from({ length: 8 }, (_, i) => { const a = i * Math.PI / 4; return [34 + Math.cos(a) * 4, -16 + Math.sin(a) * 4] as Point; });
-export const windows = [[-14, -13.85], [-8, -13.85], [-2, -13.85], [-17.85, -10], [-17.85, -3]] as const;
+export const windows = [[-14, -13.85], [-8, -13.85], [10.5, -13.85], [-17.85, -10], [-17.85, -3]] as const;
 export const portalDesk = desk('counter', 16.5, 12.5);
 export const allDesks = [portalDesk, ownerDesk, ...leadDesks, ...qaDesks, ...annexDesks];
 
@@ -97,23 +99,26 @@ export const furnitureFootprints: Footprint[] = [
 export const palette = { cream: '#FFF8E7', rug: '#F6EBD3', wall: '#F1DFBC', trim: '#E9D4AE', wood: '#C99A6B', darkWood: '#A87A50', apricot: '#E0A458', butter: '#F7DC8A', sage: '#B5D3A7', sky: '#AFCFE6', rose: '#F2B8A9', lavender: '#CDBFE6', mint: '#BDE3D2', ink: '#4A3B2F' };
 export const desktopHeight = 0.89;
 export type Shape = 'box' | 'detail' | 'cylinder' | 'sphere' | 'screen' | 'glass' | 'rug';
-export type Part = { shape: Shape; position: [number, number, number]; scale: [number, number, number]; yaw: number; color: string; zone?: string };
-export type Label = { text: string; key: string; position: [number, number, number]; width: number; height: number; yaw: number; floor: boolean; color: string };
+export type Part = { shape: Shape; position: [number, number, number]; scale: [number, number, number]; yaw: number; color: string; zone?: string; mount?: string };
+export type Label = { text: string; key: string; position: [number, number, number]; width: number; height: number; yaw: number; floor: boolean; color: string; mount?: string };
 export type ArtKind = 'design' | 'rules' | 'art' | 'client' | 'qa' | 'lead' | 'owner' | 'caro' | 'uno' | 'baucua' | 'taixiu' | 'game' | 'sticky' | 'sign';
-export type ArtPanel = { kind: ArtKind; position: [number, number, number]; width: number; height: number; yaw: number; text?: string };
+export type ArtPanel = { kind: ArtKind; position: [number, number, number]; width: number; height: number; yaw: number; text?: string; mount?: string };
 export function environmentModel() {
+  let mount: string | undefined;
   const parts: Part[] = [], labels: Label[] = [], artwork: ArtPanel[] = [];
   const shadows: { position: Point; size: Point }[] = [];
-  const add = (shape: Shape, color: string, position: [number, number, number], scale: [number, number, number], yaw = 0, zone?: string) => parts.push({ shape, color, position, scale, yaw, ...(zone ? { zone } : {}) });
+  const add = (shape: Shape, color: string, position: [number, number, number], scale: [number, number, number], yaw = 0, zone?: string) => parts.push({ shape, color, position, scale, yaw, ...(zone ? { zone } : {}), ...(mount ? { mount } : {}) });
   const box = (color: string, p: [number, number, number], s: [number, number, number], yaw = 0, zone?: string) => add(Math.min(...s) <= 0.04 && !zone ? 'detail' : 'box', color, p, s, yaw, zone);
-  const art = (kind: ArtKind, p: [number, number, number], width: number, height: number, yaw = 0, text?: string) => artwork.push({ kind, position: p, width, height, yaw, ...(text ? { text } : {}) });
-  const label = (text: string, key: string, p: [number, number, number], width: number, height: number, yaw = 0) => labels.push({ text, key: `worldUi.scene.${key}`, position: p, width, height, yaw, floor: false, color: palette.ink });
+  const art = (kind: ArtKind, p: [number, number, number], width: number, height: number, yaw = 0, text?: string) => artwork.push({ kind, position: p, width, height, yaw, ...(text ? { text } : {}), ...(mount ? { mount } : {}) });
+  const label = (text: string, key: string, p: [number, number, number], width: number, height: number, yaw = 0) => labels.push({ text, key: `worldUi.scene.${key}`, position: p, width, height, yaw, floor: false, color: palette.ink, ...(mount ? { mount } : {}) });
   const blob = (p: Point, w: number, d: number) => shadows.push({ position: p, size: [w, d] });
   const colors = [palette.rose, palette.sky, palette.sage, palette.butter, palette.lavender, palette.mint];
   const sign = (text: string, x: number, y: number, z: number, width: number, color: string, yaw = 0) => {
+    mount = `sign:${text}`;
     box(palette.darkWood, [x, y, z], [width + 0.16, 0.63, 0.1], yaw);
     box(color, [x + Math.sin(yaw) * 0.06, y, z + Math.cos(yaw) * 0.06], [width, 0.49, 0.04], yaw);
-    art('sign', [x + Math.sin(yaw) * 0.085, y, z + Math.cos(yaw) * 0.085], width - 0.1, 0.42, yaw, text);
+    if (text !== 'AI GAME STUDIO') art('sign', [x + Math.sin(yaw) * 0.085, y, z + Math.cos(yaw) * 0.085], width - 0.1, 0.42, yaw, text);
+    mount = undefined;
   };
   // One merged static mesh for the shell; instances share one toon gradient.
   add('detail', '#F4E5CA', [0, -0.2, 0], [36, 0.4, 28], 0, 'slab');
@@ -141,11 +146,13 @@ export function environmentModel() {
   for (const x of [-8, 8]) box(palette.rug, [x, 0.012, 0], [1.7, 0.016, 28]);
   box(palette.rug, [0, 0.014, -7.75], [14, 0.018, 0.8]);
   for (const [x, z] of windows) {
+    mount = `window:${x}:${z}`;
     const yaw = x < -17 ? Math.PI / 2 : 0;
     box(palette.cream, [x, 1.9, z], [3.9, 1.25, 0.12], yaw);
     add('glass', palette.sky, [x + (yaw ? 0.08 : 0), 1.9, z + (yaw ? 0 : 0.08)], [3.55, 1.02, 0.04], yaw);
     box(palette.cream, [x + (yaw ? 0.12 : 0), 1.9, z + (yaw ? 0 : 0.12)], [0.07, 1.08, 0.04], yaw);
   }
+  mount = undefined;
   for (const [index, d] of desks.entries()) {
     const [x, z] = d.position, owner = d.id === 'owner';
     const kind: ArtKind = owner ? 'owner' : d.id.startsWith('qa') ? 'qa' : d.id.startsWith('design') ? 'design' : d.id.startsWith('rules') ? 'rules' : d.id.startsWith('art') ? 'art' : d.id.startsWith('client') ? 'client' : 'lead';
@@ -229,6 +236,7 @@ export function environmentModel() {
   };
   shelf(...anchors.bookshelf, 2.4); shelf(...loungeProps.snack, 1, true);
   // Task board is above the far desks; no freestanding slabs between pods.
+  mount = 'task-board';
   box(palette.wood, [0, 1.53, -13.72], [10.8, 1.35, 0.16]);
   for (let i = 0; i < 5; i++) {
     const x = -4.3 + i * 2.15;
@@ -237,6 +245,7 @@ export function environmentModel() {
     // Neutral blank sticky notes are decoration, not invented task status.
     for (let j = 0; j < 3; j++) box(colors[(i + j) % colors.length]!, [x - 0.58 + j * 0.58, 1.48 - (j % 2) * 0.25, -13.58], [0.37, 0.28, 0.015]);
   }
+  mount = undefined;
   sign('AI GAME STUDIO', 0, 2.93, -13.7, 5.2, palette.mint);
   // Soft string lights follow the north wall, below its crown trim.
   box(palette.ink, [0, 3.31, -13.64], [35, 0.025, 0.025]);
@@ -247,10 +256,11 @@ export function environmentModel() {
   }
   const posterKinds = ['caro', 'uno', 'baucua', 'taixiu'] as const;
   for (let i = 0; i < 4; i++) {
-    const z = [-6.5, 0, 3.7, 7.1][i]!;
-    box(palette.darkWood, [-17.73, 2.15, z], [1.65, 1.35, 0.1], Math.PI / 2);
-    art(posterKinds[i]!, [-17.67, 2.15, z], 1.49, 1.19, Math.PI / 2);
+    const z = [-6.5, 0, 3.7, 7.1][i]!; mount = `game-poster:${i}`;
+    box(palette.darkWood, [-17.73, 1.82, z], [1.65, 1.25, 0.1], Math.PI / 2);
+    art(posterKinds[i]!, [-17.65, 1.82, z], 1.49, 1.09, Math.PI / 2);
   }
+  mount = undefined;
   add('cylinder', palette.wood, [0, 0.82, 6], [meetingTable.radius * 2, 0.18, meetingTable.radius * 2]);
   add('cylinder', palette.darkWood, [0, 0.4, 6], [0.65, 0.8, 0.65]); blob([0, 6], 4.8, 4.8);
   for (const [dx, dz] of [[-0.7, 0], [0.3, -0.5], [0.5, 0.5]]) {
@@ -259,9 +269,11 @@ export function environmentModel() {
   }
   const [wx, wz] = anchors.whiteboard;
   // Board faces +x: readable from the table and the isometric camera.
+  mount = 'whiteboard';
   box(palette.wood, [wx, 1.18, wz], [2.4, 1.3, 0.15], Math.PI / 2);
   for (const dz of [-0.8, 0.8]) { box(palette.darkWood, [wx, 0.44, wz + dz], [0.15, 0.88, 0.1]); box(palette.darkWood, [wx, 0.08, wz + dz], [0.55, 0.12, 0.16]); }
-  art('sticky', [wx + 0.08, 1.18, wz], 2.2, 1.1, Math.PI / 2);
+  art('sticky', [wx + 0.11, 1.18, wz], 2.2, 1.1, Math.PI / 2);
+  mount = undefined;
   add('glass', palette.sky, [9.2, 0.65, -9], [0.14, 1.3, 9]);
   for (const z of [-13.4, -9, -4.6]) box(palette.cream, [9.2, 0.7, z], [0.23, 1.4, 0.23]);
   const [lx, lz] = anchors.labBench;
@@ -285,8 +297,9 @@ export function environmentModel() {
   for (let x = px0; x <= px1; x += 0.75) for (const z of [pz0, pz1]) box(palette.darkWood, [x, 0.27, z], [0.12, 0.54, 0.12]);
   sign('Bug pen', 13.7, 0.76, -3.47, 1.8, palette.lavender);
   // Gallery frames remain empty until real game art is supplied by the data layer.
-  box(palette.wall, [13.5, 1.4, 1.6], [8, 2.8, 0.18]); box(palette.wall, [9.6, 1.4, 6.5], [0.18, 2.8, 10]);
+  box(palette.wall, [13.5, 1.7, 1.6], [8, 3.4, 0.18]); box(palette.wall, [9.6, 1.4, 6.5], [0.18, 2.8, 10]);
   for (const f of displayFrames) {
+    mount = `gallery:${f.id}`;
     const [x, z] = f.position, nx = Math.sin(f.yaw), nz = Math.cos(f.yaw);
     box(palette.darkWood, [x + nx * 0.14, 1.43, z + nz * 0.14], [1.6, 1.2, 0.12], f.yaw);
     box(palette.cream, [x + nx * 0.21, 1.43, z + nz * 0.21], [1.4, 1, 0.04], f.yaw);
@@ -296,16 +309,19 @@ export function environmentModel() {
     add('cylinder', palette.ink, [x + nx * 0.52, 2.44, z + nz * 0.52], [0.2, 0.22, 0.2]);
     add('screen', palette.butter, [x + nx * 0.52, 2.32, z + nz * 0.52], [0.16, 0.025, 0.16]);
   }
+  mount = undefined;
   const [gx, gz] = anchors.arcade;
   box(palette.darkWood, [gx, 0.17, gz], [2, 0.34, 2]); box(palette.butter, [gx, 0.35, gz], [1.9, 0.06, 1.9]);
   box(palette.lavender, [gx, 1.04, gz], [1.15, 1.35, 1]);
   box(palette.ink, [gx, 1.42, gz + 0.54], [0.91, 0.66, 0.08]);
+  mount = 'arcade-screen';
   art('game', [gx, 1.42, gz + 0.61], 0.77, 0.51);
+  mount = undefined;
   box(palette.rose, [gx, 1.04, gz + 0.65], [1.1, 0.12, 0.46]);
   box(palette.ink, [gx - 0.25, 1.16, gz + 0.68], [0.035, 0.2, 0.035]);
   add('sphere', palette.apricot, [gx - 0.25, 1.27, gz + 0.68], [0.12, 0.12, 0.12]);
   for (const dx of [0.1, 0.26, 0.42]) add('cylinder', palette.butter, [gx + dx, 1.12, gz + 0.73], [0.09, 0.04, 0.09]);
-  sign('PLAY', gx, 1.99, gz + 0.3, 1.02, palette.mint); blob(anchors.arcade, 2.8, 2.8);
+  sign('PLAY', gx, 2.1, gz + 0.3, 1.02, palette.mint); blob(anchors.arcade, 2.8, 2.8);
   for (const dx of [-1.2, 1.2]) { add('cylinder', palette.apricot, [gx + dx, 0.42, 9.6], [0.07, 0.8, 0.07]); add('sphere', palette.butter, [gx + dx, 0.85, 9.6], [0.16, 0.16, 0.16]); add('cylinder', palette.ink, [gx + dx, 0.055, 9.6], [0.3, 0.08, 0.3]); }
   box(palette.rose, [gx, 0.72, 9.6], [2.4, 0.065, 0.065]);
   const [cx, cz] = anchors.sofa;
@@ -315,7 +331,9 @@ export function environmentModel() {
   for (const [i, p] of loungeProps.beanbags.entries()) { add('sphere', colors[i + 3]!, [p[0], 0.35, p[1]], [1.3, 0.7, 1.3]); add('sphere', colors[i + 3]!, [p[0], 0.62, p[1] + 0.27], [0.85, 0.64, 0.8]); blob(p, 1.6, 1.6); }
   const [tvx, tvz] = loungeProps.tv;
   box(palette.wood, [tvx, 0.34, tvz], [1.8, 0.68, 0.54]);
+  mount = 'tv';
   box(palette.ink, [tvx, 1.25, tvz], [1.72, 0.94, 0.1]); art('game', [tvx, 1.25, tvz + 0.08], 1.56, 0.78);
+  mount = undefined;
   box(palette.cream, [tvx + 0.42, 0.76, tvz + 0.12], [0.34, 0.15, 0.25]);
   add('sphere', palette.ink, [tvx - 0.46, 0.75, tvz + 0.12], [0.34, 0.11, 0.2]);
   for (const dx of [-0.08, 0.08]) add('sphere', palette.rose, [tvx - 0.46 + dx, 0.8, tvz + 0.14], [0.04, 0.025, 0.04]);
@@ -335,7 +353,7 @@ export function environmentModel() {
   sign(zones[2].name, wx, 2.2, wz, 3, palette.sky, Math.PI / 2);
   for (const dz of [-1, 1]) box(palette.darkWood, [wx, 1.95, wz + dz], [0.06, 0.5, 0.06]);
   sign(zones[3].name, 13.7, 2.93, -13.71, 4.5, palette.lavender);
-  sign(zones[4].name, 13.5, 2.48, 1.75, 4.5, palette.butter);
+  sign(zones[4].name, 13.5, 3.05, 1.75, 4.5, palette.butter);
   sign('Annex', -17.68, 2.85, 2.8, 3, palette.sage, Math.PI / 2);
   sign('Lounge', -17.68, 2.85, 10.6, 3, palette.rose, Math.PI / 2);
   add('cylinder', palette.sage, [34, -0.25, -16], [20, 0.5, 20]); add('cylinder', palette.rug, [34, 0.015, -16], [12, 0.035, 12]);

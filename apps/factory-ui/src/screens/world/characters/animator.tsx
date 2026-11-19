@@ -80,7 +80,7 @@ export function useCharacterAnimator({ still = false }: { still?: boolean } = {}
     const active = !registry.still && [...registry.entries].some(entry => visible(entry.root));
     if (active && !release.current) release.current = motion.request('ambient');
     else if (!active && release.current) { release.current(); release.current = undefined; }
-  });
+  }, -2);
 }
 function AnimatorOwner({ children, still }: { children?: ReactNode; still: boolean }) {
   useCharacterAnimator({ still }); return <AnimatorContext.Provider value={true}>{children}</AnimatorContext.Provider>;

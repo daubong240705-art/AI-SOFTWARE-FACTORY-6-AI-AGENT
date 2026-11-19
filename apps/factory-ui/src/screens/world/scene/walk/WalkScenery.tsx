@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { WorldModel } from '../../data/types';
@@ -7,6 +7,7 @@ import { daylight } from '../props/state';
 import { coverFor, type CoverResource } from '../gallery/coverTexture';
 import { thumbnailUrl } from '../gallery/thumbnailUrl';
 import { createScreenTexture, type ScreenTexture } from '../screenTexture';
+import { walkPosters, walkWorkflow } from './wallLayout';
 import { walkSceneryParts } from './sceneryModel';
 
 const ignore = () => {};
@@ -57,28 +58,26 @@ function WorkflowBoard({ model }: { model: WorldModel }) {
       });
     });
   }, [model.stages, screen]);
-  return <group position={[5, 2, 13.78]} rotation={[0, Math.PI, 0]}>
-    <mesh raycast={ignore}><boxGeometry args={[3.5, 1.85, 0.12]} /><meshToonMaterial color="#A87A50" /></mesh>
-    {screen && <mesh position={[0, 0, 0.071]} raycast={ignore}><planeGeometry args={[3.35, 1.7]} /><meshBasicMaterial ref={m => { if (m) screen.attach(m); }} map={screen.texture} /></mesh>}
-    <mesh position={[0, -0.94, 0.15]} raycast={ignore}><boxGeometry args={[3.4, 0.05, 0.2]} /><meshToonMaterial color="#81929C" /></mesh>
+  return <group position={walkWorkflow.position} rotation={[0, Math.PI, 0]}>
+    <mesh raycast={ignore}><boxGeometry args={walkWorkflow.frame} /><meshToonMaterial color="#A87A50" /></mesh>
+    {screen && <mesh position={[0, 0, walkWorkflow.faceOffset]} raycast={ignore}><planeGeometry args={walkWorkflow.face} /><meshBasicMaterial ref={m => { if (m) screen.attach(m); }} map={screen.texture} /></mesh>}
+    <mesh position={[0, -0.96, 0.15]} raycast={ignore}><boxGeometry args={[3.4, 0.05, 0.2]} /><meshToonMaterial color="#81929C" /></mesh>
+  </group>;
+}
+function ReleasePoster({ item, slot }: { item: WorldModel['gallery'][number] | undefined; slot: number }) {
+  const invalidate = useThree(s => s.invalidate), cache = useRef(new Map<string, CoverResource>());
+  const [cover, setCover] = useState<CoverResource | null>(null);
+  useEffect(() => { if (item) setCover(coverFor(cache.current, item, thumbnailUrl(item.projectId, item.releaseId), invalidate, slot)); }, [item, slot, invalidate]);
+  useEffect(() => { const covers = cache.current; return () => { covers.forEach(c => c.dispose()); covers.clear(); }; }, []);
+  const layout = walkPosters[slot]!;
+  return <group visible={!!item} position={layout.position} rotation={[0, Math.PI, 0]}>
+    <mesh raycast={ignore}><boxGeometry args={layout.frame} /><meshLambertMaterial color="#A87A50" /></mesh>
+    {cover && <mesh position={[0, 0, layout.faceOffset]} raycast={ignore}><planeGeometry args={layout.face} /><meshBasicMaterial map={cover.texture} /></mesh>}
   </group>;
 }
 function ReleasePosters({ items }: { items: WorldModel['gallery'] }) {
-  const invalidate = useThree(s => s.invalidate), [resource, setResource] = useState<THREE.Group | null>(null);
-  useEffect(() => {
-    const group = new THREE.Group(), cache = new Map<string, CoverResource>(), geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [];
-    items.filter(item => item.state === 'done').slice(0, 3).forEach((item, i) => {
-      const cover = coverFor(cache, item, thumbnailUrl(item.projectId, item.releaseId), invalidate, i);
-      const frame = new THREE.BoxGeometry(2.5, 1.95, 0.12), paper = new THREE.PlaneGeometry(2.32, 1.74);
-      const wood = new THREE.MeshLambertMaterial({ color: '#A87A50' }), ink = new THREE.MeshBasicMaterial({ map: cover.texture }); cover.screen.attach(ink);
-      geometries.push(frame, paper); materials.push(wood, ink);
-      const poster = new THREE.Group(); poster.position.set(-3.5 + i * 3, 2, 13.78); poster.rotation.y = Math.PI;
-      poster.add(new THREE.Mesh(frame, wood)); const face = new THREE.Mesh(paper, ink); face.position.z = 0.071; poster.add(face); group.add(poster);
-    });
-    group.traverse(o => { o.raycast = ignore; }); setResource(group); invalidate();
-    return () => { cache.forEach(c => c.dispose()); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); };
-  }, [items, invalidate]);
-  return resource ? <primitive object={resource} /> : null;
+  const released = items.filter(item => item.state === 'done').slice(0, walkPosters.length);
+  return <>{walkPosters.map((_, slot) => <ReleasePoster key={slot} slot={slot} item={released[slot]} />)}</>;
 }
 /** Unmounted in iso: no roof, front walls or extra furnishings in the dollhouse view. */
 export function WalkScenery({ model, quality }: { model: WorldModel; quality: 'high' | 'low' }) {

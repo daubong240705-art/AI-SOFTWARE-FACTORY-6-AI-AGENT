@@ -1,5 +1,6 @@
 import type { ApiClient } from '@/api/client';
 import { deriveWorld } from './deriveWorld';
+import { shareEqual } from './shareEqual';
 import { createWorldPoller, type PollClock, type PollJob } from './poller';
 import { createWorldSeen, diffWorld, type WorldEvent } from './events';
 import type { Assignments, WorldInputs, WorldModel } from './types';
@@ -37,7 +38,9 @@ export function createWorldDataController(api: WorldDataApi, options: {
   let baselineTimer: unknown;
   const emit = (patch: Partial<WorldSnapshot>) => {
     if (stopped) return;
-    snapshot = {...snapshot, ...patch};
+    const next = shareEqual(snapshot, {...snapshot, ...patch});
+    if (next === snapshot) return;
+    snapshot = next;
     options.onSnapshot(snapshot);
   };
   const poller = createWorldPoller({hidden: options.hidden, clock, onError: key => {
@@ -60,7 +63,10 @@ export function createWorldDataController(api: WorldDataApi, options: {
     const diff = diffWorld(previous, model, seen, now);
     seen = diff.seen;
     previous = model;
-    emit({baseline: seen.baseline, model, reports: {...inputs.reports}, interactions: {...inputs.interactions}, events: [...snapshot.events, ...diff.events]});
+    // generatedAt is transport metadata, not scene content. Preserve the last
+    // timestamp when all rendered slices are unchanged.
+    const stable = shareEqual(snapshot.model, { ...model, generatedAt: snapshot.model.generatedAt });
+    emit({baseline: seen.baseline, model: stable === snapshot.model ? stable : { ...stable, generatedAt: model.generatedAt }, reports: {...inputs.reports}, interactions: {...inputs.interactions}, events: [...snapshot.events, ...diff.events]});
     sync(model);
   }
   function read<T>(key: string, interval: number, fetch: (signal: AbortSignal) => Promise<T>, accept: (value: T) => void): PollJob {
@@ -70,7 +76,7 @@ export function createWorldDataController(api: WorldDataApi, options: {
       if (stopped || signal.aborted) return;
       accept(value);
       successful.add(key);
-      emit({sources: {...snapshot.sources, [key]: {state: 'ok', at: localNow()}}});
+      if (snapshot.sources[key]?.state !== 'ok') emit({sources: {...snapshot.sources, [key]: {state: 'ok', at: localNow()}}});
       publish();
     }};
   }
