@@ -89,6 +89,7 @@ import { createRequestHandlers, REQUEST_COMMANDS } from "./requests/commands.js"
 import { createDossierHandlers } from "./dossier/commands.js";
 import { createBriefingMcp } from "./dossier/mcp.js";
 import { backfillPackSnapshots, followPackUpdates } from "./instructions/snapshot.js";
+import { importPacksToLibrary, registerLibraryRoutes } from "./library/index.js";
 import { createSkillsMcp } from "./instructions/mcp.js";
 import { createToolPolicy } from "./mcp/policy.js";
 import { loadMcpServers, parseMcpServers, type McpServersConfig } from "./mcp-external/config.js";
@@ -435,6 +436,9 @@ export async function startHost(options: {
       backupDir: options.backupDir ?? join(stateDir, "backups"), now: clock,
     });
     backfillPackSnapshots(storage.raw, packs, clock());
+    // U1: every pack is also imported into the library (versioned skills + agent templates). Idempotent.
+    importPacksToLibrary(storage.raw, packs, { newId: createIdGenerator(clock), clock },
+      (packKey, message) => console.error(`Library import (${packKey}): ${message}`));
     // FACTORY_PACK_FOLLOW: packs whose teams follow pack edits of the same version ("none" to pin every team).
     const follow = (process.env.FACTORY_PACK_FOLLOW ?? "web-games,portal-ops").split(",").map((key: string) => key.trim()).filter((key: string) => key !== "" && key !== "none");
     for (const line of followPackUpdates(storage.raw, packs, follow, clock())) console.log(`Team instructions updated: ${line}`);
@@ -861,6 +865,7 @@ export async function startHost(options: {
     };
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
+      registerLibraryRoutes(app, guards, { raw: storage!.raw });
       registerNotifyRoutes(app, guards, options.notify ?? { channels: [] }, telegramBot);
       registerPublishRoutes(app, guards, publishing!);
       registerPortalOpsRoutes(app, guards, portalOps!, publishing!);
