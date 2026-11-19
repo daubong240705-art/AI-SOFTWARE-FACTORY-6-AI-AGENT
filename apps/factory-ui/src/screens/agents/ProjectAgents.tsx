@@ -13,12 +13,13 @@ import { AgentEditor } from './AgentEditor';
 import { RelationsPanel } from './RelationsPanel';
 import { TeamsPanel } from './TeamsPanel';
 import { TemplateDialog, type TemplateDraft } from './TemplateDialog';
+import { SaveTemplateDialog, UpgradeTemplateDialog } from '../library/AgentTemplateActions';
 import { AdminDialog, Choice, DialogButtons, ErrorText, Field, ReadStatus, useAgentLabels, useAgentWrite, useRead, useWriteFeedback, type Submit } from './shared';
 
 const baseUrl = import.meta.env.DEV ? '/api' : '';
 const filters = ['active', 'paused', 'archived', 'all'] as const;
 type Action = 'clone' | 'archive' | 'delete';
-type DialogState = { kind: 'new'; draft?: TemplateDraft } | { kind: 'template' } | { kind: 'edit'; agent: AgentSummary } | { kind: Action; agent: AgentSummary };
+type DialogState = { kind: 'new'; draft?: TemplateDraft } | { kind: 'template' } | { kind: 'edit'; agent: AgentSummary } | { kind: 'save-template' | 'upgrade-template'; agent: AgentSummary } | { kind: Action; agent: AgentSummary };
 
 export function ProjectAgents({ projectId }: { projectId: string }) {
   const t = useAgentLabels();
@@ -30,9 +31,13 @@ export function ProjectAgents({ projectId }: { projectId: string }) {
   const read = useCallback((signal: AbortSignal) => api.listProjectAgents(projectId, signal), [api, projectId]);
   const roster = useRead(read, refreshKey);
   const data = roster.data;
-  const agentId = dialog?.kind === 'edit' ? dialog.agent.id : null;
+  const agentId = dialog?.kind === 'edit' || dialog?.kind === 'upgrade-template' ? dialog.agent.id : null;
   const readDetail = useCallback((signal: AbortSignal) => api.getAgent(projectId, agentId!, signal), [api, projectId, agentId]);
   const detail = useRead(agentId ? readDetail : null, refreshKey);
+  const templateId = dialog?.kind === 'upgrade-template' ? dialog.agent.template?.id : null;
+  const templateRevision = dialog?.kind === 'upgrade-template' ? dialog.agent.template?.latestRevision : null;
+  const readTemplate = useCallback((signal: AbortSignal) => api.getAgentTemplateRevision(templateId!, templateRevision!, signal), [api, templateId, templateRevision]);
+  const template = useRead(templateId && templateRevision ? readTemplate : null, refreshKey);
   const submit = useAgentWrite(api, refresh);
   const direct = useWriteFeedback(submit);
   const streaming = !!data;
@@ -81,6 +86,8 @@ export function ProjectAgents({ projectId }: { projectId: string }) {
             <DropdownMenuTrigger asChild><Button type="button" size="icon" variant="ghost" aria-label={t('actions', { name: agent.name })} disabled={direct.busy || !!roster.error}><Ellipsis aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onSelect={() => setDialog({ kind: 'edit', agent })}>{t('edit')}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setDialog({ kind: 'save-template', agent })}>{t('saveAsTemplate')}</DropdownMenuItem>
+              {agent.template && agent.template.latestRevision > agent.template.revision && <DropdownMenuItem onSelect={() => setDialog({ kind: 'upgrade-template', agent })}>{t('upgradeFromTemplate', { revision: agent.template.latestRevision })}</DropdownMenuItem>}
               <DropdownMenuItem onSelect={() => setDialog({ kind: 'clone', agent })}>{t('clone')}</DropdownMenuItem>
               <DropdownMenuItem disabled={agent.isLead || agent.status !== 'active'} onSelect={() => void direct.run(() => agentsSetLead({ projectId, agentId: agent.id, expectedRevision: agent.revision }))}>{t('makeLead')}</DropdownMenuItem>
               {agent.status !== 'pending-approval' && <DropdownMenuItem onSelect={() => updateStatus(agent, agent.status === 'active' ? 'paused' : 'active')}>{t(agent.status === 'active' ? 'pause' : 'activate')}</DropdownMenuItem>}
@@ -98,6 +105,8 @@ export function ProjectAgents({ projectId }: { projectId: string }) {
     {dialog?.kind === 'template' && <TemplateDialog api={api} close={close} start={draft => setDialog({ kind: 'new', draft })} />}
     {dialog?.kind === 'edit' && (detail.data && !editGone ? <AgentEditor api={api} projectId={projectId} detail={detail.data} close={close} submit={submit} refresh={refresh} loading={detail.loading || !!detail.error} readError={detail.error} /> :
       <AdminDialog title={`${t('edit')}: ${dialog.agent.name}`} description={t('editorHelp')} close={close}><ReadStatus loading={detail.loading} error={detail.error} />{detail.error && <Button type="button" variant="outline" onClick={refresh}>{t('reload')}</Button>}</AdminDialog>)}
+    {dialog?.kind === 'save-template' && <SaveTemplateDialog agent={dialog.agent} close={close} submit={submit} />}
+    {dialog?.kind === 'upgrade-template' && <UpgradeTemplateDialog api={api} agent={dialog.agent} detail={detail.data} template={template.data} loading={detail.loading || template.loading || roster.loading} error={detail.error ?? template.error ?? roster.error} current={data?.agents.find(agent => agent.id === dialog.agent.id)} close={close} submit={submit} refresh={refresh} />}
     {dialog && (dialog.kind === 'clone' || dialog.kind === 'archive' || dialog.kind === 'delete') && <ActionDialog action={dialog.kind} agent={dialog.agent} current={data?.agents.find(agent => agent.id === dialog.agent.id)} close={close} submit={submit} />}
   </Page>;
 }

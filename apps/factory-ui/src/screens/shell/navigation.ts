@@ -4,7 +4,7 @@ export type { SettingsSection } from '../project-settings/sections';
 
 export type ProjectTab = 'overview' | 'agents' | 'office' | 'board' | 'workflow' | 'knowledge' | 'code' | 'settings';
 export type TeamTab = 'activity' | 'config';
-export type View = 'portal' | 'overview' | 'needs-attention' | 'team' | 'world' | 'system' | 'mascots' | `project:${string}`;
+export type View = 'portal' | 'overview' | 'needs-attention' | 'team' | 'library' | 'world' | 'system' | 'mascots' | `project:${string}`;
 const tabs: ProjectTab[] = ['overview', 'agents', 'office', 'board', 'workflow', 'knowledge', 'code', 'settings'];
 export function viewHash(view: View, tab: ProjectTab = 'overview', team: TeamTab = 'activity', section?: SettingsSection): string {
   if (view === 'team') return team === 'config' ? '#/team/config' : '#/team';
@@ -19,6 +19,7 @@ export function parseHash(hash: string): View {
   if (hash === '#/portal') return 'portal';
   if (hash === '#/mascots') return 'mascots';
   if (hash === '#/system') return 'system';
+  if (hash === '#/library') return 'library';
   if (hash === '#/attention' || hash.startsWith('#/attention/')) return 'needs-attention';
   if (hash === '#/team' || hash === '#/team/config') return 'team';
   if (hash === '#/world' || hash.startsWith('#/world?')) return 'world';
