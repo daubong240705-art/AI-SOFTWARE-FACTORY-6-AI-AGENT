@@ -28,6 +28,9 @@ import { fileURLToPath } from "node:url";
 import { createApiServer, createRoutes, isLoopbackHost, listenLoopback, listenOn, originsFor, registerStaticUi } from "./api/index.js";
 import { createCommandPipeline } from "./commands/pipeline.js";
 import { createWorkflowHandlers, WORKFLOW_COMMANDS } from "./workflow/commands.js";
+import { advanceProject, createFlowHandlers, FLOW_COMMANDS, recoverFlows, registerFlowEngine, registerFlowRoutes, startFlowTimers } from "./flow/index.js";
+import { withFlowResultTool } from "./flow/mcp.js";
+import { completeFlowTask } from "./flow/work.js";
 import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
 import { EventHub } from "./events/hub.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
@@ -349,6 +352,7 @@ export async function startHost(options: {
   let unlockState: (() => void) | undefined;
   let expiryTimer: unknown;
   let scheduleTimer: unknown;
+  let stopFlowTimers: (() => void) | undefined;
   let monitorTick: Promise<void> | undefined;
   let ruleDeps: RuleDeps | undefined;
   let knowledgeTimer: ReturnType<typeof setImmediate> | undefined;
@@ -373,6 +377,7 @@ export async function startHost(options: {
       external?.close();
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
       if (scheduleTimer !== undefined) { clearExpiry(scheduleTimer); scheduleTimer = undefined; }
+      stopFlowTimers?.();
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
       await telegramBot?.stop();
       await previews?.close();
@@ -598,7 +603,7 @@ export async function startHost(options: {
     });
     runner.recover();
     const raw = storage.raw;
-    const makeAttemptMcp = (dispatcher: Dispatcher) => createMcpHandler({
+    const makeAttemptMcp = (dispatcher: Dispatcher) => withFlowResultTool(raw, clock, createMcpHandler({
       ...(external === undefined ? {} : { external }), toolPolicy: createToolPolicy(raw),
       workflow: createWorkflowPatchMcp({ raw, hub, clock, dispatcher }),
       standing: createStandingApprovalMcp({ raw, hub, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes }),
@@ -631,7 +636,7 @@ export async function startHost(options: {
           return ref;
         });
       },
-    });
+    }));
     if (options.localCli?.enabled) localTokens = createTokenRegistry({ clock });
     if (options.modelProxy) {
       const configured = options.modelProxy;
@@ -703,6 +708,7 @@ export async function startHost(options: {
       dispatch = createDispatcher({ storage, hub, registry, clock, config, dependencyCache, multiTeam: options.multiTeam ?? false,
         ...(options.timers === undefined ? {} : { timers: options.timers }),
         onInReview(input) {
+          if (completeFlowTask({ raw, hub, clock, newId: resultId }, input)) return;
           const policy = (raw.prepare("SELECT review_policy FROM tasks WHERE project_id = ? AND id = ?").get(input.projectId, input.taskId) as { review_policy: string } | undefined)?.review_policy;
           // Automatic review starts dependents, so it runs once this outcome transaction has committed.
           if (policy === "automatic") setImmediate(() => { runAutoReview(input); });
@@ -780,11 +786,18 @@ export async function startHost(options: {
     const workflowEngine = { raw: storage.raw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) };
     registerWorkflowEngine(workflowEngine);
     try { sweepWorkflows(workflowEngine); } catch { console.error("Workflow sweep failed"); }
+    const flowEngine = { ...workflowEngine, newId: resultId, upload: { store: artifacts.store, config: documentConfig, afterRegister } };
+    registerFlowEngine(flowEngine);
+    recoverFlows(flowEngine);
+    stopFlowTimers = startFlowTimers(flowEngine, options.timers);
     // Tasks the Host was to review automatically when it last stopped.
     if (dispatch) for (const row of storage.raw.prepare(`SELECT t.project_id AS projectId, t.id AS taskId,
         (SELECT a.id FROM attempts a WHERE a.project_id = t.project_id AND a.task_id = t.id ORDER BY a.epoch DESC LIMIT 1) AS attemptId
       FROM tasks t WHERE t.state = 'in-review' AND t.review_policy = 'automatic'`).all() as { projectId: string; taskId: string; attemptId: string | null }[])
-      if (row.attemptId) runAutoReview({ projectId: row.projectId, taskId: row.taskId, attemptId: row.attemptId });
+      if (row.attemptId) {
+        const input = { projectId: row.projectId, taskId: row.taskId, attemptId: row.attemptId };
+        if (!completeFlowTask(flowEngine, input)) runAutoReview(input);
+      }
     const lead = runner;
     const dispatchHandlers = dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch });
     const workflowHandlers = createWorkflowHandlers({ packs, engine: { raw: storage.raw, hub, clock,
@@ -814,6 +827,7 @@ export async function startHost(options: {
       ...createAgentHandlers(),
       ...createLibraryHandlers(),
       ...workflowHandlers,
+      ...createFlowHandlers({ packs, engine: flowEngine }),
       "projects.archive": createProjectsArchiveHandler({ cancelWorkflow: workflowHandlers["workflows.cancel"]!,
         projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") }),
       ...createRequestHandlers({ multiTeam: options.multiTeam ?? false, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
@@ -827,7 +841,11 @@ export async function startHost(options: {
         ...createKnowledgeHandlers({ multiTeam: options.multiTeam ?? false }),
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
       ...dispatchHandlers,
-      "tasks.transition": withKnowledgeEffects(dispatchHandlers["tasks.transition"] ?? tasksTransitionHandler),
+      "tasks.transition": withKnowledgeEffects(dispatchHandlers["tasks.transition"] ?? ((ctx, command) => {
+        const result = tasksTransitionHandler(ctx, command);
+        advanceProject(flowEngine, command.projectId);
+        return result;
+      })),
     } });
     if (portalConfigured) {
       const portalPack = packs.find(p => p.key === "portal-ops");
@@ -875,6 +893,7 @@ export async function startHost(options: {
     };
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
+      registerFlowRoutes(app, guards, { storage: storage! });
       registerLibraryRoutes(app, guards, { raw: storage!.raw });
       registerNotifyRoutes(app, guards, options.notify ?? { channels: [] }, telegramBot);
       registerPublishRoutes(app, guards, publishing!);
@@ -918,6 +937,7 @@ export async function startHost(options: {
         apiVersion: 1, ok: true, commands: ["projects.create", "projects.archive", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set", "models.set",
           "dossier.refresh",
           ...WORKFLOW_COMMANDS,
+          ...FLOW_COMMANDS,
           ...SCHEDULE_COMMANDS,
           ...MONITOR_COMMANDS,
           ...RULE_COMMANDS,

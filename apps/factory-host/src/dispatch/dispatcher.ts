@@ -176,16 +176,19 @@ export function createDispatcher(deps: {
     entry.stopSession ??= entry.startSettled.then(async () => { await entry.session?.stop(); });
     return entry.stopSession;
   };
+  const isFlowMock = (projectId: string, taskId: string): boolean => Boolean(raw.prepare(`SELECT 1 FROM flow_tasks f JOIN flow_runs r
+    ON r.project_id=f.project_id AND r.id=f.run_id WHERE f.project_id=? AND f.task_id=? AND r.mock_agents=1`).get(projectId, taskId));
   const create = (input: { projectId: string; taskId: string; seatId: string }): AttemptRecord => {
     const seat = raw.prepare("SELECT runtime, config_revision, status, project_id FROM seats WHERE id = ?").get(input.seatId) as
       { runtime: RuntimeKind; config_revision: number | null; status: string; project_id: string | null } | undefined;
     const configuredAgent = seat !== undefined && seat.config_revision !== null;
     if (configuredAgent && (seat.status !== "active" || seat.project_id !== input.projectId))
       throw new CommandError("conflict", "agent is not active in this project", "correct-input");
-    const config = getSeatRuntimeConfig(raw, input.seatId) ?? (!configuredAgent && defaultAgentCli !== undefined && seat?.runtime === "native-opencode"
+    const mock = isFlowMock(input.projectId, input.taskId);
+    const config = mock ? undefined : getSeatRuntimeConfig(raw, input.seatId) ?? (!configuredAgent && defaultAgentCli !== undefined && seat?.runtime === "native-opencode"
       ? { runtime: "acp" as const, cli: defaultAgentCli, model: null, effort: null, permission: "autonomous" as const } : undefined);
     // Without an override an unregistered seat runtime falls back to fake; an override must name a registered one.
-    const runtime = config?.runtime ?? (seat && registry.get(seat.runtime) ? seat.runtime : "fake");
+    const runtime = mock ? "fake" : config?.runtime ?? (seat && registry.get(seat.runtime) ? seat.runtime : "fake");
     const provider = config?.cli === "codex" ? "codex-cli" : config?.cli === "claude" ? "claude-cli" : "fake";
     const a = createAttempt(raw, { ...input, id: newId(), runtime, provider,
       model: config?.model ?? (config ? "cli-default" : "fake"), effort: config?.effort ?? "medium", now: now() });
@@ -352,7 +355,8 @@ export function createDispatcher(deps: {
         .all(preparing.projectId, preparing.id) as { body_json: string }[];
       const agentConfig = configured.map((row) => JSON.parse(row.body_json) as { to?: string; agent?: AttemptContext["agent"] })
         .find((event) => event.to === "runtime-configured")?.agent;
-      if (deps.workspace) {
+      const mock = preparing.runtime === "fake" && isFlowMock(preparing.projectId, preparing.taskId);
+      if (deps.workspace && !mock) {
         try {
           const projectRoot = deps.projectRootFor?.(preparing.projectId);
           if (!projectRoot) throw new Error("workspace unavailable");
@@ -399,7 +403,7 @@ export function createDispatcher(deps: {
             body: { type: "progress", message: "Reference inputs could not be copied" } });
         }
       }
-      const model = deps.modelAccess?.issue({ attemptId: preparing.id, projectId: preparing.projectId,
+      const model = mock ? undefined : deps.modelAccess?.issue({ attemptId: preparing.id, projectId: preparing.projectId,
         taskId: preparing.taskId, epoch: preparing.epoch,
         ...(entry.workspace === undefined ? {} : { workspacePath: entry.workspace.path }) });
       let contextPack: string | null = null;

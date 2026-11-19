@@ -81,7 +81,24 @@ test("turns includeIf and skipIf into path conditions and notes unsupported fact
   assert.ok(check?.type === "condition");
   assert.deepEqual(check.rules, [{ port: "include", when: { path: "inputs.again", op: "eq", value: true } }]);
   assert.deepEqual(flowGraph(definition).successors("draft-if").map(({ port, to }) => [port, to]), [["include", "draft"]]);
-  assert.deepEqual(flowGraph(definition).successors("edit-if").map(({ port, to }) => [port, to]), [["else", "edit"]]);
+  assert.deepEqual(flowGraph(definition).successors("edit-if").map(({ port, to }) => [port, to]), [["include", "edit"]]);
   assert.ok(!definition.nodes.some(({ id }) => id === "ship-if"));
   assert.ok(notes.some((note) => note.includes("ship") && note.includes("always included")));
+});
+
+test("bypasses skipped stages and branches on the QA result", () => {
+  const { definition } = convert([stage("design", { skipIf: param }), stage("build"), stage("qa"), stage("ship")], [
+    dependency("design", "build"), dependency("build", "qa"), dependency("qa", "ship"),
+    { from: "qa", to: "build", type: "rework", when: { fact: "review.verdict", op: "eq", value: "changes-requested" }, maxLoops: 3 },
+  ]);
+  const graph = flowGraph(definition);
+  assert.ok(graph.successors("design-if").some(({ port, to }) => port === "else" && to === "build-rework"));
+  const qa = definition.nodes.find(({ id }) => id === "qa");
+  assert.ok(qa?.type === "agent" && qa.outputSchema?.type === "object");
+  assert.deepEqual(qa.outputSchema.properties.verdict, { type: "string" });
+  const verdict = definition.nodes.find(({ id }) => id === "qa-verdict");
+  assert.ok(verdict?.type === "condition");
+  assert.deepEqual(verdict.rules[0]?.when, { path: "nodes.qa.output.verdict", op: "eq", value: "changes-requested" });
+  assert.ok(definition.edges.some(({ from, to, loopBack }) => from.node === verdict.id && from.port === "rework" && to.node === "build-rework" && loopBack));
+  assert.ok(graph.successors(verdict.id).some(({ port, to }) => port === "else" && to === "ship"));
 });
