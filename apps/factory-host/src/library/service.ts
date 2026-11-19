@@ -1,6 +1,6 @@
 import type { Database } from "better-sqlite3";
-import { agentConfigSchema, agentTemplateDetailSchema, libraryResponseSchema, skillVersionSchema,
-  type AgentConfig, type AgentTemplateDetail, type AgentTemplateSummary, type LibraryResponse, type SkillVersion } from "@factory/contracts";
+import { agentConfigSchema, agentTemplateDetailSchema, libraryResponseSchema, skillDetailSchema, skillVersionSchema,
+  type AgentConfig, type AgentTemplateDetail, type AgentTemplateSummary, type LibraryResponse, type SkillDetail, type SkillVersion } from "@factory/contracts";
 
 type TemplateRow = Omit<AgentTemplateSummary, "source"> & { packKey: string | null; packVersion: string | null };
 const templateColumns = `t.id, t.name, t.role, t.description, t.latest_revision AS latestRevision,
@@ -23,6 +23,32 @@ export function getSkillVersion(raw: Database, skillId: string, version: number 
     FROM skills s JOIN skill_versions v ON v.skill_id = s.id AND v.version = coalesce(?, s.latest_version)
     WHERE s.id = ?`).get(version === "latest" ? null : version, skillId);
   return row === undefined ? undefined : skillVersionSchema.parse(row);
+}
+
+function configUsesSkill(configJson: string, skillId: string): boolean {
+  const config = JSON.parse(configJson) as { skills?: Array<{ skillId?: string }> };
+  return config.skills?.some((skill) => skill.skillId === skillId) ?? false;
+}
+
+export function skillUsage(raw: Database, skillId: string): { agents: number; templates: number } {
+  const agents = raw.prepare(`SELECT r.config_json FROM seats s JOIN agent_revisions r
+    ON r.agent_id = s.id AND r.revision = s.config_revision
+    WHERE s.config_revision IS NOT NULL AND s.status <> 'archived'`).all() as { config_json: string }[];
+  const templates = raw.prepare(`SELECT r.config_json FROM agent_templates t JOIN agent_template_revisions r
+    ON r.template_id = t.id AND r.revision = t.latest_revision`).all() as { config_json: string }[];
+  return {
+    agents: agents.filter(({ config_json }) => configUsesSkill(config_json, skillId)).length,
+    templates: templates.filter(({ config_json }) => configUsesSkill(config_json, skillId)).length,
+  };
+}
+
+export function getSkillDetail(raw: Database, skillId: string): SkillDetail | undefined {
+  const row = raw.prepare(`SELECT id, name, description, revision, latest_version AS latestVersion, trust, source, updated_at AS updatedAt
+    FROM skills WHERE id = ?`).get(skillId);
+  if (!row) return undefined;
+  const versions = raw.prepare(`SELECT version, sha256, created_at AS createdAt FROM skill_versions
+    WHERE skill_id = ? ORDER BY version DESC LIMIT 500`).all(skillId);
+  return skillDetailSchema.parse({ skill: row, versions, usedBy: skillUsage(raw, skillId) });
 }
 
 export function getTemplateDetail(raw: Database, templateId: string, revision?: number): AgentTemplateDetail | undefined {

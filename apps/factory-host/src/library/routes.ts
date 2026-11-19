@@ -4,7 +4,7 @@ import type { Database } from "better-sqlite3";
 import type { ApiGuards } from "../api/server.js";
 import { failure } from "../api/http.js";
 import { createIdGenerator } from "../ids.js";
-import { getSkillVersion, getTemplateDetail, listLibrary } from "./service.js";
+import { getSkillDetail, getSkillVersion, getTemplateDetail, listLibrary } from "./service.js";
 
 function parseRevision(value: unknown): number | undefined {
   if (typeof value !== "string" || !/^\d+$/.test(value)) return undefined;
@@ -15,6 +15,11 @@ function parseRevision(value: unknown): number | undefined {
 export function registerLibraryRoutes(app: FastifyInstance, guards: ApiGuards, deps: { raw: Database }): void {
   const newId = createIdGenerator();
   app.get("/library", { preHandler: guards.session }, async () => ({ ok: true, apiVersion: API_VERSION, ...listLibrary(deps.raw) }));
+  app.get<{ Params: { skillId: string } }>("/library/skills/:skillId",
+    { preHandler: guards.session }, async (request, reply) => {
+      const skill = getSkillDetail(deps.raw, request.params.skillId);
+      return skill ? { ok: true, apiVersion: API_VERSION, ...skill } : failure(reply, 404, "not-found", "Skill not found.", "correct-input", newId);
+    });
   app.get<{ Params: { skillId: string; version: string } }>("/library/skills/:skillId/versions/:version",
     { preHandler: guards.session }, async (request, reply) => {
       const { skillId, version } = request.params;
