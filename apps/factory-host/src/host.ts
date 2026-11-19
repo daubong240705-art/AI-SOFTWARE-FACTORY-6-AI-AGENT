@@ -90,6 +90,7 @@ import { createDossierHandlers } from "./dossier/commands.js";
 import { createBriefingMcp } from "./dossier/mcp.js";
 import { backfillPackSnapshots, followPackUpdates } from "./instructions/snapshot.js";
 import { importPacksToLibrary, registerLibraryRoutes } from "./library/index.js";
+import { migrateProjectsToRosters } from "./org/roster-migration.js";
 import { createSkillsMcp } from "./instructions/mcp.js";
 import { createToolPolicy } from "./mcp/policy.js";
 import { loadMcpServers, parseMcpServers, type McpServersConfig } from "./mcp-external/config.js";
@@ -325,6 +326,7 @@ export async function startHost(options: {
     ? parsePushRemotes(options.pushRemotes.map((remote) => `${remote.name}=${remote.url}`).join(",")) : null;
   const portalConfigured = options.portalConfigured ?? Boolean(options.portal);
   const clock = options.clock ?? systemClock;
+  const defaultAgentCli = options.dispatch?.defaultAgentCli;
   const routeBreaker = options.modelProxy ? createRouteBreaker({ clock }) : undefined;
   const mcpServers = options.mcpServers === undefined ? undefined : parseMcpServers(options.mcpServers);
   if (options.localCli?.enabled) assertCliServerEnvironment(mcpServers, options.localCli.passEnv);
@@ -435,14 +437,6 @@ export async function startHost(options: {
       migrationsDir: options.migrationsDir ?? fileURLToPath(new URL("../migrations/", import.meta.url)),
       backupDir: options.backupDir ?? join(stateDir, "backups"), now: clock,
     });
-    backfillPackSnapshots(storage.raw, packs, clock());
-    // U1: every pack is also imported into the library (versioned skills + agent templates). Idempotent.
-    importPacksToLibrary(storage.raw, packs, { newId: createIdGenerator(clock), clock },
-      (packKey, message) => console.error(`Library import (${packKey}): ${message}`));
-    // FACTORY_PACK_FOLLOW: packs whose teams follow pack edits of the same version ("none" to pin every team).
-    const follow = (process.env.FACTORY_PACK_FOLLOW ?? "web-games,portal-ops").split(",").map((key: string) => key.trim()).filter((key: string) => key !== "" && key !== "none");
-    for (const line of followPackUpdates(storage.raw, packs, follow, clock())) console.log(`Team instructions updated: ${line}`);
-    if (mcpServers) external = createExternalTools(mcpServers, { raw: storage.raw, now: () => clock().getTime() });
     if (options.periodicBackup) {
       const service = createBackupService({ storage, dir: options.periodicBackup.dir, clock,
         ...(options.periodicBackup.keep === undefined ? {} : { keep: options.periodicBackup.keep }),
@@ -453,6 +447,21 @@ export async function startHost(options: {
         ...(options.periodicBackup.firstRunDelayMs === undefined ? {} : { firstRunDelayMs: options.periodicBackup.firstRunDelayMs }),
       });
     }
+    backfillPackSnapshots(storage.raw, packs, clock());
+    // U1: every pack is also imported into the library (versioned skills + agent templates). Idempotent.
+    importPacksToLibrary(storage.raw, packs, { newId: createIdGenerator(clock), clock },
+      (packKey, message) => console.error(`Library import (${packKey}): ${message}`));
+    for (const report of migrateProjectsToRosters(storage.raw, { newId: createIdGenerator(clock), clock, defaultAgentCli,
+      ...(backup === null ? {} : { backup: () => {
+        const result = backup!.service.run("manual");
+        if (!result.ok) throw new Error(result.error ?? "migration backup failed");
+      } }) })) {
+      console.log(`Roster migration ${report.projectId}: ${report.status}${report.detail ? ` ${report.detail}` : ""}`);
+    }
+    // FACTORY_PACK_FOLLOW: packs whose teams follow pack edits of the same version ("none" to pin every team).
+    const follow = (process.env.FACTORY_PACK_FOLLOW ?? "web-games,portal-ops").split(",").map((key: string) => key.trim()).filter((key: string) => key !== "" && key !== "none");
+    for (const line of followPackUpdates(storage.raw, packs, follow, clock())) console.log(`Team instructions updated: ${line}`);
+    if (mcpServers) external = createExternalTools(mcpServers, { raw: storage.raw, now: () => clock().getTime() });
     const hub = new EventHub(storage.raw, { clock });
     if (pushRemotes) {
       const raw = storage.raw;
@@ -807,7 +816,7 @@ export async function startHost(options: {
       "projects.archive": createProjectsArchiveHandler({ cancelWorkflow: workflowHandlers["workflows.cancel"]!,
         projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") }),
       ...createRequestHandlers({ multiTeam: options.multiTeam ?? false, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
-      "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false,
+      "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false, defaultAgentCli,
         ...(projectsRootGuard === undefined ? {} : { checkWorkspaceRoot: projectsRootGuard }) }),
       "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,
@@ -822,7 +831,7 @@ export async function startHost(options: {
     if (portalConfigured) {
       const portalPack = packs.find(p => p.key === "portal-ops");
       if (!portalPack) throw new Error("Portal pack unavailable.");
-      await ensurePortalProject({ storage, hub, clock, pack: registryPack(portalPack),
+      await ensurePortalProject({ storage, hub, clock, pack: registryPack(portalPack), defaultAgentCli,
         projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") });
     }
     portalOps.start(pipeline);
@@ -872,11 +881,13 @@ export async function startHost(options: {
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store, tasks: createArtifactTaskRefs(approvalRaw) });
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });
       registerExtractionRoutes(app, guards, extraction);
+      const gamePack = packs.find(({ key }) => key === "web-games");
       registerGameRoutes(app, guards, {
         raw: approvalRaw, publicUrl: options.portal?.publicUrl ?? null,
         ...(options.gameStarterDir === undefined ? {} : { starterDir: options.gameStarterDir }),
         ...(options.gameStarterDir && options.workspace ? { games: createGameService({
-          raw: approvalRaw, pipeline, pack, starterDir: options.gameStarterDir,
+          storage: storage!, hub, clock, pipeline, pack: pack.manifest.leadWorkflow || !gamePack ? pack : registryPack(gamePack),
+          starterDir: options.gameStarterDir, defaultAgentCli,
           projectsRoot: canonicalRoots(options.workspace).projectsRoot,
         }) } : {}),
       });

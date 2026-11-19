@@ -1,12 +1,14 @@
 import { constants, type Stats } from "node:fs";
 import { appendFile, chmod, copyFile, lstat, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Database } from "better-sqlite3";
 import { newGameResponseSchema, type NewGameRequest, type NewGameResponse } from "@factory/contracts";
-import type { createCommandPipeline } from "../commands/pipeline.js";
-import { createIdGenerator } from "../ids.js";
+import { createCommandPipeline } from "../commands/pipeline.js";
+import type { EventHub } from "../events/hub.js";
+import { createIdGenerator, type Clock } from "../ids.js";
 import type { LoadedPack } from "../org/pack.js";
-import { getProject } from "../projects/service.js";
+import type { RosterDeps } from "../org/roster.js";
+import { createProjectsCreateHandler, getProject } from "../projects/service.js";
+import type { Storage } from "../storage/database.js";
 import { getWorkflowInstance } from "../workflow/service.js";
 import { runGit } from "../workspace/git.js";
 import { assertInside, canonicalPath } from "../workspace/paths.js";
@@ -40,12 +42,17 @@ async function copyStarter(source: string, target: string): Promise<void> {
 }
 
 export function createGameService(deps: {
-  raw: Database; pipeline: ReturnType<typeof createCommandPipeline>; pack: LoadedPack;
-  starterDir: string; projectsRoot: string;
+  storage: Storage; hub: EventHub; clock: Clock; pipeline: ReturnType<typeof createCommandPipeline>; pack: LoadedPack;
+  starterDir: string; projectsRoot: string; defaultAgentCli?: RosterDeps["defaultAgentCli"];
 }) {
-  const newId = createIdGenerator();
+  const { storage, hub, clock, pack } = deps;
+  const { raw } = storage;
+  const newId = createIdGenerator(clock);
+  const projectPipeline = createCommandPipeline({ storage, hub, clock, handlers: {
+    "projects.create": createProjectsCreateHandler({ pack, defaultAgentCli: deps.defaultAgentCli }),
+  } });
   const pending = new Map<string, Promise<void>>();
-  const workspaceUsed = (root: string): boolean => Boolean(deps.raw.prepare("SELECT 1 FROM projects WHERE workspace_root = ? AND disposition<>'archived'").get(root));
+  const workspaceUsed = (root: string): boolean => Boolean(raw.prepare("SELECT 1 FROM projects WHERE workspace_root = ? AND disposition<>'archived'").get(root));
 
   async function create(input: NewGameRequest): Promise<NewGameResponse> {
     const previous = pending.get(input.gameId);
@@ -70,7 +77,7 @@ export function createGameService(deps: {
     let owned: Stats | null = null;
     try {
       const definitionKey = deps.pack.manifest.leadWorkflow;
-      if (!definitionKey) throw new Error("Default pack has no leadWorkflow");
+      if (!definitionKey) throw new Error("Game pack has no leadWorkflow");
       await mkdir(root, { recursive: true });
       try { await mkdir(target); }
       catch (error) { if ((error as NodeJS.ErrnoException).code === "EEXIST") throw new GameConflictError(); throw error; }
@@ -92,25 +99,26 @@ export function createGameService(deps: {
       await git(["commit", "-m", `Start ${input.name} from the web game starter`]);
 
       const command = (type: string, payload: unknown, kind: string) => {
-        const result = deps.pipeline.execute({ apiVersion: 1, projectId, commandId: newId(), type, payload });
+        const pipeline = type === "projects.create" ? projectPipeline : deps.pipeline;
+        const result = pipeline.execute({ apiVersion: 1, projectId, commandId: newId(), type, payload });
         if (!result.body.ok) throw new Error(`${type} rejected: ${result.body.error.code}: ${result.body.error.message}`);
         const effect = result.body.receipt.effects.find((effect) => effect.kind === kind);
         if (!effect) throw new Error(`${type} returned no ${kind}`);
         return effect;
       };
       const projectEffect = command("projects.create", { name: input.name, workspace: { kind: "git", root: target } }, "project");
-      const project = getProject(deps.raw, projectEffect.id);
+      const project = getProject(raw, projectEffect.id);
       if (!project || project.id !== projectId) throw new Error("Created project unavailable");
       const workflowEffect = command("workflows.create", { instanceId, definitionKey, packKey: deps.pack.manifest.key,
         params: { mode: "create", request: input.request, touchRules: true, touchUi: true,
           runDesign: true, runRules: true, runArt: true, runClient: true, qa: "full" } }, "workflow-instance");
-      const workflow = getWorkflowInstance(deps.raw, project.id, workflowEffect.id);
+      const workflow = getWorkflowInstance(raw, project.id, workflowEffect.id);
       if (!workflow || workflow.id !== instanceId) throw new Error("Created workflow unavailable");
       command("workflows.start", { instanceId: workflow.id, expectedRevision: workflow.revision }, "workflow-instance");
       return newGameResponseSchema.parse({ projectId: project.id, workflowInstanceId: workflow.id, gameId: input.gameId });
     } catch (error) {
       // Never remove a registered workspace, or a directory replaced since this request created it.
-      if (owned && !getProject(deps.raw, projectId) && !workspaceUsed(target)) {
+      if (owned && !getProject(raw, projectId) && !workspaceUsed(target)) {
         const current = await statIfPresent(target);
         if (current && !current.isSymbolicLink() && current.dev === owned.dev && current.ino === owned.ino)
           await rm(assertInside(root, target), { recursive: true, force: true });

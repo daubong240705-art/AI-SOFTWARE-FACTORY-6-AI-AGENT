@@ -41,7 +41,7 @@ export function capturePackSnapshot(raw: Database, pack: LoadedPack, now: Date |
 function pinnedSeat(raw: Database, input: { seatId: string }) {
   const row = raw.prepare(`SELECT t.pack_digest AS digest, s.name, p.manifest_json AS manifest
     FROM seats s JOIN teams t ON t.id = s.team_id JOIN pack_snapshots p ON p.digest = t.pack_digest
-    WHERE s.id = ?`).get(input.seatId) as { digest: string; name: string; manifest: string } | undefined;
+    WHERE s.id = ? AND t.kind = 'pack'`).get(input.seatId) as { digest: string; name: string; manifest: string } | undefined;
   if (!row) return null;
   const manifest = packManifestSchema.parse(JSON.parse(row.manifest) as unknown);
   const seat = manifest.seats.find((entry) => entry.name === row.name);
@@ -98,7 +98,7 @@ export function getSkill(raw: Database, input: { seatId: string; name: string; p
   const agent = currentAgentConfig(raw, input.seatId);
   if (agent) return resolveSkills(raw, input.pin?.skillVersions ?? agent.config.skills).find(({ name }) => name === input.name)?.content ?? null;
   const row = raw.prepare(`SELECT f.content FROM seats s JOIN teams t ON t.id = s.team_id
-    JOIN pack_files f ON f.digest = t.pack_digest AND f.kind = 'skill' WHERE s.id = ? AND f.name = ?`)
+    JOIN pack_files f ON f.digest = t.pack_digest AND f.kind = 'skill' WHERE s.id = ? AND f.name = ? AND t.kind = 'pack'`)
     .get(input.seatId, input.name) as { content: string } | undefined;
   return row?.content ?? null;
 }
@@ -108,7 +108,7 @@ export function backfillPackSnapshots(raw: Database, packs: readonly RegistryPac
   let failed = false;
   try {
     const teams = raw.prepare(`SELECT id, pack_key, pack_version FROM teams
-      WHERE pack_digest IS NULL AND pack_key IS NOT NULL AND pack_version IS NOT NULL`)
+      WHERE kind = 'pack' AND pack_digest IS NULL AND pack_key IS NOT NULL AND pack_version IS NOT NULL`)
       .all() as { id: string; pack_key: string; pack_version: string }[];
     for (const team of teams) {
       const entry = packs.find((pack) => pack.key === team.pack_key && pack.version === team.pack_version);
@@ -126,16 +126,15 @@ export function backfillPackSnapshots(raw: Database, packs: readonly RegistryPac
 
 /**
  * Moves teams of the listed packs to the registered pack of the same key and version when its
- * content changed (profiles, skills, tools), so existing projects get improved instructions.
- * Seats are matched by name; a team is skipped when a seat of the team is missing from the new
- * manifest. Runs at startup, before any attempt starts, so no running attempt changes underneath.
+ * content changed. Pack seats follow instructions when their names still match. Rosters follow
+ * manifest metadata only; their agents' configuration and instructions stay pinned in the DB.
  */
 export function followPackUpdates(raw: Database, packs: readonly RegistryPack[], keys: readonly string[], now: Date | string): string[] {
   const moved: string[] = [];
   if (!keys.length) return moved;
-  const teams = raw.prepare(`SELECT id, name, pack_key, pack_version, pack_digest FROM teams
-    WHERE pack_key IS NOT NULL AND pack_version IS NOT NULL AND pack_digest IS NOT NULL`)
-    .all() as { id: string; name: string; pack_key: string; pack_version: string; pack_digest: string }[];
+  const teams = raw.prepare(`SELECT id, name, kind, pack_key, pack_version, pack_digest FROM teams
+    WHERE kind IN ('pack', 'roster') AND pack_key IS NOT NULL AND pack_version IS NOT NULL AND pack_digest IS NOT NULL`)
+    .all() as { id: string; name: string; kind: string; pack_key: string; pack_version: string; pack_digest: string }[];
   for (const team of teams) {
     if (!keys.includes(team.pack_key)) continue;
     const entry = packs.find((pack) => pack.key === team.pack_key && pack.version === team.pack_version);
@@ -143,9 +142,11 @@ export function followPackUpdates(raw: Database, packs: readonly RegistryPack[],
     try {
       const pack = registryPack(entry);
       if (pack.digest === team.pack_digest) continue;
-      const seatNames = new Set(pack.manifest.seats.map((seat) => seat.name));
-      const seats = raw.prepare("SELECT name FROM seats WHERE team_id = ?").all(team.id) as { name: string }[];
-      if (seats.some((seat) => !seatNames.has(seat.name))) continue;
+      if (team.kind === "pack") {
+        const seatNames = new Set(pack.manifest.seats.map((seat) => seat.name));
+        const seats = raw.prepare("SELECT name FROM seats WHERE team_id = ?").all(team.id) as { name: string }[];
+        if (seats.some((seat) => !seatNames.has(seat.name))) continue;
+      }
       raw.transaction(() => {
         capturePackSnapshot(raw, pack, now);
         raw.prepare("UPDATE teams SET pack_digest = ? WHERE id = ? AND pack_digest = ?").run(pack.digest, team.id, team.pack_digest);

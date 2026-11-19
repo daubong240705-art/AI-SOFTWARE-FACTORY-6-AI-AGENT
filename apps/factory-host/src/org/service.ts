@@ -44,7 +44,7 @@ export function listAllSeats(raw: Database, teamId?: string, limit = -1): Seat[]
 export function ensureTeamFromPack(raw: Database, pack: LoadedPack, deps: Deps): { teamId: string; created: boolean; seatIds: string[] } {
   return raw.transaction(() => {
     const { manifest } = pack;
-    const existing = raw.prepare("SELECT id FROM teams WHERE pack_key = ? AND pack_version = ? ORDER BY id LIMIT 1")
+    const existing = raw.prepare("SELECT id FROM teams WHERE kind = 'pack' AND pack_key = ? AND pack_version = ? ORDER BY id LIMIT 1")
       .get(manifest.key, manifest.version) as { id: string } | undefined;
     if (existing) return { teamId: existing.id, created: false, seatIds: listSeats(raw, existing.id).map((seat) => seat.id) };
     const teamId = deps.teamId ?? deps.newId();
