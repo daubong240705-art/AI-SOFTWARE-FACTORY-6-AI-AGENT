@@ -243,3 +243,29 @@ test("roster workers retain the configured CLI-only host default at revision one
   assert.equal(current.config.runtime.adapter, "claude-code");
   assert.equal(current.config.runtime.permission, "autonomous");
 });
+
+test("a new project starts with no agents unless a team template is chosen", (context) => {
+  const { raw, storage, hub, deps } = fixture(context);
+  const pack = load("software-team");
+  const research = load("research-team");
+  const handler = createProjectsCreateHandler({ pack, packs: [registryEntry(pack), registryEntry(research)], startEmpty: true });
+  const pipeline = createCommandPipeline({ storage, hub, ...deps, handlers: { "projects.create": handler } });
+  const create = (extra: Record<string, unknown>) => {
+    const projectId = deps.newId();
+    const result = pipeline.execute({ apiVersion: 1, projectId, commandId: deps.newId(), type: "projects.create",
+      payload: { name: "Project", workspace: { kind: "git", root: `/projects/${projectId}` }, ...extra } });
+    return { projectId, body: result.body };
+  };
+  const empty = create({});
+  assert.ok(empty.body.ok);
+  const engagement = getPrimaryEngagement(raw, empty.projectId)!;
+  assert.equal((raw.prepare("SELECT kind FROM teams WHERE id = ?").get(engagement.teamId) as { kind: string }).kind, "roster");
+  assert.equal(listSeats(raw, engagement.teamId).length, 0);
+  const templated = create({ teamTemplate: "research-team" });
+  assert.ok(templated.body.ok);
+  assert.deepEqual(listSeats(raw, getPrimaryEngagement(raw, templated.projectId)!.teamId).map(({ name }) => name).sort(),
+    research.manifest.seats.map(({ name }) => name).sort());
+  const unknown = create({ teamTemplate: "no-such-pack" });
+  assert.equal(unknown.body.ok, false);
+  assert.equal(raw.prepare("SELECT 1 FROM projects WHERE id = ?").get(unknown.projectId), undefined);
+});

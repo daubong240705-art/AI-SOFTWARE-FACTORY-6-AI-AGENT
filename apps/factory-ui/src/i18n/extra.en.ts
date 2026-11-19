@@ -335,7 +335,7 @@ export const extra = {
     projectCreated: 'Project created', saved: 'Saved', answered: 'Answered',
   },
   ux5: {
-    createTitle: 'New project', createDescription: 'A project brings together a workspace, tasks, and agent teams.',
+    teamTemplate: 'Team template', teamTemplateNone: 'Empty — I will add agents myself', teamTemplateOption: '{name} ({count} agents)', teamTemplateHelp: 'The template agents are copied into this project; you can edit or remove them later.', teamTemplateNoneHelp: 'The project starts without agents. Add them in the Agents & Teams tab.', createTitle: 'New project', createDescription: 'A project brings together a workspace, tasks, and agent teams.',
     directory: 'Directory', git: 'Git project', directoryDescription: 'An empty directory created by the Host', gitDescription: 'Use an existing Git clone',
     directoryPathHint: 'Enter an absolute path in the Host’s WSL/Linux, for example /srv/factory/workspaces/my-project, or use Choose folder. Do not use a Windows drive (E:\\ or /mnt/).',
     gitPathHint: 'Enter the path to an existing Git clone in the Host’s WSL/Linux, or use Choose folder.', pathWarning: 'This looks like a Windows or /mnt/ path. Use a path in the Host’s WSL/Linux. The Host will validate it.',

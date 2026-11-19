@@ -44,8 +44,8 @@ export function standingApprovalsRevoke({ projectId, ...payload }: Of<'standing-
   return build('standing-approvals.revoke', projectId, payload);
 }
 
-export function projectsCreate({ name, root, kind = 'directory' }: { name: string; root: string; kind?: 'directory' | 'git' }) {
-  return build('projects.create', crypto.randomUUID(), { name, workspace: { kind, root } });
+export function projectsCreate({ name, root, kind = 'directory', teamTemplate }: { name: string; root: string; kind?: 'directory' | 'git'; teamTemplate?: string | undefined }) {
+  return build('projects.create', crypto.randomUUID(), { name, workspace: { kind, root }, ...(teamTemplate ? { teamTemplate } : {}) });
 }
 export function projectsArchive({ projectId, expectedRevision, confirmName }: { projectId: string; expectedRevision: number; confirmName: string }) {
   return build('projects.archive', projectId, { expectedRevision, confirmName });

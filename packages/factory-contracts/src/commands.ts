@@ -94,6 +94,8 @@ export const commandSchema = z.discriminatedUnion("type", [
         kind: z.enum(["git", "directory", "artifact"]),
         root: linuxPathSchema,
       }),
+      /** U1: a pack key whose seats become the project's first agents. Omitted = the project starts with no agents. */
+      teamTemplate: z.string().regex(/^[a-z0-9-]{2,40}$/).optional(),
     }),
   ),
   command("projects.update", z.strictObject({ ...change, name: labelSchema })),

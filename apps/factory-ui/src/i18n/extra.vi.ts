@@ -338,7 +338,7 @@ export const extra: Translated<typeof en> = {
     projectCreated: 'Đã tạo dự án', saved: 'Đã lưu', answered: 'Đã trả lời',
   },
   ux5: {
-    createTitle: 'Dự án mới', createDescription: 'Một dự án gồm thư mục làm việc, các việc và đội agent.',
+    teamTemplate: 'Mẫu đội', teamTemplateNone: 'Trống — tôi tự thêm agent', teamTemplateOption: '{name} ({count} agent)', teamTemplateHelp: 'Các agent của mẫu được chép vào dự án này; bạn sửa hoặc xóa được sau.', teamTemplateNoneHelp: 'Dự án bắt đầu không có agent nào. Thêm agent ở tab Agent & Đội.', createTitle: 'Dự án mới', createDescription: 'Một dự án gồm thư mục làm việc, các việc và đội agent.',
     directory: 'Thư mục', git: 'Dự án Git', directoryDescription: 'Thư mục trống do Host tạo', gitDescription: 'Dùng bản sao Git có sẵn',
     directoryPathHint: 'Nhập đường dẫn tuyệt đối trong WSL/Linux của Host, ví dụ /srv/factory/workspaces/my-project, hoặc dùng nút Chọn thư mục. Không dùng ổ Windows (E:\\ hoặc /mnt/).',
     gitPathHint: 'Nhập đường dẫn tới bản sao Git đã có trong WSL/Linux của Host, hoặc dùng nút Chọn thư mục.', pathWarning: 'Đây có vẻ là đường dẫn Windows hoặc /mnt/. Hãy dùng đường dẫn trong WSL/Linux của Host. Host sẽ kiểm tra đường dẫn này.',

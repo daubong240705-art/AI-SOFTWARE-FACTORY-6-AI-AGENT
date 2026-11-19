@@ -843,7 +843,7 @@ export async function startHost(options: {
       "projects.archive": createProjectsArchiveHandler({ cancelWorkflow: workflowHandlers["workflows.cancel"]!,
         projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") }),
       ...createRequestHandlers({ multiTeam: options.multiTeam ?? false, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
-      "projects.create": createProjectsCreateHandler({ pack, multiTeam: options.multiTeam ?? false, defaultAgentCli,
+      "projects.create": createProjectsCreateHandler({ pack, packs, startEmpty: true, multiTeam: options.multiTeam ?? false, defaultAgentCli,
         ...(projectsRootGuard === undefined ? {} : { checkWorkspaceRoot: projectsRootGuard }) }),
       "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,

@@ -1,4 +1,4 @@
-﻿import { useId, useRef, useState, type FormEvent } from 'react';
+﻿import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { Command } from '@factory/contracts';
 import { projectsCreate } from '../api/commands';
 import { useT } from '../i18n';
@@ -33,6 +33,10 @@ export function CreateProject({ store, onClose, onCreated }: { store: Store; onC
   const t = useT(); const titleId = useId();
   const [name, setName] = useState(''); const [root, setRoot] = useState('');
   const [kind, setKind] = useState<'directory' | 'git'>('directory');
+  // The platform never imposes a team: empty by default, a pack's seats only when the operator picks a template.
+  const [teamTemplate, setTeamTemplate] = useState('');
+  const packs = store.useStoreSelector(state => state.m3.packs);
+  useEffect(() => { void store.loadTeams(); }, [store]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const rootInput = useRef<HTMLInputElement>(null);
   const browseButton = useRef<HTMLButtonElement>(null);
@@ -52,7 +56,7 @@ export function CreateProject({ store, onClose, onCreated }: { store: Store; onC
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (inFlight.current || command) return;
     let created: Command;
-    try { created = projectsCreate({ name: name.trim(), root, kind }); }
+    try { created = projectsCreate({ name: name.trim(), root, kind, teamTemplate: teamTemplate || undefined }); }
     catch (error) { setErrors(invalidFields(error)); return; }
     setErrors({}); setCommand(created); void execute(created);
   }
@@ -69,6 +73,15 @@ export function CreateProject({ store, onClose, onCreated }: { store: Store; onC
           </Label>)}
         </RadioGroup>
       </fieldset>
+      <Field>
+        <FieldLabel htmlFor={`${titleId}-team`}>{t('ux5.teamTemplate')}</FieldLabel>
+        <select id={`${titleId}-team`} value={teamTemplate} disabled={!!command} onChange={event => setTeamTemplate(event.target.value)}
+          className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
+          <option value="">{t('ux5.teamTemplateNone')}</option>
+          {packs.map(pack => <option key={pack.key} value={pack.key}>{`${pack.name} (${pack.seats.length} agent)`}</option>)}
+        </select>
+        <FieldDescription>{t(teamTemplate ? 'ux5.teamTemplateHelp' : 'ux5.teamTemplateNoneHelp')}</FieldDescription>
+      </Field>
       <Field>
         <FieldLabel htmlFor={`${titleId}-root`}>{t('projects.root')}</FieldLabel>
         <div className="flex flex-col gap-2 sm:flex-row">
