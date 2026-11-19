@@ -2,9 +2,16 @@ import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 export const extra: Translated<typeof en> = {
+  libraryUi: {
+    title: 'Thư viện', help: 'Quản lý skill và mẫu agent dùng lại.', skills: 'Skill', templates: 'Mẫu agent',
+    createSkill: 'Tạo skill', importSkill: 'Nhập SKILL.md', importError: 'Không đọc được tệp này. Hãy chọn tệp .md.', searchSkills: 'Tìm skill', emptySearch: 'Không tìm thấy skill phù hợp.', emptySkills: 'Chưa có skill nào.', selectSkill: 'Chọn một skill để xem chi tiết và các phiên bản.',
+    custom: 'Tự tạo', latestVersion: 'Mới nhất: v{version}', versions: 'Phiên bản', usedBy: 'Đang dùng bởi {agents} agent, {templates} mẫu', trustLabel: 'Mức độ tin cậy', trust: { instructions: 'Chỉ dẫn', assets: 'Tài nguyên', scripts: 'Tập lệnh' }, content: 'Nội dung', contentCount: '{count} / {limit} ký tự', skillEditorHelp: 'Nội dung skill được lưu dưới dạng văn bản thuần.', skillNameHint: 'Dùng 1–64 ký tự: chữ thường, số hoặc dấu gạch nối. Bắt đầu bằng chữ hoặc số.', invalidSkill: 'Nhập giá trị có độ dài hợp lệ.',
+    createTemplate: 'Tạo mẫu', editTemplate: 'Sửa mẫu', emptyTemplates: 'Chưa có mẫu agent nào.', selectTemplate: 'Chọn một mẫu để xem các phiên bản.', templateEditorHelp: 'Thiết lập cấu hình cho các agent được tạo từ mẫu này.', templateDescription: 'Mô tả mẫu (không bắt buộc)', latestRevision: 'Mới nhất: r{revision}', revisions: 'Phiên bản', configuration: 'Cấu hình · r{revision}', newerRevisions: 'Phiên bản mới hơn', olderRevisions: 'Phiên bản cũ hơn',
+    deleteTitle: 'Xóa khỏi thư viện?', deleteHelp: 'Xóa “{name}” và lịch sử của mục này?', missing: 'Mục này không còn trong thư viện.', conflict: 'Đã thay đổi ở nơi khác, hãy tải lại', saveAsTemplate: 'Lưu làm mẫu', saveTemplateHelp: 'Lưu cấu hình hiện tại của “{name}” làm mẫu mới trong thư viện.', upgradeFromTemplate: 'Nâng cấp theo mẫu (r{revision})', upgradeHelp: 'Thay cấu hình của “{name}” bằng mẫu r{revision}. Các thay đổi riêng của agent sẽ không được giữ lại.', compareHelp: 'Chọn phiên bản hiện tại của agent bên dưới để so sánh với mẫu r{revision} trước khi xác nhận.',
+  },
   agentsAdmin: {
     title: 'Agent & Đội', agents: 'Danh sách agent', counts: '{total} agent · {active} đang hoạt động · {teams} đội',
-    create: 'Tạo agent', fromTemplate: 'Tạo từ mẫu', edit: 'Sửa', clone: 'Nhân bản', makeLead: 'Đặt làm Lead dự án',
+    create: 'Tạo agent', fromTemplate: 'Tạo từ mẫu', edit: 'Sửa', clone: 'Nhân bản', makeLead: 'Đặt làm Lead dự án', saveAsTemplate: 'Lưu làm mẫu', upgradeFromTemplate: 'Nâng cấp theo mẫu (r{revision})',
     pause: 'Tạm dừng', activate: 'Kích hoạt', archive: 'Lưu trữ', delete: 'Xóa', lead: 'Lead', actions: 'Thao tác với {name}',
     status: { active: 'Đang hoạt động', paused: 'Tạm dừng', archived: 'Lưu trữ', 'pending-approval': 'Chờ phê duyệt', all: 'Tất cả' },
     filter: 'Lọc agent theo trạng thái', emptyAgents: 'Chưa có agent. Bạn có thể tạo mới hoặc bắt đầu từ mẫu.', emptyFilter: 'Không có agent nào khớp với bộ lọc.',
@@ -416,7 +423,7 @@ export const extra: Translated<typeof en> = {
       'integration-conflict': 'Xung đột tích hợp', 'quarantined-rule': 'Quy tắc bị cách ly', monitor: 'Chỉ số bất thường',
     },
   },
-  nav: { main: 'Điều hướng chính', overview: 'Tổng quan', attention: 'Cần xử lý', team: 'Đội', world: 'Thế giới', settings: 'Cài đặt', preferences: 'Tùy chọn', collapse: 'Thu gọn', expand: 'Mở rộng thanh bên', close: 'Đóng điều hướng', skip: 'Đến nội dung' },
+  nav: { main: 'Điều hướng chính', overview: 'Tổng quan', attention: 'Cần xử lý', team: 'Đội', library: 'Thư viện', world: 'Thế giới', settings: 'Cài đặt', preferences: 'Tùy chọn', collapse: 'Thu gọn', expand: 'Mở rộng thanh bên', close: 'Đóng điều hướng', skip: 'Đến nội dung' },
   overview: {
     greeting: 'Xin chào', greetingStart: 'Chào', morning: 'buổi sáng', afternoon: 'buổi chiều', evening: 'buổi tối',
     composer: 'Giao việc hoặc hỏi Lead', message: 'Nội dung gửi Lead',

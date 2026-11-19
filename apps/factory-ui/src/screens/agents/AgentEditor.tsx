@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { agentAdapterSchema, agentConfigSchema, agentTagSchema, type AgentConfig, type AgentConfigInput, type AgentDetail } from '@factory/contracts';
-import type { ApiClient } from '@/api/client';
+import { agentAdapterSchema, agentConfigSchema, agentTagSchema, type AgentConfig, type AgentConfigInput, type AgentDetail, type Command } from '@factory/contracts';
+import { ApiClientError, type ApiClient } from '@/api/client';
 import type { AgentLibrary } from '@/api/agentModels';
 import { agentsCreate, agentsRollback, agentsUpdate } from '@/api/commands';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { LibraryError, useLibraryLabels } from '../library/shared';
 import { AgentHistory } from './AgentHistory';
 import { AdminDialog, Choice, DialogButtons, ErrorText, Field, useAgentLabels, useWriteFeedback, type Submit } from './shared';
 import { AgentCapabilities } from './AgentCapabilities';
@@ -18,19 +19,24 @@ const tabs = ['profile', 'runtime', 'capabilities', 'collaboration', 'history'] 
 type Tab = typeof tabs[number];
 const tabFor = (path: string): Tab => path.startsWith('runtime') ? 'runtime' : /^(skills|tools)/.test(path) ? 'capabilities' : /^(delegation|budget|autonomy)/.test(path) ? 'collaboration' : 'profile';
 
-export function AgentEditor({ api, projectId, detail, library, initial, template, close, submit, refresh, loading, readError }: {
-  api: ApiClient; projectId: string; detail?: AgentDetail; library?: AgentLibrary; initial?: AgentConfig;
+type TemplateMode = { title: string; description?: string; stale?: boolean; save: (config: AgentConfig, description: string) => Command };
+
+export function AgentEditor({ api, projectId, detail, library, initial, template, templateMode, close, submit, refresh, loading, readError }: {
+  api: ApiClient; detail?: AgentDetail; library?: AgentLibrary; initial?: AgentConfig;
   template?: { id: string; revision: number; link: boolean }; close: () => void; submit: Submit; refresh: () => void; loading?: boolean; readError?: Error | undefined;
-}) {
+} & ({ projectId: string; templateMode?: never } | { projectId?: never; templateMode: TemplateMode })) {
   const t = useAgentLabels();
+  const libraryLabel = useLibraryLabels();
   const [draft, setDraft] = useState({ config: detail?.config ?? initial ?? blank, revision: detail?.revision });
   const { config } = draft;
   const [tab, setTab] = useState<Tab>('profile');
   const [note, setNote] = useState('');
+  const [description, setDescription] = useState(templateMode?.description ?? '');
   const [errors, setErrors] = useState<string[]>([]);
   const [awaiting, setAwaiting] = useState<AgentDetail | null>(null);
   const writer = useWriteFeedback(submit);
   const stale = !!detail && detail.revision !== draft.revision;
+  const templateStale = !!templateMode && (templateMode.stale || (writer.error instanceof ApiClientError && writer.error.code === 'conflict'));
   useEffect(() => {
     if (awaiting && detail && detail !== awaiting && !loading) {
       setDraft({ config: detail.config, revision: detail.revision });
@@ -45,7 +51,7 @@ export function AgentEditor({ api, projectId, detail, library, initial, template
   const invalid = (path: string) => errors.some(issue => issue === path || issue.startsWith(`${path}.`)) ? t('invalid') : undefined;
   const afterWrite = () => { if (detail) setAwaiting(detail); else close(); };
   const save = () => {
-    if (stale || loading || awaiting || config.runtime.adapter === 'api-agent' || tab === 'history') return;
+    if (stale || templateStale || loading || awaiting || config.runtime.adapter === 'api-agent' || tab === 'history') return;
     const input: AgentConfigInput = { ...config, runtime: { ...config.runtime, model: config.runtime.model?.trim() || null } };
     const parsed = agentConfigSchema.safeParse(input);
     if (!parsed.success) {
@@ -53,13 +59,15 @@ export function AgentEditor({ api, projectId, detail, library, initial, template
       setErrors(paths); setTab(tabFor(paths[0] ?? '')); return;
     }
     setErrors([]);
-    void writer.run(() => detail ? agentsUpdate({ projectId, agentId: detail.id, expectedRevision: draft.revision!, config: parsed.data, ...(note.trim() ? { note: note.trim() } : {}) }) : agentsCreate({ projectId, config: parsed.data, teamIds: [], isLead: false, ...(template ? { template } : {}) }), close);
+    if (templateMode) void writer.run(() => templateMode.save(parsed.data, description), close);
+    else void writer.run(() => detail ? agentsUpdate({ projectId, agentId: detail.id, expectedRevision: draft.revision!, config: parsed.data, ...(note.trim() ? { note: note.trim() } : {}) }) : agentsCreate({ projectId, config: parsed.data, teamIds: [], isLead: false, ...(template ? { template } : {}) }), close);
   };
-  const blocked = writer.busy || !!loading || stale || !!awaiting;
-  const rollback = (revision: number) => { if (detail && !blocked) void writer.run(() => agentsRollback({ projectId, agentId: detail.id, expectedRevision: draft.revision!, toRevision: revision }), afterWrite); };
+  const blocked = writer.busy || !!loading || stale || templateStale || !!awaiting;
+  const rollback = (revision: number) => { if (detail && projectId && !blocked) void writer.run(() => agentsRollback({ projectId, agentId: detail.id, expectedRevision: draft.revision!, toRevision: revision }), afterWrite); };
   const set = <T extends keyof AgentConfig>(key: T, value: AgentConfig[T]) => setDraft(previous => ({ ...previous, config: { ...previous.config, [key]: value } }));
-  return <AdminDialog wide title={detail ? `${t('edit')}: ${detail.name}` : t('create')} description={t('editorHelp')} close={close} busy={writer.busy} onSubmit={save} footer={<DialogButtons close={close} label={t('save')} busy={writer.busy} disabled={blocked || config.runtime.adapter === 'api-agent' || tab === 'history'} />}>
-    <ErrorText error={writer.error} />
+  const editorHelp = templateMode ? libraryLabel('templateEditorHelp') : t('editorHelp');
+  return <AdminDialog wide title={templateMode?.title ?? (detail ? `${t('edit')}: ${detail.name}` : t('create'))} description={editorHelp} close={close} busy={writer.busy} onSubmit={save} footer={<DialogButtons close={close} label={t('save')} busy={writer.busy} disabled={blocked || config.runtime.adapter === 'api-agent' || tab === 'history'} />}>
+    {templateMode ? <LibraryError error={writer.error} stale={templateStale} /> : <ErrorText error={writer.error} />}
     <ErrorText error={readError} />
     {(stale || awaiting || readError) && <div className="flex flex-wrap items-center gap-2 text-sm" role="status">
       {stale && !awaiting && t('errors.conflict')}
@@ -68,11 +76,12 @@ export function AgentEditor({ api, projectId, detail, library, initial, template
     {!!errors.length && <p role="alert" className="text-sm text-destructive">{t('invalidForm')}</p>}
     <fieldset disabled={writer.busy || !!awaiting}>
     <Tabs value={tab} onValueChange={value => setTab(value as Tab)}>
-    <TabsList aria-label={t('editorHelp')} className="grid h-auto w-full grid-cols-2 gap-1 bg-muted/50 p-1 sm:grid-cols-5">{tabs.filter(item => item !== 'history' || detail).map(item => <TabsTrigger key={item} value={item}>{t(`tabs.${item}`)}</TabsTrigger>)}</TabsList>
+    <TabsList aria-label={editorHelp} className={`grid h-auto w-full grid-cols-2 gap-1 bg-muted/50 p-1 ${templateMode ? 'sm:grid-cols-4' : 'sm:grid-cols-5'}`}>{tabs.filter(item => item !== 'history' || (detail && !templateMode)).map(item => <TabsTrigger key={item} value={item}>{t(`tabs.${item}`)}</TabsTrigger>)}</TabsList>
     <TabsContent value="profile" className="grid gap-4 sm:grid-cols-2">
       <Field label={t('fields.name')} invalid={invalid('name')}>{props => <Input {...props} value={config.name} onChange={event => set('name', event.target.value)} maxLength={80} />}</Field>
       <Field label={t('fields.role')} invalid={invalid('role')}>{props => <Input {...props} value={config.role} onChange={event => set('role', event.target.value)} maxLength={160} />}</Field>
       <div className="sm:col-span-2"><Field label={t('fields.description')} invalid={invalid('description')}>{props => <Textarea {...props} value={config.description} onChange={event => set('description', event.target.value)} maxLength={2000} />}</Field></div>
+      {templateMode && <div className="sm:col-span-2"><Field label={libraryLabel('templateDescription')}>{props => <Textarea {...props} value={description} onChange={event => setDescription(event.target.value)} maxLength={2000} />}</Field></div>}
       <StringList key={`goals:${draft.revision}`} field="goals" values={config.goals} limit={12} set={values => set('goals', values)} invalid={invalid('goals')} />
       <div className="sm:col-span-2"><Field label={t('fields.instructions')} invalid={invalid('instructions')} hint={`${config.instructions.length.toLocaleString()} / 65,536`}>{props => <Textarea {...props} className="min-h-36 font-mono text-xs" value={config.instructions} onChange={event => set('instructions', event.target.value)} maxLength={65536} />}</Field></div>
       <StringList key={`rules:${draft.revision}`} field="workRules" values={config.workRules} limit={20} set={values => set('workRules', values)} invalid={invalid('workRules')} />
@@ -93,7 +102,7 @@ export function AgentEditor({ api, projectId, detail, library, initial, template
       {(['maxDepth', 'maxOpenSubtasks'] as const).map((key, index) => <NumberField key={key} field={key} value={config.delegation[key]} min={0} max={index ? 20 : 3} set={value => set('delegation', { ...config.delegation, [key]: value })} invalid={invalid(`delegation.${key}`)} />)}
       {(['perTaskTokens', 'monthlyTokens'] as const).map(key => <NumberField key={key} field={key} value={config.budget[key]} min={1} set={value => set('budget', { ...config.budget, [key]: Number.isNaN(value) ? undefined : value })} invalid={invalid(`budget.${key}`)} />)}
     </TabsContent>
-    {detail && <TabsContent value="history"><AgentHistory api={api} detail={detail} busy={blocked} rollback={rollback} /></TabsContent>}
+    {detail && !templateMode && <TabsContent value="history"><AgentHistory api={api} detail={detail} busy={blocked} rollback={rollback} /></TabsContent>}
     </Tabs>
     {detail && tab !== 'history' && <div className="mt-4"><Field label={t('fields.note')}>{props => <Input {...props} value={note} onChange={event => setNote(event.target.value)} maxLength={500} />}</Field></div>}
     </fieldset>

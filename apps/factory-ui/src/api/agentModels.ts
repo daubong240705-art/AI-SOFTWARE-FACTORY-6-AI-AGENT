@@ -1,4 +1,5 @@
 import {
+  skillDetailSchema, skillVersionSchema,
   agentDetailSchema, agentRevisionViewSchema, agentTemplateDetailSchema,
   libraryResponseSchema, projectAgentsResponseSchema, successResponseSchema,
 } from '@factory/contracts';
@@ -9,6 +10,8 @@ export const agentModels = {
   detail: ok.extend(agentDetailSchema.shape),
   revision: ok.extend(agentRevisionViewSchema.shape),
   library: ok.extend(libraryResponseSchema.shape),
+  skill: ok.extend(skillDetailSchema.shape),
+  skillVersion: ok.extend(skillVersionSchema.shape),
   template: ok.extend(agentTemplateDetailSchema.shape),
 };
 export type AgentProjectResponse = ReturnType<typeof projectAgentsResponseSchema.parse>;

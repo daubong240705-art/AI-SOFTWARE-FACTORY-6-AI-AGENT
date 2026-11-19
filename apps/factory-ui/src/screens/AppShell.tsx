@@ -1,7 +1,7 @@
 import { LoadingState } from '@/components/LoadingState';
 import { PortalGames } from './PortalGames';
 import { shallowSelectionEqual } from '@/state/storeSelector';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { Dialog } from '../components/Dialog';
@@ -34,7 +34,7 @@ function useCompact() {
   return compact;
 }
 
-export function AppShell({ store }: { store: Store }) {
+export function AppShell({ store, libraryPage }: { store: Store; libraryPage?: ReactNode }) {
   const t = useT(); const state = store.useStoreSelector(value => ({ projects: value.projects, selectedProjectId: value.selectedProjectId, announcement: value.announcement }), shallowSelectionEqual);
   const { view, tab, teamTab, settingsSection, navigate } = useNavigation();
   const [newTaskRequest, setNewTaskRequest] = useState<{ projectId: string; sequence: number } | null>(null);
@@ -67,7 +67,7 @@ export function AppShell({ store }: { store: Store }) {
   function newTask() { setInitialTask(null); setFocusComposer(value => value + 1); go('overview'); }
   function openTask(projectId: string, taskId: string) { setInitialTask({ projectId, taskId }); navigate(`project:${projectId}`, 'board'); setExpanded(false); }
   const navigation = <Sidebar store={store} view={view} collapsed={collapsed && !compact} compact={compact} expanded={expanded} onNavigate={go} onCollapse={() => compact ? setExpanded(false) : setCollapsed(value => !value)} />;
-  const pageName = selected?.name ?? (view === 'portal' ? t('portalUi.games') : t(view === 'needs-attention' ? 'nav.attention' : view === 'team' ? 'nav.team' : view === 'world' ? 'nav.world' : view === 'system' ? 'systemUi.title' : 'nav.overview'));
+  const pageName = selected?.name ?? (view === 'portal' ? t('portalUi.games') : t(view === 'needs-attention' ? 'nav.attention' : view === 'team' ? 'nav.team' : view === 'library' ? 'nav.library' : view === 'world' ? 'nav.world' : view === 'system' ? 'systemUi.title' : 'nav.overview'));
   return <div className={`app${collapsed && !compact ? ' sidebar-collapsed' : ''}`}>
     <a className="skip-link" href="#factory-main" onClick={event => { event.preventDefault(); main.current?.focus(); }}>{t('nav.skip')}</a>
     <TooltipProvider>{!compact && navigation}<TopBar store={store} compact={compact} expanded={expanded} onToggle={() => setExpanded(value => !value)} onCreate={create} onProject={id => go(`project:${id}`)} onTask={openTask} />
@@ -78,6 +78,7 @@ export function AppShell({ store }: { store: Store }) {
         : view === 'portal' ? <PortalGames store={store} />
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'team' ? <Teams store={store} tab={teamTab} onTabChange={next => navigate('team', 'overview', next)} onTask={openTask} />
+        : view === 'library' ? <Suspense fallback={<LoadingState />}>{libraryPage}</Suspense>
         : view === 'world' ? <Suspense fallback={<LoadingState />}><WorldPage store={store} projects={state.projects} onNavigate={go} onCreate={create} onTask={openTask} onChat={id => { setChatProject(id); go(`project:${id}`); }} /></Suspense>
         : view === 'system' ? <System store={store} />
         : view === 'mascots' ? <Suspense fallback={<LoadingState />}><MascotGallery /></Suspense>

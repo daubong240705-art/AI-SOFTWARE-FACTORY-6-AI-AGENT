@@ -1,4 +1,5 @@
 import { API_VERSION, commandSchema, type Command } from '@factory/contracts';
+import { LIBRARY_SCOPE_ID } from '@factory/contracts';
 
 type Of<T extends Command['type']> = Extract<Command, { type: T }>;
 function build<T extends Command['type']>(type: T, projectId: string, payload: Of<T>['payload']): Of<T> {
@@ -12,6 +13,14 @@ export function agentsSetStatus({ projectId, ...payload }: Of<'agents.set-status
 export function agentsSetLead({ projectId, ...payload }: Of<'agents.set-lead'>['payload'] & { projectId: string }) { return build('agents.set-lead', projectId, payload); }
 export function agentsRollback({ projectId, ...payload }: Of<'agents.rollback'>['payload'] & { projectId: string }) { return build('agents.rollback', projectId, payload); }
 export function agentsDelete({ projectId, ...payload }: Of<'agents.delete'>['payload'] & { projectId: string }) { return build('agents.delete', projectId, payload); }
+export function agentsSaveAsTemplate({ projectId, ...payload }: Omit<Of<'agents.save-as-template'>['payload'], 'templateId'> & { projectId: string }) { return build('agents.save-as-template', projectId, { ...payload, templateId: crypto.randomUUID() }); }
+export function agentsUpgradeFromTemplate({ projectId, ...payload }: Of<'agents.upgrade-from-template'>['payload'] & { projectId: string }) { return build('agents.upgrade-from-template', projectId, payload); }
+export function skillsCreate(payload: Omit<Of<'skills.create'>['payload'], 'skillId'>) { return build('skills.create', LIBRARY_SCOPE_ID, { ...payload, skillId: crypto.randomUUID() }); }
+export function skillsUpdate(payload: Of<'skills.update'>['payload']) { return build('skills.update', LIBRARY_SCOPE_ID, payload); }
+export function skillsDelete(payload: Of<'skills.delete'>['payload']) { return build('skills.delete', LIBRARY_SCOPE_ID, payload); }
+export function templatesCreate(payload: Omit<Of<'templates.create'>['payload'], 'templateId'>) { return build('templates.create', LIBRARY_SCOPE_ID, { ...payload, templateId: crypto.randomUUID() }); }
+export function templatesUpdate(payload: Of<'templates.update'>['payload']) { return build('templates.update', LIBRARY_SCOPE_ID, payload); }
+export function templatesDelete(payload: Of<'templates.delete'>['payload']) { return build('templates.delete', LIBRARY_SCOPE_ID, payload); }
 export function agentTeamsCreate({ projectId, ...payload }: Omit<Of<'teams.create'>['payload'], 'teamId'> & { projectId: string }) { return build('teams.create', projectId, { ...payload, teamId: crypto.randomUUID() }); }
 export function agentTeamsUpdate({ projectId, ...payload }: Of<'teams.update'>['payload'] & { projectId: string }) { return build('teams.update', projectId, payload); }
 export function agentTeamsDelete({ projectId, ...payload }: Of<'teams.delete'>['payload'] & { projectId: string }) { return build('teams.delete', projectId, payload); }

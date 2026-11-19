@@ -1,7 +1,14 @@
 export const extra = {
+  libraryUi: {
+    title: 'Library', help: 'Manage reusable skills and agent templates.', skills: 'Skills', templates: 'Agent templates',
+    createSkill: 'Create skill', importSkill: 'Import SKILL.md', importError: 'Could not read this file. Choose a .md file.', searchSkills: 'Search skills', emptySearch: 'No skills match your search.', emptySkills: 'No skills yet.', selectSkill: 'Select a skill to see its details and versions.',
+    custom: 'Custom', latestVersion: 'Latest: v{version}', versions: 'Versions', usedBy: 'Used by {agents} agents and {templates} templates', trustLabel: 'Trust level', trust: { instructions: 'Instructions', assets: 'Assets', scripts: 'Scripts' }, content: 'Content', contentCount: '{count} / {limit} characters', skillEditorHelp: 'Skill content is stored as plain text.', skillNameHint: 'Use 1–64 lowercase letters, digits, or hyphens. Start with a letter or digit.', invalidSkill: 'Enter a value within the allowed length.',
+    createTemplate: 'Create template', editTemplate: 'Edit template', emptyTemplates: 'No templates yet.', selectTemplate: 'Select a template to see its revisions.', templateEditorHelp: 'Set the configuration that agents created from this template will use.', templateDescription: 'Template description (optional)', latestRevision: 'Latest: r{revision}', revisions: 'Revisions', configuration: 'Configuration · r{revision}', newerRevisions: 'Newer revisions', olderRevisions: 'Older revisions',
+    deleteTitle: 'Delete from the library?', deleteHelp: 'Delete “{name}” and its history?', missing: 'This item is no longer in the library.', conflict: 'Changed elsewhere. Reload before trying again.', saveAsTemplate: 'Save as template', saveTemplateHelp: 'Save the current configuration of “{name}” as a new library template.', upgradeFromTemplate: 'Upgrade from template (r{revision})', upgradeHelp: 'Replace the configuration of “{name}” with template r{revision}. Agent-specific changes will not be kept.', compareHelp: 'Select the agent’s current revision below to compare it with template r{revision} before confirming.',
+  },
   agentsAdmin: {
     title: 'Agents & Teams', agents: 'Agents', counts: '{total} agents · {active} active · {teams} teams',
-    create: 'Create agent', fromTemplate: 'Create from template', edit: 'Edit', clone: 'Clone', makeLead: 'Make project Lead',
+    create: 'Create agent', fromTemplate: 'Create from template', edit: 'Edit', clone: 'Clone', makeLead: 'Make project Lead', saveAsTemplate: 'Save as template', upgradeFromTemplate: 'Upgrade from template (r{revision})',
     pause: 'Pause', activate: 'Activate', archive: 'Archive', delete: 'Delete', lead: 'Lead', actions: 'Actions for {name}',
     status: { active: 'Active', paused: 'Paused', archived: 'Archived', 'pending-approval': 'Pending approval', all: 'All' },
     filter: 'Filter agents by status', emptyAgents: 'No agents yet. Create one or start from a template.', emptyFilter: 'No agents match this filter.',
@@ -401,7 +408,7 @@ export const extra = {
   },
   viewStates: { loading: 'Loading…' },
   attention: {"empty": "All caught up.", "list": "Attention items", "detail": "Item details", "move": "move", "approve": "Approve", "answer": "Answer", "requestChanges": "Request changes", "requestChangesConfirm": "Confirm request changes", "reject": "Reject", "open": "Open", "technicalDetails": "Technical details", "identifier": "ID", "instance": "Workflow", "digest": "Context digest", "revision": "Revision", "facts": "Review facts", "checks": "Automatic checks", "noChecks": "No check outcome reported.", "integration": "Integration branch", "release": "Release", "taskUnavailable": "Task unavailable. Refresh to try again.", "selected": "Selected", "kinds": {"review": "Review", "question": "Question", "start-gate": "Start gate", "request": "Request", "plan-patch": "Plan patch", "stalled-workflow": "Stalled workflow", "team-breaker": "Team paused by breaker", "integration-conflict": "Integration conflict", "quarantined-rule": "Quarantined rule", "monitor": "Monitor not healthy"}},
-  nav: { main: 'Main navigation', overview: 'Overview', attention: 'Needs attention', team: 'Team', world: 'World', settings: 'Settings', preferences: 'Preferences', collapse: 'Collapse', expand: 'Expand sidebar', close: 'Close navigation', skip: 'Skip to content' },
+  nav: { main: 'Main navigation', overview: 'Overview', attention: 'Needs attention', team: 'Team', library: 'Library', world: 'World', settings: 'Settings', preferences: 'Preferences', collapse: 'Collapse', expand: 'Expand sidebar', close: 'Close navigation', skip: 'Skip to content' },
   overview: {
     greeting: 'Hello', greetingStart: 'Good', morning: 'morning', afternoon: 'afternoon', evening: 'evening',
     composer: 'Ask or delegate to Lead', message: 'Message for Lead',

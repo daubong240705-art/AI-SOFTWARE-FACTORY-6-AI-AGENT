@@ -151,7 +151,10 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     getAgent: (id: string, agentId: string, signal?: AbortSignal) => request(`${projectPath(id)}/agents/${encodeURIComponent(agentId)}`, agentModels.detail, undefined, false, signal),
     getAgentRevision: (id: string, agentId: string, revision: number, signal?: AbortSignal) => request(`${projectPath(id)}/agents/${encodeURIComponent(agentId)}/revisions/${encodeURIComponent(revision)}`, agentModels.revision, undefined, false, signal),
     getAgentLibrary: (signal?: AbortSignal) => request('/library', agentModels.library, undefined, false, signal),
+    getSkill: (id: string, signal?: AbortSignal) => request(`/library/skills/${encodeURIComponent(id)}`, agentModels.skill, undefined, false, signal),
+    getSkillVersion: (id: string, version: number | 'latest', signal?: AbortSignal) => request(`/library/skills/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}`, agentModels.skillVersion, undefined, false, signal),
     getAgentTemplate: (id: string, signal?: AbortSignal) => request(`/library/templates/${encodeURIComponent(id)}`, agentModels.template, undefined, false, signal),
+    getAgentTemplateRevision: (id: string, revision: number, signal?: AbortSignal) => request(`/library/templates/${encodeURIComponent(id)}?revision=${encodeURIComponent(revision)}`, agentModels.template, undefined, false, signal),
     sendAgentCommand: async (command: Command) => {
       if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');
       if (!csrfToken) csrfToken = (await request('/auth/session', auth)).csrfToken;

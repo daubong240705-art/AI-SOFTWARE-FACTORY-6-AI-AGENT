@@ -1,11 +1,13 @@
 import { LoadingState } from '@/components/LoadingState';
-import { useEffect, useRef } from 'react';
+import { lazy, useEffect, useRef } from 'react';
 import { MotionConfig } from 'motion/react';
 import { i18n, useT } from './i18n';
 import { defaultStore, type Store } from './state/store';
 import { SignIn } from './screens/SignIn';
 import { AppShell } from './screens/AppShell';
 import { Toaster } from '@/components/ui/sonner';
+
+const LibraryPage = lazy(() => import('./screens/library/LibraryPage'));
 
 export function App({ store = defaultStore }: { store?: Store }) {
   const t = useT();
@@ -15,7 +17,7 @@ export function App({ store = defaultStore }: { store?: Store }) {
   useEffect(() => { document.documentElement.lang = i18n.locale; }, [t, i18n.locale]);
   return <MotionConfig reducedMotion="user">
     {session === 'unknown' ? <main className="signin"><LoadingState /></main>
-      : session === 'anonymous' ? <SignIn store={store} /> : <AppShell store={store} />}
+      : session === 'anonymous' ? <SignIn store={store} /> : <AppShell store={store} libraryPage={<LibraryPage />} />}
     <Toaster position="bottom-right" richColors={false} />
   </MotionConfig>;
 }
