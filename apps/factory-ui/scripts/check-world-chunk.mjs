@@ -40,7 +40,7 @@ for (const file of await javascriptFiles(dist)) {
   if (content.includes('WebGLRenderer') && !entries.has(file)) lazy.push({ name: path.relative(dist, file), gz: gzipSync(content).length });
 }
 if (!lazy.length) failures.push('No lazy WebGLRenderer chunk found');
-// W-19: world budget lifted for Walk mode; entry isolation remains mandatory.
+// The operator lifted the tight world budget; a generous ceiling still catches runaway growth.
 const worldLimit = 768 * 1024;
 const lazyJsGz = lazy.reduce((total, chunk) => total + chunk.gz, 0);
 const growth = entryJsGz - baseline.entryJsGz;

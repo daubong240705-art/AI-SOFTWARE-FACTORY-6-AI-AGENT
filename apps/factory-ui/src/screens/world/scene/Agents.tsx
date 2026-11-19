@@ -1,3 +1,4 @@
+import { WorkerAwareness } from './walk/awareness';
 import { oiiaSpot } from '../layout/zones';
 import { tone } from './toys/sound';
 import { useToys } from './toys/useToys';
@@ -262,9 +263,11 @@ export function Agents({ employee, events, courier, celebration, agents, baselin
       const toyMotion = !still && !hidden && effects !== 'off' && !toy?.quiet;
       return <group key={agent.seatId}>
         <group ref={node => { if (node) groups.current.set(agent.seatId, node); else groups.current.delete(agent.seatId); }} position={placement.position}>
+          <WorkerAwareness agent={agent} still={still || hidden} toyAnimated={toyMotion}>
           <ToyWorker effect={toy} still={!toyMotion} low={quality === 'low' || effects === 'lite'}>
           <CharacterRig reaction={toyMotion ? toy : undefined} spec={specForSeat(agent.seatName, agent.isLead)} pose={(celebrants.has(agent.seatId) || catAudience.has(agent.seatId)) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} speed={toyMotion && toy?.tool === 'megaphone' ? 2 : 1} />
           </ToyWorker>
+          </WorkerAwareness>
           {catAudience.has(agent.seatId) && agent.status === 'idle' && !still && !hidden && effects !== 'off' && <CatClap />}
           {effects !== 'off' && agent.slot === 0 && (employee === agent.ownerSeatId || employee === agent.seatId) && <Employee low={quality === 'low' || effects === 'lite'} />}
           {!hidden && <Aura agent={{ ...agent, pose: placement.pose }} boost={toyMotion && (toy?.tool === 'coffee' || toy?.tool === 'whip' && agent.status === 'working') ? 1 : 0} level={effects} quality={quality} still={still || hidden} floorOffset={-placement.position[1]} />}

@@ -156,3 +156,29 @@ updateReactionMarks(marks, { tool: 'feather', started: 10000 }, 11000, false); a
 updateReactionMarks(marks, { tool: 'taser', started: 10000 }, 11500, true); assert(!marks.visible, 'no face effects in still mode');
 disposeRigMarks(marks); disposeRigMarks(unpainted); disposeReactionMarkAssets();
 console.log('W-18b: tool size/LOD, braided shader, 70ms hold, GPU particle capacities, seven electric branches, face paint/five-second soot fade/still suppression PASS');
+
+const { greeting } = await import('../walk/awareness.tsx');
+assert(greeting(2.9, false, false, false).waves);
+assert(!greeting(3.1, false, false, false).notices);
+assert(greeting(2, true, false, false).nods && !greeting(2, true, false, false).waves);
+assert(greeting(9, false, true, false).both, 'waiting workers call for help at any distance');
+assert(!greeting(2, false, true, true).waves, 'sulking suppresses greetings until treated');
+const { walkSceneryParts } = await import('../walk/sceneryModel.ts');
+for (const p of walkSceneryParts()) assert([...p.position, ...p.scale, p.yaw].every(Number.isFinite));
+const followingProps = makeFunProps(false, noop);
+followingProps.paint({ model, reports: {}, debug, positions, locale: 'en' }, new Date());
+const follower = followingProps.group.getObjectByName('office-cat');
+follower.position.set(-8, 0.04, -1);
+const random = Math.random;
+try {
+  Math.random = () => 0; // Force this occasional visit, independent of wall clock or luck.
+  followingProps.sample(20, true, [-6, 0, -1]);
+  const start = follower.position.clone();
+  followingProps.sample(20.05, true, [-6, 0, -1]);
+  assert(follower.position.x > start.x, 'office cat follows a nearby visitor');
+  assert(follower.position.x - start.x <= 0.083, 'following speed remains bounded');
+  const beforePause = follower.position.clone();
+  followingProps.sample(20.1, true);
+  assert(follower.position.equals(beforePause), 'visitor following stops when Walk mode pauses');
+} finally { Math.random = random; followingProps.dispose(); }
+console.log('W-20: greeting range, working nod, waiting arms, sulk suppression, finite scenery, occasional bounded cat follow/pause PASS');

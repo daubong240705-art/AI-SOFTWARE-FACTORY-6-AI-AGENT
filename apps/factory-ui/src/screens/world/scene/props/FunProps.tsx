@@ -5,7 +5,9 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { WorldInputs, WorldModel } from '../../data/types';
 import type { SceneDebug } from '../../debugHook';
 import { anchors, desks, funProps, plants, windows } from '../../layout/zones';
-import { pathBetween } from '../../layout/waypoints';
+import { useWalkPresence } from '../walk/awareness';
+import { resolveWalkMove } from '../walk/collision';
+import { navigationAnchors, pathBetween } from '../../layout/waypoints';
 import { deskForAgent } from '../../agentPresentation';
 import { hopAlong, type HopMotion } from '../../characters/poses';
 import { worldCopy, type WorldLocale } from '../../copy';
@@ -124,7 +126,9 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
     updateInstances(leds); if (leds.instanceColor) leds.instanceColor.needsUpdate = true;
     invalidate();
   };
-  const sample = (t: number, moving: boolean) => {
+  let followUntil = 0, followDue = 0, previousSample = 0;
+  const sample = (t: number, moving: boolean, visitor?: readonly [number, number, number]) => {
+    const dt = Math.max(0, Math.min(0.05, t - previousSample)); previousSample = t;
     const clock = moving ? t : 0;
     for (let i = 0; i < fish.count; i++) { const a = clock * (0.32 + i * 0.025) + i * 1.7; put(fish, i, [ax + Math.sin(a) * 0.85, 1.08 + i % 3 * 0.17 + Math.sin(a * 1.3) * 0.04, az + Math.cos(a) * 0.28], [1, 1, 1], -a); }
     for (let i = 0; i < steam.count; i++) { const p = (clock * 0.18 + i / steam.count) % 1; put(steam, i, [anchors.coffee[0] + Math.sin(clock + i) * 0.08, 1.15 + p * 0.9, anchors.coffee[1] + 0.4], [0.1 + p * 0.18, 0.12 + p * 0.23, 0.1 + p * 0.18]); }
@@ -137,14 +141,31 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
       if (ball.count) { const p = (clock * 0.65) % 1, x = Math.cos(p * Math.PI * 2) * 1.35; put(ball, 0, [px + x, 1.15 + Math.abs(Math.sin(p * Math.PI * 4)) * 0.5, pz], [0.1, 0.1, 0.1]); }
       const petting = state.debug.current.agents.some(a => a.activity === 'pet-cat' && a.status === 'idle');
       const idle = state.model.agents.filter(a => a.status === 'idle' && !a.paused && !a.overflow && !state!.debug.current.agents.find(d => d.seatId === a.seatId)?.wandering);
-      if (moving && clock >= catDue && !catTrip) {
+      const closeToVisitor = visitor && Math.hypot(visitor[0] - cat.position.x, visitor[2] - cat.position.z) < 3.8;
+      if (moving && closeToVisitor && cat.position.y < 0.3 && clock > followDue) {
+        followDue = clock + 24;
+        if (Math.random() < 0.55) { followUntil = clock + 8; catTrip = null; catTarget = null; }
+      }
+      const following = !!visitor && clock < followUntil && !petting;
+      if (following) {
+        const dx = visitor[0] - cat.position.x, dz = visitor[2] - cat.position.z, distance = Math.hypot(dx, dz);
+        const step = Math.min(Math.max(0, distance - 1.3), dt * 1.65);
+        if (step > 0.001 && distance > 0.001) {
+          const next = resolveWalkMove({ x: cat.position.x, z: cat.position.z }, { x: dx / distance * step, z: dz / distance * step }, 0.2);
+          cat.position.set(next.x, 0.04 + Math.abs(Math.sin(clock * 9)) * 0.025, next.z);
+          cat.rotation.y = Math.atan2(dx, dz) - Math.PI / 2;
+        }
+        cat.scale.setScalar(1); catDue = clock + 4;
+        catAnchor = Object.entries(navigationAnchors).reduce((best, [id, p]) => Math.hypot(p[0] - cat.position.x, p[1] - cat.position.z) < Math.hypot(navigationAnchors[best]![0] - cat.position.x, navigationAnchors[best]![1] - cat.position.z) ? id : best, 'cat-perch');
+      }
+      if (moving && !following && clock >= catDue && !catTrip) {
         const worker = Math.floor(clock / 40) % 3 === 1 ? idle[Math.floor(clock / 40) % Math.max(1, idle.length)] : null;
         const destination = petting ? 'cat-perch' : worker ? deskForAgent(worker)?.id ?? 'rest-1' : Math.floor(clock / 40) % 2 ? 'rest-1' : 'cat-perch';
         const path = pathBetween(catAnchor, destination);
         if (path.length) { catTrip = hopAlong([[cat.position.x, cat.position.y, cat.position.z], ...path.map(([x, z]) => [x, 0.04, z] as const)], 0.65); catStarted = clock; catPaused = 0; catBlockedAt = null; catAnchor = destination; catTarget = worker?.seatId ?? null; }
         catDue = clock + 30;
       }
-      if (moving && catTrip) {
+      if (moving && !following && catTrip) {
         const position = catTrip.sample((catBlockedAt ?? clock) - catStarted - catPaused);
         const crowded = [...state.positions.current.values()].some(p => Math.hypot(p[0] - position.position[0], p[1] - position.position[2]) < 0.75);
         if (!crowded) {
@@ -157,11 +178,11 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
         if (position.done && !crowded) { catTrip = null; catDue = clock + (petting ? 8 : 15); }
       }
       if (catTarget && !idle.some(a => a.seatId === catTarget)) { catTarget = null; catTrip = null; catDue = clock; }
-      setCatPettable(!catTrip && catAnchor === 'cat-perch');
+      setCatPettable(!following && !catTrip && catAnchor === 'cat-perch');
       if (petting && catAnchor === 'cat-perch' && !catTrip) catDue = clock + 10;
-      if (!catTrip && catAnchor === 'rest-1' && !petting) { cat.position.set(-15.8, 0.8, 12.2); cat.scale.set(1, 0.65, 1); } else cat.scale.set(1, 1, 1);
+      if (!following && !catTrip && catAnchor === 'rest-1' && !petting) { cat.position.set(-15.8, 0.8, 12.2); cat.scale.set(1, 0.65, 1); } else cat.scale.set(1, 1, 1);
     }
-    tail.rotation.y = moving && catTrip && catBlockedAt === null ? Math.sin(clock * 9) * 0.4 : 0;
+    tail.rotation.y = moving && ((catTrip && catBlockedAt === null) || (visitor && clock < followUntil)) ? Math.sin(clock * 9) * 0.4 : 0;
     cat.rotation.x = 0; cat.rotation.z = 0;
     updateInstances(fish, steam, leaves, ball);
   };
@@ -172,6 +193,7 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
 
 export function FunProps({ effects, model, reports, quality, still, hidden, debug, positions, locale }: State & { effects: EffectsLevel; quality: 'high' | 'low'; still: boolean; hidden: boolean }) {
   const [resource, setResource] = useState<ReturnType<typeof makeFunProps> | null>(null);
+  const presence = useWalkPresence();
   const current = useRef(resource); current.current = resource;
   const motion = useWorldMotion(), invalidate = useThree(s => s.invalidate);
   useEffect(() => { const value = makeFunProps(quality === 'low', invalidate, model.agents.length); setResource(value); return value.dispose; }, [quality, invalidate, model.agents.length]);
@@ -184,6 +206,6 @@ export function FunProps({ effects, model, reports, quality, still, hidden, debu
   }, [resource, model, reports, debug, positions, locale, still, hidden]);
   useEffect(() => { if (!hidden && !still) return motion.request('ambient'); }, [hidden, still, motion]);
   useEffect(() => { if (still) resource?.sample(0, false); }, [still, resource]);
-  useFrame(() => { if (!hidden && !still) current.current?.sample(performance.now() / 1000, true); });
+  useFrame(() => { if (!hidden && !still) current.current?.sample(performance.now() / 1000, true, presence?.active ? presence.state.current.position : undefined); });
   return resource && !hidden ? <><primitive object={resource.group} /><OiiaCat still={still} off={effects === 'off'} low={quality === 'low' || effects === 'lite'} /></> : null;
 }

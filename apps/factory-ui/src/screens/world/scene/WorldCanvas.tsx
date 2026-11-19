@@ -1,4 +1,7 @@
 import { WalkRig } from './walk/WalkRig';
+import { OperatorAvatar } from './walk/OperatorAvatar';
+import { WalkScenery, WalkLighting } from './walk/WalkScenery';
+import { WalkPresenceContext, type WalkPresence } from './walk/awareness';
 import type { WalkState, WalkTarget } from './walk/state';
 import { useEffect, useRef, type MutableRefObject, type RefObject } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
@@ -84,6 +87,8 @@ function Cast({ props, quality }: { props: Props; quality: WorldQuality }) {
 export default function WorldCanvas(props: Props) {
   const { quality, fps, measure, setSoftware, software } = useWorldQuality(props.qualityPreference);
   useEffect(() => props.onQuality(quality), [quality, props.onQuality]);
+  const bumps = useRef(new Map<string, number>());
+  const presence: WalkPresence = { active: props.walking && !props.paused, state: props.walk, bumps: bumps.current };
   return <Canvas key={quality} orthographic flat frameloop="demand" dpr={[1, quality === 'low' || software ? 1 : 2]}
     gl={{ antialias: quality === 'high', powerPreference: 'default' }}
     camera={{ position: cameraPosition, near: 0.1, far: 300, zoom: 16 }} aria-hidden="true"
@@ -92,15 +97,28 @@ export default function WorldCanvas(props: Props) {
       setSoftware(softwareRenderer(gl.getContext()));
     }}>
     <color attach="background" args={[background]} />
-    <hemisphereLight args={[sky, ground, 1.1]} />
-    <directionalLight color={sky} position={[-30, 45, -20]} intensity={1.1} />
+    {props.walking ? <WalkLighting quality={quality} /> : <><hemisphereLight args={[sky, ground, 1.1]} /><directionalLight color={sky} position={[-30, 45, -20]} intensity={1.1} /></>}
+    <WalkPresenceContext.Provider value={presence}>
     <Ticker interactive={props.walking} quality={quality} still={props.still} onMeasure={measure}>
       <ToyPrewarm />
       <SceneLifecycle onReady={props.onReady} onLoading={props.onLoading} onError={props.onError} onRender={props.onRender} fps={fps} />
       <CameraRig enabled={!props.walking} returnPoint={props.walk} agentPositions={props.positions} locations={props.locations} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
       <group visible={!props.lineup}><Environment /></group>
+      {props.walking && <WalkScenery model={props.model} quality={quality} />}
       <Cast props={props} quality={quality} />
+      {!props.walking && !props.lineup && <ReturnMarker state={props.walk} quality={quality} />}
       {props.walking && <WalkRig onExit={props.onWalkExit} state={props.walk} positions={props.positions} model={props.model} paused={props.paused} still={props.still} quiet={props.still || props.effects === 'off'} quality={quality} onInteract={props.onWalkInteract} />}
     </Ticker>
+    </WalkPresenceContext.Provider>
   </Canvas>;
+}
+
+function ReturnMarker({ state, quality }: { state: RefObject<WalkState>; quality: WorldQuality }) {
+  if (!state.current.visited) return null;
+  const p = state.current.position;
+  return <group position={[p[0], 0.055, p[2]]} raycast={() => {}}>
+    <group rotation={[0, state.current.yaw + Math.PI, 0]}><OperatorAvatar quality={quality} /></group>
+    <mesh rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[0.4, 0.48, 32]} /><meshBasicMaterial color="#C65742" transparent opacity={0.8} depthWrite={false} /></mesh>
+    <mesh rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[0.1, 12]} /><meshBasicMaterial color="#FFF8E7" /></mesh>
+  </group>;
 }

@@ -5,7 +5,7 @@ export function unlockSound() {
   return context;
 }
 /** Local synthesis only. Scheduled voices are short, quiet and disconnected on completion. */
-export function tone(tool: Tool | 'oiia' | 'mega' | 'sulk' | 'cheer' | 'clap', combo = 1) {
+export function tone(tool: Tool | 'step' | 'oiia' | 'mega' | 'sulk' | 'cheer' | 'clap', combo = 1) {
   try {
     const ready = unlockSound(); if (!ready) return;
     const audio = ready;
@@ -29,6 +29,7 @@ export function tone(tool: Tool | 'oiia' | 'mega' | 'sulk' | 'cheer' | 'clap', c
       source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect(); };
     }
     switch (tool) {
+      case 'step': noise(0, 0.055, 650, 0.014); voice(0, 0.065, 110 + Math.random() * 25, 60, 'sine', 0.012); break;
       case 'whip': noise(0.68, 0.09, 9500, 0.065); voice(0.66, 0.08, 1900, 150, 'sawtooth'); break;
       case 'taser': for (let i = 0; i < 6; i++) voice(0.4 + i * 0.11, 0.09, 110, 150, 'sawtooth'); break;
       case 'coffee': noise(0.6, 0.4, 1200, 0.04); voice(0.6, 0.35, 420, 750, 'sine', 0.012); break;

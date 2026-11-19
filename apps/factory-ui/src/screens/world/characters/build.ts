@@ -145,6 +145,8 @@ function accessories(spec: CharacterSpec, parts: Parts) {
         silhouette(parts, sphere(out, c.accent, [0, 0.81, 0], [0.3, 0.16, 0.27]));
         silhouette(parts, box(out, c.accent, [0, 0.79, 0.22], [0.47, 0.055, 0.3]));
         box(out, '#FFD56A', [0, 0.86, 0.245], [0.12, 0.08, 0.025]);
+        box(out, c.dark, [0, 0.79, -0.257], [0.26, 0.045, 0.035]);
+        box(out, '#FFD56A', [0.06, 0.79, -0.28], [0.05, 0.055, 0.025]);
         break;
       case 'crown': {
         const crown = new THREE.Shape();

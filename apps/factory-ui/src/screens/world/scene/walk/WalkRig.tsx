@@ -2,14 +2,15 @@ import { useEffect, useLayoutEffect, useMemo, useRef, type RefObject } from 'rea
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { i18n } from '@/i18n';
-import { CharacterRig } from '../../characters/CharacterRig';
-import { operatorSpec } from '../../characters/specs';
+import { OperatorAvatar } from './OperatorAvatar';
 import { useWorldMotion } from '../Ticker';
 import { useCameraBridge } from '../../cameraContext';
 import type { WorldModel } from '../../data/types';
 import type { Point } from '../../layout/zones';
 import { resolveWalkMove } from './collision';
 import { obstructionDistance } from './obstructions';
+import { useWalkPresence } from './awareness';
+import { tone } from '../toys/sound';
 import type { WalkState, WalkTarget } from './state';
 import { toys, tools } from '../toys/store';
 import { useToys } from '../toys/useToys';
@@ -37,7 +38,8 @@ function targetFor(object: THREE.Object3D, instanceId: number | undefined): Walk
 export function WalkRig(props: Props) {
   const { gl, size, set, get, scene, invalidate } = useThree();
   const { register } = useCameraBridge(), motion = useWorldMotion();
-  const state = props.state;
+  const state = props.state, presence = useWalkPresence();
+  const stepDistance = useRef(0), lastStep = useRef(0);
   const latest = useRef(props); latest.current = props;
   const camera = useMemo(() => new THREE.PerspectiveCamera(60, 1, 0.06, 180), []);
   const keys = useRef(new Set<string>()), drag = useRef(false), velocity = useRef(0), jump = useRef(0), travel = useRef(0), started = useRef(0), sampled = useRef(0);
@@ -45,9 +47,10 @@ export function WalkRig(props: Props) {
   const toy = useToys(), assets = toy.tool ? (props.quality === 'low' ? lightToys : detailedToys)[toy.tool] : null;
   const leather = useMemo(() => toy.tool === 'whip' ? createWhipMaterials() : null, [toy.tool]);
   useEffect(() => () => { leather?.solid.dispose(); leather?.outline.dispose(); }, [leather]);
-  const scratch = useMemo(() => ({ raycaster: new THREE.Raycaster(), ray: new THREE.Ray(), focus: new THREE.Vector3(), desired: new THREE.Vector3(), springVelocity: new THREE.Vector3(), direction: new THREE.Vector3(), zero: new THREE.Vector2(), aim: new THREE.Euler(0, 0, 0, 'YXZ') }), []);
+  const scratch = useMemo(() => ({ raycaster: new THREE.Raycaster(), ray: new THREE.Ray(), focus: new THREE.Vector3(), desired: new THREE.Vector3(), springVelocity: new THREE.Vector3(), direction: new THREE.Vector3(), zero: new THREE.Vector2(), up: new THREE.Vector3(0, 0.1, 0), aim: new THREE.Euler(0, 0, 0, 'YXZ') }), []);
   useLayoutEffect(() => {
     const previous = get().camera;
+    state.current.visited = true;
     camera.position.set(state.current.position[0], 2.6, state.current.position[2] + 3.4);
     set({ camera });
     // Roster selection still opens panels while the walk camera remains in place.
@@ -71,6 +74,7 @@ export function WalkRig(props: Props) {
     };
     const look = (event: MouseEvent) => {
       if (latest.current.paused || document.hidden || !(document.pointerLockElement === canvas || drag.current)) return;
+      if (event.movementX || event.movementY) state.current.looked = true;
       state.current.yaw -= event.movementX * 0.0024;
       state.current.pitch = THREE.MathUtils.clamp(state.current.pitch - event.movementY * 0.0024, -1.25, 1.15);
     };
@@ -90,6 +94,10 @@ export function WalkRig(props: Props) {
     };
     const stopIso = (event: Event) => event.stopImmediatePropagation();
     const up = () => { drag.current = false; };
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (!latest.current.paused) state.current.cameraDistance = THREE.MathUtils.clamp(state.current.cameraDistance + event.deltaY * 0.004, 2.5, 6);
+    };
     const keydown = (event: KeyboardEvent) => {
       if (editable(event.target) || event.ctrlKey || event.metaKey || event.altKey || latest.current.paused || document.hidden) return;
       const key = event.key.toLowerCase();
@@ -101,12 +109,13 @@ export function WalkRig(props: Props) {
     };
     const keyup = (event: KeyboardEvent) => keys.current.delete(event.key.toLowerCase());
     canvas.addEventListener('pointerdown', down, true);
+    canvas.addEventListener('wheel', wheel, { capture: true, passive: false });
     for (const kind of ['pointerup', 'click', 'pointermove'] as const) canvas.addEventListener(kind, stopIso, true);
     document.addEventListener('mousemove', look); document.addEventListener('pointerup', up);
     document.addEventListener('keydown', keydown, true); document.addEventListener('keyup', keyup);
     document.addEventListener('pointerlockchange', lockChanged); document.addEventListener('visibilitychange', clear); window.addEventListener('blur', clear);
     return () => {
-      clear(); canvas.removeEventListener('pointerdown', down, true);
+      clear(); canvas.removeEventListener('pointerdown', down, true); canvas.removeEventListener('wheel', wheel, true);
       for (const kind of ['pointerup', 'click', 'pointermove'] as const) canvas.removeEventListener(kind, stopIso, true);
       document.removeEventListener('mousemove', look); document.removeEventListener('pointerup', up);
       document.removeEventListener('keydown', keydown, true); document.removeEventListener('keyup', keyup);
@@ -123,12 +132,25 @@ export function WalkRig(props: Props) {
     let dx = (-Math.sin(walk.yaw) * forward + Math.cos(walk.yaw) * strafe) * speed * dt;
     let dz = (-Math.cos(walk.yaw) * forward - Math.sin(walk.yaw) * strafe) * speed * dt;
     // Workers yield softly: nudge the operator away without moving the live worker data.
-    if (active) for (const point of props.positions.current.values()) {
+    if (active) for (const [id, point] of props.positions.current) {
       const x = walk.position[0] - point[0], z = walk.position[2] - point[1], distance = Math.hypot(x, z);
+      const toward = x * dx + z * dz < 0;
+      if (length && toward && distance < 1 && presence && Date.now() - (presence.bumps.get(id) ?? 0) > 1800) {
+        const at = Date.now(); presence.bumps.set(id, at);
+        walk.speech = i18n.t(at % 2 ? 'worldUi.walk.bump' : 'worldUi.walk.boss'); walk.speechAt = at;
+      }
       if (distance < 0.85) { const push = (0.85 - distance) * 3 * dt; dx += (distance > 0.001 ? x / distance : 1) * push; dz += (distance > 0.001 ? z / distance : 0) * push; }
     }
     const next = resolveWalkMove({ x: walk.position[0], z: walk.position[2] }, { x: dx, z: dz });
-    travel.current += Math.hypot(next.x - walk.position[0], next.z - walk.position[2]) * 8;
+    const moved = Math.hypot(next.x - walk.position[0], next.z - walk.position[2]);
+    travel.current += moved * 8;
+    if (active && length && jump.current === 0 && moved > 0.002) {
+      stepDistance.current += moved;
+      if (stepDistance.current >= 0.58 && performance.now() - lastStep.current > 150) {
+        stepDistance.current %= 0.58; lastStep.current = performance.now();
+        if (toys.snapshot().sound && !props.quiet) tone('step');
+      }
+    } else stepDistance.current = 0;
     walk.position[0] = next.x; walk.position[2] = next.z;
     if (active) {
       if (held.has(' ') && jump.current === 0) { velocity.current = 4; held.delete(' '); }
@@ -148,7 +170,7 @@ export function WalkRig(props: Props) {
     scratch.direction.set(0, 0, -1).applyEuler(scratch.aim);
     if (walk.firstPerson) { camera.position.copy(scratch.focus); camera.quaternion.setFromEuler(scratch.aim); }
     else {
-      scratch.desired.copy(scratch.focus).addScaledVector(scratch.direction, -3.2); scratch.desired.y += 0.8;
+      scratch.desired.copy(scratch.focus).addScaledVector(scratch.direction, -walk.cameraDistance); scratch.desired.y += 0.7;
       scratch.ray.set(scratch.focus, scratch.direction.copy(scratch.desired).sub(scratch.focus).normalize());
       const reach = scratch.desired.distanceTo(scratch.focus), clear = obstructionDistance(scratch.ray, reach);
       scratch.desired.copy(scratch.focus).addScaledVector(scratch.ray.direction, Math.max(0.08, clear - 0.16));
@@ -165,7 +187,7 @@ export function WalkRig(props: Props) {
       const currentDistance = camera.position.distanceTo(scratch.focus), safe = obstructionDistance(scratch.ray, currentDistance);
       if (safe < currentDistance) { camera.position.copy(scratch.focus).addScaledVector(scratch.ray.direction, Math.max(0.08, safe - 0.16)); scratch.springVelocity.set(0, 0, 0); }
       scratch.direction.set(0, 0, -1).applyEuler(scratch.aim);
-      camera.lookAt(scratch.desired.copy(scratch.focus).addScaledVector(scratch.direction, 4));
+      camera.lookAt(scratch.desired.copy(scratch.focus).addScaledVector(scratch.direction, 1.5).add(scratch.up));
     }
     camera.updateMatrixWorld();
     if (hand.current) { hand.current.visible = walk.firstPerson; hand.current.position.copy(camera.position); hand.current.quaternion.copy(camera.quaternion); }
@@ -179,7 +201,13 @@ export function WalkRig(props: Props) {
     if (performance.now() - sampled.current > 80) {
       sampled.current = performance.now(); walk.target = null;
       if (active) {
-        scratch.raycaster.setFromCamera(scratch.zero, camera); scratch.raycaster.far = walk.firstPerson ? 3.5 : 7;
+        // A nearby OIIA is usable even when the third-person crosshair passes above it.
+        const cat = scene.getObjectByName('oiia-cat');
+        if (cat && Math.hypot(cat.position.x - next.x, cat.position.z - next.z) < 1.9) {
+          scratch.ray.set(scratch.focus, scratch.direction.copy(cat.position).setY(0.6).sub(scratch.focus).normalize());
+          if (obstructionDistance(scratch.ray, scratch.focus.distanceTo(cat.position)) > Math.hypot(cat.position.x - next.x, cat.position.z - next.z) - 0.6) walk.target = { kind: 'cat', id: 'oiia', name: 'OIIA', distance: 1.9 };
+        }
+        scratch.raycaster.setFromCamera(scratch.zero, camera); scratch.raycaster.far = walk.firstPerson ? 3.5 : walk.cameraDistance + 4;
         const wall = obstructionDistance(scratch.raycaster.ray, scratch.raycaster.far);
         for (const hit of scratch.raycaster.intersectObjects(scene.children, true)) {
           const target = targetFor(hit.object, hit.instanceId); if (!target) continue;
@@ -195,7 +223,7 @@ export function WalkRig(props: Props) {
     }
   });
   return <>
-    <group ref={root}><group ref={avatar}><CharacterRig spec={operatorSpec} pose="idle" position={[0, 0, 0]} yaw={0} phase={0} quality={props.quality} /></group></group>
+    <group ref={root}><group ref={avatar}><OperatorAvatar quality={props.quality} /></group></group>
     <group ref={hand}>
       <mesh position={[0.25, -0.22, -0.44]} raycast={() => {}}><sphereGeometry args={[0.085, 12, 8]} /><meshToonMaterial color="#FFF0CD" /></mesh>
       {assets && <group position={[0.48, -0.55, -1]} scale={0.32}><group ref={toolNode}>

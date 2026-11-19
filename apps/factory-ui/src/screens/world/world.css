@@ -39,7 +39,9 @@
 
 .world-walk-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .world-crosshair { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: white; text-shadow: 0 1px 3px #000; font: 24px monospace; }
-.world-walk-hint { position: absolute; left: 50%; top: calc(50% + 28px); transform: translateX(-50%); padding: 6px 12px; border-radius: 8px; background: #302719d9; color: #fff8e7; text-align: center; font-size: 13px; max-width: 50%; }
+.world-walk-hint { position: absolute; left: 50%; top: calc(50% + 36px); transform: translateX(-50%); padding: 6px 12px; border-radius: 8px; background: #302719d9; color: #fff8e7; text-align: center; font-size: 11px; max-width: 45%; transition: opacity 700ms ease; }
+.world-walk-hint-learned { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .world-walk-hint { transition: none; } }
 .world-minimap { position: absolute; right: var(--world-inset); bottom: 46px; width: 190px; height: 152px; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--world-shadow); opacity: .9; }
 .world-walk-controls { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); max-width: calc(100% - 32px); margin: 0; padding: 5px 10px; border-radius: 8px; background: #302719d9; color: #fff8e7; font-size: 11px; text-align: center; }
 .world-walking .world-toolbar h1 { display: none; }

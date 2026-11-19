@@ -1,6 +1,7 @@
 import { WalkOverlay } from './scene/walk/WalkOverlay';
 import { initialWalk, type WalkTarget } from './scene/walk/state';
 import { toys } from './scene/toys/store';
+import { tone } from './scene/toys/sound';
 import { playToy } from './scene/toys/ToyTray';
 import { employeeOfDay } from './scene/toys/employee';
 import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
@@ -110,7 +111,7 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
     else if (target.kind === 'owner') openOwner();
     else if (target.kind === 'task' && target.projectId) openTask(target.projectId, target.id);
     else if (target.kind === 'stage') openStage(target.id);
-    else if (target.kind === 'cat') toys.spin(false, true);
+    else if (target.kind === 'cat') { toys.spin(false, true); if (toys.snapshot().sound && !still && preferences.effects !== 'off') tone('oiia'); }
     else if (target.kind === 'bug') { const bug = data.model.bugs.find(item => item.id === target.id); if (bug) openBug(bug); }
     else if (target.kind === 'release') { const item = data.model.gallery.find(item => item.releaseId === target.id); if (item) openRelease(item); }
   };
@@ -144,7 +145,7 @@ function WorldStudio({ store, projects, onNavigate, onTask, onCreate, onChat }: 
         <SceneErrorBoundary key={attempt} onError={onError}><Suspense fallback={<div className="world-loading" role="status"><Mascot seat="Lead" state="thinking" animated={false} /><span>{t('worldUi.loading')}</span></div>}>
           <WorldCanvas onWalkExit={() => change({ view: 'iso' })} walking={walking} walk={walk} paused={panelOpen} onWalkInteract={onWalkInteract} employee={employee} events={data.events} reports={data.reports} scopeKey={scope.current} locations={locations} courier={courier} celebration={celebration} onTask={openTask} onStage={openStage} onBug={openBug} onRelease={openRelease} onCelebrate={celebrate} onEventsConsumed={data.consumeEvents} model={data.model} baseline={data.baseline} lineup={!walking && preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={toySelect} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
         </Suspense></SceneErrorBoundary>
-        {walking && <WalkOverlay state={walk} positions={positions} paused={panelOpen} />}
+        {walking && <WalkOverlay state={walk} positions={positions} paused={panelOpen} agents={data.model.agents} />}
       </div>
       <div className="world-left"><WorldToolbar canWalk={canWalk} walking={walking} onWalk={toggleWalk} showActivity={showWalkActivity} onActivity={() => setShowWalkActivity(value => !value)} selected={agent?.seatId ?? null} quiet={still || preferences.effects === 'off'} preferences={preferences} onChange={patch => { if (patch.lineup && walking) patch = { ...patch, view: 'iso' }; if (patch.lineup) { camera.follow(null); setSelected(null); setSelectedBug(null); setSelectedRelease(null); setSelectedTask(null); setSelectedStage(null); } change(patch); }} /><FocusGamePicker className="world-focus world-control" games={data.model.games} focusProjectId={data.focusProjectId} onFocusGame={data.setFocusProjectId} locale={i18n.locale} /><WorldRoster agents={data.model.agents} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} onTask={openTask} /></div>
       {(!walking || showWalkActivity) && !(selected || selectedBug || selectedRelease || selectedStage || selectedTask) && (() => { const focus = data.model.focusProjectId;

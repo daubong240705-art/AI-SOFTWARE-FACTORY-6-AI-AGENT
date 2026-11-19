@@ -1,10 +1,11 @@
+import { walkFixtures } from './sceneryModel';
 import { furnitureFootprints, navigationBounds, type Footprint } from '../../layout/zones';
 
 export type WalkPoint = { x: number; z: number };
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Circle vs oriented furniture, with small swept steps to prevent tunnelling while running. */
-export function resolveWalkMove(from: WalkPoint, delta: WalkPoint, radius = 0.35, footprints: readonly Footprint[] = furnitureFootprints): WalkPoint {
+export function resolveWalkMove(from: WalkPoint, delta: WalkPoint, radius = 0.35, footprints: readonly Footprint[] = [...furnitureFootprints, ...walkFixtures]): WalkPoint {
   const next = { ...from };
   const steps = Math.max(1, Math.ceil(Math.hypot(delta.x, delta.z) / 0.09));
   const bound = () => {
