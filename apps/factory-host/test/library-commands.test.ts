@@ -179,7 +179,7 @@ test("skill detail route is guarded and returns newest versions and usage counts
   assert.equal(apiVersion, API_VERSION);
   assert.deepEqual(skillDetailSchema.parse(detail), {
     skill: { id: skillId, name: skill.name, description: skill.description, revision: 2, latestVersion: 2, trust: "instructions",
-      source: "pack:test", updatedAt: clock().toISOString() },
+      source: "pack:test", updatedAt: clock().toISOString(), groupId: null },
     versions: [newContent, skill.content].map((content, index) => ({ version: 2 - index,
       sha256: createHash("sha256").update(content).digest("hex"), createdAt: clock().toISOString() })),
     usedBy: { agents: 1, templates: 1 },
