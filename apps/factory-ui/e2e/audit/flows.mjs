@@ -34,6 +34,13 @@ async function connect(page, source, port, target) {
   await flowEdge(page, source, port, target).waitFor({ state: 'attached' });
 }
 
+// Radix-based Choice: open the trigger, then pick the option by its raw value (labels are translated).
+async function choose(trigger, value) {
+  await trigger.click();
+  await trigger.page().locator(`[role="option"][data-value="${value}"]`).click();
+  await trigger.and(trigger.page().locator(`[data-value="${value}"]`)).waitFor();
+}
+
 const flowEdge = (page, source, port, target) => page.locator(`.react-flow__edge[aria-label="${source}:${port} → ${target}"]`);
 
 function watchSecret(page, base, canaries) {
@@ -94,8 +101,8 @@ function scenarios(page, fixture, base, endpoint, canaries) {
   const selectRelation = async (from, to, kind) => {
     const row = byId('relation-row').last();
     const endpoints = hook(row, 'relation-agent');
-    await endpoints.first().selectOption(from); await endpoints.last().selectOption(to);
-    await hook(row, 'relation-kind').selectOption(kind);
+    await choose(endpoints.first(), from); await choose(endpoints.last(), to);
+    await choose(hook(row, 'relation-kind'), kind);
   };
   return [
     { id: 'agent', steps: [
@@ -112,7 +119,7 @@ function scenarios(page, fixture, base, endpoint, canaries) {
       }),
       step('history', 'Revision 1 can be selected.', async () => {
         await agent('edit'); await byId('agent-tab-history').click();
-        await byId('agent-history-version').selectOption('1'); await byId('agent-rollback').waitFor();
+        await choose(byId('agent-history-version'), '1'); await byId('agent-rollback').waitFor();
       }),
       step('rollback', 'Rollback restores the original role as a new revision.', async () => {
         await byId('agent-rollback').click(); await eventually(() => getAgent(agentId), item => item.config.role === 'Kiểm thử'); await cancel();
@@ -123,11 +130,11 @@ function scenarios(page, fixture, base, endpoint, canaries) {
         assert.notEqual(clone.id, agentId); await byId(`agent-row-${clone.id}`).waitFor();
       }),
       step('pause', 'The paused agent appears under the paused filter.', async () => {
-        await agent('pause'); await byId('agent-status-filter').selectOption('paused'); await byId(`agent-row-${agentId}`).waitFor();
+        await agent('pause'); await choose(byId('agent-status-filter'), 'paused'); await byId(`agent-row-${agentId}`).waitFor();
       }),
       step('archive', 'The archived agent retains its task history.', async () => {
         await createTask(api, project, { code: 'AU-101', title: 'Task giữ lịch sử agent', ownerSeatId: agentId });
-        await agent('archive'); await submit(); await byId('agent-status-filter').selectOption('archived'); await byId(`agent-row-${agentId}`).waitFor();
+        await agent('archive'); await submit(); await choose(byId('agent-status-filter'), 'archived'); await byId(`agent-row-${agentId}`).waitFor();
       }),
       step('delete-refusal', 'Deletion is refused and the archived agent remains.', async () => {
         await agent('delete'); await hook(modal(), 'dialog-confirm').click(); await modal().getByRole('alert').waitFor();
@@ -160,11 +167,11 @@ function scenarios(page, fixture, base, endpoint, canaries) {
       }),
       step('edit-delete', 'The draft edge can be removed and the existing relation edited and deleted.', async () => {
         await go('project-agents');
-        const row = byId('relation-row').filter({ has: byId('relation-kind').and(page.locator('select:has(option[value="manages"]:checked)')) });
-        await hook(row, 'relation-kind').selectOption('approves'); await byId('relation-save').click();
+        const row = byId('relation-row').filter({ has: byId('relation-kind').and(page.locator('[data-value="manages"]')) });
+        await choose(hook(row, 'relation-kind'), 'approves'); await byId('relation-save').click();
         await eventually(agents, item => item.relationsRevision > relationRevision);
         await hidden(byId('relation-save').and(page.locator(':enabled')));
-        const edited = byId('relation-row').filter({ has: page.locator('select:has(option[value="approves"]:checked)') });
+        const edited = byId('relation-row').filter({ has: byId('relation-kind').and(page.locator('[data-value="approves"]')) });
         await hook(edited, 'relation-delete').click(); await byId('relation-save').click();
         await eventually(agents, item => !item.relations.some(relation => relation.from === fixture.agents.primary && relation.to === fixture.agents.fresh && relation.kind === 'approves'));
       }),
@@ -212,7 +219,7 @@ function scenarios(page, fixture, base, endpoint, canaries) {
     { id: 'connection', steps: [
       step('create', 'An HTTP API connection appears.', async () => {
         await go('integrations'); await byId('connection-create').click(); await fill('connection-name', connectionName);
-        await hook(modal(), 'connection-kind').selectOption('http-api'); await fill('connection-base-url', endpoint.url); await fill('connection-operation-name', 'probe'); await submit();
+        await choose(hook(modal(), 'connection-kind'), 'http-api'); await fill('connection-base-url', endpoint.url); await fill('connection-operation-name', 'probe'); await submit();
         connectionId = (await eventually(connection)).id; await byId(`connection-row-${connectionId}`).waitFor();
       }),
       step('test', 'The local fixture receives the probe and the connection becomes ready.', async () => {
