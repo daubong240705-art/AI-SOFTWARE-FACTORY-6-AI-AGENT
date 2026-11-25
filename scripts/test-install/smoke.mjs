@@ -73,9 +73,13 @@ async function smoke() {
     execFileSync('git', ['-C', root, 'commit', '-q', '--allow-empty', '-m', 'Smoke fixture']);
     await api('/commands', { apiVersion: 1, commandId: randomUUID(), projectId, type: 'projects.create',
       payload: { name: 'Install smoke', workspace: { kind: 'git', root } } });
+    // New projects start without agents (U-14): create one the way a user would.
+    const agentId = randomUUID();
+    await api('/commands', { apiVersion: 1, commandId: randomUUID(), projectId, type: 'agents.create',
+      payload: { agentId, config: { name: 'Smoke agent', role: 'Tester', runtime: { adapter: 'fake' } } } });
     const { agents } = await api(`/projects/${projectId}/agents`);
-    assert.ok(agents.length, 'Project did not inherit agents');
-    await runFlow(projectId, agents[0].id, true);
+    assert.ok(agents.some((agent) => agent.id === agentId), 'Agent was not created');
+    await runFlow(projectId, agentId, true);
     writeFileSync(projectFile, projectId, { mode: 0o600 });
   } else {
     const projectId = readFileSync(projectFile, 'utf8');
