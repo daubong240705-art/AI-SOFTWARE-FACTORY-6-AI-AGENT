@@ -28,7 +28,10 @@ import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { createIdGenerator, systemClock, type Clock } from "./ids.js";
 import { createLeadRunner, type LeadConfig, type LeadRunner } from "./lead/runner.js";
 import { DEFAULT_LEAD_CONFIG } from "./lead/runner.js";
-import { API_VERSION, agentModelsSchema, reasoningEffortSchema } from "@factory/contracts";
+import { API_VERSION, agentModelsSchema, reasoningEffortSchema, type AgentAdapter } from "@factory/contracts";
+import { createSetupHandlers, SETUP_COMMANDS, withSetupApplyIssues } from "./setup/commands.js";
+import { registerSetupRoutes } from "./setup/routes.js";
+import { createSetupRunner } from "./setup/runner.js";
 import { configError, directoryDefaults, type ConfigEnv } from "./config/index.js";
 import { registerDoctorRoute } from "./system/doctor-route.js";
 import { modelsSetHandler, readModelSettings, type ModelSettingsSeed } from "./models/settings.js";
@@ -334,6 +337,7 @@ export async function startHost(options: {
   let storage: Storage | undefined;
   let app: FastifyInstance | undefined;
   let runner: LeadRunner | undefined;
+  let setupRunner: ReturnType<typeof createSetupRunner> | undefined;
   let dispatch: Dispatcher | null = null;
   let workspace: WorkspaceProvider | null = null;
   let effects: EffectExecutor | null = null;
@@ -375,7 +379,7 @@ export async function startHost(options: {
       await effects?.close();
       await localMcp?.close();
       localTokens?.revokeAll();
-      try { await runner?.stop(); } finally {
+      try { await Promise.all([runner?.stop(), setupRunner?.stop()]); } finally {
         try {
           proxy?.tokens.revokeAll();
           try { await modelRelay?.close(); await modelProxy?.close(); } finally {
@@ -558,15 +562,16 @@ export async function startHost(options: {
     };
     const leadSeat = pack.manifest.seats.find((seat) => seat.isLead);
     if (!leadSeat) throw new Error("Pack has no Lead seat");
+    const getLeadModelConfig = () => {
+      const settings = effectiveModels();
+      return { model: settings.leadModel, effort: settings.source === "environment" && options.lead?.effort === null ? null : settings.leadEffort };
+    };
     runner = createLeadRunner({ storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
       documents: { store: artifacts.store, config: documentConfig, afterRegister },
       viewRoot: join(stateDir, "lead-view"),
       profileText: readFileSync(join(pack.dir, leadSeat.profile), "utf8"),
       ...(options.lead === undefined ? {} : { config: options.lead }),
-      getModelConfig() {
-        const settings = effectiveModels();
-        return { model: settings.leadModel, effort: settings.source === "environment" && options.lead?.effort === null ? null : settings.leadEffort };
-      },
+      getModelConfig: getLeadModelConfig,
     });
     runner.recover();
     const raw = storage.raw;
@@ -649,6 +654,7 @@ export async function startHost(options: {
       proxy = { port: listeningPort, tokens, ...(socketPath === undefined ? {} : { socketPath }) };
       };
     }
+    const setupAdapters = new Set<AgentAdapter>();
     if (options.dispatch) {
       const { stepMs, adapters, ...config } = options.dispatch;
       const raw = storage.raw;
@@ -681,6 +687,10 @@ export async function startHost(options: {
         // api-agent talks to the model proxy; without one its tasks fail loudly with "runtime unavailable".
         ...(modelAccess === undefined || options.modelProxy === undefined ? [] : [createApiAgentRuntime()]),
       ]);
+      if (registry.get("fake")) setupAdapters.add("fake");
+      if (registry.get("native-opencode")) setupAdapters.add("opencode");
+      if (registry.get("api-agent")) setupAdapters.add("api-agent");
+      if (registry.get("acp")) { setupAdapters.add("codex"); setupAdapters.add("claude-code"); }
       dispatch = createDispatcher({ storage, hub, registry, clock, config, dependencyCache, multiTeam: true,
         defaultAgentModel: () => effectiveModels().leadModel,
         ...(options.timers === undefined ? {} : { timers: options.timers }),
@@ -785,7 +795,12 @@ export async function startHost(options: {
     const agents = createAgentHandlers();
     const libraryHandlers = createLibraryHandlers();
     const groupHandlers = createGroupHandlers();
-    const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
+    const setup = setupRunner = createSetupRunner({ raw, clock, budgetConfig, adapters: setupAdapters,
+      gateway: options.modelGateway ?? null, modelConfig: () => ({ ...getLeadModelConfig(),
+        maxOutputTokens: options.lead?.maxOutputTokens ?? DEFAULT_LEAD_CONFIG.maxOutputTokens,
+        timeoutMs: options.lead?.timeoutMs ?? DEFAULT_LEAD_CONFIG.timeoutMs }) });
+    const pipeline: ReturnType<typeof createCommandPipeline> = createCommandPipeline({ storage, hub, clock, handlers: {
+      ...createSetupHandlers({ adapters: setupAdapters, kick: setup.kick, executeChild: (...args) => pipeline.execute(...args) }),
       ...createNotificationHandlers(),
       ...createStandingApprovalHandlers(),
       ...createRuleHandlers(),
@@ -840,14 +855,15 @@ export async function startHost(options: {
     const sessions = createSessionStore({ clock });
     const port = options.port === 0 && options.listen !== false ? await freeLoopbackPort() : options.port;
     const origins = originsFor(port, [...(networked ? [listenHost] : []), ...(options.allowedHosts ?? [])]);
-    const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, artifacts, packs, backupStatus: () => backup?.status() ?? null,
+    const routes = createRoutes({ storage, hub, pipeline: withSetupApplyIssues(pipeline, raw, hub), clock, budgetConfig, artifacts, packs,
+      backupStatus: () => backup?.status() ?? null,
       ...(routeBreaker === undefined ? {} : { routeBreaker }),
       ...(external === undefined ? {} : { external }),
       ...(effects === null ? {} : { effects }),
       afterCommand: (type, result) => {
           if (result.body.ok && (type === "approvals.decide" || type === "tasks.transition" || INTEGRATION_COMMANDS.some((command) => command === type))) dispatch?.kick();
         if (type === "chat.send") lead.kick();
-        if (result.body.ok && AGENT_COMMANDS.some((command) => command === type) && dispatch) {
+        if (result.body.ok && (type === "setup.apply" || AGENT_COMMANDS.some((command) => command === type)) && dispatch) {
           dispatch.kick();
         }
       },
@@ -864,6 +880,7 @@ export async function startHost(options: {
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
       registerFlowRoutes(app, guards, { storage: storage! });
+      registerSetupRoutes(app, guards, raw);
       registerGroupRoutes(app, guards, { raw: storage!.raw, clock });
       registerIntegrationRoutes(app, guards, integrationStore, httpEffects, (projectId) => advanceProject(flowEngine, projectId));
       applyLibraryListScope(app, storage!.raw);
@@ -897,6 +914,7 @@ export async function startHost(options: {
         apiVersion: 1, ok: true, commands: ["projects.create", "projects.archive", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set", "models.set",
           "dossier.refresh",
           ...FLOW_COMMANDS,
+          ...SETUP_COMMANDS,
           ...MONITOR_COMMANDS,
           ...RULE_COMMANDS,
           ...INTEGRATION_COMMANDS,

@@ -4,6 +4,7 @@ import { standingCreateSchema, standingRevokeSchema } from "./standing.js";
 import { ruleInputSchema, rulePatchSchema } from "./rules.js";
 import { autonomyLevelSchema } from "./autonomy.js";
 import { modelSettingsSetSchema } from "./model-settings.js";
+import { setupApplyPayloadSchema, setupDiscardPayloadSchema, setupProposePayloadSchema } from "./setup.js";
 import { z } from "zod";
 import {
   integrationsCreatePayloadSchema, integrationsUpdatePayloadSchema, integrationsDeletePayloadSchema, integrationsTestPayloadSchema,
@@ -224,6 +225,9 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("agents.save-as-template", agentsSaveAsTemplatePayloadSchema),
   // U4: Workflow v2 (doc 17 §8).
   command("flows.create", flowsCreatePayloadSchema),
+  command("setup.propose", setupProposePayloadSchema),
+  command("setup.apply", setupApplyPayloadSchema),
+  command("setup.discard", setupDiscardPayloadSchema),
   command("flows.save-draft", flowsSaveDraftPayloadSchema),
   command("flows.publish", flowsPublishPayloadSchema),
   command("flows.archive", flowsArchivePayloadSchema),
