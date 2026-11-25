@@ -3,5 +3,5 @@
   "name": "Web Games + Portal",
   "description": "Mẫu team và workflow để xây dựng và xuất bản trò chơi web lên Portal.",
   "version": "1.0.0",
-  "packs": ["packs/web-games"]
+  "packs": ["packs/web-games", "packs/web-games-classic"]
 }

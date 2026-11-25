@@ -442,8 +442,14 @@
         "operation": "publish",
         "dir": "dist",
         "ref": "integration",
-        "scripts": "[\"check\",\"test\",\"build\"]",
-        "query": "{\"commitSha\":\"{{bundle.commit}}\"}"
+        "scripts": [
+          "check",
+          "test",
+          "build"
+        ],
+        "query": {
+          "commitSha": "{{bundle.commit}}"
+        }
       }
     },
     {
