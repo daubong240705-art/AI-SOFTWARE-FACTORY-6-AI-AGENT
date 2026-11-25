@@ -7,6 +7,12 @@ export const flowNodeIdSchema = z.string().regex(/^[a-z][a-z0-9-]{0,39}$/);
 export const flowPortSchema = z.string().regex(/^[a-z][a-z0-9-]{0,23}$/);
 export const flowPathSchema = z.string().max(200).regex(/^(trigger|inputs|nodes|loop|item|run)(\.[A-Za-z0-9_-]+|\[\d{1,3}\])*$/);
 export const flowTemplateSchema = z.string().max(20_000);
+export const bundleDirSchema = z.string().min(1).max(1024).refine((dir) =>
+  !/[\\:\x00-\x1f]/.test(dir) && dir.split("/").every((part) => part !== "" && part !== ".." && part !== "."));
+export const bundleScriptsSchema = z.array(z.enum(["ci", "check", "test", "build"])).max(4)
+  .refine((scripts) => new Set(scripts).size === scripts.length);
+export const bundleQuerySchema = z.record(z.string().min(1).max(200), flowTemplateSchema)
+  .refine((query) => Object.keys(query).length <= 10);
 
 const inputName = z.string().regex(/^[a-zA-Z][a-zA-Z0-9]{0,39}$/);
 const scalar = z.union([z.boolean(), z.string().max(4000), z.number().finite()]);
@@ -93,9 +99,12 @@ const nodes = z.discriminatedUnion("type", [
       acceptance: z.array(z.string().min(1).max(500)).min(1).max(8), inputs: z.array(flowPathSchema).max(8) }),
     review: z.union([z.enum(["none", "human"]), agent]).default("none"), outputSchema: jsonSubsetSchema.optional() }),
   z.strictObject({ ...common, type: z.literal("action"),
-    action: z.enum(["http.request", "git.push-branch", "notify.send", "artifact.save", "knowledge.publish"]),
-    params: z.record(z.string(), z.union([flowTemplateSchema, z.number().finite(), z.boolean()]))
-      .refine((params) => Object.keys(params).length <= 20, "At most 20 action parameters are allowed") }),
+    action: z.enum(["http.request", "bundle.publish", "git.push-branch", "notify.send", "artifact.save", "knowledge.publish"]),
+    params: z.record(z.string(), z.union([flowTemplateSchema, z.number().finite(), z.boolean(),
+      z.array(flowTemplateSchema), z.record(z.string(), flowTemplateSchema)]))
+      .refine((params) => Object.keys(params).length <= 20, "At most 20 action parameters are allowed") })
+    .refine(({ action, params }) => action === "bundle.publish" || Object.values(params).every((value) => typeof value !== "object"),
+      "Action parameters must be scalars"),
   z.strictObject({ ...common, type: z.literal("condition"), rules }),
   z.strictObject({ ...common, type: z.literal("parallel"), forEach: flowPathSchema, maxConcurrency: positiveInt.max(16) }),
   z.strictObject({ ...common, type: z.literal("join"), policy: z.union([z.enum(["all", "any"]),

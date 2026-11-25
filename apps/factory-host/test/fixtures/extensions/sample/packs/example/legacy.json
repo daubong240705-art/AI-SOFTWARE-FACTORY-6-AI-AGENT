@@ -1,0 +1,14 @@
+{
+  "key": "fixture",
+  "revision": 2,
+  "title": "Legacy fixture with the same key",
+  "parameters": [],
+  "phases": ["delivery"],
+  "stages": [
+    { "key": "author", "phase": "delivery", "title": "Author", "requiredCapabilities": ["delivery.document"], "inputs": [], "outputs": [] }
+  ],
+  "edges": [],
+  "joins": [],
+  "gates": [],
+  "allowedPatches": {}
+}

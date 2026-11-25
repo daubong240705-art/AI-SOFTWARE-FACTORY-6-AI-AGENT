@@ -56,6 +56,8 @@ File cấu hình là `~/.factory/config/factory.env`, dạng `KEY=VALUE`. File k
 factory config show
 ```
 
+Tiện ích mở rộng mặc định tắt. Đặt `FACTORY_EXTENSIONS=portal` (hoặc nhiều khóa, phân cách bằng dấu phẩy) rồi khởi động lại Host. Host đọc thư mục `extensions/` cạnh `packs/`; dùng `FACTORY_EXTENSIONS_DIR` để chỉ định đường dẫn tuyệt đối khác. Pack hợp lệ sẽ xuất hiện trong Thư viện và hộp thoại nhập Workflow. Chạy `factory doctor` và xem `D-EXT` nếu pack không xuất hiện. Xem [hướng dẫn Portal](../../extensions/portal/README.md).
+
 ## 4. Nhà cung cấp model
 
 Factory dùng mọi nhà cung cấp có API tương thích OpenAI (`GET /models`, `POST /chat/completions`).

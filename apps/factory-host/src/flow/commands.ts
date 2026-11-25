@@ -49,9 +49,13 @@ function knownComparisonType(definition: FlowDefinition, path: string): string |
   return schema?.type === "integer" ? "number" : schema?.type;
 }
 
-export function publishIssues(raw: Database, projectId: string, definition: FlowDefinition) {
+export function publishIssues(raw: Database, projectId: string, definition: FlowDefinition, integrations?: import("../integrations/store.js").IntegrationStore) {
+  const bundleOperations = (id: string) => {
+    const integration = integrations?.forProject(projectId).find((entry) => entry.id === id);
+    return integration?.kind === "http-api" ? integration.config.operations : undefined;
+  };
   const issues: Array<{ code: string; message: string; node?: string; edge?: string }> = validateFlow(definition,
-    { agentIds: new Set(activeAgents(raw, projectId).map(({ id }) => id)) });
+    { agentIds: new Set(activeAgents(raw, projectId).map(({ id }) => id)), ...(integrations === undefined ? {} : { bundleOperations }) });
   const recursive = (target: string, version: "published" | number, visited: Set<string>): boolean => {
     if (target === definition.key) return true;
     const flow = flowByKey(raw, projectId, target);
@@ -84,8 +88,8 @@ export function publishIssues(raw: Database, projectId: string, definition: Flow
   return issues;
 }
 
-function assertPublishable(raw: Database, projectId: string, definition: FlowDefinition): void {
-  const issues = publishIssues(raw, projectId, definition);
+function assertPublishable(raw: Database, projectId: string, definition: FlowDefinition, integrations?: import("../integrations/store.js").IntegrationStore): void {
+  const issues = publishIssues(raw, projectId, definition, integrations);
   if (!issues.length) return;
   const extra: Pick<ApiError, "fields"> & { currentRevision?: number } = { fields: issues.slice(0, 50).map(({ node, edge, message }) => ({
     path: node ? `nodes.${node}` : edge ? `edges.${edge}` : "definition", message,
@@ -109,7 +113,7 @@ export function createFlowHandlers({ engine, packs = [] }: { engine: FlowEngineD
       const flow = getFlow(ctx.raw, projectId, payload.flowId);
       checkRevision(flow, "flow", payload.expectedRevision);
       const draft = flow!.draft_json;
-      assertPublishable(ctx.raw, projectId, definitionOf(draft));
+      assertPublishable(ctx.raw, projectId, definitionOf(draft), engine.httpAction?.store);
       const digest = hash(draft);
       const previous = getVersion(ctx.raw, projectId, payload.flowId);
       if (previous?.sha256 !== digest) {
@@ -129,7 +133,10 @@ export function createFlowHandlers({ engine, packs = [] }: { engine: FlowEngineD
     },
     "flows.import-v1": (ctx, { projectId, payload }) => {
       const pack = packs.find(({ key }) => key === payload.packKey);
-      const match = pack && registryPack(pack).files.workflows.find(({ definition }) => definition.key === payload.definitionKey);
+      const files = pack && registryPack(pack).files;
+      const flow = files?.flows?.find(({ definition }) => definition.key === payload.definitionKey);
+      if (flow) return create(ctx, projectId, payload.flowId, flow.definition, `pack:${payload.packKey}`);
+      const match = files?.workflows.find(({ definition }) => definition.key === payload.definitionKey);
       if (!match) throw missing("workflow pack definition");
       return create(ctx, projectId, payload.flowId, convertWorkflowV1(match.definition).definition, `pack:${payload.packKey}`);
     },
@@ -141,7 +148,7 @@ export function createFlowHandlers({ engine, packs = [] }: { engine: FlowEngineD
         throw new CommandError("validation", "pinned outputs and mockAgents require a test run", "correct-input");
       const version = payload.version === "draft" ? undefined : getVersion(ctx.raw, projectId, flow.id, typeof payload.version === "number" ? payload.version : undefined);
       if (!version && payload.version !== "draft") throw missing("published flow version");
-      if (!version) assertPublishable(ctx.raw, projectId, definitionOf(flow.draft_json));
+      if (!version) assertPublishable(ctx.raw, projectId, definitionOf(flow.draft_json), engine.httpAction?.store);
       insertRun(engine, flow, { id: payload.runId, ...(version ? { version } : {}), inputs: payload.inputs, pinned: payload.pinned,
         test, mockAgents: payload.mockAgents, trigger: "manual" });
       advanceProject(engine, projectId);

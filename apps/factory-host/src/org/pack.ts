@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { readFileSync, realpathSync, statSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
-import { artifactKindSchema, labelSchema, MCP_TOOL_NAMES, runtimeKindSchema, workflowDefinitionSchema, type WorkflowDefinition } from "@factory/contracts";
+import { artifactKindSchema, flowDefinitionSchema, labelSchema, MCP_TOOL_NAMES, runtimeKindSchema, validateFlow, workflowDefinitionSchema, type FlowDefinition, type WorkflowDefinition } from "@factory/contracts";
 import { z } from "zod";
 import { externalToolPattern } from "../mcp-external/config.js";
 
@@ -11,7 +11,7 @@ export function isRetiredGamePack(key: string): boolean {
   return retiredGamePacks.includes(key);
 }
 
-const relativePathSchema = z.string().min(1).refine((path) =>
+export const relativePathSchema = z.string().min(1).refine((path) =>
   !isAbsolute(path) && !win32.isAbsolute(path) && !path.includes(":") && !path.includes("\0") &&
   !path.split(/[/\\]/).some((part) => part === ".." || part === "." || part === ""),
 "Expected a relative path inside the pack without traversal");
@@ -49,7 +49,8 @@ export type LoadedPack = {
   manifest: z.infer<typeof packManifestSchema>; digest: string; dir: string;
   files: { profiles: { path: string; content: string }[];
     skills: { name: string; path: string; description: string; content: string }[];
-    workflows: { path: string; definition: WorkflowDefinition }[] };
+    workflows: { path: string; definition: WorkflowDefinition }[];
+    flows?: { path: string; definition: FlowDefinition }[] };
 };
 
 function descriptionFor(content: string): string {
@@ -60,7 +61,7 @@ function descriptionFor(content: string): string {
   return Array.from(description).slice(0, 250).join("");
 }
 
-function inside(root: string, path: string): string {
+export function inside(root: string, path: string): string {
   const resolved = resolve(root, path);
   const check = (candidate: string): void => {
     const rel = relative(root, candidate);
@@ -110,6 +111,17 @@ export function loadPack(dir: string): LoadedPack {
       const definition = workflowDefinitionSchema.parse(JSON.parse(content) as unknown);
       if (files.workflows.some((file) => file.definition.key === definition.key)) throw new Error();
       add(bytes); files.workflows.push({ path, definition });
+    }
+    if (lstatSync(resolve(root, "flows"), { throwIfNoEntry: false })) {
+      files.flows = [];
+      for (const name of readdirSync(inside(root, "flows")).sort()) {
+        if (!name.endsWith(".json")) continue;
+        const path = `flows/${name}`;
+        const { bytes, content } = readContent(path);
+        const definition = flowDefinitionSchema.parse(JSON.parse(content) as unknown);
+        if (definition.key !== name.slice(0, -5) || validateFlow(definition).length) throw new Error();
+        add(Buffer.from(path)); add(bytes); files.flows.push({ path, definition });
+      }
     }
   } catch { throw new Error("Invalid pack content"); }
   return { manifest, digest: hash.digest("hex"), dir: root, files };

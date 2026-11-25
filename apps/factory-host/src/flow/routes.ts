@@ -8,7 +8,8 @@ import type { Storage } from "../storage/database.js";
 import { publishIssues } from "./commands.js";
 import { decode, definitionOf, flowSummary, getFlow, getRun, nodeHistory, runSummary, type FlowRow, type RunRow } from "./store.js";
 
-export function registerFlowRoutes(app: FastifyInstance, guards: ApiGuards, { storage }: { storage: Storage }): void {
+export function registerFlowRoutes(app: FastifyInstance, guards: ApiGuards, { storage, integrations }: { storage: Storage;
+  integrations?: import("../integrations/store.js").IntegrationStore }): void {
   const { raw } = storage;
   const newId = createIdGenerator();
   const preHandler = guards.session;
@@ -26,7 +27,7 @@ export function registerFlowRoutes(app: FastifyInstance, guards: ApiGuards, { st
     const versions = raw.prepare(`SELECT version,sha256,published_at AS publishedAt,actor_id AS actorId FROM flow_versions
       WHERE project_id=? AND flow_id=? ORDER BY version DESC LIMIT 500`).all(projectId, flowId);
     return { apiVersion: API_VERSION, ok: true, ...flowDetailSchema.parse({ flow: flowSummary(raw, flow), draft,
-      issues: publishIssues(raw, projectId, draft).slice(0, 500), versions }) };
+      issues: publishIssues(raw, projectId, draft, integrations).slice(0, 500), versions }) };
   });
   app.get<{ Params: { projectId: string; runId: string } }>("/projects/:projectId/flow-runs/:runId", { preHandler }, async ({ params: { projectId, runId } }, reply) => {
     const run = getRun(raw, projectId, runId);

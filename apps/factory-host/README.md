@@ -483,6 +483,8 @@ Environment and output:
 
 ## Workflow v2
 
+`bundle.publish` builds an integration or main branch commit in a private worktree and sends a gzip archive to a scoped HTTP API operation (external POST or PUT). Run it only against trusted repository scripts, and put an Approval node before external publication. The action uses `integrationId`, `operation`, optional `dir` (default `dist`), `ref` (default `integration`), `scripts` (default `ci`, `build`), and string `query` templates (including `{{bundle.commit}}`). Other scalar parameters fill operation path arguments. Unknown uploads stall and use the existing HTTP effect reconciliation endpoint; they are never sent again automatically.
+
 `src/flow/` validates and runs draft or published flows, persists node progress, and recovers runs at startup.
 Task and approval changes notify the flow engine through `src/flow/lifecycle.ts`.
 Use `flows.import-v1` to convert pack JSON into an editable v2 draft. The v1 engine and its job schedules are retired.
@@ -615,6 +617,10 @@ It uses the pinned agent configuration and routes allowed tools through the norm
 Attempt lifecycle, budgets, and evidence are handled by the same dispatch path as other adapters.
 
 ## Configuration and system doctor
+
+`FACTORY_EXTENSIONS` enables a comma-separated list of optional extension keys (empty by default).
+`FACTORY_EXTENSIONS_DIR` overrides the absolute directory containing their manifests (default: `extensions/` beside `packs/`).
+`factory doctor` reports load failures under `D-EXT`; invalid extension packs do not prevent Host startup.
 
 `src/config/` merges supported file and environment settings, validates inputs, and applies defaults.
 `src/system/` exposes authenticated capabilities and doctor diagnostics without returning credentials.

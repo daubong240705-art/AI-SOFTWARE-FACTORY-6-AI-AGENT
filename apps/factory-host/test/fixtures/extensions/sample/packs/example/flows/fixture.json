@@ -1,0 +1,7 @@
+{
+  "schema": 2,
+  "key": "fixture",
+  "title": "Native v2 fixture",
+  "nodes": [{ "id": "start", "title": "Start", "type": "trigger", "trigger": { "kind": "manual" } }],
+  "edges": []
+}

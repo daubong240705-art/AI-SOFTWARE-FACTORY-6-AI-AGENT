@@ -7,7 +7,7 @@ import { DEFAULT_BUDGET_CONFIG } from "../policy/budget.js";
 import { readConfigFile } from "./file.js";
 import { configKey, validateConfig, type ConfigEnv, type ConfigIssue } from "./schema.js";
 
-export { ConfigError, configError, formatConfigError, secretKey } from "./schema.js";
+export { ConfigError, configError, extensionKeys, formatConfigError, secretKey } from "./schema.js";
 export type { ConfigEnv, ConfigIssue } from "./schema.js";
 
 export type ConfigSource = "env" | "file" | "default";
@@ -35,6 +35,8 @@ export function directoryDefaults(env: ConfigEnv, home = homedir()): Record<stri
     FACTORY_BACKUP_DIR: legacy && existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(state, "backups", "periodic"),
     FACTORY_DOC_WORKER_PYTHON: join(root, "doc-worker", "venv", "bin", "python"),
     FACTORY_UI_DIR: fileURLToPath(new URL("../../../factory-ui/dist/", import.meta.url)),
+    FACTORY_EXTENSIONS: "",
+    FACTORY_EXTENSIONS_DIR: fileURLToPath(new URL("../../../../extensions/", import.meta.url)),
   };
 }
 

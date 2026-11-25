@@ -1,5 +1,5 @@
 import type { Database } from "better-sqlite3";
-import { API_VERSION, artifactRefSchema, idSchema, isTerminalFlowRunState, type FlowDefinition, type FlowEdge, type FlowNode, type Seat } from "@factory/contracts";
+import { API_VERSION, artifactRefSchema, bundleQuerySchema, bundleScriptsSchema, idSchema, isBundleOperation, isTerminalFlowRunState, validateBundleParams, type FlowDefinition, type FlowEdge, type FlowNode, type Seat } from "@factory/contracts";
 import { approvalsDecideHandler, publicApprovalText } from "../approvals/service.js";
 import { listTaskArtifacts } from "../artifacts/service.js";
 import { DocumentError, registerUpload, uploadQuerySchema } from "../artifacts/uploads.js";
@@ -19,9 +19,11 @@ import { activeAgents, chooseAgent as choose } from "./selector.js";
 export type NodeOutcome =
   | { kind: "done"; port: string | null; output: unknown; pinned?: boolean }
   | { kind: "waiting"; patch: Partial<NodeRow> }
-  | { kind: "failed"; error: string; retryable?: boolean; errorPort?: boolean };
+  | { kind: "stalled"; reason: string; output: unknown }
+  | { kind: "failed"; error: string; retryable?: boolean; errorPort?: boolean; output?: unknown };
 
 const httpCaller = (run: RunRow, row: NodeRow) => `flow:${run.id}:${row.node_id}:${row.iteration}`;
+export const bundleStallReason = "bundle-outcome-unknown";
 function renderHttpArgs(source: string, context: unknown, missing: Set<string>): unknown {
   const exact = /^\s*\{\{\s*([^{}\s]+)\s*\}\}\s*$/;
   const whole = exact.exec(source)?.[1];
@@ -180,6 +182,43 @@ export function executeWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefiniti
       }
     }
     case "action": {
+      if (item.action === "bundle.publish") {
+        const effects = deps.bundleAction, store = deps.httpAction?.store;
+        const fail = (error: string): NodeOutcome => ({ kind: "failed", error, errorPort: def.edges.some((edge) => edge.from.node === row.node_id && edge.from.port === "error"),
+          output: { state: "failed", commit: null, response: null, log: "" } });
+        if (!effects || !store) return fail("Bundle publishing is unavailable");
+        if (validateBundleParams(item.params).length) return fail("Invalid bundle publish parameters");
+        const { integrationId, operation: name, dir, ref, scripts, query, ...pathParams } = item.params;
+        if (typeof integrationId !== "string") return fail("Bundle integration is required");
+        const id = idSchema.safeParse(render(integrationId, context, new Set()));
+        const integration = id.success && store.forProject(run.project_id).find((entry) => entry.id === id.data);
+        if (!integration || integration.kind !== "http-api") return fail("Bundle HTTP integration not found in project scope");
+        const operation = integration.config.operations.find((entry) => entry.name === name);
+        if (!isBundleOperation(operation)) return fail("Bundle requires an external POST or PUT operation");
+        try {
+          const missingParams = new Set<string>();
+          const args = Object.fromEntries(Object.entries(pathParams).map(([key, value]) => [key,
+            typeof value === "string" ? render(value, context, missingParams) : value]));
+          if (missingParams.size) return fail("Bundle path input is missing");
+          const templates = bundleQuerySchema.parse(query ?? {});
+          const advance = () => { if (deps.raw.open) advanceRun(deps, run.project_id, run.id); };
+          void effects.submit({ projectId: run.project_id, caller: httpCaller(run, row), nodeAttempt: row.attempt_no,
+            integration, operation, args, ...(typeof dir === "string" ? { dir } : {}),
+            ...(ref === "main" || ref === "integration" ? { ref } : {}), ...(scripts === undefined ? {} : { scripts: bundleScriptsSchema.parse(scripts) }),
+            query: (commit) => {
+              const rendered = Object.fromEntries(Object.entries(templates).map(([key, template]) => [key,
+                render(template.replace(/\{\{\s*bundle\.commit\s*\}\}/g, commit), context, missingParams)]));
+              if (missingParams.size) throw new Error();
+              return rendered;
+            }, beforeSend: () => {
+              const active = deps.raw.prepare(`SELECT 1 FROM flow_node_runs n JOIN flow_runs r ON r.project_id=n.project_id AND r.id=n.run_id
+                WHERE n.project_id=? AND n.run_id=? AND n.node_id=? AND n.iteration=? AND n.attempt_no=?
+                AND n.state='waiting' AND r.state IN ('running','waiting','stalled')`).get(run.project_id, run.id, row.node_id, row.iteration, row.attempt_no);
+              if (!active) throw new Error();
+            } }).then(advance, advance).catch(() => {});
+          return { kind: "waiting", patch: {} };
+        } catch { return fail("Invalid bundle publish request"); }
+      }
       const params = Object.fromEntries(Object.entries(item.params).map(([key, value]) => [key,
         typeof value === "string" && !(item.action === "http.request" && key === "args") ? render(value, context, missing) : value]));
       if (item.action === "http.request") {
@@ -273,6 +312,18 @@ export function executeWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefiniti
 }
 
 export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition, item: FlowNode, row: NodeRow): NodeOutcome | null {
+  if (item.type === "action" && item.action === "bundle.publish") {
+    const effect = deps.bundleAction?.latest(run.project_id, httpCaller(run, row));
+    if (!effect || effect.state === "pending") return null;
+    const { state, commit, response, log } = effect;
+    const output = { state, commit, response, log };
+    while (output.log && Buffer.byteLength(JSON.stringify(output)) > 65536) output.log = output.log.slice(Math.ceil(output.log.length / 2));
+    if (Buffer.byteLength(JSON.stringify(output)) > 65536) output.response = null;
+    if (state === "unknown") return { kind: "stalled", reason: bundleStallReason, output };
+    return state === "done" ? { kind: "done", port: "out", output }
+      : { kind: "failed", error: effect.error ?? "Bundle publish failed", output,
+        errorPort: def.edges.some((edge) => edge.from.node === row.node_id && edge.from.port === "error") };
+  }
   if (item.type === "action" && item.action === "http.request") {
     const effect = deps.httpAction?.effects.latest(run.project_id, httpCaller(run, row));
     if (!effect || effect.state === "pending" || effect.state === "unknown") return null;

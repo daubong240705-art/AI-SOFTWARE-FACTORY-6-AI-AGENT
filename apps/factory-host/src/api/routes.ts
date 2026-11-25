@@ -164,7 +164,7 @@ export function createRoutes(deps: {
           slots: seat.slots, isLead: seat.isLead, capabilities: seat.capabilities ?? [], tools: seat.tools ?? [],
           profile: pack.files.profiles[index]?.content ?? "" })),
         skills: pack.files.skills.map(({ name, description, content }) => ({ name, description, content })),
-        workflows: pack.files.workflows.map(({ definition: { key, revision, title } }) => ({ key, revision, title })) };
+        workflows: entry.workflows ?? [] };
     });
     app.get<{ Querystring: { path?: string } }>("/system/browse", { preHandler: guards.session }, async (request, reply) => {
       const query = z.strictObject({ path: z.string().max(4096).optional() }).safeParse(request.query);
