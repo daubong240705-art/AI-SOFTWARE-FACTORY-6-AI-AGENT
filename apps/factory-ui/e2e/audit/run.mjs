@@ -19,6 +19,8 @@ const hostRoot = resolve(uiRoot, '../factory-host');
 const auditRoot = join(uiRoot, '.audit');
 const screenshots = join(auditRoot, 'screenshots');
 const keep = process.argv.includes('--keep');
+// --flows-only: skip the screen/dialog captures and run only the CRUD flows (quick re-check of flow fixes).
+const flowsOnly = process.argv.includes('--flows-only');
 const dir = join(uiRoot, 'dist');
 const hostMain = join(hostRoot, 'dist/main.js');
 const variants = [1280, 800].flatMap(width => ['light', 'dark'].map(theme => ({ width, height: width === 1280 ? 800 : 900, theme })));
@@ -225,7 +227,7 @@ async function main() {
       results.deepLink.recovered = true;
     } catch (error) { results.events.push({ type: 'deep-link', text: safeText(error.message) }); }
     finally { await deepContext.close(); }
-    for (const variant of variants) {
+    for (const variant of flowsOnly ? [] : variants) {
       const context = await newContext(browser, variant);
       try {
         const page = await context.newPage();

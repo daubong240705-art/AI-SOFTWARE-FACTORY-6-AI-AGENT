@@ -22,6 +22,8 @@ async function eventually(read, predicate = Boolean) {
 
 async function connect(page, source, port, target) {
   const handle = (node, name) => hook(page, `flow-handle-${node}-${name}`);
+  // New nodes are centred in view; fit the whole graph first so both handles are on screen.
+  await page.locator('.react-flow__controls-fitview').click(); await delay(400);
   const from = await handle(source, port).boundingBox();
   const to = await handle(target, 'in').boundingBox();
   assert.ok(from && to, 'Both workflow handles must be visible.');
@@ -52,7 +54,8 @@ function watchSecret(page, base, canaries) {
   page.on('response', listener);
   return {
     async verify() {
-      const status = await page.evaluate(async () => (await fetch('/credentials', { cache: 'no-store' })).status);
+      // Read the body too: an unread body never finishes loading, so the response scan below would wait forever.
+      const status = await page.evaluate(async () => { const response = await fetch('/credentials', { cache: 'no-store' }); await response.text(); return response.status; });
       assert.equal(status, 200, 'Credential metadata could not be read.');
       await Promise.all(pending);
       const domLeak = await page.evaluate(values => {
@@ -323,7 +326,9 @@ export async function runCrudFlows({ page, fixture, base, endpoint, canaries, re
         try { await Promise.race([item.run(), new Promise((_, reject) => setTimeout(() => reject(new Error('Step timed out after 60 s')), 60_000))]); }
         catch (error) {
           blocked = true; result.status = 'FAIL';
-          result.error = scenario.sensitive && !/^A (credential|same-origin)/.test(error.message) ? 'Credential check failed; details and screenshot withheld.' : safeText(error.message);
+          // Sensitive flows: canary values are redacted (never the whole message) so the failure reason stays readable.
+          const message = scenario.sensitive ? canaries.reduce((text, value) => text.split(value).join('[redacted]'), String(error.message)) : error.message;
+          result.error = safeText(message);
           if (!scenario.sensitive) {
             try { result.file = await screenshot(`crud-${scenario.id}-${item.name}-1280-light.png`); }
             catch (captureError) { result.error += ` · Screenshot unavailable: ${safeText(captureError.message)}`; }

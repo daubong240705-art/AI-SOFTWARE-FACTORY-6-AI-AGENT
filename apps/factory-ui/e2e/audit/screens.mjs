@@ -137,7 +137,8 @@ export async function navigateHash(page, base, hash, { observe } = {}) {
     await page.reload();
     await shell.waitFor();
   }
-  await page.waitForFunction(expected => location.hash === expected, hash);
+  // A screen may select a child item and extend the hash (e.g. #/attention → #/attention/<id>).
+  await page.waitForFunction(expected => location.hash === expected || location.hash.startsWith(`${expected}/`), hash);
 }
 
 export async function openScreen(page, screen, fixture, base) {
