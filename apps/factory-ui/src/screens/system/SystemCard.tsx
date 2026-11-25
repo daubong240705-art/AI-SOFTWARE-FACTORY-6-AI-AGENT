@@ -9,10 +9,14 @@ import type { Store } from '@/state/store';
 import type { SystemArea } from '@/state/system';
 import { relativeTime } from '@/lib/inbox';
 
-export function SystemCard({ title, children }: { title: string; children: ReactNode }) {
+export function SystemCard({ title, children, anchor, actions, status }: { title: string; children: ReactNode; anchor?: string; actions?: ReactNode; status?: string }) {
   const id = useId();
-  return <Card role="region" aria-labelledby={id} className="min-w-0 gap-0 rounded-xl border-border py-0 shadow-none">
-    <CardHeader className="border-b border-border px-5 py-4"><h2 id={id} className="font-display text-lg font-semibold">{title}</h2></CardHeader>
+  return <Card id={anchor} role="region" aria-labelledby={id} className="min-w-0 gap-0 rounded-xl border-border py-0 shadow-none">
+    <CardHeader className={cn('border-b border-border px-5 py-4', actions && 'flex flex-wrap items-center justify-between gap-3')}>
+      <div><h2 id={id} className="font-display text-lg font-semibold">{title}</h2>
+        {status && <p role="status" className="mt-1 text-sm font-medium text-muted-foreground">{status}</p>}
+      </div>{actions}
+    </CardHeader>
     <CardContent className="min-w-0 space-y-4 px-5 py-4">{children}</CardContent>
   </Card>;
 }

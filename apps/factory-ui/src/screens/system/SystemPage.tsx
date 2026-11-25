@@ -12,6 +12,7 @@ import { McpCard, PacksCard } from './CatalogCards';
 import { CommandsCard } from './CommandsCard';
 import { ModelsCard } from './ModelsCard';
 import { AgentClisCard } from './AgentClisCard';
+import { SetupPanel } from './SetupPanel';
 
 export function System({ store }: { store: Store }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
@@ -37,6 +38,7 @@ export function System({ store }: { store: Store }) {
   }, [store, state.session]);
   return <Page className="min-w-0 space-y-6 px-6 2xl:px-6">
     <PageHeader title={t('systemUi.title')} actions={<Button type="button" variant="ghost" disabled={busy} onClick={() => { setNow(Date.now()); void store.loadSystem(); void store.loadAgentClis(true); }}><RefreshCw />{t('systemUi.refresh')}</Button>} />
+    {state.session === 'authenticated' && <SetupPanel />}
     <div className="grid min-w-0 items-start gap-5 lg:grid-cols-2"><ModelsCard store={store} /><AgentClisCard store={store} /></div>
     <div className="grid min-w-0 items-start gap-5 lg:grid-cols-2">
       <HostCard store={store} now={now} /><BackupCard store={store} now={now} />
