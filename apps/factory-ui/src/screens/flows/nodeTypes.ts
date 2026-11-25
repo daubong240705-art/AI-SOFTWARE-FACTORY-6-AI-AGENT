@@ -7,8 +7,8 @@ export const nodeIcons = {
 } satisfies Record<FlowNode['type'], typeof Bot>;
 export const nodeKinds = Object.keys(nodeIcons) as FlowNode['type'][];
 export const actionKinds = ['notify.send', 'artifact.save', 'http.request', 'git.push-branch', 'knowledge.publish'] as const;
-export const unsupported = (node: FlowNode) => node.type === 'parallel' || node.type === 'orchestrate' ||
-  (node.type === 'action' && node.action !== 'notify.send' && node.action !== 'artifact.save');
+export const unsupportedAction = (action: (typeof actionKinds)[number]) => action === 'git.push-branch' || action === 'knowledge.publish';
+export const unsupported = (node: FlowNode) => node.type === 'parallel' || (node.type === 'action' && unsupportedAction(node.action));
 
 export function newNode(type: FlowNode['type'], title: string, existing: FlowNode[], agent: AgentSelector, acceptance: string): FlowNode {
   let id: string = type;

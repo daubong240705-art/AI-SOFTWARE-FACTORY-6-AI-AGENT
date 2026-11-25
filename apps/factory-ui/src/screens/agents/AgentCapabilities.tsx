@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import type { AgentConfig } from '@factory/contracts';
+import { useContext, useState } from 'react';
+import { MCP_TOOL_NAMES, type AgentConfig } from '@factory/contracts';
 import type { AgentLibrary } from '@/api/agentModels';
 import type { ApiClient } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Choice, Field, ReadStatus, useAgentLabels, useRead } from './shared';
+import { IntegrationProject, RetryRead, useIntegrationLabels, useProjectIntegrations } from '../integrations/shared';
+
+const builtinTools = MCP_TOOL_NAMES.filter(name => name !== 'task.propose' && name !== 'handoff.submit');
 
 export function AgentCapabilities({ api, library, skills, tools, setSkills, setTools, invalid }: {
   api: ApiClient; library: AgentLibrary | undefined; skills: AgentConfig['skills']; tools: AgentConfig['tools'];
@@ -13,6 +16,9 @@ export function AgentCapabilities({ api, library, skills, tools, setSkills, setT
   invalid: (path: string) => string | undefined;
 }) {
   const t = useAgentLabels();
+  const label = useIntegrationLabels();
+  const projectId = useContext(IntegrationProject);
+  const integrations = useProjectIntegrations(api, tools === null ? undefined : projectId);
   const [retry, setRetry] = useState(0);
   const result = useRead(library ? null : api.getAgentLibrary, retry);
   const available = (library ?? result.data)?.skills ?? [];
@@ -47,11 +53,29 @@ export function AgentCapabilities({ api, library, skills, tools, setSkills, setT
       <h3 className="font-semibold">{t('fields.tools')}</h3>
       <label className="flex items-center gap-2 text-sm"><Switch checked={tools === null} onCheckedChange={checked => setTools(checked ? null : [])} />{t('defaultTools')}</label>
       {invalid('tools') && <p className="text-sm text-destructive">{invalid('tools')}</p>}
-      {tools !== null && <>{tools.map((grant, index) => <div key={index} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_8rem_auto]">
-        <Input className="col-span-2 sm:col-span-1" aria-label={`${t('toolPattern')} ${index + 1}`} aria-invalid={!!invalid(`tools.${index}`)} value={grant.tool} placeholder="knowledge.*" maxLength={120} onChange={event => setTools(tools.map((item, position) => position === index ? { ...item, tool: event.target.value } : item))} />
-        <Choice aria-label={`${t('toolMode')} ${index + 1}`} value={grant.mode} onChange={event => setTools(tools.map((item, position) => position === index ? { ...item, mode: event.target.value === 'deny' ? 'deny' : 'allow' } : item))}><option value="allow">{t('allow')}</option><option value="deny">{t('deny')}</option></Choice>
-        <Button type="button" variant="ghost" aria-label={`${t('remove')} ${index + 1}`} onClick={() => setTools(tools.filter((_, position) => position !== index))}>{t('remove')}</Button>
-      </div>)}<Button type="button" variant="outline" disabled={tools.length >= 64} onClick={() => setTools([...tools, { tool: '', mode: 'allow' }])}>{t('add')}</Button></>}
+      {tools !== null && <><RetryRead error={integrations.error} loading={integrations.loading} retry={integrations.refresh} />
+        {tools.map((grant, index) => {
+          const change = (patch: Partial<typeof grant>) => setTools(tools.map((item, position) => position === index ? { ...item, ...patch } : item));
+          return <div key={index} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto]">
+            <Input className="col-span-2 sm:col-span-1" aria-label={`${t('toolPattern')} ${index + 1}`} aria-invalid={!!invalid(`tools.${index}`)} value={grant.tool} placeholder="knowledge.*" maxLength={120} onChange={event => change({ tool: event.target.value })} />
+            <Choice aria-label={`${t('toolMode')} ${index + 1}`} value={grant.mode} onChange={event => change({ mode: event.target.value === 'deny' ? 'deny' : event.target.value === 'ask' ? 'ask' : 'allow' })}>
+              <option value="allow">{t('allow')}</option><option value="ask">{label('ask')}</option><option value="deny">{t('deny')}</option>
+            </Choice>
+            <Button type="button" variant="ghost" aria-label={`${t('remove')} ${index + 1}`} onClick={() => setTools(tools.filter((_, position) => position !== index))}>{t('remove')}</Button>
+            <Choice className="col-span-full" aria-label={`${label('pickTool')} ${index + 1}`} value="" onChange={event => { if (event.target.value) change({ tool: event.target.value }); }}>
+              <option value="">{label('pickTool')}</option>
+              <optgroup label={label('builtinTools')}>{builtinTools.map(name => <option key={name} value={name}>{name}</option>)}</optgroup>
+              {integrations.data?.map(integration => {
+                const prefix = `${integration.kind === 'http-api' ? 'http' : 'ext'}.${integration.name}.`;
+                return <optgroup key={integration.id} label={integration.name}>
+                  {integration.kind !== 'http-api' && <option value={`${prefix}*`}>{prefix}*</option>}
+                  {integration.tools.map(tool => <option key={tool.name} value={`${prefix}${tool.name}`}>{prefix}{tool.name}</option>)}
+                </optgroup>;
+              })}
+            </Choice>
+            {grant.mode === 'ask' && <p className="col-span-full text-xs text-muted-foreground">{label('askHelp')}</p>}
+          </div>;
+        })}<Button type="button" variant="outline" disabled={tools.length >= 64} onClick={() => setTools([...tools, { tool: '', mode: 'allow' }])}>{t('add')}</Button></>}
     </section>
   </div>;
 }

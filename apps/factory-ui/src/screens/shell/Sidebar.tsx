@@ -1,7 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { shallowSelectionEqual } from '@/state/storeSelector';
 import { deriveDisplayStatus, isLiveAttempt } from '@factory/contracts';
-import { Activity, Earth, House, Inbox, Library, PanelLeftClose, PanelLeftOpen, Plus, X } from 'lucide-react';
+import { Activity, Earth, House, Inbox, Library, PanelLeftClose, PanelLeftOpen, Plug, Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,6 +44,7 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
     <NavButton collapsed={collapsed} aria-label={t('nav.overview')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => onNavigate('overview')}><House /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.overview')}</span></NavButton>
     <NavButton collapsed={collapsed} aria-label={`${t('nav.attention')}, ${inboxCount(t, items.length)}`} aria-current={view === 'needs-attention' ? 'page' : undefined} onClick={() => onNavigate('needs-attention')}><Inbox /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.attention')}</span>{items.length > 0 && !collapsed && <Badge key={items.length} className="ml-auto min-w-[22px] animate-[pop_300ms_ease-out] motion-reduce:animate-none border-0 bg-need py-0 text-need-foreground">{items.length}</Badge>}</NavButton>
     <NavButton collapsed={collapsed} aria-label={t('nav.library')} aria-current={view === 'library' ? 'page' : undefined} onClick={() => onNavigate('library')}><Library /><span className={labelClass}>{t('nav.library')}</span></NavButton>
+    <NavButton collapsed={collapsed} aria-label={t('integrationsUi.title')} aria-current={view === 'integrations' ? 'page' : undefined} onClick={() => onNavigate('integrations')}><Plug /><span className={labelClass}>{t('integrationsUi.title')}</span></NavButton>
     <NavButton collapsed={collapsed} aria-label={t('nav.world')} aria-current={view === 'world' ? 'page' : undefined} onClick={() => onNavigate('world')}><Earth /><span className={labelClass}>{t('nav.world')}</span></NavButton>
     <div className={cn('mt-4 flex h-8 shrink-0 items-center justify-between px-2.5 text-xs font-medium tracking-wide text-muted-foreground uppercase', collapsed && 'justify-center px-0')}>
       <span className={collapsed ? 'sr-only' : ''}>{t('global.projects')}</span>

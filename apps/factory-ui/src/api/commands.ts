@@ -1,5 +1,6 @@
 import { API_VERSION, commandSchema, type Command } from '@factory/contracts';
 import { LIBRARY_SCOPE_ID, SYSTEM_SCOPE_ID } from '@factory/contracts';
+import type { IntegrationSpec } from '@factory/contracts';
 
 type Of<T extends Command['type']> = Extract<Command, { type: T }>;
 function build<T extends Command['type']>(type: T, projectId: string, payload: Of<T>['payload']): Of<T> {
@@ -53,6 +54,13 @@ export function groupsMove(payload: Of<'groups.move'>['payload']) { return build
 export function groupsArchive(payload: Of<'groups.archive'>['payload']) { return build('groups.archive', SYSTEM_SCOPE_ID, payload); }
 export function groupsDelete(payload: Of<'groups.delete'>['payload']) { return build('groups.delete', SYSTEM_SCOPE_ID, payload); }
 export function groupsSetSettings(payload: Of<'groups.set-settings'>['payload']) { return build('groups.set-settings', SYSTEM_SCOPE_ID, payload); }
+export function integrationsCreate(spec: IntegrationSpec) { return build('integrations.create', SYSTEM_SCOPE_ID, { ...spec, id: crypto.randomUUID() }); }
+export function integrationsUpdate(payload: Of<'integrations.update'>['payload']) { return build('integrations.update', SYSTEM_SCOPE_ID, payload); }
+export function integrationsDelete(payload: Of<'integrations.delete'>['payload']) { return build('integrations.delete', SYSTEM_SCOPE_ID, payload); }
+export function integrationsTest(payload: Of<'integrations.test'>['payload']) { return build('integrations.test', SYSTEM_SCOPE_ID, payload); }
+export function credentialsCreate(payload: Omit<Of<'credentials.create'>['payload'], 'id'>) { return build('credentials.create', SYSTEM_SCOPE_ID, { ...payload, id: crypto.randomUUID() }); }
+export function credentialsReplace(payload: Of<'credentials.replace'>['payload']) { return build('credentials.replace', SYSTEM_SCOPE_ID, payload); }
+export function credentialsDelete(payload: Of<'credentials.delete'>['payload']) { return build('credentials.delete', SYSTEM_SCOPE_ID, payload); }
 export function projectsSetGroup(projectId: string, payload: Of<'projects.set-group'>['payload']) { return build('projects.set-group', projectId, payload); }
 export function projectsArchive({ projectId, expectedRevision, confirmName }: { projectId: string; expectedRevision: number; confirmName: string }) {
   return build('projects.archive', projectId, { expectedRevision, confirmName });

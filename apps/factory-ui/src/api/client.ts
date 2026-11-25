@@ -2,6 +2,7 @@ import { officeReadModel } from './officeModels';
 import { m3Models } from './m3Models';
 import { agentModels } from './agentModels';
 import { groupModels } from './groupModels';
+import { integrationModels } from './integrationModels';
 import { flowModels, type FlowIssue } from './flowModels';
 import { agentClisModel } from './agentRuntime';
 import { packDetailModel, mcpServersModel } from './agentProfileModels';
@@ -77,6 +78,20 @@ export class ApiClientError extends Error {
     this.detailKey = includeHostMessage && error ? settingsErrorKey(error.message) ?? automationErrorKey(error.message) ?? knowledgeErrorKey(error.message) : undefined;
   }
 }
+
+const integrationErrors = {
+  'Integration already exists': 'duplicate', 'Integration config is too large': 'tooLarge',
+  'Credential is not available in this scope': 'credentialScope', 'Connection check already running': 'alreadyChecking',
+  'Credential is in use': 'credentialInUse', 'Integration scope group not found': 'groupMissing',
+} as const;
+
+class IntegrationCommandError extends ApiClientError {
+  override readonly detailKey: string | undefined;
+  constructor(status: number, error: ApiError) {
+    super('api', status, error);
+    this.detailKey = Object.hasOwn(integrationErrors, error.message) ? integrationErrors[error.message as keyof typeof integrationErrors] : undefined;
+  }
+}
 export class DocumentUploadError extends ApiClientError {
   constructor(readonly reason: 'quota' | 'version', status: number, error: ApiError) { super('api', status, error); }
 }
@@ -100,7 +115,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
 } = {}) {
   let csrfToken: string | null = null;
   const base = baseUrl.replace(/\/$/, '');
-  async function request<T>(path: string, schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } }, body?: unknown, commandDetails: boolean | 'agents' = false, signal?: AbortSignal, flowErrors = false): Promise<T> {
+  async function request<T>(path: string, schema: { safeParse(value: unknown): { success: true; data: T } | { success: false } }, body?: unknown, commandDetails: boolean | 'agents' | 'integrations' = false, signal?: AbortSignal, flowErrors = false): Promise<T> {
     const headers: Record<string, string> = {};
     if (body !== undefined) {
       headers['content-type'] = 'application/json';
@@ -125,6 +140,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     }
     const commandError = (error: ApiError) => commandDetails === 'agents'
       ? new AgentCommandError(response.status, error)
+      : commandDetails === 'integrations' ? new IntegrationCommandError(response.status, error)
       : new ApiClientError('api', response.status, error, commandDetails);
     const failure = failureResponseSchema.safeParse(raw);
     if (failure.success) throw commandError(failure.data.error);
@@ -173,6 +189,19 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
       request(`/library?${new URLSearchParams(scope)}`, agentModels.library, undefined, false, signal),
     listGroups: (signal?: AbortSignal) => request('/groups', groupModels.list, undefined, false, signal),
     getGroup: (id: string, signal?: AbortSignal) => request(`/groups/${encodeURIComponent(id)}`, groupModels.detail, undefined, false, signal),
+    listIntegrations: (groupId?: string, signal?: AbortSignal) => request(`/integrations${groupId ? `?${new URLSearchParams({ groupId })}` : ''}`, integrationModels.list, undefined, false, signal),
+    getIntegration: (id: string, signal?: AbortSignal) => request(`/integrations/${encodeURIComponent(id)}`, integrationModels.detail, undefined, false, signal),
+    listCredentials: (signal?: AbortSignal) => request('/credentials', integrationModels.credentials, undefined, false, signal),
+    listHttpEffects: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/http-effects`, integrationModels.effects, undefined, false, signal),
+    reconcileHttpEffect: async (projectId: string, id: string, resolution: 'done' | 'failed') => {
+      if (!csrfToken) csrfToken = (await request('/auth/session', auth)).csrfToken;
+      return request(`${projectPath(projectId)}/http-effects/${encodeURIComponent(id)}/reconcile`, integrationModels.reconciled, { resolution });
+    },
+    sendIntegrationCommand: async (command: Command) => {
+      if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');
+      if (!csrfToken) csrfToken = (await request('/auth/session', auth)).csrfToken;
+      return request('/commands', successResponseSchema, command, 'integrations');
+    },
     getSkill: (id: string, signal?: AbortSignal) => request(`/library/skills/${encodeURIComponent(id)}`, agentModels.skill, undefined, false, signal),
     getSkillVersion: (id: string, version: number | 'latest', signal?: AbortSignal) => request(`/library/skills/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}`, agentModels.skillVersion, undefined, false, signal),
     getAgentTemplate: (id: string, signal?: AbortSignal) => request(`/library/templates/${encodeURIComponent(id)}`, agentModels.template, undefined, false, signal),
