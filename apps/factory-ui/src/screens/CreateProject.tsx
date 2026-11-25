@@ -1,4 +1,4 @@
-﻿import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+﻿import { lazy, Suspense, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { Command } from '@factory/contracts';
 import { projectsCreate } from '../api/commands';
 import { useT } from '../i18n';
@@ -18,6 +18,8 @@ import { FolderPicker } from './projects/FolderPicker';
 import { GroupPicker } from './groups/GroupTree';
 import { useGroupLabels, useGroups } from './groups/GroupsContext';
 import { ReadFeedback } from './library/shared';
+
+const SetupDialog = lazy(() => import('./setup/SetupDialog').then(module => ({ default: module.SetupDialog })));
 
 type ValidationErrors = { name?: string; root?: string };
 function invalidFields(error: unknown): ValidationErrors {
@@ -42,6 +44,8 @@ export function CreateProject({ store, initialGroupId = null, onClose, onCreated
   const [kind, setKind] = useState<'directory' | 'git'>('directory');
   // The platform never imposes a team: empty by default, a pack's seats only when the operator picks a template.
   const [teamTemplate, setTeamTemplate] = useState('');
+  const [byWords, setByWords] = useState(false);
+  const [setupProject, setSetupProject] = useState<string | null>(null);
   const packs = store.useStoreSelector(state => state.m3.packs);
   useEffect(() => { void store.loadPacks(); }, [store]);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -57,18 +61,22 @@ export function CreateProject({ store, initialGroupId = null, onClose, onCreated
       const result = await (retry ? store.retry(created.commandId) : store.send(created));
       if (result && store.getState().session === 'authenticated') {
         await store.loadProjects();
-        if (store.getState().session === 'authenticated') { onCreated ? onCreated(created.projectId) : void store.selectProject(created.projectId); onClose(); }
+        if (store.getState().session === 'authenticated') {
+          onCreated ? onCreated(created.projectId) : void store.selectProject(created.projectId);
+          if (byWords) setSetupProject(created.projectId); else onClose();
+        }
       }
     } finally { refresh(); inFlight.current = false; setBusy(false); }
   }
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (inFlight.current || command || invalidGroup) return;
     let created: Command;
-    try { created = projectsCreate({ name: name.trim(), root, kind, teamTemplate: teamTemplate || undefined, groupId }); }
+    try { created = projectsCreate({ name: name.trim(), root, kind, teamTemplate: byWords ? undefined : teamTemplate || undefined, groupId }); }
     catch (error) { setErrors(invalidFields(error)); return; }
     setErrors({}); setCommand(created); void execute(created);
   }
   const unsafePath = /^\/mnt\//i.test(root.trim()) || /^[A-Za-z]:/.test(root.trim());
+  if (setupProject) return <Suspense fallback={null}><SetupDialog projectId={setupProject} target={{ mode: 'project' }} close={onClose} /></Suspense>;
   return <Dialog labelledBy={titleId} onClose={() => { if (!inFlight.current) onClose(); }}>
     <DialogHeader className="gap-2 text-left"><DialogTitle id={titleId} className="font-display text-2xl">{t('ux5.createTitle')}</DialogTitle><DialogDescription>{t('ux5.createDescription')}</DialogDescription></DialogHeader>
     <form className="mt-2 space-y-6" onSubmit={submit} noValidate>
@@ -86,6 +94,10 @@ export function CreateProject({ store, initialGroupId = null, onClose, onCreated
         </RadioGroup>
       </fieldset>
       <Field>
+        <label className="flex items-center gap-2 text-sm font-medium"><input type="checkbox" className="size-4 accent-primary" data-testid="setup-project-option" disabled={!!command} checked={byWords} onChange={event => setByWords(event.target.checked)} />{t('setupProposalUi.projectOption')}</label>
+        {byWords && <FieldDescription>{t('setupProposalUi.projectOptionHelp')}</FieldDescription>}
+      </Field>
+      {!byWords && <Field>
         <FieldLabel htmlFor={`${titleId}-team`}>{t('ux5.teamTemplate')}</FieldLabel>
         <select id={`${titleId}-team`} value={teamTemplate} disabled={!!command} onChange={event => setTeamTemplate(event.target.value)}
           className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
@@ -93,7 +105,7 @@ export function CreateProject({ store, initialGroupId = null, onClose, onCreated
           {packs.map(pack => <option key={pack.key} value={pack.key}>{`${pack.name} (${pack.seats.length} agent)`}</option>)}
         </select>
         <FieldDescription>{t(teamTemplate ? 'ux5.teamTemplateHelp' : 'ux5.teamTemplateNoneHelp')}</FieldDescription>
-      </Field>
+      </Field>}
       <Field>
         <FieldLabel htmlFor={`${titleId}-root`}>{t('projects.root')}</FieldLabel>
         <div className="flex flex-col gap-2 sm:flex-row">

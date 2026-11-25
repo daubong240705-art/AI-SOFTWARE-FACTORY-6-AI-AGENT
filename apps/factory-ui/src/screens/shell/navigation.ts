@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { defaultSettingsSection, settingsSections, type SettingsSection } from '../project-settings/sections';
 export type { SettingsSection } from '../project-settings/sections';
 
-export type ProjectTab = 'overview' | 'agents' | 'flows' | 'office' | 'board' | 'knowledge' | 'code' | 'settings';
+export type ProjectTab = 'overview' | 'agents' | 'flows' | 'monitor' | 'office' | 'board' | 'knowledge' | 'code' | 'settings';
 export type View = 'overview' | 'needs-attention' | 'library' | 'integrations' | 'world' | 'system' | `project:${string}` | `group:${string}`;
-const tabs: ProjectTab[] = ['overview', 'agents', 'flows', 'office', 'board', 'knowledge', 'code', 'settings'];
+const tabs: ProjectTab[] = ['overview', 'agents', 'flows', 'monitor', 'office', 'board', 'knowledge', 'code', 'settings'];
 export type FlowRoute = { kind: 'flows' | 'runs'; id: string };
 export function flowRoute(hash: string): FlowRoute | null {
   const match = /^#\/project\/[^/]+\/(flows|runs)\/([^/]+)$/.exec(hash);
@@ -12,7 +12,29 @@ export function flowRoute(hash: string): FlowRoute | null {
   try { return { kind: match[1] === 'runs' ? 'runs' : 'flows', id: decodeURIComponent(match[2]) }; }
   catch { return null; }
 }
+function subroute(hash: string, kind: 'trace' | 'agents'): string | null {
+  const match = new RegExp(`^#/project/[^/]+/${kind}/([^/]+)$`).exec(hash);
+  try { return match?.[1] ? decodeURIComponent(match[1]) : null; }
+  catch { return null; }
+}
+export function traceHash(projectId: string, traceId: string) {
+  return `${viewHash(`project:${projectId}`)}/trace/${encodeURIComponent(traceId)}`;
+}
+export function agentHash(projectId: string, agentId: string) {
+  return `${viewHash(`project:${projectId}`, 'agents')}/${encodeURIComponent(agentId)}`;
+}
+export function artifactHash(projectId: string, artifact: { id: string; version?: number }) {
+  return `${viewHash(`project:${projectId}`, 'knowledge')}/${encodeURIComponent(artifact.id)}${artifact.version === undefined ? '' : `/${artifact.version}`}`;
+}
+function artifactRoute(hash: string) {
+  const match = /^#\/project\/[^/]+\/knowledge\/([^/]+)(?:\/([1-9]\d*))?$/.exec(hash);
+  if (!match?.[1]) return null;
+  const version = match[2] === undefined ? undefined : Number(match[2]);
+  if (version !== undefined && !Number.isSafeInteger(version)) return null;
+  try { return { id: decodeURIComponent(match[1]), version }; } catch { return null; }
+}
 let draftGuard: { hash: string; confirm: () => boolean } | undefined;
+export function hasUnsavedFlowDraft() { return draftGuard?.hash === location.hash; }
 export function guardFlowDraft(confirm: () => boolean) {
   const guard = { hash: location.hash, confirm };
   draftGuard = guard;
@@ -46,14 +68,16 @@ export function parseHash(hash: string): View {
   if (hash === '#/world' || hash.startsWith('#/world?')) return 'world';
   const group = /^#\/g\/([^/]+)$/.exec(hash)?.[1];
   if (group) { try { const id = decodeURIComponent(group); if (id.trim()) return `group:${id}`; } catch { return 'overview'; } }
-  const project = /^#\/project\/([^/]+)(?:\/(?:overview|agents|agent|flows|office|board|workflow|knowledge|code|automation)|\/(?:flows|runs)\/[^/]+|\/settings(?:\/[^/]+)?)?$/.exec(hash);
+  const project = /^#\/project\/([^/]+)(?:\/(?:overview|agents|agent|flows|monitor|office|board|workflow|knowledge|code|automation)|\/(?:flows|runs|trace|agents)\/[^/]+|\/knowledge\/[^/]+(?:\/[1-9]\d*)?|\/settings(?:\/[^/]+)?)?$/.exec(hash);
   if (project?.[1]) { try { const id = decodeURIComponent(project[1]); if (id.trim()) return `project:${id}`; } catch { /* Invalid encodings return home. */ } }
   return 'overview';
 }
 export function projectTab(hash: string): ProjectTab {
   if (!parseHash(hash).startsWith('project:')) return 'overview';
+  if (artifactRoute(hash)) return 'knowledge';
   const value = /^#\/project\/[^/]+\/([^/]+)(?:\/[^/]+)?$/.exec(hash)?.[1];
   if (value === 'runs') return 'flows';
+  if (value === 'trace') return 'monitor';
   // Legacy hash tabs.
   if (value === 'agent') return 'office';
   if (value === 'automation' || value === 'code') return 'settings';
@@ -72,6 +96,9 @@ export function canonicalHash(hash: string): string {
   if (view === 'needs-attention' && /^#\/attention\/[^/]+$/.test(hash)) return hash;
   const tab = projectTab(hash);
   if (tab === 'flows' && flowRoute(hash)) return hash;
+  if (tab === 'monitor' && subroute(hash, 'trace')) return hash;
+  if (tab === 'agents' && subroute(hash, 'agents')) return hash;
+  if (tab === 'knowledge' && artifactRoute(hash)) return hash;
   if (tab === 'settings' && /\/settings\/[^/]+$/.test(hash) && !settingsSections.some(section => hash.endsWith(`/${section}`))) return viewHash(view, tab);
   return viewHash(view, tab, hash.endsWith('/settings') ? undefined : settingsSection(hash));
 }
@@ -100,5 +127,5 @@ export function useNavigation() {
     setView(next); setTab(projectTab(hash)); setSection(settingsSection(hash));
     setHash(hash);
   }, []);
-  return { view, tab, settingsSection: section, navigate, flowRoute: flowRoute(hash) };
+  return { view, tab, settingsSection: section, navigate, flowRoute: flowRoute(hash), traceId: subroute(hash, 'trace'), agentId: subroute(hash, 'agents'), artifact: artifactRoute(hash) };
 }

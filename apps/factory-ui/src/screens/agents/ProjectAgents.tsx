@@ -9,6 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { useT } from '@/i18n';
+import { SetupDialog } from '../setup/SetupDialog';
+import { viewHash } from '../shell/navigation';
 import { AgentEditor } from './AgentEditor';
 import { RelationsPanel } from './RelationsPanel';
 import { TeamsPanel } from './TeamsPanel';
@@ -21,8 +24,10 @@ const filters = ['active', 'paused', 'archived', 'all'] as const;
 type Action = 'clone' | 'archive' | 'delete';
 type DialogState = { kind: 'new'; draft?: TemplateDraft } | { kind: 'template' } | { kind: 'edit'; agent: AgentSummary } | { kind: 'save-template' | 'upgrade-template'; agent: AgentSummary } | { kind: Action; agent: AgentSummary };
 
-export function ProjectAgents({ projectId }: { projectId: string }) {
+export function ProjectAgents({ projectId, linkedAgentId = null }: { projectId: string; linkedAgentId?: string | null }) {
   const t = useAgentLabels();
+  const translate = useT();
+  const [setupOpen, setSetupOpen] = useState(false);
   const [api] = useState(() => createApiClient({ baseUrl }));
   const [filter, setFilter] = useState<typeof filters[number]>('all');
   const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -31,7 +36,7 @@ export function ProjectAgents({ projectId }: { projectId: string }) {
   const read = useCallback((signal: AbortSignal) => api.listProjectAgents(projectId, signal), [api, projectId]);
   const roster = useRead(read, refreshKey);
   const data = roster.data;
-  const agentId = dialog?.kind === 'edit' || dialog?.kind === 'upgrade-template' ? dialog.agent.id : null;
+  const agentId = dialog?.kind === 'edit' || dialog?.kind === 'upgrade-template' ? dialog.agent.id : linkedAgentId;
   const readDetail = useCallback((signal: AbortSignal) => api.getAgent(projectId, agentId!, signal), [api, projectId, agentId]);
   const detail = useRead(agentId ? readDetail : null, refreshKey);
   const templateId = dialog?.kind === 'upgrade-template' ? dialog.agent.template?.id : null;
@@ -54,7 +59,10 @@ export function ProjectAgents({ projectId }: { projectId: string }) {
     return () => { clearTimeout(timer); stream.close(); };
   }, [projectId, eventKey, streaming]);
 
-  const close = () => setDialog(null);
+  const close = () => {
+    setDialog(null);
+    if (linkedAgentId) location.hash = viewHash(`project:${projectId}`, 'agents');
+  };
   const updateStatus = (agent: AgentSummary, status: 'active' | 'paused') => void direct.run(() => agentsSetStatus({ projectId, agentId: agent.id, expectedRevision: agent.revision, status }));
   const visible = data?.agents.filter(agent => filter === 'all' || agent.status === filter) ?? [];
   const teamNames = new Map(data?.teams.map(team => [team.id, team.name]));
@@ -66,7 +74,7 @@ export function ProjectAgents({ projectId }: { projectId: string }) {
       <div><h2 className="flex items-center gap-2 text-xl font-semibold"><Bot className="size-5 text-muted-foreground" aria-hidden="true" />{t('title')}</h2>
         {data && <p className="mt-1 text-sm text-muted-foreground">{t('counts', { total: data.agents.length, active: data.agents.filter(agent => agent.status === 'active').length, teams: data.teams.length })}</p>}
       </div>
-      {data && <div className="flex flex-wrap gap-2"><Button type="button" onClick={() => setDialog({ kind: 'new' })}><Plus aria-hidden="true" />{t('create')}</Button><Button type="button" variant="outline" onClick={() => setDialog({ kind: 'template' })}>{t('fromTemplate')}</Button></div>}
+      {data && <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" data-testid="setup-team" onClick={() => setSetupOpen(true)}>{translate('setupProposalUi.teamButton')}</Button><Button type="button" onClick={() => setDialog({ kind: 'new' })}><Plus aria-hidden="true" />{t('create')}</Button><Button type="button" variant="outline" onClick={() => setDialog({ kind: 'template' })}>{t('fromTemplate')}</Button></div>}
     </header>
     {olderHost ? <div className="rounded-xl border border-border bg-card/60 p-8 text-center text-muted-foreground"><p>{t('errors.olderHost')}</p><Button className="mt-3" type="button" variant="outline" onClick={refresh}>{t('reload')}</Button></div> :
       <><ReadStatus loading={!data && roster.loading} error={roster.error} />{roster.error && <Button type="button" variant="outline" onClick={refresh}>{t('reload')}</Button>}</>}
@@ -102,6 +110,9 @@ export function ProjectAgents({ projectId }: { projectId: string }) {
       <RelationsPanel projectId={projectId} data={data} submit={submit} refreshing={roster.loading} />
     </>}
     {dialog?.kind === 'new' && <AgentEditor api={api} projectId={projectId} {...dialog.draft} close={close} submit={submit} refresh={refresh} />}
+    {setupOpen && <SetupDialog projectId={projectId} target={{ mode: 'project' }} close={() => setSetupOpen(false)} onApplied={refresh} />}
+    {!dialog && !setupOpen && linkedAgentId && (detail.data && !editGone ? <AgentEditor key={linkedAgentId} api={api} projectId={projectId} detail={detail.data} close={close} submit={submit} refresh={refresh} loading={detail.loading || !!detail.error} readError={detail.error} /> :
+      <AdminDialog title={t('edit')} description={t('editorHelp')} close={close}><ReadStatus loading={detail.loading} error={detail.error} /><Button type="button" variant="outline" data-testid="setup-agent-close" onClick={close}>{translate('setupProposalUi.close')}</Button></AdminDialog>)}
     {dialog?.kind === 'template' && <TemplateDialog api={api} close={close} start={draft => setDialog({ kind: 'new', draft })} />}
     {dialog?.kind === 'edit' && (detail.data && !editGone ? <AgentEditor api={api} projectId={projectId} detail={detail.data} close={close} submit={submit} refresh={refresh} loading={detail.loading || !!detail.error} readError={detail.error} /> :
       <AdminDialog title={`${t('edit')}: ${dialog.agent.name}`} description={t('editorHelp')} close={close}><ReadStatus loading={detail.loading} error={detail.error} />{detail.error && <Button type="button" variant="outline" onClick={refresh}>{t('reload')}</Button>}</AdminDialog>)}

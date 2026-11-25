@@ -4,14 +4,14 @@ import type { Project } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BookOpen, Bot, Columns3, LayoutGrid, MessageSquare, Settings, Users, Workflow } from 'lucide-react';
+import { Activity, BookOpen, Bot, Columns3, LayoutGrid, MessageSquare, Settings, Users, Workflow } from 'lucide-react';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { DockedPane } from './DockedPane';
 import { ProjectChat } from './ProjectChat';
 import { ProjectTasks } from './ProjectTasks';
 import { ProjectOverview } from './ProjectOverview';
-import { ProjectKnowledge } from './ProjectKnowledge';
+import { ProjectDocuments } from './monitor/ProjectDocuments';
 import { ProjectSettingsPage } from './project-settings/ProjectSettingsPage';
 import { ProjectOffice } from './office/ProjectOffice';
 import { LoadingState } from '@/components/LoadingState';
@@ -21,10 +21,13 @@ import { ProjectTile } from './shell/ProjectTile';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { Reveal } from '@/components/motion/Reveal';
 
-const tabIcons = { overview: LayoutGrid, agents: Bot, flows: Workflow, office: Users, board: Columns3, knowledge: BookOpen, settings: Settings };
-const tabs = ['overview', 'agents', 'flows', 'office', 'board', 'knowledge'] as const;
+const tabIcons = { overview: LayoutGrid, agents: Bot, flows: Workflow, monitor: Activity, office: Users, board: Columns3, knowledge: BookOpen, settings: Settings };
+const tabs = ['overview', 'agents', 'flows', 'monitor', 'office', 'board', 'knowledge'] as const;
 const ProjectAgents = lazy(() => import('./agents/ProjectAgents').then(module => ({ default: module.ProjectAgents })));
 const ProjectFlows = lazy(() => import('./flows/ProjectFlows'));
+const ProjectObservability = lazy(() => import('./monitor/ProjectObservability'));
+const ArtifactDetail = lazy(() => import('./monitor/ArtifactDetail'));
+const FlowSetupAction = lazy(() => import('./setup/FlowSetupAction'));
 export function ProjectView({ store, project, tab, onTabChange, openChat = false, onChatOpened, initialTaskId, settingsSection, newTaskRequest = 0, onNewTaskOpened }: {
   store: Store; project: Project; tab?: ProjectTab; onTabChange?: (tab: ProjectTab, section?: SettingsSection) => void; openChat?: boolean; onChatOpened?: () => void; initialTaskId?: string | undefined; settingsSection?: SettingsSection; newTaskRequest?: number; onNewTaskOpened?: () => void;
 }) {
@@ -65,9 +68,9 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         <TabsList aria-label={t('shell.projectTabs')} className="justify-start gap-1 bg-transparent p-0">
           {tabs.map((value, index) => {
             const Icon = tabIcons[value];
-            return <TabsTrigger key={value} ref={node => { buttons.current[index] = node; }} value={value} id={`${id}-${value}`} aria-controls={`${id}-panel`} onClick={() => { if (active !== 'flows' || value === 'flows') select(value); }} onKeyDown={event => navigate(event, index)} className="h-9 flex-none gap-2 rounded-lg border-0 px-3 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground data-[state=active]:!bg-transparent data-[state=active]:!text-foreground group-data-[variant=default]/tabs-list:data-[state=active]:shadow-none">
+            return <TabsTrigger key={value} ref={node => { buttons.current[index] = node; }} value={value} id={`${id}-${value}`} data-testid={value === 'monitor' ? 'monitor-tab' : undefined} aria-controls={`${id}-panel`} onClick={() => { if (active !== 'flows' || value === 'flows') select(value); }} onKeyDown={event => navigate(event, index)} className="h-9 flex-none gap-2 rounded-lg border-0 px-3 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground data-[state=active]:!bg-transparent data-[state=active]:!text-foreground group-data-[variant=default]/tabs-list:data-[state=active]:shadow-none">
               {active === value && <motion.span layoutId="pill" aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-lg bg-secondary/70" transition={reduced ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 32 }} />}
-              <Icon className="relative size-4" aria-hidden="true" /><span className="relative">{t(value === 'agents' ? 'agentsAdmin.title' : value === 'flows' ? 'flowsUi.title' : `projectUi.${value}`)}</span>
+              <Icon className="relative size-4" aria-hidden="true" /><span className="relative">{t(value === 'agents' ? 'agentsAdmin.title' : value === 'flows' ? 'flowsUi.title' : value === 'monitor' ? 'traceUi.monitor' : `projectUi.${value}`)}</span>
               {active === value && <motion.span layoutId="underline" aria-hidden="true" className="pointer-events-none absolute right-3 bottom-0 left-3 h-0.5 rounded-full bg-tab-accent" transition={reduced ? { duration: 0 } : { type: 'spring', stiffness: 380, damping: 32 }} />}
             </TabsTrigger>;
           })}
@@ -82,12 +85,16 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
       <div className="project-tab-content" role="tabpanel" id={`${id}-panel`} aria-labelledby={active === 'settings' ? `${id}-settings` : `${id}-${active}`} tabIndex={0}>
         <Reveal key={active} className="h-full min-h-0">
         {active === 'overview' && <ProjectOverview store={store} onOpenTask={openTask} onOpenSettings={section => select('settings', section)} />}
-        {active === 'agents' && <Suspense fallback={<LoadingState />}><ProjectAgents key={project.id} projectId={project.id} /></Suspense>}
-        {active === 'flows' && <Suspense fallback={<LoadingState />}><ProjectFlows key={project.id} projectId={project.id} route={navigation.flowRoute} store={store} onOpenTask={openTask} /></Suspense>}
+        {active === 'agents' && <Suspense fallback={<LoadingState />}><ProjectAgents key={project.id} projectId={project.id} linkedAgentId={navigation.agentId} /></Suspense>}
+        {active === 'flows' && <Suspense fallback={<LoadingState />}><div className="flex h-full min-h-0 flex-col">
+          {navigation.flowRoute?.kind === 'flows' && <FlowSetupAction key={navigation.flowRoute.id} projectId={project.id} flowId={navigation.flowRoute.id} />}
+          <div className="min-h-0 flex-1"><ProjectFlows key={project.id} projectId={project.id} route={navigation.flowRoute} store={store} onOpenTask={openTask} /></div>
+        </div></Suspense>}
+        {active === 'monitor' && <Suspense fallback={<LoadingState />}><ProjectObservability key={navigation.traceId ?? project.id} projectId={project.id} traceId={navigation.traceId} store={store} onOpenTask={openTask} /></Suspense>}
         {active === 'office' && <ProjectOffice key={project.id} store={store} projectId={project.id} onOpenTab={select} />}
         {active === 'board' && <ProjectTasks store={store} projectId={project.id} selectedTask={selected} onOpenTask={openTask} onCloseTask={() => setSelected(null)} newTaskOpen={creating} onCloseNewTask={() => setCreating(false)} newTaskId={`${id}-new-task`} />}
         {active === 'settings' && <ProjectSettingsPage key={project.id} store={store} projectId={project.id} section={legacySection ?? settingsSection ?? navigation.settingsSection} onSection={section => select('settings', section)} />}
-        {active === 'knowledge' && <ProjectKnowledge key={project.id} store={store} projectId={project.id} />}
+        {active === 'knowledge' && (navigation.artifact ? <Suspense fallback={<LoadingState />}><ArtifactDetail key={`${navigation.artifact.id}:${navigation.artifact.version}`} store={store} projectId={project.id} target={navigation.artifact} /></Suspense> : <ProjectDocuments key={project.id} store={store} projectId={project.id} />)}
         </Reveal>
       </div>
       <PanelPresence className="project-chat-dock min-h-0 min-w-0" fallbackFocus={() => ask.current} onExitComplete={chatExited}>{chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock h-full p-0" onClose={() => setChat(false)} fallbackFocus={() => ask.current}>
