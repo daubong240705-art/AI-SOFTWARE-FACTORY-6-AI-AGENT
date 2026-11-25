@@ -11,7 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FlowCanvas, type Selection, nodeDragType } from './FlowCanvas';
 import { EdgeInspector, FlowSettings, IssueList, NodeInspector } from './FlowInspector';
-import { nodeIcons, nodeKinds, newNode } from './nodeTypes';
+import { bundleDefaults, nodeIcons, nodeKinds, newNode } from './nodeTypes';
+import { useT } from '@/i18n';
+import { FlowInsights } from './FlowInsights';
 import { FlowError, NodePicker, PendingJson, timestamp, useFlowEvents, useFlowLabels, useFlowWrite, useRead } from './shared';
 import { RunDialog } from './RunDialog';
 import { guardFlowDraft } from '../shell/navigation';
@@ -19,6 +21,8 @@ import { autoLayout, definitionToGraph, isLoopReturn, nodeWidth, resolveLayout }
 
 export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient; projectId: string; flowId: string; onBack: () => void }) {
   const label = useFlowLabels();
+  const t = useT();
+  const [insights, setInsights] = useState(false);
   const [refreshKey, refresh] = useReducer(value => value + 1, 0);
   const read = useCallback((signal: AbortSignal) => api.getFlow(projectId, flowId, signal), [api, projectId, flowId]);
   const { data, error, loading } = useRead(read, refreshKey);
@@ -101,9 +105,12 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
     select(null);
   }
   function add(type: string, position?: XYPosition) {
-    if (!writable || pendingJson || !nodeKinds.includes(type as FlowNode['type']) || definition!.nodes.length >= 200) return;
+    const bundle = type === 'bundle.publish';
+    const kind = (bundle ? 'action' : type) as FlowNode['type'];
+    if (!writable || pendingJson || !nodeKinds.includes(kind) || definition!.nodes.length >= 200) return;
     const agent = roster?.agents.find(item => item.status === 'active');
-    const node = newNode(type as FlowNode['type'], label(`node.${type}`), definition!.nodes, agent ? { agent: agent.id } : { role: 'worker' }, label('acceptance'));
+    const base = newNode(kind, bundle ? t('flowBundleUi.title') : label(`node.${kind}`), definition!.nodes, agent ? { agent: agent.id } : { role: 'worker' }, label('acceptance'));
+    const node: FlowNode = bundle && base.type === 'action' ? { ...base, action: 'bundle.publish', params: bundleDefaults } : base;
     const right = Math.max(0, ...definitionToGraph(definition!).nodes.map(item => item.position.x + nodeWidth));
     replace({ ...definition!, nodes: [...definition!.nodes, node], layout: { ...resolveLayout(definition!), [node.id]: position ?? { x: right + 70, y: 32 } } });
     if (!position) setFitKey(value => value + 1);
@@ -129,15 +136,24 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
     <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
       <Button variant="ghost" size="icon" aria-label={label('back')} onClick={onBack}><ArrowLeft className="size-4" /></Button>
       <div className="min-w-36 flex-1"><div className="flex items-center gap-2"><h2 className="truncate text-lg font-semibold">{definition.title}</h2>{dirty && <Badge variant="secondary">{label('unsaved')}</Badge>}</div><p className="font-mono text-xs text-muted-foreground">{definition.key} · r{flow.revision}</p></div>
-      {previewVersion !== null ? <Button variant="outline" onClick={() => { setPreviewVersion(null); setSelection(null); }}>{label('backToDraft')}</Button> : <>
+      {!insights && (previewVersion !== null ? <Button variant="outline" onClick={() => { setPreviewVersion(null); setSelection(null); }}>{label('backToDraft')}</Button> : <>
         <Button data-testid="flow-save" size="sm" variant="outline" disabled={!writable || actionBusy || !draft || !schema?.success || stale || pendingJson > 0} onClick={save}><Save aria-hidden="true" />{label('save')}</Button>
         <Button data-testid="flow-publish" size="sm" variant="outline" disabled={!writable || actionBusy || dirty || localIssues.length > 0} onClick={publish}><Send aria-hidden="true" />{label('publish')}</Button>
         <Button data-testid="flow-run" size="sm" variant="outline" disabled={!writable || actionBusy || flow.publishedVersion === null} onClick={() => setRunDialog(flow.publishedVersion)}><Play aria-hidden="true" />{label('run')}</Button>
         <Button data-testid="flow-test-run" size="sm" disabled={!writable || actionBusy || dirty || issues.length > 0} onClick={() => setRunDialog('draft')}>{label('testRun')}</Button>
         <Button size="sm" variant="ghost" disabled={actionBusy || dirty} onClick={archive}>{label(archived ? 'restore' : 'archive')}</Button>
-      </>}
+      </>)}
     </header>
-    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-2 overflow-auto p-2 lg:grid-cols-[11rem_minmax(0,1fr)_17rem] xl:grid-cols-[12rem_minmax(0,1fr)_19rem]">
+    <Tabs value={insights ? 'insights' : 'editor'} onValueChange={value => { if (!pendingJson && !write.busy) setInsights(value === 'insights'); }} className="min-h-0 min-w-0 flex-1 gap-0">
+      <TabsList className="mx-3 my-2 shrink-0 self-start">
+        <TabsTrigger value="editor" data-testid="insights-editor-tab">{t('insightsUi.editor')}</TabsTrigger>
+        <TabsTrigger value="insights" data-testid="insights-tab" disabled={pendingJson > 0 || write.busy}>{t('insightsUi.title')}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="insights" className="min-h-0 min-w-0 overflow-auto">
+        <FlowInsights api={api} projectId={projectId} flowId={flowId} definition={data.draft} revision={flow.revision} agents={roster} archived={archived} dirty={dirty} refreshFlow={refresh} />
+      </TabsContent>
+      <TabsContent value="editor" className="min-h-0 overflow-hidden data-[state=active]:flex">
+    <div className="grid min-h-0 min-w-0 flex-1 grid-cols-[minmax(0,1fr)] gap-2 overflow-auto p-2 lg:grid-cols-[11rem_minmax(0,1fr)_17rem] xl:grid-cols-[12rem_minmax(0,1fr)_19rem]">
       <aside className="space-y-2 rounded-xl border bg-card p-2 lg:overflow-auto">
         <p className="text-sm font-semibold">{label('palette')}</p>
         <Input disabled={!writable} aria-label={label('searchNodes')} placeholder={label('searchNodes')} value={search} onChange={event => setSearch(event.target.value)} />
@@ -150,6 +166,12 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
             <span className="block text-xs text-muted-foreground">{label(`help.${type}`)}</span>{type === 'parallel' && <Badge variant="outline" className="mt-1 text-[9px]">{label('unsupportedNode')}</Badge>}</span>
           </button>;
         })}</div>
+        {`${t('flowBundleUi.title')} ${t('flowBundleUi.help')}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()) &&
+          <button type="button" data-testid="flow-bundle-add" disabled={!writable || pendingJson > 0} draggable={writable && !pendingJson}
+            onDragStart={event => { event.dataTransfer.setData(nodeDragType, 'bundle.publish'); event.dataTransfer.effectAllowed = 'copy'; }} onClick={() => add('bundle.publish')}
+            className="flex w-full items-start gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-sm hover:border-border hover:bg-muted/60 disabled:opacity-50">
+            <Send className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" /><span><span className="block font-medium">{t('flowBundleUi.title')}</span><span className="block text-xs text-muted-foreground">{t('flowBundleUi.help')}</span></span>
+          </button>}
         <Button className="w-full" size="sm" variant="outline" disabled={!writable || pendingJson > 0} onClick={() => { setSettings(true); setPanel('inspector'); setSelection(null); }}><Settings2 aria-hidden="true" />{label('settings')}</Button>
         <Button data-testid="flow-auto-layout" className="w-full" size="sm" variant="ghost" disabled={!writable} onClick={() => { update(current => ({ ...current, layout: autoLayout(current) })); setFitKey(value => value + 1); }}><LayoutDashboard aria-hidden="true" />{label('autoLayout')}</Button>
       </aside>
@@ -188,6 +210,8 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
         </Tabs>
       </aside>
     </div>
+      </TabsContent>
+    </Tabs>
     {runDialog !== null && <RunDialog key={runDialog} api={api} projectId={projectId} flowId={flowId} version={runDialog} definition={runDialog === 'draft' ? definition : versionDefinition}
       loadingDefinition={runDialog !== 'draft' && !knownVersion && (versions.loading || snapshot.loading)} close={() => setRunDialog(null)} />}
   </div>;

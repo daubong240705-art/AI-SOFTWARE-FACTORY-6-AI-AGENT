@@ -28,6 +28,8 @@ export const screens = [
   project('project-trace', 'monitor', { trace: true, ready: 'trace-refresh' }),
   project('project-empty-flows', 'flows', { project: 'empty', ready: 'flow-create' }),
   project('project-flow-detail', 'flows', { flow: true, ready: 'flow-save' }),
+  project('project-flow-insights', 'flows', { flow: true, select: 'insights-tab', ready: 'insights-summary' }),
+  project('project-flow-bundle-editor', 'flows', { flow: 'bundleFlow', node: 'bundle', ready: 'flow-bundle-path-0', selector: '[data-testid="flow-bundle-editor"]', scroll: true }),
   ...['waiting', 'finished'].map(run => project(`project-run-${run}`, 'flows', { run, ready: 'flow-run-detail' })),
   ...['automation', 'budget', 'autonomy', 'approvals', 'code', 'group'].map(section => project(`project-settings-${section}`, 'settings', {
     section, ready: `project-settings-${section}`,
@@ -108,7 +110,7 @@ export function hashFor(screen, fixture) {
   const prefix = `#/project/${fixture.projects[screen.project]}`;
   if (screen.trace) return `${prefix}/trace/${encodeURIComponent(fixture.trace)}`;
   if (screen.run) return `${prefix}/runs/${fixture.runs[screen.run]}`;
-  if (screen.flow) return `${prefix}/flows/${fixture.flow}`;
+  if (screen.flow) return `${prefix}/flows/${fixture[screen.flow === true ? 'flow' : screen.flow]}`;
   if (screen.section) return `${prefix}/settings/${screen.section}`;
   return screen.tab === 'overview' ? prefix : `${prefix}/${screen.tab}`;
 }
@@ -157,6 +159,10 @@ export async function openScreen(page, screen, fixture, base) {
     await tab.and(page.locator('[aria-selected="true"], [aria-current="page"]')).waitFor();
   }
   if (screen.select) await hook(page, screen.select).click();
+  if (screen.node) {
+    await hook(page, 'flow-node-picker').click();
+    await page.getByRole('option').and(page.locator(`[data-value="${screen.node}"]`)).click();
+  }
   if (screen.ready) await hook(page, screen.ready).waitFor();
   if (screen.section) await hook(page, `project-settings-${screen.section}`).and(page.locator('[aria-current="page"]')).waitFor();
   if (screen.selector) {

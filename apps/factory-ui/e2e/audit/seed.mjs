@@ -53,7 +53,7 @@ export function createTask(api, project, { title, code, ownerSeatId = null }) {
   return api.command(project, 'tasks.create', { taskId, code, title, goal: 'Kiểm tra', brief: 'Việc mẫu cho audit', parentTaskId: null, engagementId: null, ownerSeatId, requiredCapabilities: [], placement: 'portable', sideEffect: 'none', reviewPolicy: 'human-final', requiresGo: true, acceptance: ['Xong'], inputs: [], dependsOn: [] }).then(() => taskId);
 }
 
-export async function seed({ base, projectsRoot }) {
+export async function seed({ base, projectsRoot, auditEndpoint }) {
   const api = new HostApi(base); const log = [];
   await api.session();
   const firstRoot = join(projectsRoot, 'audit-default-pack'); const secondRoot = join(projectsRoot, 'audit-no-extra-data');
@@ -100,6 +100,15 @@ export async function seed({ base, projectsRoot }) {
     { id: 'approval-approved-output', from: { node: 'approval', port: 'approved' }, to: { node: 'output' }, loopBack: false },
   ], settings: {}, inputs: [{ name: 'input', type: 'string', required: false }] };
   await tryCommand(api, log, project, 'flows.create', { flowId, definition });
+  const bundleFlow = id();
+  const bundleIntegration = id();
+  await tryCommand(api, log, SYSTEM_SCOPE_ID, 'integrations.create', { id: bundleIntegration, name: 'audit-bundle', scopeGroupId: groups.child, kind: 'http-api',
+    config: { baseUrl: new URL(auditEndpoint).origin, auth: 'none', operations: [{ name: 'publish', method: 'POST', path: '/probe/{game}', sideEffect: 'external', inputSchema: { type: 'object', properties: { game: { type: 'string' } }, required: ['game'] } }] } });
+  await tryCommand(api, log, project, 'flows.create', { flowId: bundleFlow, definition: {
+    schema: 2, key: 'audit-bundle', title: 'Publish bundle · Audit', nodes: [definition.nodes[0], { id: 'bundle', title: 'Publish bundle', type: 'action', action: 'bundle.publish',
+      params: { integrationId: bundleIntegration, operation: 'publish', dir: 'dist', ref: 'integration', scripts: ['check', 'build'], query: { commitSha: '{{bundle.commit}}' }, game: 'audit' } }],
+    edges: [{ id: 'start-bundle', from: { node: 'start', port: 'out' }, to: { node: 'bundle' }, loopBack: false }],
+  } });
   const flowBeforePublish = await api.json(`/projects/${project}/flows/${flowId}`).catch(() => null);
   await tryCommand(api, log, project, 'flows.publish', { flowId, expectedRevision: flowBeforePublish?.flow?.revision ?? 1 });
   const runs = { finished: id(), waiting: id() };
@@ -127,5 +136,5 @@ export async function seed({ base, projectsRoot }) {
   // Newest root span (the finished/waiting runs above write one) gives the Trace screen something to show.
   const trace = (await api.json(`/projects/${project}/traces?limit=1`).catch(error => { log.push({ type: 'traces.read', error: String(error.message) }); return { traces: [] }; })).traces[0]?.traceId ?? null;
   if (!trace) log.push({ type: 'traces.read', error: 'No trace was recorded for the seeded runs.' });
-  return { projects: { primary: project, empty: emptyProject }, groups, agents: { primary: agentId, fresh, paused, archived }, team, skill, template, flow: flowId, runs, approval, task, trace, seedFailures: log, apiFailures: api.failures, api };
+  return { projects: { primary: project, empty: emptyProject }, groups, agents: { primary: agentId, fresh, paused, archived }, team, skill, template, flow: flowId, bundleFlow, runs, approval, task, trace, seedFailures: log, apiFailures: api.failures, api };
 }

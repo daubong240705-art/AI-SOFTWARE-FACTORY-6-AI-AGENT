@@ -37,13 +37,13 @@ function readTarget(id: string): Target | undefined {
   return undefined;
 }
 
-export function SetupDialog({ projectId, target, close, onApplied }: { projectId: string; target: Target; close: () => void; onApplied?: () => void }) {
+export function SetupDialog({ projectId, target, close, onApplied, initialProposalId }: { projectId: string; target: Target; close: () => void; onApplied?: () => void; initialProposalId?: string }) {
   const t = useT();
   const titleId = useId();
   const inputId = useId();
   const [api] = useState(() => createApiClient({ baseUrl }));
   const [request, setRequest] = useState('');
-  const [id, setId] = useState<string | null>(null);
+  const [id, setId] = useState<string | null>(initialProposalId ?? null);
   const [edited, setEdited] = useState<SetupProposal | null>(null);
   const [invalid, setInvalid] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -94,7 +94,7 @@ export function SetupDialog({ projectId, target, close, onApplied }: { projectId
   const proposed = edited ?? item?.proposal;
   const valid = setupProposalSchema.safeParse(proposed);
   const conflict = error instanceof ApiClientError && error.code === 'conflict';
-  const knownTarget = item && readTarget(item.id);
+  const knownTarget = item && (item.id === initialProposalId ? target : readTarget(item.id));
   const title = target.mode === 'project' ? 'projectTitle' : target.flowId ? 'editFlow' : 'newFlow';
   const locked = busy || detail.loading || !!detail.error;
 

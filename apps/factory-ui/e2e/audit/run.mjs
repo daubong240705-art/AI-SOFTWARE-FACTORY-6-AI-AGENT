@@ -224,8 +224,8 @@ async function main() {
     temp = await mkdtemp(join(auditRoot, 'host-'));
     const host = await startHost(join(temp, 'open'), children, true);
     const signInHost = await startHost(join(temp, 'signin'), children, false);
-    const fixture = await seed(host);
     endpoint = await startEndpoint();
+    const fixture = await seed({ ...host, auditEndpoint: endpoint.url });
     results.seedFailures = fixture.seedFailures.map(({ type, error }) => ({ type, error: safeText(error) }));
     const requested = process.env.FACTORY_AUDIT_CHROME || '/usr/bin/google-chrome-stable';
     const executablePath = await access(requested, constants.X_OK).then(() => requested, () => chromium.executablePath());

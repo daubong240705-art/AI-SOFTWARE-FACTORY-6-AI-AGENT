@@ -8,8 +8,9 @@ import { extra } from '@/i18n/extra.en';
 import { AgentField, ConditionFields, EnumField, MappingField, NumField, SelectorList, StringsField, TextField, Toggle, defaultCondition, initialSelector, pathsFor } from './FlowFields';
 import { Field, flowNodeTitle, JsonField, PortLabel, useFlowLabels } from './shared';
 import type { Selection } from './FlowCanvas';
-import { actionKinds, unsupported, unsupportedAction } from './nodeTypes';
+import { actionKinds, actionLabel, bundleDefaults, unsupported, unsupportedAction } from './nodeTypes';
 import { HttpActionFields } from './HttpActionFields';
+import { BundleActionFields } from './BundleActionFields';
 
 function CommonFields({ node, set }: { node: FlowNode; set: (patch: Partial<FlowNode>) => void }) {
   const label = useFlowLabels();
@@ -51,12 +52,16 @@ export function NodeInspector({ api, projectId, node, definition, roster, setNod
     </>}
     {node.type === 'action' && <><Field label={label('field.action')}>{props => <Choice {...props} value={node.action} onValueChange={selectedValue => {
       const action = selectedValue as typeof node.action;
-      const params = action === 'http.request' ? Object.fromEntries(Object.entries(node.params).filter(([key]) => ['integration', 'operation', 'args'].includes(key))) : node.params;
+      if (action === node.action) return;
+      const params = action === 'bundle.publish' ? bundleDefaults : node.action === 'bundle.publish' ? {} :
+        Object.fromEntries(Object.entries(node.params).filter(([key, value]) => typeof value !== 'object' &&
+          (action !== 'http.request' || ['integration', 'operation', 'args'].includes(key))));
       set({ action, params });
     }}>
-      {actionKinds.map(kind => <ChoiceOption key={kind} value={kind}>{kind}{unsupportedAction(kind) ? ` (${label('unsupportedNode')})` : ''}</ChoiceOption>)}</Choice>}</Field>
+      {actionKinds.map(kind => <ChoiceOption key={kind} value={kind}>{actionLabel(kind)}{unsupportedAction(kind) ? ` (${label('unsupportedNode')})` : ''}</ChoiceOption>)}</Choice>}</Field>
       {node.action === 'http.request' ? <HttpActionFields api={api} projectId={projectId} params={node.params} paths={paths} set={params => set({ params })} />
-        : <MappingField name="params" value={node.params} paths={paths} scalar set={params => set({ params })} />}</>}
+        : node.action === 'bundle.publish' ? <BundleActionFields api={api} projectId={projectId} params={node.params} inputs={definition.inputs} set={params => set({ params })} />
+          : <MappingField name="params" value={Object.fromEntries(Object.entries(node.params).filter((entry): entry is [string, string | number | boolean] => typeof entry[1] !== 'object'))} paths={paths} scalar set={params => set({ params })} />}</>}
     {node.type === 'condition' && <div className="grid gap-3">{node.rules.map((rule, index) => <fieldset key={index} className="grid gap-2 rounded-lg border p-2"><legend className="px-1 text-xs">{label('rule')} {index + 1}</legend>
       <ConditionFields value={rule.when} paths={paths} set={when => set({ rules: node.rules.map((item, at) => at === index ? { ...item, when } : item) })} />
       <TextField name="port" value={rule.port} set={port => set({ rules: node.rules.map((item, at) => at === index ? { ...item, port } : item) })} />

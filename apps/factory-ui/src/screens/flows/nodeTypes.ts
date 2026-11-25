@@ -6,8 +6,11 @@ export const nodeIcons = {
   approval: ShieldCheck, loop: Repeat, wait: Clock, subflow: Workflow, orchestrate: ListTree, output: CircleCheck,
 } satisfies Record<FlowNode['type'], typeof Bot>;
 export const nodeKinds = Object.keys(nodeIcons) as FlowNode['type'][];
-export const actionKinds = ['notify.send', 'artifact.save', 'http.request', 'git.push-branch', 'knowledge.publish'] as const;
-export const unsupportedAction = (action: (typeof actionKinds)[number]) => action === 'git.push-branch' || action === 'knowledge.publish';
+export type ActionNode = Extract<FlowNode, { type: 'action' }>;
+export const actionKinds = ['notify.send', 'artifact.save', 'http.request', 'bundle.publish', 'git.push-branch', 'knowledge.publish'] as const satisfies readonly ActionNode['action'][];
+export const unsupportedAction = (action: ActionNode['action']) => action === 'git.push-branch' || action === 'knowledge.publish';
+export const bundleDefaults = { dir: 'dist', ref: 'integration', scripts: ['ci', 'build'] } satisfies ActionNode['params'];
+export const actionLabel = (action: ActionNode['action']) => action === 'bundle.publish' ? 'Publish bundle' : action;
 export const unsupported = (node: FlowNode) => node.type === 'parallel' || (node.type === 'action' && unsupportedAction(node.action));
 
 export function newNode(type: FlowNode['type'], title: string, existing: FlowNode[], agent: AgentSelector, acceptance: string): FlowNode {

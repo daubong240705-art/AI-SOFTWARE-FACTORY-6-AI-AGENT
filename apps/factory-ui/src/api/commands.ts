@@ -30,7 +30,7 @@ export function templatesDelete(payload: Of<'templates.delete'>['payload']) { re
 export function agentTeamsCreate({ projectId, ...payload }: Omit<Of<'teams.create'>['payload'], 'teamId'> & { projectId: string }) { return build('teams.create', projectId, { ...payload, teamId: crypto.randomUUID() }); }
 export function agentTeamsUpdate({ projectId, ...payload }: Of<'teams.update'>['payload'] & { projectId: string }) { return build('teams.update', projectId, payload); }
 export function agentTeamsDelete({ projectId, ...payload }: Of<'teams.delete'>['payload'] & { projectId: string }) { return build('teams.delete', projectId, payload); }
-export type FlowCommandType = Extract<Command['type'], `flows.${string}` | `flow-runs.${string}`>;
+export type FlowCommandType = Extract<Command['type'], `flows.${string}` | `flow-runs.${string}` | `insights.${string}`>;
 export function flowCommand<T extends FlowCommandType>(type: T, projectId: string, payload: Of<T>['payload']) { return build(type, projectId, payload); }
 export function relationsSet({ projectId, ...payload }: Of<'relations.set'>['payload'] & { projectId: string }) { return build('relations.set', projectId, payload); }
 
