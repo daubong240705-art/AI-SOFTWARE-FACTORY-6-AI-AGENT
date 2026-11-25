@@ -11,6 +11,9 @@ import { canonicalPath } from "../backup/verify.js";
 import { isLoopbackHost } from "../api/listen.js";
 import type { ConfigEnv } from "../config/schema.js";
 import { onWindowsMount, validLoginToken } from "../config/schema.js";
+import { directoryDefaults, extensionKeys } from "../config/index.js";
+import { extensionPackDirs } from "../org/extensions.js";
+import { loadPackRegistry } from "../org/registry.js";
 import { ModelProbeError, probeCompletion, probeModels } from "./model-probe.js";
 
 const checkSchema = z.object({ id: z.string(), level: z.enum(["required", "optional", "warning"]),
@@ -133,6 +136,18 @@ async function checkCli(id: "D-CODEX" | "D-CLAUDE", command: string, statusArgs:
 export async function runDoctor(input: DoctorInput): Promise<DoctorReport> {
   const exec = input.exec ?? execDoctorCommand;
   const checks: DoctorCheck[] = [];
+  const enabled = extensionKeys(input.config);
+  if (!enabled.length) checks.push(skip("D-EXT", "optional", "Chưa bật tiện ích mở rộng nào."));
+  else {
+    const issues: string[] = [];
+    const report = (message: string) => { issues.push(message); };
+    const dir = input.config.FACTORY_EXTENSIONS_DIR ?? directoryDefaults(input.config).FACTORY_EXTENSIONS_DIR!;
+    const extraDirs = extensionPackDirs(dir, enabled, report);
+    loadPackRegistry("", { coreEntries: [], extraDirs, onExtensionPackError: report });
+    checks.push(issues.length ? fail("D-EXT", "required", "Không tải được một số tiện ích mở rộng hoặc pack.",
+      "Kiểm tra FACTORY_EXTENSIONS, FACTORY_EXTENSIONS_DIR và các tệp extension.json, pack.json.")
+      : pass("D-EXT", "required", "Đã tải các tiện ích mở rộng và pack hợp lệ."));
+  }
   const [node, state, git, name, email, model, codex, claude, bwrap] = await Promise.all([
     exec(process.execPath, ["--version"]), checkState(input.stateDir), exec("git", ["--version"]),
     exec("git", ["config", "--global", "user.name"]), exec("git", ["config", "--global", "user.email"]), checkModel(input),

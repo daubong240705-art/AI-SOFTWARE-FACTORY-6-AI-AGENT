@@ -1,13 +1,47 @@
 import type { AgentSelector } from "./agents.js";
-import { flowPathSchema, FLOW_NODE_PORTS, type FlowCondition, type FlowDefinition, type FlowEdge, type FlowNode } from "./flow.js";
+import { bundleDirSchema, bundleQuerySchema, bundleScriptsSchema, flowPathSchema, FLOW_NODE_PORTS, type FlowCondition, type FlowDefinition, type FlowEdge, type FlowNode } from "./flow.js";
+import { idSchema } from "./base.js";
+import type { HttpOperation } from "./integrations.js";
 
 export interface FlowIssue { code: FlowIssueCode; message: string; node?: string; edge?: string }
 export type FlowIssueCode = "no-trigger" | "unknown-node" | "unknown-port" | "unreachable" | "cycle-without-loop"
   | "bad-loop-back" | "join-needs-two-inputs" | "trigger-has-input" | "unknown-path" | "subflow-self"
-  | "duplicate-edge" | "output-has-edges" | "agent-not-found" | "budget";
+  | "duplicate-edge" | "output-has-edges" | "agent-not-found" | "budget"
+  | "bundle-integration" | "bundle-operation" | "bundle-dir" | "bundle-ref" | "bundle-scripts" | "bundle-query" | "bundle-path-param";
 export interface FlowValidationContext {
   /** When provided, every `{ agent: id }` selector must be in this set. */
   agentIds?: ReadonlySet<string>;
+  bundleOperations?: (integrationId: string) => readonly HttpOperation[] | undefined;
+}
+
+export function isBundleOperation(operation: HttpOperation | undefined): operation is HttpOperation {
+  return operation !== undefined && (operation.method === "POST" || operation.method === "PUT") && operation.sideEffect === "external";
+}
+
+export function validateBundleParams(params: Extract<FlowNode, { type: "action" }>["params"], context?: FlowValidationContext): FlowIssue[] {
+  const issues: FlowIssue[] = [];
+  const { integrationId, operation, dir, ref, scripts, query, ...pathParams } = params;
+  const id = idSchema.safeParse(integrationId);
+  const expression = typeof integrationId === "string" ? /^\{\{\s*([^\s{}]+)\s*\}\}$/.exec(integrationId)?.[1] : undefined;
+  const add = (code: FlowIssueCode, message: string) => { issues.push({ code, message }); };
+  if (!id.success && !flowPathSchema.safeParse(expression).success) add("bundle-integration", "Use an HTTP integration ID or a flow expression");
+  if (typeof operation !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(operation)) add("bundle-operation", "Use an HTTP operation name");
+  else if (id.success && context?.bundleOperations) {
+    const operations = context.bundleOperations(id.data);
+    if (!operations) add("bundle-integration", "HTTP integration not found in project scope");
+    else if (!isBundleOperation(operations.find(({ name }) => name === operation))) add("bundle-operation", "Use an external POST or PUT operation");
+  }
+  if (dir !== undefined && !bundleDirSchema.safeParse(dir).success) add("bundle-dir", "Use a relative bundle directory without traversal");
+  if (ref !== undefined && ref !== "integration" && ref !== "main") add("bundle-ref", "Use the integration or main ref");
+  if (scripts !== undefined && !bundleScriptsSchema.safeParse(scripts).success) add("bundle-scripts", "Use a list of ci, check, test, or build scripts");
+  if (query !== undefined) {
+    const templates = bundleQuerySchema.safeParse(query);
+    if (!templates.success || Object.values(templates.data).some((template) => [...template.matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g)]
+      .some((match) => match[1] !== "bundle.commit" && !flowPathSchema.safeParse(match[1]).success)))
+      add("bundle-query", "Use at most ten query string templates with valid flow paths or bundle.commit");
+  }
+  if (Object.values(pathParams).some((value) => typeof value === "object")) add("bundle-path-param", "Path parameters must be scalars");
+  return issues;
 }
 
 export function flowGraph(definition: FlowDefinition): {
@@ -67,6 +101,10 @@ function visitNode(node: FlowNode, path: (value: string) => void, selector: (val
       break;
     case "action":
       for (const value of Object.values(node.params)) if (typeof value === "string") template(value);
+      if (node.action === "bundle.publish") {
+        const query = bundleQuerySchema.safeParse(node.params.query);
+        if (query.success) Object.values(query.data).forEach(template);
+      }
       break;
     case "condition": node.rules.forEach(({ when }) => visitCondition(when, path)); break;
     case "parallel": path(node.forEach); break;
@@ -129,6 +167,8 @@ export function validateFlow(definition: FlowDefinition, context?: FlowValidatio
     if (node.type === "orchestrate" && node.budgetTokens !== undefined && definition.settings.budgetTokens !== undefined
       && node.budgetTokens > definition.settings.budgetTokens)
       issues.push({ code: "budget", message: "Orchestrate budget exceeds the flow budget", node: node.id });
+    if (node.type === "action" && node.action === "bundle.publish")
+      issues.push(...validateBundleParams(node.params, context).map((issue) => ({ ...issue, node: node.id })));
     visitNode(node, (path) => {
       const referenced = /^nodes\.([A-Za-z0-9_-]+)/.exec(path)?.[1];
       if (referenced !== undefined && !ports.has(referenced))

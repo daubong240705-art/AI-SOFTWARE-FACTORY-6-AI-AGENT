@@ -53,3 +53,8 @@ Declare at most eight relative JSON files in `workflows`; each must stay inside
 the pack and be at most 64 KiB. Conditions contain typed data only, never code.
 Run `npm run pack:check -- ../../packs/_template` from `apps/factory-host`.
 Instances copy definitions by value, so later pack edits do not change them.
+
+For Workflow v2, place a definition directly in `flows/<key>.json` without
+listing it in `pack.json`. Each file must be at most 64 KiB, use `schema: 2`,
+and have a `key` matching its filename. Both formats appear in the import
+dialog; when they share a key, the v2 definition takes precedence.

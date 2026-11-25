@@ -14,12 +14,13 @@ import { getTask } from "../work/service.js";
 import { registerWorkflowLifecycle, withoutWorkflowAdvancement } from "./lifecycle.js";
 import { boundedJson, decode, definitionOf, emit, flowByKey, getRun, getVersion, latestNodes, runRef, type FlowRow, type NodeRow, type RunRow, type VersionRow } from "./store.js";
 import { evaluate, readPath } from "./expressions.js";
-import { executeWork, syncWork, type NodeOutcome } from "./work.js";
+import { bundleStallReason, executeWork, syncWork, type NodeOutcome } from "./work.js";
 
 export interface FlowEngineDeps {
   raw: Database; hub: EventHub; clock: Clock; dispatcher?: Dispatcher; newId: () => string;
   upload?: Pick<UploadDeps, "store" | "config" | "afterRegister">;
   httpAction?: { effects: import("../integrations/http-effects.js").HttpEffects; store: import("../integrations/store.js").IntegrationStore };
+  bundleAction?: import("../integrations/bundle-effects.js").BundleEffects;
 }
 type TimerKind = "wait" | "node-timeout" | "run-timeout" | "retry-backoff" | "approval-timeout";
 interface TimerRow { project_id: string; run_id: string; node_id: string; iteration: number; kind: TimerKind; due_at: string }
@@ -225,6 +226,11 @@ function failRun(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition, reason:
 }
 
 function finish(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition, item: FlowNode, row: NodeRow, result: NodeOutcome): void {
+  if (result.kind === "stalled") {
+    const outputJson = boundedJson(result.output, 65536);
+    if (row.output_json !== outputJson) setNode(deps, run, row, { output_json: outputJson });
+    return;
+  }
   if (result.kind === "waiting") {
     setNode(deps, run, row, { state: "waiting", ...result.patch });
     return;
@@ -244,11 +250,12 @@ function finish(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition, item: Fl
       return;
     }
     if (item.onError === "continue" || item.onError === "port" || result.errorPort) {
-      setNode(deps, run, row, { state: "succeeded", error, port: item.onError === "continue" ? "out" : "error", output_json: boundedJson({ error: reason }), ended_at: timestamp(deps) });
+      setNode(deps, run, row, { state: "succeeded", error, port: item.onError === "continue" && !result.errorPort ? "out" : "error", output_json: boundedJson(result.output ?? { error: reason }), ended_at: timestamp(deps) });
       decideEdges(deps, run, def, row);
       return;
     }
-    setNode(deps, run, row, { state: "failed", error, ended_at: timestamp(deps) });
+    setNode(deps, run, row, { state: "failed", error, ended_at: timestamp(deps),
+      ...(result.output === undefined ? {} : { output_json: boundedJson(result.output) }) });
     failRun(deps, run, def, reason, item.id);
     return;
   }
@@ -310,7 +317,7 @@ function runNode(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition, item: F
       }
     }
   }
-  if (result.kind === "waiting" && item.type !== "approval" && item.timeoutMinutes)
+  if (result.kind === "waiting" && item.type !== "approval" && !(item.type === "action" && item.action === "bundle.publish") && item.timeoutMinutes)
     arm(deps, run, row, "node-timeout", future(deps, item.timeoutMinutes * minute));
   finish(deps, run, def, item, row, result);
 }
@@ -336,6 +343,7 @@ export function advanceRun(deps: FlowEngineDeps, projectId: string, runId: strin
     for (const item of def.nodes) if (!nodes.has(item.id)) nodes.set(item.id, addNode(deps, run, item.id));
     let steps = 0;
     let changed = true;
+    let stalledReason: string | undefined;
     while (changed && !isTerminalFlowRunState(run.state) && steps < 1000) {
       changed = false;
       for (const item of def.nodes) {
@@ -353,6 +361,7 @@ export function advanceRun(deps: FlowEngineDeps, projectId: string, runId: strin
           const result = syncWork(deps, run, def, item, row);
           if (!result) continue;
           finish(deps, run, def, item, row, result);
+          if (result.kind === "stalled") { stalledReason = result.reason; continue; }
         } else if (item.type === "loop" && row.state === "succeeded" && row.port === "body") {
           const back = def.edges.filter((edge) => edge.loopBack && edge.to.node === item.id);
           const decisions = back.map((edge) => edgeDecision(deps.raw, run, edge, nodes));
@@ -380,6 +389,8 @@ export function advanceRun(deps: FlowEngineDeps, projectId: string, runId: strin
       }
     }
     if (isTerminalFlowRunState(run.state)) return;
+    if (stalledReason) { setRun(deps, run, "stalled", stalledReason); return; }
+    if (run.state === "stalled" && run.state_reason === bundleStallReason) setRun(deps, run, "running");
     const pendingRetry = deps.raw.prepare("SELECT 1 FROM flow_timers WHERE project_id=? AND run_id=? AND kind='retry-backoff' AND done=0 LIMIT 1").get(projectId, runId);
     if (steps >= 1000 && changed) { failRun(deps, run, def, "engine step limit"); return; }
     if (run.state === "stalled" && run.revision !== initialRevision) setRun(deps, run, "running");
@@ -442,7 +453,7 @@ export function fireFlowTimers(deps: FlowEngineDeps, projectId?: string): void {
       .all(timestamp(deps), projectId ?? null, projectId ?? null) as TimerRow[];
     for (const timer of due) {
       const run = getRun(deps.raw, timer.project_id, timer.run_id)!;
-      if (isTerminalFlowRunState(run.state)) continue;
+      if (isTerminalFlowRunState(run.state) || (run.state === "stalled" && run.state_reason === bundleStallReason)) continue;
       const changed = deps.raw.prepare("UPDATE flow_timers SET done=1 WHERE project_id=? AND run_id=? AND node_id=? AND iteration=? AND kind=? AND due_at=? AND done=0")
         .run(timer.project_id, timer.run_id, timer.node_id, timer.iteration, timer.kind, timer.due_at);
       if (!changed.changes) continue;

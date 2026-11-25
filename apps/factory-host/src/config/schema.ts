@@ -24,11 +24,13 @@ export function validateConfig(env: ConfigEnv): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
   const invalid = (key: string, fix: string): void => { issues.push({ code: "C-VALUE", key, message: "Giá trị cấu hình không hợp lệ.", fix }); };
   for (const key of ["FACTORY_HOME", "FACTORY_STATE_DIR", "FACTORY_PROJECTS_ROOT", "FACTORY_WORKTREES_ROOT",
-    "FACTORY_UI_DIR", "FACTORY_BACKUP_DIR", "FACTORY_MIGRATION_BACKUP_DIR"]) {
+    "FACTORY_UI_DIR", "FACTORY_BACKUP_DIR", "FACTORY_MIGRATION_BACKUP_DIR", "FACTORY_EXTENSIONS_DIR"]) {
     const value = env[key];
     if (value !== undefined && (!isAbsolute(value) || /[\0\r\n]/.test(value) || (key === "FACTORY_STATE_DIR" && onWindowsMount(value))))
       invalid(key, key === "FACTORY_STATE_DIR" ? "Dùng đường dẫn tuyệt đối trên hệ thống tệp cục bộ, ngoài /mnt." : "Dùng đường dẫn tuyệt đối.");
   }
+  if (env.FACTORY_EXTENSIONS?.trim() && extensionKeys(env).some((key) => !/^[a-z0-9-]{2,40}$/.test(key)))
+    invalid("FACTORY_EXTENSIONS", "Dùng danh sách khóa tiện ích mở rộng, phân cách bằng dấu phẩy.");
   const integers = {
     FACTORY_PORT: [1, 65535], FACTORY_PROXY_PORT: [1, 65535], FACTORY_NODE_SLOTS: [1, 16],
     FACTORY_BACKUP_INTERVAL_MINUTES: [1, 1440], FACTORY_LEAD_MAX_OUTPUT_TOKENS: [256, 131072],
@@ -69,6 +71,10 @@ export function validateConfig(env: ConfigEnv): ConfigIssue[] {
   if (!isLoopbackHost(listen) && env.FACTORY_OPEN_LOGIN === "1")
     invalid("FACTORY_OPEN_LOGIN", "Tắt đăng nhập tự động khi nghe trên mạng LAN.");
   return issues;
+}
+
+export function extensionKeys(env: ConfigEnv): string[] {
+  return env.FACTORY_EXTENSIONS?.trim() ? env.FACTORY_EXTENSIONS.split(",").map((key) => key.trim()) : [];
 }
 
 export const allowedHosts = (env: ConfigEnv): string[] => (env.FACTORY_ALLOWED_HOSTS ?? "").split(",").map((name) => name.trim()).filter(Boolean);

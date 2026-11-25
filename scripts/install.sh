@@ -215,7 +215,7 @@ else
   build=$work/build
   stage_source() {
     mkdir "$build" && (cd "$checkout" && tar cf - --exclude=node_modules --exclude=dist --exclude=dist-test --exclude='*.env' --exclude='.env.*' \
-      packages/factory-contracts apps/factory-host apps/factory-ui design/factory-v2 packs) | tar xf - -C "$build"
+      packages/factory-contracts apps/factory-host apps/factory-ui design/factory-v2 packs extensions) | tar xf - -C "$build"
   }
   stage_source || fail 4 'Không chép được mã nguồn vào thư mục build.'
   for package in packages/factory-contracts apps/factory-host apps/factory-ui; do
@@ -227,14 +227,14 @@ fi
 
 step 5 'Cài phụ thuộc production, ghi VERSION và đổi app nguyên tử (giữ app.prev)'
 if [[ $dry == 1 ]]; then
-  plan "Chép dist, migrations, workers, config mẫu và packs vào $prefix/app.new; npm ci --omit=dev; đổi vào app/."
+  plan "Chép dist, migrations, workers, config mẫu, packs và extensions vào $prefix/app.new; npm ci --omit=dev; đổi vào app/."
 else
   stage_app() {
     local dest=$prefix/app.new
     rm -rf -- "$dest" && mkdir -p "$dest/apps/factory-host" "$dest/apps/factory-ui" "$dest/packages/factory-contracts" || return 1
     (cd "$build/packages/factory-contracts" && cp -R package.json package-lock.json dist "$dest/packages/factory-contracts/") &&
       (cd "$build/apps/factory-host" && cp -R package.json package-lock.json dist migrations workers "$dest/apps/factory-host/") &&
-      cp -R "$build/apps/factory-ui/dist" "$dest/apps/factory-ui/" && cp -R "$build/packs" "$dest/" || return 1
+      cp -R "$build/apps/factory-ui/dist" "$dest/apps/factory-ui/" && cp -R "$build/packs" "$build/extensions" "$dest/" || return 1
     if [[ -d $build/apps/factory-host/config ]]; then
       cp -R "$build/apps/factory-host/config" "$dest/apps/factory-host/" || return 1
     fi

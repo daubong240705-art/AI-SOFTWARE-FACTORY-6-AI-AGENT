@@ -1,0 +1,7 @@
+{
+  "key": "sample",
+  "name": "Fixture extension",
+  "description": "An opt-in fixture pack",
+  "version": "1.0.0",
+  "packs": ["packs/example"]
+}

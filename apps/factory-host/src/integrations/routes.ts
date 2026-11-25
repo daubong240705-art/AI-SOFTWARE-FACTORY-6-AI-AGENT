@@ -6,9 +6,10 @@ import { failure } from "../api/http.js";
 import { createIdGenerator } from "../ids.js";
 import type { IntegrationStore } from "./store.js";
 import type { HttpEffects } from "./http-effects.js";
+import type { BundleEffects } from "./bundle-effects.js";
 
 export function registerIntegrationRoutes(app: FastifyInstance, guards: ApiGuards, store: IntegrationStore, http: HttpEffects,
-  advance: (projectId: string) => void) {
+  advance: (projectId: string) => void, bundle?: BundleEffects) {
   const newId = createIdGenerator();
   const envelope = { apiVersion: API_VERSION, ok: true };
   app.get("/integrations", { preHandler: guards.session }, async (request, reply) => {
@@ -24,11 +25,12 @@ export function registerIntegrationRoutes(app: FastifyInstance, guards: ApiGuard
   });
   app.get("/credentials", { preHandler: guards.session }, async () => ({ ...envelope, credentials: store.credentials() }));
   app.get<{ Params: { projectId: string } }>("/projects/:projectId/http-effects", { preHandler: guards.session }, async (request) =>
-    ({ ...envelope, effects: http.list(request.params.projectId) }));
+    ({ ...envelope, effects: [...http.list(request.params.projectId), ...(bundle?.list(request.params.projectId) ?? [])] }));
   app.post<{ Params: { projectId: string; id: string } }>("/projects/:projectId/http-effects/:id/reconcile", { preHandler: guards.write }, async (request, reply) => {
     const input = z.strictObject({ resolution: z.enum(["done", "failed"]) }).safeParse(request.body);
     if (!input.success) return failure(reply, 400, "validation", "Invalid resolution", "correct-input", newId);
-    if (!http.reconcile(request.params.projectId, request.params.id, input.data.resolution))
+    if (!http.reconcile(request.params.projectId, request.params.id, input.data.resolution)
+      && !bundle?.reconcile(request.params.projectId, request.params.id, input.data.resolution))
       return failure(reply, 409, "conflict", "HTTP effect is not unknown", "refresh", newId);
     advance(request.params.projectId);
     return envelope;

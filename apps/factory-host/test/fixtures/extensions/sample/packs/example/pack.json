@@ -1,0 +1,11 @@
+{
+  "key": "web-games",
+  "version": "1.0.0",
+  "name": "Extension fixture",
+  "description": "Checks opt-in discovery of a formerly retired key",
+  "seats": [
+    { "name": "Lead", "role": "Lead", "runtime": "fake", "slots": 1, "isLead": true, "profile": "lead.md" }
+  ],
+  "skills": [],
+  "workflows": ["legacy.json"]
+}

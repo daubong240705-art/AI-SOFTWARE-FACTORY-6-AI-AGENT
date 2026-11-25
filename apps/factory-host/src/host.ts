@@ -37,7 +37,8 @@ import { API_VERSION, agentModelsSchema, reasoningEffortSchema, type AgentAdapte
 import { createSetupHandlers, SETUP_COMMANDS, withSetupApplyIssues } from "./setup/commands.js";
 import { registerSetupRoutes } from "./setup/routes.js";
 import { createSetupRunner } from "./setup/runner.js";
-import { configError, directoryDefaults, type ConfigEnv } from "./config/index.js";
+import { configError, directoryDefaults, extensionKeys, type ConfigEnv } from "./config/index.js";
+import { extensionPackDirs } from "./org/extensions.js";
 import { registerDoctorRoute } from "./system/doctor-route.js";
 import { modelsSetHandler, readModelSettings, type ModelSettingsSeed } from "./models/settings.js";
 import type { ModelGateway } from "./models/index.js";
@@ -99,6 +100,7 @@ import { createToolApproval, withToolApprovalDecisions } from "./integrations/ap
 import { createIntegrationTools, withHttpToolDispatch } from "./integrations/tools.js";
 import { createIntegrationCommands, INTEGRATION_CONFIG_COMMANDS, withIntegrationGrants } from "./integrations/commands.js";
 import { registerIntegrationRoutes } from "./integrations/routes.js";
+import { createBundleEffects, type BundleEffects } from "./integrations/bundle-effects.js";
 import type { StdioLaunch } from "./integrations/stdio.js";
 import { docWorkerConfig, type DocWorkerConfig } from "./documents/config.js";
 import { createExtractionService, type ExtractionService } from "./documents/service.js";
@@ -142,7 +144,7 @@ export function parseEnv(env: ConfigEnv): ReturnType<typeof parseHostEnv> {
 }
 
 function parseHostEnv(env: ConfigEnv): {
-  defaultPack: string; packKeys?: string[];
+  defaultPack: string; packKeys?: string[]; extensionKeys: string[]; extensionsDir?: string;
   mcpServers?: McpServersConfig;
   stateDir: string; port: number; backupDir?: string;
   periodicBackup: { dir: string; intervalMs: number };
@@ -160,6 +162,8 @@ function parseHostEnv(env: ConfigEnv): {
   const defaultPack = env.FACTORY_DEFAULT_PACK ?? "software-team";
   const packKeys = env.FACTORY_PACKS?.split(",").map((key) => key.trim());
   const validPackKey = (key: string): boolean => /^[a-z0-9-]{2,40}$/.test(key);
+  const enabledExtensions = extensionKeys(env);
+  if (!enabledExtensions.every(validPackKey)) throw new Error("FACTORY_EXTENSIONS must be comma-separated extension keys");
   if (!validPackKey(defaultPack)) throw new Error("FACTORY_DEFAULT_PACK must be a pack key");
   if (packKeys && (packKeys.length === 0 || packKeys.some((key) => !validPackKey(key))))
     throw new Error("FACTORY_PACKS must be comma-separated pack keys");
@@ -247,6 +251,8 @@ function parseHostEnv(env: ConfigEnv): {
   return {
     defaultPack,
     ...(packKeys === undefined ? {} : { packKeys }),
+    extensionKeys: enabledExtensions,
+    ...(env.FACTORY_EXTENSIONS_DIR === undefined ? {} : { extensionsDir: env.FACTORY_EXTENSIONS_DIR }),
     ...(!env.FACTORY_MCP_SERVERS_FILE ? {} : { mcpServers: loadMcpServers(env.FACTORY_MCP_SERVERS_FILE) }),
     localCli: env.FACTORY_LOCAL_CLI === "1",
     ...(cliPassEnv === undefined ? {} : { cliPassEnv }),
@@ -284,7 +290,7 @@ export async function startHost(options: {
   config?: ConfigEnv;
   integrationFetch?: typeof fetch;
   integrationStdio?: StdioLaunch;
-  defaultPack?: string; packKeys?: readonly string[];
+  defaultPack?: string; packKeys?: readonly string[]; extensionKeys?: readonly string[]; extensionsDir?: string;
   mcpServers?: McpServersConfig;
   packsDir?: string; openLogin?: boolean;
   /** Network access (all three are set from the environment in main.ts): the address to listen on, extra Host/Origin names, and the sign-in token. */
@@ -346,6 +352,7 @@ export async function startHost(options: {
   let dispatch: Dispatcher | null = null;
   let workspace: WorkspaceProvider | null = null;
   let effects: EffectExecutor | null = null;
+  let bundleEffects: BundleEffects | undefined;
   let modelProxy: ReturnType<typeof createModelProxy> | undefined;
   let modelRelay: Awaited<ReturnType<typeof startRelay>> | undefined;
   let proxy: { port: number; socketPath?: string; tokens: TokenRegistry } | null = null;
@@ -379,7 +386,7 @@ export async function startHost(options: {
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
       stopFlowTimers?.();
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
-      await hostDependencyCache?.close();
+      await Promise.all([bundleEffects?.close(), hostDependencyCache?.close()]);
       await extractions?.close();
       await effects?.close();
       await localMcp?.close();
@@ -425,10 +432,12 @@ export async function startHost(options: {
       } catch { throw new Error(`Pack '${key}' could not be loaded`); }
     };
     const pack = options.packDir ? loadPack(options.packDir) : namedPack(defaultKey);
-    const packs = options.packKeys === undefined ? loadPackRegistry(packsDir, {
-      defaultPack: pack, onError: (message) => { console.error(message); },
-    }) : [...new Set([...options.packKeys.filter((key) => !isRetiredGamePack(key)), pack.manifest.key])].sort().map((key) =>
+    const reportPack = (message: string) => { console.error(message); };
+    const extraDirs = extensionPackDirs(options.extensionsDir ?? resolve(packsDir, "../extensions"), options.extensionKeys ?? [], reportPack);
+    const coreEntries = options.packKeys === undefined ? undefined : [...new Set([...options.packKeys.filter((key) => !isRetiredGamePack(key)), pack.manifest.key])].sort().map((key) =>
       registryEntry(key === pack.manifest.key ? pack : namedPack(key), key === pack.manifest.key));
+    const packs = loadPackRegistry(packsDir, { defaultPack: pack, extraDirs, onError: reportPack,
+      ...(coreEntries === undefined ? {} : { coreEntries }) });
     unlockState = lockStateDirectory(stateDir);
     const dependencyCache = createDependencyCache(stateDir);
     hostDependencyCache = dependencyCache;
@@ -464,7 +473,10 @@ export async function startHost(options: {
       console.warn("FACTORY_MCP_SERVERS_FILE is deprecated; use database integrations.");
       return importLegacy(storage!.raw, integrationStore, mcpServers, integrationIds, { ...process.env, ...options.config });
     })() : [];
-    archiveGameProjects(storage.raw, hub, clock);
+    const restoredPack = packs.some(({ key }) => isRetiredGamePack(key))
+      || storage.raw.prepare<[], { source_pack_key: string }>("SELECT DISTINCT source_pack_key FROM agent_templates WHERE source_pack_key IS NOT NULL")
+        .all().some(({ source_pack_key }) => isRetiredGamePack(source_pack_key));
+    if (!restoredPack) archiveGameProjects(storage.raw, hub, clock);
     for (const report of migrateProjectsToRosters(storage.raw, { newId: createIdGenerator(clock), clock, defaultAgentCli,
       ...(backup === null ? {} : { backup: () => {
         const result = backup!.service.run("manual");
@@ -475,19 +487,23 @@ export async function startHost(options: {
     {
       const raw = storage.raw;
       let roots: ReturnType<typeof canonicalRoots> | null = null;
-      try { if (pushRemotes && options.workspace) roots = canonicalRoots(options.workspace); }
-      catch { throw new Error("Invalid push workspace configuration"); }
+      try { if (options.workspace) roots = canonicalRoots(options.workspace); }
+      catch { throw new Error("Invalid effect workspace configuration"); }
+      const projectRootFor = (projectId: string): string | null => {
+        const row = raw.prepare("SELECT workspace_root, workspace_kind FROM projects WHERE id = ?").get(projectId) as
+          { workspace_root: string; workspace_kind: string } | undefined;
+        try { return roots && row?.workspace_kind === "git" ? assertInside(roots.projectsRoot, row.workspace_root) : null; }
+        catch { return null; }
+      };
       effects = createEffectExecutor({ raw, hub, clock, newId: integrationIds, remotes: pushRemotes ?? [],
         integrations: { store: integrationStore, ...(options.integrationFetch ? { fetch: options.integrationFetch } : {}) },
         ...(options.pushSshCommand === undefined ? {} : { sshCommand: options.pushSshCommand }),
-        projectRootFor(projectId) {
-          const row = raw.prepare("SELECT workspace_root, workspace_kind FROM projects WHERE id = ?").get(projectId) as
-            { workspace_root: string; workspace_kind: string } | undefined;
-          try { return roots && row?.workspace_kind === "git" ? assertInside(roots.projectsRoot, row.workspace_root) : null; }
-          catch { return null; }
-        },
+        projectRootFor,
       });
       effects.recoverAtStart();
+      bundleEffects = createBundleEffects({ raw, hub, clock, newId: integrationIds, store: integrationStore, stateDir, cache: dependencyCache,
+        projectRootFor, ...(options.integrationFetch ? { fetch: options.integrationFetch } : {}) });
+      bundleEffects.recoverAtStart();
     }
     const httpEffects = effects.http!;
     const approveTool = createToolApproval({ raw: storage.raw, hub, clock, newId: integrationIds });
@@ -779,6 +795,7 @@ export async function startHost(options: {
     }
     const flowBase = { raw: storage.raw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) };
     const flowEngine = { ...flowBase, newId: resultId, httpAction: { effects: httpEffects, store: integrationStore },
+      ...(bundleEffects === undefined ? {} : { bundleAction: bundleEffects }),
       upload: { store: artifacts.store, config: documentConfig, afterRegister } };
     registerFlowEngine(flowEngine);
     recoverFlows(flowEngine);
@@ -887,12 +904,12 @@ export async function startHost(options: {
     };
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
-      registerFlowRoutes(app, guards, { storage: storage! });
+      registerFlowRoutes(app, guards, { storage: storage!, integrations: integrationStore });
       registerTraceRoutes(app, guards, { raw, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes });
       registerInsightsRoutes(app, guards, { raw, clock });
       registerSetupRoutes(app, guards, raw);
       registerGroupRoutes(app, guards, { raw: storage!.raw, clock });
-      registerIntegrationRoutes(app, guards, integrationStore, httpEffects, (projectId) => advanceProject(flowEngine, projectId));
+      registerIntegrationRoutes(app, guards, integrationStore, httpEffects, (projectId) => advanceProject(flowEngine, projectId), bundleEffects);
       applyLibraryListScope(app, storage!.raw);
       registerLibraryRoutes(app, guards, { raw: storage!.raw });
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store, tasks: createArtifactTaskRefs(approvalRaw) });
@@ -910,6 +927,8 @@ export async function startHost(options: {
         const upstream = options.modelProxy?.upstream;
         return {
           config: { NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS, ...options.config,
+            FACTORY_EXTENSIONS: options.extensionKeys?.join(",") ?? "",
+            FACTORY_EXTENSIONS_DIR: options.extensionsDir ?? resolve(packsDir, "../extensions"),
             ...(upstream && !options.config ? { FACTORY_MODEL_BASE_URL: upstream.baseUrl, FACTORY_MODEL_API_KEY: upstream.apiKey } : {}),
             FACTORY_LISTEN_HOST: listenHost, FACTORY_LOGIN_TOKEN: options.loginToken,
             FACTORY_BACKUP_DIR: options.periodicBackup?.dir, FACTORY_RUNTIME: runtimeFacts.opencode ? "opencode" : "fake",

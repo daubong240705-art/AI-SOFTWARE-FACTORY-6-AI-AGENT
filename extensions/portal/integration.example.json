@@ -1,0 +1,21 @@
+{
+  "kind": "http-api",
+  "name": "lazy-gaming-portal",
+  "scopeGroupId": null,
+  "config": {
+    "baseUrl": "https://portal.example.com",
+    "auth": { "bearer": "00000000-0000-4000-8000-000000000001" },
+    "operations": [
+      { "name": "publish", "method": "POST", "path": "/api/publish", "sideEffect": "external",
+        "inputSchema": { "type": "object", "properties": {} } },
+      { "name": "rollback", "method": "POST", "path": "/api/publish/games/{gameId}/rollback", "sideEffect": "external",
+        "inputSchema": { "type": "object", "required": ["gameId", "version"], "properties": {
+          "gameId": { "type": "string" }, "version": { "type": "integer" }
+        } } },
+      { "name": "versions", "method": "GET", "path": "/api/publish/games/{gameId}/versions", "sideEffect": "none",
+        "inputSchema": { "type": "object", "required": ["gameId"], "properties": { "gameId": { "type": "string" } } } },
+      { "name": "games", "method": "GET", "path": "/api/publish/games", "sideEffect": "none",
+        "inputSchema": { "type": "object", "properties": {} } }
+    ]
+  }
+}
