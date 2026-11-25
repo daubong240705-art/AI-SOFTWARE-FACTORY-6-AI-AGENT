@@ -23,7 +23,7 @@ export function SignIn({ store }: { store: Store }) {
     submitting.current = true;
     void store.signIn(token).finally(() => { submitting.current = false; });
   }
-  return <main className="signin"><Card className="w-full max-w-xl p-6">
+  return <main data-testid="signin-screen" className="signin"><Card className="w-full max-w-xl p-6">
     <Mascot seat="Lead" state="idle" size={80} />
     <h1>{t('shell.product')}</h1>
     <h2>{t('auth.signIn')}</h2>

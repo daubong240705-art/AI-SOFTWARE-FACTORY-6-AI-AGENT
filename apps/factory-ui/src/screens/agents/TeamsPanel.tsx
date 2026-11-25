@@ -17,12 +17,12 @@ export function TeamsPanel({ projectId, data, submit }: { projectId: string; dat
   const team = action && 'team' in action ? action.team : undefined;
   const stale = !!team && data.teams.find(item => item.id === team.id)?.revision !== team.revision;
   return <section className="space-y-4 rounded-xl border border-border bg-card/60 p-4">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{t('teams.title')}</h3><p className="text-sm text-muted-foreground">{t('teams.help')}</p></div><Button type="button" size="sm" variant="outline" onClick={() => setAction({ kind: 'new' })}>{t('teams.create')}</Button></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-semibold">{t('teams.title')}</h3><p className="text-sm text-muted-foreground">{t('teams.help')}</p></div><Button data-testid="team-create" type="button" size="sm" variant="outline" onClick={() => setAction({ kind: 'new' })}>{t('teams.create')}</Button></div>
     {!data.teams.length && <p className="text-sm text-muted-foreground">{t('teams.empty')}</p>}
-    <div className="grid gap-3 md:grid-cols-2">{data.teams.map(item => <article key={item.id} className="min-w-0 space-y-3 rounded-lg border border-border bg-background/60 p-3">
+    <div className="grid gap-3 md:grid-cols-2">{data.teams.map(item => <article data-testid={`team-row-${item.id}`} key={item.id} className="min-w-0 space-y-3 rounded-lg border border-border bg-background/60 p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1"><h4 className="break-words font-medium">{item.name}</h4><p className="break-words text-sm text-muted-foreground">{item.description}</p></div>
-        <div className="flex flex-wrap gap-1"><Button type="button" size="sm" variant="ghost" onClick={() => setAction({ kind: 'edit', team: item })}>{t('edit')}</Button><Button type="button" size="sm" variant="ghost" onClick={() => setAction({ kind: 'delete', team: item })}>{t('delete')}</Button></div>
+        <div className="flex flex-wrap gap-1"><Button data-testid="team-edit" type="button" size="sm" variant="ghost" onClick={() => setAction({ kind: 'edit', team: item })}>{t('edit')}</Button><Button data-testid="team-delete" type="button" size="sm" variant="ghost" onClick={() => setAction({ kind: 'delete', team: item })}>{t('delete')}</Button></div>
       </div>
       <div className="flex flex-wrap gap-2">{item.memberIds.map(id => {
         const name = agents.get(id)?.name ?? id;
@@ -56,11 +56,11 @@ function TeamDialog({ projectId, team, agents, close, submit, stale }: { project
   }
   return <AdminDialog title={t(team ? 'teams.edit' : 'teams.create')} description={t('teams.help')} close={close} busy={writer.busy} onSubmit={save} footer={<DialogButtons close={close} label={t('save')} busy={writer.busy} disabled={stale} />}>
     <ErrorText error={writer.error} />{stale && <p role="status" className="text-sm text-muted-foreground">{t('errors.conflict')}</p>}
-    <Field label={t('fields.name')} invalid={invalid('name')}>{props => <Input {...props} value={name} onChange={event => setName(event.target.value)} maxLength={80} />}</Field>
+    <Field label={t('fields.name')} invalid={invalid('name')}>{props => <Input data-testid="team-name" {...props} value={name} onChange={event => setName(event.target.value)} maxLength={80} />}</Field>
     <Field label={t('fields.description')} invalid={invalid('description')}>{props => <Textarea {...props} value={description} onChange={event => setDescription(event.target.value)} maxLength={2000} />}</Field>
     <fieldset className="space-y-2"><legend className="mb-2 text-sm font-medium">{t('teams.members')}</legend>{invalid('memberIds') && <p className="text-sm text-destructive">{invalid('memberIds')}</p>}
       <div className="max-h-52 space-y-2 overflow-auto rounded-lg border border-border p-2">
-        {agents.map(agent => { const selected = memberIds.includes(agent.id); return <label key={agent.id} className="flex items-start gap-2 break-words text-sm"><Checkbox checked={selected} disabled={!selected && memberIds.length >= 200} onCheckedChange={value => toggle(agent.id, value === true)} /><span className="min-w-0">{agent.name} · {agent.role}</span></label>; })}
+        {agents.map(agent => { const selected = memberIds.includes(agent.id); return <label key={agent.id} className="flex items-start gap-2 break-words text-sm"><Checkbox data-testid={`team-member-${agent.id}`} checked={selected} disabled={!selected && memberIds.length >= 200} onCheckedChange={value => toggle(agent.id, value === true)} /><span className="min-w-0">{agent.name} · {agent.role}</span></label>; })}
         {!agents.length && <p className="text-sm text-muted-foreground">{t('teams.noMembers')}</p>}
       </div>
     </fieldset>

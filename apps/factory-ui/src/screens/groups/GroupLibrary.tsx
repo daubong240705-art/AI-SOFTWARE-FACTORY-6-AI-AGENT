@@ -28,8 +28,8 @@ export function GroupLibrary({ groupId, library, loading, error }: { groupId: st
     <ReadFeedback loading={loading} error={error} retry={refresh} />
     {owned && <Tabs defaultValue="skills">
       <TabsList aria-label={t('library')}>
-        <TabsTrigger value="skills">{global('libraryUi.skills')}</TabsTrigger>
-        <TabsTrigger value="templates">{global('libraryUi.templates')}</TabsTrigger>
+        <TabsTrigger data-testid="group-library-skills" value="skills">{global('libraryUi.skills')}</TabsTrigger>
+        <TabsTrigger data-testid="group-library-templates" value="templates">{global('libraryUi.templates')}</TabsTrigger>
       </TabsList>
       <TabsContent value="skills"><SkillsTab {...props} library={owned} /></TabsContent>
       <TabsContent value="templates"><TemplatesTab {...props} library={{ ...owned, skills: library?.skills ?? owned.skills }} libraryError={error} /></TabsContent>

@@ -36,27 +36,27 @@ export function RelationsPanel({ projectId, data, submit, refreshing }: { projec
     if (!parsed.success || payload.relations.some(relation => !valid(relation))) { setInvalid(true); return; }
     void writer.run(() => relationsSet({ projectId, ...parsed.data }), () => { setDraft(null); setInvalid(false); });
   }
-  return <section className="space-y-4 rounded-xl border border-border bg-card/60 p-4">
+  return <section data-testid="relation-panel" className="space-y-4 rounded-xl border border-border bg-card/60 p-4">
     <div><h3 className="font-semibold">{t('relations.title')}</h3><p className="text-sm text-muted-foreground">{t('relations.help')}</p></div>
     <ErrorText error={writer.error} />
     {stale && <div className="flex flex-wrap items-center gap-2 text-sm" role="status">{t('relations.changed')}<Button type="button" size="sm" variant="outline" onClick={() => { setDraft(null); setInvalid(false); writer.setError(null); }}>{t('reload')}</Button></div>}
     {invalid && <p role="alert" className="text-sm text-destructive">{t('invalidForm')}</p>}
     {rows.length ? <Table aria-label={t('relations.title')}>
       <TableHeader className="sr-only sm:not-sr-only"><TableRow>{['from', 'kind', 'to'].map(key => <TableHead key={key}>{t(`relations.${key}`)}</TableHead>)}<TableHead><span className="sr-only">{t('remove')}</span></TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map(({ key, relation }, index) => <TableRow key={key} className="grid grid-cols-2 gap-1 py-2 sm:table-row sm:py-0">
+      <TableBody>{rows.map(({ key, relation }, index) => <TableRow data-testid="relation-row" key={key} className="grid grid-cols-2 gap-1 py-2 sm:table-row sm:py-0">
         <TableCell className="col-span-2 min-w-0"><AgentChoice agents={data.agents} selected={relation.from} label={`${t('relations.from')} ${index + 1}`} disabled={writer.busy} invalid={invalid && !valid(relation)} change={from => update(index, { from })} /></TableCell>
-        <TableCell className="col-span-2 min-w-0"><Choice aria-label={`${t('relations.kind')} ${index + 1}`} disabled={writer.busy} value={relation.kind} onChange={event => update(index, { kind: agentRelationKindSchema.parse(event.target.value) })}>{agentRelationKindSchema.options.map(kind => <option key={kind} value={kind}>{t(`relations.kinds.${kind}`)}</option>)}</Choice></TableCell>
+        <TableCell className="col-span-2 min-w-0"><Choice data-testid="relation-kind" aria-label={`${t('relations.kind')} ${index + 1}`} disabled={writer.busy} value={relation.kind} onChange={event => update(index, { kind: agentRelationKindSchema.parse(event.target.value) })}>{agentRelationKindSchema.options.map(kind => <option key={kind} value={kind}>{t(`relations.kinds.${kind}`)}</option>)}</Choice></TableCell>
         <TableCell className="col-span-2 min-w-0"><AgentChoice agents={data.agents} selected={relation.to} label={`${t('relations.to')} ${index + 1}`} disabled={writer.busy} invalid={invalid && !valid(relation)} change={to => update(index, { to })} /></TableCell>
-        <TableCell><Button type="button" size="sm" variant="ghost" disabled={writer.busy} aria-label={`${t('remove')} ${index + 1}`} onClick={() => change(rows.filter((_, position) => position !== index))}>{t('remove')}</Button></TableCell>
+        <TableCell><Button data-testid="relation-delete" type="button" size="sm" variant="ghost" disabled={writer.busy} aria-label={`${t('remove')} ${index + 1}`} onClick={() => change(rows.filter((_, position) => position !== index))}>{t('remove')}</Button></TableCell>
       </TableRow>)}</TableBody>
     </Table> : <p className="text-sm text-muted-foreground">{t('relations.empty')}</p>}
-    <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" disabled={writer.busy || data.agents.length < 2 || rows.length >= 2000} onClick={() => change([...rows, { key: crypto.randomUUID(), relation: { from: '', to: '', kind: 'collaborates' } }])}>{t('relations.add')}</Button><Button type="button" disabled={blocked || !draft} onClick={save}>{writer.busy ? t('loading') : t('save')}</Button></div>
+    <div className="flex flex-wrap gap-2"><Button data-testid="relation-create" type="button" variant="outline" disabled={writer.busy || data.agents.length < 2 || rows.length >= 2000} onClick={() => change([...rows, { key: crypto.randomUUID(), relation: { from: '', to: '', kind: 'collaborates' } }])}>{t('relations.add')}</Button><Button data-testid="relation-save" type="button" disabled={blocked || !draft} onClick={save}>{writer.busy ? t('loading') : t('save')}</Button></div>
     {!!data.relations.length && <RelationGraph agents={data.agents} relations={data.relations} />}
   </section>;
 }
 
 function AgentChoice({ agents, selected, label, disabled, invalid, change }: { agents: AgentSummary[]; selected: string; label: string; disabled: boolean; invalid: boolean; change: (id: string) => void }) {
-  return <Choice aria-label={label} aria-invalid={invalid} disabled={disabled} value={selected} onChange={event => change(event.target.value)}>
+  return <Choice data-testid="relation-agent" aria-label={label} aria-invalid={invalid} disabled={disabled} value={selected} onChange={event => change(event.target.value)}>
     <option value="">—</option>{selected && !agents.some(agent => agent.id === selected) && <option value={selected}>{selected}</option>}{agents.map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
   </Choice>;
 }

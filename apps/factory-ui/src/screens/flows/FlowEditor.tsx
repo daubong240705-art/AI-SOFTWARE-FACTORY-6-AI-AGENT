@@ -130,10 +130,10 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
       <Button variant="ghost" size="icon" aria-label={label('back')} onClick={onBack}><ArrowLeft className="size-4" /></Button>
       <div className="min-w-36 flex-1"><div className="flex items-center gap-2"><h2 className="truncate text-lg font-semibold">{definition.title}</h2>{dirty && <Badge variant="secondary">{label('unsaved')}</Badge>}</div><p className="font-mono text-xs text-muted-foreground">{definition.key} · r{flow.revision}</p></div>
       {previewVersion !== null ? <Button variant="outline" onClick={() => { setPreviewVersion(null); setSelection(null); }}>{label('backToDraft')}</Button> : <>
-        <Button size="sm" variant="outline" disabled={!writable || actionBusy || !draft || !schema?.success || stale || pendingJson > 0} onClick={save}><Save aria-hidden="true" />{label('save')}</Button>
-        <Button size="sm" variant="outline" disabled={!writable || actionBusy || dirty || localIssues.length > 0} onClick={publish}><Send aria-hidden="true" />{label('publish')}</Button>
-        <Button size="sm" variant="outline" disabled={!writable || actionBusy || flow.publishedVersion === null} onClick={() => setRunDialog(flow.publishedVersion)}><Play aria-hidden="true" />{label('run')}</Button>
-        <Button size="sm" disabled={!writable || actionBusy || dirty || issues.length > 0} onClick={() => setRunDialog('draft')}>{label('testRun')}</Button>
+        <Button data-testid="flow-save" size="sm" variant="outline" disabled={!writable || actionBusy || !draft || !schema?.success || stale || pendingJson > 0} onClick={save}><Save aria-hidden="true" />{label('save')}</Button>
+        <Button data-testid="flow-publish" size="sm" variant="outline" disabled={!writable || actionBusy || dirty || localIssues.length > 0} onClick={publish}><Send aria-hidden="true" />{label('publish')}</Button>
+        <Button data-testid="flow-run" size="sm" variant="outline" disabled={!writable || actionBusy || flow.publishedVersion === null} onClick={() => setRunDialog(flow.publishedVersion)}><Play aria-hidden="true" />{label('run')}</Button>
+        <Button data-testid="flow-test-run" size="sm" disabled={!writable || actionBusy || dirty || issues.length > 0} onClick={() => setRunDialog('draft')}>{label('testRun')}</Button>
         <Button size="sm" variant="ghost" disabled={actionBusy || dirty} onClick={archive}>{label(archived ? 'restore' : 'archive')}</Button>
       </>}
     </header>
@@ -143,7 +143,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
         <Input disabled={!writable} aria-label={label('searchNodes')} placeholder={label('searchNodes')} value={search} onChange={event => setSearch(event.target.value)} />
         <div className="grid grid-cols-2 gap-1 lg:grid-cols-1">{nodeKinds.filter(type => `${label(`node.${type}`)} ${label(`help.${type}`)}`.toLocaleLowerCase().includes(search.toLocaleLowerCase())).map(type => {
           const Icon = nodeIcons[type];
-          return <button key={type} type="button" disabled={!writable || pendingJson > 0} draggable={writable && !pendingJson}
+          return <button data-testid={`flow-add-${type}`} key={type} type="button" disabled={!writable || pendingJson > 0} draggable={writable && !pendingJson}
             onDragStart={event => { event.dataTransfer.setData(nodeDragType, type); event.dataTransfer.effectAllowed = 'copy'; }} onClick={() => add(type)}
             className="flex items-start gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-sm hover:border-border hover:bg-muted/60 disabled:opacity-50">
             <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" /><span><span className="block font-medium">{label(`node.${type}`)}</span>
@@ -151,7 +151,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
           </button>;
         })}</div>
         <Button className="w-full" size="sm" variant="outline" disabled={!writable || pendingJson > 0} onClick={() => { setSettings(true); setPanel('inspector'); setSelection(null); }}><Settings2 aria-hidden="true" />{label('settings')}</Button>
-        <Button className="w-full" size="sm" variant="ghost" disabled={!writable} onClick={() => { update(current => ({ ...current, layout: autoLayout(current) })); setFitKey(value => value + 1); }}><LayoutDashboard aria-hidden="true" />{label('autoLayout')}</Button>
+        <Button data-testid="flow-auto-layout" className="w-full" size="sm" variant="ghost" disabled={!writable} onClick={() => { update(current => ({ ...current, layout: autoLayout(current) })); setFitKey(value => value + 1); }}><LayoutDashboard aria-hidden="true" />{label('autoLayout')}</Button>
       </aside>
       <main className="flex min-h-[420px] min-w-0 flex-col gap-2 lg:min-h-0">
         {pane && <><NodePicker definition={pane} current={selection?.kind === 'node' ? selection.id : undefined} onChange={id => select(id ? { kind: 'node', id } : null)} />
@@ -171,7 +171,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
                 {settings ? <FlowSettings definition={definition} setDefinition={replace} /> : selectedNode ? <NodeInspector key={selectedNode.id} api={api} projectId={projectId} node={selectedNode} definition={definition} roster={roster} setNode={node => update(current => ({ ...current, nodes: current.nodes.map(item => item.id === node.id ? node : item) }))} />
                   : selection?.kind === 'edge' ? <EdgeInspector selection={selection.id} definition={definition} setDefinition={replace} /> : <p className="text-sm text-muted-foreground">{label('selectHint')}</p>}
               </PendingJson.Provider>
-              {selection && <Button size="sm" variant="outline" disabled={pendingJson > 0 || (selection.kind === 'node' && definition.nodes.length < 2)} onClick={remove}><Trash2 aria-hidden="true" />{label('remove')}</Button>}
+              {selection && <Button data-testid="flow-remove" size="sm" variant="outline" disabled={pendingJson > 0 || (selection.kind === 'node' && definition.nodes.length < 2)} onClick={remove}><Trash2 aria-hidden="true" />{label('remove')}</Button>}
               <FlowError error={rosterRead.error} />
             </fieldset>}
           </TabsContent>

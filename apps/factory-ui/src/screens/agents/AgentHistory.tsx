@@ -59,7 +59,7 @@ export function AgentHistory({ api, detail, busy, rollback }: { api: ApiClient; 
   const diff = useMemo(() => data ? configDiff(data.config, detail.config) : [], [data, detail.config]);
   const instructions = useMemo(() => data && data.config.instructions !== detail.config.instructions ? lineDiff(data.config.instructions, detail.config.instructions) : null, [data, detail.config.instructions]);
   return <div className="space-y-4">
-    <Field label={t('tabs.history')} hint={t('historyHelp')}>{props => <Choice {...props} value={revision ?? ''} onChange={event => setRevision(event.target.value ? Number(event.target.value) : null)}>
+    <Field label={t('tabs.history')} hint={t('historyHelp')}>{props => <Choice data-testid="agent-history-version" {...props} value={revision ?? ''} onChange={event => setRevision(event.target.value ? Number(event.target.value) : null)}>
       <option value="">—</option>
       {[...detail.revisions].sort((left, right) => right.revision - left.revision).map(item => <option key={item.revision} value={item.revision}>
         r{item.revision} · {new Date(item.createdAt).toLocaleString(i18n.locale)}{item.revision === detail.configRevision ? ` · ${t('current')}` : ''}{item.note ? ` · ${item.note}` : ''}
@@ -78,7 +78,7 @@ export function AgentHistory({ api, detail, busy, rollback }: { api: ApiClient; 
       </section>)}
       {instructions !== null && <section className="space-y-2"><h4 className="text-sm font-medium">{t('fields.instructions')}</h4><pre className="max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-muted/50 p-3 text-xs">{instructions}</pre></section>}
       {data.revision !== detail.configRevision && <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="outline" disabled={busy || loading || !!error} onClick={() => rollback(data.revision)}>{t('rollback')}</Button>
+        <Button data-testid="agent-rollback" type="button" variant="outline" disabled={busy || loading || !!error} onClick={() => rollback(data.revision)}>{t('rollback')}</Button>
         <p className="text-xs text-muted-foreground">{t('rollbackHelp')}</p>
       </div>}
     </div>}

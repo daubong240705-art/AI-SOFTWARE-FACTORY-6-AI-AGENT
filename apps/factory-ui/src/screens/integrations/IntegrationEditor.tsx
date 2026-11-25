@@ -89,7 +89,7 @@ function Operations({ operations, set, invalid }: { operations: DraftOperation[]
       const change = (patch: Partial<DraftOperation>) => set(operations.map(item => item.id === operation.id ? { ...item, ...patch } : item));
       return <fieldset key={operation.id} className="grid gap-3 rounded-lg border p-3"><legend className="px-1 text-sm font-medium">{t('operation')} {index + 1}</legend>
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1.3fr)]">
-          <TextInput label={t('name')} required value={operation.name} maxLength={64} hint={t('operationNameHelp')} invalid={invalid(`${prefix}.name`)} set={name => change({ name })} />
+          <TextInput data-testid="connection-operation-name" label={t('name')} required value={operation.name} maxLength={64} hint={t('operationNameHelp')} invalid={invalid(`${prefix}.name`)} set={name => change({ name })} />
           <Field label={t('method')}>{props => <Choice {...props} value={operation.method} onChange={event => change({ method: event.target.value as Operation['method'] })}>{httpOperationSchema.shape.method.options.map(method => <option key={method}>{method}</option>)}</Choice>}</Field>
           <TextInput label={t('path')} required value={operation.path} maxLength={8192} hint={t('pathHelp')} invalid={invalid(`${prefix}.path`)} set={path => change({ path })} />
         </div>
@@ -162,10 +162,10 @@ export function IntegrationEditor({ api, item, groupId, groups, credentials, cre
   return <AdminDialog wide title={t(item ? 'editIntegration' : 'createIntegration')} description={t('integrationFormHelp')} close={close} busy={write.busy} onSubmit={submit}
     footer={<DialogButtons close={close} label={t('save')} busy={write.busy} disabled={write.conflict} /> }>
     <div className="grid gap-3 sm:grid-cols-2">
-      <TextInput label={t('name')} value={name} maxLength={30} required set={setName} hint={t('nameHelp')} invalid={invalid('name')} />
+      <TextInput data-testid="connection-name" label={t('name')} value={name} maxLength={30} required set={setName} hint={t('nameHelp')} invalid={invalid('name')} />
       <ScopeChoice groups={groups} value={scope} set={setScope} fixed={!!groupId} />
     </div>
-    <Field label={t('kind')}>{props => <Choice {...props} value={kind} onChange={event => setKind(event.target.value as IntegrationSpec['kind'])}>{kinds.map(value => <option key={value} value={value}>{t(value)}</option>)}</Choice>}</Field>
+    <Field label={t('kind')}>{props => <Choice data-testid="connection-kind" {...props} value={kind} onChange={event => setKind(event.target.value as IntegrationSpec['kind'])}>{kinds.map(value => <option key={value} value={value}>{t(value)}</option>)}</Choice>}</Field>
     <RetryRead error={credentialError} loading={loadingCredentials} retry={refresh} />
     {kind === 'mcp-stdio' && <>
       <TextInput label={t('command')} value={command} set={setCommand} required maxLength={8192} invalid={invalid('config.command')} />
@@ -184,7 +184,7 @@ export function IntegrationEditor({ api, item, groupId, groups, credentials, cre
       <Rows kind="headers" rows={headers} set={setHeaders} invalid={invalid} {...pickers} />
     </>}
     {kind === 'http-api' && <>
-      <TextInput label={t('baseUrl')} value={baseUrl} set={setBaseUrl} required maxLength={8192} hint={t('urlHelp')} invalid={invalid('config.baseUrl')} />
+      <TextInput data-testid="connection-base-url" label={t('baseUrl')} value={baseUrl} set={setBaseUrl} required maxLength={8192} hint={t('urlHelp')} invalid={invalid('config.baseUrl')} />
       <Field label={t('auth')} invalid={invalid('config.auth')}>{props => <Choice {...props} value={auth} onChange={event => setAuth(event.target.value === 'bearer' ? 'bearer' : event.target.value === 'header' ? 'header' : 'none')}>
         <option value="none">{t('none')}</option><option value="bearer">{t('bearer')}</option><option value="header">{t('authHeader')}</option>
       </Choice>}</Field>

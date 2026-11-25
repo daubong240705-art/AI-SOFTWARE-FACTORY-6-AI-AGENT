@@ -98,5 +98,5 @@ export function NameConfirmation({ name, value, set }: { name: string; value: st
   const t = useIntegrationLabels();
   const id = useId();
   return <div className="grid gap-2"><label htmlFor={id} className="text-sm">{t('confirmName', { name })}</label>
-    <Input id={id} value={value} onChange={event => set(event.target.value)} autoComplete="off" /></div>;
+    <Input data-testid="integration-confirm-name" id={id} value={value} onChange={event => set(event.target.value)} autoComplete="off" /></div>;
 }

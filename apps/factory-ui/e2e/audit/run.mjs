@@ -1,13 +1,15 @@
 import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
-import { access, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { createServer as createHttpServer } from 'node:http';
+import { access, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
-import { dialogs, hashFor, openScreen, screens } from './screens.mjs';
+import { dialogs, hashFor, hook, navigateHash, openScreen, screens, seedSession } from './screens.mjs';
 import { seed } from './seed.mjs';
 import { runCrudFlows } from './flows.mjs';
 import { writeFindings, writeReport } from './report.mjs';
@@ -20,12 +22,26 @@ const keep = process.argv.includes('--keep');
 const dir = join(uiRoot, 'dist');
 const hostMain = join(hostRoot, 'dist/main.js');
 const variants = [1280, 800].flatMap(width => ['light', 'dark'].map(theme => ({ width, height: width === 1280 ? 800 : 900, theme })));
-const safeText = value => String(value).replace(/\x1b\[[0-9;]*m/g, '').replace(/https?:\/\/[^\s"'<>]+/g, match => urlPath(match))
+const canaries = Array.from({ length: 2 }, () => `audit-canary-${randomUUID()}`);
+const redact = value => canaries.reduce((text, canary) => text.replaceAll(canary, '[redacted]'), String(value));
+const safeText = value => redact(value).replace(/\x1b\[[0-9;]*m/g, '').replace(/https?:\/\/[^\s"'<>]+/g, match => urlPath(match))
   .replace(/((?:token|cookie|authorization|password|secret|api[-_ ]?key)\s*[:=]\s*)[^\s,;]+/gi, '$1[redacted]').slice(0, 1200);
 
 function urlPath(value) {
-  try { const url = new URL(value); return /^https?:$/.test(url.protocol) ? url.pathname : `[${url.protocol}]`; }
-  catch { return '[URL invalide]'; }
+  try { const url = new URL(value); return /^https?:$/.test(url.protocol) ? redact(url.pathname) : `[${url.protocol}]`; }
+  catch { return '[invalid URL]'; }
+}
+
+async function startEndpoint() {
+  let hits = 0;
+  const server = createHttpServer((request, response) => {
+    if (request.method !== 'GET' || request.url !== '/probe') { response.writeHead(404).end(); return; }
+    hits += 1;
+    response.writeHead(200, { 'content-type': 'application/json' }).end('{"ok":true}');
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  return { url: `http://127.0.0.1:${server.address().port}/probe`, hits: () => hits, close: () => new Promise(resolve => server.close(resolve)) };
 }
 
 async function freePort() {
@@ -78,11 +94,27 @@ function record(page, add) {
   page.on('requestfailed', request => add({ type: 'requestfailed', path: urlPath(request.url()), text: safeText(request.failure()?.errorText ?? '') }));
 }
 
-async function inspect(page) {
-  const dom = await page.evaluate(() => {
+async function glossaryWords() {
+  const glossary = await readFile(resolve(uiRoot, '../../docs/ui/glossary.md'), 'utf8');
+  const section = glossary.split(/^## /m).find(section => /^Dùng tiếng Anh\r?\n/.test(section));
+  const rows = section?.split('\n').filter(line => /^\|.*\*\*/.test(line)) ?? [];
+  if (!rows.length) throw new Error('Missing glossary table: Dùng tiếng Anh.');
+  const allowed = rows.flatMap(line => line.split('|')[2].toLowerCase().match(/[a-z]+(?:-[a-z]+)*/g) ?? []);
+  return [...new Set([...allowed, 'codex', 'claude', 'code', 'opencode', 'factory', 'git', 'mcp', 'http', 'https', 'json', 'yaml', 'lead'])];
+}
+
+const englishCandidates = 'abort accept accepted access account add advanced all apply approve approved archive archived attention back browse cancel cancelled change check choose clear close configure confirm connect connection continue copy create created credential dashboard default delete deleted details disabled discard done download edit empty enable enabled enter error example failed failure field filter finish finished help history import invalid issue key label loading manage member missing name next none notes open optional overview owner page paused pending previous preview project queue ready refresh reject rejected reload remove required restore retry role running save saved search select selected settings show sign start status stop success succeeded title unknown update updated upload user value view waiting warning welcome worker workspace yes no revision seat engagement workflow team integration secret draft publish task agent group'.split(' ');
+
+async function inspect(page, allowed) {
+  const dom = await page.evaluate(({ allowed, englishCandidates }) => {
     const visible = element => element.checkVisibility({ checkVisibilityCSS: true, contentVisibilityAuto: true }) && element.getClientRects().length > 0;
-    const text = (document.body.innerText || '').replace(/\b(?:Codex|Claude(?: Code)?|OpenCode|Factory|Git|MCP|API)\b/gi, '');
-    const english = text.match(/\b(?:Approve|Reject|Save|Delete|Cancel|Loading|Error|Settings|Workflow is|Take the)\b[^\n]*/gi) ?? [];
+    const text = document.body.innerText || '';
+    const allowedSet = new Set(allowed);
+    const candidates = new Set(englishCandidates);
+    const labels = [...document.querySelectorAll('[aria-label], [placeholder], [title]')].filter(visible)
+      .flatMap(element => ['aria-label', 'placeholder', 'title'].map(attr => element.getAttribute(attr) ?? ''));
+    const english = [text, ...labels].join('\n').match(/(?<![\p{L}\p{M}\p{N}])[a-z]+(?:-[a-z]+)*(?![\p{L}\p{M}\p{N}])/giu)
+      ?.map(word => word.toLowerCase()).filter(word => candidates.has(word) && !allowedSet.has(word)) ?? [];
     const headerSelectors = 'header,[role="toolbar"],[data-slot="tabs-list"]';
     const overflow = [...document.querySelectorAll(headerSelectors)].filter(element => visible(element) && element.scrollWidth > element.clientWidth + 2).map(element => {
       const boundary = element.getBoundingClientRect();
@@ -90,11 +122,13 @@ async function inspect(page) {
       return { element: element.getAttribute('aria-label') || element.tagName, extra: element.scrollWidth - element.clientWidth,
         clipped: clipped.map(child => child.innerText.trim() || child.getAttribute('aria-label') || child.title).filter(Boolean) };
     });
+    const root = document.documentElement;
+    if (root.scrollWidth > root.clientWidth + 2) overflow.unshift({ element: 'viewport', extra: root.scrollWidth - root.clientWidth, clipped: [] });
     const nodes = [...document.querySelectorAll('.react-flow__node')].map(node => ({ id: node.dataset.id, position: node.style.transform }));
-    return { english: [...new Set(english)].slice(0, 20), uuids: [...new Set(text.match(/[0-9a-f]{8}-[0-9a-f]{4}-/gi) ?? [])].slice(0, 20), overflow, nodes,
+    return { english: [...new Set(english)].slice(0, 30), uuids: [...new Set(text.match(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi) ?? [])].slice(0, 20), overflow, nodes,
       selects: [...document.querySelectorAll('select')].filter(visible).length,
       missingAlt: [...document.images].filter(image => visible(image) && !image.hasAttribute('alt')).length };
-  });
+  }, { allowed, englishCandidates });
   const snapshot = await page.locator('body').ariaSnapshot({ timeout: 5000 });
   const unnamedButtons = (snapshot.match(/^\s*- button(?:\s+\[[^\]]+\])*\s*:?\s*$/gm) ?? []).length;
   return { ...dom, english: dom.english.map(safeText), unnamedButtons };
@@ -134,22 +168,22 @@ async function paint(page) {
 
 const shot = (page, file) => page.screenshot({ path: join(screenshots, file), animations: 'disabled', timeout: 8000 }).then(() => file);
 
-async function capture(page, results, item, variant, fixture, base, signInBase, events) {
+async function capture(page, results, item, variant, fixture, base, signInBase, events, allowed) {
   const { width, theme } = variant;
   const screen = item.screen ? screens.find(candidate => candidate.id === item.screen) : item;
-  const entry = { id: item.id, area: item.screen ? 'hop-thoai' : item.area, width, theme, status: 'PASS', issues: [], flags: [], events };
+  const entry = { id: item.id, area: screen.area, kind: item.screen ? 'dialog' : 'screen', width, theme, status: 'PASS', issues: [], flags: [], events };
   results.captures.push(entry);
-  const file = `${String(results.captures.length).padStart(2, '0')}-${entry.area}-${item.id}-${width}-${theme}.png`;
+  const file = `${String(results.captures.length).padStart(3, '0')}-${entry.area}-${item.id}-${width}-${theme}.png`;
   try {
     await openScreen(page, screen, fixture, screen.signIn ? signInBase : base);
     if (item.screen && item.open) await item.open(page, fixture);
     await page.locator(`html[data-theme="${theme}"]`).waitFor();
     await paint(page);
-    entry.inspection = await inspect(page);
+    entry.inspection = await inspect(page, allowed);
     issuesFor(entry);
-  } catch (error) { entry.status = 'FAIL'; entry.issues.push(safeText(error.message)); }
+  } catch (error) { entry.status = 'FAIL'; entry.failure = safeText(error.message); }
   try { entry.file = await shot(page, file); }
-  catch (error) { entry.status = 'FAIL'; entry.issues.push(safeText(error.message)); }
+  catch (error) { entry.status = 'FAIL'; entry.failure = [entry.failure, safeText(error.message)].filter(Boolean).join(' · '); }
 }
 
 async function main() {
@@ -157,14 +191,17 @@ async function main() {
   const children = [];
   let temp;
   let browser;
+  let endpoint;
   await mkdir(screenshots, { recursive: true });
   try {
+    const allowed = await glossaryWords();
     const built = await Promise.all([hostMain, join(dir, 'index.html')].map(path => access(path).then(() => true, () => false)));
     if (!built.every(Boolean)) throw new Error('Thiếu bản build. Chạy: (cd packages/factory-contracts && npm run build); (cd apps/factory-host && npm run build); (cd apps/factory-ui && npm run build)');
     temp = await mkdtemp(join(auditRoot, 'host-'));
     const host = await startHost(join(temp, 'open'), children, true);
     const signInHost = await startHost(join(temp, 'signin'), children, false);
     const fixture = await seed(host);
+    endpoint = await startEndpoint();
     results.seedFailures = fixture.seedFailures.map(({ type, error }) => ({ type, error: safeText(error) }));
     const requested = process.env.FACTORY_AUDIT_CHROME || '/usr/bin/google-chrome-stable';
     const executablePath = await access(requested, constants.X_OK).then(() => requested, () => chromium.executablePath());
@@ -175,13 +212,17 @@ async function main() {
     try {
       const page = await deepContext.newPage();
       record(page, event => results.events.push({ ...event, phase: 'deep-link' }));
-      const hash = hashFor(screens.find(screen => screen.id === 'project-agents'), fixture.projects.primary);
+      const hash = hashFor(screens.find(screen => screen.id === 'project-agents'), fixture);
       await page.goto(`${host.base}/${hash}`);
       await page.locator('#factory-main').waitFor();
-      await page.locator('#factory-navigation').getByRole('button', { name: fixture.projectNames.primary, exact: true }).waitFor();
+      await hook(page, 'agent-create').or(hook(page, 'overview-screen')).waitFor();
       await paint(page);
       const actual = new URL(page.url()).hash;
-      results.deepLink = { hash, actual, redirectedHome: actual === '#/overview', result: `Sau lần tải đầu: ${actual}`, file: await shot(page, '00-trong-project-deep-link-1280-light.png') };
+      results.deepLink = { hash, actual, redirectedHome: actual === '#/overview', file: await shot(page, '000-project-deep-link-1280-light.png') };
+      await seedSession(page, host.base);
+      await navigateHash(page, host.base, hash, { observe: ({ redirectedHome }) => { results.deepLink.retryNeeded = redirectedHome; } });
+      await hook(page, 'agent-create').waitFor();
+      results.deepLink.recovered = true;
     } catch (error) { results.events.push({ type: 'deep-link', text: safeText(error.message) }); }
     finally { await deepContext.close(); }
     for (const variant of variants) {
@@ -192,7 +233,7 @@ async function main() {
         record(page, event => events?.push(event));
         for (const item of [...screens, ...dialogs]) {
           events = [];
-          await capture(page, results, item, variant, fixture, host.base, signInHost.base, events);
+          await capture(page, results, item, variant, fixture, host.base, signInHost.base, events, allowed);
         }
       } finally { await context.close(); }
     }
@@ -200,10 +241,10 @@ async function main() {
     try {
       const page = await crudContext.newPage();
       record(page, event => results.events.push({ ...event, phase: 'CRUD' }));
-      await runCrudFlows({ page, fixture, base: host.base, results: results.flows, screenshot: name => shot(page, name), safeText });
+      await runCrudFlows({ page, fixture, base: host.base, endpoint, canaries, results: results.flows, screenshot: name => shot(page, name), safeText });
     } finally { await crudContext.close(); }
     results.events.push(...fixture.apiFailures.map(({ path, status }) => ({ type: 'HTTP (fixture)', path, status })));
-    const failed = !results.deepLink || results.seedFailures.length || [...results.captures, ...results.flows].some(entry => entry.status !== 'PASS');
+    const failed = !results.deepLink?.recovered || results.seedFailures.length || [...results.captures, ...results.flows].some(entry => entry.status !== 'PASS');
     results.status = failed ? 'ĐÃ CHẠY · CÓ BƯỚC THẤT BẠI' : 'ĐÃ CHẠY';
     if (failed) process.exitCode = 1;
   } catch (error) {
@@ -213,6 +254,7 @@ async function main() {
     process.exitCode = 1;
   } finally {
     await browser?.close().catch(() => {});
+    await endpoint?.close();
     await Promise.all(children.map(stopHost));
     if (temp && !keep) await rm(temp, { recursive: true, force: true });
     if (temp && keep) console.log(`Giữ state: ${temp}`);

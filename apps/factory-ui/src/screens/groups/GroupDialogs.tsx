@@ -74,10 +74,10 @@ export function GroupEditor({ group, parentId, close, onCreated, blocked = false
   return <AdminDialog title={title} description={t(group ? 'editHelp' : 'createHelp', { max: GROUP_MAX_DEPTH })} close={close} busy={writer.busy} onSubmit={save}
     footer={<DialogButtons close={close} label={group ? t('save') : title} busy={writer.busy} disabled={disabled} />}>
     <Field label={t('groupName')} hint={t('nameLimit')} invalid={tried && !fields.shape.name.safeParse(values.name).success ? t('nameLimit') : undefined}>
-      {props => <Input {...props} required autoFocus maxLength={80} disabled={writer.busy} value={name} onChange={event => { const next = event.target.value; setName(next); if (automatic) setSlug(slugify(next)); }} />}
+      {props => <Input data-testid="group-name" {...props} required autoFocus maxLength={80} disabled={writer.busy} value={name} onChange={event => { const next = event.target.value; setName(next); if (automatic) setSlug(slugify(next)); }} />}
     </Field>
     <Field label={t('slug')} hint={t('slugHelp')} invalid={taken ? t('pathTaken') : tried && invalidSlug ? t('slugHelp') : undefined}>
-      {props => <Input {...props} required maxLength={50} disabled={writer.busy} value={slug} onChange={event => { setAutomatic(false); setSlug(event.target.value); }} />}
+      {props => <Input data-testid="group-slug" {...props} required maxLength={50} disabled={writer.busy} value={slug} onChange={event => { setAutomatic(false); setSlug(event.target.value); }} />}
     </Field>
     <ReadFeedback error={readError ?? list.error} loading={list.loading && !list.data} retry={refresh} />
     <GroupPicker groups={groups} label={t('parent')} rootLabel={t('rootGroup')} value={destination} onChange={setParent}
@@ -141,7 +141,7 @@ export function GroupConfirmation({ group, deleting, blockers, blocked, readErro
     }} footer={<DialogButtons close={close} label={title} busy={writer.busy} disabled={disabled} destructive={deleting} />}>
     <ReadFeedback error={readError} loading={false} retry={refresh} />
     {alreadySet && <p role="status" className="text-sm text-muted-foreground">{t('alreadySet')}</p>}
-    {deleting && (blockers.length ? <div className="space-y-2 text-sm"><p>{t('notEmpty')}</p><ul className="list-disc space-y-1 ps-5">{blockers.map(blocker => <li key={blocker}>{blocker}</li>)}</ul></div>
+    {deleting && (blockers.length ? <div data-testid="group-delete-blockers" className="space-y-2 text-sm"><p>{t('notEmpty')}</p><ul className="list-disc space-y-1 ps-5">{blockers.map(blocker => <li key={blocker}>{blocker}</li>)}</ul></div>
       : <Field label={t('typeName', { name: group.name })}>{props => <Input {...props} autoComplete="off" autoFocus value={confirm} disabled={writer.busy} onChange={event => setConfirm(event.target.value)} />}</Field>)}
     <WriteIssue error={writer.error} stale={revision.stale} loading={blocked} onReload={() => { revision.rebase(); writer.setError(null); }} />
   </AdminDialog>;

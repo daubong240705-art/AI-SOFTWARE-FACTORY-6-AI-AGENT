@@ -51,16 +51,16 @@ export function GroupTree({ items, label, current, expanded, toggle, activate, c
       const branch = !!item.children?.length;
       const open = branch && expanded.has(item.id);
       const Chevron = open ? ChevronDown : ChevronRight;
-      return <li key={item.id} id={elementId(item.id)} role="treeitem" aria-label={item.label}
+      return <li data-testid={`tree-${item.id}`} key={item.id} id={elementId(item.id)} role="treeitem" aria-label={item.label}
         aria-current={!selection && current === item.id ? 'page' : undefined} aria-selected={selection ? current === item.id : undefined}
         aria-expanded={branch ? open : undefined} aria-disabled={item.disabled || undefined} aria-level={depth + 1}
         tabIndex={!disabled && tabStop === item.id ? 0 : -1} onFocus={event => { if (event.target === event.currentTarget) setFocused(item.id); }} onKeyDown={event => key(event, item.id)}
         className="group/node min-w-0 focus-visible:outline-none">
-        <div title={item.label} onClick={() => { if (!disabled) { focus(item.id); if (!item.disabled) activate(item.id); } }}
+        <div data-testid="tree-open" title={item.label} onClick={() => { if (!disabled) { focus(item.id); if (!item.disabled) activate(item.id); } }}
           className={cn('relative flex min-h-10 w-full items-center gap-1.5 rounded-md px-2 text-start text-sm text-muted-foreground group-focus-visible/node:outline-2 group-focus-visible/node:-outline-offset-2 group-focus-visible/node:outline-ring',
             current === item.id && 'bg-nav-active font-medium text-foreground', item.disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-card hover:text-foreground', compact && 'justify-center px-0')}
           style={compact ? undefined : { paddingInlineStart: 4 + depth * 12 }}>
-          {branch ? <span className={cn('grid size-5 shrink-0 place-items-center rounded hover:bg-secondary', compact && 'absolute top-0 right-0 z-10 size-3 bg-sidebar')} aria-hidden="true"
+          {branch ? <span data-testid="tree-expand" className={cn('grid size-5 shrink-0 place-items-center rounded hover:bg-secondary', compact && 'absolute top-0 right-0 z-10 size-3 bg-sidebar')} aria-hidden="true"
             onClick={event => { event.stopPropagation(); if (!disabled) { focus(item.id); toggle(item.id); } }}><Chevron className={compact ? 'size-3' : 'size-4'} /></span>
             : !compact && <span className="w-5 shrink-0" aria-hidden="true" />}
           {item.content}

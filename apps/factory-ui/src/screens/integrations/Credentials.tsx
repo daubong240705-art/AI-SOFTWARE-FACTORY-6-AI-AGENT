@@ -48,11 +48,11 @@ function CredentialDialog({ dialog, api, groups, items, close, refresh }: { dial
   return <AdminDialog title={title} description={removing ? t('deleteCredentialHelp', { name: dialog.item.name }) : t('secretHelp')} close={close} busy={write.busy} onSubmit={submit}
     footer={<DialogButtons close={close} label={removing ? t('delete') : t('save')} busy={write.busy} destructive={removing} disabled={(removing && confirmation !== dialog.item.name) || !!initial && (write.conflict || !current)} />}>
     {dialog.kind === 'create' && <>
-      <Field label={t('name')} invalid={nameError ? t('invalid.field') : undefined}>{props => <Input {...props} value={name} onChange={event => setName(event.target.value)} maxLength={160} required />}</Field>
+      <Field label={t('name')} invalid={nameError ? t('invalid.field') : undefined}>{props => <Input data-testid="secret-name" {...props} value={name} onChange={event => setName(event.target.value)} maxLength={160} required />}</Field>
       <ScopeChoice groups={groups} value={scope} set={setScope} />
     </>}
     {removing ? <NameConfirmation name={dialog.item.name} value={confirmation} set={setConfirmation} />
-      : <Field label={t('secretValue')} invalid={valueError ? t('secretRequired') : undefined}>{props => <Input {...props} ref={password} type="password" autoComplete="new-password" spellCheck={false} maxLength={8192} required />}</Field>}
+      : <Field label={t('secretValue')} invalid={valueError ? t('secretRequired') : undefined}>{props => <Input data-testid="secret-value" {...props} ref={password} type="password" autoComplete="new-password" spellCheck={false} maxLength={8192} required />}</Field>}
     <IntegrationError error={write.error} />
     {initial && write.conflict && <Button type="button" variant="outline" disabled={write.busy} onClick={() => {
       void write.run(async () => {
@@ -73,13 +73,13 @@ export function Credentials({ api, groups }: { api: ApiClient; groups: readonly 
   const [dialog, setDialog] = useState<Dialog | null>(null);
   return <section className="space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{t('credentials')}</h2>
-      <Button type="button" onClick={() => setDialog({ kind: 'create' })}>{t('createCredential')}</Button></div>
+      <Button data-testid="secret-create" type="button" onClick={() => setDialog({ kind: 'create' })}>{t('createCredential')}</Button></div>
     <RetryRead error={read.error} loading={read.loading} retry={refresh} />
     {read.data && items.length === 0 && <p className="text-sm text-muted-foreground">{t('noCredentials')}</p>}
-    <ul className="grid gap-2">{items.map(item => <li key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card/60 p-3">
+    <ul className="grid gap-2">{items.map(item => <li data-testid={`secret-row-${item.id}`} key={item.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card/60 p-3">
       <div className="min-w-0"><p className="break-words font-medium">{item.name}</p><p className="break-words text-sm text-muted-foreground">{scopeName(groups, item.scopeGroupId, t)} · <span className="font-mono">{'\u2022\u2022\u2022\u2022'}{item.last4}</span> · {t('updated')} <time dateTime={item.updatedAt}>{timestamp(item.updatedAt)}</time></p></div>
-      <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="outline" onClick={() => setDialog({ kind: 'replace', item })}>{t('replaceCredential')}</Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => setDialog({ kind: 'delete', item })}>{t('delete')}</Button></div>
+      <div className="flex flex-wrap gap-2"><Button data-testid="secret-replace" type="button" size="sm" variant="outline" onClick={() => setDialog({ kind: 'replace', item })}>{t('replaceCredential')}</Button>
+        <Button data-testid="secret-delete" type="button" size="sm" variant="ghost" onClick={() => setDialog({ kind: 'delete', item })}>{t('delete')}</Button></div>
     </li>)}</ul>
     {dialog && <CredentialDialog dialog={dialog} api={api} groups={groups} items={items} close={() => setDialog(null)} refresh={refresh} />}
   </section>;

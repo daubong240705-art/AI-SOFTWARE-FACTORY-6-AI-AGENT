@@ -39,16 +39,16 @@ function ConnectionRow({ item, edit, remove, refresh }: { item: Integration; edi
   const t = useIntegrationLabels();
   const write = useIntegrationWrite();
   const [showTools, setShowTools] = useState(false);
-  return <li className="grid gap-2 rounded-lg border bg-card/60 p-3">
+  return <li data-testid={`connection-row-${item.id}`} className="grid gap-2 rounded-lg border bg-card/60 p-3">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0"><h3 className="flex flex-wrap items-center gap-2 break-all font-semibold">{item.name} <Badge variant="outline">{t(item.kind)}</Badge></h3>
         <p className="break-words text-sm text-muted-foreground">{scopeName(list.data?.groups ?? [], item.scopeGroupId, t)}</p></div>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="outline" disabled={write.busy || item.status === 'checking'} onClick={() => {
+        <Button data-testid="connection-test" type="button" size="sm" variant="outline" disabled={write.busy || item.status === 'checking'} onClick={() => {
           void write.run(() => api.sendIntegrationCommand(integrationsTest({ id: item.id, expectedRevision: item.revision })), () => setShowTools(true), 'checkStarted').then(refresh);
         }}>{t('test')}</Button>
-        <Button type="button" size="sm" variant="outline" disabled={write.busy} onClick={edit}>{t('edit')}</Button>
-        <Button type="button" size="sm" variant="ghost" disabled={write.busy} onClick={remove}>{t('delete')}</Button>
+        <Button data-testid="connection-edit" type="button" size="sm" variant="outline" disabled={write.busy} onClick={edit}>{t('edit')}</Button>
+        <Button data-testid="connection-delete" type="button" size="sm" variant="ghost" disabled={write.busy} onClick={remove}>{t('delete')}</Button>
       </div>
     </div>
     <p role="status" className="text-sm"><Badge variant={item.status === 'error' ? 'destructive' : 'secondary'}>{t(item.status)}</Badge>
@@ -84,7 +84,7 @@ export function Connections({ groupId }: { groupId?: string }) {
   return <section className="space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{t('connections')}</h2>
       <div className="flex flex-wrap gap-2"><Button type="button" variant="ghost" onClick={refresh}>{t('refresh')}</Button>
-        <Button type="button" onClick={() => setDialog({ kind: 'create' })}>{t('createIntegration')}</Button></div></div>
+        <Button data-testid="connection-create" type="button" onClick={() => setDialog({ kind: 'create' })}>{t('createIntegration')}</Button></div></div>
     <RetryRead error={result.error ?? list.error} loading={result.loading && !result.data} retry={() => { refresh(); if (list.error) refreshGroups(); }} />
     {result.data?.length === 0 && <p className="text-sm text-muted-foreground">{t('noConnections')}</p>}
     <ul className="grid gap-2">{result.data?.map(item => <ConnectionRow key={item.id} item={item} refresh={refresh} edit={() => setDialog({ kind: 'edit', item })} remove={() => setDialog({ kind: 'delete', item })} />)}</ul>
@@ -101,7 +101,7 @@ export default function IntegrationsPage() {
     <header className="space-y-1"><h1 className="flex items-center gap-2 text-xl font-semibold"><Plug className="size-5 text-muted-foreground" aria-hidden="true" />{t('title')}</h1>
       <p className="text-sm text-muted-foreground">{t('help')}</p></header>
     <Tabs defaultValue="connections">
-      <TabsList aria-label={t('title')}><TabsTrigger value="connections">{t('connections')}</TabsTrigger><TabsTrigger value="credentials">{t('credentials')}</TabsTrigger></TabsList>
+      <TabsList aria-label={t('title')}><TabsTrigger data-testid="integration-connections" value="connections">{t('connections')}</TabsTrigger><TabsTrigger data-testid="integration-secrets" value="credentials">{t('credentials')}</TabsTrigger></TabsList>
       <TabsContent value="connections"><Connections /></TabsContent>
       <TabsContent value="credentials"><RetryRead error={list.error} loading={list.loading && !list.data} retry={refresh} /><Credentials api={api} groups={list.data?.groups ?? []} /></TabsContent>
     </Tabs>

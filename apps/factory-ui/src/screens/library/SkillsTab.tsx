@@ -59,7 +59,7 @@ export function SkillsTab({ api, library, refreshKey, refresh, submit, blocked }
   return <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
     <section className={panelClass}>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={blocked || importing} onClick={() => { setImportError(false); setCreation(blank); }}>{t('createSkill')}</Button>
+        <Button data-testid="skill-create" type="button" disabled={blocked || importing} onClick={() => { setImportError(false); setCreation(blank); }}>{t('createSkill')}</Button>
         <Button type="button" variant="outline" disabled={blocked || importing} onClick={() => fileInput.current?.click()}>{t('importSkill')}</Button>
         <input ref={fileInput} type="file" accept=".md" hidden onChange={event => {
           const file = event.currentTarget.files?.[0];
@@ -118,10 +118,10 @@ function SkillPanel({ api, summary, refreshKey, refresh, submit, blocked }: {
     {data && <>
       <p className="text-sm">{t('usedBy', data.usedBy)}</p>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" disabled={waiting} onClick={() => setDialog({ kind: 'edit', snapshot: data })}>{agentLabel('edit')}</Button>
-        <Button type="button" variant="destructive" disabled={waiting} onClick={() => setDialog({ kind: 'delete', snapshot: data })}>{agentLabel('delete')}</Button>
+        <Button data-testid="skill-edit" type="button" variant="outline" disabled={waiting} onClick={() => setDialog({ kind: 'edit', snapshot: data })}>{agentLabel('edit')}</Button>
+        <Button data-testid="skill-delete" type="button" variant="destructive" disabled={waiting} onClick={() => setDialog({ kind: 'delete', snapshot: data })}>{agentLabel('delete')}</Button>
       </div>
-      <Field label={t('versions')}>{props => <Choice {...props} value={current} onChange={event => setVersion(Number(event.target.value) === skill.latestVersion ? null : Number(event.target.value))}>
+      <Field label={t('versions')}>{props => <Choice data-testid="skill-version" {...props} value={current} onChange={event => setVersion(Number(event.target.value) === skill.latestVersion ? null : Number(event.target.value))}>
         {[...data.versions].sort((left, right) => right.version - left.version).map(item => <option key={item.version} value={item.version}>v{item.version} · {dateTime(item.createdAt)}</option>)}
       </Choice>}</Field>
       <ReadFeedback error={content.error} loading={content.loading} retry={refresh} />
@@ -177,12 +177,12 @@ function SkillEditor({ draft, edit, close, submit, blocked, stale }: {
     footer={<DialogButtons close={close} label={agentLabel('save')} busy={writer.busy} disabled={!!disabled} />}>
     <LibraryError error={writer.error} stale={stale ?? false} />
     <fieldset disabled={writer.busy} className="grid gap-4">
-      <Field label={agentLabel('fields.name')} invalid={invalid('name')} hint={t('skillNameHint')}>{props => <Input {...props} value={value.name} maxLength={64} onChange={event => set('name', event.target.value)} />}</Field>
-      <Field label={agentLabel('fields.description')} invalid={invalid('description')}>{props => <Textarea {...props} value={value.description} maxLength={1024} onChange={event => set('description', event.target.value)} />}</Field>
+      <Field label={agentLabel('fields.name')} invalid={invalid('name')} hint={t('skillNameHint')}>{props => <Input data-testid="skill-name" {...props} value={value.name} maxLength={64} onChange={event => set('name', event.target.value)} />}</Field>
+      <Field label={agentLabel('fields.description')} invalid={invalid('description')}>{props => <Textarea data-testid="skill-description" {...props} value={value.description} maxLength={1024} onChange={event => set('description', event.target.value)} />}</Field>
       {!edit && <Field label={t('trustLabel')}>{props => <Choice {...props} value={value.trust} onChange={event => set('trust', skillTrustSchema.parse(event.target.value))}>
         {skillTrustSchema.options.map(trust => <option key={trust} value={trust}>{t(`trust.${trust}`)}</option>)}
       </Choice>}</Field>}
-      <Field label={t('content')} invalid={invalid('content')}>{props => <Textarea {...props} className="min-h-48 font-mono text-xs" value={value.content} maxLength={contentLimit} aria-describedby={props['aria-describedby'] ? `${counter} ${props['aria-describedby']}` : counter} onChange={event => set('content', event.target.value)} />}</Field>
+      <Field label={t('content')} invalid={invalid('content')}>{props => <Textarea data-testid="skill-content" {...props} className="min-h-48 font-mono text-xs" value={value.content} maxLength={contentLimit} aria-describedby={props['aria-describedby'] ? `${counter} ${props['aria-describedby']}` : counter} onChange={event => set('content', event.target.value)} />}</Field>
       <p id={counter} className="text-xs text-muted-foreground">{t('contentCount', { count: value.content.length.toLocaleString(), limit: contentLimit.toLocaleString() })}</p>
     </fieldset>
   </AdminDialog>;

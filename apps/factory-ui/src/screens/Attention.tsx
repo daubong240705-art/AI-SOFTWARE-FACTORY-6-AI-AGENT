@@ -98,7 +98,7 @@ export function Attention({ store, embedded = false }: { store: Store; embedded?
   }
   const name = (row: AttentionItem) => row.projectName ?? state.projects.find(project => project.id === row.projectId)?.name ?? t('overview.project');
   if (state.session !== 'authenticated') return null;
-  return <div className="grid h-full min-h-0 grid-cols-1 overflow-auto bg-background text-foreground md:grid-cols-[340px_minmax(0,1fr)] md:overflow-hidden">
+  return <div data-testid="attention-screen" className="grid h-full min-h-0 grid-cols-1 overflow-auto bg-background text-foreground md:grid-cols-[340px_minmax(0,1fr)] md:overflow-hidden">
     <section className="min-h-0 overflow-auto border-b border-border md:border-r md:border-b-0" aria-labelledby="attention-list-title">
       <header className="p-6 pb-4"><h1 id="attention-list-title" className="text-2xl font-semibold">{t('nav.attention')}</h1></header>
       <ViewState loading={!!state.inboxLoading} />
@@ -106,7 +106,7 @@ export function Attention({ store, embedded = false }: { store: Store; embedded?
       {!rows.length && !state.inboxLoading && !state.inboxError && <ViewState empty emptyText={t('attention.empty')} seat="Lead" mascotState="success" emptyAction={<Button asChild variant="outline"><a href="#/overview">{t('nav.overview')}</a></Button>} />}
       <Stagger ref={list} aria-label={t('attention.list')} className="m-0 list-none p-0"><AnimatePresence initial={false}>{rows.map((row, index) => {
         const code = row.code ?? state.tasks.find(task => task.projectId === row.projectId && task.id === state.globalInbox.approvals.find(approval => `approval:${approval.id}` === row.key)?.taskId)?.code;
-        return <StaggerItem key={row.key} index={index} collapse><Button type="button" variant="ghost" data-row-key={row.key} aria-current={selected?.key === row.key ? 'true' : undefined} aria-selected={selected?.key === row.key} className={cn('h-auto w-full flex-col items-stretch gap-2 rounded-none border-t border-l-2 border-t-border border-l-transparent px-6 py-3 text-left whitespace-normal hover:bg-card', selected?.key === row.key && 'border-l-need bg-secondary hover:bg-secondary')} onClick={() => select(row)}>
+        return <StaggerItem key={row.key} index={index} collapse><Button data-testid={`attention-row-${row.key}`} type="button" variant="ghost" data-row-key={row.key} aria-current={selected?.key === row.key ? 'true' : undefined} aria-selected={selected?.key === row.key} className={cn('h-auto w-full flex-col items-stretch gap-2 rounded-none border-t border-l-2 border-t-border border-l-transparent px-6 py-3 text-left whitespace-normal hover:bg-card', selected?.key === row.key && 'border-l-need bg-secondary hover:bg-secondary')} onClick={() => select(row)}>
           <span className="flex items-start gap-3"><StatusDot tone={['review', 'question', 'request', 'start-gate'].includes(row.kind) ? 'need' : 'error'} label={t(`attention.kinds.${row.kind}`)} labelHidden className="mt-1" /><strong className="line-clamp-2 min-w-0 flex-1 text-sm leading-relaxed font-semibold [overflow-wrap:anywhere]">{attentionTitle(row.title)}</strong></span>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal text-muted-foreground"><ProjectTile id={row.projectId} name={name(row)} className="size-5" /><span>{name(row)}</span>{code && <span className="font-mono">{code}</span>}{!row.since.startsWith('9999') && <time dateTime={row.since} className="ml-auto">{relativeTime(row.since)}</time>}</span>
         </Button></StaggerItem>;

@@ -87,30 +87,30 @@ export default function GroupPage({ id, store, onNavigate, onNewProject }: { id:
       </div>
       {group.description && <p className="whitespace-pre-wrap break-words text-sm">{group.description}</p>}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" size="sm" disabled={blocked} onClick={() => setDialog('edit')}><Pencil aria-hidden="true" />{t('editGroup')}</Button>
-        <Button type="button" variant="outline" size="sm" disabled={blocked} onClick={() => setDialog('move')}><FolderSymlink aria-hidden="true" />{t('moveGroup')}</Button>
-        <Button type="button" variant="outline" size="sm" disabled={blocked} onClick={() => setDialog('archive')}><Archive aria-hidden="true" />{t(group.archived ? 'restore' : 'archive')}</Button>
-        <Button type="button" variant={blockers.length ? 'outline' : 'destructive'} size="sm" disabled={blocked} onClick={() => setDialog('delete')}><Trash2 aria-hidden="true" />{t(blockers.length ? 'deleteStatus' : 'delete')}</Button>
+        <Button data-testid="group-edit" type="button" variant="outline" size="sm" disabled={blocked} onClick={() => setDialog('edit')}><Pencil aria-hidden="true" />{t('editGroup')}</Button>
+        <Button data-testid="group-move" type="button" variant="outline" size="sm" disabled={blocked} onClick={() => setDialog('move')}><FolderSymlink aria-hidden="true" />{t('moveGroup')}</Button>
+        <Button data-testid="group-archive" type="button" variant="outline" size="sm" disabled={blocked} onClick={() => setDialog('archive')}><Archive aria-hidden="true" />{t(group.archived ? 'restore' : 'archive')}</Button>
+        <Button data-testid="group-delete" type="button" variant={blockers.length ? 'outline' : 'destructive'} size="sm" disabled={blocked} onClick={() => setDialog('delete')}><Trash2 aria-hidden="true" />{t(blockers.length ? 'deleteStatus' : 'delete')}</Button>
       </div>
     </header>
     <ReadFeedback error={detail.error} loading={detail.loading} retry={refresh} />
     <Tabs value={tab} onValueChange={setTab}>
-      <TabsList aria-label={group.name} className="h-auto flex-wrap justify-start">{tabs.map(value => <TabsTrigger key={value} value={value}>{value === 'integrations' ? translate('integrationsUi.title') : t(value)}</TabsTrigger>)}</TabsList>
+      <TabsList aria-label={group.name} className="h-auto flex-wrap justify-start">{tabs.map(value => <TabsTrigger data-testid={`group-tab-${value}`} key={value} value={value}>{value === 'integrations' ? translate('integrationsUi.title') : t(value)}</TabsTrigger>)}</TabsList>
       <TabsContent value="overview"><Overview rollup={rollup} approvalId={approval?.id} /></TabsContent>
       <TabsContent value="children" className="space-y-4">
         <section className={section}><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{t('projects')}</h2>
           {!group.archived && <Button type="button" size="sm" disabled={blocked} onClick={() => onNewProject(id)}><Plus aria-hidden="true" />{t('newProject')}</Button>}</div>
           {projects.length ? <ul className="divide-y divide-border">{projects.map(project => <li key={project.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
             <a className="break-all underline" href={viewHash(`project:${project.id}`)}>{project.disposition === 'archived' ? t('archivedName', { name: project.name }) : project.name}</a>
-            <Button type="button" size="sm" variant="outline" disabled={blocked} onClick={() => setDialog({ projectId: project.id, name: project.name })} aria-label={`${t('move')}: ${project.name}`}>{t('move')}</Button>
+            <Button data-testid="group-move-project" type="button" size="sm" variant="outline" disabled={blocked} onClick={() => setDialog({ projectId: project.id, name: project.name })} aria-label={`${t('move')}: ${project.name}`}>{t('move')}</Button>
           </li>)}</ul> : <p className="text-sm text-muted-foreground">{t('noProjects')}</p>}
         </section>
         <section className={section}><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{t('subgroups')}</h2>
-          {!group.archived && group.depth < GROUP_MAX_DEPTH && <Button type="button" size="sm" disabled={blocked} onClick={() => setDialog('child')}><FolderPlus aria-hidden="true" />{t('newGroup')}</Button>}</div>
+          {!group.archived && group.depth < GROUP_MAX_DEPTH && <Button data-testid="group-create-child" type="button" size="sm" disabled={blocked} onClick={() => setDialog('child')}><FolderPlus aria-hidden="true" />{t('newGroup')}</Button>}</div>
           {!group.archived && group.depth >= GROUP_MAX_DEPTH && <p className="text-sm text-muted-foreground">{t('depthLimit', { max: GROUP_MAX_DEPTH })}</p>}
           {children.length ? <ul className="divide-y divide-border">{children.map(child => <li key={child.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
             <a className="break-all underline" href={viewHash(`group:${child.id}`)}>{child.archived ? t('archivedName', { name: child.name }) : child.name}</a>
-            <Button type="button" size="sm" variant="outline" disabled={blocked} onClick={() => setDialog({ childId: child.id })} aria-label={`${t('move')}: ${child.name}`}>{t('move')}</Button>
+            <Button data-testid="group-move-child" type="button" size="sm" variant="outline" disabled={blocked} onClick={() => setDialog({ childId: child.id })} aria-label={`${t('move')}: ${child.name}`}>{t('move')}</Button>
           </li>)}</ul>
             : <p className="text-sm text-muted-foreground">{t('noChildren')}</p>}
         </section>

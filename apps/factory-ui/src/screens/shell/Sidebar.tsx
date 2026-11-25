@@ -41,15 +41,15 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
       <span className="grid size-7 shrink-0 place-items-center rounded-[9px] bg-primary text-[17px] text-primary-foreground" aria-hidden="true">F</span>
       <span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('shell.product')}</span>
     </div>
-    <NavButton collapsed={collapsed} aria-label={t('nav.overview')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => onNavigate('overview')}><House /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.overview')}</span></NavButton>
-    <NavButton collapsed={collapsed} aria-label={`${t('nav.attention')}, ${inboxCount(t, items.length)}`} aria-current={view === 'needs-attention' ? 'page' : undefined} onClick={() => onNavigate('needs-attention')}><Inbox /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.attention')}</span>{items.length > 0 && !collapsed && <Badge key={items.length} className="ml-auto min-w-[22px] animate-[pop_300ms_ease-out] motion-reduce:animate-none border-0 bg-need py-0 text-need-foreground">{items.length}</Badge>}</NavButton>
-    <NavButton collapsed={collapsed} aria-label={t('nav.library')} aria-current={view === 'library' ? 'page' : undefined} onClick={() => onNavigate('library')}><Library /><span className={labelClass}>{t('nav.library')}</span></NavButton>
-    <NavButton collapsed={collapsed} aria-label={t('integrationsUi.title')} aria-current={view === 'integrations' ? 'page' : undefined} onClick={() => onNavigate('integrations')}><Plug /><span className={labelClass}>{t('integrationsUi.title')}</span></NavButton>
-    <NavButton collapsed={collapsed} aria-label={t('nav.world')} aria-current={view === 'world' ? 'page' : undefined} onClick={() => onNavigate('world')}><Earth /><span className={labelClass}>{t('nav.world')}</span></NavButton>
+    <NavButton data-testid="sidebar-overview" collapsed={collapsed} aria-label={t('nav.overview')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => onNavigate('overview')}><House /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.overview')}</span></NavButton>
+    <NavButton data-testid="sidebar-attention" collapsed={collapsed} aria-label={`${t('nav.attention')}, ${inboxCount(t, items.length)}`} aria-current={view === 'needs-attention' ? 'page' : undefined} onClick={() => onNavigate('needs-attention')}><Inbox /><span className={cn(labelClass, 'transition-opacity duration-150 motion-reduce:transition-none')}>{t('nav.attention')}</span>{items.length > 0 && !collapsed && <Badge key={items.length} className="ml-auto min-w-[22px] animate-[pop_300ms_ease-out] motion-reduce:animate-none border-0 bg-need py-0 text-need-foreground">{items.length}</Badge>}</NavButton>
+    <NavButton data-testid="sidebar-library" collapsed={collapsed} aria-label={t('nav.library')} aria-current={view === 'library' ? 'page' : undefined} onClick={() => onNavigate('library')}><Library /><span className={labelClass}>{t('nav.library')}</span></NavButton>
+    <NavButton data-testid="sidebar-integrations" collapsed={collapsed} aria-label={t('integrationsUi.title')} aria-current={view === 'integrations' ? 'page' : undefined} onClick={() => onNavigate('integrations')}><Plug /><span className={labelClass}>{t('integrationsUi.title')}</span></NavButton>
+    <NavButton data-testid="sidebar-world" collapsed={collapsed} aria-label={t('nav.world')} aria-current={view === 'world' ? 'page' : undefined} onClick={() => onNavigate('world')}><Earth /><span className={labelClass}>{t('nav.world')}</span></NavButton>
     <div className={cn('mt-4 flex h-8 shrink-0 items-center justify-between px-2.5 text-xs font-medium tracking-wide text-muted-foreground uppercase', collapsed && 'justify-center px-0')}>
       <span className={collapsed ? 'sr-only' : ''}>{t('global.projects')}</span>
-      <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label={groupLabel('createMenu')}><Plus aria-hidden="true" /></Button></DropdownMenuTrigger>
-        <DropdownMenuContent align="end"><DropdownMenuItem onSelect={onNewProject}>{groupLabel('newProject')}</DropdownMenuItem><DropdownMenuItem onSelect={onNewGroup}>{groupLabel('newGroup')}</DropdownMenuItem></DropdownMenuContent>
+      <DropdownMenu><DropdownMenuTrigger asChild><Button data-testid="sidebar-create" type="button" variant="ghost" size="icon-sm" aria-label={groupLabel('createMenu')}><Plus aria-hidden="true" /></Button></DropdownMenuTrigger>
+        <DropdownMenuContent align="end"><DropdownMenuItem data-testid="sidebar-project-create" onSelect={onNewProject}>{groupLabel('newProject')}</DropdownMenuItem><DropdownMenuItem data-testid="group-create" onSelect={onNewGroup}>{groupLabel('newGroup')}</DropdownMenuItem></DropdownMenuContent>
       </DropdownMenu>
     </div>
     <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block">
@@ -61,10 +61,10 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
       </div>
     </ScrollArea>
     <footer className="mt-auto flex shrink-0 flex-col gap-1 border-t border-border pt-3">
-      <NavButton collapsed={collapsed} aria-label={t('systemUi.title')} aria-current={view === 'system' ? 'page' : undefined} onClick={() => onNavigate('system')}><Activity /><span className={labelClass}>{t('systemUi.title')}</span></NavButton>
+      <NavButton data-testid="sidebar-system" collapsed={collapsed} aria-label={t('systemUi.title')} aria-current={view === 'system' ? 'page' : undefined} onClick={() => onNavigate('system')}><Activity /><span className={labelClass}>{t('systemUi.title')}</span></NavButton>
       <div className="flex w-full items-center gap-1">
       <div className={cn('min-w-0 flex-1', collapsed && '[&_[data-slot=button]]:px-0')}><Settings store={store} collapsed={collapsed} /></div>
-      <NavButton collapsed={collapsed} className={cn('w-10 justify-center px-0', collapsed && 'w-6')} aria-label={t(compact ? 'nav.close' : collapsed ? 'nav.expand' : 'nav.collapse')} aria-expanded={compact ? expanded : !collapsed} onClick={onCollapse}><CollapseIcon /></NavButton>
+      <NavButton data-testid="sidebar-collapse" collapsed={collapsed} className={cn('w-10 justify-center px-0', collapsed && 'w-6')} aria-label={t(compact ? 'nav.close' : collapsed ? 'nav.expand' : 'nav.collapse')} aria-expanded={compact ? expanded : !collapsed} onClick={onCollapse}><CollapseIcon /></NavButton>
       </div>
     </footer>
   </nav>;

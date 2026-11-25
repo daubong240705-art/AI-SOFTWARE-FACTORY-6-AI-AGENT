@@ -1,63 +1,82 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { checklist, screens, dialogs } from './screens.mjs';
+import { dialogs, screens } from './screens.mjs';
 
-const escape = value => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+const md = value => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
 const image = file => file ? `<a href="screenshots/${escape(file)}"><img loading="lazy" src="screenshots/${escape(file)}" alt="${escape(file)}"></a>` : '';
-const list = items => `<ul>${items.map(item => `<li>${escape(item)}</li>`).join('') || '<li>Không ghi nhận.</li>'}</ul>`;
+const formatEvent = event => [event.type, event.status, event.path, event.text].filter(Boolean).join(' · ');
+const levels = ['Chặn thao tác', 'Gây hiểu sai', 'Khó chịu', 'Thẩm mỹ'];
+const criteria = Array.from({ length: 12 }, (_, index) => `C${index + 1}`);
+const list = lines => `<ul>${lines.map(line => `<li>${escape(line)}</li>`).join('')}</ul>`;
+const areas = { global: 'Toàn hệ thống', group: 'Group', project: 'Dự án' };
+const retryNote = 'Liên kết sâu có thể bị chuyển về Tổng quan. Audit mở / để thiết lập phiên, mở lại hash đích và reload nếu vẫn bị chuyển hướng.';
+
+function collectIssues(results) {
+  const issues = [];
+  const add = (level, where, message, file) => issues.push({ severity: levels[level], where, message, ...(file ? { file } : {}) });
+  if (results.error) add(0, 'Audit', results.error);
+  if (results.deepLink?.redirectedHome || results.deepLink?.retryNeeded) add(1, 'Deep link', retryNote, results.deepLink.file);
+  for (const entry of results.seedFailures ?? []) add(0, 'Fixture', `${entry.type}: ${entry.error}`);
+  for (const entry of results.captures) {
+    const where = `${entry.id} · ${entry.width}px · ${entry.theme}`;
+    if (entry.failure) add(0, where, entry.failure, entry.file);
+    for (const message of entry.issues) {
+      const level = /^(Từ tiếng Anh|UUID)/.test(message) ? 1 : /^(Tràn ngang|Nút không tên)/.test(message) ? 2 : 3;
+      add(level, where, message, entry.file);
+    }
+    for (const event of entry.events) add(event.type === 'pageerror' || event.status >= 500 ? 0 : 2, where, formatEvent(event), entry.file);
+  }
+  for (const step of results.flows.filter(step => step.status === 'FAIL')) add(0, `${step.flow}/${step.name}`, step.error, step.file);
+  for (const event of results.events) add(event.type === 'pageerror' || event.type === 'deep-link' || event.status >= 500 ? 0 : 2, event.phase ?? 'Host', formatEvent(event));
+  return issues.sort((left, right) => levels.indexOf(left.severity) - levels.indexOf(right.severity));
+}
 
 export async function writeReport(root, results) {
-  await writeFile(join(root, 'results.json'), JSON.stringify(results, null, 2));
-  const cards = results.captures.map(entry => `<article><h3>${escape(entry.id)} · ${entry.width}px · ${escape(entry.theme)}</h3>${image(entry.file)}${list([...entry.issues, ...entry.events.map(formatEvent)])}</article>`).join('');
-  const flows = results.flows.map(step => `<li><strong>${escape(step.flow)} · ${escape(step.name)} · ${escape(step.status)}</strong> — Mong đợi: ${escape(step.expected)}${step.error ? `<p>${escape(step.error)}</p>` : ''}${image(step.file)}</li>`).join('');
-  const html = `<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Factory UI · R-0</title><style>body{font:15px system-ui;margin:24px;background:#f5f5f5;color:#222}main{max-width:1440px;margin:auto}section,article{background:white;padding:16px;margin:12px 0;border-radius:8px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}img{width:100%;height:auto;border:1px solid #ddd}li img{max-width:320px}li{overflow-wrap:anywhere}</style><main><h1>Factory UI · R-0 audit</h1><p>${escape(results.status)} · ${escape(results.generatedAt)}</p>${results.error ? `<p>${escape(results.error)}</p>` : ''}<section><h2>CRUD</h2>${flows.length ? `<ol>${flows}</ol>` : '<p>CHƯA CHẠY</p>'}</section><section><h2>Màn hình và hộp thoại</h2><div class="cards">${cards || '<p>CHƯA CHẠY</p>'}</div></section><section><h2>Lần tải đầu từ liên kết sâu</h2>${results.deepLink ? `<p>${escape(results.deepLink.result)}</p>${image(results.deepLink.file)}` : '<p>CHƯA CHẠY</p>'}</section><section><h2>Telemetry ngoài lượt chụp</h2>${list(results.events.filter(event => !event.capture).map(formatEvent))}</section></main></html>`;
+  results.issues = collectIssues(results);
+  await writeFile(join(root, 'results.json'), `${JSON.stringify(results, null, 2)}\n`);
+  const thumbnails = Object.entries(areas).map(([area, name]) => {
+    const entries = results.captures.filter(entry => entry.area === area);
+    const groups = Map.groupBy(entries, entry => entry.id);
+    return `<section><h2>${name}</h2>${[...groups].map(([id, entries]) => `<article><h3>${escape(id)}</h3><div class="cards">${entries.map(entry => `<figure>${image(entry.file)}<figcaption>${entry.width}px · ${escape(entry.theme)} · ${escape(entry.status)}</figcaption></figure>`).join('')}</div></article>`).join('') || '<p>CHƯA CHẠY</p>'}</section>`;
+  }).join('');
+  const crud = results.flows.map(step => `<tr><td>${escape(step.flow)}</td><td>${escape(step.name)}</td><td>${escape(step.status)}</td><td>${escape(step.expected)}</td><td>${escape(step.error)}${image(step.file)}</td></tr>`).join('');
+  const issues = levels.map(level => {
+    const entries = results.issues.filter(item => item.severity === level);
+    return `<h3>${level} (${entries.length})</h3>${entries.length ? `<ul>${entries.map(item => `<li><strong>${escape(item.where)}</strong> · ${escape(item.message)} ${item.file ? `<a href="screenshots/${escape(item.file)}">Ảnh</a>` : ''}</li>`).join('')}</ul>` : '<p>—</p>'}`;
+  }).join('');
+  const deepLink = results.deepLink;
+  const html = `<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Factory UI · R-1 audit</title><style>
+  body{font:15px system-ui;margin:24px;background:#f5f5f5;color:#222}main{max-width:1440px;margin:auto}section{background:white;padding:16px;margin:12px 0;border-radius:8px;overflow:auto}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:12px}figure{margin:0}img{width:100%;height:auto;border:1px solid #ddd}table{border-collapse:collapse;width:100%}td,th{padding:8px;text-align:left;border-bottom:1px solid #ddd}td img{max-width:240px}li,td{overflow-wrap:anywhere}
+  </style><main><h1>Factory UI · R-1 audit</h1><p>${escape(results.status)} · ${escape(results.generatedAt)}</p>
+  <section><h2>CRUD</h2>${crud ? `<table><thead><tr><th>Luồng</th><th>Bước</th><th>Trạng thái</th><th>Mong đợi</th><th>Bằng chứng</th></tr></thead><tbody>${crud}</tbody></table>` : '<p>CHƯA CHẠY</p>'}</section>
+  <section><h2>Phát hiện ưu tiên</h2>${issues}</section>
+  <section><h2>Liên kết sâu</h2><p>${retryNote}</p>${deepLink ? `${list([`Đích: ${deepLink.hash}`, `Lần đầu: ${deepLink.actual}`, `Khôi phục: ${deepLink.recovered ? 'OK' : 'Không xác nhận'}`, `Reload cần thiết: ${deepLink.retryNeeded === undefined ? 'Không xác nhận' : deepLink.retryNeeded ? 'Có' : 'Không'}`])}${image(deepLink.file)}` : '<p>CHƯA CHẠY</p>'}</section>
+  ${thumbnails}</main></html>`;
   await writeFile(join(root, 'report.html'), html);
 }
 
-const formatEvent = event => [event.type, event.status, event.path, event.text].filter(Boolean).join(' · ');
-const md = value => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
-
 export async function writeFindings(path, results) {
-  const entries = [...screens, ...dialogs];
-  const rows = entries.map(({ id, screen }) => {
+  const rows = [...screens, ...dialogs].map(({ id, screen }) => {
     const captured = results.captures.filter(entry => entry.id === id && entry.inspection);
     const first = captured[0];
-    const cells = checklist.map(([key]) => {
+    const cells = criteria.map(key => {
       const rule = { C9: 'accessibility', C10: 'overflow', C11: 'language' }[key];
       const failed = rule && captured.find(entry => entry.flags.includes(rule));
-      if (failed) return `✖ Ảnh ${failed.file}`;
-      if (key === 'C1' && screen && first) return `✔ Mở được: ${first.file}`;
+      if (failed) return `✖ ${failed.file ?? 'Không có ảnh'}`;
+      if (key === 'C1' && screen && first) return `✔ ${first.file ?? 'Đã mở'}`;
       return '—';
     });
-    return `| ${id} | ${cells.join(' | ')} | ${first ? `Ảnh ${first.file}; ${captured.length}/4 cấu hình.` : 'Chưa có ảnh.'} |`;
+    return `| ${id} | ${cells.join(' | ')} | ${first ? `${first.file ?? 'Không có ảnh'}; ${captured.length}/4 cấu hình.` : 'Chưa có ảnh.'} |`;
   });
-  const findings = [];
-  if (results.deepLink?.redirectedHome) findings.push(`- **Gây hiểu sai — Agent & Đội:** mở liên kết tab trong ngữ cảnh mới. Kết quả: về Tổng quan. Mong đợi: giữ tab được liên kết. Ảnh: ${results.deepLink.file}.`);
-  for (const [flag, priority, description, expected] of [
-    ['overflow', 'Khó chịu', 'Tiêu đề hoặc thanh công cụ tràn ngang', 'Các hành động vẫn đọc được hoặc có chỉ dẫn cuộn'],
-    ['language', 'Gây hiểu sai', 'Có từ tiếng Anh hoặc mã UUID trong văn bản hiển thị', 'Dùng nhãn tiếng Việt và tên dễ nhận biết'],
-    ['accessibility', 'Khó chịu', 'Có nút không tên hoặc ảnh không có thuộc tính alt', 'Gắn tên truy cập hoặc đánh dấu là trang trí'],
-    ['grid', 'Thẩm mỹ', 'Các nút chưa có tọa độ được bố trí thành lưới', 'Tự bố trí theo hướng luồng khi chưa lưu vị trí'],
-    ['select', 'Thẩm mỹ', 'Có ô chọn gốc', 'Dùng thành phần chọn nhất quán'],
-  ]) {
-    const matching = new Map();
-    for (const entry of results.captures.filter(item => item.flags.includes(flag))) matching.set(entry.id, entry);
-    for (const entry of matching.values()) findings.push(`- **${priority} — ${entry.id}:** mở màn hình ở ${entry.width}px (${entry.theme}). Kết quả: ${description}. Mong đợi: ${expected}. Ảnh: ${entry.file}.`);
-  }
   const lines = [
-    '# R-0 · Rà soát giao diện', '', `Trạng thái: **${results.status}**.`,
-    ...(results.error ? ['', `Giới hạn lần chạy: ${md(results.error)}`] : []), '',
+    '# R-1 · Rà soát giao diện', '', `Trạng thái: **${results.status}**.`, '', retryNote, '',
     '## Ma trận màn hình × C1–C12', '',
-    '✔ / ✖ chỉ áp dụng cho phần quan sát được; — là chưa đủ bằng chứng. Kiểm tra tự động không xác nhận WCAG AA hay toàn bộ hành vi bàn phím.', '',
-    `| Màn hình / hộp thoại | ${checklist.map(([key]) => key).join(' | ')} | Bằng chứng |`,
-    `| --- | ${checklist.map(() => '---').join(' | ')} | --- |`, ...rows, '',
-    '## Phát hiện ưu tiên', '',
-    ...(findings.length ? findings.sort((left, right) => priorityOf(left) - priorityOf(right)) : ['Chưa có phát hiện được xác nhận.']), '',
+    '✔ / ✖ chỉ áp dụng cho phần quan sát được; — là chưa đủ bằng chứng (bao gồm WCAG AA và toàn bộ hành vi bàn phím).', '',
+    `| Màn hình / hộp thoại | ${criteria.join(' | ')} | Bằng chứng |`,
+    `| --- | ${criteria.map(() => '---').join(' | ')} | --- |`, ...rows, '', '## Phát hiện ưu tiên', '',
+    ...(results.issues.length ? results.issues.map(item => `- **${item.severity} — ${md(item.where)}:** ${md(item.message)}${item.file ? ` · ${item.file}` : ''}`) : ['Chưa có phát hiện được xác nhận.']), '',
     'Ảnh, bước CRUD và dữ liệu gốc: `apps/factory-ui/.audit/`.', '',
   ];
   await writeFile(path, lines.join('\n'));
-}
-
-function priorityOf(line) {
-  return ['Chặn thao tác', 'Gây hiểu sai', 'Khó chịu', 'Thẩm mỹ'].findIndex(priority => line.startsWith(`- **${priority}`));
 }

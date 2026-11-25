@@ -106,7 +106,7 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
         {(error || problem) && <Button type="button" variant="outline" disabled={busy} onClick={() => { void submit(true); }}>{t('errors.retry')}</Button>}
       </form></Panel> : <Panel aria-label={t('overview.composer')}><MascotEmpty seat="Lead"><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button variant="outline" onClick={() => onCreate('project')}>{t('shellUi.newProject')}</Button></div></MascotEmpty></Panel>;
   if (composerOnly) return composerPanel;
-  return <Page className="overview min-w-0"><div className="mx-auto max-w-5xl space-y-6">
+  return <Page data-testid="overview-screen" className="overview min-w-0"><div className="mx-auto max-w-5xl space-y-6">
     <PageHeader title={<>{t('overview.greetingStart')} <span className="text-project-1">{t(`overview.${dayPart}`)}</span>{operatorName && <>, {operatorName}</>}</>} />
       {composerPanel}
       {state.loading.globalInbox ? <LoadingState inline /> : state.errors.globalInbox ? <div><ErrorNotice error={state.errors.globalInbox} /><Button onClick={() => { void store.loadGlobalInbox(); }}>{t('errors.retry')}</Button></div> : items.length ? <Section title={t('overview.needsYou')}>

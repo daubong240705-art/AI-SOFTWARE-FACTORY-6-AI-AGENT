@@ -1,161 +1,162 @@
+export const hook = (scope, id) => scope.getByTestId(id);
+export const dialog = page => page.getByRole('dialog').last();
+export const approvalRow = (page, id) => hook(page, `attention-row-approval:${id}`);
+export const libraryRow = (page, name) => hook(page, 'library-row').filter({ has: page.getByText(name, { exact: true }) });
+
+const global = (id, hash, ready) => ({ id, area: 'global', hash, ready });
+const project = (id, tab, options = {}) => ({ id, area: 'project', project: 'primary', tab, ...options });
 export const screens = [
-  { id: 'overview', area: 'toan-he-thong', hash: '#/overview' },
-  { id: 'attention', area: 'toan-he-thong', hash: '#/attention' },
-  { id: 'team', area: 'toan-he-thong', hash: '#/team' },
-  { id: 'team-config', area: 'toan-he-thong', hash: '#/team/config' },
-  { id: 'library', area: 'toan-he-thong', hash: '#/library' },
-  { id: 'world', area: 'toan-he-thong', hash: '#/world' },
-  { id: 'system', area: 'toan-he-thong', hash: '#/system' },
-  { id: 'mascots', area: 'toan-he-thong', hash: '#/mascots' },
-  { id: 'portal', area: 'toan-he-thong', hash: '#/portal' },
-  { id: 'sign-in', area: 'toan-he-thong', signIn: true },
-  { id: 'library-templates', area: 'toan-he-thong', hash: '#/library', open: page => tab(page, 'Mẫu agent').click(), ready: 'Tạo mẫu' },
-  { id: 'project-overview', area: 'trong-project', project: true, tab: 'overview' },
-  { id: 'project-agents', area: 'trong-project', project: true, tab: 'agents' },
-  { id: 'project-office', area: 'trong-project', project: true, tab: 'office' },
-  { id: 'project-board', area: 'trong-project', project: true, tab: 'board' },
-  { id: 'project-knowledge', area: 'trong-project', project: true, tab: 'knowledge' },
-  { id: 'project-code', area: 'trong-project', project: true, tab: 'code' },
-  { id: 'project-flows', area: 'trong-project', project: true, tab: 'flows' },
-  { id: 'project-flow-detail', area: 'trong-project', project: true, tab: 'flows', flow: true },
-  { id: 'project-run-waiting', area: 'trong-project', project: true, tab: 'flows', run: 'waiting' },
-  { id: 'project-run-finished', area: 'trong-project', project: true, tab: 'flows', run: 'finished' },
-  { id: 'project-empty-flows', area: 'trong-project', project: 'empty', tab: 'flows' },
-  { id: 'project-workflow-v1', area: 'trong-project', project: true, tab: 'workflow' },
-  ...['automation', 'budget', 'autonomy', 'approvals', 'workflow', 'code'].map(section => ({
-    id: `project-settings-${section}`, area: 'trong-project', project: true, tab: 'settings', section,
+  global('overview', '#/overview', 'overview-screen'),
+  global('attention', '#/attention', 'attention-screen'),
+  global('library', '#/library', 'skill-create'),
+  { ...global('library-templates', '#/library', 'template-create'), select: 'library-templates' },
+  global('integrations', '#/integrations', 'connection-create'),
+  { ...global('integration-secrets', '#/integrations', 'secret-create'), select: 'integration-secrets' },
+  global('world', '#/world', 'world-screen'),
+  { ...global('system', '#/system'), selector: '#setup' },
+  { ...global('system-setup', '#/system'), selector: '#setup', scroll: true },
+  { id: 'sign-in', area: 'global', signIn: true, ready: 'signin-screen' },
+  ...['overview', 'children', 'settings', 'library', 'integrations'].map(tab => ({
+    id: `group-${tab}`, area: 'group', group: true, select: `group-tab-${tab}`,
+    ready: { settings: 'group-settings-save', library: 'group-library-skills', integrations: 'connection-create' }[tab],
+  })),
+  ...['overview', 'agents', 'office', 'board', 'knowledge', 'flows'].map(tab => project(`project-${tab}`, tab, {
+    ready: { agents: 'agent-create', flows: 'flow-create' }[tab],
+    selector: { office: '.universal-office', board: '.project-tasks' }[tab],
+  })),
+  project('project-empty-flows', 'flows', { project: 'empty', ready: 'flow-create' }),
+  project('project-flow-detail', 'flows', { flow: true, ready: 'flow-save' }),
+  ...['waiting', 'finished'].map(run => project(`project-run-${run}`, 'flows', { run, ready: 'flow-run-detail' })),
+  ...['automation', 'budget', 'autonomy', 'approvals', 'code', 'group'].map(section => project(`project-settings-${section}`, 'settings', {
+    section, ready: `project-settings-${section}`,
   })),
 ];
 
-export const button = (scope, name) => scope.getByRole('button', { name, exact: typeof name === 'string' });
-export const tab = (scope, name) => scope.getByRole('tab', { name, exact: true });
-export const dialog = page => page.getByRole('dialog').last();
-export const agentMenu = async (page, name, action) => {
-  await button(page, `Thao tác với ${name}`).click();
-  await page.getByRole('menuitem', { name: action, exact: true }).click();
-};
-export const createMenu = async (page, name) => {
-  await button(page.locator('.app > header'), 'Tạo').click();
-  await page.getByRole('menuitem', { name, exact: true }).click();
-};
 export async function sidebar(page) {
   const nav = page.locator('#factory-navigation');
-  if (await button(page, 'Ẩn hoặc hiện dự án').isVisible() && !await nav.isVisible()) await button(page, 'Ẩn hoặc hiện dự án').click();
+  if (!await nav.isVisible()) await hook(page, 'sidebar-toggle').click();
+  await nav.waitFor();
   return nav;
 }
 
-const openButton = name => page => button(page, name).click();
-const modal = (id, screen, action, ready) => ({ id, screen, open: async (page, fixture) => {
-  await action(page, fixture);
-  await dialog(page).waitFor();
-  if (ready) await ready(dialog(page)).waitFor();
-} });
-const skillAction = action => async page => { await button(page, /audit-skill/).click(); await button(page.getByRole('main'), action).click(); };
-const templateAction = action => async page => { await button(page, /Mẫu audit/).click(); await button(page.getByRole('main'), action).click(); };
-const teamAction = action => page => button(page.locator('article').filter({ has: page.getByRole('heading', { name: 'Đội audit', exact: true }) }), action).click();
-const navAction = async (page, name) => button(await sidebar(page), name).click();
-const editAgent = page => agentMenu(page, 'Audit Fresh', 'Sửa');
-export const dialogs = [
-  modal('new-project', 'overview', page => createMenu(page, 'Dự án mới')),
-  modal('new-game', 'overview', page => createMenu(page, 'Game mới')),
-  modal('project-folder', 'overview', async page => { await createMenu(page, 'Dự án mới'); await button(dialog(page), /Chọn.*(thư mục|kho)|Duyệt/).click(); }),
-  modal('search', 'overview', page => page.getByRole('textbox', { name: 'Tìm việc' }).click()),
-  modal('settings', 'overview', page => navAction(page, 'Cài đặt')),
-  modal('system-model-picker', 'system', openButton('Đổi model')),
-  { id: 'new-task', screen: 'project-board', open: async page => { await createMenu(page, 'Việc mới'); await page.getByLabel('Tiêu chí nghiệm thu').waitFor(); } },
-  { id: 'task-detail', screen: 'project-board', open: async (page, fixture) => { await page.locator(`[data-task-id="${fixture.task}"]`).click(); await page.getByRole('heading', { name: 'Việc nháp audit' }).waitFor(); } },
-  { id: 'decision', screen: 'attention', open: async (page, fixture) => { await approvalRow(page, fixture.approval).click(); await page.getByRole('radio', { name: /^Duyệt/ }).waitFor(); } },
-  { id: 'decision-confirm', screen: 'attention', open: async (page, fixture) => { await approvalRow(page, fixture.approval).click(); await page.getByRole('radio', { name: /^Duyệt/ }).click(); await page.locator('[data-attention-primary]').click(); await button(page, 'Xác nhận').waitFor(); } },
-  modal('project-preview', 'project-overview', openButton('Xem thử game')),
-  modal('project-archive', 'project-settings-automation', openButton(/Lưu trữ dự án/)),
-  modal('agent-create', 'project-agents', openButton('Tạo agent'), scope => scope.getByLabel('Tên', { exact: true })),
-  modal('agent-edit', 'project-agents', editAgent, scope => tab(scope, 'Hồ sơ')),
-  modal('agent-comparison', 'project-agents', async page => { await editAgent(page); await tab(dialog(page), 'Lịch sử').click(); await dialog(page).getByLabel('Lịch sử', { exact: true }).selectOption('1'); }, scope => scope.getByText('Phiên bản đã chọn', { exact: true }).first()),
-  modal('agent-clone', 'project-agents', page => agentMenu(page, 'Audit Fresh', 'Nhân bản')),
-  modal('agent-archive', 'project-agents', page => agentMenu(page, 'Audit Fresh', 'Lưu trữ')),
-  modal('agent-delete', 'project-agents', page => agentMenu(page, 'Audit Fresh', 'Xóa')),
-  modal('agent-from-template', 'project-agents', openButton('Tạo từ mẫu')),
-  modal('agent-save-template', 'project-agents', page => agentMenu(page, 'Audit Fresh', 'Lưu làm mẫu')),
-  modal('team-create', 'project-agents', openButton('Tạo đội')),
-  modal('team-edit', 'project-agents', teamAction('Sửa')),
-  modal('team-delete', 'project-agents', teamAction('Xóa')),
-  modal('skill-create', 'library', openButton('Tạo skill')),
-  modal('skill-edit', 'library', skillAction('Sửa')),
-  modal('skill-delete', 'library', skillAction('Xóa')),
-  modal('template-create', 'library-templates', openButton('Tạo mẫu')),
-  modal('template-edit', 'library-templates', templateAction('Sửa')),
-  modal('template-delete', 'library-templates', templateAction('Xóa')),
-  modal('flow-create', 'project-flows', openButton('Tạo quy trình')),
-  modal('flow-import-v1', 'project-flows', openButton('Nhập từ quy trình cũ')),
-  modal('flow-test', 'project-flow-detail', openButton('Chạy thử')),
-  modal('flow-run', 'project-flow-detail', openButton('Chạy')),
-  modal('flow-cancel-run', 'project-run-waiting', openButton('Hủy lượt chạy')),
-  modal('workflow-v1-create', 'project-workflow-v1', openButton(/Tạo quy trình/)),
-  modal('document-upload', 'project-knowledge', openButton('Tải lên')),
-  modal('autonomy-edit', 'project-settings-autonomy', page => button(page.getByRole('main'), /^Sửa|Đổi|Điều chỉnh/).first().click()),
-  modal('standing-approval-create', 'project-settings-approvals', openButton('Thêm quyền cho phép sẵn')),
-  modal('automation-schedule-create', 'project-settings-automation', openButton('Thêm lịch')),
-  modal('automation-rule-create', 'project-settings-automation', openButton('Thêm quy tắc')),
-  modal('automation-monitor-create', 'project-settings-automation', openButton('Thêm giám sát')),
-  modal('workflow-v1-add-stage', 'project-workflow-v1', async page => { await button(page, 'Sửa kế hoạch').click(); await button(page, 'Thêm bước').click(); }),
-];
-
-export const approvalRow = (page, id) => page.locator(`[data-row-key="approval:${id}"]`);
-
-export const checklist = [
-  ['C1', 'Tìm thấy được'], ['C2', 'Form rõ'], ['C3', 'Kiểm lỗi'], ['C4', 'Phản hồi'],
-  ['C5', 'Xóa an toàn'], ['C6', 'Xung đột'], ['C7', 'Rỗng/tải/lỗi'], ['C8', 'Nhất quán'],
-  ['C9', 'Bàn phím/trợ năng'], ['C10', 'Kích thước'], ['C11', 'Ngôn ngữ'], ['C12', 'Không giả'],
-];
-
-export function hashFor(screen, projectId) {
-  if (screen.hash) return screen.hash;
-  const base = `#/project/${encodeURIComponent(projectId)}`;
-  if (screen.flowId) return `${base}/flows/${encodeURIComponent(screen.flowId)}`;
-  if (screen.tab === 'overview') return base;
-  if (screen.tab === 'settings') return `${base}/settings/${screen.section}`;
-  if (screen.tab === 'workflow' || screen.tab === 'code') return `${base}/settings/${screen.tab}`;
-  return `${base}/${screen.tab}`;
+export async function openTreeProject(page, projectId, ancestors) {
+  const nav = await sidebar(page);
+  const treeItem = id => nav.getByRole('treeitem').and(hook(nav, `tree-${id}`));
+  for (const id of ancestors) {
+    const branch = treeItem(`group:${id}`).and(page.locator('[aria-expanded]'));
+    await branch.waitFor();
+    if (await branch.getAttribute('aria-expanded') === 'false') await branch.locator(':scope > [data-testid="tree-open"] > [data-testid="tree-expand"]').click();
+  }
+  await treeItem(`project:${projectId}`).locator(':scope > [data-testid="tree-open"]').click();
 }
 
-const projectTabs = { agents: 'Agent & Đội', office: 'Văn phòng', board: 'Bảng việc', knowledge: 'Tài liệu', flows: 'Quy trình' };
-const settings = { automation: 'Tự động', budget: 'Ngân sách', autonomy: 'Mức tự chủ', approvals: 'Phê duyệt sẵn', workflow: 'Quy trình', code: 'Mã nguồn' };
+export async function agentMenu(page, id, action) {
+  await hook(hook(page, `agent-row-${id}`), 'agent-row-menu').click();
+  await hook(page, `agent-${action}`).click();
+}
+
+export async function createMenu(page, item) {
+  await hook(page, 'shell-create').click();
+  await hook(page, item).click();
+}
+
+const click = id => page => hook(page, id).click();
+const modal = (id, screen, action, ready = 'dialog-cancel') => ({ id, screen, open: async (page, fixture) => {
+  await action(page, fixture);
+  await hook(dialog(page), ready).waitFor();
+} });
+const agent = action => (page, fixture) => agentMenu(page, fixture.agents.fresh, action);
+const library = (name, action) => async page => { await libraryRow(page, name).click(); await hook(page, action).click(); };
+export const dialogs = [
+  modal('agent-create', 'project-agents', click('agent-create')),
+  modal('agent-edit', 'project-agents', agent('edit'), 'agent-name'),
+  modal('agent-history', 'project-agents', async (page, fixture) => { await agent('edit')(page, fixture); await hook(page, 'agent-tab-history').click(); }, 'agent-history-version'),
+  modal('agent-clone', 'project-agents', agent('clone')),
+  modal('agent-archive', 'project-agents', agent('archive')),
+  modal('agent-delete', 'project-agents', agent('delete')),
+  modal('agent-from-template', 'project-agents', click('agent-from-template')),
+  modal('team-create', 'project-agents', click('team-create')),
+  ...['edit', 'delete'].map(action => modal(`team-${action}`, 'project-agents', (page, fixture) => hook(hook(page, `team-row-${fixture.team}`), `team-${action}`).click())),
+  modal('skill-create', 'library', click('skill-create')),
+  modal('skill-edit', 'library', library('audit-skill', 'skill-edit'), 'skill-content'),
+  modal('skill-delete', 'library', library('audit-skill', 'skill-delete')),
+  modal('template-create', 'library-templates', click('template-create')),
+  modal('template-edit', 'library-templates', library('Mẫu audit', 'template-edit'), 'agent-name'),
+  modal('template-delete', 'library-templates', library('Mẫu audit', 'template-delete')),
+  modal('connection-create', 'integrations', click('connection-create')),
+  modal('secret-create', 'integration-secrets', click('secret-create')),
+  modal('group-create-child', 'group-children', click('group-create-child')),
+  modal('group-edit', 'group-overview', click('group-edit')),
+  modal('group-move', 'group-overview', click('group-move')),
+  modal('group-archive', 'group-overview', click('group-archive')),
+  modal('group-delete', 'group-overview', click('group-delete')),
+  modal('project-group-move', 'project-settings-group', click('project-group-move')),
+  modal('flow-create', 'project-flows', click('flow-create'), 'flow-cancel'),
+  modal('flow-import', 'project-flows', click('flow-import'), 'flow-cancel'),
+  modal('flow-test-run', 'project-flow-detail', click('flow-test-run'), 'flow-start-run'),
+  modal('flow-run', 'project-flow-detail', click('flow-run'), 'flow-start-run'),
+  { id: 'new-task', screen: 'project-board', open: async page => { await createMenu(page, 'task-create'); await hook(page, 'task-title').waitFor(); } },
+  { id: 'task-detail', screen: 'project-board', open: (page, fixture) => page.locator(`[data-task-id="${fixture.task}"]`).click() },
+  { id: 'decision', screen: 'attention', open: async (page, fixture) => { await approvalRow(page, fixture.approval).click(); await hook(page, 'attention-approve').waitFor(); } },
+];
+
+export function hashFor(screen, fixture) {
+  if (screen.group) return `#/g/${fixture.groups.child}`;
+  if (!screen.project) return screen.hash ?? '';
+  const prefix = `#/project/${fixture.projects[screen.project]}`;
+  if (screen.run) return `${prefix}/runs/${fixture.runs[screen.run]}`;
+  if (screen.flow) return `${prefix}/flows/${fixture.flow}`;
+  if (screen.section) return `${prefix}/settings/${screen.section}`;
+  return screen.tab === 'overview' ? prefix : `${prefix}/${screen.tab}`;
+}
+
+const seeded = new WeakMap();
+export async function seedSession(page, base) {
+  if (seeded.get(page) === base && new URL(page.url()).origin === base) return;
+  const session = page.waitForResponse(response => response.url() === `${base}/auth/session` && response.ok());
+  await Promise.all([session, page.goto(`${base}/`)]);
+  await hook(page, 'overview-screen').waitFor();
+  seeded.set(page, base);
+}
+
+export async function navigateHash(page, base, hash, { observe } = {}) {
+  const href = `${base}/${hash}`;
+  await page.goto(href);
+  const projectLink = hash.startsWith('#/project/');
+  const shell = page.locator('#factory-main');
+  await shell.waitFor();
+  // The shell can canonicalize a project link to overview on first load. Report it before retrying.
+  const settled = () => page.waitForFunction(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true)))));
+  await settled();
+  const actual = new URL(page.url()).hash;
+  const redirectedHome = projectLink && actual === '#/overview';
+  if (observe) await observe({ hash, actual, redirectedHome });
+  if (redirectedHome) {
+    // Reloading overview would lose the target hash. Restore it first, then reload.
+    await page.goto(href);
+    await page.reload();
+    await shell.waitFor();
+  }
+  await page.waitForFunction(expected => location.hash === expected, hash);
+}
 
 export async function openScreen(page, screen, fixture, base) {
-  if (screen.signIn) {
-    await page.goto(base);
-    await button(page, 'Đăng nhập').waitFor();
-    return;
+  if (screen.signIn) await page.goto(`${base}/`);
+  else {
+    await seedSession(page, base);
+    // Reset same-route state (tabs, drawers and dialogs) without using translated labels.
+    if (new URL(page.url()).hash === hashFor(screen, fixture)) await page.reload();
+    await navigateHash(page, base, hashFor(screen, fixture));
   }
-  if (!screen.project) {
-    await page.goto(`${base}/${screen.hash}`);
-    await page.locator('#factory-main').waitFor();
-    await page.waitForFunction(hash => location.hash === hash, screen.hash);
-    if (screen.open) await screen.open(page, fixture);
-    if (screen.ready) await button(page, screen.ready).waitFor();
-    return;
+  if (screen.project) {
+    const tab = hook(page, `project-tab-${screen.tab}`);
+    await tab.and(page.locator('[aria-selected="true"], [aria-current="page"]')).waitFor();
   }
-  await page.goto(`${base}/#/overview`);
-  await page.locator('#factory-main').waitFor();
-  const key = screen.project === 'empty' ? 'empty' : 'primary';
-  const projectId = fixture.projects[key];
-  await navAction(page, fixture.projectNames[key]);
-  const header = page.locator('.project-view header').first();
-  await header.getByRole('heading', { name: fixture.projectNames[key] }).waitFor();
-  if (projectTabs[screen.tab]) await tab(header, projectTabs[screen.tab]).click();
-  const section = screen.section ?? (['workflow', 'code'].includes(screen.tab) ? screen.tab : null);
-  if (section) {
-    await button(header, 'Cài đặt').click();
-    await button(page.getByRole('main'), settings[section]).click();
+  if (screen.select) await hook(page, screen.select).click();
+  if (screen.ready) await hook(page, screen.ready).waitFor();
+  if (screen.section) await hook(page, `project-settings-${screen.section}`).and(page.locator('[aria-current="page"]')).waitFor();
+  if (screen.selector) {
+    await page.locator(screen.selector).waitFor();
+    if (screen.scroll) await page.locator(screen.selector).scrollIntoViewIfNeeded();
   }
-  const target = screen.flow ? { ...screen, flowId: fixture.flow } : screen;
-  if (screen.flow) await page.getByRole('link', { name: 'Mở quy trình: Quy trình audit', exact: true }).click();
-  if (screen.run) {
-    await button(page, screen.run === 'waiting' ? /Quy trình audit.*Đang chờ/ : /Quy trình audit.*Thành công/).click();
-    await page.waitForFunction(id => location.hash.endsWith(`/runs/${id}`), fixture.runs[screen.run]);
-  } else await page.waitForFunction(hash => location.hash === hash, hashFor(target, projectId));
-  if (screen.flow || screen.run) await page.getByRole('region', { name: 'Sơ đồ quy trình', exact: true }).waitFor();
-  else if (screen.tab === 'flows') await button(page, 'Tạo quy trình').waitFor();
-  else if (screen.tab === 'agents') await button(page, 'Tạo agent').waitFor();
-  else if (screen.tab === 'board' && key === 'primary') await page.locator(`[data-task-id="${fixture.task}"]`).waitFor();
 }
