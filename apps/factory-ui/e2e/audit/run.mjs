@@ -89,11 +89,23 @@ async function stopHost(child) {
   try { await exited; } finally { clearTimeout(timer); }
 }
 
+// Not problems: requests the browser cancels when the screen changes (ERR_ABORTED), the signed-out session probe (401),
+// and the console's duplicate "Failed to load resource" line for an HTTP error that is already recorded.
 function record(page, add) {
-  page.on('console', message => { if (['error', 'warning'].includes(message.type())) add({ type: `console ${message.type()}`, text: safeText(message.text()) }); });
+  page.on('console', message => {
+    if (!['error', 'warning'].includes(message.type()) || /^Failed to load resource: the server responded with a status of \d+/.test(message.text())) return;
+    add({ type: `console ${message.type()}`, text: safeText(message.text()) });
+  });
   page.on('pageerror', error => add({ type: 'pageerror', text: safeText(error.message) }));
-  page.on('response', response => { if (response.status() >= 400) add({ type: 'HTTP', status: response.status(), path: urlPath(response.url()) }); });
-  page.on('requestfailed', request => add({ type: 'requestfailed', path: urlPath(request.url()), text: safeText(request.failure()?.errorText ?? '') }));
+  page.on('response', response => {
+    if (response.status() < 400 || (response.status() === 401 && urlPath(response.url()) === '/auth/session')) return;
+    add({ type: 'HTTP', status: response.status(), path: urlPath(response.url()) });
+  });
+  page.on('requestfailed', request => {
+    const reason = request.failure()?.errorText ?? '';
+    if (reason === 'net::ERR_ABORTED') return;
+    add({ type: 'requestfailed', path: urlPath(request.url()), text: safeText(reason) });
+  });
 }
 
 async function glossaryWords() {
@@ -127,7 +139,17 @@ async function inspect(page, allowed) {
     const root = document.documentElement;
     if (root.scrollWidth > root.clientWidth + 2) overflow.unshift({ element: 'viewport', extra: root.scrollWidth - root.clientWidth, clipped: [] });
     const nodes = [...document.querySelectorAll('.react-flow__node')].map(node => ({ id: node.dataset.id, position: node.style.transform }));
-    return { english: [...new Set(english)].slice(0, 30), uuids: [...new Set(text.match(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi) ?? [])].slice(0, 20), overflow, nodes,
+    // Where each English word sits (closest element with a test id, else tag.class), so fixes can target the source.
+    const englishWhere = [...new Set(english)].slice(0, 10).map(word => {
+      const pattern = new RegExp(`(?<![\\p{L}\\p{M}\\p{N}])${word}(?![\\p{L}\\p{M}\\p{N}])`, 'iu');
+      const owner = [...document.querySelectorAll('body *')].filter(visible).find(element =>
+        [...element.childNodes].some(child => child.nodeType === 3 && pattern.test(child.textContent ?? ''))
+        || ['aria-label', 'placeholder', 'title'].some(attr => pattern.test(element.getAttribute(attr) ?? '')));
+      const hooked = owner?.closest('[data-testid]');
+      const describe = element => element ? `${element.tagName.toLowerCase()}${element.dataset?.testid ? `[${element.dataset.testid}]` : ''}.${String(element.className?.baseVal ?? element.className ?? '').split(' ').slice(0, 2).join('.')}` : '?';
+      return `${word} @ ${describe(owner)} in ${describe(hooked)} :: ${(owner?.textContent ?? '').trim().slice(0, 60)}`;
+    });
+    return { englishWhere, english: [...new Set(english)].slice(0, 30), uuids: [...new Set(text.match(/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi) ?? [])].slice(0, 20), overflow, nodes,
       selects: [...document.querySelectorAll('select')].filter(visible).length,
       missingAlt: [...document.images].filter(image => visible(image) && !image.hasAttribute('alt')).length };
   }, { allowed, englishCandidates });

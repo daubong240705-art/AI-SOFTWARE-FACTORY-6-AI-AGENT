@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { openFlowRoute, traceHash } from '../shell/navigation';
 import { useRead } from '../agents/shared';
 import { useLiveRead } from './live';
-import { elapsed, formatDuration, formatNumber, formatTime, TokenTotal, TraceStatus, useTraceLabels } from './presentation';
+import { elapsed, formatDuration, formatNumber, formatTime, TokenTotal, TraceStatus, useSpanTitle, useTraceLabels } from './presentation';
 import type { ReactNode } from 'react';
 
 function Section({ title, empty, children }: { title: string; empty: string; children: ReactNode[] }) {
@@ -18,6 +18,7 @@ const rowClass = 'block w-full min-w-0 rounded-lg border p-3 text-left text-sm [
 
 export function MonitorView({ api, projectId, onOpenTask }: { api: ApiClient; projectId: string; onOpenTask: (id: string) => void }) {
   const label = useTraceLabels();
+  const spanTitle = useSpanTitle();
   const readAgents = useCallback((signal: AbortSignal) => api.listProjectAgents(projectId, signal), [api, projectId]);
   const { data: roster } = useRead(readAgents);
   const read = useCallback(async (signal: AbortSignal) => {
@@ -83,11 +84,11 @@ export function MonitorView({ api, projectId, onOpenTask }: { api: ApiClient; pr
           <p>{(call.agentId && names.get(call.agentId)) || call.agentId || label('unknown')} · {formatDuration(call.durationMs)}</p>
           <p className="text-muted-foreground">{label('inputSize')}: {formatNumber(call.argsBytes)} B · {label('outputSize')}: {formatNumber(call.resultBytes)} B</p>
         </div>)}</Section>
-        <Section title={label('failures')} empty={label('noFailures')}>{monitor.recentFailures.map(span => <a key={span.id} className={rowClass} data-testid={`monitor-failure-${span.id}`} href={traceHash(projectId, span.traceId)}><div className="flex flex-wrap items-center justify-between gap-2"><strong>{span.title}</strong><TraceStatus status={span.status} /></div><span className="text-muted-foreground">{formatTime(span.endedAt ?? span.startedAt)}</span></a>)}</Section>
+        <Section title={label('failures')} empty={label('noFailures')}>{monitor.recentFailures.map(span => <a key={span.id} className={rowClass} data-testid={`monitor-failure-${span.id}`} href={traceHash(projectId, span.traceId)}><div className="flex flex-wrap items-center justify-between gap-2"><strong>{spanTitle(span)}</strong><TraceStatus status={span.status} /></div><span className="text-muted-foreground">{formatTime(span.endedAt ?? span.startedAt)}</span></a>)}</Section>
       </div>
       <Section title={label('today')} empty={label('noUsage')}>{byAgent.size ? [<div key="usage" className="space-y-3 text-sm"><p>{monitor.today.date} · <strong><TokenTotal usage={monitor.today} /></strong></p><div className="grid gap-4 md:grid-cols-2"><div><h3 className="mb-1 font-medium">{label('byAgent')}</h3>{usageRows(byAgent)}</div><div><h3 className="mb-1 font-medium">{label('byModel')}</h3>{usageRows(byModel)}</div></div></div>] : []}</Section>
       <Section title={label('recentTraces')} empty={label('noTraces')}>{data.traces.map(span => <a key={span.id} className={rowClass} data-testid={`monitor-trace-${span.traceId}`} href={traceHash(projectId, span.traceId)}>
-        <div className="flex flex-wrap items-center justify-between gap-2"><strong>{span.title}</strong><TraceStatus status={span.status} /></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><strong>{spanTitle(span)}</strong><TraceStatus status={span.status} /></div>
         <p className="mt-1 text-muted-foreground">{formatTime(span.startedAt)} · {formatDuration(elapsed(span.startedAt, span.endedAt))} · {label('tokens')}: {span.tokens === null ? label('unknown') : formatNumber(span.tokens)}</p>
       </a>)}</Section>
     </>}

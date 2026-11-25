@@ -71,8 +71,8 @@ export async function seed({ base, projectsRoot }) {
   const baseConfig = detail?.config ?? config('Audit base');
   const paused = id(); const archived = id(); const fresh = id();
   await tryCommand(api, log, project, 'agents.create', { agentId: fresh, config: config('Audit Fresh') });
-  await tryCommand(api, log, project, 'agents.create', { agentId: paused, config: config('Audit Paused') });
-  await tryCommand(api, log, project, 'agents.create', { agentId: archived, config: config('Audit Archived') });
+  await tryCommand(api, log, project, 'agents.create', { agentId: paused, config: config('Audit tạm dừng') });
+  await tryCommand(api, log, project, 'agents.create', { agentId: archived, config: config('Audit lưu trữ') });
   await tryCommand(api, log, project, 'agents.update', { agentId: fresh, expectedRevision: 1, config: { ...config('Audit Fresh'), description: 'Mô tả phiên bản thứ hai' } });
   const pausedData = await api.json(`/projects/${project}/agents/${paused}`).catch(() => null);
   const archivedData = await api.json(`/projects/${project}/agents/${archived}`).catch(() => null);

@@ -29,7 +29,7 @@ export function TemplatesTab({ api, library, refreshKey, refresh, submit, blocke
           <TemplateMetadata template={template} />
         </LibraryRow>)}</ul>}
     </section>
-    {summary ? <TemplatePanel key={summary.id} api={api} library={library} summary={summary} refreshKey={refreshKey} refresh={refresh} submit={submit} blocked={blocked} libraryError={libraryError} /> :
+    {summary ? <TemplatePanel key={summary.id} api={api} onDeleted={() => select(null)} library={library} summary={summary} refreshKey={refreshKey} refresh={refresh} submit={submit} blocked={blocked} libraryError={libraryError} /> :
       <p className={`${panelClass} text-sm text-muted-foreground`}>{t(selected ? 'missing' : 'selectTemplate')}</p>}
     {creating && <AgentEditor api={api} library={library} close={() => setCreating(false)} submit={submit} refresh={refresh} loading={blocked} readError={libraryError}
       templateMode={{ title: t('createTemplate'), save: (config, description) => templatesCreate({ config, description }) }} />}
@@ -44,7 +44,7 @@ function TemplateMetadata({ template }: { template: AgentTemplateSummary }) {
   </span>;
 }
 
-function TemplatePanel({ api, library, summary, refreshKey, refresh, submit, blocked, libraryError }: {
+function TemplatePanel({ api, library, summary, refreshKey, refresh, submit, blocked, onDeleted, libraryError }: { onDeleted: () => void;
   api: ApiClient; library: AgentLibrary; summary: AgentTemplateSummary; refreshKey: number; refresh: () => void; submit: Submit; blocked: boolean; libraryError: Error | undefined;
 }) {
   const t = useLibraryLabels();
@@ -89,7 +89,7 @@ function TemplatePanel({ api, library, summary, refreshKey, refresh, submit, blo
     {dialog?.kind === 'edit' && <AgentEditor api={api} library={library} initial={dialog.snapshot.config} close={() => setDialog(null)} submit={submit} refresh={refresh} loading={waiting} readError={latest.error ?? libraryError}
       templateMode={{ title: `${t('editTemplate')}: ${dialog.snapshot.template.name}`, description: dialog.snapshot.template.description, stale,
         save: (config, description) => templatesUpdate({ templateId: template.id, expectedRevision: dialog.snapshot.revision, config, description }) }} />}
-    {dialog?.kind === 'delete' && <DeleteDialog name={dialog.snapshot.template.name} close={() => setDialog(null)} submit={submit} blocked={waiting} stale={stale}
+    {dialog?.kind === 'delete' && <DeleteDialog name={dialog.snapshot.template.name} close={() => setDialog(null)} onDeleted={onDeleted} submit={submit} blocked={waiting} stale={stale}
       build={() => templatesDelete({ templateId: template.id, expectedRevision: dialog.snapshot.revision })} />}
   </section>;
 }

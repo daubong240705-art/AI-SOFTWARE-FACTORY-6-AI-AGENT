@@ -15,6 +15,7 @@ export const extra: Translated<typeof en> = {
     timeline: 'Dòng thời gian', spanDetail: 'Chi tiết bước', noSpans: 'Chưa ghi nhận bước nào.', expand: 'Mở rộng', collapse: 'Thu gọn',
     started: 'Bắt đầu', ended: 'Kết thúc', yes: 'Có', no: 'Không', openTask: 'Mở task', openRun: 'Mở run', openApproval: 'Mở yêu cầu duyệt', openArtifact: 'Mở tài liệu',
     whyArtifact: 'Vì sao có file này?', noArtifactTrace: 'Không có trace cho version này.', artifactTraceError: 'Không mở được trace của tài liệu. Hãy thử lại.', documentDetails: 'Chi tiết và thao tác với tài liệu',
+    request: { 'chat.send': 'Tin nhắn chat', 'flow-runs.start': 'Chạy workflow', 'tasks.create': 'Tạo task' },
     kind: { request: 'Yêu cầu', 'flow-run': 'Run', 'node-run': 'Run của node', task: 'Task', attempt: 'Attempt', 'tool-call': 'Tool call', effect: 'Tác động', approval: 'Yêu cầu duyệt', artifact: 'Tài liệu' },
     field: { flowId: 'ID workflow', version: 'Version', trigger: 'Trigger', test: 'Chạy thử', nodeId: 'ID node', iteration: 'Lần lặp', attemptNo: 'Attempt', code: 'Mã task', agentId: 'ID agent', runtime: 'Runtime', provider: 'Model provider', model: 'Model', durationMs: 'Thời lượng (ms)', argsBytes: 'Kích thước đầu vào (byte)', resultBytes: 'Kích thước đầu ra (byte)' },
     status: { ok: 'Thành công', error: 'Lỗi', denied: 'Từ chối', 'ask-pending': 'Chờ duyệt', running: 'Đang chạy', queued: 'Đang chờ', pending: 'Đang chờ', waiting: 'Đang chờ', blocked: 'Bị chặn', paused: 'Tạm dừng', completed: 'Đã hoàn thành', done: 'Đã xong', succeeded: 'Thành công', failed: 'Thất bại', rejected: 'Từ chối', approved: 'Đã duyệt', cancelled: 'Đã hủy', skipped: 'Đã bỏ qua', expired: 'Hết hạn', unknown: 'Chưa rõ', 'budget-blocked': 'Vượt ngân sách', 'timed-out': 'Hết thời gian', ready: 'Sẵn sàng', applied: 'Đã áp dụng', starting: 'Đang bắt đầu', stopping: 'Đang dừng', active: 'Đang hoạt động', draft: 'Draft', accepted: 'Đã chấp nhận', published: 'Đã publish', stale: 'Đã cũ', planned: 'Đã lên kế hoạch', assigned: 'Đã giao', review: 'Đang xem xét', 'waiting-approval': 'Chờ duyệt', 'waiting-effect': 'Chờ tác động', 'waiting-task': 'Chờ task' },
@@ -116,6 +117,7 @@ export const extra: Translated<typeof en> = {
   },
   flowsUi: {
     triggerStart: 'Bắt đầu', missingNode: 'Node không còn khả dụng', missingAgent: 'Agent không còn khả dụng', missingWorkflow: 'Sub-workflow', nodeTeam: 'Team',
+    portName: { out: 'Tiếp', error: 'Lỗi', approved: 'Duyệt', rejected: 'Từ chối', timeout: 'Hết giờ', body: 'Lặp', done: 'Xong', else: 'Còn lại', item: 'Từng mục' },
     portHint: { out: 'Đầu ra thông thường', error: 'Nhánh khi gặp lỗi', approved: 'Nhánh khi được duyệt', rejected: 'Nhánh khi bị từ chối', timeout: 'Nhánh khi hết thời gian chờ', body: 'Thực hiện nội dung vòng lặp', done: 'Nhánh khi hoàn tất', else: 'Nhánh khi không có điều kiện nào khớp', item: 'Thực hiện cho từng mục', rule: 'Nhánh khi điều kiện khớp' },
     validation: {
       'no-trigger': 'Thêm ít nhất một node Trigger.', 'unknown-node': 'Kết nối trỏ tới một node không tồn tại.',

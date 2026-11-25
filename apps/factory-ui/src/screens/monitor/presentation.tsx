@@ -17,6 +17,16 @@ export function useTraceLabels() {
   return (key: string, values: Record<string, string> = {}) => t(`traceUi.${key}`).replace(/\{(\w+)\}/g, (match, name: string) => values[name] ?? match);
 }
 
+/** Request spans are titled with the raw command type; show its label when one exists. */
+export function useSpanTitle() {
+  const label = useTraceLabels();
+  return (span: { kind: string; title: string }) => {
+    if (span.kind !== 'request') return span.title;
+    const translated = label(`request.${span.title}`);
+    return translated === `traceUi.request.${span.title}` ? span.title : translated;
+  };
+}
+
 const success = new Set(['ok', 'done', 'completed', 'succeeded', 'approved', 'ready', 'applied']);
 const failure = new Set(['failed', 'error', 'denied', 'rejected', 'timed-out', 'budget-blocked', 'unknown']);
 const waiting = new Set(['ask-pending', 'pending', 'waiting', 'queued', 'paused', 'blocked']);

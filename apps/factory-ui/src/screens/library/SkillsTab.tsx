@@ -79,7 +79,7 @@ export function SkillsTab({ api, library, refreshKey, refresh, submit, blocked }
           <SkillMetadata skill={skill} />
         </LibraryRow>)}</ul>}
     </section>
-    {summary ? <SkillPanel key={summary.id} api={api} summary={summary} refreshKey={refreshKey} refresh={refresh} submit={submit} blocked={blocked} /> :
+    {summary ? <SkillPanel key={summary.id} api={api} onDeleted={() => select(null)} summary={summary} refreshKey={refreshKey} refresh={refresh} submit={submit} blocked={blocked} /> :
       <p className={`${panelClass} text-sm text-muted-foreground`}>{t(selected ? 'missing' : 'selectSkill')}</p>}
     {creation && <SkillEditor draft={creation} close={() => setCreation(null)} submit={submit} blocked={blocked} />}
   </div>;
@@ -94,7 +94,7 @@ function SkillMetadata({ skill }: { skill: SkillSummary }) {
   </span>;
 }
 
-function SkillPanel({ api, summary, refreshKey, refresh, submit, blocked }: {
+function SkillPanel({ api, summary, refreshKey, refresh, submit, blocked, onDeleted }: { onDeleted: () => void;
   api: ApiClient; summary: SkillSummary; refreshKey: number; refresh: () => void; submit: Submit; blocked: boolean;
 }) {
   const t = useLibraryLabels();
@@ -131,7 +131,7 @@ function SkillPanel({ api, summary, refreshKey, refresh, submit, blocked }: {
       {content.data && <PlainText>{content.data.content}</PlainText>}
     </>}
     {dialog?.kind === 'edit' && <EditSkill api={api} snapshot={dialog.snapshot.skill} close={() => setDialog(null)} refreshKey={refreshKey} refresh={refresh} submit={submit} blocked={waiting} stale={stale} />}
-    {dialog?.kind === 'delete' && <DeleteDialog name={dialog.snapshot.skill.name} close={() => setDialog(null)} submit={submit} blocked={waiting} stale={stale}
+    {dialog?.kind === 'delete' && <DeleteDialog name={dialog.snapshot.skill.name} close={() => setDialog(null)} onDeleted={onDeleted} submit={submit} blocked={waiting} stale={stale}
       build={() => skillsDelete({ skillId: skill.id, expectedRevision: dialog.snapshot.skill.revision })} />}
   </section>;
 }

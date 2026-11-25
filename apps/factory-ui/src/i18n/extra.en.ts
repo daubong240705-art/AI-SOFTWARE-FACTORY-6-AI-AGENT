@@ -13,6 +13,7 @@ export const extra = {
     timeline: 'Span timeline', spanDetail: 'Span details', noSpans: 'No spans recorded.', expand: 'Expand', collapse: 'Collapse',
     started: 'Started', ended: 'Ended', yes: 'Yes', no: 'No', openTask: 'Open task', openRun: 'Open run', openApproval: 'Open approval', openArtifact: 'Open document',
     whyArtifact: 'Why does this file exist?', noArtifactTrace: 'No trace was recorded for this version.', artifactTraceError: 'Could not open the document trace. Try again.', documentDetails: 'Document details and actions',
+    request: { 'chat.send': 'Chat message', 'flow-runs.start': 'Workflow run', 'tasks.create': 'Create task' },
     kind: { request: 'Request', 'flow-run': 'Run', 'node-run': 'Node run', task: 'Task', attempt: 'Attempt', 'tool-call': 'Tool call', effect: 'Effect', approval: 'Approval', artifact: 'Artifact' },
     field: { flowId: 'Workflow ID', version: 'Version', trigger: 'Trigger', test: 'Test', nodeId: 'Node ID', iteration: 'Iteration', attemptNo: 'Attempt', code: 'Task code', agentId: 'Agent ID', runtime: 'Runtime', provider: 'Model provider', model: 'Model', durationMs: 'Duration (ms)', argsBytes: 'Input size (bytes)', resultBytes: 'Output size (bytes)' },
     status: { ok: 'OK', error: 'Error', denied: 'Denied', 'ask-pending': 'Awaiting approval', running: 'Running', queued: 'Queued', pending: 'Pending', waiting: 'Waiting', blocked: 'Blocked', paused: 'Paused', completed: 'Completed', done: 'Done', succeeded: 'Succeeded', failed: 'Failed', rejected: 'Rejected', approved: 'Approved', cancelled: 'Cancelled', skipped: 'Skipped', expired: 'Expired', unknown: 'Unknown', 'budget-blocked': 'Budget blocked', 'timed-out': 'Timed out', ready: 'Ready', applied: 'Applied', starting: 'Starting', stopping: 'Stopping', active: 'Active', draft: 'Draft', accepted: 'Accepted', published: 'Published', stale: 'Stale', planned: 'Planned', assigned: 'Assigned', review: 'In review', 'waiting-approval': 'Awaiting approval', 'waiting-effect': 'Waiting for effect', 'waiting-task': 'Waiting for task' },
@@ -114,6 +115,7 @@ export const extra = {
   },
   flowsUi: {
     triggerStart: 'Start', missingNode: 'Unavailable node', missingAgent: 'Unavailable agent', missingWorkflow: 'Sub-workflow', nodeTeam: 'Team',
+    portName: { out: 'Next', error: 'Error', approved: 'Approved', rejected: 'Rejected', timeout: 'Timeout', body: 'Body', done: 'Done', else: 'Else', item: 'Item' },
     portHint: { out: 'Normal output', error: 'When an error occurs', approved: 'When approved', rejected: 'When rejected', timeout: 'When time runs out', body: 'Run the loop body', done: 'When finished', else: 'When no condition matches', item: 'For each item', rule: 'When the condition matches' },
     validation: {
       'no-trigger': 'Add at least one Trigger node.', 'unknown-node': 'A connection refers to a node that does not exist.',

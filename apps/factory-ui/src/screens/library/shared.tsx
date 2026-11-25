@@ -45,13 +45,13 @@ export function LibraryRow({ selected, onSelect, children }: { selected: boolean
   </button></li>;
 }
 
-export function DeleteDialog({ name, close, submit, build, blocked, stale }: { name: string; close: () => void; submit: Submit; build: () => Command; blocked: boolean; stale: boolean }) {
+export function DeleteDialog({ name, close, submit, build, blocked, stale, onDeleted }: { name: string; close: () => void; submit: Submit; build: () => Command; blocked: boolean; stale: boolean; onDeleted?: () => void }) {
   const t = useLibraryLabels();
   const agentLabel = useAgentLabels();
   const writer = useWriteFeedback(submit);
   const disabled = blocked || stale || (writer.error instanceof ApiClientError && writer.error.code === 'conflict');
   return <AdminDialog title={t('deleteTitle')} description={t('deleteHelp', { name })} close={close} busy={writer.busy}
-    onSubmit={() => { if (!disabled) void writer.run(build, close); }}
+    onSubmit={() => { if (!disabled) void writer.run(build, () => { close(); onDeleted?.(); }); }}
     footer={<DialogButtons close={close} label={agentLabel('delete')} busy={writer.busy} disabled={disabled} destructive />}>
     <LibraryError error={writer.error} stale={stale} />
   </AdminDialog>;

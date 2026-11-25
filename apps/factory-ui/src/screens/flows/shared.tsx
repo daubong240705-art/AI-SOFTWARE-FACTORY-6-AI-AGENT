@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils';
 import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { createContext, useContext, useEffect, useId, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import type { Command, FlowDefinition, FlowNode, FlowRunSummary } from '@factory/contracts';
@@ -27,7 +28,9 @@ export function flowNodeTitle(node: FlowNode, label: ReturnType<typeof useFlowLa
 export function PortLabel({ port, className, style }: { port: string; className?: string; style?: React.CSSProperties }) {
   const label = useFlowLabels();
   const description = label(`portHint.${Object.hasOwn(extra.flowsUi.portHint, port) ? port : 'rule'}`);
-  return <code className={className} style={style} title={description} aria-label={`${port}: ${description}`}>{port}</code>;
+  // Operators read a Vietnamese port name; the raw port id (used in expressions) stays in the tooltip.
+  const name = Object.hasOwn(extra.flowsUi.portName, port) ? label(`portName.${port}`) : port;
+  return <span className={cn(className, 'font-sans')} style={style} title={description} aria-label={`${name}: ${description}`} data-port={port}>{name}</span>;
 }
 
 export function useFlowEvents(projectId: string, refresh: () => void, routeId?: string) {
