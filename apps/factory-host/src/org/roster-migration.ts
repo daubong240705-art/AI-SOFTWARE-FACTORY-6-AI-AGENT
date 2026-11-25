@@ -16,6 +16,25 @@ export interface RosterMigrationReport {
 
 const openTask = "state NOT IN ('done','failed','cancelled','declined','superseded')";
 
+/**
+ * Pinned snapshots were written by older Hosts. Keys a later version removed (e.g. the game module's `leadWorkflow`) are
+ * dropped instead of failing the migration; anything else that does not match still fails.
+ */
+export function parsePinnedManifest(value: unknown): ReturnType<typeof packManifestSchema.parse> {
+  let candidate = structuredClone(value);
+  for (let round = 0; round < 8; round += 1) {
+    const parsed = packManifestSchema.safeParse(candidate);
+    if (parsed.success) return parsed.data;
+    const unknown = parsed.error.issues.filter((issue) => issue.code === "unrecognized_keys");
+    if (!unknown.length || unknown.length !== parsed.error.issues.length) throw parsed.error;
+    for (const issue of unknown) {
+      const target = issue.path.reduce<unknown>((node, key) => (node as Record<string | number, unknown> | undefined)?.[key as string], candidate);
+      if (target !== null && typeof target === "object") for (const key of (issue as { keys: string[] }).keys) delete (target as Record<string, unknown>)[key];
+    }
+  }
+  return packManifestSchema.parse(candidate);
+}
+
 interface SourceTeam { team_id: string; name: string; pack_key: string | null; pack_version: string | null; pack_digest: string | null }
 
 function loadedPack(raw: Database, team: SourceTeam): { pack: LoadedPack; detail?: string } {
@@ -23,7 +42,7 @@ function loadedPack(raw: Database, team: SourceTeam): { pack: LoadedPack; detail
     const snapshot = raw.prepare("SELECT manifest_json FROM pack_snapshots WHERE digest = ?").get(team.pack_digest) as
       { manifest_json: string } | undefined;
     if (snapshot) {
-      const manifest = packManifestSchema.parse(JSON.parse(snapshot.manifest_json) as unknown);
+      const manifest = parsePinnedManifest(JSON.parse(snapshot.manifest_json) as unknown);
       const files = raw.prepare("SELECT path, kind, name, description, content FROM pack_files WHERE digest = ?")
         .all(team.pack_digest) as { path: string; kind: string; name: string | null; description: string | null; content: string }[];
       const skills = new Map(files.filter((file) => file.kind === "skill").map((file) => [file.path, file]));

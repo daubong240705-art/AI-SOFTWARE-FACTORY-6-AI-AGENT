@@ -11,7 +11,7 @@ import { currentAgentConfig, getAgent } from "../src/org/agents.js";
 import { loadPack, packManifestSchema } from "../src/org/pack.js";
 import { registryEntry } from "../src/org/registry.js";
 import { agentsFromPack } from "../src/org/roster.js";
-import { migrateProjectsToRosters } from "../src/org/roster-migration.js";
+import { migrateProjectsToRosters, parsePinnedManifest } from "../src/org/roster-migration.js";
 import { ensureEngagement, ensureTeamFromPack, findLeadSeat, getPrimaryEngagement, listSeats } from "../src/org/service.js";
 import { createProjectsCreateHandler } from "../src/projects/service.js";
 import { fixedClock, idFactory, migratedStorage } from "./helpers.js";
@@ -243,4 +243,14 @@ test("a new project starts with no agents unless a team template is chosen", (co
   const unknown = create({ teamTemplate: "no-such-pack" });
   assert.equal(unknown.body.ok, false);
   assert.equal(raw.prepare("SELECT 1 FROM projects WHERE id = ?").get(unknown.projectId), undefined);
+});
+
+test("pinned pack snapshots from older Hosts drop removed keys but still reject wrong values", () => {
+  const manifest = JSON.parse(JSON.stringify(loadPack(fileURLToPath(new URL("../../../../packs/software-team", import.meta.url))).manifest));
+  const legacy = { ...manifest, leadWorkflow: "game-build", seats: manifest.seats.map((seat: object) => ({ ...seat, retiredField: true })) };
+  const parsed = parsePinnedManifest(legacy);
+  assert.equal(parsed.key, "software-team");
+  assert.ok(!("leadWorkflow" in parsed));
+  assert.ok(parsed.seats.every((seat) => !("retiredField" in seat)));
+  assert.throws(() => parsePinnedManifest({ ...manifest, seats: "not a list" }));
 });
