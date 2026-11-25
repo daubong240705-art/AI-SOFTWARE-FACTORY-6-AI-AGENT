@@ -19,7 +19,7 @@ Nền tảng điều phối đội agent AI (Multi-Team AI Platform): người d
 - Chạy dự án thực tế: [docs/factory-v2-real-run.md](docs/factory-v2-real-run.md)
 - Chuyển sang Arch Linux: [docs/factory-v2-arch.md](docs/factory-v2-arch.md)
 - Tham số và API của Host: [apps/factory-host/README.md](apps/factory-host/README.md)
-- Kiến trúc tổng thể: [docs/architecture/05-target-architecture.md](docs/architecture/05-target-architecture.md)
+- Kiến trúc tổng thể: [docs/architecture.md](docs/architecture.md)
 
 ## Lịch sử
 

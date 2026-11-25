@@ -158,7 +158,7 @@ export function createLeadRunner(deps: {
       const view = deps.viewRoot && gateway?.providerId === "claude-cli" && project.workspace.kind === "git"
         ? await prepareLeadView(deps.viewRoot, turn.projectId, project.workspace.root) : null;
       if (gateway === null) {
-        terminal(turn, "failed", "not-configured", "The model gateway is not configured. Set NINE_ROUTER_API_KEY and restart the Host.");
+        terminal(turn, "failed", "not-configured", "The model gateway is not configured. Set FACTORY_MODEL_BASE_URL and FACTORY_MODEL_API_KEY if required, then restart the Host.");
         return;
       }
       const summary = await refresh(async (request: ModelRequest) => {

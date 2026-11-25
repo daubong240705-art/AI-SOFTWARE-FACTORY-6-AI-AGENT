@@ -3,7 +3,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { Store } from '@/state/store';
 import { SystemCard, SystemRead } from './SystemCard';
-import { CliStatus } from '@/components/agent-config/RuntimeCards';
+import type { AgentCli } from '@/api/agentRuntime';
+import { cn } from '@/lib/utils';
+
+function CliStatus({ status }: { status: AgentCli | undefined }) {
+  const t = useT();
+  const key = !status ? 'unknown' : !status.installed ? 'notInstalled' : status.login === 'ok' ? 'loggedIn' : status.login === 'missing' ? 'notLoggedIn' : 'unknown';
+  return <span className="inline-flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+    <span aria-hidden="true" className={cn('size-1.5 rounded-full', key === 'loggedIn' ? 'bg-ok' : key === 'notLoggedIn' ? 'bg-info' : 'bg-muted-foreground')} />
+    {t(`agentClis.${key}`)}{status?.version && <span className="font-mono">{status.version}</span>}
+  </span>;
+}
 
 export function AgentClisCard({ store }: { store: Store }) {
   const t = useT(); const state = store.useStoreSelector(value => value); const data = state.system.agentClis;

@@ -11,7 +11,6 @@ import { useWorldMotion } from '../Ticker';
 import { taskColumns, workflowColors, workflowDebug } from './support';
 
 export { workflowStats } from './support';
-export type WorkflowPoint = readonly [number, number, number];
 export type AtlasEntry = { key: string; code?: string; title?: string; text?: string; color?: string };
 
 function ellipsis(ctx: CanvasRenderingContext2D, text: string, width: number) {

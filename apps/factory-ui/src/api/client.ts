@@ -5,7 +5,6 @@ import { groupModels } from './groupModels';
 import { integrationModels } from './integrationModels';
 import { flowModels, type FlowIssue } from './flowModels';
 import { agentClisModel } from './agentRuntime';
-import { packDetailModel, mcpServersModel } from './agentProfileModels';
 import { automationErrorKey } from './automationErrors';
 import { settingsErrorKey } from './settingsErrors';
 import { knowledgeErrorKey } from './knowledgeErrors';
@@ -231,8 +230,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
       return request('/commands', successResponseSchema, command, 'agents');
     },
     listPacks: () => request('/packs', m3Models.packs),
-    getPack: (key: string) => request(`/packs/${encodeURIComponent(key)}`, packDetailModel),
-    listMcpServers: () => request('/mcp-servers', mcpServersModel),
+    listMcpServers: () => request('/mcp-servers', systemModels.mcpServers),
     systemHealth: () => request('/health', systemModels.health),
     systemCapabilities: () => request('/system/capabilities', systemModels.capabilities),
     systemDoctor: (checkModel = false, signal?: AbortSignal) => request(`/system/doctor${checkModel ? '?model=1' : ''}`, systemModels.doctor, undefined, false, signal),

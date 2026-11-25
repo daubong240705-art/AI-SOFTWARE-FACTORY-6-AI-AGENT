@@ -55,7 +55,7 @@ check() {
   if as_user claude --version >/dev/null 2>&1; then echo "  claude $(as_user claude --version 2>/dev/null | head -n 1)"; else echo "  MISSING claude CLI (mount ~/.local/share/claude)"; fail=1; fi
   if as_user codex --version >/dev/null 2>&1; then echo "  codex $(as_user codex --version 2>/dev/null | head -n 1)"; else echo "  note    codex CLI not mounted: seats can only use Claude Code"; fi
   [ -f "$HOME/.claude/.credentials.json" ] || [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] && echo "  claude login present" || { echo "  MISSING claude login (run: docker compose run --rm factory reseed)"; fail=1; }
-  [ -n "${NINE_ROUTER_API_KEY:-}" ] && echo "  NINE_ROUTER_API_KEY set (value not shown)" || echo "  note    NINE_ROUTER_API_KEY not set: Codex seats on 9router will fail"
+  [ -n "${FACTORY_MODEL_BASE_URL:-}" ] && echo "  FACTORY_MODEL_BASE_URL set (value not shown)" || echo "  note    no model gateway configured in the environment"
   echo "  data: /data (state, workspaces, worktrees); port ${FACTORY_PORT}"
   return "$fail"
 }

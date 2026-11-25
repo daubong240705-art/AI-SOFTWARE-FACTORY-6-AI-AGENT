@@ -19,7 +19,7 @@ Pack không lưu khai báo quan hệ. Khi thiết lập đội, đặt Lead qu�
 
 ## Workflow
 
-Các workflow thay đổi game nhận `brief` Markdown đã được người vận hành chốt. Có thể gửi thêm `briefArtifactId` của tài liệu thuộc dự án; nếu chưa có, bỏ trường này. Không thay brief bằng ID. Chỉ gửi `portalIntegrationId` của tích hợp Lazy Gaming Portal đã gắn phạm vi dự án; không đưa khóa truy cập vào brief hoặc input.
+Các workflow thay đổi game nhận `brief` Markdown đã được người vận hành chốt. Có thể gửi thêm `briefArtifactId` của tài liệu thuộc dự án; nếu chưa có, bỏ trường này. Không thay brief bằng ID. Chỉ gửi `portalIntegrationId` của tích hợp Portal đã gắn phạm vi dự án; không đưa khóa truy cập vào brief hoặc input.
 
 | Workflow | Đầu vào | Đường chạy và cổng kiểm soát |
 | --- | --- | --- |

@@ -7,7 +7,7 @@ Một container chứa Host và UI. Lead và các agent dùng Claude Code CLI v�
 - Docker và Docker Compose v2.
 - Claude Code đã đăng nhập, cài tại `~/.local/share/claude`.
 - Codex (không bắt buộc), cài bằng npm tại `~/.local/npm/lib/node_modules/@openai/codex`.
-- `~/.config/factory/env` (quyền 600) chứa `NINE_ROUTER_API_KEY=...` nếu Codex dùng 9router.
+- Đặt cấu hình của model gateway trong `~/.config/factory/env` (quyền 600) nếu sử dụng gateway.
 
 Nếu cài CLI ở chỗ khác, đặt `CLAUDE_INSTALL_DIR` hoặc `CODEX_PACKAGE_DIR` trong file `.env` (xem `docker/env.example`).
 
@@ -51,7 +51,7 @@ Bản gốc trên máy được gắn chỉ-đọc, container không ghi ngượ
 ## Lệnh kiểm tra
 
 ```bash
-docker compose run --rm factory check    # node, git, claude, codex, đăng nhập, khóa 9router (không in giá trị)
+docker compose run --rm factory check    # node, git, claude, codex, đăng nhập, cấu hình gateway (không in giá trị)
 docker compose run --rm factory shell    # vào shell với quyền user 1000
 ```
 
@@ -59,7 +59,7 @@ docker compose run --rm factory shell    # vào shell với quyền user 1000
 
 - **Mạng.** Container dùng chung mạng với máy (`network_mode: host`):
   - Host vẫn chỉ nghe trên `127.0.0.1`;
-  - agent gọi được 9router và các dev server chạy tại máy;
+  - agent gọi được gateway và các dev server chạy tại máy;
   - mở game agent đang chạy ngay trên trình duyệt của máy.
 - **Quyền của agent.** Agent có toàn quyền bên trong container, nhưng chỉ ghi được vào thư mục dữ liệu và volume CLI. Agent không thấy các thư mục khác của máy.
 - **Đọc tài liệu.** Docker chặn bubblewrap, nên bộ đọc PDF/Office chạy trực tiếp trong container, giới hạn 2 GiB bộ nhớ. Tắt hẳn bằng `FACTORY_DOC_WORKER=off`.

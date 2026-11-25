@@ -59,12 +59,17 @@ test("model aliases honor precedence and reject conflicting keys without exposin
   assert.ok(!JSON.stringify(conflict.issues).includes(sampleKey));
 });
 
-test("only the old key enables the transitional Lead fallback", () => {
+test("the deprecated key needs an explicit model base URL", () => {
   const config = resolveConfig({ NINE_ROUTER_API_KEY: sampleKey }, {}, "/unused");
-  assert.equal(config.model?.baseUrl, "https://ai.lazy.local/v1");
-  assert.equal(config.env.FACTORY_GATEWAY_URL, undefined);
+  assert.equal(config.model, null);
+  assert.equal(config.env.FACTORY_MODEL_BASE_URL, undefined);
+  assert.equal(config.env.FACTORY_MODEL_API_KEY, undefined);
   assert.equal(config.warnings.length, 1);
   assert.match(config.warnings[0]!.fix, /set FACTORY_MODEL_BASE_URL/);
+  const configured = resolveConfig({ FACTORY_MODEL_BASE_URL: "https://gateway.example/v1", NINE_ROUTER_API_KEY: sampleKey }, {}, "/unused");
+  assert.equal(configured.model?.baseUrl, "https://gateway.example/v1");
+  assert.ok(configured.model?.apiKey === sampleKey);
+  assert.equal(configured.warnings[0]?.code, "C-DEPRECATED");
   assert.equal(resolveConfig({ FACTORY_MODEL_API_KEY: sampleKey }, {}, "/unused").model, null);
   assert.equal(resolveConfig({ NINE_ROUTER_API_KEY: sampleKey, FACTORY_MODEL_PROVIDER: "none" }, {}, "/unused").model, null);
 });

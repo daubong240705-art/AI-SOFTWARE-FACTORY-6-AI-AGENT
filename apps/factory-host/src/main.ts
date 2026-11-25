@@ -14,7 +14,7 @@ import { allowedHosts } from "./config/schema.js";
 
 
 function upstreamOptions(model: ModelProvider) {
-  const { providerId } = model;
+  const providerId = "openai-compatible";
   if (model.apiKey) return { baseUrl: model.baseUrl, apiKey: model.apiKey, providerId };
   const fetchImpl: typeof fetch = (input, init) => {
     const headers = new Headers(init?.headers);
@@ -31,7 +31,7 @@ try {
   const { env } = config;
   const { dispatch, workspace, agentProxy, opencode, pushRemotes, pushSshCommand, localCli, cliPassEnv, ...hostOptions } = parseEnv(env);
   const passEnv = cliPassEnv?.filter((key) => key !== "FACTORY_LOGIN_TOKEN");
-  if (opencode && (!config.model || config.model.legacy)) throw configError("FACTORY_RUNTIME / FACTORY_MODEL_BASE_URL");
+  if (opencode && !config.model) throw configError("FACTORY_RUNTIME / FACTORY_MODEL_BASE_URL");
   if (opencode && !await isSandboxAvailable()) throw new ConfigError([{ code: "C-RUNTIME", key: "FACTORY_RUNTIME",
     message: "OpenCode cần bubblewrap hoạt động trên Linux.", fix: "Chạy factory doctor để kiểm tra D-BWRAP hoặc tắt runtime OpenCode." }]);
   if (opencode) {
@@ -58,7 +58,7 @@ try {
   const upstream = config.model ? upstreamOptions(config.model) : null;
   const modelGateway = env.FACTORY_LEAD_CLI === "claude" ? createClaudeCliGateway({ ...(passEnv === undefined ? {} : { passEnv }) })
     : upstream === null ? null : createChatCompletionsGateway(upstream);
-  const modelProxy = upstream && !config.model?.legacy && agentProxy ? { ...agentProxy, upstream } : null;
+  const modelProxy = upstream && agentProxy ? { ...agentProxy, upstream } : null;
   let uiDir = env.FACTORY_UI_DIR;
   if (uiDir && config.sources.FACTORY_UI_DIR === "default") {
     try { if (!(await stat(uiDir)).isDirectory()) uiDir = undefined; } catch { uiDir = undefined; }

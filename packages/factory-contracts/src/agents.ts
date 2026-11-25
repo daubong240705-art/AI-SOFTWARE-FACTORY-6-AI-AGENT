@@ -73,7 +73,6 @@ export type AgentConfig = z.infer<typeof agentConfigSchema>;
 export type AgentConfigInput = z.input<typeof agentConfigSchema>;
 
 export const agentRelationKindSchema = z.enum(["manages", "reviews", "collaborates", "approves"]);
-export type AgentRelationKind = z.infer<typeof agentRelationKindSchema>;
 export const agentRelationSchema = z.strictObject({
   from: idSchema, to: idSchema, kind: agentRelationKindSchema,
 }).refine((r) => r.from !== r.to, "an agent cannot relate to itself");

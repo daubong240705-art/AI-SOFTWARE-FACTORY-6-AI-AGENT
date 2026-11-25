@@ -3,7 +3,8 @@
 # model through the Host's loopback proxy). It spends real tokens, so it refuses to start without an explicit model
 # and an explicit key from YOUR environment. Nothing secret is written to disk or printed.
 #
-#   export NINE_ROUTER_API_KEY=...                       # only in this shell
+#   export FACTORY_MODEL_BASE_URL=https://gateway.example/v1
+#   Set FACTORY_MODEL_API_KEY privately in this shell.
 #   FACTORY_AGENT_MODELS=<model[,model]> bash scripts/factory-v2/start-host-real.sh
 #   bash scripts/factory-v2/start-host-real.sh --check   # verify prerequisites, start nothing, spend nothing
 #   bash scripts/factory-v2/start-host-real.sh --agents codex   # seats of the team run on the Codex CLI unless you configured them otherwise (or claude)
@@ -45,8 +46,13 @@ command -v node >/dev/null 2>&1 && ok "node $(node --version)" || bad "node (exp
 [ -f "$ROOT/app/apps/factory-ui/dist/index.html" ] && ok "UI build" || bad "UI build: run npm run build in apps/factory-ui, then redeploy"
 command -v bwrap >/dev/null 2>&1 && ok "bubblewrap" || bad "bubblewrap (bwrap)"
 [ -x "$ROOT/opencode/bin/opencode" ] && ok "OpenCode $("$ROOT/opencode/bin/opencode" --version 2>/dev/null | head -1)" || bad "OpenCode at $ROOT/opencode/bin/opencode"
-[ -f "$ROOT/ca/caddy-root.crt" ] && ok "gateway CA certificate" || bad "CA certificate $ROOT/ca/caddy-root.crt"
-[ -n "${NINE_ROUTER_API_KEY:-}" ] && ok "NINE_ROUTER_API_KEY is set (value not shown)" || bad "NINE_ROUTER_API_KEY is not set in this shell"
+if [ -n "${NODE_EXTRA_CA_CERTS:-}" ]; then
+  [ -r "$NODE_EXTRA_CA_CERTS" ] && ok "additional CA certificate is readable" || bad "NODE_EXTRA_CA_CERTS is not readable"
+fi
+GATEWAY="${FACTORY_MODEL_BASE_URL:-}"
+KEY="${FACTORY_MODEL_API_KEY:-${NINE_ROUTER_API_KEY:-}}"
+[ -n "$GATEWAY" ] && ok "FACTORY_MODEL_BASE_URL is set" || bad "FACTORY_MODEL_BASE_URL is not set in this shell"
+[ -n "$KEY" ] && ok "model API key is set (value not shown)" || bad "FACTORY_MODEL_API_KEY is not set in this shell"
 [ -n "${FACTORY_AGENT_MODELS:-}" ] && ok "agent models: ${FACTORY_AGENT_MODELS}" || bad "FACTORY_AGENT_MODELS (no default on purpose: you choose the model)"
 case "$ROOT" in /mnt/*) bad "FACTORY_V2_HOME must not be under /mnt";; esac
 if [ "${FACTORY_LOCAL_CLI:-0}" = "1" ]; then
@@ -55,12 +61,12 @@ if [ "${FACTORY_LOCAL_CLI:-0}" = "1" ]; then
     else bad "$cli CLI not found in PATH (install it inside WSL and log in)"; fi
   done
 fi
-GATEWAY="${FACTORY_GATEWAY_URL:-https://ai.lazy.local/v1}"
-ok "gateway $GATEWAY"
 # With a key and a model chosen, ask the gateway which models it offers (a free listing call: no tokens are spent).
 if [ "$fail" -eq 0 ]; then
-  LIST="$(curl -sS --max-time 20 --cacert "$ROOT/ca/caddy-root.crt" -H "Authorization: Bearer $NINE_ROUTER_API_KEY" "$GATEWAY/models" 2>/dev/null || true)"
-  if printf '%s' "$LIST" | grep -qiE '"error"|unauthori|invalid api|forbidden'; then bad "the gateway rejected the key (check NINE_ROUTER_API_KEY)"
+  ca_args=()
+  if [ -n "${NODE_EXTRA_CA_CERTS:-}" ]; then ca_args+=(--cacert "$NODE_EXTRA_CA_CERTS"); fi
+  LIST="$(printf 'Authorization: Bearer %s\n' "$KEY" | curl -sS --max-time 20 "${ca_args[@]}" -H @- "${GATEWAY%/}/models" 2>/dev/null || true)"
+  if printf '%s' "$LIST" | grep -qiE '"error"|unauthori|invalid api|forbidden'; then bad "the gateway rejected the key (check FACTORY_MODEL_API_KEY)"
   elif [ -n "$LIST" ]; then
     for model in $(echo "${FACTORY_AGENT_MODELS}${FACTORY_LEAD_MODEL:+,$FACTORY_LEAD_MODEL}" | tr ',' ' '); do
       if printf '%s' "$LIST" | grep -q "\"$model\""; then ok "gateway offers $model"; else bad "gateway does not list $model (check the spelling)"; fi
@@ -72,11 +78,9 @@ if [ "$CHECK" -eq 1 ]; then echo "Preflight passed. Start without --check to run
 
 mkdir -p "$ROOT/proxy" "$ROOT/workspaces" "$ROOT/worktrees" "$ROOT/state"
 chmod 700 "$ROOT/proxy"
-export NODE_EXTRA_CA_CERTS="$ROOT/ca/caddy-root.crt"
 export FACTORY_RUNTIME=opencode
 export FACTORY_OPENCODE_DIR="$ROOT/opencode"
 export FACTORY_PROXY_SOCKET="$ROOT/proxy/model.sock"
-export FACTORY_GATEWAY_URL="$GATEWAY"
 export FACTORY_STATE_DIR="${FACTORY_STATE_DIR:-$ROOT/state}"
 export FACTORY_PROJECTS_ROOT="${FACTORY_PROJECTS_ROOT:-$ROOT/workspaces}"
 export FACTORY_WORKTREES_ROOT="${FACTORY_WORKTREES_ROOT:-$ROOT/worktrees}"
