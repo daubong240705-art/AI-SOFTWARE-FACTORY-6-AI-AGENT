@@ -7,8 +7,8 @@ import { External, Mochi, repo, text, type Lang } from './shared';
 import './styles.css';
 
 function initialLang(): Lang {
-  try { return localStorage.getItem('factory-site-lang') === 'en' ? 'en' : 'vi'; }
-  catch { return 'vi'; }
+  try { return localStorage.getItem('factory-site-lang') === 'vi' ? 'vi' : 'en'; }
+  catch { return 'en'; }
 }
 
 function App() {
@@ -55,7 +55,6 @@ function App() {
         <nav id="site-nav" className={menu ? 'site-nav open' : 'site-nav'} aria-label={text(lang, 'Điều hướng chính', 'Main navigation')} onClick={(event) => { if ((event.target as HTMLElement).closest('a')) setMenu(false); }}>
           <a href="#/#features">{text(lang, 'Tính năng', 'Features')}</a>
           <a href="#/#how">{text(lang, 'Cách hoạt động', 'How it works')}</a>
-          <a href="#/#game-team">{text(lang, 'Đội làm game', 'Game team')}</a>
           <a href="#/docs/introduction" aria-current={isDocs ? 'page' : undefined}>Docs</a>
           <External href={repo}>GitHub</External>
           <a className="nav-try" href="#/try" aria-current={isTry ? 'page' : undefined}>{text(lang, 'Dùng thử', 'Try it')}</a>

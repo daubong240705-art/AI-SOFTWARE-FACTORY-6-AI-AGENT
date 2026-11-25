@@ -86,26 +86,19 @@ export function Landing({ lang }: { lang: Lang }) {
           {index < steps.length - 1 && <><ChevronRight className="step-arrow" size={15} aria-hidden="true" /><ArrowDown className="step-down" size={15} aria-hidden="true" /></>}
         </li>)}</ol>
         <div className="screens-grid">{[
-          ['office', 'Văn phòng', 'Office'], ['agents', 'Agent & Team', 'Agents & Teams'], ['lead-chat', 'Lead chat', 'Lead chat'], ['trace', 'Trace', 'Trace'],
+          ['office', 'Văn phòng', 'Office'], ['agents', 'Agent & Team', 'Agents & Teams'], ['monitor', 'Monitor', 'Monitor'], ['trace', 'Trace', 'Trace'],
         ].map(([name, vi, en]) => <Screenshot key={`${name}-${lang}`} name={name} caption={text(lang, vi, en)} lang={lang} />)}</div>
       </div>
     </section>
 
-    <section className="section wrap" id="game-team">
-      <p className="eyebrow">03 / {text(lang, 'Đội làm game', 'Game team')}</p>
-      <h2>{text(lang, 'Một xưởng game, tám vai trò', 'One game studio, eight roles')}</h2>
-      <p className="section-intro">{text(lang, 'Web Games là một pack tùy chọn để làm game trình duyệt theo lượt. Đội làm việc từ starter; Portal nhận bản build sau khi bạn duyệt.', 'Web Games is an opt-in pack for turn-based browser games. The team builds on a starter; Portal receives the build after your approval.')}</p>
-      <div className="roster">{roles.map(([role, name, vi, en]) => <article key={role}><Mochi role={role} /><h3>{name}</h3><p>{text(lang, vi, en)}</p></article>)}</div>
-      <div className="game-flow"><div><span className="eyebrow">Workflow</span><h3><code>game-new</code></h3></div><ol>{gameSteps.map(([vi, en]) => <li key={en}>{text(lang, vi, en)}</li>)}</ol><a className="text-link" href="#/docs/web-games">{text(lang, 'Xem hướng dẫn Portal', 'Read the Portal guide')}<ArrowRight size={16} aria-hidden="true" /></a></div>
-    </section>
 
     <section className="why-section"><div className="section wrap why-grid">
-      <div><p className="eyebrow">04 / {text(lang, 'Vì sao Factory', 'Why Factory')}</p><h2>{text(lang, 'Không chỉ dừng ở chat', 'Beyond the chat window')}</h2><Mochi role="BA" className="why-mochi" /></div>
+      <div><p className="eyebrow">03 / {text(lang, 'Vì sao Factory', 'Why Factory')}</p><h2>{text(lang, 'Không chỉ dừng ở chat', 'Beyond the chat window')}</h2><Mochi role="BA" className="why-mochi" /></div>
       <dl>{comparisons.map(([vi, en, bodyVi, bodyEn]) => <div key={en}><dt><Check size={19} aria-hidden="true" />{text(lang, vi, en)}</dt><dd>{text(lang, bodyVi, bodyEn)}</dd></div>)}</dl>
     </div></section>
 
     <section className="section wrap install-grid"><div>
-      <p className="eyebrow">05 / {text(lang, 'Bắt đầu', 'Get started')}</p><h2>{text(lang, 'Mở xưởng trên máy bạn', 'Open your own Factory')}</h2>
+      <p className="eyebrow">04 / {text(lang, 'Bắt đầu', 'Get started')}</p><h2>{text(lang, 'Mở xưởng trên máy bạn', 'Open your own Factory')}</h2>
       <p className="section-intro">{text(lang, 'Dành cho Linux x64. Sau khi chạy, mở Factory ở http://127.0.0.1:8787/.', 'For Linux x64. Once running, open Factory at http://127.0.0.1:8787/.')}</p>
       <a className="text-link" href="#/docs/install">{text(lang, 'Xem hướng dẫn cài đặt', 'Read the installation guide')}<ArrowRight size={16} aria-hidden="true" /></a>
     </div><CodeBlock value={install} lang={lang} /></section>
