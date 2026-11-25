@@ -118,6 +118,7 @@ export function FlowCanvas({ definition, selection, onSelect, issues = noIssues,
         const invalid = invalidEdges.has(edge.id);
         const stroke = invalid ? 'var(--color-destructive)' : active ? 'var(--color-primary)' : 'var(--color-muted-foreground)';
         return { ...edge, selected: selection?.kind === 'edge' && selection.id === edge.id, ariaLabel: `${titles.get(edge.source) ?? label('missingNode')} → ${titles.get(edge.target) ?? label('missingNode')}`,
+          domAttributes: { 'data-edge': `${edge.source}:${edge.sourceHandle ?? 'out'}>${edge.target}` } as Record<string, string>,
           markerEnd: { type: MarkerType.ArrowClosed, color: stroke }, style: { stroke, strokeWidth: active ? 3 : 1.5, ...(edge.data?.loopBack ? { strokeDasharray: '6 4' } : {}) } };
       })}
       nodesDraggable={!!edit} nodesConnectable={!!edit} deleteKeyCode={null} multiSelectionKeyCode={null}

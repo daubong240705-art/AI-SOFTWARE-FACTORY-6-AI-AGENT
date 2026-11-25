@@ -38,10 +38,12 @@ async function connect(page, source, port, target) {
 async function choose(trigger, value) {
   await trigger.click();
   await trigger.page().locator(`[role="option"][data-value="${value}"]`).click();
-  await trigger.and(trigger.page().locator(`[data-value="${value}"]`)).waitFor();
+  // Do not re-resolve the trigger: callers may filter rows by the old value, so wait for the list to close.
+  await trigger.page().locator('[role="listbox"]').waitFor({ state: 'hidden' });
 }
 
-const flowEdge = (page, source, port, target) => page.locator(`.react-flow__edge[aria-label="${source}:${port} → ${target}"]`);
+// Stable hook: the visible aria-label uses translated node titles.
+const flowEdge = (page, source, port, target) => page.locator(`.react-flow__edge[data-edge="${source}:${port}>${target}"]`);
 
 function watchSecret(page, base, canaries) {
   let leaked = false;
