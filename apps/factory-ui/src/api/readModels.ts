@@ -51,14 +51,11 @@ const gateFields = { taskId: identifier, code: string(40, 1), title: string(160,
 const optional = <T,>(read: Reader<T>): Reader<T | undefined> => v => v === undefined ? undefined : read(v);
 const optionalArray = <T,>(read: Reader<T>): Reader<T[]> => v => v === undefined ? [] : array(read)(v);
 const projectFields = { projectId: optional(identifier), projectName: optional(string(160, 1)) };
-const inboxPatch = object({ ...projectFields, projectId: identifier, id: identifier, instanceId: identifier, instanceTitle: string(500), ops: array(string(1000, 1)), reason: string(4000), createdAt: timestamp });
 const monitor = object({ ...projectFields, projectId: identifier, monitorId: identifier, name: string(500, 1), kind: string(100, 1), value: nullable((v: unknown): number => typeof v === 'number' && Number.isFinite(v) ? v : invalid()), since: nullable(timestamp) });
-const stalledWorkflow = object({ ...projectFields, instanceId: identifier, title: string(500), reason: nullable(string(4000)), since: optional(nullable(timestamp)) });
 const quarantinedRule = object({ ...projectFields, projectId: identifier, ruleId: identifier, name: string(500, 1), since: optional(nullable(timestamp)) });
 const teamBreaker = object({ ...projectFields, projectId: identifier, teamId: identifier, title: string(500), reason: nullable(string(4000)), openedAt: nullable(timestamp), failures: integer() });
 const integrationConflict = object({ ...projectFields, projectId: identifier, taskId: identifier, code: string(40, 1), title: string(500), branch: string(500, 1), since: optional(nullable(timestamp)) });
-export type InboxPatch = ReturnType<typeof inboxPatch>;
-type InboxExtras = { patches: InboxPatch[]; monitors: ReturnType<typeof monitor>[]; stalledWorkflows: ReturnType<typeof stalledWorkflow>[]; quarantinedRules: ReturnType<typeof quarantinedRule>[]; teamBreakers: ReturnType<typeof teamBreaker>[]; integrationConflicts: ReturnType<typeof integrationConflict>[] };
+type InboxExtras = { monitors: ReturnType<typeof monitor>[]; quarantinedRules: ReturnType<typeof quarantinedRule>[]; teamBreakers: ReturnType<typeof teamBreaker>[]; integrationConflicts: ReturnType<typeof integrationConflict>[] };
 export const knowledgeKinds = artifactKindSchema.options;
 export const knowledgeStatuses = artifactStatusSchema.options;
 export const knowledgeVisibilities = ['team-draft', 'project', 'shared'] as const;
@@ -73,11 +70,6 @@ const staleReason = object({ becauseArtifactId: identifier, becauseVersion: inte
 const knowledgeVersion = object({ ...documentFields, version: integer(1), status: enumeration(knowledgeStatuses), visibility: enumeration(knowledgeVisibilities), abstractL0: string(6000), abstractL1: nullable(string(6000)), producedByAttemptId: nullable(identifier), supersedesVersion: nullable(integer(1)), createdAt: timestamp, stale: defaulted(array(staleReason), []), isStale: defaulted(boolean, false) });
 const knowledgeRef = object({ artifactId: identifier, version: integer(1), title: string(500, 1) });
 const knowledgeArtifact = object({ artifactId: identifier, kind: enumeration(knowledgeKinds), title: string(500, 1), versions: knowledgeArray(knowledgeVersion), inputs: knowledgeArray(knowledgeRef), dependants: knowledgeArray(knowledgeRef) });
-const previewState = enumeration(['stopped', 'preparing', 'installing', 'starting', 'running', 'failed'] as const);
-const previewPath: Reader<string> = v => { const path = string(200, 1)(v); return /^\/(?!\/)/.test(path) && !/[\\\s]/.test(path) ? path : invalid(); };
-const preview = object({ state: previewState, url: nullable(string(200)), viewUrl: defaulted(nullable(previewPath), null), port: nullable(integer(1)), sha: nullable(string(80)),
-  startedAt: nullable(timestamp), message: nullable(string(600)), log: string(20_000) });
-export type PreviewStatus = ReturnType<typeof preview>;
 export type KnowledgeResult = ReturnType<typeof knowledgeResult>;
 export type KnowledgeItem = ReturnType<typeof knowledgeItem>;
 export type KnowledgeArtifact = ReturnType<typeof knowledgeArtifact>;
@@ -95,7 +87,7 @@ export type Inbox = Partial<InboxExtras> & { requests?: RequestItem[] | undefine
 function inbox(global: boolean): Reader<Inbox> {
   return object({ requests: (v: unknown) => v === undefined ? [] : array((item: unknown) => requestItemSchema.parse(item))(v), approvals: array(v => ({ ...approval(v), ...(global ? { projectName: string(160, 1)(record(v).projectName) } : {}) })),
     startGates: array(global ? object({ ...gateFields, projectName: string(160, 1) }) : object({ ...gateFields, projectId: (v: unknown) => v === undefined ? '' : identifier(v) })),
-    patches: optionalArray(inboxPatch), monitors: optionalArray(monitor), stalledWorkflows: optionalArray(stalledWorkflow), quarantinedRules: optionalArray(quarantinedRule), teamBreakers: optionalArray(teamBreaker), integrationConflicts: optionalArray(integrationConflict), counts });
+    monitors: optionalArray(monitor), quarantinedRules: optionalArray(quarantinedRule), teamBreakers: optionalArray(teamBreaker), integrationConflicts: optionalArray(integrationConflict), counts });
 }
 function envelope<T>(read: Reader<T>) {
   return { safeParse(value: unknown): { success: true; data: T & { ok: true; apiVersion: typeof API_VERSION } } | { success: false } {
@@ -110,14 +102,14 @@ function envelope<T>(read: Reader<T>) {
 export const readModels = { projectAttempts: envelope(object({ attempts: array(projectAttempt) })), attempts: envelope(object({ attempts: array(attempt) })), events: envelope(object({ events: array((v) => { const r = record(v); if (!Object.hasOwn(r, 'body')) invalid(); return event(v); }) })), patch: envelope(patch), artifacts: envelope(object({ items: array(artifact) })), content: envelope(content), approvals: envelope(object({ approvals: array(approval) })),
   approval: envelope(object({ approval })), inbox: envelope(inbox(false)), globalInbox: envelope(inbox(true)), remotes: envelope(object({ remotes: array(name) })), effects: envelope(object({ effects: array(effect) })), effect: envelope(object({ effect })),
   knowledgeSearch: envelope(object({ results: knowledgeArray(knowledgeResult) })), knowledgeList: envelope(object({ items: knowledgeArray(knowledgeItem) })), knowledgeGroups: envelope(knowledgeGroups), knowledgeArtifact: envelope(object({ artifact: knowledgeArtifact })),
-  preview: envelope(object({ preview })), uploadedArtifact: envelope(object({ artifact: knowledgeItem })) };
+  uploadedArtifact: envelope(object({ artifact: knowledgeItem })) };
 
 export { m5ReadModels } from './m5Models';
-export type { WorkflowInstance, WorkflowDetail, WorkflowStage, WorkflowGraph, WorkflowDefinition, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './m5Models';
+export type { AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './m5Models';
 export type Effect = ReturnType<typeof effect>;
 export type AttemptEvent = ReturnType<typeof event>;
 export type AttemptPatch = ReturnType<typeof patch>;
 export type TaskArtifact = ReturnType<typeof artifact>;
 export type ArtifactContent = ReturnType<typeof content>;
 
-export type { OrgTeam, RequestItem, RequestDetail, Dossier, Briefing, TaskContext } from './m3Models';
+export type { RequestItem, RequestDetail, Dossier, Briefing, TaskContext } from './m3Models';

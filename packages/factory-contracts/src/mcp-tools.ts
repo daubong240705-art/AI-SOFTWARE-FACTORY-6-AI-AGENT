@@ -1,4 +1,3 @@
-import { workflowPatchSchema } from "./workflow.js";
 import { notifySendInternalInputSchema } from "./standing.js";
 import { z } from "zod";
 import { idSchema, labelSchema, sha256Schema, textSchema, timestampSchema } from "./base.js";
@@ -169,7 +168,6 @@ export const projectBriefingInputSchema = z.strictObject({});
 export const skillGetInputSchema = z.strictObject({ name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/) });
 export type SkillGetInput = z.infer<typeof skillGetInputSchema>;
 
-export const workflowPatchInputSchema = workflowPatchSchema;
 export const MCP_TOOLS = {
   "skill.get": skillGetInputSchema,
   "project.briefing": projectBriefingInputSchema,
@@ -187,7 +185,6 @@ export const MCP_TOOLS = {
   "request.create": requestCreateInputSchema,
   "request.reply": requestReplyInputSchema,
   "request.get": requestGetInputSchema,
-  "workflow.patch": workflowPatchInputSchema,
   "notify.send-internal": notifySendInternalInputSchema,
 } as const;
 export type McpToolName = keyof typeof MCP_TOOLS;

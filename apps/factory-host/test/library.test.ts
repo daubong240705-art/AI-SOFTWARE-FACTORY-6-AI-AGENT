@@ -84,7 +84,7 @@ test("a new pack version advances changed skills and creates new seat templates"
 });
 
 test("seatToAgentConfig maps runtimes, slots, profiles, tags, tools and lead delegation", () => {
-  const pack = load("web-games");
+  const pack = load("design-team");
   const lead = pack.manifest.seats.find(({ isLead }) => isLead)!;
   const worker = pack.manifest.seats.find(({ isLead, capabilities }) => !isLead && capabilities?.length)!;
   const leadConfig = seatToAgentConfig(pack, lead.name, []);
@@ -115,7 +115,7 @@ test("imports every current registry pack without errors", (context) => {
   const results = importPacksToLibrary(storage.raw, packs, deps(), (key, message) => errors.push(`${key}: ${message}`));
   assert.deepEqual(errors, []);
   assert.ok(packs.some(({ key }) => key === "software-team"));
-  assert.ok(packs.some(({ key }) => key === "web-games"));
+  assert.ok(packs.some(({ key }) => key === "design-team"));
   assert.deepEqual(results.map(({ templates }) => templates.length), packs.map(({ seats }) => seats.length));
 });
 
@@ -199,7 +199,7 @@ test("a failing pack rolls back all its rows without stopping later imports", (c
   context.after(() => storage.close());
   const broken = load("software-team");
   broken.files.profiles.pop();
-  const valid = load("web-games");
+  const valid = load("design-team");
   const failures: string[] = [];
   const results = importPacksToLibrary(storage.raw, [registryEntry(broken), registryEntry(valid)], deps(), (key) => failures.push(key));
   assert.deepEqual(failures, [broken.manifest.key]);

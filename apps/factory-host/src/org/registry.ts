@@ -9,7 +9,6 @@ export interface RegistryPack {
   produces?: LoadedPack["manifest"]["produces"];
   workflows?: { key: string; revision: number; title: string }[];
   isDefault: boolean;
-  leadPortal?: boolean;
 }
 const loaded = new WeakMap<RegistryPack, LoadedPack>();
 
@@ -21,7 +20,6 @@ export function registryEntry(pack: LoadedPack, isDefault = false): RegistryPack
       ({ name, role, runtime, slots, isLead, ...(capabilities === undefined ? {} : { capabilities }),
         ...(tools === undefined ? {} : { tools }) })), isDefault,
     ...(manifest.produces === undefined ? {} : { produces: manifest.produces }),
-    ...(manifest.leadPortal === undefined ? {} : { leadPortal: manifest.leadPortal }),
     ...(pack.files.workflows.length ? { workflows: pack.files.workflows.map(({ definition: { key, revision, title } }) => ({ key, revision, title })) } : {}) };
   loaded.set(entry, pack);
   return entry;

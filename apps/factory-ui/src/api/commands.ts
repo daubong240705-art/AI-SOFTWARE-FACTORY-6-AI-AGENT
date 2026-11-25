@@ -73,16 +73,6 @@ export function tasksRetry({ projectId, taskId, expectedRevision }: { projectId:
 export function approvalsDecide({ projectId, ...payload }: Of<'approvals.decide'>['payload'] & { projectId: string }) {
   return build('approvals.decide', projectId, payload);
 }
-export function workflowsDecidePatch({ projectId, ...payload }: Of<'workflows.decide-patch'>['payload'] & { projectId: string }) {
-  return build('workflows.decide-patch', projectId, payload);
-}
-export function workflowsPatch({ projectId, ...payload }: Of<'workflows.patch'>['payload'] & { projectId: string }) { return build('workflows.patch', projectId, payload); }
-export function workflowsCreate({ projectId, ...payload }: Of<'workflows.create'>['payload'] & { projectId: string }) { return build('workflows.create', projectId, payload); }
-export function workflowsStart({ projectId, ...payload }: Of<'workflows.start'>['payload'] & { projectId: string }) { return build('workflows.start', projectId, payload); }
-export function workflowsPause({ projectId, ...payload }: Of<'workflows.pause'>['payload'] & { projectId: string }) { return build('workflows.pause', projectId, payload); }
-export function workflowsResume({ projectId, ...payload }: Of<'workflows.resume'>['payload'] & { projectId: string }) { return build('workflows.resume', projectId, payload); }
-export function workflowsCancel({ projectId, ...payload }: Of<'workflows.cancel'>['payload'] & { projectId: string }) { return build('workflows.cancel', projectId, payload); }
-export function workflowsAssignStage({ projectId, ...payload }: Of<'workflows.assign-stage'>['payload'] & { projectId: string }) { return build('workflows.assign-stage', projectId, payload); }
 export function tasksCreate({ projectId, code, title, goal, brief = goal, acceptance, requiredCapabilities = [], inputs = [] }: {
   projectId: string; code: string; title: string; goal: string; brief?: string;
   acceptance: string[]; requiredCapabilities?: string[]; inputs?: Of<'tasks.create'>['payload']['inputs'];
@@ -106,16 +96,10 @@ export function budgetsSet({ projectId, ...payload }: Of<'budgets.set'>['payload
   return build('budgets.set', projectId, payload);
 }
 
-export function teamsCreateFromPack({ projectId, ...payload }: Of<'teams.create-from-pack'>['payload'] & { projectId: string }) { return build('teams.create-from-pack', projectId, payload); }
 
-export function teamsSetLifecycle({ projectId, ...payload }: Of<'teams.set-lifecycle'>['payload'] & { projectId: string }) { return build('teams.set-lifecycle', projectId, payload); }
 
-export function engagementsCreate({ projectId, ...payload }: Of<'engagements.create'>['payload'] & { projectId: string }) { return build('engagements.create', projectId, payload); }
 
-export function engagementsUpdate({ projectId, ...payload }: Of<'engagements.update'>['payload'] & { projectId: string }) { return build('engagements.update', projectId, payload); }
 
-export function seatsUpdate({ projectId, ...payload }: Of<'seats.update'>['payload'] & { projectId: string }) { return build('seats.update', projectId, payload); }
-export function seatsSetRuntime({ projectId, ...payload }: Of<'seats.set-runtime'>['payload'] & { projectId: string }) { return build('seats.set-runtime', projectId, payload); }
 
 export function requestsTriage({ projectId, ...payload }: Of<'requests.triage'>['payload'] & { projectId: string }) { return build('requests.triage', projectId, payload); }
 
@@ -125,24 +109,6 @@ export function artifactsTransition({ projectId, ...payload }: Of<'artifacts.tra
 
 export function dossierRefresh({ projectId, ...payload }: { projectId: string }) { return build('dossier.refresh', projectId, payload); }
 
-export function schedulesCreate({ projectId, ...payload }: Omit<Of<'schedules.create'>['payload'], 'scheduleId'> & { projectId: string }) {
-  return build('schedules.create', projectId, { scheduleId: crypto.randomUUID(), ...payload });
-}
-export function schedulesUpdate({ projectId, ...payload }: Of<'schedules.update'>['payload'] & { projectId: string }) {
-  return build('schedules.update', projectId, payload);
-}
-export function schedulesPause({ projectId, ...payload }: Of<'schedules.pause'>['payload'] & { projectId: string }) {
-  return build('schedules.pause', projectId, payload);
-}
-export function schedulesResume({ projectId, ...payload }: Of<'schedules.resume'>['payload'] & { projectId: string }) {
-  return build('schedules.resume', projectId, payload);
-}
-export function schedulesDelete({ projectId, ...payload }: Of<'schedules.delete'>['payload'] & { projectId: string }) {
-  return build('schedules.delete', projectId, payload);
-}
-export function schedulesRunNow({ projectId, ...payload }: Of<'schedules.run-now'>['payload'] & { projectId: string }) {
-  return build('schedules.run-now', projectId, payload);
-}
 export function rulesCreate({ projectId, ...payload }: Omit<Of<'rules.create'>['payload'], 'ruleId'> & { projectId: string }) {
   return build('rules.create', projectId, { ruleId: crypto.randomUUID(), ...payload });
 }

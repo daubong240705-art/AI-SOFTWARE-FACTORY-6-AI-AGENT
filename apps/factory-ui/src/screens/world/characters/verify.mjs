@@ -38,17 +38,10 @@ const { poseLabels } = await local('../copy');
 const { glyphGeometry, glyphMesh } = await local('resources');
 const { Box3, Color, Raycaster, Vector3 } = await import('three');
 const { characterFeatures, faceSurface } = await local('features');
-const fixtures = { Lead: 'LEAD', 'Game Designer': 'BA', 'Rules Engineer': 'BE', 'UI Artist': 'FE', 'Client Engineer': 'DEVOPS', 'QA Engineer': 'TEST', 'Product Strategist': 'PM', 'Gameplay Engineer': 'MINT', 'Network Engineer': 'PLUM' };
+const fixtures = { Lead: 'LEAD', Researcher: 'BA', Architect: 'BE', 'UI Designer': 'FE', 'API Designer': 'DEVOPS', 'QA Engineer': 'TEST', PM: 'PM' };
 for (const [seat, code] of Object.entries(fixtures)) assert.equal(specForSeat(seat).code, code);
 for (const seat of [...Object.keys(fixtures), 'Unknown', 'unicode 🦊']) assert.equal(specForSeat(seat).code, artCode(seat, seatHash(seat)));
 assert.equal(specForSeat('Unmapped', true).code, 'LEAD');
-for (const name of ['Portal Manager', ' portal manager ', 'PORTAL MANAGER']) {
-  for (const isLead of [false, true]) {
-    assert.equal(specForSeat(name, isLead).code, 'PM');
-    assert.equal(mascotCodeForSeat(name, seatHash(name), isLead), 'PM');
-  }
-  assert.equal(artCode(name, seatHash(name)), 'PM');
-}
 assert.equal(mascotCodeForSeat('Lead', seatHash('Lead'), true), 'LEAD');
 assert.equal(new Set(characterCodes.map(code => Math.round(phaseForSeat(code) * 100))).size, 9, 'Short seat names have distinct animation phases');
 const materials = new Set(); let highMax = 0; let lowMax = 0; let trianglesMax = 0;

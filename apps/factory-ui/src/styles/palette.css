@@ -13,7 +13,7 @@
   --topbar: var(--bg); --nav-active: var(--raised); --nav-mark: var(--text);
   --action: var(--text); --action-hover: color-mix(in srgb, var(--text) 88%, var(--bg)); --on-action: var(--on-primary);
 }
-/* Light theme: the Game Portal's milk and beige palette. Text pairs stay at or above 4.5:1, control
+/* Light theme: a milk and beige palette. Text pairs stay at or above 4.5:1, control
    borders at or above 3:1; the sidebar is separated from the canvas by its own tone and a border. */
 [data-theme="light"] {
   --bg: #FFF8E7; --surface: #FFFEF8; --raised: #F6EBD3; --line: #DCC9A6;

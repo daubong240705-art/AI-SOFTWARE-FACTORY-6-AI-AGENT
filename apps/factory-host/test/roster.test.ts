@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
 import { test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 import { appendMessage, conversationsCreateHandler } from "../src/chat/service.js";
 import { createCommandPipeline } from "../src/commands/pipeline.js";
 import { createAttempt } from "../src/dispatch/attempts.js";
 import { EventHub } from "../src/events/hub.js";
-import { followPackUpdates } from "../src/instructions/snapshot.js";
 import { importPackToLibrary } from "../src/library/import.js";
 import { orgActivity } from "../src/org/activity.js";
 import { currentAgentConfig, getAgent } from "../src/org/agents.js";
@@ -14,12 +12,8 @@ import { loadPack, packManifestSchema } from "../src/org/pack.js";
 import { registryEntry } from "../src/org/registry.js";
 import { agentsFromPack } from "../src/org/roster.js";
 import { migrateProjectsToRosters } from "../src/org/roster-migration.js";
-import { seatsSetRuntimeHandler } from "../src/org/runtime-config.js";
 import { ensureEngagement, ensureTeamFromPack, findLeadSeat, getPrimaryEngagement, listSeats } from "../src/org/service.js";
-import { teamViews } from "../src/org/views.js";
 import { createProjectsCreateHandler } from "../src/projects/service.js";
-import { listWorkflowDefinitions } from "../src/workflow/definitions.js";
-import { selectWorkflowEngagement } from "../src/workflow/teams.js";
 import { fixedClock, idFactory, migratedStorage } from "./helpers.js";
 
 const load = (key: string) => loadPack(fileURLToPath(new URL(`../../../../packs/${key}`, import.meta.url)));
@@ -30,9 +24,9 @@ function fixture(context: TestContext) {
   const { raw } = storage;
   const clock = fixedClock(), newId = idFactory(), deps = { clock, newId };
   const hub = new EventHub(raw, { clock });
-  const pack = load("web-games");
+  const pack = load("software-team");
   const pipeline = createCommandPipeline({ storage, hub, ...deps, handlers: {
-    "conversations.create": conversationsCreateHandler, "seats.set-runtime": seatsSetRuntimeHandler,
+    "conversations.create": conversationsCreateHandler,
   } });
   const execute = (projectId: string, type: string, payload: unknown, target = pipeline) => {
     const result = target.execute({ apiVersion: 1, projectId, commandId: newId(), type, payload });
@@ -79,14 +73,15 @@ test("project creation gives the project a pack-pinned roster with agents and re
   assert.deepEqual(raw.prepare("SELECT team_id FROM engagements WHERE project_id = ?").all(projectId), [{ team_id: engagement.teamId }]);
 });
 
-test("migration clones shared web-games seats and remaps current work, chat and stages only", (context) => {
+test("migration clones shared pack seats and remaps current work and conversations", (context) => {
   const { raw, pack, deps, execute, legacy, task } = fixture(context);
   const shared = ensureTeamFromPack(raw, pack, deps);
   const first = legacy(shared.teamId), second = legacy(shared.teamId);
   const oldLead = findLeadSeat(raw, shared.teamId)!;
   const oldWorker = listSeats(raw, shared.teamId).find(({ isLead }) => !isLead)!;
-  execute(first.projectId, "seats.set-runtime", { seatId: oldWorker.id, expectedRevision: null,
-    runtime: "acp", cli: "claude", model: "test-model", effort: "high", permission: "workspace-write" });
+  raw.prepare(`INSERT INTO seat_runtime_config (seat_id, revision, runtime, cli, model, effort, permission, updated_at)
+    VALUES (?, 1, 'acp', 'claude', 'test-model', 'high', 'workspace-write', ?)`)
+    .run(oldWorker.id, deps.clock().toISOString());
   const currentTask = task(first.projectId, first.engagementId, oldWorker.id, "ready");
   const doneTask = task(first.projectId, first.engagementId, oldWorker.id, "done", "TASK-002");
   const conversationId = deps.newId();
@@ -127,17 +122,14 @@ test("migration clones shared web-games seats and remaps current work, chat and 
   assert.deepEqual(taskRef.get(first.projectId, doneTask), { owner_seat_id: oldWorker.id, engagement_id: first.engagementId });
   assert.equal(raw.prepare("SELECT seat_id FROM conversations WHERE project_id = ? AND id = ?").pluck().get(first.projectId, conversationId), lead.id);
   assert.deepEqual(messages.all(first.projectId), history);
-  assert.equal(raw.prepare("SELECT engagement_id FROM workflow_stages WHERE project_id = ? AND instance_id = ?").pluck().get(first.projectId, instanceId), roster.id);
+  assert.equal(raw.prepare("SELECT engagement_id FROM workflow_stages WHERE project_id = ? AND instance_id = ?").pluck().get(first.projectId, instanceId), first.engagementId);
   const current = currentAgentConfig(raw, worker.id)!;
   assert.equal(current.revision, 2);
   assert.deepEqual(current.config.runtime, { adapter: "claude-code", model: "test-model", effort: "high", permission: "workspace-write",
     maxConcurrent: oldWorker.slots, timeoutMinutes: 60 });
   const packRow = raw.prepare(`SELECT p.manifest_json AS manifest FROM seats s
     JOIN teams t ON t.id = s.team_id JOIN pack_snapshots p ON p.digest = t.pack_digest WHERE s.id = ?`).get(lead.id) as { manifest: string };
-  assert.equal(packManifestSchema.parse(JSON.parse(packRow.manifest)).leadWorkflow, pack.manifest.leadWorkflow);
-  assert.ok(listWorkflowDefinitions(raw, first.projectId, [registryEntry(pack)]).some(({ key }) => key === pack.manifest.leadWorkflow));
-  assert.equal(selectWorkflowEngagement(raw, first.projectId, stage, null), roster.id);
-  assert.deepEqual(teamViews(raw).map(({ id }) => id), [shared.teamId]);
+  assert.deepEqual(packManifestSchema.parse(JSON.parse(packRow.manifest)), pack.manifest);
   assert.ok(orgActivity(raw, deps.clock()).teams.some(({ id, seats }) => id === roster.teamId && seats.some(({ name }) => name === oldWorker.name)));
   assert.deepEqual(migrate(), [first, second].map(({ projectId }) => ({ projectId, status: "already" })));
   assert.equal(backups, 1);
@@ -158,28 +150,11 @@ test("a project with a live attempt is busy and unchanged", (context) => {
   assert.equal(attempt.state, "queued");
 });
 
-test("followed rosters update their manifest without changing agent revisions", (context) => {
-  const { raw, pack, deps, newProject } = fixture(context);
-  const { projectId } = newProject();
-  const { rosterId, agentIds } = agentsFromPack(raw, { projectId, pack, actorId: "operator" }, deps);
-  const revised = load("web-games");
-  revised.files.profiles[0]!.content += "\nUpdated instructions";
-  revised.digest = createHash("sha256").update(revised.files.profiles[0]!.content).digest("hex");
-  const leadId = agentIds.get(pack.manifest.seats.find(({ isLead }) => isLead)!.name)!;
-  const before = currentAgentConfig(raw, leadId);
-  const revisionCount = raw.prepare("SELECT count(*) FROM agent_revisions").pluck();
-  const revisions = revisionCount.get();
-  assert.equal(followPackUpdates(raw, [registryEntry(revised)], [pack.manifest.key], deps.clock()).length, 1);
-  assert.equal(raw.prepare("SELECT pack_digest FROM teams WHERE id = ?").pluck().get(rosterId), revised.digest);
-  assert.deepEqual(currentAgentConfig(raw, leadId), before);
-  assert.equal(revisionCount.get(), revisions);
-});
-
 test("migration uses the pinned profile and skill even if the library has a different snapshot", (context) => {
   const { raw, pack, deps, legacy } = fixture(context);
   const shared = ensureTeamFromPack(raw, pack, deps);
   const { projectId } = legacy(shared.teamId);
-  const newer = load("web-games");
+  const newer = load("software-team");
   newer.files.profiles[0]!.content += "\nNew profile";
   newer.files.skills[0]!.content += "\nNew skill";
   importPackToLibrary(raw, newer, deps);
@@ -194,7 +169,7 @@ test("migration uses the pinned profile and skill even if the library has a diff
 test("migration aborts on backup failure and rolls back a project that violates its invariant", (context) => {
   const { raw, pack, deps, legacy, task } = fixture(context);
   const shared = ensureTeamFromPack(raw, pack, deps);
-  const foreign = ensureTeamFromPack(raw, load("software-team"), deps);
+  const foreign = ensureTeamFromPack(raw, load("design-team"), deps);
   const { projectId, engagementId } = legacy(shared.teamId);
   const foreignSeat = foreign.seatIds[0]!;
   task(projectId, engagementId, foreignSeat, "ready");

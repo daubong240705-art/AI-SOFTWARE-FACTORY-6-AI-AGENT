@@ -4,8 +4,6 @@ import { listTeamBreakers } from "../automation/breakers.js";
 import { listNotifications } from "../notify/service.js";
 import { listStandingApprovals } from "../standing/service.js";
 import type { RouteBreaker } from "../policy/breaker.js";
-import { pendingPatches } from "../workflow/patch.js";
-import { getSchedule, listSchedules, listOccurrences } from "../schedule/service.js";
 import { API_VERSION, agentDetailSchema, agentRevisionViewSchema, contextPackSchema, conversationSchema, idSchema,
   messageSchema, projectAgentsResponseSchema, projectSchema } from "@factory/contracts";
 import type { FastifyInstance } from "fastify";
@@ -16,7 +14,7 @@ import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import { getPrimaryEngagement, getTeam, listAllSeats } from "../org/service.js";
 import { agentDetailView, agentRevisionView, projectAgentsView } from "../org/agent-views.js";
 import { registryPack, type RegistryPack } from "../org/registry.js";
-import { projectEngagements, teamQueue, teamViews } from "../org/views.js";
+import { projectEngagements } from "../org/views.js";
 import { projectInteractions } from "../org/interactions.js";
 import { autonomyStatus, budgetStatus, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "../policy/index.js";
 import { getProject, listProjects } from "../projects/service.js";
@@ -44,8 +42,6 @@ import { PushError, type EffectExecutor } from "../effects/executor.js";
 import { getRequest, listRequests, RequestError } from "../requests/service.js";
 import { registerDossierRoutes } from "../dossier/routes.js";
 import type { ExternalTools } from "../mcp-external/index.js";
-import { listWorkflowInstances, workflowInstanceView } from "../workflow/service.js";
-import { listWorkflowDefinitions } from "../workflow/definitions.js";
 import { orgActivity } from "../org/activity.js";
 import { homedir } from "node:os";
 import { browseDirectory, BrowseError } from "../workspace/browse.js";
@@ -127,33 +123,6 @@ export function createRoutes(deps: {
         return failure(reply,404,"not-found","Monitor not found.","correct-input",newId);
       return { apiVersion: API_VERSION, ok: true, items: listMonitorEvents(deps.storage.raw,projectId,monitorId) };
     });
-    app.get<{ Params: { projectId: string } }>("/projects/:projectId/schedules", { preHandler: guards.session }, async (request, reply) => {
-      const { projectId } = request.params;
-      if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
-      return { apiVersion: API_VERSION, ok: true, items: listSchedules(deps.storage.raw, projectId, (deps.clock ?? systemClock)()) };
-    });
-    app.get<{ Params: { projectId: string; scheduleId: string } }>("/projects/:projectId/schedules/:scheduleId/occurrences", { preHandler: guards.session }, async (request, reply) => {
-      const { projectId, scheduleId } = request.params;
-      if (!getProject(deps.storage.raw, projectId) || !getSchedule(deps.storage.raw, projectId, scheduleId))
-        return failure(reply, 404, "not-found", "Schedule not found.", "correct-input", newId);
-      return { apiVersion: API_VERSION, ok: true, items: listOccurrences(deps.storage.raw, projectId, scheduleId) };
-    });
-    app.get<{ Params: { projectId: string } }>("/projects/:projectId/workflow-definitions", { preHandler: guards.session }, async (request, reply) => {
-      const { projectId } = request.params;
-      if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
-      return { apiVersion: API_VERSION, ok: true, items: listWorkflowDefinitions(deps.storage.raw, projectId, deps.packs ?? []) };
-    });
-    app.get<{ Params: { projectId: string } }>("/projects/:projectId/workflows", { preHandler: guards.session }, async (request, reply) => {
-      const { projectId } = request.params;
-      if (!getProject(deps.storage.raw, projectId)) return failure(reply, 404, "not-found", "Project not found.", "correct-input", newId);
-      return { instances: listWorkflowInstances(deps.storage.raw, projectId) };
-    });
-    app.get<{ Params: { projectId: string; instanceId: string } }>("/projects/:projectId/workflows/:instanceId", { preHandler: guards.session }, async (request, reply) => {
-      const { projectId, instanceId } = request.params;
-      const instance = getProject(deps.storage.raw, projectId) ? workflowInstanceView(deps.storage.raw, projectId, instanceId) : undefined;
-      if (!instance) return failure(reply, 404, "not-found", "Workflow not found.", "correct-input", newId);
-      return { instance };
-    });
     app.get("/mcp-servers", { preHandler: guards.session }, async () => ({
       apiVersion: API_VERSION, ok: true, servers: deps.external?.status() ?? [],
     }));
@@ -208,17 +177,9 @@ export function createRoutes(deps: {
           : failure(reply, 400, "validation", "Invalid folder path.", "correct-input", newId);
       }
     });
-    app.get("/teams", { preHandler: guards.session }, async () => ({ teams: teamViews(deps.storage.raw) }));
     app.get("/org/activity", { preHandler: guards.session }, async () => ({
       apiVersion: API_VERSION, ok: true, ...orgActivity(deps.storage.raw, (deps.clock ?? systemClock)()),
     }));
-    app.get<{ Params: { teamId: string } }>("/teams/:teamId/queue", { preHandler: guards.session }, async (request, reply) => {
-      const parsed = idSchema.safeParse(request.params.teamId);
-      if (!parsed.success) return failure(reply, 400, "validation", "Invalid team id.", "correct-input", newId);
-      if (!getTeam(deps.storage.raw, parsed.data))
-        return failure(reply, 404, "not-found", "Team not found.", "correct-input", newId);
-      return { items: teamQueue(deps.storage.raw, parsed.data) };
-    });
     const effectFailure = (reply: import("fastify").FastifyReply, error: unknown) => {
       const code = error instanceof PushError ? error.code : "invalid-record";
       const status = ["not-found", "not-available"].includes(code) ? 404
@@ -273,15 +234,10 @@ export function createRoutes(deps: {
       const requests = projects.flatMap((project) => listRequests(deps.storage.raw, project.id)
         .filter((item) => ["submitted", "need-info"].includes(item.triageState) && item.taskState === "proposed")
         .map((item) => ({ ...item, ...(projectId === undefined ? { projectId: project.id, projectName: publicApprovalText(project.name) } : {}) })));
-      const patches = projects.flatMap((project) => pendingPatches({ raw: deps.storage.raw }, project.id)
-        .map((patch) => ({ ...patch, ...(projectId === undefined ? { projectName: publicApprovalText(project.name) } : {}) })));
       const monitors = projects.flatMap((project) => (deps.storage.raw.prepare(`SELECT id AS monitorId,project_id AS projectId,name,kind,last_value AS value,
         (SELECT at FROM monitor_events e WHERE e.project_id=m.project_id AND e.monitor_id=m.id AND to_status='tripped' ORDER BY seq DESC LIMIT 1) AS since
         FROM monitors m WHERE project_id=? AND status='tripped' ORDER BY created_at,id`).all(project.id) as { monitorId: string; projectId: string; name: string; kind: string; value: number | null; since: string | null }[])
         .map((row) => ({ ...row,name: publicApprovalText(row.name) })));
-      const stalledWorkflows = projects.flatMap((project) => (deps.storage.raw.prepare(`SELECT id AS instanceId,title,state_reason AS reason FROM workflow_instances
-        WHERE project_id=? AND state='stalled' ORDER BY created_at,id`).all(project.id) as { instanceId: string; title: string; reason: string | null }[])
-        .map((row) => ({ ...row,title: publicApprovalText(row.title),reason: row.reason === null ? null : publicApprovalText(row.reason) })));
       const quarantinedRules = projects.flatMap((project) => (deps.storage.raw.prepare(`SELECT id AS ruleId,project_id AS projectId,name
         FROM automation_rules WHERE project_id=? AND state='quarantined' ORDER BY created_at,id`).all(project.id) as { ruleId: string; projectId: string; name: string }[])
         .map((row) => ({ ...row, name: publicApprovalText(row.name) })));
@@ -290,9 +246,9 @@ export function createRoutes(deps: {
         .map((row) => ({ ...row, projectId: project.id, title: "team paused by circuit breaker",
           reason: row.reason === null ? null : publicApprovalText(row.reason) })));
       const conflicts = projects.flatMap((project) => integrationConflicts(deps.storage.raw, project.id));
-      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, patches, monitors, stalledWorkflows, quarantinedRules, teamBreakers, integrationConflicts: conflicts,
-        counts: { ...(conflicts.length ? { integrationConflicts: conflicts.length } : {}), ...(teamBreakers.length ? { teamBreakers: teamBreakers.length } : {}), quarantinedRules: quarantinedRules.length, monitors: monitors.length, stalledWorkflows: stalledWorkflows.length, patches: patches.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
-          total: approvals.length + startGates.length + requests.length + patches.length + monitors.length + stalledWorkflows.length + quarantinedRules.length + teamBreakers.length + conflicts.length } };
+      return { apiVersion: API_VERSION, ok: true, approvals, startGates, requests, monitors, quarantinedRules, teamBreakers, integrationConflicts: conflicts,
+        counts: { ...(conflicts.length ? { integrationConflicts: conflicts.length } : {}), ...(teamBreakers.length ? { teamBreakers: teamBreakers.length } : {}), quarantinedRules: quarantinedRules.length, monitors: monitors.length, approvals: approvals.length, startGates: startGates.length, requests: requests.length,
+          total: approvals.length + startGates.length + requests.length + monitors.length + quarantinedRules.length + teamBreakers.length + conflicts.length } };
     };
     app.get("/inbox", { preHandler: guards.session }, async () => inbox());
     app.get<{ Params: { projectId: string }; Querystring: { state?: string; team?: string; limit?: string } }>(

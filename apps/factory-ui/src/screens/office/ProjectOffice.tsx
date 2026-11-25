@@ -6,7 +6,6 @@ import { ArrowRight, BookOpen, FileText, HelpCircle, Mail, UserRound } from 'luc
 import { meaningfulOfficeItems, type Interaction, type InteractionKind, type OfficeSeat, type Party } from '@/api/officeModels';
 import { AgentCard, AgentOverview, mascotFor, type OfficeNeed, type OpenOfficeTask } from './AgentCard';
 import { OfficePulse, OfficeRoomTrim, CoffeeCorner } from './OfficePulse';
-import { orderGameSeats } from './orderGameSeats';
 import { FeedMessage } from './FeedMessage';
 import { TaskDetail } from '../TaskDetail';
 import { DecisionDialog } from '../DecisionDialog';
@@ -20,8 +19,8 @@ import { Label } from '@/components/ui/label';
 import { useT } from '@/i18n';
 import { cn } from '@/lib/utils';
 import type { Store } from '@/state/store';
-import { activityTime } from '../teams/activity/presentation';
-import { StatusPill } from '../teams/activity/StatusPill';
+import { activityTime } from './presentation';
+import { StatusPill } from './StatusPill';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 type NodeKey = string;
@@ -66,14 +65,7 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
   const t = useT(); const id = useId();
   const now = useOffice(store, projectId);
   const { office, error } = store.useStoreSelector(state => ({ office: state.office, error: state.errors.office }));
-  const { m5, teams, tasks } = store.useStoreSelector(state => ({ m5: state.m5, teams: state.m3.teams, tasks: state.tasks }));
-  useEffect(() => store.watchM5('workflows', store.loadWorkflows), [store, projectId]);
-  const workflow = m5.workflows.filter(item => item.key === 'game-build').sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
-  const detail = workflow ? m5.workflowDetails[workflow.id] : undefined;
-  useEffect(() => {
-    if (workflow) return store.watchM3('teams', store.loadTeams);
-  }, [store, projectId, workflow?.id]);
-  const seats = useMemo(() => orderGameSeats(office?.seats ?? [], detail, teams, tasks), [office?.seats, detail, teams, tasks]);
+  const seats = useMemo(() => [...(office?.seats ?? [])].sort((left, right) => Number(right.isLead) - Number(left.isLead) || left.name.localeCompare(right.name)), [office?.seats]);
   const [hideProgress, setHideProgress] = useState(false);
   const [lively, setLively] = useState(true);
   const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);

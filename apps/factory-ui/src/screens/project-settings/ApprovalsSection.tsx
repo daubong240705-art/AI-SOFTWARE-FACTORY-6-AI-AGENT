@@ -40,7 +40,7 @@ export function ApprovalsSection({ state, store, projectId, id }: {
   const approvals = state.settings.standingApprovals?.items ?? [];
   const isInactive = (item: StandingApproval) => item.state === 'revoked' || item.state === 'expired' || Date.parse(item.expiresAt) <= Date.now();
   const active = approvals.filter(item => !isInactive(item)), inactive = approvals.filter(isInactive);
-  const teamName = (teamId: string) => state.m3.teams.find(team => team.id === teamId)?.name ?? (state.team?.team.id === teamId ? state.team.team.name : t('settingsUi.unknownTeam'));
+  const teamName = (teamId: string) => (state.team?.team.id === teamId ? state.team.team.name : t('settingsUi.unknownTeam'));
   const teamIds = new Set(state.settings.autonomy?.teams.map(team => team.teamId) ?? []);
   if (state.team) teamIds.add(state.team.team.id);
   const teamOptions = [...teamIds].map(teamId => ({ id: teamId, name: teamName(teamId) }));

@@ -5,9 +5,9 @@ import { Label } from '@/components/ui/label';
 import { useT } from '@/i18n';
 import { Feed } from '../office/ProjectOffice';
 
-/** The Office exchange feed of the focused game, as a collapsible column on the right of the world. */
-export function WorldActivity({ office, gameName, loading, onTask }: {
-  office: Office | undefined; gameName: string | null; loading: boolean; onTask: (taskId: string) => void;
+/** The Office exchange feed of the focused project, as a collapsible column on the right of the world. */
+export function WorldActivity({ office, projectName, loading, onTask }: {
+  office: Office | undefined; projectName: string | null; loading: boolean; onTask: (taskId: string) => void;
 }) {
   const t = useT(); const id = useId();
   const [open, setOpen] = useState(() => typeof matchMedia !== 'function' || matchMedia('(min-width: 1280px)').matches);
@@ -18,7 +18,7 @@ export function WorldActivity({ office, gameName, loading, onTask }: {
   const party = (value: Party) => value.kind === 'seat' ? value.name : t(value.kind === 'operator' ? 'officeUi.you' : 'officeUi.knowledge');
   return <aside className={`world-activity world-control ${open ? 'world-activity-open' : ''}`} aria-labelledby={`${id}-title`}>
     <button className="world-roster-toggle w-full" aria-expanded={open} aria-controls={`${id}-body`} onClick={() => setOpen(value => !value)}>
-      <span id={`${id}-title`} className="min-w-0 flex-1 truncate text-left font-medium">{t('officeUi.feed')}{gameName ? ` · ${gameName}` : ''}</span>
+      <span id={`${id}-title`} className="min-w-0 flex-1 truncate text-left font-medium">{t('officeUi.feed')}{projectName ? ` · ${projectName}` : ''}</span>
       <span aria-hidden="true">{open ? '−' : '+'}</span>
     </button>
     <div id={`${id}-body`} hidden={!open} className="world-activity-body">

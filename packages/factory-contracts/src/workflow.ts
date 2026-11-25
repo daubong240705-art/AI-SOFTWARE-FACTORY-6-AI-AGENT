@@ -144,36 +144,3 @@ export function evaluateParamCondition(condition: Condition, params: Readonly<Re
 
 export const workflowInstanceStateSchema = z.enum(["draft", "proposed", "active", "awaiting-approval", "paused",
   "resuming", "suspended", "stalled", "completed", "failed", "cancelled", "superseded"]);
-export type WorkflowInstanceState = z.infer<typeof workflowInstanceStateSchema>;
-export const WORKFLOW_TRANSITIONS: Readonly<Record<WorkflowInstanceState, readonly WorkflowInstanceState[]>> = {
-  draft: ["proposed", "cancelled"], proposed: ["active", "cancelled"],
-  active: ["awaiting-approval", "paused", "suspended", "stalled", "completed", "failed", "cancelled", "superseded"],
-  "awaiting-approval": ["active", "suspended", "cancelled"], paused: ["resuming", "cancelled"], resuming: ["active", "paused", "cancelled"],
-  suspended: ["resuming", "cancelled"], stalled: ["active", "paused", "cancelled"], completed: [], failed: [], cancelled: [], superseded: [],
-};
-export const canTransitionWorkflow = (from: WorkflowInstanceState, to: WorkflowInstanceState): boolean => WORKFLOW_TRANSITIONS[from].includes(to);
-export const isTerminalWorkflowState = (state: WorkflowInstanceState): boolean => WORKFLOW_TRANSITIONS[state].length === 0;
-export const workflowStageStateSchema = z.enum(["pending", "ready", "active", "done", "skipped", "failed", "blocked"]);
-export type WorkflowStageState = z.infer<typeof workflowStageStateSchema>;
-
-export const workflowPatchOpSchema = z.discriminatedUnion("op", [
-  z.strictObject({ op: z.literal("addTaskWithinStage"), stage: workflowKeySchema, title: z.string().min(1).max(120) }),
-  z.strictObject({ op: z.literal("skipOptionalStage"), stage: workflowKeySchema }),
-  z.strictObject({ op: z.literal("splitStage"), stage: workflowKeySchema, into: z.array(z.strictObject({
-    key: workflowKeySchema, title: z.string().min(1).max(120),
-    requiredCapabilities: workflowStageSchema.shape.requiredCapabilities.optional(),
-  })).min(2).max(5) }),
-  z.strictObject({ op: z.literal("addStage"), stage: workflowStageSchema,
-    after: workflowKeySchema.optional(), before: workflowKeySchema.optional(),
-  }).refine((op) => op.after !== undefined || op.before !== undefined, "placement required"),
-  z.strictObject({ op: z.literal("reorderStages"), stage: workflowKeySchema, after: workflowKeySchema }),
-  z.strictObject({ op: z.literal("removeRequiredStage"), stage: workflowKeySchema }),
-]);
-export const workflowPatchSchema = z.strictObject({ ops: z.array(workflowPatchOpSchema).min(1).max(10), reason: z.string().min(1).max(500) });
-export type WorkflowPatchOp = z.infer<typeof workflowPatchOpSchema>;
-export type WorkflowPatch = z.infer<typeof workflowPatchSchema>;
-export type WorkflowPatchPolicy = "auto" | "approval" | "operator";
-/** Always pass the copied instance definition, never a template from the pack registry. */
-export function patchPolicyOf(op: WorkflowPatchOp, definition: Pick<WorkflowDefinition, "allowedPatches">): WorkflowPatchPolicy {
-  return definition.allowedPatches[op.op];
-}

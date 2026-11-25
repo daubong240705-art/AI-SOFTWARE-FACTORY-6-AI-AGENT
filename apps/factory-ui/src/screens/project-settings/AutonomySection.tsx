@@ -11,7 +11,7 @@ import { AutonomyDialog, type AutonomyTarget } from '../settings/AutonomyDialog'
 export function AutonomySection({ state, store, projectId, id }: { state: Pick<StoreState, 'settings' | 'm3' | 'team' | 'loading'>; store: Store; projectId: string; id: string }) {
   const t = useT(); const autonomy = state.settings.autonomy;
   const [target, setTarget] = useState<AutonomyTarget | null>(null);
-  const teamName = (teamId: string) => state.m3.teams.find(team => team.id === teamId)?.name ?? (state.team?.team.id === teamId ? state.team.team.name : t('settingsUi.unknownTeam'));
+  const teamName = (teamId: string) => (state.team?.team.id === teamId ? state.team.team.name : t('settingsUi.unknownTeam'));
   const edit = (item: AutonomyTarget) => <Button type="button" size="sm" variant="outline" aria-label={`${t('settingsWrite.changeLevel')}: ${item.name}`}
     disabled={Boolean(state.loading[autonomyPendingKey(item.subject, item.subjectRef)])} onClick={() => setTarget(item)}>{t('settingsWrite.changeLevel')}</Button>;
   return <Section id={id} title={t('shellUi.autonomy')}>

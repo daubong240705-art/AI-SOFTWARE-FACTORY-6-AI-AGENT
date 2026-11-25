@@ -3,11 +3,10 @@
 // checked separately for depth clearance; different fixtures need free space.
 import '../../verify-loader.mjs';
 import assert from 'node:assert/strict';
-const { environmentModel, displayFrames, monitorFaceOffset, monitorFeedbackOffset, progressFillOffset, monitorYaw, desks, anchors, funProps } = await import('../../layout/zones.ts');
+const { environmentModel, monitorFaceOffset, monitorFeedbackOffset, progressFillOffset, monitorYaw, desks, anchors } = await import('../../layout/zones.ts');
 const { chairmanSurfaces } = await import('../../layout/chairman.ts');
-const { propWallPanels, galleryFace, galleryPlate } = await import('../../layout/wallPanels.ts');
-const { walkPosters, walkWorkflow, southWindows, eastWindows, walkWindow } = await import('./wallLayout.ts');
-const { walkSceneryParts } = await import('./sceneryModel.ts');
+const { propWallPanels } = await import('../../layout/wallPanels.ts');
+const { southWindows, eastWindows, walkWindow } = await import('./wallLayout.ts');
 const { artwork, labels, parts } = environmentModel();
 const quads = [], footprints = [];
 function panel(id, mount, position, width, height, yaw = 0, polygonOffset = false) {
@@ -20,16 +19,6 @@ artwork.forEach((p, i) => panel(`art:${p.kind}:${p.text ?? i}`, p.mount ?? `art:
 labels.filter(p => !p.floor).forEach((p, i) => panel(`label:${p.text}:${i}`, p.mount ?? `label:${i}`, p.position, p.width, p.height, p.yaw, true));
 propWallPanels.forEach(p => panel(p.id, p.mount, p.position, p.width, p.height, p.yaw));
 chairmanSurfaces.forEach(p => panel(`${p.id}:face`, p.id, p.position, p.width, p.height, p.yaw));
-for (const f of displayFrames) {
-  const world = (y, offset) => [f.position[0] + Math.sin(f.yaw) * offset, y, f.position[1] + Math.cos(f.yaw) * offset];
-  const mount = `gallery:${f.id}`;
-  panel(`${mount}:cover`, mount, world(galleryFace.y, galleryFace.offset), galleryFace.width, galleryFace.height, f.yaw, true);
-  panel(`${mount}:plate`, mount, world(galleryPlate.y, galleryPlate.offset), galleryPlate.width, galleryPlate.height, f.yaw, true);
-  panel(`${mount}:playing`, mount, world(.38, .29), 1.24, .2, f.yaw, true);
-  panel(`${mount}:failed`, mount, world(1.98, .34), 1.48, .22, f.yaw, true);
-  panel(`${mount}:new`, mount, world(2.22, .39), 1.48, .28, f.yaw, true);
-}
-panel('arcade-cover', 'arcade-screen', [anchors.arcade[0], 1.42, anchors.arcade[1] + .65], .78, .52, 0, true);
 for (let column = 0; column < 5; column++) {
   const x = anchors.taskBoard[0] - 4.3 + column * 2.15;
   panel(`task-header:${column}`, 'task-board', [x, 1.96, anchors.taskBoard[1] + .29], 1.92, .21, 0, true);
@@ -39,13 +28,6 @@ for (let column = 0; column < 5; column++) {
 for (const [i, p] of parts.entries()) {
   if (!p.mount || p.scale[0] < .4 || p.scale[1] < .2 || p.scale[2] > .2) continue;
   footprints.push(panel(`backing:${p.mount}:${i}`, p.mount, p.position, p.scale[0], p.scale[1], p.yaw, true));
-}
-footprints.push(panel('achievement-backing', 'achievements', [funProps.board[0], 1.85, funProps.board[1]], 3.4, 1.25));
-for (const [i, layout] of [...walkPosters, walkWorkflow].entries()) {
-  const mount = i === walkPosters.length ? 'walk-workflow' : `walk-poster:${i}`;
-  footprints.push(panel(`${mount}:frame`, mount, layout.position, layout.frame[0], layout.frame[1], Math.PI, true));
-  panel(`${mount}:face`, mount, [layout.position[0], layout.position[1], layout.position[2] - layout.faceOffset], ...layout.face, Math.PI);
-  assert(layout.faceOffset - layout.frame[2] / 2 >= .02, `${mount}: face clears frame by 2cm`);
 }
 for (const [wall, ranges] of [['south', southWindows], ['east', eastWindows]]) {
   ranges.forEach(([a, b], i) => footprints.push(panel(`walk-window:${wall}:${i}`, `walk-window:${wall}:${i}`, wall === 'south' ? [(a+b)/2, walkWindow.centerY, 14] : [18, walkWindow.centerY, (a+b)/2], b-a-.3, walkWindow.height, wall === 'south' ? Math.PI : -Math.PI/2)));
@@ -86,7 +68,5 @@ for (let i = 0; i < quads.length; i++) {
     if (conflict(a,b)) failures.push(`${a.id} overlaps/touches ${b.id}`);
   }
 }
-// Removed Walk duplicates must not creep back into gallery/TV/board supports.
-for (const p of walkSceneryParts()) if (p.position[1] > 1 && p.scale[1] > .5 && p.scale[2] < .05) assert(!displayFrames.some(f => Math.hypot(p.position[0]-f.position[0],p.position[2]-f.position[1]) < .2), 'duplicate Walk frame');
 assert.equal(failures.length, 0, [...new Set(failures)].join('\n'));
 console.log(`Wall/screen audit PASS (${quads.length} quads, full fixture extents, >=4cm fixture gaps; desktop offsets >=2cm)`);

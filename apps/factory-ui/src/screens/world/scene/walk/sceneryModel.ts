@@ -1,4 +1,4 @@
-import { southWindows, eastWindows, walkWindow, workflowBay } from './wallLayout';
+import { southWindows, eastWindows, walkWindow, southWallBay } from './wallLayout';
 import { desks, monitorYaw, palette, type Part } from '../../layout/zones';
 
 export const walkFixtures = [
@@ -9,7 +9,7 @@ export const walkFixtures = [
 export function walkSceneryParts(): Part[] {
   const parts: Part[] = [];
   const box = (color: string, position: Part['position'], scale: Part['scale'], yaw = 0) => parts.push({ shape: 'detail', color, position, scale, yaw });
-  // South doors align with the two existing north/south walking lanes. East door opens onto the Portal path.
+  // South doors align with the two existing north/south walking lanes. East door opens onto the courtyard path.
   const wall = (start: number, end: number, east = false) => {
     const p = (along: number, y: number): Part['position'] => east ? [18, y, along] : [along, y, 14];
     const scale = (width: number, height: number): Part['scale'] => east ? [0.2, height, width] : [width, height, 0.2];
@@ -23,7 +23,7 @@ export function walkSceneryParts(): Part[] {
     for (const y of [0.12, 1.14, walkWindow.top, 3.53]) box(palette.wood, p(middle, y), scale(width, 0.07));
   };
   for (const [a, b] of southWindows) wall(a!, b!);
-  box(palette.wall, workflowBay.position, workflowBay.size);
+  box(palette.wall, southWallBay.position, southWallBay.size);
   for (const y of [0.12, 0.9, 3.53]) box(palette.wood, [4.9, y, 13.94], [4, 0.07, 0.12]);
   for (const [a, b] of eastWindows) wall(a!, b!, true);
   for (const x of [-8, 8]) {

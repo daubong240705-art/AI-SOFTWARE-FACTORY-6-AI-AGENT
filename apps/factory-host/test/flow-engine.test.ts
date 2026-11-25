@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
-import { FLOW_RUN_TRANSITIONS, isTerminalFlowRunState, type FlowDefinition } from "@factory/contracts";
+import { FLOW_RUN_TRANSITIONS, flowDefinitionSchema, isTerminalFlowRunState } from "@factory/contracts";
 import { approvalsDecideHandler, getApprovalView } from "../src/approvals/service.js";
 import { createCommandPipeline } from "../src/commands/pipeline.js";
 import { appendAttemptEvent, listAttempts, transitionAttempt } from "../src/dispatch/attempts.js";
@@ -33,7 +33,7 @@ function fixture(context: TestContext) {
   let time = Date.parse("2026-11-19T10:00:00Z");
   const clock = () => new Date(time);
   const hub = new EventHub(raw, { clock, newId });
-  const pack = loadPack(fileURLToPath(new URL("../../../../packs/web-games", import.meta.url)));
+  const pack = loadPack(fileURLToPath(new URL("../../../../packs/software-team", import.meta.url)));
   const dispatcher = createDispatcher({ storage, hub, clock, newId, registry: new RuntimeRegistry() });
   context.after(async () => { await dispatcher.stop(); storage.close(); });
   const engine = { raw, hub, clock, newId, dispatcher };
@@ -144,19 +144,17 @@ test("loopBack keeps each body iteration and exits at the limit", (context) => {
   assert.equal(fx.run(runId).state, "succeeded");
 });
 
-test("converted game-build bypasses skipped design and takes the QA pass branch", (context) => {
+test("imports a pack's v1 definition as a v2 flow draft", (context) => {
   const fx = fixture(context);
   const flowId = fx.newId();
-  fx.command("flows.import-v1", { flowId, packKey: "web-games", definitionKey: "game-build" });
+  fx.command("flows.import-v1", { flowId, packKey: "software-team", definitionKey: "software-delivery" });
   const row = fx.raw.prepare("SELECT draft_json,source FROM flows WHERE project_id=? AND id=?").get(fx.projectId, flowId) as { draft_json: string; source: string };
-  assert.equal(row.source, "pack:web-games");
-  const draft = JSON.parse(row.draft_json) as FlowDefinition;
-  const pinned = Object.fromEntries(draft.nodes.filter(({ type }) => type === "agent" || type === "approval").map(({ id }) => [id, { verdict: "accepted" }]));
-  const runId = fx.start(flowId, { mockAgents: true, inputs: { runDesign: false }, pinned });
-  assert.equal(fx.current(runId, "design").state, "skipped");
-  for (const name of ["rules", "art", "client"]) assert.equal(fx.current(runId, name).state, "succeeded", name);
-  assert.equal(fx.current(runId, "qa-verdict").port, "else");
-  assert.equal(fx.run(runId).state, "succeeded");
+  assert.equal(row.source, "pack:software-team");
+  const draft = flowDefinitionSchema.parse(JSON.parse(row.draft_json));
+  assert.equal(draft.title, "Software Delivery");
+  assert.ok(draft.inputs.some(({ name }) => name === "hasUI"));
+  assert.ok(draft.nodes.some(({ id, type }) => id === "development" && type === "agent"));
+  assert.ok(draft.nodes.some(({ type }) => type === "approval"));
 });
 
 test("a classified runtime failure retries after backoff; retry-node reopens the same run", (context) => {

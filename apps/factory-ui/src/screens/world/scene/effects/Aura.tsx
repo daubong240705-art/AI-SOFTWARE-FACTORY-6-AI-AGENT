@@ -19,7 +19,7 @@ export function auraFor(agent: Pick<WorldAgent, 'status' | 'pose' | 'runs' | 'pa
   return agent.status === 'idle' || agent.pose === 'thinking' ? 'chill' : null;
 }
 export const roleFlame: Record<PodKey, string> = {
-  lead: '#F7C948', design: '#A78BFA', rules: '#F08A3C', art: '#F58FB0', client: '#2FBFA5', qa: '#4C9BF5', portal: '#F59E5B', annex: '#9BCB8B',
+  lead: '#F7C948', design: '#A78BFA', rules: '#F08A3C', art: '#F58FB0', client: '#2FBFA5', qa: '#4C9BF5', annex: '#9BCB8B',
 };
 const ignore = () => {};
 const tongue = new THREE.LatheGeometry([[0, 0], [0.15, 0.08], [0.17, 0.3], [0.09, 0.58], [0, 0.85]].map(([x, y]) => new THREE.Vector2(x!, y!)), 8);

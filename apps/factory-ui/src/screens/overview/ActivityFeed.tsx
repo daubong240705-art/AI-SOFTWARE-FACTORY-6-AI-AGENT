@@ -5,7 +5,6 @@ import { useT } from '../../i18n';
 import type { Store } from '../../state/store';
 import { relativeTime } from '@/lib/inbox';
 import { taskTime } from '../shell/taskTime';
-import { stageName } from '../studio/presentation';
 
 export function ActivityFeed({ store, onTask }: {
   store: Store; onTask: (projectId: string, taskId: string) => void;
@@ -18,13 +17,12 @@ export function ActivityFeed({ store, onTask }: {
     {!rows.length && <p className="text-sm text-muted-foreground">{t('overview.activityEmpty')}</p>}
     <ul className="m-0 list-none divide-y divide-border p-0">{rows.slice(0, expanded ? 20 : 6).map(({ task, time }) => {
       const project = state.projects.find(item => item.id === task.projectId);
-      const stage = Object.values(state.m5.workflowDetails).flatMap(detail => detail.stages).find(stage => stage.tasks.some(link => link.taskId === task.id));
       return <li key={task.id}><Button variant="ghost" className="grid h-auto w-full grid-cols-[5rem_minmax(0,1fr)] gap-x-3 gap-y-1 px-2 py-2 text-left font-normal sm:grid-cols-[6rem_9rem_minmax(0,1fr)]" onClick={() => onTask(task.projectId, task.id)}>
         <span className="text-xs text-muted-foreground">{time ? <time dateTime={time}>{relativeTime(time)}</time> : null}</span>
         <span className="truncate text-xs text-muted-foreground">{project?.name ?? t('overview.project')}</span>
-        <span className="col-span-2 line-clamp-1 min-w-0 text-sm whitespace-normal sm:col-span-1">{stage ? `${stageName(stage.key, t)} · ${t(`taskUi.lifecycle.${task.state}`)}` : task.title}</span>
+        <span className="col-span-2 line-clamp-1 min-w-0 text-sm whitespace-normal sm:col-span-1">{task.title}</span>
       </Button></li>;
     })}</ul>
-    {rows.length > 6 && <Button variant="link" className="h-auto justify-self-start px-0" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? 'gameSummary.less' : 'gameSummary.more')}</Button>}
+    {rows.length > 6 && <Button variant="link" className="h-auto justify-self-start px-0" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>{t(expanded ? 'overview.showLess' : 'overview.showMore')}</Button>}
   </Section>;
 }

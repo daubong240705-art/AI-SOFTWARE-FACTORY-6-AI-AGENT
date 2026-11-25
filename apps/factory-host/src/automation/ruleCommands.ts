@@ -1,7 +1,7 @@
 import type { RuleInput } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerContext, HandlerMap } from "../commands/pipeline.js";
-import { getRule, ruleInput, validateRule, type RuleDeps, type RuleRow } from "./rules.js";
+import { getRule, ruleInput, validateRule, type RuleRow } from "./rules.js";
 
 export const RULE_COMMANDS = ["rules.create", "rules.update", "rules.pause", "rules.resume", "rules.delete"] as const;
 function project(ctx: HandlerContext, projectId: string): void {
@@ -26,13 +26,13 @@ function persist(ctx: HandlerContext, row: RuleRow, input: RuleInput, state: Rul
     input.debounceSeconds, input.maxFiresPerHour, state, row.project_id, row.id);
   return effect(row.id, row.revision + 1);
 }
-export function createRuleHandlers(deps: Pick<RuleDeps, "packs">): Partial<HandlerMap> {
+export function createRuleHandlers(): Partial<HandlerMap> {
   return {
     "rules.create": (ctx, { projectId, payload }) => {
       project(ctx, projectId);
       const { ruleId, ...candidate } = payload;
       if (getRule(ctx.raw, projectId, ruleId)) throw new CommandError("conflict", "rule id already exists", "correct-input");
-      const input = validateRule(candidate, deps.packs);
+      const input = validateRule(candidate);
       unique(ctx, projectId, ruleId, input.name);
       const count = ctx.raw.prepare("SELECT count(*) AS n FROM automation_rules WHERE project_id=?").get(projectId) as { n: number };
       if (count.n >= 30) throw new CommandError("resource-exhausted", "rule limit reached", "correct-input");
@@ -43,7 +43,7 @@ export function createRuleHandlers(deps: Pick<RuleDeps, "packs">): Partial<Handl
     },
     "rules.update": (ctx, { projectId, payload }) => {
       const row = requireRule(ctx, projectId, payload.ruleId, payload.expectedRevision);
-      const input = validateRule({ ...ruleInput(row), ...payload.patch }, deps.packs);
+      const input = validateRule({ ...ruleInput(row), ...payload.patch });
       // Only resume explicitly clears quarantine.
       return persist(ctx, row, input, row.state === "quarantined" ? "quarantined" : input.enabled ? "active" : "paused");
     },
@@ -53,7 +53,7 @@ export function createRuleHandlers(deps: Pick<RuleDeps, "packs">): Partial<Handl
     },
     "rules.resume": (ctx, { projectId, payload }) => {
       const row = requireRule(ctx, projectId, payload.ruleId, payload.expectedRevision);
-      validateRule(ruleInput(row), deps.packs);
+      validateRule(ruleInput(row));
       ctx.raw.prepare("UPDATE automation_rules SET fires_in_window=0,window_start=NULL,consecutive_failures=0 WHERE project_id=? AND id=?").run(projectId, row.id);
       return persist(ctx, row, ruleInput(row), "active");
     },

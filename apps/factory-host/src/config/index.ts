@@ -71,7 +71,7 @@ export function resolveConfig(realEnv: ConfigEnv, file: Readonly<Record<string, 
   for (const [key, value] of Object.entries({
     ...directoryDefaults(env, home), FACTORY_CONFIG: path, FACTORY_PORT: "8787", FACTORY_LISTEN_HOST: "127.0.0.1",
     FACTORY_RUNTIME: "fake", FACTORY_BACKUP_INTERVAL_MINUTES: "60", FACTORY_NODE_SLOTS: "2",
-    FACTORY_DEFAULT_PACK: "software-team", FACTORY_LOCAL_CLI: "0", FACTORY_MULTI_TEAM: "0", FACTORY_OPEN_LOGIN: "0",
+    FACTORY_DEFAULT_PACK: "software-team", FACTORY_LOCAL_CLI: "0", FACTORY_OPEN_LOGIN: "0",
     FACTORY_LEAD_MODEL: DEFAULT_LEAD_CONFIG.model, FACTORY_LEAD_EFFORT: DEFAULT_LEAD_CONFIG.effort ?? "medium",
     FACTORY_BUDGET_TASK_TOKENS: String(DEFAULT_BUDGET_CONFIG.defaultTaskTokens), FACTORY_BUDGET_DAY_TOKENS: String(DEFAULT_BUDGET_CONFIG.defaultDayTokens),
     FACTORY_MODEL_PROVIDER: baseUrl === undefined ? "none" : "openai-compatible",

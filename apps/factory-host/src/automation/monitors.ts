@@ -45,7 +45,7 @@ async function probe(deps: MonitorDeps, row: MonitorRow, now: Date): Promise<num
   if (input.kind === "approval-overdue" && "hours" in params) return (deps.raw.prepare(`SELECT count(*) AS n FROM approvals
     WHERE project_id=? AND state='pending' AND julianday(requested_at)<julianday(?)`)
     .get(row.project_id,new Date(now.getTime()-params.hours*3600000).toISOString()) as { n: number }).n;
-  return (deps.raw.prepare("SELECT count(*) AS n FROM workflow_instances WHERE project_id=? AND state='stalled'").get(row.project_id) as { n: number }).n;
+  return (deps.raw.prepare("SELECT count(*) AS n FROM flow_runs WHERE project_id=? AND state='stalled'").get(row.project_id) as { n: number }).n;
 }
 const running = new WeakSet<Database>();
 export async function tickMonitors(deps: MonitorDeps, now: Date): Promise<void> {

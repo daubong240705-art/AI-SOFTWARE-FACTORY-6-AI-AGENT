@@ -18,23 +18,16 @@ const seatCode: Record<string, ArtCode> = {
   lead: 'LEAD', pm: 'PM', ba: 'BA', fe: 'FE', be: 'BE', devops: 'DEVOPS', test: 'TEST',
   researcher: 'BA', analyst: 'BA', 'fact checker': 'TEST', architect: 'BE', 'data designer': 'BE', 'api designer': 'DEVOPS',
   'architecture reviewer': 'TEST', 'ux designer': 'FE', 'ui designer': 'FE', 'design reviewer': 'TEST',
-  // web-games: six seats, six different characters.
-  'game designer': 'BA', 'rules engineer': 'BE', 'ui artist': 'FE', 'client engineer': 'DEVOPS', 'qa engineer': 'TEST',
-  // game-studio: nine seats, so the two variants are used here.
-  'product strategist': 'PM', 'technical artist': 'FE', 'physics engineer': 'BE', 'gameplay engineer': 'MINT',
-  'network engineer': 'PLUM', 'devops engineer': 'DEVOPS',
+  'qa engineer': 'TEST', 'devops engineer': 'DEVOPS',
 };
 export function artCode(seat: string, hash: number): ArtCode {
   const normalized = seat.trim().toLowerCase();
-  // Portal Manager is the lead of a one-seat portal team, but keeps the PM
-  // fox-cat artwork in every roster, panel, and 2D mascot surface.
-  if (normalized === 'portal manager') return 'PM';
   return seatCode[normalized] ?? codes[hash % codes.length]!;
 }
 
 /** Name-aware mascot selection for callers that also carry an isLead flag. */
 export function mascotCodeForSeat(seat: string, hash: number, isLead = false): ArtCode {
-  return seat.trim().toLowerCase() === 'portal manager' ? 'PM' : isLead ? 'LEAD' : artCode(seat, hash);
+  return isLead ? 'LEAD' : artCode(seat, hash);
 }
 const url = (code: ArtCode, state: MascotState) => urls[`../../assets/mascot/original/${code}/${code}_${pose[poseOf[state]]}.svg`];
 

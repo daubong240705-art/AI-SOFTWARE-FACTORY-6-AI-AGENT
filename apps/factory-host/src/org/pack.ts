@@ -1,9 +1,15 @@
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep, win32 } from "node:path";
-import { artifactKindSchema, labelSchema, MCP_TOOL_NAMES, runtimeKindSchema, workflowDefinitionSchema, workflowKeySchema, type WorkflowDefinition } from "@factory/contracts";
+import { artifactKindSchema, labelSchema, MCP_TOOL_NAMES, runtimeKindSchema, workflowDefinitionSchema, type WorkflowDefinition } from "@factory/contracts";
 import { z } from "zod";
 import { externalToolPattern } from "../mcp-external/config.js";
+
+export const retiredGamePacks: readonly string[] = ["web-games", "game-studio", "portal-ops"];
+
+export function isRetiredGamePack(key: string): boolean {
+  return retiredGamePacks.includes(key);
+}
 
 const relativePathSchema = z.string().min(1).refine((path) =>
   !isAbsolute(path) && !win32.isAbsolute(path) && !path.includes(":") && !path.includes("\0") &&
@@ -30,8 +36,6 @@ export const packManifestSchema = z.strictObject({
   skills: z.array(relativePathSchema),
   workflows: z.array(relativePathSchema.refine((path) => path.endsWith(".json"), "Expected a .json workflow"))
     .max(8).refine((paths) => new Set(paths.map((path) => path.replaceAll("\\", "/"))).size === paths.length, "duplicate workflow").optional(),
-  leadWorkflow: workflowKeySchema.optional(),
-  leadPortal: z.boolean().optional(),
   produces: z.array(artifactKindSchema).max(14).refine((values) => new Set(values).size === values.length,
     "duplicate artifact kind").optional(),
 }).superRefine((manifest, ctx) => {
@@ -39,8 +43,6 @@ export const packManifestSchema = z.strictObject({
     ctx.addIssue({ code: "custom", path: ["seats"], message: "Duplicate seat name" });
   if (manifest.seats.filter((seat) => seat.isLead).length !== 1)
     ctx.addIssue({ code: "custom", path: ["seats"], message: "A pack must have exactly one lead seat" });
-  if (manifest.leadWorkflow !== undefined && manifest.leadPortal === true)
-    ctx.addIssue({ code: "custom", path: ["leadPortal"], message: "leadPortal and leadWorkflow are mutually exclusive" });
 });
 
 export type LoadedPack = {
@@ -109,8 +111,6 @@ export function loadPack(dir: string): LoadedPack {
       if (files.workflows.some((file) => file.definition.key === definition.key)) throw new Error();
       add(bytes); files.workflows.push({ path, definition });
     }
-    if (manifest.leadWorkflow !== undefined && !files.workflows.some((file) => file.definition.key === manifest.leadWorkflow))
-      throw new Error("lead workflow not found");
   } catch { throw new Error("Invalid pack content"); }
   return { manifest, digest: hash.digest("hex"), dir: root, files };
 }

@@ -97,8 +97,7 @@ function ProposalCard({ store, projectId, task, detailsOpen }: { store: Store; p
     if (result) { await store.loadTasks(); setCommand(null); }
   }
   const error = command ? state.pending[command.commandId]?.error : undefined;
-  const owner = task.ownerSeatId ? state.team?.seats.find(seat => seat.id === task.ownerSeatId)
-    ?? state.m3.teams.flatMap(team => team.seats).find(seat => seat.id === task.ownerSeatId) : undefined;
+  const owner = task.ownerSeatId ? state.team?.seats.find(seat => seat.id === task.ownerSeatId) : undefined;
   const hasDetails = task.acceptance.length > 0 || task.requiredCapabilities.length > 0 || task.dependsOn.length > 0;
   return <div className="space-y-3 rounded-lg border border-border p-3">
     <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="font-mono text-xs text-muted-foreground [overflow-wrap:anywhere]">{task.code}</p><h3 className="font-medium [overflow-wrap:anywhere]">{task.title}</h3></div><StatusDot tone={toneOf('task', task.state)} label={t('taskUi.lifecycle.proposed')} /></div>

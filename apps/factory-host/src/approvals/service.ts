@@ -7,7 +7,7 @@ import type { HandlerContext, HandlerMap, HandlerResult } from "../commands/pipe
 import type { Dispatcher } from "../dispatch/dispatcher.js";
 import { moveTaskAndAdvance } from "../dispatch/transitions.js";
 import type { EventHub } from "../events/hub.js";
-import { workflowChanged } from "../workflow/lifecycle.js";
+import { workflowChanged } from "../flow/lifecycle.js";
 import { getTask } from "../work/service.js";
 import { assertActiveGrant, McpToolError, sanitizeAgentText } from "../mcp/security.js";
 import { cleanDecisionRequest, type DecisionRequestInput } from "../mcp/tools.js";
@@ -205,55 +205,19 @@ export function autoReviewTask(deps: { raw: Database; hub: EventHub; now: () => 
       .get(projectId, attemptId) as { body_json: string } | undefined;
     const flags = evidence ? (JSON.parse(evidence.body_json) as { flags?: Array<{ path?: unknown; kind?: unknown }> }).flags ?? [] : [];
     if (flags.length) return ask(`the change has flagged files (${flags.slice(0, 5).map((flag) => `${String(flag.kind)}: ${String(flag.path)}`).join(", ")}).`);
-    // BLOCKED always needs the operator. Only a criterion-based QA verdict can finish without new files or documents.
     const summary = (raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'state' ORDER BY seq DESC")
       .all(projectId, attemptId) as { body_json: string }[]).map((row) => (JSON.parse(row.body_json) as { summary?: unknown }).summary)
       .find((value): value is string => typeof value === "string" && value.trim().length > 0) ?? "";
     if (/^[\s*_`#>-]*blocked\b/i.test(summary)) return ask("the agent reported BLOCKED.");
-    // Only a rework source with explicit acceptance criteria can issue its own QA verdict.
-    const automaticVerdict = isReworkSource(raw, projectId, taskId) && task.acceptance.length > 0;
-    const failures: { criterion: string; evidence: string }[] = [];
-    if (automaticVerdict) {
-      const latest = new Map<string, { passed: unknown; evidence: unknown }>();
-      const rows = raw.prepare("SELECT body_json FROM attempt_events WHERE project_id = ? AND attempt_id = ? AND kind = 'evidence' ORDER BY seq DESC")
-        .all(projectId, attemptId) as { body_json: string }[];
-      for (const row of rows) {
-        const body = JSON.parse(row.body_json) as { name?: unknown; criterion?: unknown; passed?: unknown; evidence?: unknown };
-        if (body.name === "criterion" && typeof body.criterion === "string" && !latest.has(body.criterion.trim()))
-          latest.set(body.criterion.trim(), { passed: body.passed, evidence: body.evidence });
-      }
-      for (const criterion of task.acceptance) {
-        const result = latest.get(criterion.trim());
-        if (result?.passed !== true) failures.push({ criterion: criterion.trim(),
-          evidence: typeof result?.evidence === "string" && result.evidence.trim() ? result.evidence : "not reported" });
-      }
-    }
     const changedFiles = evidence ? ((JSON.parse(evidence.body_json) as { totals?: { files?: unknown } }).totals?.files ?? 0) : 0;
     const outputs = (raw.prepare("SELECT count(*) AS n FROM artifact_versions WHERE project_id = ? AND produced_by_attempt_id = ?").get(projectId, attemptId) as { n: number }).n;
-    if (!automaticVerdict && changedFiles === 0 && outputs === 0) return ask("the agent finished but delivered nothing new: no changed files and no document. Check its summary: if it only verified earlier work, approve it; otherwise send it back.");
+    if (changedFiles === 0 && outputs === 0) return ask("the agent finished but delivered nothing new: no changed files and no document. Check its summary: if it only verified earlier work, approve it; otherwise send it back.");
     let effects: EntityRef[] = [];
     try {
       effects = raw.transaction(() => {
-        const verdictEffects: EntityRef[] = [];
-        if (failures.length) {
-          const id = deps.newId();
-          const now = deps.now();
-          raw.prepare(`INSERT INTO approvals (project_id,id,revision,kind,task_id,subject,summary,options_json,recommendation,
-            impact_if_waiting,context_digest,approver,requested_at,expires_at,state,outcome_option_id,outcome_actor_id,decided_at)
-            VALUES (?,?,2,'review',?,?,?,?,NULL,?,?,'operator',?,?,'changes-requested','request-changes','system',?)`)
-            .run(projectId, id, taskId, publicApprovalText(`Review ${task.code}: ${task.title}`).trim().slice(0, 160),
-              reviewSummary(raw, projectId, attemptId), JSON.stringify(reviewOptions),
-              "The task stays in review and tasks that depend on it wait.", computeReviewDigest(raw, projectId, taskId),
-              now.toISOString(), new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(), now.toISOString());
-          const lineText = (text: string): string => publicApprovalText(sanitizeAgentText(text));
-          const comment = [`Automatic QA verdict: ${failures.length} of ${task.acceptance.length} criteria failed or were not reported.`,
-            ...failures.map((failure) => `- ${lineText(failure.criterion)}: ${lineText(failure.evidence)}`)].join("\n").slice(0, 3000);
-          raw.prepare("INSERT INTO approval_comments (project_id,approval_id,comment) VALUES (?,?,?)").run(projectId, id, comment);
-          verdictEffects.push(effect(id, 2));
-        }
         const changed = moveTaskAndAdvance(raw, task, "done", { dispatcher: deps.dispatcher, integrationAt: deps.now().toISOString() });
         const refs = setTaskArtifactStatus(raw, { projectId, taskId, to: "approved", multiTeam: deps.multiTeam === true });
-        return [...verdictEffects, ...changed, ...refs.map((ref): EntityRef => ({ kind: "artifact-version", id: ref.artifactId, revision: ref.version }))];
+        return [...changed, ...refs.map((ref): EntityRef => ({ kind: "artifact-version", id: ref.artifactId, revision: ref.version }))];
       })();
     } catch (error) {
       if (error instanceof ArtifactLifecycleError || error instanceof CommandError) return ask("a document could not be approved automatically.");
@@ -261,32 +225,10 @@ export function autoReviewTask(deps: { raw: Database; hub: EventHub; now: () => 
     }
     for (const entity of effects) publish(hub, projectId, entity);
     workflowChanged(raw, projectId);
-    return failures.length ? "changes-requested" : "accepted";
+    return "accepted";
   });
 }
 
-/** A review of a stage that is the source of a workflow rework edge carries the verdict for the downstream stage:
- * requesting changes there completes the task (its report is the evidence) instead of re-running it. */
-function isReworkSource(raw: Database, projectId: string, taskId: string): boolean {
-  const link = raw.prepare(`SELECT l.stage_key, i.definition_json FROM workflow_stage_tasks l JOIN workflow_instances i
-    ON i.project_id = l.project_id AND i.id = l.instance_id WHERE l.project_id = ? AND l.task_id = ?`)
-    .get(projectId, taskId) as { stage_key: string; definition_json: string } | undefined;
-  if (!link) return false;
-  const definition = JSON.parse(link.definition_json) as { edges?: { type: string; from: string }[] };
-  return (definition.edges ?? []).some((edge) => edge.type === "rework" && edge.from === link.stage_key);
-}
-
-/** The optional dispatcher is supplied by host wiring; the command remains kind agnostic. */
-/** Review gates of a workflow allow this many "request changes" rounds per task before the operator must accept or stop. */
-export const MAX_REVIEW_CHANGE_ROUNDS = 3;
-
-function assertReviewRoundsLeft(raw: Database, projectId: string, taskId: string, approvalId: string): void {
-  if (!raw.prepare("SELECT 1 FROM workflow_stage_tasks WHERE project_id = ? AND task_id = ?").get(projectId, taskId)) return;
-  const { rounds } = raw.prepare(`SELECT COUNT(*) AS rounds FROM approvals WHERE project_id = ? AND task_id = ? AND kind = 'review'
-    AND outcome_option_id = 'request-changes' AND id <> ?`).get(projectId, taskId, approvalId) as { rounds: number };
-  if (rounds >= MAX_REVIEW_CHANGE_ROUNDS) throw new CommandError("conflict",
-    `Đã yêu cầu sửa bước này ${rounds} lần. Hãy duyệt bản hiện tại, hoặc dừng workflow rồi tạo yêu cầu mới.`, "correct-input");
-}
 
 export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Command, { type: "approvals.decide" }>,
   deps?: { dispatcher: Dispatcher; multiTeam?: boolean }): HandlerResult {
@@ -361,8 +303,7 @@ export function approvalsDecideHandler(ctx: HandlerContext, command: Extract<Com
       .run(command.commandId, projectId, approval.id);
     effects.push(effect(approval.id, approval.revision + 2));
   } else if (task && deps) {
-    const finished = payload.optionId === "accept" || isReworkSource(raw, projectId, task.id);
-    if (!finished) assertReviewRoundsLeft(raw, projectId, task.id, approval.id);
+    const finished = payload.optionId === "accept";
     effects.push(...moveTaskAndAdvance(raw, task, finished ? "done" : "active", { ...deps, integrationAt: ctx.clock().toISOString() }));
     let refs: ReturnType<typeof setTaskArtifactStatus>;
     try { refs = setTaskArtifactStatus(raw, { projectId, taskId: task.id, to: finished ? "approved" : "rejected", multiTeam: deps.multiTeam === true }); }

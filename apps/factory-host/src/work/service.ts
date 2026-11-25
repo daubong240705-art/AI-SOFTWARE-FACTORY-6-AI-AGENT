@@ -1,10 +1,8 @@
 import type { Database } from "better-sqlite3";
 import { canTransitionTask, taskSchema, type Task, type TaskState, type TaskProposeInput } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
-import type { HandlerContext, HandlerMap } from "../commands/pipeline.js";
+import type { HandlerMap } from "../commands/pipeline.js";
 import { deterministicUuid, getPrimaryEngagement } from "../org/service.js";
-import { getSeatCapabilities } from "../instructions/snapshot.js";
-import { moveTask } from "../dispatch/tasks.js";
 
 interface TaskRow {
   id: string; project_id: string; revision: number; code: string; title: string; goal: string; brief: string;
@@ -58,42 +56,11 @@ export function assertTaskInputs(raw: Database, projectId: string, inputs: reado
 }
 
 /** The caller owns the transaction, including rollback of the whole proposal. */
-/** Seat names compare without case, spacing or a copy number: "gameplay engineer 2", "Gameplay-Engineer #2" and
- * "Gameplay Engineer (dev2)" all name the Gameplay Engineer seat, whose slots run the copies. */
+/** Seat names compare without case, spacing or a copy number: "software engineer 2", "Software-Engineer #2" and
+ * "Backend Engineer (dev2)" all name the Backend Engineer seat, whose slots run the copies. */
 function seatKey(name: string): string {
   return name.toLowerCase().replace(/\((?:dev|copy|#)?\s*\d+\)|#\s*\d+|\b(?:dev|copy)\s*\d+\b|\s+\d+$/g, " ")
     .replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-/** One operator task, with the same seat-name matching as a plan and no workflow. */
-export function createReadySeatTask(ctx: HandlerContext, input: {
-  projectId: string; turnId: string; seat: string; title: string; goal: string; acceptance: string[];
-}): { status: "created"; task: Task; seat: string } | { status: "already-running" | "seat-not-found" } {
-  const { raw } = ctx;
-  return raw.transaction(() => {
-    if (raw.prepare(`SELECT 1 FROM workflow_instances WHERE project_id = ? AND key = 'game-build'
-      AND state NOT IN ('completed', 'cancelled') LIMIT 1`).get(input.projectId)) return { status: "already-running" as const };
-    const engagement = getPrimaryEngagement(raw, input.projectId);
-    const seats = engagement ? raw.prepare("SELECT id, name FROM seats WHERE team_id = ? AND is_lead = 0")
-      .all(engagement.teamId) as { id: string; name: string }[] : [];
-    const seat = seats.find((value) => seatKey(value.name) === seatKey(input.seat));
-    if (!seat || !engagement) return { status: "seat-not-found" as const };
-    const taskId = deterministicUuid(`lead-quick-task:${input.turnId}`);
-    const existing = getTask(raw, input.projectId, taskId);
-    if (existing) return { status: "created" as const, task: existing, seat: seat.name };
-    const codes = raw.prepare("SELECT code FROM tasks WHERE project_id = ?").all(input.projectId) as { code: string }[];
-    const next = codes.reduce((max, row) => /^TSK-\d+$/.test(row.code) ? Math.max(max, Number(row.code.slice(4))) : max, 0) + 1;
-    const capabilities = getSeatCapabilities(raw, { seatId: seat.id }) ?? [];
-    tasksCreateHandler(ctx, { apiVersion: 1, commandId: taskId, projectId: input.projectId, type: "tasks.create", payload: {
-      taskId, code: `TSK-${String(next).padStart(3, "0")}`, title: input.title, goal: input.goal, brief: input.goal,
-      parentTaskId: null, engagementId: engagement.id, ownerSeatId: seat.id, requiredCapabilities: capabilities,
-      placement: "portable", sideEffect: "artifact", reviewPolicy: "automatic", requiresGo: false,
-      acceptance: input.acceptance, inputs: [], dependsOn: [],
-    } });
-    moveTask(raw, input.projectId, taskId, "accepted");
-    const task = moveTask(raw, input.projectId, taskId, "ready");
-    return { status: "created" as const, task, seat: seat.name };
-  })();
 }
 
 export function createProposedTasks(raw: Database, input: {

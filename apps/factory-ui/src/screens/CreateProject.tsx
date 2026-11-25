@@ -36,7 +36,7 @@ export function CreateProject({ store, onClose, onCreated }: { store: Store; onC
   // The platform never imposes a team: empty by default, a pack's seats only when the operator picks a template.
   const [teamTemplate, setTeamTemplate] = useState('');
   const packs = store.useStoreSelector(state => state.m3.packs);
-  useEffect(() => { void store.loadTeams(); }, [store]);
+  useEffect(() => { void store.loadPacks(); }, [store]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const rootInput = useRef<HTMLInputElement>(null);
   const browseButton = useRef<HTMLButtonElement>(null);

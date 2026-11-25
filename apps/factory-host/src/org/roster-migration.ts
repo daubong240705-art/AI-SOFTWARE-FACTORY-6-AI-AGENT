@@ -15,7 +15,6 @@ export interface RosterMigrationReport {
 }
 
 const openTask = "state NOT IN ('done','failed','cancelled','declined','superseded')";
-const openWorkflow = "state NOT IN ('completed','failed','cancelled','superseded')";
 
 interface SourceTeam { team_id: string; name: string; pack_key: string | null; pack_version: string | null; pack_digest: string | null }
 
@@ -101,9 +100,6 @@ function migrateProject(raw: Database, projectId: string, deps: RosterDeps): { a
     conversation.run(newAgent, projectId, oldSeat);
   }
   raw.prepare(`UPDATE tasks SET engagement_id = ? WHERE project_id = ? AND ${openTask}`).run(rosterEngagement.id, projectId);
-  raw.prepare(`UPDATE workflow_stages SET engagement_id = ? WHERE project_id = ? AND engagement_id IS NOT NULL
-    AND instance_id IN (SELECT id FROM workflow_instances WHERE project_id = ? AND ${openWorkflow})`)
-    .run(rosterEngagement.id, projectId, projectId);
   const retargetRequest = raw.prepare(`UPDATE ctr_meta SET target_team_id = ? WHERE project_id = ? AND target_team_id = ?
     AND task_id IN (SELECT id FROM tasks WHERE project_id = ? AND ${openTask})`);
   const end = raw.prepare("UPDATE engagements SET state = 'ended', revision = revision + 1 WHERE project_id = ? AND id = ?");

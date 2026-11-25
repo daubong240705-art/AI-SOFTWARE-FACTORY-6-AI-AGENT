@@ -5,7 +5,6 @@ import { z } from "zod";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import type { BootstrapGate, Session, SessionStore } from "../identity/index.js";
 import { clearSessionCookie, failure, parseCookies, sessionCookie } from "./http.js";
-import { isPreviewPath, previewHeaders } from "../preview/proxy.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -56,8 +55,6 @@ export function createApiServer(options: ApiServerOptions): FastifyInstance {
     const host = request.headers.host;
     if (typeof host !== "string" || !hosts.has(host))
       return failure(reply, 403, "forbidden", forbiddenMessage, "correct-input", newId);
-    // The preview proxy enforces its own methods before parsing bodies or checking sessions.
-    if (isPreviewPath(request.raw.url)) return undefined;
     if (request.method === "OPTIONS")
       return failure(reply, 405, "unsupported", "Method not allowed.", "correct-input", newId);
     if (request.method === "POST") {
@@ -75,7 +72,6 @@ export function createApiServer(options: ApiServerOptions): FastifyInstance {
     frameworkErrors(error, request, reply) {
       // Router failures precede hooks; apply the same Host check and never echo the URL.
       securityHeaders(reply);
-      if (isPreviewPath(request.raw.url)) reply.headers(previewHeaders);
       const rejected = checkRequest(request, reply);
       if (rejected) return;
       if (error.code === "FST_ERR_BAD_URL" || error.code === "FST_ERR_MAX_PARAM_LENGTH") {
@@ -94,7 +90,6 @@ export function createApiServer(options: ApiServerOptions): FastifyInstance {
       && reply.statusCode === 200 && reply.getHeader("Cache-Control") === "private, max-age=300";
     securityHeaders(reply);
     if (thumbnail) reply.header("Cache-Control", "private, max-age=300");
-    if (isPreviewPath(request.raw.url)) reply.headers(previewHeaders);
     return payload;
   });
 

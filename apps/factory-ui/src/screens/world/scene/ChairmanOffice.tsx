@@ -68,7 +68,6 @@ export function ChairmanOffice({ model, attention, approvalPulse, phonePulse, st
     if (papers.current) papers.current.children.forEach((p, i) => { p.rotation.z = flutter ? Math.sin((now - approvalPulse) / 70 + i) * 0.1 : 0; });
     if (phone.current) { const material = (phone.current.children[0] as THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial>).material; material.emissiveIntensity = ring ? .9 : 0; phone.current.rotation.z = ring ? Math.sin(now / 45) * 0.18 : 0; phone.current.position.y = ring ? 1.1 + Math.abs(Math.sin(now / 70)) * 0.06 : 1.1; }
   });
-  const released = Object.keys(model.releaseVersions);
   const stack = Math.min(0.62, attention * 0.025);
   const seats = [...new Map(model.agents.map(a => [a.ownerSeatId, a])).values()];
   const clock = new Date(minute);
@@ -80,21 +79,10 @@ export function ChairmanOffice({ model, attention, approvalPulse, phonePulse, st
       <OfficeBadge count={attention} />
     </ObjectTarget>
     <ObjectTarget tab="create" position={[-15.6, 1, -10.25]} size={[0.4, 0.3, 0.4]} onOpen={onOpen} />
-    {chairmanSurfaces.filter(s => s.id.startsWith('office-tv')).map((s, i) => <ObjectTarget key={s.id} tab="games" position={s.position} size={[0.22, s.height, s.width]} onOpen={onOpen}><Surface id={s.id} text={[t('worldUi.chairman.tabs.games'), ...(model.loaded.games ? model.games.filter((_, index) => index % 3 === i).map(g => `${g.name} · ${t(`studioUi.states.${g.workflow?.state ?? 'draft'}`)}`) : ['—'])]} /></ObjectTarget>)}
-    <ObjectTarget tab="portal" position={[-12.7, 1.1, -12.25]} size={[0.7, 1.9, 1.5]} onOpen={onOpen}>
-      {released.map((id, i) => {
-        const columns = 6, rows = Math.max(1, Math.ceil(released.length / columns)), scale = Math.min(0.22, 1.55 / rows);
-        return <group key={id} name={`trophy:${id}`} position={[-12.72, 0.19 + Math.floor(i / columns) * 1.5 / rows, -12.85 + (i % columns) * 0.24]} scale={scale}>
-          <mesh position={[0, 0.2, 0]}><boxGeometry args={[0.65, 0.3, 0.65]} /><meshStandardMaterial color="#644330" /></mesh>
-          <mesh position={[0, 0.65, 0]}><cylinderGeometry args={[0.12, 0.18, 0.7, 8]} /><meshStandardMaterial color="#E0A458" metalness={0.6} roughness={0.25} /></mesh>
-          <mesh position={[0, 1.1, 0]}><sphereGeometry args={[0.5, 10, 6]} /><meshStandardMaterial color="#F7DC8A" metalness={0.6} roughness={0.2} /></mesh>
-          {[-1, 1].map(side => <mesh key={side} position={[side * 0.45, 1.08, 0]} rotation={[0, Math.PI / 2, 0]}><torusGeometry args={[0.25, 0.07, 5, 10]} /><meshStandardMaterial color="#E0A458" /></mesh>)}
-        </group>;
-      })}
-    </ObjectTarget>
-    <ObjectTarget tab="team" position={[-16.7, 3, -13.55]} size={[1.45, 0.75, 0.2]} onOpen={onOpen}><Surface id="office-photo" team text={[`${t('worldUi.chairman.tabs.team')} · ${seats.length}`, ...seats.map(a => a.name)]} /></ObjectTarget>
+    {chairmanSurfaces.filter(s => s.id.startsWith('office-tv')).map((s, i) => <ObjectTarget key={s.id} tab="projects" position={s.position} size={[0.22, s.height, s.width]} onOpen={onOpen}><Surface id={s.id} text={[t('global.projects'), ...(model.loaded.projects ? model.projects.filter((_, index) => index % 3 === i).map(project => project.name) : ['—'])]} /></ObjectTarget>)}
+    <ObjectTarget tab="agents" position={[-16.7, 3, -13.55]} size={[1.45, 0.75, 0.2]} onOpen={onOpen}><Surface id="office-photo" team text={[`${t('projectUi.agents')} · ${seats.length}`, ...seats.map(a => a.name)]} /></ObjectTarget>
     <ObjectTarget tab="knowledge" position={[-12.65, 1, -8.7]} size={[0.6, 1.9, 1.16]} onOpen={onOpen} />
-    <ObjectTarget tab="workflow" position={[-14.9, 3.14, -13.55]} size={[1.65, 0.75, 0.2]} onOpen={onOpen}><Surface id="office-whiteboard" text={[t('worldUi.chairman.tabs.workflow'), ...model.stages.map(s => `${t(`worldUi.workflow.stages.${s.key}`)} · ${s.state}`)]} /></ObjectTarget>
+    <ObjectTarget tab="flows" position={[-14.9, 3.14, -13.55]} size={[1.65, 0.75, 0.2]} onOpen={onOpen}><Surface id="office-whiteboard" text={[t('projectUi.flows')]} /></ObjectTarget>
     <ObjectTarget tab="chat" position={[-13.64, 1.08, -10.46]} size={[0.6, 0.4, 0.4]} onOpen={onOpen}>
       <group ref={phone} position={[-13.64, 1.1, -10.46]}><mesh><boxGeometry args={[0.55, 0.12, 0.14]} /><meshStandardMaterial color="#DB4247" emissive="#DB4247" emissiveIntensity={phonePulse && performance.now() - phonePulse < 4000 ? 0.9 : 0} /></mesh></group>
     </ObjectTarget>

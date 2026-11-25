@@ -14,7 +14,7 @@ import { allowedAgentTools, getAttemptInstructionPin, getSeatCapabilities, getSe
 import { createAgentHandlers } from "../src/org/agent-commands.js";
 import { agentDetailView, agentRevisionView, projectAgentsView } from "../src/org/agent-views.js";
 import { loadPack } from "../src/org/pack.js";
-import { getSeatRuntimeConfig, seatsSetRuntimeHandler } from "../src/org/runtime-config.js";
+import { getSeatRuntimeConfig } from "../src/org/runtime-config.js";
 import { ensureTeamFromPack, findLeadSeat, listAllSeats, listSeats } from "../src/org/service.js";
 import { fixedClock, idFactory, migratedStorage } from "./helpers.js";
 
@@ -41,7 +41,7 @@ function fixture(t: TestContext) {
   const clock = fixedClock();
   const hub = new EventHub(raw, { newId, clock });
   const pipeline = createCommandPipeline({ storage, hub, newId, clock,
-    handlers: { ...createAgentHandlers(), "seats.set-runtime": seatsSetRuntimeHandler } });
+    handlers: createAgentHandlers() });
   const projectId = newId();
   const execute = (type: string, payload: unknown, scope = projectId) =>
     pipeline.execute({ apiVersion: 1, commandId: newId(), projectId: scope, type, payload });
@@ -216,13 +216,6 @@ test("rollback creates a new revision equal to the target config", (t) => {
   assert.equal(view.configRevision, 3);
   assert.deepEqual(view.config, agentRevisionViewSchema.parse(agentRevisionView(raw, projectId, agentId, 1)).config);
   assert.equal(getSeatRuntimeConfig(raw, agentId), undefined);
-});
-
-test("seats.set-runtime rejects agents configured through agents.update", (t) => {
-  const { create, execute } = fixture(t);
-  const seatId = create();
-  assert.equal(rejected(execute("seats.set-runtime", { seatId, expectedRevision: null, runtime: "acp", cli: "codex" }), "conflict").message,
-    "configure this agent with agents.update");
 });
 
 test("clone retains group memberships but not template or lead; agent and team lookups stay project scoped", (t) => {

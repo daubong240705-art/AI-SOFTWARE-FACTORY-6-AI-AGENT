@@ -2,6 +2,7 @@ import type { Database } from "better-sqlite3";
 import { LIVE_ATTEMPT_STATES, type AttemptState } from "@factory/contracts";
 import { sanitizeAgentText } from "../mcp/security.js";
 import { meaningfulProgressSql } from "../dispatch/progress.js";
+import { retiredGamePacks } from "./pack.js";
 import { listSeats } from "./service.js";
 
 type Status = "waiting" | "problem" | "working" | "queued" | "done" | "idle";
@@ -173,8 +174,11 @@ function status(signals: Signals | undefined, needs: Need[], queued: number, fin
 }
 
 export function orgActivity(raw: Database, now: Date): { generatedAt: string; nodes: Node[]; teams: Team[] } {
-  const teams = raw.prepare<[], { id: string; name: string; lifecycle: string }>(`SELECT id, name, lifecycle FROM teams
-    WHERE kind IN ('pack', 'roster') ORDER BY name, id`).all();
+  const teams = raw.prepare<[string], { id: string; name: string; lifecycle: string }>(`SELECT id, name, lifecycle FROM teams
+    WHERE kind IN ('pack', 'roster')
+      AND (pack_key IS NULL OR pack_key NOT IN (SELECT value FROM json_each(?)))
+      AND (project_id IS NULL OR project_id IN (SELECT id FROM projects WHERE disposition <> 'archived'))
+    ORDER BY name, id`).all(JSON.stringify(retiredGamePacks));
   const seats = listSeats(raw, undefined, 200);
   const seatIds = JSON.stringify(seats.map((seat) => seat.id));
   const live = liveAttempts(raw, seatIds);

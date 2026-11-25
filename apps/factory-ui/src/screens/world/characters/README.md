@@ -10,12 +10,11 @@
 W-9: `features.ts` supplies the paired eye/cheek/ear anchors actually used by the
 builder, with eye depth projected onto the curved face. The raccoon band and BA
 frames follow that same surface. The verifier audits all nine specs and seven
-poses, including ear attachment and above-right effect clearance. Portal Manager
-uses the shared name-aware PM rule before `isLead`; game leads keep LEAD.
+poses, including ear attachment and above-right effect clearance. Leads use LEAD.
 
 Only this directory and `scene/Lineup.tsx` are owned by W-3. No toolbar, camera, preferences,
 layout, debug, office, teams, or locale files were changed. The existing exported `artCode`
-and `seatHash` preserve the unknown-seat fallback. Portal Manager resolves to PM before
+and `seatHash` preserve the unknown-seat fallback. The Lead flag selects LEAD before
 `isLead` selects LEAD. Palettes come from the idle SVGs; TEST's tiny beak is dark in that art.
 
 ## Integration

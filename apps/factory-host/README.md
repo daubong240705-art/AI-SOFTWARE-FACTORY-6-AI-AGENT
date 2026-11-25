@@ -1,6 +1,6 @@
 # Factory Host (V2 control plane)
 
-Independent of V1. M1 in progress: **storage**, **events** and the **API security layer** and the **command pipeline**, **SSE**, the **Host start-up**, **org** (Pack to Team), **work** (tasks), **model gateway**, **budgets**, **chat storage** the **Lead runner** and **same-origin UI serving** done.
+Independent of V1. M1 in progress: **storage**, **events** and the **API security layer** and the **command pipeline**, **SSE**, the **Host start-up**, **org** (project rosters), **work** (tasks), **model gateway**, **budgets**, **chat storage** the **Lead runner** and **same-origin UI serving** done.
 
 ```bash
 cd apps/factory-host
@@ -56,12 +56,18 @@ bash /mnt/e/GIT/AI-SOFTWARE-FACTORY-6-AI-AGENT/scripts/factory-v2/deploy-host-ws
 FACTORY_STATE_DIR=$HOME/factory-v2/state FACTORY_PORT=8787 node $HOME/factory-v2/app/apps/factory-host/dist/main.js
 ```
 
-## Org and work
+## Project roster and agents
 
-- `src/org/pack.ts`: `loadPack` validates `packs/<key>/pack.json` (one lead, unique seat names, profile and skill paths must stay inside the pack, also after resolving symlinks) and returns a digest over the manifest and profiles. Note: skill files are checked for existence but are not part of the digest yet.
-- `src/org/service.ts`: `ensureTeamFromPack` (idempotent, deterministic profile ids) and `ensureEngagement` (one active engagement per project and team).
-- `projects.create` now also creates the default team from the pack once and an engagement per project.
-- `src/work/service.ts`: `tasks.create` (always starts as `draft`) and `tasks.transition` (optimistic `expectedRevision`, the contracts transition table; in M1 only `proposed`, `accepted`, `declined`, `cancelled` are reachable). Read routes: `GET /projects/:id/tasks`, `GET /projects/:id/team`.
+`projects.create` gives each project its own roster from the selected pack or an empty roster.
+`src/org/agents.ts` and the agent commands manage revisioned runtime, instructions, tools, and skills.
+Use `/projects/:id/agents` to read agents, groups, and relations; tasks still dispatch through roster seats.
+Startup migrates eligible shared rosters without touching live attempts or archived project history.
+
+## Library
+
+`src/org/pack.ts` validates the pack manifest and resolves local profiles, skills, and v1 import definitions.
+`src/library/` imports packs as reusable, versioned skills and agent templates at startup.
+Import is idempotent and does not rewrite existing agents. `/library` serves the resulting catalog.
 
 ## Models and budgets
 
@@ -150,15 +156,6 @@ Correction: an earlier note here said the Lead created no Task. That was a bug i
 - `decision.request` (business questions): validated against the contract, sanitised, at most ONE pending question per task. In one transaction the Host creates a `question` Approval (7-day expiry) and a `decision` hold (needs action) on the task; the tool result tells the agent to stop, and ~50 ms later `parkAttempt` ends the attempt (`running` -> `waiting-input` -> `parked`): token revoked, the sandbox process group verified gone (otherwise `unknown`, as for a stop), partial work kept as a draft Artifact, slot freed. The task STAYS `active` and nothing restarts it by itself. An agent that finishes right after asking is parked too, never sent to review.
 - Answering (`approvals.decide` on the question, any listed option): hold released, approval `applied` exactly once, and a NEW attempt (epoch + 1, same seat, continuing from the previous branch) starts with "Decision from the operator: Question / Answer / comment" in its handoff. Cancelling the task withdraws the question and the hold; an expired question stays unanswered with its hold (the operator cancels or retries the task) and never starts anything.
 
-## Multi-team Org (M3 O1)
-
-Behind `FACTORY_MULTI_TEAM=1` (default OFF: the Host behaves exactly like M2, at most one active Engagement per Project, and the new commands answer `unsupported`; any other value refuses to start without printing it).
-
-- Pack registry: every valid `packs/*/pack.json` is discoverable (`GET /packs`, metadata only; a broken pack is skipped with a generic message, duplicate keys refuse). Commands: `teams.create-from-pack`, `teams.set-lifecycle` (`active`/`paused`/`archived`), `engagements.create` (invite a Team to a Project), `engagements.update` (priority, `maxConcurrent`, `active`/`paused`/`ended`; only the given fields change), `seats.update` (slots only; dedicated nodes arrive in M4), all with revision checks.
-- The PRIMARY engagement (the earliest created active one) owns the Project's Lead, the plan and the default engagement of new tasks: adding a higher-priority Team never changes who the Lead is. Priority only orders dispatch.
-- The dispatcher enforces `maxConcurrent` per Engagement (a task at the limit stays queued and starts when a slot frees), and does not start tasks of a paused/ended Engagement or a paused/archived Team: nothing is failed, running attempts are never interrupted, and work resumes when the Engagement/Team becomes active again. Queue order across Engagements: priority, then FIFO.
-- Read views: `GET /teams` (charter, revisions of team, seats and engagements for the operator commands, seats with live load and, for v2 packs, pinned capabilities and tools, engagements), `GET /teams/:teamId/queue` (cross-project queue in start order), `GET /projects/:id/team` now lists all engagements.
-
 ## Knowledge: search and read permissions (M3 K1a)
 
 `src/knowledge/` indexes Artifact Versions for full-text search (SQLite FTS5 inside better-sqlite3, migration 0004). Text is normalised at index AND query time (NFD, strip diacritics, d-stroke to d, lower-case), so `thiet ke` finds `Thiết kế` and `dang nhap` finds `Đăng nhập`; every query term is quoted so user text is never FTS syntax. Registration (attempt results and `output.register`) indexes the version in the same transaction; a failing index never fails registration, and a bounded start-up backfill indexes older versions.
@@ -178,7 +175,7 @@ Every summary read uses `visibleToScope`, with the attempt seat's team and exact
 
 Migration 0008 adds the STRICT `context_packs` metrics table, one replaceable row per attempt, containing estimated tokens, maximum tokens, L0/L1/omitted counts and validated JSON. Pack failures log a fixed message and execution continues without a pack. The authenticated operator view `GET /projects/:projectId/tasks/:taskId/context` returns the newest twenty packs and metrics; only stored/operator packs distinguish `not-found` from `no-access`.
 
-Registration accepts omitted L1. A supplied L1 must contain at least two non-empty lines and 80 trimmed characters, and differ from L0; malformed summaries are rejected before writes. With `FACTORY_MULTI_TEAM=1`, `artifacts.transition` requires L1 before approving research-report, requirements, adr, data-model, api-contract, ui-spec, plan and dossier versions. Other kinds and flag-off approval retain their existing behavior.
+Registration accepts omitted L1. A supplied L1 must contain at least two non-empty lines and 80 trimmed characters, and differ from L0; malformed summaries are rejected before writes. `artifacts.transition` requires L1 before approving research-report, requirements, adr, data-model, api-contract, ui-spec, plan and dossier versions.
 
 ## Dependency outputs in the Context Pack (CE-0b)
 
@@ -207,7 +204,7 @@ dependency summaries do not copy code or patches into the pack or workspace.
 
 ## Cross-team requests (M3 C1b)
 
-Behind `FACTORY_MULTI_TEAM=1` only (flag off: the tools are not listed and the commands answer `unsupported`). A request (CTR) IS a Task (`origin.kind='cross-team'`, code `REQ-nnn`, migration 0006 adds `ctr_meta`, immutable `ctr_messages`, `ctr_followers`); there is no second entity. Migration 0007 adds durable `ctr_waits`. `responseMode: 'blocking'` parks the requester session and releases its slot; a new attempt for the same seat receives `Request results:` when the answer arrives. Notify cannot block; at most three requests may block a task at once. A blocking duplicate also waits.
+A request (CTR) IS a Task (`origin.kind='cross-team'`, code `REQ-nnn`, migration 0006 adds `ctr_meta`, immutable `ctr_messages`, `ctr_followers`); there is no second entity. Migration 0007 adds durable `ctr_waits`. `responseMode: 'blocking'` parks the requester session and releases its slot; a new attempt for the same seat receives `Request results:` when the answer arrives. Notify cannot block; at most three requests may block a task at once. A blocking duplicate also waits.
 
 - Agent tools (the requester attempt must be running): `request.create` (kinds clarify/consult/produce/review/decision/notify; fixed short errors, nothing written on refusal; hop above 3, more than 10 open or 20 created per attempt, asking the requester's own team, unreadable `contextRefs` and non-active teams are refused), `request.reply` (`message` / `accept` / `request-changes`, requester or follower only) and `request.get`.
 - Duplicates (same target team, kind, artifact refs and normalised ask, same project, still open) are not created again: the second requester becomes a follower of the first.
@@ -300,7 +297,7 @@ event. Windows are strictly after the baseline. Older transitions without record
 times are not reconstructed. Profile/skill diffs and Git HEAD changes are not
 tracked yet. Resume context comes from artifacts and decisions, never an old session.
 
-With `FACTORY_MULTI_TEAM=1`, agents can call read-only `project.briefing {}`.
+Agents can call read-only `project.briefing {}`.
 Artifact metadata and counts use `visibleToScope`; private drafts stay scoped to
 their team or exact request grants. The tool enforces active attempts, 100 calls
 per attempt and a 48,000-byte JSON response budget.
@@ -327,7 +324,6 @@ to read full pinned skill text as data. The Host derives the seat from the activ
 attempt; only that team's snapshot is readable. Reads are fenced, capped at 200
 per attempt and bounded to 32768 UTF-8 bytes, with a final `[truncated]` line when
 shortened. Unknown and inaccessible skills return the same `skill not found` error.
-This tool is available independently of multi-team mode.
 
 At startup, teams lacking a digest are backfilled only when a registered pack
 has the same key and version. Unavailable packs stay without instructions, and
@@ -482,288 +478,19 @@ Environment and output:
 - The artifact content route also serves `text/plain`, `text/csv` and `application/json` as text.
 
 **Other changes.**
-- With `FACTORY_MULTI_TEAM=1`, `projects.create` no longer creates the default team: a project has only the teams the operator adds.
+- `projects.create` creates the project roster; additional teams remain available for dispatch and requests.
 - The local CLI runtime's output limit defaults to 48 MiB (maximum 64 MiB), because stream-json carries every image an agent views.
 
-## Workflows as data (M5 W1a)
+## Workflow v2
 
-Packs may declare `workflows`, up to eight unique relative `.json` files inside
-the pack, each at most 64 KiB. Copy the example in `packs/_template/workflows`,
-declare it in `pack.json`, then run `npm run pack:check -- <pack-directory>`.
-The checker validates schemas, graph references and cycles, bounded rework,
-parallel joins, parameter comparisons and advisory capabilities. Workflow bytes
-participate in the pack digest; packs without workflows retain their digest.
+`src/flow/` validates and runs draft or published flows, persists node progress, and recovers runs at startup.
+Task and approval changes notify the flow engine through `src/flow/lifecycle.ts`.
+Use `flows.import-v1` to convert pack JSON into an editable v2 draft. The v1 engine and its job schedules are retired.
 
-`GET /packs` lists workflow keys, revisions and titles. The always available
-`workflows.create`, `workflows.start`, `workflows.pause`, `workflows.resume` and
-`workflows.cancel` commands use command replay protection and revision checks.
-Create takes an instance UUID, definition key, optional pack key, parameter
-overrides and optional title. Ambiguous definitions require a pack key.
-Instances start proposed, fill parameter defaults and mark stages skipped only
-when their parameter-only `includeIf` is false. Facts remain unknown.
-Authenticated reads are `/projects/:projectId/workflows` and the same route
-with `/:instanceId`; list reads return the newest 100 instances and stage counts.
+## Automation rules and monitors
 
-Definitions are pinned by value in migration 0010, independent of later pack
-edits. Conditions are bounded typed data: no code, LLM or arbitrary expressions.
-W1a only stores instances and state changes; it creates no Tasks, evaluates no
-dependencies and performs no execution. Resume atomically collapses
-paused → resuming → active into one revision. W1b adds freshness checks,
-Task generation, dependency evaluation, parallel joins, gates and bounded rework.
-
-### Plan Patch (M5 W2)
-
-The Lead proposes a patch; deterministic code validates its operations against the
-instance's copied definition and task history. Each patch contains 1–10 operations
-and a reason of 1–500 characters. The strictest policy in the patch wins.
-
-| Operation | Default policy | Conditions and refusal rules |
-| --- | --- | --- |
-| `addTaskWithinStage` | auto | Existing unfinished stage; total tasks must fit `limits.maxTasks` (default 1), with at most 20 extra tasks. Title is plain text, 1–120 characters. |
-| `skipOptionalStage` | auto | Optional stage in pending, ready or blocked state without task history. |
-| `splitStage` | auto | Pending or blocked stage without task history; 2–5 new unique stage keys, connected in sequence. Incoming edges and gates use the first stage; outputs, outgoing edges and parallel group membership use the last. |
-| `addStage` | approval | Full stage definition, with `after`, `before`, or both; referenced stages must exist. Both anchors replace their direct finish-to-start edge. Maximum 60 stages. |
-| `reorderStages` | approval | Pending stage without task history; move after an existing different stage. Artifact-approved and rework edges touching the stage prevent the move. |
-| `removeRequiredStage` | operator | Pending stage without task history; reconnect predecessors to successors and drop its gates and unused joins. Artifact-approved and rework edges prevent removal. |
-
-The instance's `allowedPatches` overrides defaults. The operator can apply all
-three policy levels; the Lead applies only `auto`. Lead proposals requiring
-`approval` or `operator` remain pending until the operator uses
-`workflows.decide-patch`. Approval revalidates against the current definition;
-an invalidated proposal becomes refused with `stale`. Rejection records the
-operator's sanitised comment. Terminal workflows cannot be patched. There are
-at most 50 audit rows and three pending patches per instance.
-
-`workflows.patch` takes `{ instanceId, expectedRevision, ops, reason }`.
-For example, `ops: [{ op: "addTaskWithinStage", stage: "development",
-title: "Verify migration evidence" }]` adds work when that stage's task limit
-permits it. To insert a stage, use `{ op: "addStage", stage: { key: "evidence",
-phase: "execution", title: "Check evidence", requiredCapabilities: ["docs.write"],
-inputs: [], outputs: [] }, after: "development", before: "qa" }`.
-Decide using `{ patchId, decision: "approve" }` or
-`{ patchId, decision: "reject", comment: "Use the existing review stage" }`.
-These commands use the normal command envelope and replay protection.
-
-The optional MCP tool `workflow.patch` takes only `{ ops, reason }`. It is
-default deny: the seat's pinned tool list must include `workflow.patch` or
-`workflow.*`; an omitted list grants no access. The active grant's task determines
-the instance, and calls are fenced by attempt, epoch and lease, with a limit of
-20 calls per attempt. Results contain only patch number, state and any fixed
-refusal; denied tools behave like unknown tools.
-
-Migration 0012 adds numbered audit rows and extra-task counters without rebuilding
-tables. Applying a patch atomically records the definition revision, stage edits,
-instance revision and change events, then advances the engine. Refusals leave the
-definition and stage state intact. Extra tasks are created once per iteration,
-and all must finish before the stage completes. Reasons never become task goals;
-only sanitised extra titles enter generated goals. History is retained.
-Authenticated workflow detail includes patch history and stage `extraTasks`;
-both inbox routes include pending patches, operation summary lines and additive
-`counts.patches`, included in `counts.total`.
-
-## Pack v2: capabilities, tools and the template (V2a)
-
-Pack v2 adds optional fields to the existing manifest, with no migration or new
-dependency. `seats[].capabilities` contains up to 12 unique identifiers matching
-`^[a-z0-9][a-z0-9.-]{0,39}$`. `seats[].tools` contains up to 32 exact Host tool
-names or `prefix.*` patterns matching at least one known Host tool. Duplicate
-tools produce a validator warning. `produces` contains up to 13 unique artifact
-kinds and is informational. Optional `workflows` lists up to eight relative JSON
-definitions (see Workflows as data above). `GET /packs` exposes these fields when declared,
-alongside seat metadata, without profile or skill text.
-
-An explicit owner always wins. If any non-lead seat declares capabilities, the
-Host selects a worker satisfying every required capability: equality or a dotted
-descendant, ignoring case. For example, `research.evidence.sources` satisfies
-`research.evidence`. It selects the worker with the fewest live attempts in that
-project and team (queued, leased, preparing, running, waiting-input, parked),
-breaking ties by name then id. Without requirements, all workers are candidates.
-Unsatisfied requirements fail with `no-seat-for-capabilities`; a Lead-only team
-falls back to its Lead. Teams without worker capability declarations retain the
-legacy keyword rules. Capabilities and tools resolve through the team's pinned
-snapshot by seat name; disk edits never change an existing team.
-
-Core tools are always allowed: `task.progress`, `output.register`,
-`decision.request`, `skill.get`. An allowlist can only REMOVE optional Host tools,
-never add tools or affect the core tools. Omitted `tools` preserves v1 access;
-`tools: []` denies all optional tools. Both `tools/list` and `tools/call` enforce
-the policy from the attempt's persisted seat. Denied tools are hidden and return
-the same `tool is not available` error as unknown tools, before side effects or
-tool counters. Existing Host availability and permission checks still apply.
-
-Copy `packs/_template` to a new ordinary directory such as `packs/marketing-team`,
-set its key, name, charter, seat capabilities and tool rules, then write its English
-profiles and skills. Build and validate from `apps/factory-host`:
-
-```sh
-npm run build
-npm run pack:check -- ../../packs/marketing-team
-npm run pack:check -- ../../packs/_template ../../packs/software-team ../../packs/research-team
-```
-
-The validator prints one block per pack, metadata counts and digest, content-free
-errors and advisory warnings. Exit codes are 0 when all packs pass, 1 for invalid
-packs, and 2 for usage errors. Profiles above 450 words, skills above 700 words,
-descriptions above 250 characters, missing capabilities, duplicate tools,
-unsupported Lead capabilities and missing `produces` generate warnings.
-Missing skill descriptions are errors for v2 packs and advisory warnings for
-legacy packs, preserving existing pinned content such as software-team.
-Directories beginning with `_` or `.` are silently skipped by the registry.
-Restart the Host to discover the new pack, create a team from its key/version,
-and engage it in a project. This adds a team entirely through data. Bump the pack
-version to publish subsequent changes; existing teams retain their snapshot.
-
-
-### Workflow engine (M5 W1b)
-
-The deterministic engine refreshes current task and output states, evaluates readiness and facts, creates one task per ready stage and iteration, applies bounded rework, then updates the instance. Repeated evaluation does not duplicate tasks. Briefs use definition fields and parameter lines. Inputs pin up to eight newest approved upstream versions.
-
-Finish-to-start requires a done or skipped source. Artifact-approved requires the declared kind at approved status; informs never blocks. Parallel groups join with all, any or quorum completion. includeIf is fixed at creation; skipIf is evaluated at readiness. Facts support project approved artifacts, review verdicts and produced artifact status. Unknown facts block conditional edges and gates with a warning.
-
-Execution and irreversible-action gates use the existing Go gate; review gates use human-final review. Rework resets its source and target, retains history and adds sanitised feedback to the next brief. Exhausted maxLoops stalls the instance. Required failures stall; optional failures are skipped.
-
-Selection uses active engagements of active teams. A capability-declared team needs one non-lead seat covering every capability using dispatch's case-insensitive dotted-prefix rule. Legacy teams are fallbacks. Ranking prefers declared coverage, teamHint in pack key or name, lower live engagement load, higher priority, then name/id. Active operator overrides take precedence.
-
-Start, resume, task transitions, artifact status changes, approvals.decide and engagement changes trigger evaluation. Startup and 60-second sweeps repair missed notifications. Paused and terminal instances create no tasks. Operators can add/reactivate an eligible engagement or use workflows.assign-stage with instanceId, expectedRevision, stageKey and engagementId (null clears it) on pending/blocked stages. Retry a failed task, then resume a stalled instance. Detail views include stage reasons, engagement, iteration, loops and task history.
-
-Label/check/monitor facts, Plan Patch, schedules and freshness checks on resume are not supported yet. Workflow code effects map to task artifact effects; external effects map to external-irreversible.
-# Scheduler (M5 A1)
-
-Schedules start workflow instances through `workflows.create` and, by default,
-`workflows.start`. They support cron (5 or 6 fields, at least 60 seconds between
-runs), intervals (60–2,592,000 seconds, anchored to creation), and once (a future
-ISO timestamp with an offset). The default timezone is `Asia/Ho_Chi_Minh`.
-Croner applies IANA timezone and DST rules: a missing local time is moved to the
-DST transition, and an overlapping local time runs once. Intervals use elapsed UTC time.
-
-The host ticks at startup and every 30 seconds without a feature flag. A run is
-on time through 90 seconds late. The default missed policy, `skip`, records the
-latest ten missed runs per tick. `coalesce-once` fires only the latest due time.
-`catch-up-limited` fires the latest 1–5 late runs (default 3), followed by on-time
-runs. For example, ten due minute intervals with the clock exactly at the tenth
-produce two on-time runs: skip fires those two, coalesce fires one, and catch-up
-with limit 3 fires five. Backlogs are bounded to the latest 50 due times, with
-at most 100 recorded occurrences across a tick.
-
-Concurrency counts all nonterminal instances previously started by the schedule.
-`skip-if-running` (default) skips while any remain. `queue-one` permits two
-nonterminal instances, representing one running and one queued; it does not
-delay activation of the second instance. `allow-parallel` requires a limit of
-2–5. Completed, failed, cancelled, and superseded instances release capacity.
-
-Occurrences deduplicate by project, schedule, UTC scheduled time, and trigger
-(`time` or `manual`). Workflow instance and command IDs are deterministic UUIDs
-derived from SHA-256 of that identity and command purpose. Each schedule tick
-commits occurrences, workflow commands, receipts, and events in one transaction;
-a duplicate occurrence is dropped. Three consecutive start failures quarantine
-the schedule. `schedules.resume` clears quarantine and failures and calculates a
-future run from the current clock. A once schedule pauses after processing its
-occurrence. Moving the clock backwards never fires a schedule.
-
-Commands are `schedules.create`, `update`, `pause`, `resume`, `delete`, and
-`run-now`. Mutations require the current revision. Manual runs use millisecond
-timestamps and obey concurrency and enabled state while ignoring missed policy.
-Schedule actions resolve definitions through registry packs and validate typed
-parameters. Projects have at most 50 schedules with unique names.
-
-Authenticated reads: `GET /projects/:projectId/schedules` (including quarantine
-state and three upcoming instants) and
-`GET /projects/:projectId/schedules/:scheduleId/occurrences` (latest 50).
-Read surfaces expose parameter keys only. Event triggers, monitors, quiet hours,
-and budgets arrive in A2/P3/N1.
-
-## Watchdog and monitors (M5 A2a)
-
-The 60 second sweep checks active workflows after advancing the engine. A workflow
-stalls when it exceeds its maximum duration (default 30 days), makes no progress
-while work remains (default 24 hours), or cannot advance pending/blocked stages
-without runnable work. Failed stages and exhausted rework limits also stall through
-the engine. The instance view includes `stalledReason` and `lastProgressAt`.
-After addressing the cause, use `workflows.resume` with the current revision;
-resume resets the progress timestamp. The watchdog never starts a workflow.
-
-Create up to 30 named monitors per project with `monitors.create`; update, pause,
-resume and delete require the current revision. Internal probes run at startup and
-on the 60 second sweep when due, at intervals from 60 seconds to one day:
-
-- `artifact-age`: count approved versions of the selected artifact kind older than `days`.
-- `approval-overdue`: count pending approvals requested more than `hours` ago.
-- `workflow-stalled`: count workflow instances currently stalled.
-- `disk-free`: available GiB on the Host state filesystem, rounded to two decimals;
-  the only accepted selector is `{ "path": "state" }`.
-
-Counts default to comparator `gt`; disk space defaults to `lt`. Equality does not
-breach the threshold. Hysteresis trips after `tripAfter` consecutive breaches
-(default 3) and recovers after `recoverAfter` consecutive healthy checks (default 1).
-An unknown monitor becomes healthy on its first non-breach. Opposite results reset
-the streak. Probe errors preserve status and advance the next check.
-
-Only status changes record history and emit `entity.changed` and `monitor.changed`.
-Every workflow state change emits `workflow.state-changed`. Tripped monitors and
-stalled workflows appear in the global and project Inbox with additive counts.
-Read monitor summaries and recent edges through the project monitor and monitor
-events routes. Probes use no model and no outbound network.
-HTTP probes are unsupported; rules/actions belong to A2b and notifications to N1.
-# Rules (M5 A2b)
-
-Rules react to internal project event log transitions and start workflow instances through
-`workflows.create` and `workflows.start`. The Host evaluates them at startup and after
-monitors in its injected 60 second sweep. No rules means no evaluation work.
-
-Supported event fields:
-
-| Event | Fields |
-| --- | --- |
-| `task.status-changed` | `to`, `taskCode` |
-| `artifact.status-changed` | `to`, `artifactKind` |
-| `workflow.state-changed` | `to`, `workflowKey` |
-| `monitor.changed` | `from`, `to`, `monitorName`, `monitorKind` |
-
-Derived fields come from project-scoped database records. Conditions use `eq`, `ne`,
-or `in` (up to 10 string values), combined with nonempty `all`, `any`, and `not`,
-to a maximum depth of three. No code is evaluated.
-
-For example, a `rules.create` payload can start an installed `incident-review`
-definition when the monitor named `disk` trips:
-
-```json
-{
-  "ruleId": "019a0000-0000-7000-8000-000000000001",
-  "name": "Disk incident review",
-  "eventType": "monitor.changed",
-  "condition": { "all": [
-    { "field": "monitorName", "op": "eq", "value": "disk" },
-    { "field": "to", "op": "eq", "value": "tripped" }
-  ] },
-  "action": { "kind": "start-workflow", "definitionKey": "incident-review" },
-  "debounceSeconds": 300,
-  "maxFiresPerHour": 6
-}
-```
-
-Each project processes at most 200 ordered event rows per tick. A fire's unique
-project/rule/event-sequence key provides deduplication. The cursor, fire history,
-and workflow command receipts commit together. SHA-256-derived instance and command
-IDs make repeated evaluation deterministic. Bookkeeping emits no events.
-
-Policy order is deduplication, hop limit, active state, debounce, rate limit,
-and concurrency. Events outside rule-started workflows start at depth zero; events from a rule-started
-workflow (including its tasks and produced artifacts) add one hop. Depth three
-is allowed; depth four is skipped. Debounce excludes matches strictly before the
-configured interval expires (0–86400 seconds, default 0). The hourly window starts
-at the first successful fire and resets after 3600 seconds. Exceeding the configured
-1–60 starts per hour (default 6) quarantines the rule. A previous nonterminal workflow
-causes a concurrency skip. Three consecutive start failures also quarantine;
-a successful start resets the failure counter. `rules.resume` clears quarantine,
-the hourly window, and failures. Pause, update, resume, and delete require a revision.
-Names are unique per project, with at most 30 rules per project.
-
-Authenticated reads: `GET /projects/:projectId/rules` and
-`GET /projects/:projectId/rules/:ruleId/fires`. Action summaries show parameter
-names only. Global and project inboxes include quarantined rules and their count.
-
-Webhooks, network requests, LLM evaluation, actions other than starting a workflow,
-and cross-entity conditions are unsupported in this slice.
+Rules observe task, artifact, and monitor events with a cursor, debounce, and hourly rate limit.
+Old rule actions that start v1 jobs do not execute. Monitors still track overdue approvals, artifacts, stalled v2 runs, and disk space.
 
 ## Policy (M5 P3a)
 
@@ -828,52 +555,18 @@ the next sweep closes the breaker and excludes failures through that resume
 checkpoint so the team does not immediately trip again. Archived teams are ignored.
 The breaker never resumes teams. Team state persists in migration 0017.
 
-The startup and 60 second sweeps run the team breaker regardless of multi-team
-dispatch configuration. Authenticated `GET /projects/:projectId/breakers` returns
+The startup and 60 second sweeps run the team breaker. Authenticated `GET /projects/:projectId/breakers` returns
 team breaker rows and the proxy's route snapshot (empty when no proxy exists).
 Global and project inboxes include open team breakers and their reasons.
 
 Node and runtime breakers are not implemented here. Budget usage at 100% already
 stops calls through the existing hard budget limit.
 
-## Notifications (M5 N1a)
+## In-app notifications
 
-In-app notifications have three classes: `action` (operator attention), `important`
-(significant information), and `digest` (daily progress). Startup and the existing
-60 second sweep collect approvals, open team breakers, quarantined rules, non-ok
-monitors, and stalled workflows. The existing Inbox response keeps its shape.
-Authenticated `GET /projects/:projectId/notifications?state=unread|read|dismissed|all`
-defaults to unread, returns the newest 100 items and the total unread count.
-`notifications.mark-read` and `notifications.dismiss` are idempotent; dismissal is final.
-
-Deduplication uses a project-scoped canonical tuple of entity kind, entity ID,
-revision (or breaker opened time / workflow last progress time), and notification
-class. Repeated ticks produce one notification per blocker revision. Approval
-reminders have separate 50% and 90% keys per approval. The daily digest uses the
-project and local date. Titles and bodies use the Inbox sanitizer and are limited
-to 200 and 1000 characters.
-
-AP-8 audit: the lead selected reminder fractions **0.5 and 0.9**, digest hour
-**18:00**, quiet hours **22:00–07:00**, and local time **UTC + utcOffsetMinutes**
-(default **420 minutes, UTC+7**, from budget configuration). Approvals expiring
-within **24 hours**, including the boundary, and 90% reminders are urgent.
-Reminders stop after an approval leaves pending. The digest includes today's
-distinct done/failed tasks from transition history, decided approvals, pending
-approvals, and a plain token count with `cost: no price list`. It is created once
-per local day at or after 18:00, and skipped when there is no activity or pending work.
-
-The optional `startHost({ pushChannel })` interface sends only sanitized title,
-class, urgency, and the relative `/inbox` link. **No push channel is enabled** and
-no delivery rows are created without one. An ntfy adapter is a later optional
-step requiring the user's decision. Urgent actions bypass quiet hours; all other
-pushes, including digests, wait until 07:00. AP-8 retry defaults are **3 total
-attempts**, at least **300000 ms (5 minutes)** apart. Error text is never stored.
-Each attempt is fenced in a transaction before awaiting the channel outside the
-transaction. An ambiguous send interrupted by process termination remains fenced
-to avoid duplicate delivery; only a caught failure permits retry.
-
-Email and other channels, per-user preferences,
-and a concrete network push adapter are not implemented in this slice.
+The Host records action, important, and daily digest notifications in the project database.
+`GET /projects/:projectId/notifications` returns the notification list and unread count.
+Use `notifications.mark-read` or `notifications.dismiss` to update notification state.
 
 ## Standing approvals (M5 N1b)
 
@@ -915,73 +608,17 @@ today's used/remaining counts, and the project level/source, without individual 
 `deploy.staging` and `artifact.publish-to-project` are accepted action kinds but
 have no consumer yet.
 
-## Scenarios (M5 E2)
+## API agent runtime
 
-`test/e2-{delivery,reporting,automation}.test.mjs` contains 21 deterministic
-scenarios. `e2-fixture.mjs` composes the E1a fixture with the real command
-pipeline, workflow engine, dispatcher, MCP artifact registration, approvals,
-Inbox reads, scheduler, rules and notifications. The runtime is always fake;
-clocks and fake-runtime timers are injected, and event-loop turns are pumped
-without sleeps. Each test has a timeout below five seconds. Reporting definitions
-are data registered in memory; no pack files are changed. The software-delivery
-definition comes from the shipped software-team pack.
+`src/runtimes/api-agent/` runs agent attempts through the configured model gateway.
+It uses the pinned agent configuration and routes allowed tools through the normal MCP and policy layers.
+Attempt lifecycle, budgets, and evidence are handled by the same dispatch path as other adapters.
 
-| Scenario | What it proves |
-|---|---|
-| D1 | `hasUI=false` excludes Design without a Task; approved architecture evidence unlocks development; staging delivery follows dependencies and finishes with an empty Inbox. |
-| D2 | Design and Architecture have concurrent live attempts; development waits for both approvals. |
-| D3a | Real QA changes-requested decisions complete QA and approve its evidence, rework development three times with Task/Attempt history intact, then stall at the limit with one Inbox item and one notification. |
-| D3b | Operator resume grants one extra development loop after a real verdict stall; accepted QA then completes delivery. QA without an outgoing rework edge still restarts its task on request-changes. No verdict rows are seeded. |
-| D4 | Two production deliveries each require fresh Operator Go and a separate completion review; `STANDING_FORBIDDEN` rejects production standing approval and staging standing approval is accepted. |
-| D5 (three tests) | A real Lead attempt proposes `addStage migration`: default approval at project L3, automatic application with `auto` at L3, and downgrade to approval at L2. Operator decisions apply pending patches; migration then runs before development. |
-| D6 | Exhausted day budget returns proxy `429 budget_exceeded` without an upstream call and leaves running fake work intact. Exposes missing failure events, then supplies recorded transitions to verify five-failure team pause, dispatch blocking, Inbox/notification deduplication and Operator resume without counting old failures again. |
-| R1 | Cron `0 7 * * *` in Asia/Ho_Chi_Minh starts one report at 07:00, uses deterministic command IDs, deduplicates repeated ticks, and completes another report the next day. The software BA seat supplies `docs.requirements`. |
-| R2 | Restart at 09:00 after a 06:59 outage runs one catch-up report; a running predecessor records `previous still running`; a longer backlog coalesces three missed days into one run. |
-| R3a | Three start failures quarantine the schedule; an action notification uses the schedule/revision dedup key and is visible through the notification API. Quarantine stops firing, resume clears failures, and a later quarantine revision gets a new notification. |
-| R3b (two tests) | Three consecutive terminal failed runs quarantine a schedule, completion resets the streak, and resume clears it. The real-runtime regressions currently expose the stalled-versus-failed source defect described below. |
-| R3c | Active/paused schedules create no quarantine notification; identical schedule IDs in different projects remain isolated. |
-| R4a | A real completed report and failed task expose missing runtime-failure counts in the digest, while completion, approval and token counts remain observable. |
-| R4b | Recorded day activity produces exactly one 18:00 digest with exact done/failed/decided/pending/token counts; fake push receives only title, level, urgency and Inbox link. |
-| R4c | A normal schedule action at 23:00 waits until 07:00; an urgent team-breaker action pushes immediately and only once. |
-| R5 | A Reporting tool grant using `standingMcpFixture` refuses L3, permits two internal sends at L4 under a token-capped standing approval, refuses the daily limit, resets at UTC+7 midnight, and enforces immediate revocation and expiry. Allowed calls each create one notification; refusals create none. |
-| A1 | An injected disk probe trips a monitor and starts incident-review once; cursor replay adds no duplicate. Real completion events propagate to depth three and stop at the hop limit. Three command failures quarantine the rule and produce an Inbox item and one action notification. |
-| A2 | No progress beyond `stallAfterMinutes` stalls a live workflow with a non-deadlock diagnostic, one notification and an Inbox item; Operator resume resets progress and the same fake attempt completes through review. |
+## Configuration and system doctor
 
-### Known gaps (not implemented, recorded on purpose)
-
-- Schedules have no per-run/day budget pre-check or `events-since-watermark`
-  step from architecture 04 section 16.2. `schedule/scheduler.ts` checks timing,
-  concurrency and workflow-command failure quarantine; it does not implement
-  the reporting watermark or no-change report path.
-- `deploy.staging` and `artifact.publish-to-project` standing approvals have no
-  consumer. D4 verifies staging approval creation without consuming it; only
-  `standing/service.ts`'s internal-notification path consumes standing approval.
-- Production's `irreversible-action` gate is implemented as Operator Go
-  (`awaiting-go` / `tasks.release`), not a pre-execution Approval row. D4 verifies
-  a distinct Go per run and a fresh review Approval after each fake deployment.
-  This does not prove a pre-deployment Approval or a real deployment effect.
-- **FIXED after E2 (D3a):** A request-changes review on a rework source
-  completes the task and approves its evidence while retaining the
-  changes-requested verdict, allowing the destination stage to rework.
-- **FIXED after E2 (D3b):** Resume grants one additional loop to each exhausted
-  destination and clears the blocked source so delivery can continue.
-- **FIXED after E2 (D6, R4a):** Host-driven task transitions (a finished or
-  failed attempt, and the multi-team task advance) used to emit only
-  `entity.changed`, so the team breaker, the daily digest and rules on
-  `task.status-changed` never saw real failures. The dispatcher now also emits
-  `task.status-changed` with the new state; D6 and R4a assert the real chain.
-- **FIXED after E2 (R3b):** Each terminal started run is reconciled once;
-  three consecutive failed runs quarantine its schedule, completion resets the
-  counter, and Operator resume clears both start and run failures.
-
-The E2 fixes use additive migration 0020. Focused tests in
-`rework-verdict.test.mjs`, `rework-resume.test.mjs` and `schedule-runs.test.mjs`
-cover verdict, extension and reconciliation boundaries. Two **SOURCE DEFECT**
-regressions remain: runtime report failures stall their workflow instead of
-terminating it as failed, and the existing `loop_count <= 10` database check
-rejects extended rework beyond ten loops. These tests remain failing so the
-source limitations are visible; source and migrations are unchanged by this
-test-only follow-up.
+`src/config/` merges supported file and environment settings, validates inputs, and applies defaults.
+`src/system/` exposes authenticated capabilities and doctor diagnostics without returning credentials.
+Use the Host `--doctor` option for a configuration and dependency check without starting the service.
 
 ## Model settings
 
@@ -995,13 +632,8 @@ Host machine (`codex login` or `claude auth login`). The session-protected
 `GET /system/agent-clis` reports installation, version and login status; probes are
 cached for 30 seconds.
 
-Use the `seats.set-runtime` command with `seatId`, `expectedRevision` (`null` when
-there is no override), `runtime: "acp"`, `cli: "codex" | "claude"`, and optional
-`model`, `effort` (`low`, `medium`, `high`, `xhigh`) and `permission`. Replacements
-increment the config revision; `runtime: "inherit"` deletes it and restores the
-pack runtime. `runtime: "native-opencode"` can also override model/effort without
-a CLI. Omitted model/effort use CLI defaults; Claude currently ignores effort.
-Changes apply to new attempts, including Lead attempts; Lead chat uses the gateway.
+Configure runtime, model, reasoning effort, and permissions with `agents.update`.
+Changes apply to new attempts. Lead project chat uses the model gateway.
 
 `autonomous` is the default and bypasses CLI approvals and sandbox restrictions.
 `workspace-write` selects Codex's workspace sandbox or Claude's `acceptEdits`
@@ -1031,36 +663,6 @@ OpenCode, bubblewrap or the model proxy. It sets:
   counted by the CLI's own subscription, not by Host budgets.
 
 A seat overridden to `native-opencode` fails with `runtime unavailable` in this mode; set it to inherit.
-
-### Two-way Telegram notifications
-
-Set `FACTORY_TELEGRAM_BOT_TOKEN` and `FACTORY_TELEGRAM_CHAT_ID` to enable outbound
-notifications and inbound long polling. `FACTORY_TELEGRAM_ALLOWED_USERS` is a
-comma-separated list of Telegram user IDs. When omitted, a positive numeric chat
-ID is also the sole allowed user; group chats require an explicit allowlist.
-Other chats/users are silently ignored. `GET /system/notify` reports
-`telegramInbound` and the persisted `telegramIgnored` count.
-
-`FACTORY_NOTIFY_BASE_URL` adds approval and project chat links. Telegram review
-notifications include up to four registered task screenshots (each below 5 MiB),
-the latest markdown README, and decision buttons. Telegram albums need at least
-two images, so one image uses `sendPhoto`. Requesting changes prompts for a reply
-within ten minutes. Decisions use the normal operator command pipeline.
-Discord notifications remain text only.
-
-Plain text chats with the Portal manager. `/game <gameId> <text>` chats with that
-game's Lead, `/pending` lists up to ten approvals, `/stats [gameId]` shows the last
-seven days, and `/help` shows Vietnamese instructions. Replies and system messages
-in each project's `Telegram` conversation are forwarded as plain text.
-Portal operation results from the manager's original conversation are also forwarded.
-Poll offsets, callback references, and comment prompts survive restarts. Updates are fenced before
-handling to avoid replaying operator actions; a crash during processing may require
-the operator to resend a message. Polling backs off from 5 to 60 seconds on errors.
-
-For local tests only, `FACTORY_TELEGRAM_API_BASE` may replace the Telegram API with
-an HTTP origin on `127.0.0.1`, `localhost`, or `[::1]`. Paths, credentials, queries,
-and non-loopback overrides are rejected. Credentials stay in memory and transport
-errors expose only the notification error classification.
 
 ### Worktree dependency cache
 

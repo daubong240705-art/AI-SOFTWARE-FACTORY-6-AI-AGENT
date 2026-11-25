@@ -9,7 +9,7 @@ import { moveTask } from "../dispatch/tasks.js";
 import type { EventHub } from "../events/hub.js";
 import type { Clock } from "../ids.js";
 import { getTask } from "../work/service.js";
-import { registerWorkflowLifecycle, withoutWorkflowAdvancement } from "../workflow/lifecycle.js";
+import { registerWorkflowLifecycle, withoutWorkflowAdvancement } from "./lifecycle.js";
 import { boundedJson, decode, definitionOf, emit, flowByKey, getRun, getVersion, latestNodes, runRef, type FlowRow, type NodeRow, type RunRow, type VersionRow } from "./store.js";
 import { evaluate, readPath } from "./expressions.js";
 import { executeWork, syncWork, type NodeOutcome } from "./work.js";

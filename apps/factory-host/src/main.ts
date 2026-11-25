@@ -9,13 +9,9 @@ import { randomBytes } from "node:crypto";
 import { isSandboxAvailable } from "./sandbox/index.js";
 import { createOpenCodeRuntime } from "./runtimes/index.js";
 import { validateRoots } from "./workspace/paths.js";
-import { portalConfig } from "./publish/service.js";
-import { notificationConfig } from "./notify/channels.js";
-import { ConfigError, configError, formatConfigError, loadConfig, type ConfigEnv, type ModelProvider } from "./config/index.js";
+import { ConfigError, configError, formatConfigError, loadConfig, type ModelProvider } from "./config/index.js";
 import { allowedHosts } from "./config/schema.js";
 
-const hostOnly = new Set(["FACTORY_LOGIN_TOKEN", "FACTORY_PORTAL_TOKEN", "FACTORY_TELEGRAM_BOT_TOKEN", "FACTORY_TELEGRAM_CHAT_ID",
-  "FACTORY_TELEGRAM_ALLOWED_USERS", "FACTORY_DISCORD_WEBHOOK_URL", "FACTORY_NOTIFY_BASE_URL"]);
 
 function upstreamOptions(model: ModelProvider) {
   const { providerId } = model;
@@ -28,38 +24,13 @@ function upstreamOptions(model: ModelProvider) {
   return { baseUrl: model.baseUrl, apiKey: randomBytes(24).toString("base64url"), providerId, fetchImpl };
 }
 
-function parsePortal(env: ConfigEnv) {
-  try {
-    return portalConfig({
-      ...(env.FACTORY_PORTAL_URL === undefined ? {} : { url: env.FACTORY_PORTAL_URL }),
-      ...(env.FACTORY_PORTAL_TOKEN === undefined ? {} : { token: env.FACTORY_PORTAL_TOKEN }),
-      ...(env.FACTORY_PORTAL_PUBLIC_URL === undefined ? {} : { publicUrl: env.FACTORY_PORTAL_PUBLIC_URL }),
-      allowPrivateHttp: env.FACTORY_PORTAL_ALLOW_PRIVATE_HTTP === "1",
-    });
-  } catch { throw configError("FACTORY_PORTAL_URL / FACTORY_PORTAL_TOKEN / FACTORY_PORTAL_PUBLIC_URL"); }
-}
-
-function parseNotifications(env: ConfigEnv) {
-  try {
-    return notificationConfig({
-      ...(env.FACTORY_TELEGRAM_BOT_TOKEN === undefined ? {} : { botToken: env.FACTORY_TELEGRAM_BOT_TOKEN }),
-      ...(env.FACTORY_TELEGRAM_CHAT_ID === undefined ? {} : { chatId: env.FACTORY_TELEGRAM_CHAT_ID }),
-      ...(env.FACTORY_TELEGRAM_ALLOWED_USERS === undefined ? {} : { allowedUsers: env.FACTORY_TELEGRAM_ALLOWED_USERS }),
-      ...(env.FACTORY_DISCORD_WEBHOOK_URL === undefined ? {} : { webhookUrl: env.FACTORY_DISCORD_WEBHOOK_URL }),
-      ...(env.FACTORY_NOTIFY_BASE_URL === undefined ? {} : { baseUrl: env.FACTORY_NOTIFY_BASE_URL }),
-    });
-  } catch { throw configError("FACTORY_TELEGRAM_* / FACTORY_DISCORD_WEBHOOK_URL / FACTORY_NOTIFY_BASE_URL"); }
-}
-
 try {
   const config = loadConfig();
   if (config.issues.length) throw new ConfigError(config.issues);
   if (config.warnings.length) process.stderr.write(`${formatConfigError(new ConfigError(config.warnings))}\n`);
   const { env } = config;
-  const portal = parsePortal(env);
-  const notify = parseNotifications(env);
   const { dispatch, workspace, agentProxy, opencode, pushRemotes, pushSshCommand, localCli, cliPassEnv, ...hostOptions } = parseEnv(env);
-  const passEnv = cliPassEnv?.filter((key) => !hostOnly.has(key));
+  const passEnv = cliPassEnv?.filter((key) => key !== "FACTORY_LOGIN_TOKEN");
   if (opencode && (!config.model || config.model.legacy)) throw configError("FACTORY_RUNTIME / FACTORY_MODEL_BASE_URL");
   if (opencode && !await isSandboxAvailable()) throw new ConfigError([{ code: "C-RUNTIME", key: "FACTORY_RUNTIME",
     message: "OpenCode cần bubblewrap hoạt động trên Linux.", fix: "Chạy factory doctor để kiểm tra D-BWRAP hoặc tắt runtime OpenCode." }]);
@@ -94,7 +65,7 @@ try {
   }
   const listenHost = env.FACTORY_LISTEN_HOST?.trim() || "127.0.0.1";
   const loginToken = env.FACTORY_LOGIN_TOKEN || undefined;
-  const host = await startHost({ ...hostOptions, config: env, portal, portalConfigured: Boolean(env.FACTORY_PORTAL_URL), notify,
+  const host = await startHost({ ...hostOptions, config: env,
     listenHost, allowedHosts: allowedHosts(env), ...(loginToken === undefined ? {} : { loginToken }), dispatch, workspace, modelGateway, modelProxy,
     budgetConfig, lead, runtimes, pushRemotes, localCli: { enabled: localCli, ...(passEnv === undefined ? {} : { passEnv }) },
     ...(agentProxy === undefined ? {} : { agentModels: agentProxy.approvedModels }),

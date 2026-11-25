@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ErrorNotice } from '../components/ErrorNotice';
-import { SeatRuntimeBadge } from '@/components/agent-config/SeatRuntimeBadge';
 
 export function TeamPanel({ store }: { store: Store }) {
   const t = useT();
@@ -58,8 +57,7 @@ export function TeamPanel({ store }: { store: Store }) {
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">{seat.name}</span>
                             {seat.isLead && <Badge variant="secondary">{t('team.lead')}</Badge>}
-                            <SeatRuntimeBadge store={store} seatId={seat.id} />
-                            <AgentProfileButton store={store} packKey={team.team.pack?.key ?? null} packVersion={team.team.pack?.version ?? null} seatName={seat.name} seatId={seat.id} />
+                            <AgentProfileButton store={store} packKey={team.team.pack?.key ?? null} packVersion={team.team.pack?.version ?? null} seatName={seat.name} />
                           </div>
                         </TableCell>
                         <TableCell><Badge variant="outline">{seat.role}</Badge></TableCell>

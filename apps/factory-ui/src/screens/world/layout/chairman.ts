@@ -47,10 +47,6 @@ export function chairmanParts(): Part[] {
     box('#A87A50', [-12.65, y, -8.7], [0.5, 0.08, 1.16]);
     if (y < 1.8) for (let i = 0; i < 6; i++) box(['#AFCFE6', '#F2B8A9', '#F7DC8A'][i % 3]!, [-12.67, y + 0.27, -9.29 + i * 0.17], [0.32, 0.45, 0.12]);
   }
-  // Glass trophy cabinet: trophies themselves follow released games.
-  box('#644330', [-12.43, 0.95, -12.25], [0.08, 1.9, 1.5]);
-  for (const y of [0.1, 0.7, 1.3, 1.9]) box('#A87A50', [-12.65, y, -12.25], [0.5, 0.08, 1.5]);
-  box('#BDE3D2', [-12.92, 1, -12.25], [0.025, 1.76, 1.5], 0, undefined, 'glass');
   for (const surface of chairmanSurfaces) box('#644330', [surface.position[0] - Math.sin(surface.yaw) * 0.08, surface.position[1], surface.position[2] - Math.cos(surface.yaw) * 0.08], [surface.width + 0.1, surface.height + 0.1, 0.08], surface.yaw, surface.id);
   // Red telephone, inbox tray and blueprint on the wider executive desktop.
   box('#A92C35', [-13.64, 0.97, -10.46], [0.47, 0.16, 0.35]);

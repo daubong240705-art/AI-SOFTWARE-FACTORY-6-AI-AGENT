@@ -11,8 +11,7 @@ import { AutomationConfirmation, AutomationEditor } from '../automation/Automati
 import { RowActions, RowError } from '../automation/RowActions';
 import { pendingKey, type Area, type Editor, type Target } from '../automation/types';
 
-const triggers: Record<string, string> = { 'task.status-changed': 'task', 'artifact.status-changed': 'artifact', 'workflow.state-changed': 'workflow', 'monitor.changed': 'monitor' };
-const outcomes = ['started', 'skipped', 'failed', 'done'] as const;
+const triggers: Record<string, string> = { 'task.status-changed': 'task', 'artifact.status-changed': 'artifact', 'monitor.changed': 'monitor' };
 function Section({ title, count, id, children, action }: { title: string; count: number; id: string; children: ReactNode; action?: ReactNode }) {
   return <AppSection id={id} title={<>{title} <Badge variant="secondary">{count}</Badge></>} actions={action}>{children}</AppSection>;
 }
@@ -22,21 +21,14 @@ function Row({ name, status, detail, time, technical, actions, error }: { name: 
 export function AutomationSettings({ store, projectId }: { store: Store; projectId: string }) {
   const t = useT(); const state = store.useStoreSelector(s => s); const id = useId();
   const [editor, setEditor] = useState<Editor | null>(null);
-  const [confirmation, setConfirmation] = useState<{ target: Target; action: 'delete' | 'run-now' } | null>(null);
+  const [confirmation, setConfirmation] = useState<{ target: Target; action: 'delete' } | null>(null);
   useEffect(() => store.watchM5('automation', store.loadAutomation), [store, projectId]);
-  useEffect(() => { void store.loadWorkflowDefinitions(); }, [store, projectId]);
   useEffect(() => { setEditor(null); setConfirmation(null); }, [projectId]);
   const add = (area: Area) => <Button type="button" size="sm" variant="outline" disabled={Boolean(state.loading[pendingKey(area)])} onClick={() => setEditor({ area })}><Plus className="size-3.5" />{t(`automationWrite.add.${area}`)}</Button>;
   const rowActions = (target: Target) => ({ actions: <RowActions target={target} store={store} projectId={projectId} onEdit={setEditor} onConfirm={(value, action) => setConfirmation({ target: value, action })} />, error: <RowError store={store} target={target} /> });
-  const { schedules, rules, monitors, breakers } = state.m5;
+  const { rules, monitors, breakers } = state.m5;
   const routes = breakers.routes.filter(item => item.state !== 'closed'); const teams = breakers.teams.filter(item => item.state !== 'closed');
   return <div className="min-w-0 space-y-6">
-    <Section id={`${id}-schedules`} title={t('automationUi.schedules')} count={schedules.length} action={add('schedules')}>
-      <M5ReadState store={store} area="schedules" retry={store.loadSchedules} empty={!schedules.length} emptyKey="automationUi.emptySchedules" />
-      <ul className="m-0 list-none divide-y divide-border p-0">{schedules.map(item => <Row {...rowActions({ area: 'schedules', item })} key={item.id} name={item.name} status={item.state === 'active' ? 'enabled' : item.state} time={item.lastRunAt}
-        detail={<>{item.nextRunAt ? <>{t('automationUi.nextRun')}: <time dateTime={item.nextRunAt}>{relativeTime(item.nextRunAt)}</time></> : item.kind === 'interval' ? t('automationUi.everySeconds').replace('{count}', item.expr) : item.kind === 'once' ? t('automationUi.once') : `${t('automationUi.cadence')}: ${item.expr}`}{item.lastStatus && <> · {t('automationUi.lastRun')}: {t(`automationUi.outcomes.${outcomes.find(outcome => outcome === item.lastStatus) ?? 'unknown'}`)}</>}</>}
-        technical={<TechnicalDetails identifier={item.id}><dl className="grid gap-1"><dt>{t('automationUi.cadence')}</dt><dd className="font-mono">{item.expr}</dd>{item.timezone && <><dt>{t('automationUi.timezone')}</dt><dd>{item.timezone}</dd></>}</dl></TechnicalDetails>} />)}</ul>
-    </Section>
     <Section id={`${id}-rules`} title={t('automationUi.rules')} count={rules.length} action={add('rules')}>
       <M5ReadState store={store} area="rules" retry={store.loadRules} empty={!rules.length} emptyKey="automationUi.emptyRules" />
       <ul className="m-0 list-none divide-y divide-border p-0">{rules.map(item => <Row {...rowActions({ area: 'rules', item })} key={item.id} name={item.name} status={item.state === 'active' ? 'enabled' : item.state} time={item.lastFiredAt} detail={<>{t(`automationUi.triggers.${triggers[item.eventType] ?? 'unknown'}`)}{item.firesInWindow !== undefined && <> · {t('automationUi.firesInWindow').replace('{count}', String(item.firesInWindow))}</>}</>} technical={<TechnicalDetails identifier={item.id} />} />)}</ul>
@@ -47,7 +39,7 @@ export function AutomationSettings({ store, projectId }: { store: Store; project
     </Section>
     <Section id={`${id}-breakers`} title={t('automationUi.breakers')} count={routes.length + teams.length}>
       <M5ReadState store={store} area="breakers" retry={store.loadBreakers} empty={!routes.length && !teams.length} emptyKey="ux5.emptyBreakers" />
-      <ul className="m-0 list-none divide-y divide-border p-0">{routes.map(item => <Row key={item.key} name={item.key} status={item.state} detail={t('automationUi.breakers')} time={item.openedAt} technical={<TechnicalDetails identifier={item.key} />} />)}{teams.map(item => <Row key={item.teamId} name={state.m3.teams.find(team => team.id === item.teamId)?.name ?? (state.team?.team.id === item.teamId ? state.team.team.name : t('automationUi.teamBreaker'))} status={item.state} detail={t('automationUi.teamBreaker')} time={item.openedAt} technical={<TechnicalDetails identifier={item.teamId} />} />)}</ul>
+      <ul className="m-0 list-none divide-y divide-border p-0">{routes.map(item => <Row key={item.key} name={item.key} status={item.state} detail={t('automationUi.breakers')} time={item.openedAt} technical={<TechnicalDetails identifier={item.key} />} />)}{teams.map(item => <Row key={item.teamId} name={(state.team?.team.id === item.teamId ? state.team.team.name : t('automationUi.teamBreaker'))} status={item.state} detail={t('automationUi.teamBreaker')} time={item.openedAt} technical={<TechnicalDetails identifier={item.teamId} />} />)}</ul>
     </Section>
     {editor && <AutomationEditor editor={editor} store={store} projectId={projectId} onClose={() => setEditor(null)} />}
     {confirmation && <AutomationConfirmation {...confirmation} store={store} projectId={projectId} onClose={() => setConfirmation(null)} />}

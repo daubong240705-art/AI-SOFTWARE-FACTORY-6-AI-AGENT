@@ -29,12 +29,12 @@ export function FlowList({ projectId, api }: { projectId: string; api: ApiClient
   const [selectedPack, setSelectedPack] = useState('');
   const [selectedDefinition, setSelectedDefinition] = useState('');
   const read = useCallback((signal: AbortSignal) => api.listProjectFlows(projectId, signal), [api, projectId]);
-  const readPacks = useCallback(() => api.getWorkflowDefinitions(projectId), [api, projectId]);
+  const readPacks = useCallback(() => api.listPacks(), [api]);
   const { data, error, loading } = useRead(read, refreshKey);
   const legacy = useRead(importOpen ? readPacks : null);
   useFlowEvents(projectId, refresh);
   const write = useFlowWrite(api, refresh);
-  const packs = legacy.data?.items.filter(item => flowsImportV1PayloadSchema.shape.packKey.safeParse(item.packKey).success &&
+  const packs = legacy.data?.packs.flatMap(pack => pack.workflows.map(item => ({ ...item, packKey: pack.key }))).filter(item => flowsImportV1PayloadSchema.shape.packKey.safeParse(item.packKey).success &&
     flowsImportV1PayloadSchema.shape.definitionKey.safeParse(item.key).success) ?? [];
   const visible = data?.flows.filter(flow => flow.archived === archived) ?? [];
   const definitions = packs.filter(item => !selectedPack || item.packKey === selectedPack);
