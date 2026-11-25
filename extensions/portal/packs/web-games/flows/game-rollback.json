@@ -1,0 +1,175 @@
+{
+  "schema": 2,
+  "key": "game-rollback",
+  "title": "Rollback trên Portal",
+  "description": "Xác nhận mã game và phiên bản cũ trước khi đổi phiên bản đang phục vụ.",
+  "inputs": [
+    {
+      "name": "gameId",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "version",
+      "type": "number",
+      "required": true
+    },
+    {
+      "name": "portalIntegrationId",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "start",
+      "title": "Bắt đầu",
+      "type": "trigger",
+      "trigger": {
+        "kind": "manual"
+      }
+    },
+    {
+      "id": "approve-rollback",
+      "title": "Duyệt rollback trên Portal?",
+      "type": "approval",
+      "approver": "operator",
+      "prompt": "Khôi phục game {{inputs.gameId}} về phiên bản {{inputs.version}}? Thao tác đổi phiên bản đang phục vụ, không sửa mã hoặc tạo bản build mới.",
+      "timeoutMinutes": 1440
+    },
+    {
+      "id": "rollback",
+      "title": "Khôi phục phiên bản trên Portal",
+      "type": "action",
+      "action": "http.request",
+      "onError": "port",
+      "timeoutMinutes": 10,
+      "params": {
+        "integration": "{{inputs.portalIntegrationId}}",
+        "operation": "rollback",
+        "args": "{\"gameId\":\"{{inputs.gameId}}\",\"version\":\"{{inputs.version}}\"}"
+      }
+    },
+    {
+      "id": "rolled-back",
+      "title": "Kết quả rollback",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "inputs.gameId",
+        "inputs.version",
+        "nodes.rollback.output.ok"
+      ]
+    },
+    {
+      "id": "rollback-stopped",
+      "title": "Dừng: chưa duyệt rollback",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "inputs.gameId",
+        "inputs.version"
+      ]
+    },
+    {
+      "id": "rollback-error",
+      "title": "Lỗi: Khôi phục phiên bản trên Portal",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.rollback.output.error"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-out-approve-rollback",
+      "from": {
+        "node": "start",
+        "port": "out"
+      },
+      "to": {
+        "node": "approve-rollback"
+      }
+    },
+    {
+      "id": "approve-rollback-approved-rollback",
+      "from": {
+        "node": "approve-rollback",
+        "port": "approved"
+      },
+      "to": {
+        "node": "rollback"
+      }
+    },
+    {
+      "id": "approve-rollback-rejected-rollback-stopped",
+      "from": {
+        "node": "approve-rollback",
+        "port": "rejected"
+      },
+      "to": {
+        "node": "rollback-stopped"
+      }
+    },
+    {
+      "id": "approve-rollback-timeout-rollback-stopped",
+      "from": {
+        "node": "approve-rollback",
+        "port": "timeout"
+      },
+      "to": {
+        "node": "rollback-stopped"
+      }
+    },
+    {
+      "id": "rollback-out-rolled-back",
+      "from": {
+        "node": "rollback",
+        "port": "out"
+      },
+      "to": {
+        "node": "rolled-back"
+      }
+    },
+    {
+      "id": "rollback-error-rollback-error",
+      "from": {
+        "node": "rollback",
+        "port": "error"
+      },
+      "to": {
+        "node": "rollback-error"
+      }
+    }
+  ],
+  "settings": {
+    "concurrency": "queue"
+  },
+  "layout": {
+    "start": {
+      "x": 80,
+      "y": 100
+    },
+    "approve-rollback": {
+      "x": 360,
+      "y": 100
+    },
+    "rollback": {
+      "x": 640,
+      "y": 100
+    },
+    "rollback-error": {
+      "x": 780,
+      "y": 290
+    },
+    "rollback-stopped": {
+      "x": 640,
+      "y": 480
+    },
+    "rolled-back": {
+      "x": 920,
+      "y": 100
+    }
+  }
+}

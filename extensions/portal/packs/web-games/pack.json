@@ -1,0 +1,22 @@
+{
+  "key": "web-games",
+  "version": "0.2.0",
+  "name": "Web Games",
+  "description": "Đội làm game trình duyệt theo lượt: tạo, cải tiến, sửa lỗi, playtest và phát hành có kiểm duyệt lên Portal.",
+  "seats": [
+    { "name": "Game Lead", "role": "Game Lead", "profile": "profiles/lead.md", "runtime": "api-agent", "slots": 1, "isLead": true, "tools": ["agent.directory", "task.create", "task.depend", "task.comment", "task.block", "task.result", "knowledge.*", "project.briefing", "skill.get"] },
+    { "name": "Game Designer", "role": "Game Designer", "profile": "profiles/game-designer.md", "runtime": "native-opencode", "slots": 1, "isLead": false, "tools": ["task.comment", "task.block", "task.result", "knowledge.*", "output.register", "skill.get"] },
+    { "name": "Rules Engineer", "role": "Rules Engineer", "profile": "profiles/rules-engineer.md", "runtime": "native-opencode", "slots": 1, "isLead": false, "tools": ["task.comment", "task.block", "task.result", "output.register", "skill.get"] },
+    { "name": "Client Engineer", "role": "Client Engineer", "profile": "profiles/client-engineer.md", "runtime": "native-opencode", "slots": 1, "isLead": false, "tools": ["task.comment", "task.block", "task.result", "output.register", "skill.get"] },
+    { "name": "UI Artist", "role": "UI Artist", "profile": "profiles/ui-artist.md", "runtime": "native-opencode", "slots": 1, "isLead": false, "tools": ["task.comment", "task.block", "task.result", "output.register", "skill.get"] },
+    { "name": "QA Engineer", "role": "QA Engineer", "profile": "profiles/qa-engineer.md", "runtime": "native-opencode", "slots": 1, "isLead": false, "tools": ["agent.directory", "task.create", "task.comment", "task.block", "task.result", "output.register", "skill.get"] },
+    { "name": "Code Reviewer", "role": "Code Reviewer", "profile": "profiles/code-reviewer.md", "runtime": "native-opencode", "slots": 1, "isLead": false, "tools": ["task.comment", "task.block", "task.result", "skill.get"] },
+    { "name": "Release Manager", "role": "Release Manager", "profile": "profiles/release-manager.md", "runtime": "native-opencode", "slots": 1, "isLead": false, "tools": ["task.comment", "task.block", "task.result", "output.register", "skill.get"] }
+  ],
+  "skills": [
+    "skills/game-contract", "skills/game-juice", "skills/game-art-direction", "skills/browser-game-testing",
+    "skills/local-preview", "skills/motion-source", "skills/turn-based-rules-contract", "skills/portal-bundle-contract",
+    "skills/game-qa-verdict", "skills/game-code-review", "skills/game-release-checklist", "skills/game-design-doc", "skills/game-playtest"
+  ],
+  "produces": ["code-ref", "design-asset", "requirements"]
+}

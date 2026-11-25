@@ -1,0 +1,1298 @@
+{
+  "schema": 2,
+  "key": "game-new",
+  "title": "Tạo game mới",
+  "description": "Thiết kế theo brief đã chốt, dựng game, phản biện, QA và duyệt phát hành.",
+  "inputs": [
+    {
+      "name": "title",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "brief",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "briefArtifactId",
+      "type": "artifact",
+      "required": false
+    },
+    {
+      "name": "players",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "portalIntegrationId",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "start",
+      "title": "Bắt đầu",
+      "type": "trigger",
+      "trigger": {
+        "kind": "manual"
+      }
+    },
+    {
+      "id": "design",
+      "title": "Viết thiết kế và manifest",
+      "type": "agent",
+      "agent": {
+        "role": "Game Designer"
+      },
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "task": {
+        "title": "Viết thiết kế và manifest",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nDùng game-design-doc. Tên hiển thị: {{inputs.title}}. Số người chơi: {{inputs.players}}. Viết docs/design.md và game.json; ghi nội dung brief trong thiết kế và gửi bằng chứng cho Lead đối chiếu. ID trùng tên thư mục dự án và không đổi sau khi tạo.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Có luật, ví dụ, ca biên, mục tiêu cân bằng và tiêu chí nghiệm thu."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId"
+        ]
+      },
+      "review": {
+        "agent": {
+          "role": "Game Lead"
+        }
+      }
+    },
+    {
+      "id": "rules",
+      "title": "Dựng luật, bot và test",
+      "type": "agent",
+      "agent": {
+        "role": "Rules Engineer"
+      },
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "task": {
+        "title": "Dựng luật, bot và test",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nTheo docs/design.md và turn-based-rules-contract. Viết src/types.ts, src/rules.ts và test; giữ luật thuần, RNG có seed trong state, bot đi hợp lệ. Gửi diff và bằng chứng cho Code Reviewer.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Test bao phủ lượt, trạng thái kết thúc, lỗi và replay có seed."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId"
+        ]
+      },
+      "review": {
+        "agent": {
+          "role": "Code Reviewer"
+        }
+      }
+    },
+    {
+      "id": "art",
+      "title": "Vẽ tài sản và định hướng giao diện",
+      "type": "agent",
+      "agent": {
+        "role": "UI Artist"
+      },
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "task": {
+        "title": "Vẽ tài sản và định hướng giao diện",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nTheo docs/design.md. Tạo SVG gốc và theme.css: sữa, kem, be và pastel nếu brief không đổi. Gửi bằng chứng cho Designer phản biện bố cục, độ rõ và thao tác.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Có thumbnail gốc, trạng thái rõ, hỗ trợ giảm chuyển động."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId"
+        ]
+      },
+      "review": {
+        "agent": {
+          "role": "Game Designer"
+        }
+      }
+    },
+    {
+      "id": "client",
+      "title": "Dựng client bằng SDK",
+      "type": "agent",
+      "agent": {
+        "role": "Client Engineer"
+      },
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "task": {
+        "title": "Dựng client bằng SDK",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nDùng connectGame() để hiển thị chỗ ngồi, lượt, trạng thái, lỗi và chơi lại. Hỗ trợ bàn phím, chạm, motion.ts và hai kích cỡ iframe. Không gọi mạng. Gửi diff và bằng chứng cho Code Reviewer.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Client dùng SDK, không tính luật riêng; build ra bundle hợp lệ."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId"
+        ]
+      },
+      "review": {
+        "agent": {
+          "role": "Code Reviewer"
+        }
+      }
+    },
+    {
+      "id": "qa",
+      "title": "Chơi thử và kiểm tra chất lượng",
+      "type": "agent",
+      "agent": {
+        "role": "QA Engineer"
+      },
+      "timeoutMinutes": 70,
+      "onError": "port",
+      "task": {
+        "title": "Chơi thử và kiểm tra chất lượng",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nĐối chiếu các tiêu chí trong docs/design.md; kiểm tra luồng mới và chơi một ván đến hết.\nĐọc game-qa-verdict. Chạy npm run check, npm test, npm run build, rồi npm run play để thử trong iframe với bot, chơi lại và hồi quy các ca liên quan. Ghi mã thoát, seed, viewport và bằng chứng. Nếu kiểm tra bắt buộc chưa chạy, trả fail. Ghi lỗi đã xác nhận thành task hoặc ghi chú nếu thiếu quyền.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Trả verdict, area, reasons, bugs qua task.result."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail"
+            ]
+          },
+          "area": {
+            "type": "string",
+            "enum": [
+              "none",
+              "rules",
+              "client",
+              "unknown"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "maxItems": 12
+          },
+          "bugs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "maxItems": 12
+          }
+        },
+        "required": [
+          "verdict",
+          "area",
+          "reasons",
+          "bugs"
+        ]
+      }
+    },
+    {
+      "id": "qa-gate",
+      "title": "QA đã đạt?",
+      "type": "condition",
+      "rules": [
+        {
+          "when": {
+            "path": "nodes.qa.output.verdict",
+            "op": "eq",
+            "value": "pass"
+          },
+          "port": "pass"
+        }
+      ]
+    },
+    {
+      "id": "triage",
+      "title": "Phân loại lỗi",
+      "type": "agent",
+      "agent": {
+        "role": "Game Lead"
+      },
+      "timeoutMinutes": 20,
+      "onError": "port",
+      "task": {
+        "title": "Phân loại lỗi",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nDựa trên bằng chứng để xác định nhóm sửa đầu tiên. Ưu tiên vùng lỗi QA đã xác nhận; chọn unknown nếu chưa thể phân loại. Không chỉnh mã, không tự phát hành.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Trả area là rules, client hoặc unknown và notes giải thích."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId",
+          "nodes.qa.output.result"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "area": {
+            "type": "string",
+            "enum": [
+              "rules",
+              "client",
+              "unknown"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "area",
+          "notes"
+        ]
+      }
+    },
+    {
+      "id": "repair-loop",
+      "title": "Giới hạn vòng sửa và kiểm tra",
+      "type": "loop",
+      "maxIterations": 3,
+      "until": {
+        "path": "nodes.verify.output.verdict",
+        "op": "eq",
+        "value": "pass"
+      }
+    },
+    {
+      "id": "fix-area",
+      "title": "Chọn nhóm sửa",
+      "type": "condition",
+      "rules": [
+        {
+          "when": {
+            "path": "nodes.triage.output.area",
+            "op": "eq",
+            "value": "rules"
+          },
+          "port": "rules"
+        },
+        {
+          "when": {
+            "path": "nodes.triage.output.area",
+            "op": "eq",
+            "value": "client"
+          },
+          "port": "client"
+        }
+      ]
+    },
+    {
+      "id": "fix-rules",
+      "title": "Sửa luật chơi",
+      "type": "agent",
+      "agent": {
+        "role": "Rules Engineer"
+      },
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "task": {
+        "title": "Sửa luật chơi",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nSửa đúng lỗi thuộc luật hoặc bot trong bằng chứng đính kèm. Đọc các task lỗi liên quan và bằng chứng lần kiểm tra gần nhất nếu đây là vòng tiếp theo. Nếu phát hiện nguyên nhân khác phạm vi, ghi rõ thay vì sửa chéo. Cung cấp diff và bằng chứng cho Code Reviewer.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Lỗi có test hồi quy hoặc bằng chứng kiểm tra lặp lại.",
+          "Bản sửa chỉ gồm phạm vi được giao."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId",
+          "nodes.qa.output.result"
+        ]
+      },
+      "review": {
+        "agent": {
+          "role": "Code Reviewer"
+        }
+      }
+    },
+    {
+      "id": "fix-client",
+      "title": "Sửa giao diện và điều khiển",
+      "type": "agent",
+      "agent": {
+        "role": "Client Engineer"
+      },
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "task": {
+        "title": "Sửa giao diện và điều khiển",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nSửa đúng lỗi thuộc client trong bằng chứng đính kèm. Đọc các task lỗi liên quan và bằng chứng lần kiểm tra gần nhất nếu đây là vòng tiếp theo. Nếu phát hiện nguyên nhân khác phạm vi, ghi rõ thay vì sửa chéo. Cung cấp diff và bằng chứng cho Code Reviewer.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Lỗi có test hồi quy hoặc bằng chứng kiểm tra lặp lại.",
+          "Bản sửa chỉ gồm phạm vi được giao."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId",
+          "nodes.qa.output.result"
+        ]
+      },
+      "review": {
+        "agent": {
+          "role": "Code Reviewer"
+        }
+      }
+    },
+    {
+      "id": "verify",
+      "title": "Kiểm tra lại sau sửa",
+      "type": "agent",
+      "agent": {
+        "role": "QA Engineer"
+      },
+      "timeoutMinutes": 70,
+      "onError": "port",
+      "task": {
+        "title": "Kiểm tra lại sau sửa",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nKiểm tra lại lỗi đã phân loại và lặp các ca hồi quy liên quan.\nĐọc game-qa-verdict. Chạy npm run check, npm test, npm run build, rồi npm run play để thử trong iframe với bot, chơi lại và hồi quy các ca liên quan. Ghi mã thoát, seed, viewport và bằng chứng. Nếu kiểm tra bắt buộc chưa chạy, trả fail. Ghi lỗi đã xác nhận thành task hoặc ghi chú nếu thiếu quyền.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Trả verdict, area, reasons, bugs qua task.result."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId",
+          "nodes.qa.output.result"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail"
+            ]
+          },
+          "area": {
+            "type": "string",
+            "enum": [
+              "none",
+              "rules",
+              "client",
+              "unknown"
+            ]
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "maxItems": 12
+          },
+          "bugs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "maxItems": 12
+          }
+        },
+        "required": [
+          "verdict",
+          "area",
+          "reasons",
+          "bugs"
+        ]
+      }
+    },
+    {
+      "id": "repair-gate",
+      "title": "QA đã đạt sau vòng sửa?",
+      "type": "condition",
+      "rules": [
+        {
+          "when": {
+            "path": "nodes.repair-loop.output.exhausted",
+            "op": "eq",
+            "value": false
+          },
+          "port": "pass"
+        }
+      ]
+    },
+    {
+      "id": "no-owner",
+      "title": "Dừng: chưa xác định vùng lỗi",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.qa.output.result",
+        "nodes.triage.output.result"
+      ]
+    },
+    {
+      "id": "approve-more",
+      "title": "QA chưa đạt sau 3 vòng — tiếp tục hay dừng?",
+      "type": "approval",
+      "approver": "operator",
+      "prompt": "QA vẫn chưa đạt. Duyệt chỉ cho phép chuẩn bị một brief sửa mới; không publish và không tự lặp thêm. Từ chối hoặc hết hạn sẽ dừng.\n\n{{nodes.verify.output.result}}",
+      "timeoutMinutes": 1440
+    },
+    {
+      "id": "next-brief",
+      "title": "Chuẩn bị brief sửa tiếp",
+      "type": "agent",
+      "agent": {
+        "role": "Game Lead"
+      },
+      "timeoutMinutes": 20,
+      "onError": "port",
+      "task": {
+        "title": "Chuẩn bị brief sửa tiếp",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nTóm tắt các lỗi còn lại và đề xuất brief hẹp cho một lượt game-bugfix mới. Không tự chạy workflow, sửa mã hay publish.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Trả report gồm brief đề xuất, vùng lỗi và bằng chứng."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId",
+          "nodes.verify.output.result"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "report": {
+            "type": "string",
+            "maxLength": 12000
+          }
+        },
+        "required": [
+          "report"
+        ]
+      }
+    },
+    {
+      "id": "continue-later",
+      "title": "Brief đề xuất cho lượt sửa mới",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.next-brief.output.report"
+      ]
+    },
+    {
+      "id": "qa-stopped",
+      "title": "Dừng: QA chưa đạt",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.verify.output.result"
+      ]
+    },
+    {
+      "id": "release",
+      "title": "Kiểm tra bản phát hành",
+      "type": "agent",
+      "agent": {
+        "role": "Release Manager"
+      },
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "task": {
+        "title": "Kiểm tra bản phát hành",
+        "instructions": "Brief đã được duyệt:\n{{inputs.brief}}\n\nDùng game-release-checklist để kiểm tra bản tích hợp, dist/, manifest, thumbnail và tar.gz dưới 50 MiB. Ghi CHANGELOG.md cho bản thay đổi. Không publish. Trả verdict và notes gồm mã commit đã kiểm, kết quả và rủi ro.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Chỉ báo ready nếu mọi mục bắt buộc đạt."
+        ],
+        "inputs": [
+          "inputs.briefArtifactId",
+          "nodes.qa.output.result",
+          "nodes.verify.output.result"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "blocked"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "verdict",
+          "notes"
+        ]
+      }
+    },
+    {
+      "id": "release-gate",
+      "title": "Bản phát hành đã sẵn sàng?",
+      "type": "condition",
+      "rules": [
+        {
+          "when": {
+            "path": "nodes.release.output.verdict",
+            "op": "eq",
+            "value": "ready"
+          },
+          "port": "pass"
+        }
+      ]
+    },
+    {
+      "id": "approve-publish",
+      "title": "Publish lên Portal?",
+      "type": "approval",
+      "approver": "operator",
+      "prompt": "Chỉ duyệt nếu bản tích hợp vẫn là ứng viên đã kiểm tra. Duyệt sẽ tạo phiên bản Portal mới.\n\n{{nodes.release.output.notes}}",
+      "timeoutMinutes": 1440
+    },
+    {
+      "id": "publish",
+      "title": "Đóng gói và publish lên Portal",
+      "type": "action",
+      "onError": "port",
+      "timeoutMinutes": 30,
+      "action": "bundle.publish",
+      "params": {
+        "integrationId": "{{inputs.portalIntegrationId}}",
+        "operation": "publish",
+        "dir": "dist",
+        "ref": "integration",
+        "scripts": "[\"check\",\"test\",\"build\"]",
+        "query": "{\"commitSha\":\"{{bundle.commit}}\"}"
+      }
+    },
+    {
+      "id": "published",
+      "title": "Bản đã phát hành",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.publish.output.response.playPath",
+        "nodes.publish.output.response.version",
+        "nodes.publish.output.response.gameId",
+        "nodes.publish.output.commit"
+      ]
+    },
+    {
+      "id": "release-blocked",
+      "title": "Dừng: checklist chưa đạt",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.release.output.result"
+      ]
+    },
+    {
+      "id": "publish-stopped",
+      "title": "Dừng: chưa duyệt publish",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.release.output.notes"
+      ]
+    },
+    {
+      "id": "design-error",
+      "title": "Lỗi: Viết thiết kế và manifest",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.design.output.error"
+      ]
+    },
+    {
+      "id": "rules-error",
+      "title": "Lỗi: Dựng luật, bot và test",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.rules.output.error"
+      ]
+    },
+    {
+      "id": "art-error",
+      "title": "Lỗi: Vẽ tài sản và định hướng giao diện",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.art.output.error"
+      ]
+    },
+    {
+      "id": "client-error",
+      "title": "Lỗi: Dựng client bằng SDK",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.client.output.error"
+      ]
+    },
+    {
+      "id": "qa-error",
+      "title": "Lỗi: Chơi thử và kiểm tra chất lượng",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.qa.output.error"
+      ]
+    },
+    {
+      "id": "triage-error",
+      "title": "Lỗi: Phân loại lỗi",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.triage.output.error"
+      ]
+    },
+    {
+      "id": "fix-rules-error",
+      "title": "Lỗi: Sửa luật chơi",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.fix-rules.output.error"
+      ]
+    },
+    {
+      "id": "fix-client-error",
+      "title": "Lỗi: Sửa giao diện và điều khiển",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.fix-client.output.error"
+      ]
+    },
+    {
+      "id": "verify-error",
+      "title": "Lỗi: Kiểm tra lại sau sửa",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.verify.output.error"
+      ]
+    },
+    {
+      "id": "next-brief-error",
+      "title": "Lỗi: Chuẩn bị brief sửa tiếp",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.next-brief.output.error"
+      ]
+    },
+    {
+      "id": "release-error",
+      "title": "Lỗi: Kiểm tra bản phát hành",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.release.output.error"
+      ]
+    },
+    {
+      "id": "publish-error",
+      "title": "Lỗi: Đóng gói và publish lên Portal",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.publish.output.error"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-out-design",
+      "from": {
+        "node": "start",
+        "port": "out"
+      },
+      "to": {
+        "node": "design"
+      }
+    },
+    {
+      "id": "design-out-rules",
+      "from": {
+        "node": "design",
+        "port": "out"
+      },
+      "to": {
+        "node": "rules"
+      }
+    },
+    {
+      "id": "rules-out-art",
+      "from": {
+        "node": "rules",
+        "port": "out"
+      },
+      "to": {
+        "node": "art"
+      }
+    },
+    {
+      "id": "art-out-client",
+      "from": {
+        "node": "art",
+        "port": "out"
+      },
+      "to": {
+        "node": "client"
+      }
+    },
+    {
+      "id": "client-out-qa",
+      "from": {
+        "node": "client",
+        "port": "out"
+      },
+      "to": {
+        "node": "qa"
+      }
+    },
+    {
+      "id": "qa-out-qa-gate",
+      "from": {
+        "node": "qa",
+        "port": "out"
+      },
+      "to": {
+        "node": "qa-gate"
+      }
+    },
+    {
+      "id": "qa-gate-pass-release",
+      "from": {
+        "node": "qa-gate",
+        "port": "pass"
+      },
+      "to": {
+        "node": "release"
+      }
+    },
+    {
+      "id": "qa-gate-else-triage",
+      "from": {
+        "node": "qa-gate",
+        "port": "else"
+      },
+      "to": {
+        "node": "triage"
+      }
+    },
+    {
+      "id": "triage-out-repair-loop",
+      "from": {
+        "node": "triage",
+        "port": "out"
+      },
+      "to": {
+        "node": "repair-loop"
+      }
+    },
+    {
+      "id": "repair-loop-body-fix-area",
+      "from": {
+        "node": "repair-loop",
+        "port": "body"
+      },
+      "to": {
+        "node": "fix-area"
+      }
+    },
+    {
+      "id": "fix-area-rules-fix-rules",
+      "from": {
+        "node": "fix-area",
+        "port": "rules"
+      },
+      "to": {
+        "node": "fix-rules"
+      }
+    },
+    {
+      "id": "fix-area-client-fix-client",
+      "from": {
+        "node": "fix-area",
+        "port": "client"
+      },
+      "to": {
+        "node": "fix-client"
+      }
+    },
+    {
+      "id": "fix-area-else-no-owner",
+      "from": {
+        "node": "fix-area",
+        "port": "else"
+      },
+      "to": {
+        "node": "no-owner"
+      }
+    },
+    {
+      "id": "fix-rules-out-verify",
+      "from": {
+        "node": "fix-rules",
+        "port": "out"
+      },
+      "to": {
+        "node": "verify"
+      }
+    },
+    {
+      "id": "fix-client-out-verify",
+      "from": {
+        "node": "fix-client",
+        "port": "out"
+      },
+      "to": {
+        "node": "verify"
+      }
+    },
+    {
+      "id": "verify-out-repair-loop",
+      "from": {
+        "node": "verify",
+        "port": "out"
+      },
+      "to": {
+        "node": "repair-loop"
+      },
+      "loopBack": true
+    },
+    {
+      "id": "repair-loop-done-repair-gate",
+      "from": {
+        "node": "repair-loop",
+        "port": "done"
+      },
+      "to": {
+        "node": "repair-gate"
+      }
+    },
+    {
+      "id": "repair-gate-pass-release",
+      "from": {
+        "node": "repair-gate",
+        "port": "pass"
+      },
+      "to": {
+        "node": "release"
+      }
+    },
+    {
+      "id": "repair-gate-else-approve-more",
+      "from": {
+        "node": "repair-gate",
+        "port": "else"
+      },
+      "to": {
+        "node": "approve-more"
+      }
+    },
+    {
+      "id": "approve-more-approved-next-brief",
+      "from": {
+        "node": "approve-more",
+        "port": "approved"
+      },
+      "to": {
+        "node": "next-brief"
+      }
+    },
+    {
+      "id": "approve-more-rejected-qa-stopped",
+      "from": {
+        "node": "approve-more",
+        "port": "rejected"
+      },
+      "to": {
+        "node": "qa-stopped"
+      }
+    },
+    {
+      "id": "approve-more-timeout-qa-stopped",
+      "from": {
+        "node": "approve-more",
+        "port": "timeout"
+      },
+      "to": {
+        "node": "qa-stopped"
+      }
+    },
+    {
+      "id": "next-brief-out-continue-later",
+      "from": {
+        "node": "next-brief",
+        "port": "out"
+      },
+      "to": {
+        "node": "continue-later"
+      }
+    },
+    {
+      "id": "release-out-release-gate",
+      "from": {
+        "node": "release",
+        "port": "out"
+      },
+      "to": {
+        "node": "release-gate"
+      }
+    },
+    {
+      "id": "release-gate-pass-approve-publish",
+      "from": {
+        "node": "release-gate",
+        "port": "pass"
+      },
+      "to": {
+        "node": "approve-publish"
+      }
+    },
+    {
+      "id": "release-gate-else-release-blocked",
+      "from": {
+        "node": "release-gate",
+        "port": "else"
+      },
+      "to": {
+        "node": "release-blocked"
+      }
+    },
+    {
+      "id": "approve-publish-approved-publish",
+      "from": {
+        "node": "approve-publish",
+        "port": "approved"
+      },
+      "to": {
+        "node": "publish"
+      }
+    },
+    {
+      "id": "approve-publish-rejected-publish-stopped",
+      "from": {
+        "node": "approve-publish",
+        "port": "rejected"
+      },
+      "to": {
+        "node": "publish-stopped"
+      }
+    },
+    {
+      "id": "approve-publish-timeout-publish-stopped",
+      "from": {
+        "node": "approve-publish",
+        "port": "timeout"
+      },
+      "to": {
+        "node": "publish-stopped"
+      }
+    },
+    {
+      "id": "publish-out-published",
+      "from": {
+        "node": "publish",
+        "port": "out"
+      },
+      "to": {
+        "node": "published"
+      }
+    },
+    {
+      "id": "design-error-design-error",
+      "from": {
+        "node": "design",
+        "port": "error"
+      },
+      "to": {
+        "node": "design-error"
+      }
+    },
+    {
+      "id": "rules-error-rules-error",
+      "from": {
+        "node": "rules",
+        "port": "error"
+      },
+      "to": {
+        "node": "rules-error"
+      }
+    },
+    {
+      "id": "art-error-art-error",
+      "from": {
+        "node": "art",
+        "port": "error"
+      },
+      "to": {
+        "node": "art-error"
+      }
+    },
+    {
+      "id": "client-error-client-error",
+      "from": {
+        "node": "client",
+        "port": "error"
+      },
+      "to": {
+        "node": "client-error"
+      }
+    },
+    {
+      "id": "qa-error-qa-error",
+      "from": {
+        "node": "qa",
+        "port": "error"
+      },
+      "to": {
+        "node": "qa-error"
+      }
+    },
+    {
+      "id": "triage-error-triage-error",
+      "from": {
+        "node": "triage",
+        "port": "error"
+      },
+      "to": {
+        "node": "triage-error"
+      }
+    },
+    {
+      "id": "fix-rules-error-fix-rules-error",
+      "from": {
+        "node": "fix-rules",
+        "port": "error"
+      },
+      "to": {
+        "node": "fix-rules-error"
+      }
+    },
+    {
+      "id": "fix-client-error-fix-client-error",
+      "from": {
+        "node": "fix-client",
+        "port": "error"
+      },
+      "to": {
+        "node": "fix-client-error"
+      }
+    },
+    {
+      "id": "verify-error-verify-error",
+      "from": {
+        "node": "verify",
+        "port": "error"
+      },
+      "to": {
+        "node": "verify-error"
+      }
+    },
+    {
+      "id": "next-brief-error-next-brief-error",
+      "from": {
+        "node": "next-brief",
+        "port": "error"
+      },
+      "to": {
+        "node": "next-brief-error"
+      }
+    },
+    {
+      "id": "release-error-release-error",
+      "from": {
+        "node": "release",
+        "port": "error"
+      },
+      "to": {
+        "node": "release-error"
+      }
+    },
+    {
+      "id": "publish-error-publish-error",
+      "from": {
+        "node": "publish",
+        "port": "error"
+      },
+      "to": {
+        "node": "publish-error"
+      }
+    }
+  ],
+  "settings": {
+    "concurrency": "queue"
+  },
+  "layout": {
+    "start": {
+      "x": 80,
+      "y": 100
+    },
+    "design": {
+      "x": 360,
+      "y": 100
+    },
+    "design-error": {
+      "x": 500,
+      "y": 290
+    },
+    "rules": {
+      "x": 640,
+      "y": 100
+    },
+    "rules-error": {
+      "x": 780,
+      "y": 290
+    },
+    "art": {
+      "x": 920,
+      "y": 100
+    },
+    "art-error": {
+      "x": 1060,
+      "y": 290
+    },
+    "client": {
+      "x": 1200,
+      "y": 100
+    },
+    "client-error": {
+      "x": 1340,
+      "y": 290
+    },
+    "qa": {
+      "x": 1480,
+      "y": 100
+    },
+    "qa-error": {
+      "x": 1620,
+      "y": 290
+    },
+    "qa-gate": {
+      "x": 1760,
+      "y": 100
+    },
+    "triage": {
+      "x": 2040,
+      "y": 100
+    },
+    "triage-error": {
+      "x": 2180,
+      "y": 290
+    },
+    "repair-loop": {
+      "x": 2320,
+      "y": 100
+    },
+    "fix-area": {
+      "x": 2600,
+      "y": 100
+    },
+    "fix-rules": {
+      "x": 2880,
+      "y": 100
+    },
+    "fix-rules-error": {
+      "x": 3020,
+      "y": 290
+    },
+    "fix-client": {
+      "x": 2880,
+      "y": 480
+    },
+    "fix-client-error": {
+      "x": 3020,
+      "y": 670
+    },
+    "no-owner": {
+      "x": 2880,
+      "y": 860
+    },
+    "verify": {
+      "x": 3160,
+      "y": 100
+    },
+    "verify-error": {
+      "x": 3300,
+      "y": 290
+    },
+    "repair-gate": {
+      "x": 3440,
+      "y": 100
+    },
+    "release": {
+      "x": 3720,
+      "y": 100
+    },
+    "release-error": {
+      "x": 3860,
+      "y": 290
+    },
+    "approve-more": {
+      "x": 3720,
+      "y": 480
+    },
+    "release-gate": {
+      "x": 4000,
+      "y": 100
+    },
+    "next-brief": {
+      "x": 4000,
+      "y": 290
+    },
+    "next-brief-error": {
+      "x": 4140,
+      "y": 480
+    },
+    "qa-stopped": {
+      "x": 4000,
+      "y": 670
+    },
+    "approve-publish": {
+      "x": 4280,
+      "y": 100
+    },
+    "release-blocked": {
+      "x": 4280,
+      "y": 290
+    },
+    "continue-later": {
+      "x": 4280,
+      "y": 480
+    },
+    "publish": {
+      "x": 4560,
+      "y": 100
+    },
+    "publish-error": {
+      "x": 4700,
+      "y": 290
+    },
+    "publish-stopped": {
+      "x": 4560,
+      "y": 480
+    },
+    "published": {
+      "x": 4840,
+      "y": 100
+    }
+  }
+}
