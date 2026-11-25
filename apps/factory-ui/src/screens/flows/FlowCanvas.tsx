@@ -21,7 +21,8 @@ function summary(node: FlowNode, label: ReturnType<typeof useFlowLabels>, names:
       const selector = node.agent;
       return 'agent' in selector ? names.get(selector.agent) ?? label('missingAgent') : 'role' in selector ? selector.role : 'team' in selector ? label('nodeTeam') : selector.tags.join(', ');
     }
-    case 'action': return node.action;
+    case 'action': return node.action === 'bundle.publish'
+      ? `Publish ${String(node.params.operation || '—')} · ${String(node.params.ref ?? 'integration')}` : node.action;
     case 'condition': return label('ruleCount', { count: node.rules.length });
     case 'parallel': return node.forEach;
     case 'join': return typeof node.policy === 'string' ? label(`option.${node.policy}`) : `${label('field.quorum')}: ${node.policy.quorum}`;

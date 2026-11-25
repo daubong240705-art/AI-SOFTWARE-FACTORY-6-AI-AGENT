@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useReducer } from 'react';
 import type { TraceTokenTotals } from '@factory/contracts';
 import type { ApiClient } from '@/api/client';
 import { LoadingState } from '@/components/LoadingState';
@@ -9,12 +9,35 @@ import { useRead } from '../agents/shared';
 import { useLiveRead } from './live';
 import { elapsed, formatDuration, formatNumber, formatTime, TokenTotal, TraceStatus, useSpanTitle, useTraceLabels } from './presentation';
 import type { ReactNode } from 'react';
+import { metric, percent, useInsightsLabels } from './insightsPresentation';
 
 function Section({ title, empty, children }: { title: string; empty: string; children: ReactNode[] }) {
   return <Card className="min-w-0 gap-3"><CardHeader><CardTitle>{title}</CardTitle></CardHeader><CardContent className="space-y-2">{children.length ? children : <p className="text-sm text-muted-foreground">{empty}</p>}</CardContent></Card>;
 }
 
 const rowClass = 'block w-full min-w-0 rounded-lg border p-3 text-left text-sm [overflow-wrap:anywhere] hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring';
+
+function AgentInsightsCard({ api, projectId }: { api: ApiClient; projectId: string }) {
+  const label = useInsightsLabels();
+  const [epoch, reload] = useReducer(value => value + 1, 0);
+  const read = useRead(useCallback((signal: AbortSignal) => api.getProjectInsights(projectId, 30, signal), [api, projectId]), epoch);
+  const agents = read.data?.agents ?? [];
+  const unknown = label('missing');
+  return <Card data-testid="insights-agent-card" className="min-w-0 gap-3">
+    <CardHeader><CardTitle>{label('agentTitle')}</CardTitle></CardHeader>
+    <CardContent className="space-y-2 text-sm">
+      {read.loading && <LoadingState inline />}
+      {read.error && <div className="flex flex-wrap items-center gap-2"><p role="alert">{label('agentError')}</p><Button type="button" size="sm" variant="outline" data-testid="insights-agent-reload" onClick={reload}>{label('reload')}</Button></div>}
+      {read.data && (agents.length ? <ul className="grid gap-2 sm:grid-cols-2">{agents.map(agent => <li key={agent.agentId} className="space-y-1 rounded-lg border p-3 [overflow-wrap:anywhere]">
+        <p className="font-medium">{agent.name}</p><dl className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
+          <div><dt className="text-muted-foreground">{label('failureRate')}</dt><dd>{metric(agent.failureRate, unknown, percent)}</dd></div>
+          <div><dt className="text-muted-foreground">{label('queueWait')}</dt><dd>{metric(agent.medianQueueWaitMs, unknown, formatDuration)}</dd></div>
+          <div><dt className="text-muted-foreground">{label('busyShare')}</dt><dd>{metric(agent.busyShare, unknown, percent)}</dd></div>
+        </dl>
+      </li>)}</ul> : <p className="text-muted-foreground">{label('noAgents')}</p>)}
+    </CardContent>
+  </Card>;
+}
 
 export function MonitorView({ api, projectId, onOpenTask }: { api: ApiClient; projectId: string; onOpenTask: (id: string) => void }) {
   const label = useTraceLabels();
@@ -86,6 +109,7 @@ export function MonitorView({ api, projectId, onOpenTask }: { api: ApiClient; pr
         </div>)}</Section>
         <Section title={label('failures')} empty={label('noFailures')}>{monitor.recentFailures.map(span => <a key={span.id} className={rowClass} data-testid={`monitor-failure-${span.id}`} href={traceHash(projectId, span.traceId)}><div className="flex flex-wrap items-center justify-between gap-2"><strong>{spanTitle(span)}</strong><TraceStatus status={span.status} /></div><span className="text-muted-foreground">{formatTime(span.endedAt ?? span.startedAt)}</span></a>)}</Section>
       </div>
+      <AgentInsightsCard api={api} projectId={projectId} />
       <Section title={label('today')} empty={label('noUsage')}>{byAgent.size ? [<div key="usage" className="space-y-3 text-sm"><p>{monitor.today.date} · <strong><TokenTotal usage={monitor.today} /></strong></p><div className="grid gap-4 md:grid-cols-2"><div><h3 className="mb-1 font-medium">{label('byAgent')}</h3>{usageRows(byAgent)}</div><div><h3 className="mb-1 font-medium">{label('byModel')}</h3>{usageRows(byModel)}</div></div></div>] : []}</Section>
       <Section title={label('recentTraces')} empty={label('noTraces')}>{data.traces.map(span => <a key={span.id} className={rowClass} data-testid={`monitor-trace-${span.traceId}`} href={traceHash(projectId, span.traceId)}>
         <div className="flex flex-wrap items-center justify-between gap-2"><strong>{spanTitle(span)}</strong><TraceStatus status={span.status} /></div>

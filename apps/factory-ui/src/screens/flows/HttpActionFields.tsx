@@ -1,12 +1,12 @@
 import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useContext, useEffect, useRef } from 'react';
-import type { FlowNode } from '@factory/contracts';
+import type { ActionNode } from './nodeTypes';
 import type { ApiClient } from '@/api/client';
 import { Textarea } from '@/components/ui/textarea';
 import { RetryRead, useIntegrationLabels, useProjectIntegrations } from '../integrations/shared';
 import { Field, PendingJson, useFlowLabels } from './shared';
 
-type Params = Extract<FlowNode, { type: 'action' }>['params'];
+type Params = ActionNode['params'];
 
 export function HttpActionFields({ api, projectId, params, paths, set }: { api: ApiClient; projectId: string; params: Params; paths: string[]; set: (params: Params) => void }) {
   const t = useIntegrationLabels();

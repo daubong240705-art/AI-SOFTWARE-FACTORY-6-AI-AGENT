@@ -18,6 +18,7 @@ import { folderBrowseModel } from './folderModels';
 import { modelSettingsResponse } from './modelSettings';
 import { traceModels } from './traceModels';
 import { setupModels } from './setupModels';
+import { flowInsightsResponseSchema, improvementProposalResponseSchema, improvementProposalsResponseSchema, projectInsightsResponseSchema } from '@factory/contracts';
 import type { SetupCommandType } from './commands';
 export type { FolderListing } from './folderModels';
 export type { SystemHealth, SystemCapabilities, SystemBackup } from './systemModels';
@@ -179,8 +180,12 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listProjectFlows: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/flows`, flowModels.list, undefined, false, signal),
     getFlow: (id: string, flowId: string, signal?: AbortSignal) => request(`${projectPath(id)}/flows/${encodeURIComponent(flowId)}`, flowModels.detail, undefined, false, signal),
     getFlowRun: (id: string, runId: string, signal?: AbortSignal) => request(`${projectPath(id)}/flow-runs/${encodeURIComponent(runId)}`, flowModels.run, undefined, false, signal),
+    getFlowInsights: (id: string, flowId: string, days: number, signal?: AbortSignal) => request(`${projectPath(id)}/flows/${encodeURIComponent(flowId)}/insights?${new URLSearchParams({ days: String(days) })}`, flowInsightsResponseSchema, undefined, false, signal),
+    getProjectInsights: (id: string, days: number, signal?: AbortSignal) => request(`${projectPath(id)}/insights?${new URLSearchParams({ days: String(days) })}`, projectInsightsResponseSchema, undefined, false, signal),
+    listImprovementProposals: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/improvement-proposals`, improvementProposalsResponseSchema, undefined, false, signal),
+    getImprovementProposal: (id: string, proposalId: string, signal?: AbortSignal) => request(`${projectPath(id)}/improvement-proposals/${encodeURIComponent(proposalId)}`, improvementProposalResponseSchema, undefined, false, signal),
     getProjectMonitor: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/monitor`, traceModels.monitor, undefined, false, signal),
-    listTraces: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/traces`, traceModels.list, undefined, false, signal),
+    listTraces: (id: string, signal?: AbortSignal, limit?: number) => request(`${projectPath(id)}/traces${limit === undefined ? '' : `?${new URLSearchParams({ limit: String(limit) })}`}`, traceModels.list, undefined, false, signal),
     getTrace: (id: string, traceId: string, signal?: AbortSignal) => request(`${projectPath(id)}/traces/${encodeURIComponent(traceId)}`, traceModels.detail, undefined, false, signal),
     getArtifactTrace: (id: string, artifactId: string, version?: number, signal?: AbortSignal) => request(`${projectPath(id)}/artifacts/${encodeURIComponent(artifactId)}/trace${version === undefined ? '' : `?version=${encodeURIComponent(version)}`}`, traceModels.artifact, undefined, false, signal),
     listSetupProposals: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/setup-proposals`, setupModels.list, undefined, false, signal),

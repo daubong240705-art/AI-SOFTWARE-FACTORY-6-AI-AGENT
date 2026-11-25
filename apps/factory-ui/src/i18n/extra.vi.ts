@@ -3,6 +3,44 @@ import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 
 export const extra: Translated<typeof en> = {
+  flowBundleUi: {
+    pathReserved: 'Tên này dành riêng cho action publish bundle. Chọn operation khác.',
+    title: 'Publish bundle', help: 'Build bundle từ Git ref và publish qua HTTP API.', integration: 'Integration HTTP API', fromInput: 'Từ input',
+    input: 'Input workflow chứa ID integration', chooseInput: 'Chọn input', noInputs: 'Thêm input dạng văn bản trong Cài đặt workflow trước.', operation: 'Operation',
+    operationHelp: 'Chọn operation POST hoặc PUT gửi ra hệ thống bên ngoài. Nếu lấy integration từ input, nhập tên operation.', dir: 'Thư mục bundle', dirHelp: 'Đường dẫn tương đối từ gốc repo (mặc định: dist).',
+    ref: 'Git ref', scripts: 'Script theo thứ tự chạy', path: 'Tham số đường dẫn', pathAdd: 'Thêm tham số đường dẫn', pathRequired: 'Nhập giá trị cho tham số đường dẫn này.',
+    query: 'Tham số query', queryHelp: 'Tối đa 10 tham số. Dùng {{bundle.commit}} để chèn SHA của commit được publish.', queryAdd: 'Thêm tham số query', key: 'Tên', value: 'Giá trị',
+    state: { pending: 'Đang chờ', done: 'Thành công', failed: 'Thất bại', unknown: 'Chưa rõ kết quả' }, result: 'Kết quả publish', commit: 'Commit', copy: 'Sao chép commit', copied: 'Đã sao chép commit.', copyFailed: 'Không sao chép được commit.',
+    response: 'Phản hồi', version: 'Version', play: 'Đường dẫn chơi', log: 'Phần cuối log', reconcile: 'Xác nhận kết quả', done: 'Đã thành công', failed: 'Thất bại',
+    reconcileHelp: 'Bundle có thể đã được publish hoặc chưa. Hãy kiểm tra hệ thống bên ngoài trước khi ghi nhận kết quả. Thao tác này không publish lại.',
+    outcome: 'Ghi nhận kết quả: {state}', unavailable: 'Không tìm được lệnh publish của run này. Tải lại để kiểm tra.', recorded: 'Đã ghi nhận kết quả.',
+  },
+  flowImportUi: {
+    title: 'Nhập từ template', help: 'Nhập workflow từ pack có sẵn thành Draft để chỉnh sửa. Workflow chưa được publish.', pack: 'Pack nguồn', workflow: 'Workflow template',
+    noDescription: 'Pack này chưa có mô tả.',
+  },
+  insightsUi: {
+    agentError: 'Không tải được số liệu agent.', reload: 'Tải lại',
+    title: 'Hiệu quả', editor: 'Chỉnh sửa', days: 'Khoảng thời gian', dayCount: '{count} ngày', total: 'Số run', success: 'Tỷ lệ thành công', duration: 'Thời gian run (p50 / p90)',
+    nodes: 'Số liệu theo node', node: 'Node', executions: 'Lần chạy', failures: 'Lỗi', retries: 'Retry', rework: 'Vòng làm lại', waits: 'Chờ (p50 / p90)',
+    runs: 'Chạy (p50 / p90)', rejected: 'Từ chối', known: 'Token đã biết', estimated: 'Token ước tính', unknown: 'Lượt chưa rõ token', missing: 'Chưa rõ',
+    findings: 'Phát hiện', noFindings: 'Không có phát hiện trong khoảng thời gian này.', noNodes: 'Không có node nào chạy trong khoảng thời gian này.', evidence: 'Bằng chứng', run: 'Run {id}',
+    severity: { info: 'Thông tin', warning: 'Cảnh báo', high: 'Cao' },
+    finding: { 'node-failure-rate': 'Node này thường gặp lỗi.', 'node-retry-heavy': 'Node này thường phải retry.', 'node-timeout': 'Node này thường hết thời gian chờ.',
+      'rework-loops': 'Node này thường cần làm lại.', 'approval-rejections': 'Node này thường bị từ chối.', 'slow-node': 'Node này chạy chậm.',
+      'queue-wait': 'Thời gian chờ trong hàng đợi cao.', 'cost-hotspot': 'Mức sử dụng token tập trung ở đây.', 'unknown-cost': 'Chưa rõ lượng token của một số lần chạy.' },
+    propose: 'Đề xuất cải tiến', askAi: 'Nhờ AI đề xuất', proposals: 'Đề xuất cải tiến', noProposals: 'Chưa có đề xuất.',
+    state: { generating: 'Đang tạo', ready: 'Sẵn sàng', applied: 'Đã áp dụng', discarded: 'Đã bỏ', failed: 'Thất bại' },
+    preview: 'Thay đổi đề xuất', noPatch: 'Không có thay đổi theo quy tắc để áp dụng.', reviewAi: 'Xem đề xuất AI', apply: 'Áp dụng', discard: 'Bỏ đề xuất',
+    applyHelp: 'Thay đổi workflow được lưu vào Draft. Không có gì được publish cho đến khi bạn chọn Publish.',
+    discardHelp: 'Bỏ đề xuất này? Không có thay đổi nào được áp dụng cho workflow.', applied: 'Đã áp dụng đề xuất. Thay đổi workflow nằm trong Draft và chưa được publish.',
+    created: 'Đã tạo đề xuất.', discarded: 'Đã bỏ đề xuất.', stale: 'Draft đã thay đổi. Tải lại và tạo đề xuất mới để áp dụng cải tiến.',
+    unsaved: 'Lưu hoặc bỏ thay đổi đang chỉnh sửa trước khi áp dụng đề xuất.', noValue: 'Chưa đặt', patch: {
+      'set-timeout': 'Node {node}: thời gian chờ {from} → {to} phút', 'set-retry': 'Node {node}: số lần retry {from} → {to}; chờ {delay} giây',
+      'set-on-error': 'Node {node}: khi gặp lỗi {from} → {to}', 'change-agent': 'Node {node}: giao cho agent {agent}', 'add-review': 'Node {node}: thêm agent duyệt ({agent})',
+      'change-model': 'Agent {agent}: đổi model thành {model}',
+    }, agent: 'Agent', agentTitle: 'Agent · 30 ngày qua', failureRate: 'Tỷ lệ lỗi', queueWait: 'Chờ trong hàng đợi (p50)', busyShare: 'Tỷ lệ thời gian bận', noAgents: 'Không có hoạt động agent trong khoảng thời gian này.',
+  },
   commonUi: { close: 'Đóng', actions: 'Thêm thao tác', unnamed: 'Chưa đặt tên', imported: 'Đã nhập', unavailable: 'Không còn khả dụng', package: 'Gói: {name}', technicalDetails: 'Chi tiết kỹ thuật' },
   traceUi: {
     monitor: 'Monitor', trace: 'Trace', monitorHelp: 'Xem hoạt động đang chạy và theo dõi từng yêu cầu từ đầu đến cuối.', refresh: 'Tải lại',
@@ -120,6 +158,10 @@ export const extra: Translated<typeof en> = {
     portName: { out: 'Tiếp', error: 'Lỗi', approved: 'Duyệt', rejected: 'Từ chối', timeout: 'Hết giờ', body: 'Lặp', done: 'Xong', else: 'Còn lại', item: 'Từng mục' },
     portHint: { out: 'Đầu ra thông thường', error: 'Nhánh khi gặp lỗi', approved: 'Nhánh khi được duyệt', rejected: 'Nhánh khi bị từ chối', timeout: 'Nhánh khi hết thời gian chờ', body: 'Thực hiện nội dung vòng lặp', done: 'Nhánh khi hoàn tất', else: 'Nhánh khi không có điều kiện nào khớp', item: 'Thực hiện cho từng mục', rule: 'Nhánh khi điều kiện khớp' },
     validation: {
+      'bundle-integration': 'Chọn integration HTTP API hoặc chọn input workflow.', 'bundle-operation': 'Chọn operation POST hoặc PUT gửi ra hệ thống bên ngoài.',
+      'bundle-dir': 'Dùng đường dẫn tương đối, không trỏ ra ngoài repo.', 'bundle-ref': 'Chọn integration hoặc main.',
+      'bundle-scripts': 'Chọn mỗi script tối đa một lần: ci, check, test hoặc build.', 'bundle-query': 'Nhập tối đa 10 tham số query có tên, dùng đường dẫn hợp lệ hoặc {{bundle.commit}}.',
+      'bundle-path-param': 'Dùng tham số đường dẫn có tên và giá trị đơn.',
       'no-trigger': 'Thêm ít nhất một node Trigger.', 'unknown-node': 'Kết nối trỏ tới một node không tồn tại.',
       'unknown-port': 'Kết nối dùng một cổng ra không tồn tại.', unreachable: 'Không có đường đi từ node Trigger đến node này.',
       'cycle-without-loop': 'Dùng node Loop để tạo vòng lặp.', 'bad-loop-back': 'Cạnh quay về phải đi từ nội dung vòng lặp về node Loop tương ứng.',

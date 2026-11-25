@@ -82,14 +82,14 @@ export function FlowError({ error, missingRoute = false }: { error: unknown; mis
     : key ? t(`safeErrors.${key}`) : label('invalid')}</p>;
 }
 
-export function FlowDialog({ title, description, close, busy, disabled, onSubmit, submit, children, wide = false }: {
-  title: string; description: string; close: () => void; busy: boolean; disabled?: boolean; onSubmit: () => void;
+export function FlowDialog({ title, description, close, busy, disabled, onSubmit, submit, children, wide = false, submitTestId }: {
+  title: string; description: string; close: () => void; busy: boolean; disabled?: boolean; onSubmit: () => void; submitTestId?: string;
   submit: string; children: ReactNode; wide?: boolean;
 }) {
   const label = useFlowLabels();
   return <AdminDialog title={title} description={description} close={close} busy={busy} wide={wide} onSubmit={onSubmit} footer={<>
     <Button data-testid="flow-cancel" type="button" variant="outline" disabled={busy} onClick={close}>{label('close')}</Button>
-    <Button data-testid={wide ? 'flow-start-run' : 'flow-submit'} type="submit" disabled={busy || disabled}>{busy ? label('loading') : submit}</Button>
+    <Button data-testid={submitTestId ?? (wide ? 'flow-start-run' : 'flow-submit')} type="submit" disabled={busy || disabled}>{busy ? label('loading') : submit}</Button>
   </>}>{children}</AdminDialog>;
 }
 
@@ -116,7 +116,7 @@ export function NodePicker({ definition, current, onChange }: { definition: Flow
   const id = useId();
   return <div className="flex min-w-0 items-center gap-2 text-sm">
     <label htmlFor={id} className="shrink-0 text-muted-foreground">{label('selectNode')}</label>
-    <Choice id={id} value={current ?? ''} onValueChange={selectedValue => onChange(selectedValue)}>
+    <Choice id={id} data-testid="flow-node-picker" value={current ?? ''} onValueChange={selectedValue => onChange(selectedValue)}>
       <ChoiceOption value="">{label('none')}</ChoiceOption>
       {definition.nodes.map(node => <ChoiceOption key={node.id} value={node.id}>{flowNodeTitle(node, label)}</ChoiceOption>)}
     </Choice>

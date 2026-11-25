@@ -10,11 +10,14 @@ import { FlowCanvas, type Selection } from './FlowCanvas';
 import { Toggle } from './FlowFields';
 import { Field, FlowDialog, FlowError, NodePicker, PortLabel, RunState, duration, flowNodeTitle, timestamp, useFlowEvents, useFlowLabels, useFlowWrite, useRead } from './shared';
 import { openFlowRoute } from '../shell/navigation';
+import { BundleRunResult } from './BundleRunResult';
+import { useT } from '@/i18n';
 
 export function RunView({ api, projectId, runId, onBack, onOpenTask, onOpenApproval }: {
   api: ApiClient; projectId: string; runId: string; onBack: () => void; onOpenTask: (id: string) => void; onOpenApproval: (id: string) => void;
 }) {
   const label = useFlowLabels();
+  const t = useT();
   const [refreshKey, refresh] = useReducer(value => value + 1, 0);
   const read = useCallback((signal: AbortSignal) => api.getFlowRun(projectId, runId, signal), [api, projectId, runId]);
   const { data, error, loading } = useRead(read, refreshKey);
@@ -35,6 +38,7 @@ export function RunView({ api, projectId, runId, onBack, onOpenTask, onOpenAppro
   if (!data) return <div className="space-y-3 p-4"><Button variant="ghost" onClick={onBack}>{label('back')}</Button><FlowError error={error} missingRoute />{loading && <p role="status">{label('loading')}</p>}{error && <Button variant="outline" onClick={refresh}>{label('reload')}</Button>}</div>;
 
   const { run, definition, nodeRuns } = data;
+  const bundleStalled = run.stateReason === 'bundle-outcome-unknown';
   const node = selection?.kind === 'node' ? definition.nodes.find(item => item.id === selection.id) : undefined;
   const attempts = nodeRuns.filter(attempt => attempt.nodeId === node?.id).sort((first, second) => second.iteration - first.iteration || second.attemptNo - first.attemptNo);
   const retryable = attempts[0]?.state === 'failed' || attempts[0]?.state === 'succeeded';
@@ -53,7 +57,7 @@ export function RunView({ api, projectId, runId, onBack, onOpenTask, onOpenAppro
       <Button size="sm" variant="ghost" onClick={() => openFlowRoute(projectId, { kind: 'flows', id: run.flowId })}>{label('openDefinition')}</Button>
       <Button size="sm" variant="ghost" onClick={refresh}>{label('reload')}</Button>
       {controls.includes('paused') && <Button size="sm" variant="outline" disabled={busy} onClick={() => { write.setError(null); setStopRunning(false); setDialog('pause'); }}><Pause aria-hidden="true" />{label('pause')}</Button>}
-      {(state === 'paused' || state === 'stalled') && <Button size="sm" variant="outline" disabled={busy} onClick={() => void write.run(() => flowCommand('flow-runs.resume', projectId, base))}><Play aria-hidden="true" />{label('resume')}</Button>}
+      {(state === 'paused' || (state === 'stalled' && !bundleStalled)) && <Button size="sm" variant="outline" disabled={busy} onClick={() => void write.run(() => flowCommand('flow-runs.resume', projectId, base))}><Play aria-hidden="true" />{label('resume')}</Button>}
       {controls.includes('cancelled') && <Button size="sm" variant="destructive" disabled={busy} onClick={() => { write.setError(null); setReason(''); setDialog('cancel'); }}><Square aria-hidden="true" />{label('cancel')}</Button>}
     </header>
     <div className="grid min-h-0 flex-1 gap-2 overflow-auto p-2 lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_23rem]">
@@ -63,12 +67,13 @@ export function RunView({ api, projectId, runId, onBack, onOpenTask, onOpenAppro
       </div>
       <aside className="min-w-0 space-y-3 rounded-xl border bg-card p-3 lg:overflow-auto">
         <FlowError error={error ?? (!dialog && write.error)} />
-        {run.stateReason && <p className="break-words rounded-md bg-muted p-2 text-sm">{run.stateReason}</p>}
+        {run.stateReason && <p className="break-words rounded-md bg-muted p-2 text-sm">{bundleStalled ? t('flowBundleUi.reconcileHelp') : run.stateReason}</p>}
         <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="break-all text-sm font-semibold">{node ? flowNodeTitle(node, label) : label('nodeRun')}</h3>
           {node && retryable && <Button size="sm" variant="outline" disabled={busy} onClick={() => void write.run(() => flowCommand('flow-runs.retry-node', projectId, { ...base, nodeId: node.id }))}><RotateCcw aria-hidden="true" />{label('retryNode')}</Button>}
         </div>
         {node ? attempts.length ? attempts.map(attempt => <Attempt key={`${attempt.iteration}-${attempt.attemptNo}`} attempt={attempt} onOpenTask={onOpenTask}
-          onOpenApproval={onOpenApproval} onChild={id => openFlowRoute(projectId, { kind: 'runs', id })} />) : <p className="text-sm text-muted-foreground">{label('noAttempts')}</p>
+          onOpenApproval={onOpenApproval} onChild={id => openFlowRoute(projectId, { kind: 'runs', id })}
+          bundle={node.type === 'action' && node.action === 'bundle.publish' && !attempt.pinned ? <BundleRunResult api={api} projectId={projectId} runId={runId} node={node} inputs={data.inputs} attempt={attempt} refresh={refresh} /> : undefined} />) : <p className="text-sm text-muted-foreground">{label('noAttempts')}</p>
           : <p className="text-sm text-muted-foreground">{label('selectHint')}</p>}
       </aside>
     </div>
@@ -81,7 +86,7 @@ export function RunView({ api, projectId, runId, onBack, onOpenTask, onOpenAppro
   </div>;
 }
 
-function Attempt({ attempt, onOpenTask, onOpenApproval, onChild }: { attempt: FlowNodeRun; onOpenTask: (id: string) => void; onOpenApproval: (id: string) => void; onChild: (id: string) => void }) {
+function Attempt({ attempt, onOpenTask, onOpenApproval, onChild, bundle }: { attempt: FlowNodeRun; onOpenTask: (id: string) => void; onOpenApproval: (id: string) => void; onChild: (id: string) => void; bundle?: React.ReactNode }) {
   const label = useFlowLabels();
   const { taskId, approvalId, childRunId } = attempt;
   return <article className="space-y-2 rounded-lg border p-2 text-sm">
@@ -91,7 +96,7 @@ function Attempt({ attempt, onOpenTask, onOpenApproval, onChild }: { attempt: Fl
     {attempt.port && <p className="text-xs">{label('field.port')}: <PortLabel port={attempt.port} /></p>}
     {attempt.pinned && <Badge variant="secondary">{label('pinned')}</Badge>}
     {attempt.error && <p className="whitespace-pre-wrap break-words text-sm text-destructive">{attempt.error}</p>}
-    <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2 font-mono text-xs">{attempt.output === null && !attempt.pinned ? label('noOutput') : JSON.stringify(attempt.output, null, 2)}</pre>
+    {bundle ?? <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2 font-mono text-xs">{attempt.output === null && !attempt.pinned ? label('noOutput') : JSON.stringify(attempt.output, null, 2)}</pre>}
     <div className="flex flex-wrap gap-x-3">
       {taskId && <Button variant="link" size="sm" className="px-0" onClick={() => onOpenTask(taskId)}>{label('openTask')}</Button>}
       {approvalId && <Button variant="link" size="sm" className="px-0" onClick={() => onOpenApproval(approvalId)}>{label('openApproval')}</Button>}
