@@ -102,7 +102,10 @@ test("seatToAgentConfig maps runtimes, slots, profiles, tags, tools and lead del
   lead.runtime = "fake";
   assert.equal(seatToAgentConfig(pack, lead.name, []).runtime.adapter, "fake");
   const software = load("software-team");
-  const noOverrides = seatToAgentConfig(software, software.manifest.seats.find(({ tools }) => tools === undefined)!.name, []);
+  // A seat without tools or capabilities maps to no tags and the runtime's default tools.
+  const plain = software.manifest.seats.find(({ tools }) => tools === undefined)!;
+  delete plain.capabilities;
+  const noOverrides = seatToAgentConfig(software, plain.name, []);
   assert.deepEqual(noOverrides.tags, []);
   assert.equal(noOverrides.tools, null);
 });

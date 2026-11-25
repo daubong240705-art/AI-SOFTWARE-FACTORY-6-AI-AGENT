@@ -1,0 +1,125 @@
+{
+  "schema": 2,
+  "key": "architecture-review",
+  "title": "Architecture review",
+  "description": "Document the current system, compare design options, and obtain technical review and operator sign-off on an ADR.",
+  "inputs": [
+    {
+      "name": "brief",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "briefArtifactId",
+      "type": "artifact",
+      "required": false
+    }
+  ],
+  "nodes": [
+    {"id":"start","title":"Confirmed brief","type":"trigger","trigger":{"kind":"manual"}},
+    {
+      "id": "current-state",
+      "title": "Analyze the current architecture",
+      "type": "agent",
+      "agent": {"role":"System architect"},
+      "timeoutMinutes": 40,
+      "onError": "port",
+      "task": {
+        "title": "Analyze the current architecture",
+        "instructions": "Map boundaries, dependencies, data flows, constraints and failure modes from supplied project evidence. Register a plan and distinguish observations from assumptions.\n\nAgreed brief:\n{{inputs.brief}}\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The current state is traceable to available evidence and has explicit gaps."],
+        "inputs": ["inputs.briefArtifactId"]
+      }
+    },
+    {
+      "id": "options",
+      "title": "Compare architectural options",
+      "type": "agent",
+      "agent": {"role":"System architect"},
+      "timeoutMinutes": 35,
+      "onError": "port",
+      "review": {"agent":{"role":"Independent architecture reviewer"}},
+      "task": {
+        "title": "Compare architectural options",
+        "instructions": "Compare at least two viable options, including keeping the status quo when relevant. Explain operational cost, security implications, migration, reversibility, and trade-offs. Register an options plan.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Compare options against the same decision drivers and identify what evidence could change the choice."],
+        "inputs": ["nodes.current-state.artifacts"]
+      }
+    },
+    {"id":"revisions","title":"Bounded revision rounds","type":"loop","maxIterations":2,"until":{"path":"nodes.review.output.verdict","op":"eq","value":"pass"}},
+    {
+      "id": "adr",
+      "title": "Draft the architecture decision record",
+      "type": "agent",
+      "agent": {"role":"System architect"},
+      "timeoutMinutes": 35,
+      "onError": "port",
+      "task": {
+        "title": "Draft the architecture decision record",
+        "instructions": "Use write-adr. Register the proposed ADR with the selected option, consequences, migration and rollback, and validation steps. This is draft round {{loop.iteration}}. On revision, find the ADR review note for run {{run.id}} in project knowledge; do not treat missing evidence as clearance.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The proposed decision and trade-offs trace to the reviewed options."],
+        "inputs": ["nodes.current-state.artifacts","nodes.options.artifacts"]
+      }
+    },
+    {
+      "id": "review",
+      "title": "Review the ADR independently",
+      "type": "agent",
+      "agent": {"role":"Independent architecture reviewer"},
+      "timeoutMinutes": 30,
+      "onError": "port",
+      "outputSchema": {"type":"object","properties":{"verdict":{"type":"string","enum":["pass","fail"]},"notes":{"type":"string","maxLength":2400}},"required":["verdict","notes"]},
+      "task": {
+        "title": "Review the ADR independently",
+        "instructions": "Use architecture-review and workflow-verdict. Check the proposed ADR against the decision drivers, constraints, evidence, and migration risks. Register a adr note titled ADR review {{run.id}} round {{loop.iteration}}, and return pass or fail with notes.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Pass only when the ADR is decision-ready and limitations are explicit."],
+        "inputs": ["nodes.current-state.artifacts","nodes.options.artifacts","nodes.adr.artifacts"]
+      }
+    },
+    {"id":"review-gate","title":"Did independent review pass?","type":"condition","rules":[{"port":"pass","when":{"path":"nodes.review.output.verdict","op":"eq","value":"pass"}}]},
+    {"id":"approve","title":"Operator sign-off","type":"approval","approver":"operator","timeoutMinutes":1440,"prompt":"Sign off on the reviewed ADR and its trade-offs. This records the decision for the run; it does not authorize implementation.\n\nReview notes: {{nodes.review.output.notes}}"},
+    {"id":"delivered","title":"Signed-off ADR","type":"output","target":"deliver","from":["nodes.adr.artifacts","nodes.review.output.notes"]},
+    {"id":"blocked","title":"Review did not pass within two drafts","type":"output","target":"deliver","from":["nodes.review.output.notes"]},
+    {"id":"not-approved","title":"Not signed off","type":"output","target":"deliver","from":["nodes.approve.port"]},
+    {"id":"current-state-error","title":"Stopped: Analyze the current architecture","type":"output","target":"deliver","from":["nodes.current-state.output.error"]},
+    {"id":"options-error","title":"Stopped: Compare architectural options","type":"output","target":"deliver","from":["nodes.options.output.error"]},
+    {"id":"adr-error","title":"Stopped: Draft the architecture decision record","type":"output","target":"deliver","from":["nodes.adr.output.error"]},
+    {"id":"review-error","title":"Stopped: Review the ADR independently","type":"output","target":"deliver","from":["nodes.review.output.error"]}
+  ],
+  "edges": [
+    {"id":"start-out-current-state","from":{"node":"start","port":"out"},"to":{"node":"current-state"}},
+    {"id":"current-state-out-options","from":{"node":"current-state","port":"out"},"to":{"node":"options"}},
+    {"id":"options-out-revisions","from":{"node":"options","port":"out"},"to":{"node":"revisions"}},
+    {"id":"revisions-body-adr","from":{"node":"revisions","port":"body"},"to":{"node":"adr"}},
+    {"id":"adr-out-review","from":{"node":"adr","port":"out"},"to":{"node":"review"}},
+    {"id":"review-out-revisions","from":{"node":"review","port":"out"},"to":{"node":"revisions"},"loopBack":true},
+    {"id":"revisions-done-review-gate","from":{"node":"revisions","port":"done"},"to":{"node":"review-gate"}},
+    {"id":"review-gate-pass-approve","from":{"node":"review-gate","port":"pass"},"to":{"node":"approve"}},
+    {"id":"review-gate-else-blocked","from":{"node":"review-gate","port":"else"},"to":{"node":"blocked"}},
+    {"id":"approve-approved-delivered","from":{"node":"approve","port":"approved"},"to":{"node":"delivered"}},
+    {"id":"approve-rejected-not-approved","from":{"node":"approve","port":"rejected"},"to":{"node":"not-approved"}},
+    {"id":"approve-timeout-not-approved","from":{"node":"approve","port":"timeout"},"to":{"node":"not-approved"}},
+    {"id":"current-state-error-current-state-error","from":{"node":"current-state","port":"error"},"to":{"node":"current-state-error"}},
+    {"id":"options-error-options-error","from":{"node":"options","port":"error"},"to":{"node":"options-error"}},
+    {"id":"adr-error-adr-error","from":{"node":"adr","port":"error"},"to":{"node":"adr-error"}},
+    {"id":"review-error-review-error","from":{"node":"review","port":"error"},"to":{"node":"review-error"}}
+  ],
+  "settings": {"concurrency":"queue"},
+  "layout": {
+    "start": {"x":80,"y":100},
+    "current-state": {"x":370,"y":100},
+    "options": {"x":660,"y":100},
+    "revisions": {"x":950,"y":100},
+    "adr": {"x":1240,"y":100},
+    "review": {"x":1530,"y":100},
+    "review-gate": {"x":1240,"y":300},
+    "approve": {"x":1530,"y":300},
+    "delivered": {"x":1820,"y":100},
+    "blocked": {"x":1530,"y":500},
+    "not-approved": {"x":1820,"y":300},
+    "current-state-error": {"x":660,"y":300},
+    "options-error": {"x":950,"y":300},
+    "adr-error": {"x":1530,"y":700},
+    "review-error": {"x":1820,"y":500}
+  }
+}

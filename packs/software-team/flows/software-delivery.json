@@ -1,0 +1,209 @@
+{
+  "schema": 2,
+  "key": "software-delivery",
+  "title": "Software Delivery",
+  "description": "Turn a confirmed feature brief into a reviewed candidate. Verify it, repair failures at most three times, and request operator sign-off.",
+  "inputs": [
+    {
+      "name": "brief",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "briefArtifactId",
+      "type": "artifact",
+      "required": false
+    }
+  ],
+  "nodes": [
+    {"id":"start","title":"Confirmed brief","type":"trigger","trigger":{"kind":"manual"}},
+    {
+      "id": "requirements",
+      "title": "Define acceptance criteria",
+      "type": "agent",
+      "agent": {"role":"Business analyst"},
+      "timeoutMinutes": 25,
+      "onError": "port",
+      "task": {
+        "title": "Define acceptance criteria",
+        "instructions": "Translate the agreed scope into numbered requirements and observable acceptance checks. Record exclusions, edge cases, and assumptions. Register the requirements Markdown.\n\nAgreed brief:\n{{inputs.brief}}\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Requirements and acceptance checks are traceable to the brief."],
+        "inputs": ["inputs.briefArtifactId"]
+      }
+    },
+    {
+      "id": "plan",
+      "title": "Plan the smallest delivery",
+      "type": "agent",
+      "agent": {"role":"Product manager"},
+      "timeoutMinutes": 25,
+      "onError": "port",
+      "task": {
+        "title": "Plan the smallest delivery",
+        "instructions": "Use the requirements to plan interfaces, file ownership, sequencing, and relevant checks. Identify whether each of frontend and backend needs changes. Register the plan Markdown.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The plan has disjoint ownership, a handoff order, and a verification checklist."],
+        "inputs": ["nodes.requirements.artifacts"]
+      }
+    },
+    {
+      "id": "backend",
+      "title": "Implement backend scope",
+      "type": "agent",
+      "agent": {"role":"Backend developer"},
+      "timeoutMinutes": 65,
+      "onError": "port",
+      "review": {"agent":{"role":"Frontend developer"}},
+      "task": {
+        "title": "Implement backend scope",
+        "instructions": "Use implement-feature for service and data scope only. Preserve public contracts unless the plan explicitly changes them. If no backend change is needed, register a no-change handoff. Register a code-ref handoff with changed paths, the tested base, check results, and a scoped unified patch where applicable, so the next seat can inspect or test the exact candidate in a fresh worktree. Do not commit, push, or deploy.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Backend work is scoped, covered by checks, and ready for peer review."],
+        "inputs": ["nodes.requirements.artifacts","nodes.plan.artifacts"]
+      }
+    },
+    {
+      "id": "frontend",
+      "title": "Implement frontend scope",
+      "type": "agent",
+      "agent": {"role":"Frontend developer"},
+      "timeoutMinutes": 65,
+      "onError": "port",
+      "review": {"agent":{"role":"Backend developer"}},
+      "task": {
+        "title": "Implement frontend scope",
+        "instructions": "Use implement-feature for interface scope only; use the reviewed backend handoff to reconcile the contract. If no frontend change is needed, register a no-change handoff. Register a code-ref handoff with changed paths, the tested base, check results, and a scoped unified patch where applicable, so the next seat can inspect or test the exact candidate in a fresh worktree. Do not commit, push, or deploy.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Frontend work is scoped, covered by checks, and ready for peer review."],
+        "inputs": ["nodes.requirements.artifacts","nodes.plan.artifacts","nodes.backend.artifacts"]
+      }
+    },
+    {
+      "id": "test",
+      "title": "Test the integrated candidate",
+      "type": "agent",
+      "agent": {"role":"Tester"},
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "outputSchema": {"type":"object","properties":{"verdict":{"type":"string","enum":["pass","fail"]},"notes":{"type":"string","maxLength":2400}},"required":["verdict","notes"]},
+      "task": {
+        "title": "Test the integrated candidate",
+        "instructions": "Use testing and workflow-verdict. Verify the exact candidate in your own worktree; if a supplied patch is not already present, check and apply it locally without overwriting existing changes. Run the agreed checks and report pass or fail with commands, exit codes, and unverified cases.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Report a structured verdict against the full acceptance checklist."],
+        "inputs": ["nodes.requirements.artifacts","nodes.plan.artifacts","nodes.backend.artifacts","nodes.frontend.artifacts"]
+      }
+    },
+    {"id":"test-gate","title":"Did the candidate pass?","type":"condition","rules":[{"port":"pass","when":{"path":"nodes.test.output.verdict","op":"eq","value":"pass"}}]},
+    {"id":"repairs","title":"Bounded revision rounds","type":"loop","maxIterations":3,"until":{"path":"nodes.verify.output.verdict","op":"eq","value":"pass"}},
+    {
+      "id": "repair-backend",
+      "title": "Repair backend findings",
+      "type": "agent",
+      "agent": {"role":"Backend developer"},
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "review": {"agent":{"role":"Frontend developer"}},
+      "task": {
+        "title": "Repair backend findings",
+        "instructions": "Use fix-bug. Address only backend findings; use the test evidence and for later rounds use knowledge.search to find the previous QA and scoped repair handoffs for run {{run.id}}. Carry forward the complete backend candidate, or register a no-change handoff referencing it. Register a code-ref handoff titled Backend repair {{run.id}} round {{loop.iteration}} with changed paths, the tested base, check results, and a scoped unified patch where applicable, so the next seat can inspect or test the exact candidate in a fresh worktree. Do not commit, push, or deploy.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Reviewable backend candidate and evidence are available."],
+        "inputs": ["nodes.requirements.artifacts","nodes.backend.artifacts","nodes.test.output.notes"]
+      }
+    },
+    {
+      "id": "repair-frontend",
+      "title": "Repair frontend findings",
+      "type": "agent",
+      "agent": {"role":"Frontend developer"},
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "review": {"agent":{"role":"Backend developer"}},
+      "task": {
+        "title": "Repair frontend findings",
+        "instructions": "Use fix-bug. Address only frontend findings; use the test evidence and for later rounds use knowledge.search to find the previous QA and scoped repair handoffs for run {{run.id}}. Carry forward the complete frontend candidate, or register a no-change handoff referencing it. Register a code-ref handoff titled Frontend repair {{run.id}} round {{loop.iteration}} with changed paths, the tested base, check results, and a scoped unified patch where applicable, so the next seat can inspect or test the exact candidate in a fresh worktree. Do not commit, push, or deploy.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Reviewable frontend candidate and evidence are available."],
+        "inputs": ["nodes.requirements.artifacts","nodes.frontend.artifacts","nodes.repair-backend.artifacts","nodes.test.output.notes"]
+      }
+    },
+    {
+      "id": "verify",
+      "title": "Verify the repaired candidate",
+      "type": "agent",
+      "agent": {"role":"Tester"},
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "outputSchema": {"type":"object","properties":{"verdict":{"type":"string","enum":["pass","fail"]},"notes":{"type":"string","maxLength":2400}},"required":["verdict","notes"]},
+      "task": {
+        "title": "Verify the repaired candidate",
+        "instructions": "Use testing and workflow-verdict. Verify the exact candidate in your own worktree; if a supplied patch is not already present, check and apply it locally without overwriting existing changes. Run the agreed checks and report pass or fail with commands, exit codes, and unverified cases. Rerun the failed checks and relevant regressions. Register a plan artifact titled Delivery QA {{run.id}} round {{loop.iteration}} so the next round can find the latest evidence.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The verdict covers the repaired candidate, not the original one."],
+        "inputs": ["nodes.requirements.artifacts","nodes.plan.artifacts","nodes.repair-backend.artifacts","nodes.repair-frontend.artifacts","nodes.test.output.notes"]
+      }
+    },
+    {"id":"repair-gate","title":"Did the repaired candidate pass?","type":"condition","rules":[{"port":"pass","when":{"path":"nodes.verify.output.verdict","op":"eq","value":"pass"}}]},
+    {"id":"approve","title":"Operator sign-off","type":"approval","approver":"operator","timeoutMinutes":1440,"prompt":"The software candidate passed verification and peer review. Check the acceptance evidence and residual risks before signing off. Sign-off does not deploy anything."},
+    {"id":"delivered","title":"Signed-off software evidence","type":"output","target":"deliver","from":["nodes.backend.artifacts","nodes.frontend.artifacts","nodes.test.output.notes","nodes.repair-backend.artifacts","nodes.repair-frontend.artifacts","nodes.verify.output.notes"]},
+    {"id":"blocked","title":"Repair limit reached without a pass","type":"output","target":"deliver","from":["nodes.verify.output.notes"]},
+    {"id":"not-approved","title":"Not signed off","type":"output","target":"deliver","from":["nodes.approve.port"]},
+    {"id":"requirements-error","title":"Stopped: Define acceptance criteria","type":"output","target":"deliver","from":["nodes.requirements.output.error"]},
+    {"id":"plan-error","title":"Stopped: Plan the smallest delivery","type":"output","target":"deliver","from":["nodes.plan.output.error"]},
+    {"id":"backend-error","title":"Stopped: Implement backend scope","type":"output","target":"deliver","from":["nodes.backend.output.error"]},
+    {"id":"frontend-error","title":"Stopped: Implement frontend scope","type":"output","target":"deliver","from":["nodes.frontend.output.error"]},
+    {"id":"test-error","title":"Stopped: Test the integrated candidate","type":"output","target":"deliver","from":["nodes.test.output.error"]},
+    {"id":"repair-backend-error","title":"Stopped: Repair backend findings","type":"output","target":"deliver","from":["nodes.repair-backend.output.error"]},
+    {"id":"repair-frontend-error","title":"Stopped: Repair frontend findings","type":"output","target":"deliver","from":["nodes.repair-frontend.output.error"]},
+    {"id":"verify-error","title":"Stopped: Verify the repaired candidate","type":"output","target":"deliver","from":["nodes.verify.output.error"]}
+  ],
+  "edges": [
+    {"id":"start-out-requirements","from":{"node":"start","port":"out"},"to":{"node":"requirements"}},
+    {"id":"requirements-out-plan","from":{"node":"requirements","port":"out"},"to":{"node":"plan"}},
+    {"id":"plan-out-backend","from":{"node":"plan","port":"out"},"to":{"node":"backend"}},
+    {"id":"backend-out-frontend","from":{"node":"backend","port":"out"},"to":{"node":"frontend"}},
+    {"id":"frontend-out-test","from":{"node":"frontend","port":"out"},"to":{"node":"test"}},
+    {"id":"test-out-test-gate","from":{"node":"test","port":"out"},"to":{"node":"test-gate"}},
+    {"id":"test-gate-else-repairs","from":{"node":"test-gate","port":"else"},"to":{"node":"repairs"}},
+    {"id":"repairs-body-repair-backend","from":{"node":"repairs","port":"body"},"to":{"node":"repair-backend"}},
+    {"id":"repair-backend-out-repair-frontend","from":{"node":"repair-backend","port":"out"},"to":{"node":"repair-frontend"}},
+    {"id":"repair-frontend-out-verify","from":{"node":"repair-frontend","port":"out"},"to":{"node":"verify"}},
+    {"id":"verify-out-repairs","from":{"node":"verify","port":"out"},"to":{"node":"repairs"},"loopBack":true},
+    {"id":"repairs-done-repair-gate","from":{"node":"repairs","port":"done"},"to":{"node":"repair-gate"}},
+    {"id":"test-gate-pass-approve","from":{"node":"test-gate","port":"pass"},"to":{"node":"approve"}},
+    {"id":"repair-gate-pass-approve","from":{"node":"repair-gate","port":"pass"},"to":{"node":"approve"}},
+    {"id":"repair-gate-else-blocked","from":{"node":"repair-gate","port":"else"},"to":{"node":"blocked"}},
+    {"id":"approve-approved-delivered","from":{"node":"approve","port":"approved"},"to":{"node":"delivered"}},
+    {"id":"approve-rejected-not-approved","from":{"node":"approve","port":"rejected"},"to":{"node":"not-approved"}},
+    {"id":"approve-timeout-not-approved","from":{"node":"approve","port":"timeout"},"to":{"node":"not-approved"}},
+    {"id":"requirements-error-requirements-error","from":{"node":"requirements","port":"error"},"to":{"node":"requirements-error"}},
+    {"id":"plan-error-plan-error","from":{"node":"plan","port":"error"},"to":{"node":"plan-error"}},
+    {"id":"backend-error-backend-error","from":{"node":"backend","port":"error"},"to":{"node":"backend-error"}},
+    {"id":"frontend-error-frontend-error","from":{"node":"frontend","port":"error"},"to":{"node":"frontend-error"}},
+    {"id":"test-error-test-error","from":{"node":"test","port":"error"},"to":{"node":"test-error"}},
+    {"id":"repair-backend-error-repair-backend-error","from":{"node":"repair-backend","port":"error"},"to":{"node":"repair-backend-error"}},
+    {"id":"repair-frontend-error-repair-frontend-error","from":{"node":"repair-frontend","port":"error"},"to":{"node":"repair-frontend-error"}},
+    {"id":"verify-error-verify-error","from":{"node":"verify","port":"error"},"to":{"node":"verify-error"}}
+  ],
+  "settings": {"concurrency":"queue"},
+  "layout": {
+    "start": {"x":80,"y":100},
+    "requirements": {"x":370,"y":100},
+    "plan": {"x":660,"y":100},
+    "backend": {"x":950,"y":100},
+    "frontend": {"x":1240,"y":100},
+    "test": {"x":1530,"y":100},
+    "test-gate": {"x":1820,"y":100},
+    "repairs": {"x":2110,"y":100},
+    "repair-backend": {"x":2400,"y":100},
+    "repair-frontend": {"x":2690,"y":100},
+    "verify": {"x":2980,"y":100},
+    "repair-gate": {"x":2400,"y":300},
+    "approve": {"x":2690,"y":300},
+    "delivered": {"x":2980,"y":300},
+    "blocked": {"x":2690,"y":500},
+    "not-approved": {"x":2980,"y":500},
+    "requirements-error": {"x":660,"y":300},
+    "plan-error": {"x":950,"y":300},
+    "backend-error": {"x":1240,"y":300},
+    "frontend-error": {"x":1530,"y":300},
+    "test-error": {"x":1820,"y":300},
+    "repair-backend-error": {"x":2690,"y":700},
+    "repair-frontend-error": {"x":2980,"y":700},
+    "verify-error": {"x":3270,"y":100}
+  }
+}

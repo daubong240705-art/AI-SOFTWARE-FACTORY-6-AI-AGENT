@@ -1,0 +1,151 @@
+{
+  "schema": 2,
+  "key": "research-report",
+  "title": "Research report",
+  "description": "Plan evidence collection, evaluate sources, compare alternatives, and save a fact-checked report after operator approval.",
+  "inputs": [
+    {
+      "name": "brief",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "briefArtifactId",
+      "type": "artifact",
+      "required": false
+    }
+  ],
+  "nodes": [
+    {"id":"start","title":"Confirmed brief","type":"trigger","trigger":{"kind":"manual"}},
+    {
+      "id": "plan",
+      "title": "Plan the research",
+      "type": "agent",
+      "agent": {"role":"Evidence researcher"},
+      "timeoutMinutes": 25,
+      "onError": "port",
+      "task": {
+        "title": "Plan the research",
+        "instructions": "Use research-brief. Define decision questions, inclusion criteria, evidence limits, and a stopping rule. Register the plan.\n\nAgreed brief:\n{{inputs.brief}}\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Questions and evidence criteria trace to the agreed decision."],
+        "inputs": ["inputs.briefArtifactId"]
+      }
+    },
+    {
+      "id": "sources",
+      "title": "Collect and evaluate sources",
+      "type": "agent",
+      "agent": {"role":"Evidence researcher"},
+      "timeoutMinutes": 60,
+      "onError": "port",
+      "review": {"agent":{"role":"Independent evidence reviewer"}},
+      "task": {
+        "title": "Collect and evaluate sources",
+        "instructions": "Use source-evaluation. Register a research-report evidence ledger with dated citations, claim locators, independence, contradictions and evidence gaps. Use available sources only; never invent citations.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The ledger separates evidence quality from confidence and lists missing evidence."],
+        "inputs": ["nodes.plan.artifacts"]
+      }
+    },
+    {
+      "id": "compare",
+      "title": "Compare the alternatives",
+      "type": "agent",
+      "agent": {"role":"Comparative research analyst"},
+      "timeoutMinutes": 35,
+      "onError": "port",
+      "task": {
+        "title": "Compare the alternatives",
+        "instructions": "Use comparative-analysis. Compare options against consistent criteria, include counterevidence, and calibrate confidence. Register the comparison as a research-report artifact.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Comparisons are traceable to source IDs and uncertainties are explicit."],
+        "inputs": ["nodes.plan.artifacts","nodes.sources.artifacts"]
+      }
+    },
+    {"id":"revisions","title":"Bounded revision rounds","type":"loop","maxIterations":2,"until":{"path":"nodes.fact-check.output.verdict","op":"eq","value":"pass"}},
+    {
+      "id": "report",
+      "title": "Draft the research report",
+      "type": "agent",
+      "agent": {"role":"Comparative research analyst"},
+      "timeoutMinutes": 40,
+      "onError": "port",
+      "outputSchema": {"type":"object","properties":{"markdown":{"type":"string","maxLength":12000}},"required":["markdown"]},
+      "task": {
+        "title": "Draft the research report",
+        "instructions": "Use report-writing. Include the research question, findings, evidence, practical recommendation, uncertainty and follow-up. Register the candidate as a research-report draft and return the same Markdown in task.result as markdown. This is draft round {{loop.iteration}}. On revision, find the fact-check note for run {{run.id}} in project knowledge; do not treat missing evidence as clearance.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Markdown is ready to save as-is and does not overstate the evidence."],
+        "inputs": ["nodes.plan.artifacts","nodes.sources.artifacts","nodes.compare.artifacts"]
+      }
+    },
+    {
+      "id": "fact-check",
+      "title": "Fact-check the report",
+      "type": "agent",
+      "agent": {"role":"Independent evidence reviewer"},
+      "timeoutMinutes": 35,
+      "onError": "port",
+      "outputSchema": {"type":"object","properties":{"verdict":{"type":"string","enum":["pass","fail"]},"notes":{"type":"string","maxLength":2400}},"required":["verdict","notes"]},
+      "task": {
+        "title": "Fact-check the report",
+        "instructions": "Use source-evaluation and workflow-verdict. Compare the candidate Markdown to the registered draft, source ledger and comparison. Check claims, citation provenance and calibrated uncertainty. Register a research-report fact-check note titled Research fact-check {{run.id}} round {{loop.iteration}}, and return pass or fail with notes.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["A pass is supported by the cited evidence and all important limitations appear in the draft."],
+        "inputs": ["nodes.sources.artifacts","nodes.compare.artifacts","nodes.report.artifacts","nodes.report.output.markdown"]
+      }
+    },
+    {"id":"review-gate","title":"Did independent review pass?","type":"condition","rules":[{"port":"pass","when":{"path":"nodes.fact-check.output.verdict","op":"eq","value":"pass"}}]},
+    {"id":"approve","title":"Operator sign-off","type":"approval","approver":"operator","timeoutMinutes":1440,"prompt":"Check the registered report draft and its uncertainty notes. Approve to save the reviewed Markdown as a project artifact; this does not publish it externally.\n\nFact-check notes: {{nodes.fact-check.output.notes}}"},
+    {"id":"save-report","title":"Save signed-off report","type":"action","action":"artifact.save","onError":"port","params":{"title":"Research report","content":"{{nodes.report.output.markdown}}"}},
+    {"id":"delivered","title":"Saved research report","type":"output","target":"artifact","from":["nodes.save-report.artifacts"]},
+    {"id":"blocked","title":"Review did not pass within two drafts","type":"output","target":"deliver","from":["nodes.fact-check.output.notes"]},
+    {"id":"not-approved","title":"Not signed off","type":"output","target":"deliver","from":["nodes.approve.port"]},
+    {"id":"plan-error","title":"Stopped: Plan the research","type":"output","target":"deliver","from":["nodes.plan.output.error"]},
+    {"id":"sources-error","title":"Stopped: Collect and evaluate sources","type":"output","target":"deliver","from":["nodes.sources.output.error"]},
+    {"id":"compare-error","title":"Stopped: Compare the alternatives","type":"output","target":"deliver","from":["nodes.compare.output.error"]},
+    {"id":"report-error","title":"Stopped: Draft the research report","type":"output","target":"deliver","from":["nodes.report.output.error"]},
+    {"id":"fact-check-error","title":"Stopped: Fact-check the report","type":"output","target":"deliver","from":["nodes.fact-check.output.error"]},
+    {"id":"save-report-error","title":"Stopped: Save signed-off report","type":"output","target":"deliver","from":["nodes.save-report.output.error"]}
+  ],
+  "edges": [
+    {"id":"start-out-plan","from":{"node":"start","port":"out"},"to":{"node":"plan"}},
+    {"id":"plan-out-sources","from":{"node":"plan","port":"out"},"to":{"node":"sources"}},
+    {"id":"sources-out-compare","from":{"node":"sources","port":"out"},"to":{"node":"compare"}},
+    {"id":"compare-out-revisions","from":{"node":"compare","port":"out"},"to":{"node":"revisions"}},
+    {"id":"revisions-body-report","from":{"node":"revisions","port":"body"},"to":{"node":"report"}},
+    {"id":"report-out-fact-check","from":{"node":"report","port":"out"},"to":{"node":"fact-check"}},
+    {"id":"fact-check-out-revisions","from":{"node":"fact-check","port":"out"},"to":{"node":"revisions"},"loopBack":true},
+    {"id":"revisions-done-review-gate","from":{"node":"revisions","port":"done"},"to":{"node":"review-gate"}},
+    {"id":"review-gate-pass-approve","from":{"node":"review-gate","port":"pass"},"to":{"node":"approve"}},
+    {"id":"review-gate-else-blocked","from":{"node":"review-gate","port":"else"},"to":{"node":"blocked"}},
+    {"id":"approve-approved-save-report","from":{"node":"approve","port":"approved"},"to":{"node":"save-report"}},
+    {"id":"save-report-out-delivered","from":{"node":"save-report","port":"out"},"to":{"node":"delivered"}},
+    {"id":"approve-rejected-not-approved","from":{"node":"approve","port":"rejected"},"to":{"node":"not-approved"}},
+    {"id":"approve-timeout-not-approved","from":{"node":"approve","port":"timeout"},"to":{"node":"not-approved"}},
+    {"id":"plan-error-plan-error","from":{"node":"plan","port":"error"},"to":{"node":"plan-error"}},
+    {"id":"sources-error-sources-error","from":{"node":"sources","port":"error"},"to":{"node":"sources-error"}},
+    {"id":"compare-error-compare-error","from":{"node":"compare","port":"error"},"to":{"node":"compare-error"}},
+    {"id":"report-error-report-error","from":{"node":"report","port":"error"},"to":{"node":"report-error"}},
+    {"id":"fact-check-error-fact-check-error","from":{"node":"fact-check","port":"error"},"to":{"node":"fact-check-error"}},
+    {"id":"save-report-error-save-report-error","from":{"node":"save-report","port":"error"},"to":{"node":"save-report-error"}}
+  ],
+  "settings": {"concurrency":"queue"},
+  "layout": {
+    "start": {"x":80,"y":100},
+    "plan": {"x":370,"y":100},
+    "sources": {"x":660,"y":100},
+    "compare": {"x":950,"y":100},
+    "revisions": {"x":1240,"y":100},
+    "report": {"x":1530,"y":100},
+    "fact-check": {"x":1820,"y":100},
+    "review-gate": {"x":1530,"y":300},
+    "approve": {"x":1820,"y":300},
+    "save-report": {"x":2110,"y":100},
+    "delivered": {"x":2400,"y":100},
+    "blocked": {"x":1820,"y":500},
+    "not-approved": {"x":2110,"y":300},
+    "plan-error": {"x":660,"y":300},
+    "sources-error": {"x":950,"y":300},
+    "compare-error": {"x":1240,"y":300},
+    "report-error": {"x":1820,"y":700},
+    "fact-check-error": {"x":2110,"y":500},
+    "save-report-error": {"x":2400,"y":300}
+  }
+}

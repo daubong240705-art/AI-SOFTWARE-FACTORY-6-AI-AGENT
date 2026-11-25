@@ -1,6 +1,6 @@
 {
   "key": "research-team",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "name": "Research Team",
   "description": "Answers scoped research questions with traceable evidence, explicit uncertainty, and practical comparisons. Delivers research-report artifacts for project decisions.",
   "seats": [
@@ -77,7 +77,8 @@
     "skills/source-evaluation",
     "skills/report-writing",
     "skills/comparative-analysis",
-    "skills/team-coordination"
+    "skills/team-coordination",
+    "skills/workflow-verdict"
   ],
   "produces": [
     "research-report"

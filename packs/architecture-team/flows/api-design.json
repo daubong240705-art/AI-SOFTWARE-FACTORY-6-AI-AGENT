@@ -1,0 +1,106 @@
+{
+  "schema": 2,
+  "key": "api-design",
+  "title": "API design",
+  "description": "Design a data model and matching API contract, review compatibility and invariants, and request operator sign-off.",
+  "inputs": [
+    {
+      "name": "brief",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "briefArtifactId",
+      "type": "artifact",
+      "required": false
+    }
+  ],
+  "nodes": [
+    {"id":"start","title":"Confirmed brief","type":"trigger","trigger":{"kind":"manual"}},
+    {
+      "id": "model",
+      "title": "Draft the data model",
+      "type": "agent",
+      "agent": {"role":"Data model designer"},
+      "timeoutMinutes": 40,
+      "onError": "port",
+      "review": {"agent":{"role":"Independent architecture reviewer"}},
+      "task": {
+        "title": "Draft the data model",
+        "instructions": "Use data-model-design. Register a data-model with identifiers, relations, lifecycle, constraints, access patterns and examples of invalid transitions.\n\nAgreed brief:\n{{inputs.brief}}\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Model invariants and migration assumptions are explicit."],
+        "inputs": ["inputs.briefArtifactId"]
+      }
+    },
+    {"id":"revisions","title":"Bounded revision rounds","type":"loop","maxIterations":2,"until":{"path":"nodes.review.output.verdict","op":"eq","value":"pass"}},
+    {
+      "id": "contract",
+      "title": "Draft the API contract",
+      "type": "agent",
+      "agent": {"role":"API contract designer"},
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "task": {
+        "title": "Draft the API contract",
+        "instructions": "Use api-contract-design. Register an api-contract with operations, request and response examples, validation, access control, errors, versioning and idempotency where needed. Map the contract to the reviewed data model. This is draft round {{loop.iteration}}. On revision, find the API contract review note for run {{run.id}} in project knowledge; do not treat missing evidence as clearance.\n\nAgreed brief:\n{{inputs.brief}}\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Operations and types agree with the model; intentional differences are explained."],
+        "inputs": ["nodes.model.artifacts"]
+      }
+    },
+    {
+      "id": "review",
+      "title": "Review the contract and model together",
+      "type": "agent",
+      "agent": {"role":"Independent architecture reviewer"},
+      "timeoutMinutes": 35,
+      "onError": "port",
+      "outputSchema": {"type":"object","properties":{"verdict":{"type":"string","enum":["pass","fail"]},"notes":{"type":"string","maxLength":2400}},"required":["verdict","notes"]},
+      "task": {
+        "title": "Review the contract and model together",
+        "instructions": "Use architecture-review and workflow-verdict. Cross-check identifiers, optionality, state transitions, failure behavior and compatibility between the API and data model. Register a adr note titled API contract review {{run.id}} round {{loop.iteration}}, and return pass or fail with notes. Block if a model change is required rather than accepting an inconsistent contract.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["Pass only when consumers can implement against both artifacts without contradictory assumptions."],
+        "inputs": ["nodes.model.artifacts","nodes.contract.artifacts"]
+      }
+    },
+    {"id":"review-gate","title":"Did independent review pass?","type":"condition","rules":[{"port":"pass","when":{"path":"nodes.review.output.verdict","op":"eq","value":"pass"}}]},
+    {"id":"approve","title":"Operator sign-off","type":"approval","approver":"operator","timeoutMinutes":1440,"prompt":"Sign off on the reviewed API contract and data model, including compatibility and migration assumptions. No code is changed by this workflow.\n\nReview notes: {{nodes.review.output.notes}}"},
+    {"id":"delivered","title":"Signed-off contract and model","type":"output","target":"deliver","from":["nodes.model.artifacts","nodes.contract.artifacts","nodes.review.output.notes"]},
+    {"id":"blocked","title":"Review did not pass within two drafts","type":"output","target":"deliver","from":["nodes.review.output.notes"]},
+    {"id":"not-approved","title":"Not signed off","type":"output","target":"deliver","from":["nodes.approve.port"]},
+    {"id":"model-error","title":"Stopped: Draft the data model","type":"output","target":"deliver","from":["nodes.model.output.error"]},
+    {"id":"contract-error","title":"Stopped: Draft the API contract","type":"output","target":"deliver","from":["nodes.contract.output.error"]},
+    {"id":"review-error","title":"Stopped: Review the contract and model together","type":"output","target":"deliver","from":["nodes.review.output.error"]}
+  ],
+  "edges": [
+    {"id":"start-out-model","from":{"node":"start","port":"out"},"to":{"node":"model"}},
+    {"id":"model-out-revisions","from":{"node":"model","port":"out"},"to":{"node":"revisions"}},
+    {"id":"revisions-body-contract","from":{"node":"revisions","port":"body"},"to":{"node":"contract"}},
+    {"id":"contract-out-review","from":{"node":"contract","port":"out"},"to":{"node":"review"}},
+    {"id":"review-out-revisions","from":{"node":"review","port":"out"},"to":{"node":"revisions"},"loopBack":true},
+    {"id":"revisions-done-review-gate","from":{"node":"revisions","port":"done"},"to":{"node":"review-gate"}},
+    {"id":"review-gate-pass-approve","from":{"node":"review-gate","port":"pass"},"to":{"node":"approve"}},
+    {"id":"review-gate-else-blocked","from":{"node":"review-gate","port":"else"},"to":{"node":"blocked"}},
+    {"id":"approve-approved-delivered","from":{"node":"approve","port":"approved"},"to":{"node":"delivered"}},
+    {"id":"approve-rejected-not-approved","from":{"node":"approve","port":"rejected"},"to":{"node":"not-approved"}},
+    {"id":"approve-timeout-not-approved","from":{"node":"approve","port":"timeout"},"to":{"node":"not-approved"}},
+    {"id":"model-error-model-error","from":{"node":"model","port":"error"},"to":{"node":"model-error"}},
+    {"id":"contract-error-contract-error","from":{"node":"contract","port":"error"},"to":{"node":"contract-error"}},
+    {"id":"review-error-review-error","from":{"node":"review","port":"error"},"to":{"node":"review-error"}}
+  ],
+  "settings": {"concurrency":"queue"},
+  "layout": {
+    "start": {"x":80,"y":100},
+    "model": {"x":370,"y":100},
+    "revisions": {"x":660,"y":100},
+    "contract": {"x":950,"y":100},
+    "review": {"x":1240,"y":100},
+    "review-gate": {"x":950,"y":300},
+    "approve": {"x":1240,"y":300},
+    "delivered": {"x":1530,"y":100},
+    "blocked": {"x":1240,"y":500},
+    "not-approved": {"x":1530,"y":300},
+    "model-error": {"x":660,"y":300},
+    "contract-error": {"x":1240,"y":700},
+    "review-error": {"x":1530,"y":500}
+  }
+}

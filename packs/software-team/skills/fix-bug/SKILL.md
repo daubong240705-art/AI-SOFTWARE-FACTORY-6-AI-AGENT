@@ -1,7 +1,7 @@
 ---
 name: fix-bug
 description: Reproduce a defect from execution evidence, repair its cause within scope, and verify the affected behaviour.
-version: 1.1.0
+version: 1.2.0
 source: BMAD-METHOD developer and tester handoffs; github/spec-kit acceptance checks; Agent Skills specification layout.
 ---
 
@@ -23,7 +23,7 @@ Check the original failure and relevant neighbouring behaviour after the change.
 
 Report work performed, changed files, exact commands, real exit codes, evidence, and unresolved criteria. Distinguish a functional failure from an environment failure or a check that was not run. Never invent command/file identifiers or treat truncated output as proof. If blocked, name what is missing.
 
-Do not call agents or start another repair round yourself. Lead/Controller routes fixes to the original author under the original task identifier, preserving finished work and using the newest attempt's evidence. Respect the configured limit of at most two rework rounds; escalate rather than extending it.
+Do not call agents or start another repair round yourself. In a workflow, preserve completed work and point to the latest test evidence; the flow routes the next round within its configured limit. Outside a workflow, the Lead or Controller routes rework to the original author under the original task identifier, with at most two rounds.
 
 ## Factory conventions
 
