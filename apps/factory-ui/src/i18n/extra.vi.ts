@@ -58,8 +58,8 @@ export const extra: Translated<typeof en> = {
     errors: { live: 'Hãy dừng lượt chạy đang hoạt động và đối soát lượt chưa rõ kết quả trước khi xoá dự án.', name: 'Tên xác nhận phải trùng khớp chính xác với tên dự án.', revision: 'Dự án đã thay đổi. Hãy kiểm tra dữ liệu mới và thử lại.', archived: 'Dự án đã được lưu trữ.' },
   },
   worldUi: {
+    campus: { shared: 'Khu chung', meeting: 'Phòng họp', approval: 'Bàn duyệt', board: 'Bảng quy trình', library: 'Kệ thư viện', rest: 'Góc nghỉ', nodeCount: '{done}/{total} nút hoàn tất', more: '+{count} mục khác', projects: 'Phòng dự án', enter: 'Đến phòng', loading: 'Đang tải dữ liệu…' },
     neon: 'Factory',
-    redesign: 'Một số phần của Thế giới đang thiết kế lại.',
     chairman: { fullPage: 'Mở trang đầy đủ', seated: 'Đang ngồi · Nhấp đồ vật để mở · Esc để đứng dậy', tabs: { assign: 'Giao việc / Hỏi Lead', attention: 'Cần xử lý', create: 'Tạo dự án hoặc việc', projects: 'Dự án', agents: 'Agent', knowledge: 'Tài liệu', flows: 'Quy trình', chat: 'Chat với Lead', activity: 'Hoạt động gần đây' } },
     walk: { bump: 'Ối!', boss: 'Sếp tới!', spin: 'E — Cho OIIA xoay', title: 'Đi bộ', owner: 'Ngồi vào ghế chủ tịch', open: 'E — Mở {name}', click: 'Nhấp để nhìn · Kéo chuột nếu không khóa được con trỏ', minimap: 'Bản đồ nhỏ studio', activity: 'Cột hoạt động', paused: 'Tạm dừng di chuyển · Đóng bảng để tiếp tục', controls: 'WASD / phím mũi tên · Shift chạy · Space nhảy · C đổi góc nhìn · Cuộn để thu phóng · E tương tác · 1–7 đồ chơi · V / Esc nhìn từ trên' },
     toys: { title: 'Đồ chơi', note: 'Chỉ để vui', whip: 'Roi', taser: 'Trích điện', coffee: 'Cà phê', hammer: 'Búa hơi', feather: 'Lông vũ', megaphone: 'Loa', cookie: 'Bánh thưởng', soundOn: 'Âm thanh bật', soundOff: 'Âm thanh tắt', pointer: 'Con trỏ thường', keyboard: 'Chọn nhân viên, nhấn 1–7. Escape đóng đồ chơi.', count: 'Hôm nay bạn đã dùng {tool} {count} lần', whipCount: 'Hôm nay bạn đã quất {count} lần', oiia: 'OIIA!', combo: 'COMBO x{count}', sulking: 'Đang dỗi', megaSpin: 'XOAY SIÊU CẤP', needsYou: 'Cần bạn!', bubbles: { whip: 'Ui da!', taser: 'Tè tè!', coffee: 'Uống cà phê nào! ✦', hammer: 'bíp', feather: 'Ha ha ha!', megaphone: 'Nhanh lên!', cookie: 'Ngon quá! ♥' } },
@@ -242,6 +242,7 @@ export const extra: Translated<typeof en> = {
     engagements: 'Dự án tham gia', running: 'Đang chạy', teamActions: 'Thao tác với đội',
   },
   officeUi: {
+    floorLive: { title: 'Văn phòng dự án', subtitle: 'Xem ai đang làm gì, công việc tiến triển ra sao và việc nào cần bạn quyết định.', head: 'Bàn trưởng nhóm', common: 'Chung', empty: 'Chưa có agent tại bàn', emptyHelp: 'Mở Agent & Đội để tạo agent mới hoặc tạo từ mẫu.', noTask: 'Chưa có công việc hiện tại', noProgress: 'Chưa có báo cáo tiến độ', today: 'Lượt thực thi hôm nay', relations: 'Quan hệ giữa các agent', flows: 'Quy trình đang chạy', approvals: 'Chờ bạn', noFlows: 'Không có lượt chạy quy trình đang hoạt động.', noApprovals: 'Không có mục nào chờ bạn xử lý.', unavailable: 'Không tải được một phần dữ liệu. Đang hiển thị dữ liệu gần nhất.', status: { working: 'Đang làm', waiting: 'Chờ duyệt', idle: 'Rảnh', paused: 'Tạm dừng', problem: 'Lỗi' }, relation: { manages: 'Quản lý', reviews: 'Phản biện', collaborates: 'Cộng tác', approves: 'Phê duyệt' } },
     unreported: 'Chưa báo %',
     running: 'Đang chạy', runningJustStarted: 'Đang chạy vừa bắt đầu', runningMinute: 'Đang chạy {count} phút', runningMinutes: 'Đang chạy {count} phút',
     taskProgress: 'Tiến độ công việc',

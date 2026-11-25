@@ -1,0 +1,35 @@
+.universal-office { --office-milk: #fffbea; --office-cream: #fffdd0; --office-beige: #f3e8d2; --office-apricot: #f6d9a8; --office-ink: #493426; color: var(--office-ink); }
+:root:not([data-theme=light]) .universal-office { --office-milk: var(--card); --office-cream: var(--background); --office-beige: var(--secondary); --office-apricot: var(--muted); --office-ink: var(--foreground); }
+.office-mast { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: clamp(1rem, 3vw, 2rem); border-radius: 1.4rem 1.4rem .4rem .4rem; background: linear-gradient(115deg, var(--office-cream), var(--office-apricot)); }
+.office-plan { display: grid; grid-template-columns: minmax(0, 1fr) minmax(13rem, 23%); gap: .75rem; margin-top: .75rem; }
+.office-floor-live { min-height: 16rem; display: grid; align-content: start; gap: 1rem; padding: clamp(.75rem, 2vw, 1.4rem); background: repeating-linear-gradient(0deg, transparent 0 1.95rem, #8a61331a 1.98rem 2rem), var(--office-beige); border-radius: .6rem 1.25rem 1.25rem .6rem; }
+.office-area { background: color-mix(in srgb, var(--office-cream) 60%, transparent); border-radius: .85rem; padding: .75rem; }
+.office-area > h3 { margin: 0 0 .6rem; font-size: .76rem; font-weight: 700; letter-spacing: .04em; }
+.office-desks { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .8rem; }
+.universal-desk { position: relative; display: grid; align-content: start; gap: .55rem; min-width: 0; padding: .85rem; background: var(--office-milk); border: 1px solid #986a4938; border-bottom: 4px solid #986a4960; border-radius: .9rem; box-shadow: 0 5px 0 #8a613314; }
+.universal-desk[data-lead=true] { border-top: 4px solid #a76a39; }
+.desk-status,.desk-chip,.desk-relations > span { width: fit-content; max-width: 100%; border-radius: .45rem; padding: .2rem .45rem; background: var(--office-beige); font-size: .72rem; overflow-wrap: anywhere; }
+.desk-status { flex-shrink: 0; max-width: 40%; }
+[data-status=working] > div > .desk-status { background: #cde6ce; color: #264732; }
+[data-status=waiting] > div > .desk-status { background: #f9dda2; color: #553917; }
+[data-status=problem] > div > .desk-status { background: #efc5ba; color: #632f27; }
+.desk-task,.office-strip li a,.office-strip li button { display: flex; align-items: center; width: 100%; justify-content: space-between; gap: .5rem; text-align: start; overflow-wrap: anywhere; }
+.desk-task:hover,.office-strip li :is(a,button):hover { text-decoration: underline; }
+.desk-history { display: flex; align-items: start; gap: .55rem; border-top: 1px solid #986a4938; padding-top: .4rem; font-size: .7rem; }
+.desk-history > span { flex-shrink: 0; }
+.desk-tick { display: block; width: .9rem; height: .9rem; border-radius: 50%; border: 2px solid #8c623d; background: var(--office-beige); }
+.desk-tick:is([data-state=running],[data-state=succeeded]) { background: #9ac3a2; border-color: #537c5c; }
+.desk-tick:is([data-state=failed],[data-state=lease-expired]) { background: #eaad9a; border-color: #a25249; }
+.desk-relations { display: none; gap: .35rem; flex-wrap: wrap; }
+.universal-desk:is(:hover,:focus-within) .desk-relations { display: flex; }
+.universal-desk[data-status=working] .desk-status::before { display: inline-block; content: ''; width: .4rem; height: .4rem; margin-inline-end: .3rem; border-radius: 50%; background: currentColor; animation: office-blink 2s ease-in-out infinite; }
+@keyframes office-blink { 50% { opacity: .35; } }
+.office-strip { display: grid; align-content: start; gap: .75rem; }
+.office-strip section,.office-vacant,.office-refresh { background: var(--office-milk); padding: 1rem; border: 1px solid #986a4938; border-radius: .85rem; }
+.office-strip h3 { display: flex; gap: .4rem; align-items: center; font-weight: 650; margin-bottom: .55rem; }
+.office-strip li { padding-block: .45rem; border-top: 1px solid #986a4938; }
+.office-strip li small { flex-shrink: 0; }
+.office-strip p,.office-strip li { font-size: .83rem; }
+.office-refresh { display: flex; align-items: center; gap: .75rem; margin-top: .75rem; }
+@media (max-width: 850px) { .office-plan { grid-template-columns: minmax(0, 1fr); } .office-strip { grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .universal-desk[data-status=working] .desk-status::before { animation: none; } }

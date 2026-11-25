@@ -47,7 +47,7 @@ export function Studio(props: StudioProps) {
   }, [events, props.consumeEvents]);
   useFrame(() => { props.debug.current.integration = workflowStats(); });
   return <group visible={!props.hidden}>
-    <TaskBoard projectId={model.focusProjectId} columns={model.tasks.columns} overflow={model.tasks.overflow} quality={quality} still={still} locale="en" onOpenTask={props.onTask} locations={props.locations} />
+    <TaskBoard projectId={model.focusProjectId} columns={model.tasks.columns} overflow={model.tasks.overflow} quality={quality} still={still} locale={i18n.locale} onOpenTask={props.onTask} locations={props.locations} />
     <Handoffs effects={props.effects} events={events} positionOf={positionOf} quality={quality} still={still} senderIdle={senderIdle} courier={courier} onTask={props.onTask} />
     <FunProps effects={props.effects} model={model} quality={quality} still={still} hidden={props.hidden} debug={props.debug} positions={props.positions} locale={i18n.locale} />
     <ChairmanOffice model={model} attention={props.attention ?? 0} approvalPulse={props.approvalPulse ?? 0} phonePulse={props.phonePulse ?? 0} still={props.still} hidden={props.hidden} onOpen={props.onOfficeOpen ?? (() => {})} />

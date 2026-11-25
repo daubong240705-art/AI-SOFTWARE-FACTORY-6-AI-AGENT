@@ -1,4 +1,4 @@
-export const chairmanTabs = ['assign', 'attention', 'create', 'projects', 'agents', 'knowledge', 'flows', 'chat', 'activity'] as const;
+export const chairmanTabs = ['projects', 'agents', 'flows', 'attention', 'activity'] as const;
 export type ChairmanTab = typeof chairmanTabs[number];
 export function chairmanTabFromHash(): ChairmanTab | null {
   if (!location.hash.startsWith('#/world?')) return null;

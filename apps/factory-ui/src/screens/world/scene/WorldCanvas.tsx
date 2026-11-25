@@ -23,6 +23,7 @@ import type { SceneDebug, RenderStats } from '../debugHook';
 import { ToyPrewarm } from './toys/prewarm';
 import { Ticker } from './Ticker';
 import { Studio } from './Studio';
+import { Campus } from './Campus';
 import type { WorldEvent } from '../data/events';
 import type { WorldLocations } from './CameraRig';
 import { softwareRenderer, useWorldQuality, type WorldQuality } from './quality';
@@ -82,6 +83,7 @@ function Cast({ props, quality }: { props: Props; quality: WorldQuality }) {
   useFrame(() => { props.sceneDebug.current.characters = characterStats(); });
   return <CharacterAnimator still={props.still}>
     <Studio effects={props.effects} key={props.scopeKey} model={props.model} events={props.events} quality={quality} still={props.still} hidden={props.lineup} positions={props.positions} locations={props.locations} debug={props.sceneDebug} courier={props.courier} consumeEvents={props.onEventsConsumed} onTask={props.onTask} onOfficeOpen={props.onOfficeOpen ?? (() => {})} attention={props.attention} approvalPulse={props.approvalPulse ?? 0} phonePulse={props.phonePulse ?? 0} />
+    <Campus model={props.model} hidden={props.lineup} onOpen={props.onWalkInteract} />
     <Agents key={props.scopeKey} events={props.events} courier={props.courier} agents={props.model.agents} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} effects={props.effects} />
     {props.lineup && <Lineup origin={[0, 4]} quality={quality} still={props.still} locale={i18n.locale} />}
   </CharacterAnimator>;
@@ -104,7 +106,7 @@ function WorldCanvas(props: Props) {
     <Ticker interactive={props.walking} quality={quality} still={props.still} onMeasure={measure}>
       <ToyPrewarm />
       <SceneLifecycle onReady={props.onReady} onLoading={props.onLoading} onError={props.onError} onRender={props.onRender} fps={fps} />
-      <CameraRig enabled={!props.walking} returnPoint={props.walk} agentPositions={props.positions} locations={props.locations} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
+      <CameraRig enabled={!props.walking} rooms={props.model.rooms} returnPoint={props.walk} agentPositions={props.positions} locations={props.locations} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
       <group visible={!props.lineup}><Environment /></group>
       {props.walking && <WalkScenery quality={quality} />}
       <Cast props={props} quality={quality} />

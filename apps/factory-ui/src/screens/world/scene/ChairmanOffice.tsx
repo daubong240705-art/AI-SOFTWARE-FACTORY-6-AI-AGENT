@@ -73,17 +73,15 @@ export function ChairmanOffice({ model, attention, approvalPulse, phonePulse, st
   const clock = new Date(minute);
   return <group name="chairman-office" visible={!hidden}>
     <ObjectTarget tab="chair" position={[-14.8, 0.95, -11.44]} size={[0.85, 1.5, 0.85]} onOpen={onOpen} />
-    <ObjectTarget tab="assign" position={[-14.9, 1.2, -10.2]} size={[1.2, 0.7, 0.6]} onOpen={onOpen} />
+    <ObjectTarget tab="projects" position={[-14.9, 1.2, -10.2]} size={[1.2, 0.7, 0.6]} onOpen={onOpen} />
     <ObjectTarget tab="attention" position={[-16, 1.1 + stack / 2, -10.45]} size={[0.6, 0.4 + stack, 0.65]} onOpen={onOpen}>
       <group ref={papers} position={[-16, 0.99, -10.45]}>{attention > 0 && Array.from({ length: Math.min(attention, 12) }, (_, i) => <mesh key={i} position={[0, i * stack / Math.min(attention, 12), 0]} rotation={[0, i % 2 * 0.12, 0]}><boxGeometry args={[0.43, stack / Math.min(attention, 12), 0.5]} /><meshStandardMaterial color={i % 2 ? '#E9D4AE' : '#FFF8E7'} /></mesh>)}</group>
       <OfficeBadge count={attention} />
     </ObjectTarget>
-    <ObjectTarget tab="create" position={[-15.6, 1, -10.25]} size={[0.4, 0.3, 0.4]} onOpen={onOpen} />
     {chairmanSurfaces.filter(s => s.id.startsWith('office-tv')).map((s, i) => <ObjectTarget key={s.id} tab="projects" position={s.position} size={[0.22, s.height, s.width]} onOpen={onOpen}><Surface id={s.id} text={[t('global.projects'), ...(model.loaded.projects ? model.projects.filter((_, index) => index % 3 === i).map(project => project.name) : ['—'])]} /></ObjectTarget>)}
     <ObjectTarget tab="agents" position={[-16.7, 3, -13.55]} size={[1.45, 0.75, 0.2]} onOpen={onOpen}><Surface id="office-photo" team text={[`${t('projectUi.agents')} · ${seats.length}`, ...seats.map(a => a.name)]} /></ObjectTarget>
-    <ObjectTarget tab="knowledge" position={[-12.65, 1, -8.7]} size={[0.6, 1.9, 1.16]} onOpen={onOpen} />
     <ObjectTarget tab="flows" position={[-14.9, 3.14, -13.55]} size={[1.65, 0.75, 0.2]} onOpen={onOpen}><Surface id="office-whiteboard" text={[t('projectUi.flows')]} /></ObjectTarget>
-    <ObjectTarget tab="chat" position={[-13.64, 1.08, -10.46]} size={[0.6, 0.4, 0.4]} onOpen={onOpen}>
+    <ObjectTarget tab="activity" position={[-13.64, 1.08, -10.46]} size={[0.6, 0.4, 0.4]} onOpen={onOpen}>
       <group ref={phone} position={[-13.64, 1.1, -10.46]}><mesh><boxGeometry args={[0.55, 0.12, 0.14]} /><meshStandardMaterial color="#DB4247" emissive="#DB4247" emissiveIntensity={phonePulse && performance.now() - phonePulse < 4000 ? 0.9 : 0} /></mesh></group>
     </ObjectTarget>
     <ObjectTarget tab="activity" position={[-12.9, 3, -13.55]} size={[0.6, 0.6, 0.2]} onOpen={onOpen}>

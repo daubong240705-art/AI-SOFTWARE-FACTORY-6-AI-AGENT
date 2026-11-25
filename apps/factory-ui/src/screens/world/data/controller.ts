@@ -1,14 +1,19 @@
 import type { ApiClient } from '@/api/client';
+import type { GroupsResponse } from '@factory/contracts';
+import { isActiveRun } from '../../office/liveModel';
 import { deriveWorld } from './deriveWorld';
 import { shareEqual } from './shareEqual';
 import { createWorldPoller, type PollClock, type PollJob } from './poller';
 import { createWorldSeen, diffWorld, type WorldEvent } from './events';
 import type { Assignments, WorldInputs, WorldModel } from './types';
 
-export type WorldDataApi = Pick<ApiClient, 'getOrgActivity' | 'listProjects' | 'getProjectInteractions' | 'listTasks'>;
+export type WorldDataApi = Pick<ApiClient, 'getOrgActivity' | 'listProjects' | 'getProjectInteractions' | 'listTasks'
+  | 'listProjectAgents' | 'listProjectAttempts' | 'listProjectFlows' | 'getFlowRun' | 'getInbox'> & {
+  listGroups: (signal: AbortSignal) => Promise<GroupsResponse>;
+};
 export type WorldSource = {state: 'ok' | 'error' | 'pending'; at: number};
 export type WorldSnapshot = {baseline: boolean; model: WorldModel; events: WorldEvent[]; sources: Record<string, WorldSource>; interactions: WorldInputs['interactions']};
-const emptyInputs = (): WorldInputs => ({interactions: {}, tasks: {}});
+const emptyInputs = () => ({ interactions: {}, tasks: {}, rosters: {}, attempts: {}, inboxes: {}, flows: {}, runDetails: {} }) satisfies WorldInputs;
 export const emptyWorldSnapshot = (): WorldSnapshot => ({baseline: false, model: deriveWorld(emptyInputs()).model, events: [], sources: {}, interactions: {}});
 
 /** Browser-independent polling coordinator. All time and visibility can be injected. */
@@ -23,7 +28,7 @@ export function createWorldDataController(api: WorldDataApi, options: {
   const clock: PollClock = options.clock ?? {set: (fn, ms) => setTimeout(fn, ms), clear: id => clearTimeout(id as ReturnType<typeof setTimeout>), random: Math.random};
   let stopped = false;
   let snapshot = emptyWorldSnapshot();
-  const inputs = emptyInputs();
+  const inputs: WorldInputs & Required<Pick<WorldInputs, 'rosters' | 'attempts' | 'inboxes' | 'flows' | 'runDetails'>> = emptyInputs();
   inputs.focusProjectId = options.focusProjectId ?? null;
   let assignment: Assignments = {};
   let previous: WorldModel | null = null;
@@ -41,7 +46,7 @@ export function createWorldDataController(api: WorldDataApi, options: {
     snapshot = next;
     options.onSnapshot(snapshot);
   };
-  const poller = createWorldPoller({hidden: options.hidden, clock, onError: key => {
+  const poller = createWorldPoller({hidden: options.hidden, clock, maxConcurrent: 8, onError: key => {
     emit({sources: {...snapshot.sources, [key]: {state: 'error', at: localNow()}}});
   }});
   function publish() {
@@ -53,7 +58,7 @@ export function createWorldDataController(api: WorldDataApi, options: {
     const model = result.model;
     // Keep last good data visible on resume while refreshing animation baselines.
     model.loaded = {
-      activity: successful.has('activity'), projects: successful.has('projects'),
+      activity: model.loaded.activity && model.projects.every(project => successful.has(`agents:${project.id}`)), projects: successful.has('projects'),
       interactions: model.loaded.interactions.filter(id => successful.has(`interactions:${id}`)),
     };
     const diff = diffWorld(previous, model, seen, now);
@@ -87,18 +92,30 @@ export function createWorldDataController(api: WorldDataApi, options: {
         inputs.projects = value.projects.filter(project => project.disposition !== 'archived');
         const active = new Set(inputs.projects.map(project => project.id));
         if (inputs.focusProjectId && !active.has(inputs.focusProjectId)) inputs.focusProjectId = null;
-        for (const collection of [inputs.tasks, inputs.interactions]) {
+        for (const collection of [inputs.tasks, inputs.interactions, inputs.rosters, inputs.attempts, inputs.flows, inputs.inboxes]) {
           for (const id of Object.keys(collection)) if (!active.has(id)) delete collection[id];
         }
         emit({events: snapshot.events.filter(event => event.type !== 'handoff' || active.has(event.handoff.projectId))});
       }),
+      read('groups', 60000, api.listGroups, value => { inputs.groups = value; }),
     ];
     const focus = model.focusProjectId;
-    const hot = model.hotProjects.map(project => project.id);
-    for (const id of new Set(focus ? [...hot, focus] : hot)) {
-      jobs.push(read(`interactions:${id}`, hot.includes(id) ? 6000 : 15000, signal => api.getProjectInteractions(id, 60, signal), value => { inputs.interactions[id] = value; }));
+    const projects = [...model.projects].sort((left, right) => Number(right.id === focus) - Number(left.id === focus));
+    for (const { id } of projects) jobs.push(read(`agents:${id}`, id === focus ? 10000 : 30000, signal => api.listProjectAgents(id, signal), value => { inputs.rosters[id] = value; }));
+    for (const { id } of projects) {
+      const interval = id === focus ? 6000 : 30000;
+      jobs.push(
+        read(`interactions:${id}`, interval, signal => api.getProjectInteractions(id, 60, signal), value => { inputs.interactions[id] = value; }),
+        read(`tasks:${id}`, interval + 2000, signal => api.listTasks(id, signal), value => { inputs.tasks[id] = value.items; }),
+        read(`attempts:${id}`, interval, () => api.listProjectAttempts(id, { limit: id === focus ? 300 : 100 }), value => { inputs.attempts[id] = value.attempts; }),
+        read(`inbox:${id}`, interval, () => api.getInbox(id), value => { inputs.inboxes[id] = value; }),
+        read(`flows:${id}`, interval, signal => api.listProjectFlows(id, signal), value => { inputs.flows[id] = value; }),
+      );
     }
-    if (focus) jobs.push(read(`tasks:${focus}`, 15000, signal => api.listTasks(focus, signal), value => { inputs.tasks[focus] = value.items; }));
+    const detailed = projects.flatMap(({ id }) => (inputs.flows[id]?.runs ?? []).filter(isActiveRun).slice(0, 6));
+    const currentRuns = new Set(detailed.map(run => run.id));
+    for (const id of Object.keys(inputs.runDetails)) if (!currentRuns.has(id)) delete inputs.runDetails[id];
+    for (const run of detailed) jobs.push(read(`run:${run.id}`, run.projectId === focus ? 6500 : 30000, signal => api.getFlowRun(run.projectId, run.id, signal), value => { inputs.runDetails[run.id] = value; }));
     poller.sync(jobs);
   }
   function startBaselineTimer() {
@@ -109,6 +126,7 @@ export function createWorldDataController(api: WorldDataApi, options: {
     start() {publish(); startBaselineTimer();},
     getSnapshot: () => snapshot,
     setFocusProjectId(id: string | null) {inputs.focusProjectId = id; publish();},
+    refresh(keys: readonly string[]) {for (const key of keys) poller.refresh(key);},
     consumeEvents(ids?: readonly string[]) {
       const consumed = ids ? new Set(ids) : null;
       emit({events: consumed ? snapshot.events.filter(e => !consumed.has(e.id)) : []});

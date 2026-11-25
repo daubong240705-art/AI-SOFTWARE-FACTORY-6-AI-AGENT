@@ -29,7 +29,8 @@ export const navigationAnchors: Record<string, Point> = Object.fromEntries(Objec
   counter: [16.5, 10.6],
   coffee: [-15.95, 9],
   window: [-17.1, -10],
-  'lab-bench': [anchors.labBench[0], anchors.labBench[1] + 1],
+  ...Object.fromEntries([-1.8, -.6, .6, 1.8].map((offset, index) => [`approval-${index}`, [anchors.approvalDesk[0] + offset, anchors.approvalDesk[1] + 1.5]])),
+  'flow-board': [7.5, -12.25],
 }).map(([id, p]) => [id, [round(p[0]!), round(p[1]!)] as Point]));
 // Build an orthogonal visibility grid only during layout construction, then retain
 // the lane intersections and short anchor stubs used by actual routes.

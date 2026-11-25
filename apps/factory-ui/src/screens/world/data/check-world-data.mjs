@@ -19,5 +19,6 @@ registerHooks({
   },
 });
 await import('./deriveWorld.test.ts');
+await import('./platform.test.ts');
 
 await import('../scene/walk/collision.test.ts');

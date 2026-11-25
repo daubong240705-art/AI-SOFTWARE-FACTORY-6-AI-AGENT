@@ -4,8 +4,9 @@ import { useT } from '@/i18n';
 import type { WorldPreferences } from './preferences';
 import { useCameraBridge, useCameraRig } from './cameraContext';
 import type { ZoneKey } from './layout/camera';
+import type { View } from '../shell/navigation';
 
-export function WorldToolbar({ preferences, onChange, canWalk, walking, onWalk, showActivity, onActivity, onChairman }: { onChairman: () => void; canWalk: boolean; walking: boolean; onWalk: () => void; showActivity: boolean; onActivity: () => void; preferences: WorldPreferences; onChange: (patch: Partial<WorldPreferences>) => void }) {
+export function WorldToolbar({ preferences, onChange, canWalk, walking, onWalk, showActivity, onActivity, onChairman, onNavigate }: { onChairman: () => void; canWalk: boolean; walking: boolean; onWalk: () => void; showActivity: boolean; onActivity: () => void; preferences: WorldPreferences; onChange: (patch: Partial<WorldPreferences>) => void; onNavigate: (view: View) => void }) {
   const t = useT(), camera = useCameraRig(), { state } = useCameraBridge();
   const [more, setMore] = useState(false);
   return <div className="world-toolbar world-control" role="toolbar" aria-label={t('worldUi.toolbar')}>
@@ -16,6 +17,8 @@ export function WorldToolbar({ preferences, onChange, canWalk, walking, onWalk, 
     <Button variant="outline" size="sm" aria-expanded={more} aria-label={t('worldUi.more')} onClick={() => setMore(value => !value)}>⋯</Button>
     {more && <div className="world-toolbar-more" onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setMore(false); event.currentTarget.parentElement?.querySelector<HTMLButtonElement>('[aria-expanded]')?.focus(); } }}>
       {walking && <Button variant="outline" size="sm" aria-pressed={showActivity} onClick={onActivity}>{t('worldUi.walk.activity')}</Button>}
+      <Button variant="outline" size="sm" onClick={() => onNavigate('library')}>{t('worldUi.campus.library')}</Button>
+      <Button variant="outline" size="sm" onClick={() => onNavigate('needs-attention')}>{t('worldUi.chairman.tabs.attention')}</Button>
       <label className="flex items-center gap-2 text-sm">{t('worldUi.quality')}<select className="rounded border border-border bg-card p-1" value={preferences.quality} onChange={event => { const quality = event.target.value; if (quality === 'auto' || quality === 'high' || quality === 'low') onChange({ quality }); }}>
         {(['auto', 'high', 'low'] as const).map(q => <option key={q} value={q}>{t(`worldUi.qualityOptions.${q}`)}</option>)}
       </select></label>

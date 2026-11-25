@@ -15,7 +15,7 @@ export function WorldRoster({ agents, error, loading, selected, onSelect, onOwne
     <button className="world-roster-toggle" aria-expanded={open} aria-controls={id} onClick={() => setOpen(value => !value)}>{t('worldUi.roster')} ({agents.length}) <span aria-hidden="true">{open ? '−' : '+'}</span></button>
     <div id={id} hidden={!open}>
       <button className="world-roster-agent" aria-pressed={selected === 'owner'} onClick={onOwner}>{t('worldUi.ownerDesk')}</button>
-      {error ? <p role="status" className="p-3 text-sm">{t('worldUi.sourceError')}</p> : loading ? <p role="status" className="p-3 text-sm">{t('worldUi.loading')}</p> : !agents.length ? <p className="p-3 text-sm">{t('worldUi.noAgents')}</p> : [...grouped].map(([teamId, members]) => <section key={teamId}>
+      {!agents.length ? !error && <p role="status" className="p-3 text-sm">{t(loading ? 'worldUi.loading' : 'worldUi.noAgents')}</p> : [...grouped].map(([teamId, members]) => <section key={teamId}>
         <h2 className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground">{members[0]?.teamName || t('worldUi.team')}</h2>
         {members.map(agent => <div key={agent.seatId} className={agent.slot ? 'pl-5' : undefined}><button className="world-roster-agent" aria-pressed={selected === agent.seatId} onClick={() => onSelect(agent.seatId)}>
           <Mascot seat={agent.seatName} isLead={agent.isLead} state={agent.pose === 'resting' ? 'offline' : agent.pose} size={32} animated={false} />
