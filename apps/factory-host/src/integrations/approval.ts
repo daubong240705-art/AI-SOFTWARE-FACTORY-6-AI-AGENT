@@ -21,8 +21,8 @@ export function createToolApproval({ raw, hub, clock, newId }: { raw: Database; 
     const waiting = "đang chờ người duyệt; thử lại sau khi được duyệt";
     if (prior && Date.parse(prior.expires_at) > now.getTime()) {
       if (prior.state === "pending") return waiting;
-      if (prior.state !== "approved" || prior.outcome_option_id !== "approve") return "Người duyệt đã từ chối yêu cầu gọi công cụ.";
-      if (prior.consumed_at) return "Lần gọi đã được duyệt đã được sử dụng.";
+      if (prior.state !== "approved" || prior.outcome_option_id !== "approve") return "Người duyệt đã từ chối yêu cầu gọi tool.";
+      if (prior.consumed_at) return "Quyền gọi tool đã được dùng.";
       raw.prepare("UPDATE tool_call_approvals SET consumed_at=? WHERE project_id=? AND seat_id=? AND call_hash=?")
         .run(now.toISOString(), grant.projectId, seat.id, hash);
       return null;
@@ -35,8 +35,8 @@ export function createToolApproval({ raw, hub, clock, newId }: { raw: Database; 
       context_digest,approver,requested_at,expires_at,state) VALUES (?,?,1,'question',NULL,?,?,?,?,?,'operator',?,?,'pending')`)
       .run(grant.projectId, id, subject, summary, JSON.stringify([
         { id: "approve", label: "Cho phép", consequence: "Cho phép một lần gọi giống hệt." },
-        { id: "reject", label: "Từ chối", consequence: "Không gọi công cụ." },
-      ]), "Công cụ chưa được gọi.", hash, now.toISOString(), new Date(now.getTime() + 86_400_000).toISOString());
+        { id: "reject", label: "Từ chối", consequence: "Không gọi tool." },
+      ]), "Tool chưa được gọi.", hash, now.toISOString(), new Date(now.getTime() + 86_400_000).toISOString());
     raw.prepare(`INSERT INTO tool_call_approvals VALUES (?,?,?,?,NULL) ON CONFLICT(project_id,seat_id,call_hash)
       DO UPDATE SET approval_id=excluded.approval_id,consumed_at=NULL`).run(grant.projectId, seat.id, hash, id);
     hub.append({ projectId: grant.projectId, causationId: id, payload: { type: "entity.changed", entity: { kind: "approval", id, revision: 1 } } });

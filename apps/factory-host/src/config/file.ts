@@ -35,7 +35,7 @@ export function parseConfigFile(text: string, mode: number): { values: Record<st
     values[key] = value;
   }
   if (hasSecret && (mode & 0o044) !== 0) issues.push({ code: "C-PERM", key: fileKey,
-    message: "File chứa khóa bí mật nhưng nhóm hoặc người khác có quyền đọc.", fix: "Chạy chmod 600 cho file cấu hình." });
+    message: "File chứa secret nhưng nhóm hoặc người khác có quyền đọc.", fix: "Chạy chmod 600 cho file cấu hình." });
   return { values, issues };
 }
 

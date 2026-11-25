@@ -2,6 +2,7 @@ import { constants } from "node:fs";
 import { lstat, mkdir, open, opendir, realpath, type FileHandle } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import type { AttemptContext, RuntimeEvent } from "../dispatch/runtime.js";
+import { operatorGlossary } from "./operator-glossary.js";
 
 export interface ApiAgentInput {
   access?: Pick<NonNullable<AttemptContext["model"]>, "baseUrl" | "token" | "models" | "mcpBaseUrl">;
@@ -159,6 +160,7 @@ function prompts(input: ApiAgentInput, skillTool: boolean) {
     ...(skillTool ? ["Use the skill.get tool (skill__get) for the full text."] : []),
   ].join("\n") : null,
   `Language: write everything the operator reads in ${input.language}. Keep code, identifiers, file names, commands and quoted errors as they are.`,
+  operatorGlossary(input.language),
   "Work in turns. Call the available tools when needed, using double underscores for dots in tool names. Finish with a final message summarising the result."].filter(Boolean).join("\n\n");
   const { task } = input;
   const user = [`Task: ${task.title}\nGoal: ${task.goal}\nBrief: ${task.brief}`,
@@ -251,7 +253,7 @@ export async function runApiAgent(input: ApiAgentInput, emit: (event: RuntimeEve
       const choice = Array.isArray(reply.choices) ? record(reply.choices[0]) : {};
       const message = record(choice.message);
       const calls = toolCalls(message.tool_calls);
-      send({ type: "progress", message: `L\u01b0\u1ee3t ${turn}: g\u1ecdi ${calls.length} c\u00f4ng c\u1ee5` });
+      send({ type: "progress", message: `Lượt ${turn}: gọi ${calls.length} tool` });
       const usage = record(reply.usage);
       send({ type: "usage", usage: { inputTokens: reportedCount(usage.prompt_tokens),
         cachedInputTokens: reportedCount(record(usage.prompt_tokens_details).cached_tokens),

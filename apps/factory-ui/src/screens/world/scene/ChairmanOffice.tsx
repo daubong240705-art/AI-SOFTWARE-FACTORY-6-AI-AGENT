@@ -87,7 +87,7 @@ export function ChairmanOffice({ model, attention, approvalPulse, phonePulse, st
     <ObjectTarget tab="activity" position={[-12.9, 3, -13.55]} size={[0.6, 0.6, 0.2]} onOpen={onOpen}>
       <Surface id="office-clock" text={[clock.toLocaleTimeString(i18n.locale, { hour: '2-digit', minute: '2-digit' })]} />
     </ObjectTarget>
-    <Surface id="office-door-plate" text={['Chủ tịch / Chairman']} />
+    <Surface id="office-door-plate" text={[t('worldUi.chairmanDoorPlate')]} />
   </group>;
 }
 function OfficeBadge({ count }: { count: number }) {

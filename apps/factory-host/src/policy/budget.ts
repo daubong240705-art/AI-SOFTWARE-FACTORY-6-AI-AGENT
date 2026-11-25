@@ -76,7 +76,7 @@ export function groupBudgetRefusal(raw: Database, projectId: string, now: Date, 
     const { used } = groupTokenUsage(raw, id, now);
     if (used < limit && canReserve({ limitTokens: limit }, used, estimateTokens)) continue;
     return { ok: false as const, scope: "group" as const, verdict: used >= limit ? "exceeded" as const : "would-exceed" as const,
-      used, limit, reason: `Nhóm ${name} đã chạm ngân sách token 30 ngày hoặc không đủ ngân sách cho công việc mới (${used}/${limit} token).` };
+      used, limit, reason: `Group ${name} đã chạm ngân sách token 30 ngày hoặc không đủ ngân sách cho task mới (${used}/${limit} token).` };
   }
   return undefined;
 }

@@ -75,13 +75,13 @@ async function setup(args: string[], env: ConfigEnv, print: (line: string) => vo
   };
   const askKey = async (): Promise<string | undefined> => {
     if (!reader) return previous.values.FACTORY_MODEL_API_KEY ?? previous.values.NINE_ROUTER_API_KEY;
-    process.stdout.write("Khóa API (ẩn; Enter để giữ khóa hiện tại hoặc dùng không khóa): ");
+    process.stdout.write("API key (ẩn; Enter để giữ key hiện tại hoặc tiếp tục mà không dùng key): ");
     hidden = true;
     try { return await reader.question("", { signal: cancelled.signal }) || previous.values.FACTORY_MODEL_API_KEY || previous.values.NINE_ROUTER_API_KEY; }
     finally { hidden = false; process.stdout.write("\n"); }
   };
   try {
-    const answer = flags["base-url"] ?? await ask("URL nhà cung cấp model (none để bỏ qua)", existing.model?.legacy ? "" : existing.model?.baseUrl);
+    const answer = flags["base-url"] ?? await ask("URL model provider (none để bỏ qua)", existing.model?.legacy ? "" : existing.model?.baseUrl);
     const base = answer === "none" ? "" : answer;
     for (const key of ["FACTORY_MODEL_BASE_URL", "FACTORY_GATEWAY_URL", "FACTORY_MODEL_API_KEY", "NINE_ROUTER_API_KEY", "FACTORY_LEAD_MODEL", "FACTORY_AGENT_MODELS"])
       delete values[key];
@@ -91,13 +91,13 @@ async function setup(args: string[], env: ConfigEnv, print: (line: string) => vo
       let storedKey: string | undefined;
       const keyEnv = flags["api-key-env"];
       if (keyEnv !== undefined) {
-        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(keyEnv) || !env[keyEnv]) fail("FACTORY_MODEL_API_KEY", "Đặt khóa trong biến môi trường chỉ định bởi --api-key-env.");
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(keyEnv) || !env[keyEnv]) fail("FACTORY_MODEL_API_KEY", "Đặt API key trong biến môi trường chỉ định bởi --api-key-env.");
         storedKey = env[keyEnv];
       } else storedKey = await askKey();
       const key = storedKey ?? env.FACTORY_MODEL_API_KEY ?? env.NINE_ROUTER_API_KEY;
-      if (key && /[\s\p{Cc}]/u.test(key)) fail("FACTORY_MODEL_API_KEY", "Dùng khóa không chứa khoảng trắng hay ký tự điều khiển.");
-      const models = await probeModels(base, key).catch(() => fail("FACTORY_MODEL_BASE_URL", "Kiểm tra /models, khóa API, CA và kết nối mạng rồi thử lại."));
-      if (!models.length) fail("FACTORY_MODEL_BASE_URL", "Nhà cung cấp phải trả về ít nhất một model qua /models.");
+      if (key && /[\s\p{Cc}]/u.test(key)) fail("FACTORY_MODEL_API_KEY", "Dùng API key không chứa khoảng trắng hay ký tự điều khiển.");
+      const models = await probeModels(base, key).catch(() => fail("FACTORY_MODEL_BASE_URL", "Kiểm tra /models, API key, CA và kết nối mạng rồi thử lại."));
+      if (!models.length) fail("FACTORY_MODEL_BASE_URL", "Model provider phải trả về ít nhất một model qua /models.");
       if (interactive) process.stdout.write(`${models.map((name, index) => `${index + 1}. ${name}`).join("\n")}\n`);
       const pick = (answer: string): string => models.includes(answer) ? answer : /^\d+$/.test(answer) ? models[Number(answer) - 1] ?? answer : answer;
       const lead = pick(flags["lead-model"] ?? await ask("Model Lead (số hoặc mã)", models[0]!));
@@ -110,7 +110,7 @@ async function setup(args: string[], env: ConfigEnv, print: (line: string) => vo
       if (agents.length) values.FACTORY_AGENT_MODELS = agents.join(",");
       delete values.FACTORY_LEAD_CLI;
     } else if (flags["api-key-env"] || flags["lead-model"] || flags["agent-models"]) {
-      fail("FACTORY_MODEL_BASE_URL", "Cần --base-url khi chọn khóa API hoặc model.");
+      fail("FACTORY_MODEL_BASE_URL", "Cần --base-url khi chọn API key hoặc model.");
     }
     values.FACTORY_PORT = flags.port ?? await ask("Cổng Host", existing.env.FACTORY_PORT);
     const listen = (flags.listen ?? await ask("Địa chỉ nghe", existing.env.FACTORY_LISTEN_HOST)).trim() || "127.0.0.1";

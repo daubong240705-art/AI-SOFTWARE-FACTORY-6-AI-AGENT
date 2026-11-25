@@ -6,6 +6,7 @@ import type { RunHandle } from "../exec/process-group.js";
 import { scrubForLog } from "../exec/safe-env.js";
 import { SANDBOX_RELAY_PORT, startSandboxed, type SandboxSpec } from "../sandbox/index.js";
 import { assertInside, canonicalPath } from "../workspace/paths.js";
+import { operatorGlossary } from "./operator-glossary.js";
 
 export interface OpenCodeRuntimeOptions {
   roots: SandboxSpec["roots"];
@@ -65,13 +66,14 @@ export function promptFor(context: AttemptContext, maxBytes: number, token: stri
     "Run the project's own tests when your task changes code and they exist; follow your profile when it says which checks to run.",
     "Finish with a short summary of what changed and what was verified.",
     `Language: write everything the operator reads in ${operatorLanguage()} (task progress, criterion evidence, decision questions and options, the final summary, and documents written for the operator such as a README). Keep code, identifiers, code comments, file names, commands and quoted errors as they are, in English.`,
+    operatorGlossary(operatorLanguage()),
     "Tasks start by themselves and the Host accepts a clean result without asking the operator. Keep the result clean: change only files in scope and avoid symlinks, executable bits, .github workflow files, .git content and very large files, which send the result to the operator.",
     "Factory tools: factory_task_progress (call it at meaningful milestones, short summary) and factory_output_register (only for a document explicitly requested by the operator in the task scope, register it with its workspace-relative path, a title, a kind and a one-sentence abstract). Never include secrets in them.",
     "Document policy (overrides profiles and skills): create and register documents only when the operator explicitly requests them, such as an SRD. Source code, diffs, test output, task summaries and routine handoffs stay in the workspace or task progress; do not publish them as documents.",
     "Before finishing, check every acceptance criterion and call factory_criterion_report once per criterion with its exact text, passed true or false, and one sentence of evidence. Never report a check you did not run as passed.",
     "When the task asks for preview images or screenshots as review evidence, register them with factory_output_register as kind media (workspace-relative path, for example under .factory/), so the operator sees them in the review.",
     "If a business decision blocks you and you cannot make it yourself, call factory_decision_request with the question and 2-6 options, then stop immediately without further tool calls. The operator will answer and a new session will continue your work.",
-  ].join("\n")) + inputsBlock(context, redact);
+  ].filter(Boolean).join("\n")) + inputsBlock(context, redact);
   if (prompt.includes("\0") || Buffer.byteLength(prompt) > maxBytes) return invalid();
   const suffix = (context.contextPack ? `\nContext:\n${redact(context.contextPack.replaceAll("\0", ""))}` : "")
     + (context.handoff ? `\nHandoff:\n${redact(context.handoff.replaceAll("\0", ""))}` : "");

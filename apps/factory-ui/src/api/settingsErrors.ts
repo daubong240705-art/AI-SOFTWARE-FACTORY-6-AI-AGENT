@@ -18,6 +18,7 @@ const messages: Record<string, string> = {
 export function settingsErrorKey(message: string) {
   const archive: Record<string, string> = {
     'Dự án còn lượt chạy đang hoạt động hoặc chưa rõ kết quả. Hãy dừng lượt chạy và đối soát trước khi xoá dự án.': 'live',
+    'Dự án còn run đang hoạt động hoặc chưa rõ kết quả. Hãy dừng run và đối soát trước khi xoá dự án.': 'live',
     'Dự án đang phát hành. Hãy chờ phát hành hoàn tất trước khi xoá dự án.': 'release',
     'Tên xác nhận phải trùng khớp chính xác với tên dự án.': 'name',
     'Dự án đã thay đổi. Hãy tải lại trước khi xoá.': 'revision',
