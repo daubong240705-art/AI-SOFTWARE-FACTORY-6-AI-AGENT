@@ -78,9 +78,16 @@ async function checkModel(input: DoctorInput): Promise<DoctorCheck> {
     const leadModel = input.config.FACTORY_LEAD_CLI === "claude" ? undefined : input.config.FACTORY_LEAD_MODEL;
     const requested = [leadModel, ...(input.config.FACTORY_AGENT_MODELS ?? "").split(",")].filter((value): value is string => Boolean(value));
     const missing = requested.filter((model) => !models.includes(model));
-    if (missing.length) return fail("D-MODEL", "required", "Model đã chọn không có trong danh sách nhà cung cấp.", "Chọn model có trong GET /models hoặc cập nhật FACTORY_LEAD_MODEL/FACTORY_AGENT_MODELS.");
+    // Some gateways serve models they do not list (e.g. a newer model behind an alias list), so an unlisted model is
+    // only a warning; the real call (checkModel) decides.
+    if (missing.length && !input.checkModel)
+      return fail("D-MODEL", "warning", `Model ${missing.join(", ")} không có trong danh sách GET /models của nhà cung cấp.`,
+        "Bấm \"Kiểm tra cả model\" (hoặc factory doctor --model) để gọi thử thật; nếu lỗi thì chọn model có trong danh sách.");
     if (input.checkModel) {
-      await probeCompletion(base, key, requested[0] ?? models[0]!, input.fetch);
+      for (const model of requested.length ? requested : [models[0]!]) await probeCompletion(base, key, model, input.fetch);
+      return pass("D-MODEL", "required", missing.length
+        ? `Chat completion hoạt động với ${requested.join(", ")} (có model không được liệt kê nhưng vẫn dùng được).`
+        : "GET /models và chat completion hoạt động.");
     }
     return pass("D-MODEL", "required", input.checkModel ? "GET /models và chat completion hoạt động." : "GET /models hoạt động và model đã chọn có sẵn.");
   } catch (error) { return modelProbeFailure(error); }

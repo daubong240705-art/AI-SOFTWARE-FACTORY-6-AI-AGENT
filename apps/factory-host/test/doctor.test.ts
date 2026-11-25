@@ -41,7 +41,7 @@ test("doctor checks real Node and SQLite WAL, and validates models and CLI login
   assert.equal(report.ok, true);
   for (const id of ["D-NODE", "D-STATE", "D-MODEL", "D-CODEX"]) assert.equal(check(report, id).status, "pass");
   assert.equal(check(report, "D-CLAUDE").status, "skip");
-  assert.deepEqual(methods, ["GET", "POST"]);
+  assert.deepEqual(methods, ["GET", "POST", "POST"]); // one 1-token call per selected model (lead, agent)
   assert.ok(!(await readdir(dir)).some((file) => file.startsWith(".doctor-")));
   assert.ok(!JSON.stringify(report).includes(dummyKey));
 });
@@ -56,6 +56,8 @@ test("doctor reports a model missing from the provider and a CLI that is not log
     assert.equal(check(report, id).status, "fail");
     assert.ok(check(report, id).fix);
   }
+  // An unlisted model is only a warning: some gateways serve models they do not list.
+  assert.equal(check(report, "D-MODEL").level, "warning");
 });
 
 test("doctor HTTP route requires a session and only completes when model=1", async (context) => {
@@ -78,7 +80,7 @@ test("doctor HTTP route requires a session and only completes when model=1", asy
   assert.equal(completions, 0);
   const response = await app.inject({ url: "/system/doctor?model=1", headers });
   assert.equal(response.statusCode, 200);
-  assert.equal(completions, 1);
+  assert.equal(completions, 2);
   assert.equal(check(doctorResponseSchema.parse(response.json()).report, "D-PORT").status, "pass");
   assert.ok(!response.body.includes(dummyKey));
 });
