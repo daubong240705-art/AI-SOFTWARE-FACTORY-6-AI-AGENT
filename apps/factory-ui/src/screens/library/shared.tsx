@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
-import type { Command } from '@factory/contracts';
+import type { Command, SkillSummary } from '@factory/contracts';
 import { AgentCommandError, ApiClientError } from '@/api/client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { i18n, useT } from '@/i18n';
+import { bundledSkillDescriptions } from '@/i18n/bundledSkillDescriptions';
 import { AdminDialog, DialogButtons, ErrorText, ReadStatus, useAgentLabels, useWriteFeedback, type Submit } from '../agents/shared';
 
 export function useLibraryLabels() {
@@ -14,6 +15,11 @@ export function useLibraryLabels() {
 
 export const dateTime = (value: string) => new Date(value).toLocaleString(i18n.locale);
 export const panelClass = 'min-w-0 space-y-4 rounded-xl border border-border bg-card/60 p-4';
+
+export function skillDescription(skill: SkillSummary) {
+  const translation = bundledSkillDescriptions.get(skill.description);
+  return i18n.locale === 'vi' && skill.source?.startsWith('pack:') && translation ? translation : skill.description;
+}
 
 export function ReadFeedback({ error, loading, retry }: { error: Error | undefined; loading: boolean; retry: () => void }) {
   const t = useAgentLabels();

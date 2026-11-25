@@ -1,4 +1,7 @@
+import type { FlowIssueCode } from '@factory/contracts';
+
 export const extra = {
+  commonUi: { close: 'Close', actions: 'More actions', unnamed: 'Unnamed', imported: 'Imported', unavailable: 'Unavailable', package: 'Pack: {name}', technicalDetails: 'Technical details' },
   traceUi: {
     monitor: 'Monitor', trace: 'Trace', monitorHelp: 'See what is running and follow requests end to end.', refresh: 'Refresh',
     attempts: 'Running attempts', runs: 'Active runs', tools: 'Recent tool calls', failures: 'Recent failures', today: 'Tokens today',
@@ -110,6 +113,17 @@ export const extra = {
     deleteTitle: 'Delete from the library?', deleteHelp: 'Delete “{name}” and its history?', missing: 'This item is no longer in the library.', conflict: 'Changed elsewhere. Reload before trying again.', saveAsTemplate: 'Save as template', saveTemplateHelp: 'Save the current configuration of “{name}” as a new library template.', upgradeFromTemplate: 'Upgrade from template (r{revision})', upgradeHelp: 'Replace the configuration of “{name}” with template r{revision}. Agent-specific changes will not be kept.', compareHelp: 'Select the agent’s current revision below to compare it with template r{revision} before confirming.',
   },
   flowsUi: {
+    triggerStart: 'Start', missingNode: 'Unavailable node', missingAgent: 'Unavailable agent', missingWorkflow: 'Sub-workflow', nodeTeam: 'Team',
+    portHint: { out: 'Normal output', error: 'When an error occurs', approved: 'When approved', rejected: 'When rejected', timeout: 'When time runs out', body: 'Run the loop body', done: 'When finished', else: 'When no condition matches', item: 'For each item', rule: 'When the condition matches' },
+    validation: {
+      'no-trigger': 'Add at least one Trigger node.', 'unknown-node': 'A connection refers to a node that does not exist.',
+      'unknown-port': 'A connection uses an output port that does not exist.', unreachable: 'This node is not reachable from a Trigger.',
+      'cycle-without-loop': 'Use a Loop node to create a cycle.', 'bad-loop-back': 'The return connection must go from the loop body back to its Loop node.',
+      'join-needs-two-inputs': 'A Join node needs at least two incoming connections.', 'trigger-has-input': 'A Trigger node cannot have incoming connections.',
+      'unknown-path': 'A data path does not exist.', 'subflow-self': 'A workflow cannot call itself.',
+      'duplicate-edge': 'This connection is duplicated.', 'output-has-edges': 'An Output node cannot have outgoing connections.',
+      'agent-not-found': 'The selected agent is unavailable.', budget: 'The configured budget is invalid.', invalid: 'Check the values and try again.',
+    } satisfies Record<FlowIssueCode | 'invalid', string>,
     title: 'Workflows', subtitle: 'Build, publish, and monitor workflows.', olderHost: 'This Host does not support Workflow v2.', loading: 'Loading…', reload: 'Reload',
     create: 'Create workflow', createHelp: 'Create a blank workflow with a manual trigger and output.', blankHelp: 'Use lowercase letters, numbers, or hyphens.', import: 'Import legacy workflow', importHelp: 'Convert a v1 pack workflow into an editable v2 draft.', pack: 'Pack', selectPack: 'Choose a pack', definition: 'Legacy definition', selectDefinition: 'Choose a definition', noDefinitions: 'No importable definitions found.',
     flowsCount: '{count} workflows', showActive: 'Show active', showArchived: 'Show archived', archive: 'Archive', restore: 'Restore', empty: 'No workflows yet.', emptyArchived: 'No archived workflows.', open: 'Open workflow', draft: 'Draft', version: 'Version {version}', draftChanged: 'Unpublished changes', source: 'Imported from {source}', sourceBlank: 'Created in v2', recentRuns: 'Recent runs', noRuns: 'No runs yet.',

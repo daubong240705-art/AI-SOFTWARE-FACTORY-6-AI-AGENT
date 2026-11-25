@@ -1,7 +1,9 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useCallback, useReducer, useState } from 'react';
 import type { HttpEffect } from '@/api/integrationModels';
 import { Button } from '@/components/ui/button';
-import { AdminDialog, Choice, DialogButtons, Field, useRead } from '../agents/shared';
+import { TechDetails } from '@/components/app/TechDetails';
+import { AdminDialog, DialogButtons, Field, useRead } from '../agents/shared';
 import { useGroups } from '../groups/GroupsContext';
 import { IntegrationError, RetryRead, useIntegrationLabels, useIntegrationWrite } from './shared';
 
@@ -13,9 +15,9 @@ function Reconcile({ projectId, effect, close, refresh }: { projectId: string; e
   return <AdminDialog title={t('reconcile')} description={t('reconcileHelp')} close={close} busy={write.busy}
     onSubmit={() => { if (resolution && !write.conflict) void write.run(() => api.reconcileHttpEffect(projectId, effect.id, resolution), () => { refresh(); close(); }, 'reconciled'); }}
     footer={<DialogButtons close={close} label={t('reconcile')} busy={write.busy} disabled={!resolution || write.conflict} />}>
-    <p className="break-all text-sm text-muted-foreground">{t('effectId')}: <code>{effect.id}</code></p>
-    <Field label={t('resolution')}>{props => <Choice {...props} value={resolution} onChange={event => setResolution(event.target.value === 'done' ? 'done' : event.target.value === 'failed' ? 'failed' : '')}>
-      <option value="">{t('selectResolution')}</option><option value="done">{t('resolvedDone')}</option><option value="failed">{t('resolvedFailed')}</option>
+    <TechDetails identifier={effect.id} />
+    <Field label={t('resolution')}>{props => <Choice {...props} value={resolution} onValueChange={selectedValue => setResolution(selectedValue === 'done' ? 'done' : selectedValue === 'failed' ? 'failed' : '')}>
+      <ChoiceOption value="">{t('selectResolution')}</ChoiceOption><ChoiceOption value="done">{t('resolvedDone')}</ChoiceOption><ChoiceOption value="failed">{t('resolvedFailed')}</ChoiceOption>
     </Choice>}</Field>
     <IntegrationError error={write.error} />
     {write.conflict && <Button type="button" variant="outline" onClick={() => { refresh(); close(); }}>{t('refresh')}</Button>}
@@ -34,8 +36,8 @@ export default function HttpEffects({ projectId }: { projectId: string }) {
     <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{t('effects')}</h2><Button type="button" size="sm" variant="ghost" disabled={result.loading} onClick={refresh}>{t('refresh')}</Button></div>
     <RetryRead error={result.error} loading={result.loading && !result.data} retry={refresh} />
     {unknown?.length === 0 && <p className="text-sm text-muted-foreground">{t('noEffects')}</p>}
-    {unknown && unknown.length > 0 && <ul className="divide-y">{unknown.map(item => <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
-      <p className="min-w-0 break-all text-sm">{t('effectId')}: <code>{item.id}</code></p>
+    {unknown && unknown.length > 0 && <ul className="divide-y">{unknown.map((item, index) => <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+      <div className="min-w-0 text-sm">{t('effects')} · {index + 1}<TechDetails identifier={item.id} /></div>
       <Button type="button" size="sm" variant="outline" onClick={() => setEffect(item)}>{t('reconcile')}</Button>
     </li>)}</ul>}
     {effect && <Reconcile projectId={projectId} effect={effect} close={() => setEffect(undefined)} refresh={refresh} />}

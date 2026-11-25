@@ -2,9 +2,10 @@ import { PanelPresence, usePanelLayout } from '@/components/motion/PanelPresence
 import { lazy, Suspense, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import type { Project } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Activity, BookOpen, Bot, Columns3, LayoutGrid, MessageSquare, Settings, Users, Workflow } from 'lucide-react';
+import { Activity, BookOpen, Bot, Columns3, Ellipsis, LayoutGrid, MessageSquare, Settings, Users, Workflow } from 'lucide-react';
 import { useT } from '../i18n';
 import type { Store } from '../state/store';
 import { DockedPane } from './DockedPane';
@@ -42,7 +43,19 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const buttons = useRef<Array<HTMLButtonElement | null>>([]);
+  const tabStrip = useRef<HTMLDivElement>(null);
   const ask = useRef<HTMLButtonElement>(null);
+  const compactActions = useRef<HTMLButtonElement>(null);
+  const actionFocus = () => ask.current?.getClientRects().length ? ask.current : compactActions.current;
+  useEffect(() => {
+    const strip = tabStrip.current;
+    const button = buttons.current.find(item => item?.dataset.state === 'active');
+    if (!strip || !button) return;
+    const viewport = strip.getBoundingClientRect();
+    const bounds = button.getBoundingClientRect();
+    if (bounds.left < viewport.left + 12) strip.scrollLeft += bounds.left - viewport.left - 12;
+    else if (bounds.right > viewport.right - 12) strip.scrollLeft += bounds.right - viewport.right + 12;
+  }, [active]);
   useEffect(() => {
     if (openChat) { setSelected(null); setChat(true); onChatOpened?.(); }
   }, [openChat, onChatOpened]);
@@ -60,12 +73,13 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
   }
   function openTask(taskId: string) { setChat(false); setSelected(taskId); select('board'); }
   return <div className="project-view flex h-full min-h-0 flex-col">
-    <Page className="min-w-0 flex-none pt-4 pb-0"><header role="generic" className="flex h-14 items-center overflow-x-auto border-b border-border px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <ProjectTile id={project.id} name={project.name} className="size-8" />
-      <h1 className="m-0 ml-2.5 hidden max-w-48 shrink-0 truncate font-sans text-base leading-normal font-medium sm:block" title={project.name}>{project.name}</h1>
-      <Separator orientation="vertical" className="mx-3 shrink-0 data-[orientation=vertical]:h-6" />
-      <LayoutGroup id={`${id}-project-tabs`}><Tabs value={active} onValueChange={value => select(value as ProjectTab)} className="shrink-0 gap-0">
-        <TabsList aria-label={t('shell.projectTabs')} className="justify-start gap-1 bg-transparent p-0">
+    <Page className="min-w-0 flex-none px-4 pt-4 pb-0 sm:px-8"><header role="generic" className="flex h-14 min-w-0 items-center border-b border-border">
+      <ProjectTile id={project.id} name={project.name} className="size-8 shrink-0" />
+      <h1 className="m-0 ml-2.5 max-w-[min(18vw,12rem)] shrink-0 truncate font-sans text-base leading-normal font-medium" title={project.name}>{project.name}</h1>
+      <Separator orientation="vertical" className="mx-2 shrink-0 data-[orientation=vertical]:h-6" />
+      <div ref={tabStrip} className="min-w-0 flex-1 overflow-x-auto px-3 py-1 [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)] [scrollbar-width:none]">
+      <LayoutGroup id={`${id}-project-tabs`}><Tabs value={active} onValueChange={value => select(value as ProjectTab)} className="w-max gap-0">
+        <TabsList aria-label={t('shell.projectTabs')} className="flex-nowrap gap-1 bg-transparent p-0 whitespace-nowrap">
           {tabs.map((value, index) => {
             const Icon = tabIcons[value];
             return <TabsTrigger data-testid={`project-tab-${value}`} key={value} ref={node => { buttons.current[index] = node; }} value={value} id={`${id}-${value}`} aria-controls={`${id}-panel`} onClick={() => { if (active !== 'flows' || value === 'flows') select(value); }} onKeyDown={event => navigate(event, index)} className="h-9 flex-none gap-2 rounded-lg border-0 px-3 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground data-[state=active]:!bg-transparent data-[state=active]:!text-foreground group-data-[variant=default]/tabs-list:data-[state=active]:shadow-none">
@@ -75,10 +89,13 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
             </TabsTrigger>;
           })}
         </TabsList>
-      </Tabs></LayoutGroup>
+      </Tabs></LayoutGroup></div>
       <Button data-testid="project-tab-settings" id={`${id}-settings`} type="button" variant="ghost" size="icon" className={`ml-1 shrink-0 ${active === 'settings' ? 'bg-secondary text-foreground' : 'text-muted-foreground'}`} aria-label={t('projectUi.settings')} aria-current={active === 'settings' ? 'page' : undefined} onClick={() => select('settings')}><Settings aria-hidden="true" /></Button>
-      <div className="ml-auto flex shrink-0 items-center gap-2 pl-3">
-        <Button ref={ask} variant="outline" className="h-9 w-9 px-0 min-[1440px]:w-auto min-[1440px]:px-3" aria-label={t('projectUi.askLead')} title={t('projectUi.askLead')} aria-expanded={chat} aria-controls={`${id}-chat`} onClick={() => { setSelected(null); setChat(!chat); }}><MessageSquare className="size-4" aria-hidden="true" /><span className="hidden min-[1440px]:inline">{t('projectUi.askLead')}</span></Button>
+      <div className="flex shrink-0 items-center gap-2 pl-2">
+        <Button ref={ask} variant="outline" className="hidden min-[1300px]:inline-flex" aria-expanded={chat} aria-controls={`${id}-chat`} onClick={() => { setSelected(null); setChat(!chat); }}><MessageSquare className="size-4" aria-hidden="true" />{t('projectUi.askLead')}</Button>
+        <DropdownMenu><DropdownMenuTrigger asChild><Button ref={compactActions} type="button" variant="outline" size="icon" className="min-[1300px]:hidden" aria-label={t('commonUi.actions')}><Ellipsis aria-hidden="true" /></Button></DropdownMenuTrigger>
+          <DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => { setSelected(null); setChat(!chat); }}><MessageSquare aria-hidden="true" />{t('projectUi.askLead')}</DropdownMenuItem></DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header></Page>
     <div className={`project-body${chatVisible ? ' has-chat' : ''}`}>
@@ -97,8 +114,8 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         {active === 'knowledge' && (navigation.artifact ? <Suspense fallback={<LoadingState />}><ArtifactDetail key={`${navigation.artifact.id}:${navigation.artifact.version}`} store={store} projectId={project.id} target={navigation.artifact} /></Suspense> : <ProjectDocuments key={project.id} store={store} projectId={project.id} />)}
         </Reveal>
       </div>
-      <PanelPresence className="project-chat-dock min-h-0 min-w-0" fallbackFocus={() => ask.current} onExitComplete={chatExited}>{chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock h-full p-0" onClose={() => setChat(false)} fallbackFocus={() => ask.current}>
-        <ProjectChat store={store} projectId={project.id} onClose={() => { setChat(false); ask.current?.focus(); }} />
+      <PanelPresence className="project-chat-dock min-h-0 min-w-0" fallbackFocus={actionFocus} onExitComplete={chatExited}>{chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock h-full p-0" onClose={() => setChat(false)} fallbackFocus={actionFocus}>
+        <ProjectChat store={store} projectId={project.id} onClose={() => { setChat(false); actionFocus()?.focus(); }} />
       </DockedPane>}</PanelPresence>
     </div>
   </div>;

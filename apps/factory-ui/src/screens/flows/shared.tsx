@@ -1,20 +1,33 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { createContext, useContext, useEffect, useId, useReducer, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
-import type { Command, FlowDefinition, FlowRunSummary } from '@factory/contracts';
+import type { Command, FlowDefinition, FlowNode, FlowRunSummary } from '@factory/contracts';
+import { extra } from '@/i18n/extra.en';
 import { ApiClientError, type ApiClient } from '@/api/client';
 import { openProjectEvents } from '@/api/events';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { i18n, useT } from '@/i18n';
-import { AdminDialog, Choice, Field, useRead } from '../agents/shared';
+import { AdminDialog, Field, useRead } from '../agents/shared';
 
-export { Choice, Field, useRead };
+export { Field, useRead };
 export const baseUrl = import.meta.env.DEV ? '/api' : '';
 
 export function useFlowLabels() {
   const translate = useT();
   return (key: string, values: Record<string, string | number> = {}) =>
     translate(`flowsUi.${key}`).replace(/\{(\w+)\}/g, (token, name: string) => String(values[name] ?? token));
+}
+
+export function flowNodeTitle(node: FlowNode, label: ReturnType<typeof useFlowLabels>) {
+  if (node.type === 'trigger' && node.id === 'start' && /^start$/i.test(node.title)) return label('triggerStart');
+  return node.title || label(`node.${node.type}`);
+}
+
+export function PortLabel({ port, className, style }: { port: string; className?: string; style?: React.CSSProperties }) {
+  const label = useFlowLabels();
+  const description = label(`portHint.${Object.hasOwn(extra.flowsUi.portHint, port) ? port : 'rule'}`);
+  return <code className={className} style={style} title={description} aria-label={`${port}: ${description}`}>{port}</code>;
 }
 
 export function useFlowEvents(projectId: string, refresh: () => void, routeId?: string) {
@@ -100,9 +113,9 @@ export function NodePicker({ definition, current, onChange }: { definition: Flow
   const id = useId();
   return <div className="flex min-w-0 items-center gap-2 text-sm">
     <label htmlFor={id} className="shrink-0 text-muted-foreground">{label('selectNode')}</label>
-    <Choice id={id} value={current ?? ''} onChange={event => onChange(event.target.value)}>
-      <option value="">{label('none')}</option>
-      {definition.nodes.map(node => <option key={node.id} value={node.id}>{node.title || node.id} ({node.id})</option>)}
+    <Choice id={id} value={current ?? ''} onValueChange={selectedValue => onChange(selectedValue)}>
+      <ChoiceOption value="">{label('none')}</ChoiceOption>
+      {definition.nodes.map(node => <ChoiceOption key={node.id} value={node.id}>{flowNodeTitle(node, label)}</ChoiceOption>)}
     </Choice>
   </div>;
 }

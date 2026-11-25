@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { FlowCanvas, type Selection } from './FlowCanvas';
 import { Toggle } from './FlowFields';
-import { Field, FlowDialog, FlowError, NodePicker, RunState, duration, timestamp, useFlowEvents, useFlowLabels, useFlowWrite, useRead } from './shared';
+import { Field, FlowDialog, FlowError, NodePicker, PortLabel, RunState, duration, flowNodeTitle, timestamp, useFlowEvents, useFlowLabels, useFlowWrite, useRead } from './shared';
 import { openFlowRoute } from '../shell/navigation';
 
 export function RunView({ api, projectId, runId, onBack, onOpenTask, onOpenApproval }: {
@@ -64,7 +64,7 @@ export function RunView({ api, projectId, runId, onBack, onOpenTask, onOpenAppro
       <aside className="min-w-0 space-y-3 rounded-xl border bg-card p-3 lg:overflow-auto">
         <FlowError error={error ?? (!dialog && write.error)} />
         {run.stateReason && <p className="break-words rounded-md bg-muted p-2 text-sm">{run.stateReason}</p>}
-        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="break-all text-sm font-semibold">{node?.title ?? label('nodeRun')}</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="break-all text-sm font-semibold">{node ? flowNodeTitle(node, label) : label('nodeRun')}</h3>
           {node && retryable && <Button size="sm" variant="outline" disabled={busy} onClick={() => void write.run(() => flowCommand('flow-runs.retry-node', projectId, { ...base, nodeId: node.id }))}><RotateCcw aria-hidden="true" />{label('retryNode')}</Button>}
         </div>
         {node ? attempts.length ? attempts.map(attempt => <Attempt key={`${attempt.iteration}-${attempt.attemptNo}`} attempt={attempt} onOpenTask={onOpenTask}
@@ -88,7 +88,7 @@ function Attempt({ attempt, onOpenTask, onOpenApproval, onChild }: { attempt: Fl
     <div className="flex flex-wrap justify-between gap-1"><span>{label('iteration', { count: attempt.iteration })} · {label('attempt', { count: attempt.attemptNo })}</span>
       <Badge variant={attempt.state === 'failed' ? 'destructive' : 'outline'}>{label(`state.${attempt.state}`)}</Badge></div>
     <p className="text-xs text-muted-foreground">{timestamp(attempt.startedAt)} → {timestamp(attempt.endedAt)} · {duration(attempt.startedAt, attempt.endedAt)}</p>
-    {attempt.port && <p className="text-xs">{label('field.port')}: <code>{attempt.port}</code></p>}
+    {attempt.port && <p className="text-xs">{label('field.port')}: <PortLabel port={attempt.port} /></p>}
     {attempt.pinned && <Badge variant="secondary">{label('pinned')}</Badge>}
     {attempt.error && <p className="whitespace-pre-wrap break-words text-sm text-destructive">{attempt.error}</p>}
     <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2 font-mono text-xs">{attempt.output === null && !attempt.pinned ? label('noOutput') : JSON.stringify(attempt.output, null, 2)}</pre>

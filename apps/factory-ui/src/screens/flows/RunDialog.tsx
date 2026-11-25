@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useState } from 'react';
 import { flowRunsStartPayloadSchema, idSchema, type FlowDefinition } from '@factory/contracts';
 import type { ApiClient } from '@/api/client';
@@ -6,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { openFlowRoute } from '../shell/navigation';
 import { Toggle } from './FlowFields';
-import { Choice, Field, FlowDialog, FlowError, useFlowLabels, useFlowWrite } from './shared';
+import { Field, FlowDialog, FlowError, flowNodeTitle, useFlowLabels, useFlowWrite } from './shared';
 
 export type RunVersion = 'draft' | number;
 const ignore = () => {};
@@ -62,12 +63,12 @@ export function RunDialog({ api, projectId, flowId, version, definition, close, 
       const raw = Object.hasOwn(values, input.name) ? values[input.name]! : input.default === undefined ? '' : String(input.default);
       const set = (value: string) => setValues(current => ({ ...current, [input.name]: value }));
       return <Field key={index} label={`${input.name}${input.required ? ' *' : ''}`} invalid={submitted && invalidInputs.has(input.name) ? label('invalidInput') : undefined}>{props =>
-        input.type === 'bool' || input.type === 'enum' ? <Choice {...props} value={raw} onChange={event => set(event.target.value)}><option value="">{label('none')}</option>
-          {(input.type === 'bool' ? ['true', 'false'] : input.values ?? []).map(option => <option key={option} value={option}>{input.type === 'bool' ? label(`option.${option}`) : option}</option>)}</Choice>
+        input.type === 'bool' || input.type === 'enum' ? <Choice {...props} value={raw} onValueChange={selectedValue => set(selectedValue)}><ChoiceOption value="">{label('none')}</ChoiceOption>
+          {(input.type === 'bool' ? ['true', 'false'] : input.values ?? []).map(option => <ChoiceOption key={option} value={option}>{input.type === 'bool' ? label(`option.${option}`) : option}</ChoiceOption>)}</Choice>
           : <Input {...props} value={raw} type={input.type === 'number' ? 'number' : 'text'} onChange={event => set(event.target.value)} />}</Field>;
     }) : <><p className="text-sm text-muted-foreground">{label('publishedInputsUnavailable')}</p><Field label={label('inputsJson')}>{props => <Textarea {...props} value={rawInputs} onChange={event => setRawInputs(event.target.value)} spellCheck={false} className="font-mono" />}</Field></>}
     {test && <><Toggle name={label('mockAgents')} checked={mockAgents} set={setMockAgents} /><details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">{label('pinned')}</summary><div className="mt-3 grid gap-3">
-      {definition?.nodes.map(node => <Field key={node.id} label={`${node.title} (${node.id})`} invalid={invalidPins.has(node.id) ? label('invalidJson') : undefined}>{props => <Textarea {...props} rows={2} value={pins[node.id] ?? ''} placeholder={label('noPin')} onChange={event => setPins(current => ({ ...current, [node.id]: event.target.value }))} className="font-mono text-xs" spellCheck={false} />}</Field>)}
+      {definition?.nodes.map(node => <Field key={node.id} label={flowNodeTitle(node, label)} invalid={invalidPins.has(node.id) ? label('invalidJson') : undefined}>{props => <Textarea {...props} rows={2} value={pins[node.id] ?? ''} placeholder={label('noPin')} onChange={event => setPins(current => ({ ...current, [node.id]: event.target.value }))} className="font-mono text-xs" spellCheck={false} />}</Field>)}
     </div></details>{invalidPins.size > 0 && <p role="alert" className="text-sm text-destructive">{label('invalidJson')}</p>}</>}
     <FlowError error={write.error} />
   </FlowDialog>;

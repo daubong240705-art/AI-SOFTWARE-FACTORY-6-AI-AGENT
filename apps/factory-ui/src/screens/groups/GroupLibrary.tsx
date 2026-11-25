@@ -24,7 +24,7 @@ export function GroupLibrary({ groupId, library, loading, error }: { groupId: st
   } : undefined;
   const inherited = library ? [...library.skills.map(item => ({ ...item, type: 'skills' })), ...library.templates.map(item => ({ ...item, type: 'templates' }))]
     .filter(item => item.groupId !== groupId) : [];
-  return <div className="space-y-4">
+  return <div className="min-w-0 space-y-4">
     <ReadFeedback loading={loading} error={error} retry={refresh} />
     {owned && <Tabs defaultValue="skills">
       <TabsList aria-label={t('library')}>

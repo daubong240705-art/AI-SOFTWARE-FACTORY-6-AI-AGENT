@@ -15,7 +15,7 @@ export default function LibraryPage() {
   const library = useRead(api.getAgentLibrary, refreshKey);
   const submit = useAgentWrite(api, refresh);
   const props = { api, refreshKey, refresh, submit, blocked: library.loading || !!library.error, libraryError: library.error };
-  return <Page className="space-y-5 px-4 py-5 sm:px-8">
+  return <Page className="min-w-0 space-y-5 px-4 py-5 sm:px-8">
     <header className="space-y-1">
       <h1 className="flex items-center gap-2 text-xl font-semibold"><Library className="size-5 text-muted-foreground" aria-hidden="true" />{t('title')}</h1>
       <p className="text-sm text-muted-foreground">{t('help')}</p>

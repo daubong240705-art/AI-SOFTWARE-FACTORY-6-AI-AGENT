@@ -11,6 +11,6 @@ export function ErrorNotice({ error }: { error: StoreError }) {
     <AlertCircle aria-hidden="true" className="mt-0.5 size-4 shrink-0" /><div className="space-y-2">
     <p>{t(known.includes(error.code ?? error.kind) ? key : 'safeErrors.unexpected')}</p>
     {error.detailKey && <p className="text-sm">{t(error.detailKey)}</p>}
-    {error.correlationId && <p>{t('errors.correlationId')}: {error.correlationId}</p>}
+    {error.correlationId && <details><summary className="cursor-pointer">{t('commonUi.technicalDetails')}</summary><p title={error.correlationId}>{t('errors.correlationId')}</p></details>}
   </div></div>;
 }

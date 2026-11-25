@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useCallback, useId, useRef, useState } from 'react';
 import { skillTrustSchema, skillsCreatePayloadSchema, skillsUpdatePayloadSchema, type SkillDetail, type SkillSummary, type SkillVersion } from '@factory/contracts';
 import type { AgentLibrary } from '@/api/agentModels';
@@ -7,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { AdminDialog, Choice, DialogButtons, Field, useAgentLabels, useRead, useWriteFeedback, type Submit } from '../agents/shared';
-import { dateTime, DeleteDialog, LibraryError, LibraryRow, panelClass, PlainText, ReadFeedback, useLibraryLabels } from './shared';
+import { useT } from '@/i18n';
+import { AdminDialog, DialogButtons, Field, useAgentLabels, useRead, useWriteFeedback, type Submit } from '../agents/shared';
+import { dateTime, DeleteDialog, LibraryError, LibraryRow, panelClass, PlainText, ReadFeedback, skillDescription, useLibraryLabels } from './shared';
 
 type Draft = Pick<SkillSummary, 'name' | 'description' | 'trust'> & { content: string };
 const blank: Draft = { name: '', description: '', trust: 'instructions', content: '' };
@@ -39,7 +41,7 @@ export function SkillsTab({ api, library, refreshKey, refresh, submit, blocked }
   const [importError, setImportError] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const query = search.trim().toLocaleLowerCase();
-  const skills = library.skills.filter(skill => `${skill.name} ${skill.description}`.toLocaleLowerCase().includes(query));
+  const skills = library.skills.filter(skill => `${skill.name} ${skillDescription(skill)}`.toLocaleLowerCase().includes(query));
   const summary = library.skills.find(skill => skill.id === selected);
   function importFile(file: File) {
     setImportError(false);
@@ -56,7 +58,7 @@ export function SkillsTab({ api, library, refreshKey, refresh, submit, blocked }
     setImporting(true);
     reader.readAsText(file);
   }
-  return <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+  return <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
     <section className={panelClass}>
       <div className="flex flex-wrap gap-2">
         <Button data-testid="skill-create" type="button" disabled={blocked || importing} onClick={() => { setImportError(false); setCreation(blank); }}>{t('createSkill')}</Button>
@@ -73,7 +75,7 @@ export function SkillsTab({ api, library, refreshKey, refresh, submit, blocked }
       {!skills.length ? <p className="text-sm text-muted-foreground">{t(query ? 'emptySearch' : 'emptySkills')}</p> :
         <ul className="grid max-h-[min(52vh,32rem)] gap-2 overflow-y-auto p-1">{skills.map(skill => <LibraryRow key={skill.id} selected={selected === skill.id} onSelect={() => select(skill.id)}>
           <span className="block break-all font-semibold">{skill.name}</span>
-          <span className="block break-words text-sm text-muted-foreground">{skill.description}</span>
+          <span className="block break-words text-sm text-muted-foreground">{skillDescription(skill)}</span>
           <SkillMetadata skill={skill} />
         </LibraryRow>)}</ul>}
     </section>
@@ -85,9 +87,10 @@ export function SkillsTab({ api, library, refreshKey, refresh, submit, blocked }
 
 function SkillMetadata({ skill }: { skill: SkillSummary }) {
   const t = useLibraryLabels();
+  const common = useT();
   return <span className="flex flex-wrap items-center gap-x-2 gap-y-1 break-all text-xs text-muted-foreground">
     <Badge variant="secondary">{t(`trust.${skill.trust}`)}</Badge>
-    <span>{skill.source ?? t('custom')}</span><span>{t('latestVersion', { version: skill.latestVersion })}</span><time dateTime={skill.updatedAt}>{dateTime(skill.updatedAt)}</time>
+    <span>{skill.source?.startsWith('pack:') ? common('commonUi.package').replace('{name}', skill.source.slice(5)) : !skill.source || skill.source === 'user' ? t('custom') : common('commonUi.imported')}</span><span>{t('latestVersion', { version: skill.latestVersion })}</span><time dateTime={skill.updatedAt}>{dateTime(skill.updatedAt)}</time>
   </span>;
 }
 
@@ -111,7 +114,7 @@ function SkillPanel({ api, summary, refreshKey, refresh, submit, blocked }: {
   return <section className={panelClass} aria-labelledby={heading}>
     <header className="space-y-2">
       <h2 id={heading} className="break-all text-lg font-semibold">{skill.name}</h2>
-      <p className="break-words text-sm">{skill.description}</p>
+      <p className="break-words text-sm">{skillDescription(skill)}</p>
       <SkillMetadata skill={skill} />
     </header>
     <ReadFeedback error={detail.error} loading={detail.loading} retry={refresh} />
@@ -121,8 +124,8 @@ function SkillPanel({ api, summary, refreshKey, refresh, submit, blocked }: {
         <Button data-testid="skill-edit" type="button" variant="outline" disabled={waiting} onClick={() => setDialog({ kind: 'edit', snapshot: data })}>{agentLabel('edit')}</Button>
         <Button data-testid="skill-delete" type="button" variant="destructive" disabled={waiting} onClick={() => setDialog({ kind: 'delete', snapshot: data })}>{agentLabel('delete')}</Button>
       </div>
-      <Field label={t('versions')}>{props => <Choice data-testid="skill-version" {...props} value={current} onChange={event => setVersion(Number(event.target.value) === skill.latestVersion ? null : Number(event.target.value))}>
-        {[...data.versions].sort((left, right) => right.version - left.version).map(item => <option key={item.version} value={item.version}>v{item.version} · {dateTime(item.createdAt)}</option>)}
+      <Field label={t('versions')}>{props => <Choice data-testid="skill-version" {...props} value={current} onValueChange={selectedValue => setVersion(Number(selectedValue) === skill.latestVersion ? null : Number(selectedValue))}>
+        {[...data.versions].sort((left, right) => right.version - left.version).map(item => <ChoiceOption key={item.version} value={item.version}>v{item.version} · {dateTime(item.createdAt)}</ChoiceOption>)}
       </Choice>}</Field>
       <ReadFeedback error={content.error} loading={content.loading} retry={refresh} />
       {content.data && <PlainText>{content.data.content}</PlainText>}
@@ -179,8 +182,8 @@ function SkillEditor({ draft, edit, close, submit, blocked, stale }: {
     <fieldset disabled={writer.busy} className="grid gap-4">
       <Field label={agentLabel('fields.name')} invalid={invalid('name')} hint={t('skillNameHint')}>{props => <Input data-testid="skill-name" {...props} value={value.name} maxLength={64} onChange={event => set('name', event.target.value)} />}</Field>
       <Field label={agentLabel('fields.description')} invalid={invalid('description')}>{props => <Textarea data-testid="skill-description" {...props} value={value.description} maxLength={1024} onChange={event => set('description', event.target.value)} />}</Field>
-      {!edit && <Field label={t('trustLabel')}>{props => <Choice {...props} value={value.trust} onChange={event => set('trust', skillTrustSchema.parse(event.target.value))}>
-        {skillTrustSchema.options.map(trust => <option key={trust} value={trust}>{t(`trust.${trust}`)}</option>)}
+      {!edit && <Field label={t('trustLabel')}>{props => <Choice {...props} value={value.trust} onValueChange={selectedValue => set('trust', skillTrustSchema.parse(selectedValue))}>
+        {skillTrustSchema.options.map(trust => <ChoiceOption key={trust} value={trust}>{t(`trust.${trust}`)}</ChoiceOption>)}
       </Choice>}</Field>}
       <Field label={t('content')} invalid={invalid('content')}>{props => <Textarea data-testid="skill-content" {...props} className="min-h-48 font-mono text-xs" value={value.content} maxLength={contentLimit} aria-describedby={props['aria-describedby'] ? `${counter} ${props['aria-describedby']}` : counter} onChange={event => set('content', event.target.value)} />}</Field>
       <p id={counter} className="text-xs text-muted-foreground">{t('contentCount', { count: value.content.length.toLocaleString(), limit: contentLimit.toLocaleString() })}</p>

@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { lazy, Suspense, useId } from 'react';
 import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/LoadingState';
@@ -33,7 +34,7 @@ export function ChairmanHub({ store, data, attention, tab, onTab, onClose, onNav
       if (next < 0) return; event.preventDefault(); onTab(chairmanTabs[next]!);
       event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
     }}>{chairmanTabs.map(key => <button key={key} role="tab" id={`${id}-${key}`} aria-controls={`${id}-panel`} aria-selected={tab === key} tabIndex={tab === key ? 0 : -1} onClick={() => onTab(key)}>{t(`worldUi.chairman.tabs.${key}`)}{key === 'attention' ? ` (${attention})` : ''}</button>)}</div>
-    {(tab === 'agents' || tab === 'flows' || tab === 'activity') && <label className="flex items-center gap-3 border-b border-border px-4 py-2 text-sm">{t('overview.project')}<select className="min-w-0 flex-1 rounded border border-border bg-background p-2" value={projectId ?? ''} disabled={!model.projects.length} onChange={event => data.setFocusProjectId(event.target.value)}>{model.projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>}
+    {(tab === 'agents' || tab === 'flows' || tab === 'activity') && <label className="flex items-center gap-3 border-b border-border px-4 py-2 text-sm">{t('overview.project')}<Choice className="min-w-0 flex-1 rounded border border-border bg-background p-2" value={projectId ?? ''} disabled={!model.projects.length} onValueChange={selectedValue => data.setFocusProjectId(selectedValue)}>{model.projects.map(project => <ChoiceOption key={project.id} value={project.id}>{project.name}</ChoiceOption>)}</Choice></label>}
     <div id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${tab}`} tabIndex={0} className="chairman-content">
       <Suspense fallback={<LoadingState inline />}>
         {tab === 'projects' && <div className="space-y-3 p-4">{!model.loaded.projects ? <LoadingState inline /> : !model.projects.length ? <p>{t('projects.empty')}</p> : model.buildings.map(building => <section key={building.id}><h3 className="mb-1 text-sm font-semibold">{building.name ?? t('worldUi.campus.shared')}</h3><ul className="space-y-2">{building.rooms.map(project => <li key={project.id}><a className="underline" href={viewHash(`project:${project.id}`)}>{project.name}</a></li>)}</ul></section>)}</div>}

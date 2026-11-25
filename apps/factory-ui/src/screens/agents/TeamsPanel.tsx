@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useState } from 'react';
 import { agentTeamsCreatePayloadSchema, agentTeamsUpdatePayloadSchema, type AgentSummary, type ProjectTeam } from '@factory/contracts';
 import type { AgentProjectResponse } from '@/api/agentModels';
@@ -7,10 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { AdminDialog, Choice, DialogButtons, ErrorText, Field, useAgentLabels, useWriteFeedback, type Submit } from './shared';
+import { useT } from '@/i18n';
+import { AdminDialog, DialogButtons, ErrorText, Field, useAgentLabels, useWriteFeedback, type Submit } from './shared';
 
 export function TeamsPanel({ projectId, data, submit }: { projectId: string; data: AgentProjectResponse; submit: Submit }) {
   const t = useAgentLabels();
+  const label = useT();
   const [action, setAction] = useState<{ kind: 'edit' | 'delete'; team: ProjectTeam } | { kind: 'new' } | null>(null);
   const agents = new Map(data.agents.map(agent => [agent.id, agent]));
   const close = () => setAction(null);
@@ -25,7 +28,7 @@ export function TeamsPanel({ projectId, data, submit }: { projectId: string; dat
         <div className="flex flex-wrap gap-1"><Button data-testid="team-edit" type="button" size="sm" variant="ghost" onClick={() => setAction({ kind: 'edit', team: item })}>{t('edit')}</Button><Button data-testid="team-delete" type="button" size="sm" variant="ghost" onClick={() => setAction({ kind: 'delete', team: item })}>{t('delete')}</Button></div>
       </div>
       <div className="flex flex-wrap gap-2">{item.memberIds.map(id => {
-        const name = agents.get(id)?.name ?? id;
+        const name = agents.get(id)?.name ?? label('flowsUi.missingAgent');
         return <span key={id} className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-muted px-1.5 py-1 text-xs"><Avatar className="size-6 shrink-0" aria-hidden="true"><AvatarFallback>{name.slice(0, 2).toLocaleUpperCase()}</AvatarFallback></Avatar><span className="break-all">{name}{item.leadAgentId === id && ` · ${t('teams.lead')}`}</span></span>;
       })}{!item.memberIds.length && <p className="text-xs text-muted-foreground">{t('teams.noMembers')}</p>}</div>
     </article>)}</div>
@@ -64,7 +67,7 @@ function TeamDialog({ projectId, team, agents, close, submit, stale }: { project
         {!agents.length && <p className="text-sm text-muted-foreground">{t('teams.noMembers')}</p>}
       </div>
     </fieldset>
-    <Field label={t('teams.lead')}>{props => <Choice {...props} value={leadAgentId ?? ''} disabled={!memberIds.length} onChange={event => setLead(event.target.value || null)}><option value="">{t('none')}</option>{agents.filter(agent => memberIds.includes(agent.id)).map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</Choice>}</Field>
+    <Field label={t('teams.lead')}>{props => <Choice {...props} value={leadAgentId ?? ''} disabled={!memberIds.length} onValueChange={selectedValue => setLead(selectedValue || null)}><ChoiceOption value="">{t('none')}</ChoiceOption>{agents.filter(agent => memberIds.includes(agent.id)).map(agent => <ChoiceOption key={agent.id} value={agent.id}>{agent.name}</ChoiceOption>)}</Choice>}</Field>
   </AdminDialog>;
 }
 

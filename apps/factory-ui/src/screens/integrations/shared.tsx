@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { createContext, useCallback, useId, useRef, useState, type ComponentProps } from 'react';
 import type { Credential, GroupSummary } from '@factory/contracts';
 import { ApiClientError, type ApiClient } from '@/api/client';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { i18n, useT } from '@/i18n';
 import { toast } from 'sonner';
-import { Choice, Field, useRead } from '../agents/shared';
+import { Field, useRead } from '../agents/shared';
 import { useGroups } from '../groups/GroupsContext';
 
 export const IntegrationProject = createContext<string | undefined>(undefined);
@@ -44,21 +45,21 @@ export function visibleCredentials(credentials: readonly Credential[], groups: r
 
 export function ScopeChoice({ groups, value, set, fixed }: { groups: readonly GroupSummary[]; value: string | null; set: (value: string | null) => void; fixed?: boolean }) {
   const t = useIntegrationLabels();
-  return <Field label={t('scope')}>{props => <Choice {...props} disabled={fixed} value={value ?? ''} onChange={event => set(event.target.value || null)}>
-    <option value="">{t('global')}</option>
-    {groups.filter(item => !item.archived || item.id === value).map(item => <option key={item.id} value={item.id}>{item.path}</option>)}
-    {value && !groups.some(item => item.id === value) && <option value={value}>{t('unknownGroup')}</option>}
+  return <Field label={t('scope')}>{props => <Choice {...props} disabled={fixed} value={value ?? ''} onValueChange={selectedValue => set(selectedValue || null)}>
+    <ChoiceOption value="">{t('global')}</ChoiceOption>
+    {groups.filter(item => !item.archived || item.id === value).map(item => <ChoiceOption key={item.id} value={item.id}>{item.path}</ChoiceOption>)}
+    {value && !groups.some(item => item.id === value) && <ChoiceOption value={value}>{t('unknownGroup')}</ChoiceOption>}
   </Choice>}</Field>;
 }
 
-export function CredentialChoice({ credentials, groups, value, onChange, ...props }: Omit<ComponentProps<typeof Choice>, 'value' | 'onChange'> & {
+export function CredentialChoice({ credentials, groups, value, onChange, ...props }: Omit<ComponentProps<typeof Choice>, 'value' | 'onValueChange'> & {
   credentials: readonly Credential[]; groups: readonly GroupSummary[]; value: string; onChange: (id: string) => void;
 }) {
   const t = useIntegrationLabels();
-  return <Choice {...props} value={value} onChange={event => onChange(event.target.value)}>
-    <option value="">{t('selectCredential')}</option>
-    {value && !credentials.some(item => item.id === value) && <option value={value}>{t('unavailableCredential')}</option>}
-    {credentials.map(item => <option key={item.id} value={item.id}>{item.name} — {scopeName(groups, item.scopeGroupId, t)} · {'\u2022\u2022\u2022\u2022'}{item.last4}</option>)}
+  return <Choice {...props} value={value} onValueChange={selectedValue => onChange(selectedValue)}>
+    <ChoiceOption value="">{t('selectCredential')}</ChoiceOption>
+    {value && !credentials.some(item => item.id === value) && <ChoiceOption value={value}>{t('unavailableCredential')}</ChoiceOption>}
+    {credentials.map(item => <ChoiceOption key={item.id} value={item.id}>{item.name} — {scopeName(groups, item.scopeGroupId, t)} · {'\u2022\u2022\u2022\u2022'}{item.last4}</ChoiceOption>)}
   </Choice>;
 }
 

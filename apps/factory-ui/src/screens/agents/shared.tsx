@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode, type SelectHTMLAttributes } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import type { Command } from '@factory/contracts';
 import { AgentCommandError, ApiClientError, type ApiClient } from '@/api/client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -85,10 +85,6 @@ export function ErrorText({ error, missingRoute = false }: { error: unknown; mis
 export function ReadStatus({ error, loading, missingRoute = false }: { error?: Error | undefined; loading: boolean; missingRoute?: boolean }) {
   const t = useAgentLabels();
   return error ? <ErrorText error={error} missingRoute={missingRoute} /> : loading ? <p role="status" className="text-sm text-muted-foreground">{t('loading')}</p> : null;
-}
-
-export function Choice({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={`h-9 w-full min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring aria-invalid:border-destructive ${className ?? ''}`} {...props}>{children}</select>;
 }
 
 export function Field({ label, invalid, hint, children }: { label: string; invalid?: string | undefined; hint?: string | undefined; children: (props: { id: string; 'aria-invalid': boolean; 'aria-describedby'?: string }) => ReactNode }) {

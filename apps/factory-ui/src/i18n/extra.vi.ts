@@ -1,7 +1,9 @@
 import { m3Vi } from './m3.vi';
 import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
+
 export const extra: Translated<typeof en> = {
+  commonUi: { close: 'Đóng', actions: 'Thêm thao tác', unnamed: 'Chưa đặt tên', imported: 'Đã nhập', unavailable: 'Không còn khả dụng', package: 'Gói: {name}', technicalDetails: 'Chi tiết kỹ thuật' },
   traceUi: {
     monitor: 'Monitor', trace: 'Trace', monitorHelp: 'Xem hoạt động đang chạy và theo dõi từng yêu cầu từ đầu đến cuối.', refresh: 'Tải lại',
     attempts: 'Đang chạy', runs: 'Run đang chạy', tools: 'Tool call gần đây', failures: 'Lỗi gần đây', today: 'Token hôm nay',
@@ -113,6 +115,17 @@ export const extra: Translated<typeof en> = {
     deleteTitle: 'Xóa khỏi thư viện?', deleteHelp: 'Xóa “{name}” và lịch sử của mục này?', missing: 'Mục này không còn trong thư viện.', conflict: 'Đã thay đổi ở nơi khác, hãy tải lại', saveAsTemplate: 'Lưu làm template', saveTemplateHelp: 'Lưu cấu hình hiện tại của “{name}” làm template mới trong thư viện.', upgradeFromTemplate: 'Nâng cấp theo template (version {revision})', upgradeHelp: 'Thay cấu hình của “{name}” bằng template version {revision}. Các thay đổi riêng của agent sẽ không được giữ lại.', compareHelp: 'Chọn version hiện tại của agent bên dưới để so sánh với template version {revision} trước khi xác nhận.',
   },
   flowsUi: {
+    triggerStart: 'Bắt đầu', missingNode: 'Node không còn khả dụng', missingAgent: 'Agent không còn khả dụng', missingWorkflow: 'Sub-workflow', nodeTeam: 'Team',
+    portHint: { out: 'Đầu ra thông thường', error: 'Nhánh khi gặp lỗi', approved: 'Nhánh khi được duyệt', rejected: 'Nhánh khi bị từ chối', timeout: 'Nhánh khi hết thời gian chờ', body: 'Thực hiện nội dung vòng lặp', done: 'Nhánh khi hoàn tất', else: 'Nhánh khi không có điều kiện nào khớp', item: 'Thực hiện cho từng mục', rule: 'Nhánh khi điều kiện khớp' },
+    validation: {
+      'no-trigger': 'Thêm ít nhất một node Trigger.', 'unknown-node': 'Kết nối trỏ tới một node không tồn tại.',
+      'unknown-port': 'Kết nối dùng một cổng ra không tồn tại.', unreachable: 'Không có đường đi từ node Trigger đến node này.',
+      'cycle-without-loop': 'Dùng node Loop để tạo vòng lặp.', 'bad-loop-back': 'Cạnh quay về phải đi từ nội dung vòng lặp về node Loop tương ứng.',
+      'join-needs-two-inputs': 'Node Join cần ít nhất hai kết nối đi vào.', 'trigger-has-input': 'Node Trigger không nhận kết nối đi vào.',
+      'unknown-path': 'Đường dẫn dữ liệu không tồn tại.', 'subflow-self': 'Workflow không thể gọi chính nó.',
+      'duplicate-edge': 'Kết nối này bị trùng.', 'output-has-edges': 'Node Output không được có kết nối đi ra.',
+      'agent-not-found': 'Agent được chọn không còn khả dụng.', budget: 'Ngân sách đã đặt không hợp lệ.', invalid: 'Kiểm tra giá trị rồi thử lại.',
+    },
     title: 'Workflow', subtitle: 'Thiết kế, publish và theo dõi workflow.', olderHost: 'Host chưa hỗ trợ workflow v2.', loading: 'Đang tải…', reload: 'Tải lại',
     create: 'Tạo workflow', createHelp: 'Tạo workflow trống với node Trigger thủ công và node Output.', blankHelp: 'Dùng chữ thường, số hoặc dấu gạch ngang.', import: 'Nhập từ workflow cũ', importHelp: 'Chuyển workflow v1 thành draft v2 có thể sửa.', pack: 'Gói', selectPack: 'Chọn gói', definition: 'Định nghĩa cũ', selectDefinition: 'Chọn định nghĩa', noDefinitions: 'Không có định nghĩa để nhập.',
     flowsCount: '{count} workflow', showActive: 'Hiện workflow đang dùng', showArchived: 'Hiện workflow lưu trữ', archive: 'Lưu trữ', restore: 'Khôi phục', empty: 'Chưa có workflow.', emptyArchived: 'Chưa có workflow lưu trữ.', open: 'Mở workflow', draft: 'Draft', version: 'Version {version}', draftChanged: 'Có thay đổi chưa publish', source: 'Nhập từ {source}', sourceBlank: 'Tạo trong v2', recentRuns: 'Run gần đây', noRuns: 'Chưa có run.',
@@ -128,7 +141,7 @@ export const extra: Translated<typeof en> = {
     title: 'Agent & Team', agents: 'Danh sách agent', counts: '{total} agent · {active} đang hoạt động · {teams} team',
     create: 'Tạo agent', fromTemplate: 'Tạo từ template', edit: 'Sửa', clone: 'Nhân bản', makeLead: 'Đặt làm Lead dự án', saveAsTemplate: 'Lưu làm template', upgradeFromTemplate: 'Nâng cấp theo template (version {revision})',
     pause: 'Tạm dừng', activate: 'Kích hoạt', archive: 'Lưu trữ', delete: 'Xóa', lead: 'Lead', actions: 'Thao tác với {name}',
-    status: { active: 'Đang hoạt động', paused: 'Tạm dừng', archived: 'Lưu trữ', 'pending-approval': 'Chờ phê duyệt', all: 'Tất cả' },
+    status: { active: 'Đang hoạt động', paused: 'Tạm dừng', archived: 'Đã lưu trữ', 'pending-approval': 'Chờ phê duyệt', all: 'Tất cả' },
     filter: 'Lọc agent theo trạng thái', emptyAgents: 'Chưa có agent. Bạn có thể tạo mới hoặc bắt đầu từ template.', emptyFilter: 'Không có agent nào khớp với bộ lọc.',
     live: '{count} attempt đang chạy', templateLink: 'Liên kết template version {revision}', templateUpdate: 'Liên kết template version {revision} (có version {latest})',
     archiveHelp: 'Lưu trữ “{name}”? Lịch sử của agent vẫn được giữ lại.', deleteHelp: 'Xóa “{name}”? Nếu agent đã từng chạy hoặc đang được giao task, bạn chỉ có thể lưu trữ.',
@@ -354,7 +367,7 @@ export const extra: Translated<typeof en> = {
   ux5: {
     teamTemplate: 'Team template', teamTemplateNone: 'Trống — tôi tự thêm agent', teamTemplateOption: '{name} ({count} agent)', teamTemplateHelp: 'Các agent của template được chép vào dự án này; bạn sửa hoặc xóa được sau.', teamTemplateNoneHelp: 'Dự án bắt đầu không có agent nào. Thêm agent ở tab Agent & Team.', createTitle: 'Dự án mới', createDescription: 'Một dự án gồm workspace, các task và một team agent.',
     directory: 'Thư mục', git: 'Dự án Git', directoryDescription: 'Thư mục trống do Host tạo', gitDescription: 'Dùng repo Git có sẵn',
-    directoryPathHint: 'Nhập đường dẫn tuyệt đối trong WSL/Linux của Host, ví dụ /srv/factory/workspaces/my-project, hoặc dùng nút Chọn thư mục. Không dùng ổ Windows (E:\\ hoặc /mnt/).',
+    directoryPathHint: 'Nhập đường dẫn tuyệt đối trong WSL/Linux của Host, ví dụ /srv/factory/workspaces/du-an, hoặc dùng nút Chọn thư mục. Không dùng ổ Windows (E:\\ hoặc /mnt/).',
     gitPathHint: 'Nhập đường dẫn tới repo Git đã có trong WSL/Linux của Host, hoặc dùng nút Chọn thư mục.', pathWarning: 'Đây có vẻ là đường dẫn Windows hoặc /mnt/. Hãy dùng đường dẫn trong WSL/Linux của Host. Host sẽ kiểm tra đường dẫn này.',
     workflowDescription: 'Theo dõi từng workflow và task trong mỗi giai đoạn.', automationDescription: 'Lịch chạy, quy tắc, monitor và cầu dao của dự án.',
     emptyBreakers: 'Không có cầu dao đang mở.', checked: 'Kiểm tra gần nhất', clearFilters: 'Xóa lọc', dossier: 'Tóm tắt dự án', briefing: 'Task mới từ lần xem trước',
@@ -580,7 +593,7 @@ export const extra: Translated<typeof en> = {
     reviewPolicies: { 'human-final': 'Con người xét duyệt cuối cùng', automatic: 'Tự động', hybrid: 'Kết hợp' },
   },
   auth: { signIn: 'Đăng nhập', signOut: 'Đăng xuất', token: 'Token khởi tạo', required: 'Đăng nhập để tiếp tục.', explanation: 'Token khởi tạo dùng một lần được Host in ra khi khởi động.' },
-  projects: { create: 'Tạo dự án', name: 'Tên dự án', root: 'Đường dẫn làm việc', empty: 'Chưa có dự án.', rootPlaceholder: '/srv/factory/workspaces/my-project' },
+  projects: { create: 'Tạo dự án', name: 'Tên dự án', root: 'Đường dẫn làm việc', empty: 'Chưa có dự án.', rootPlaceholder: '/srv/factory/workspaces/du-an' },
   tasks: { plan: 'Kế hoạch', proposed: 'Task đề xuất', accept: 'Chấp nhận task', decline: 'Từ chối task', empty: 'Chưa có task.' },
   errors: { title: 'Không tải được dữ liệu', retry: 'Thử lại', correlationId: 'Mã tham chiếu', network: 'Không thể kết nối Host.' },
   empty: { conversations: 'Chưa có hội thoại.', messages: 'Chưa có tin nhắn.', team: 'Chưa có team.' },
