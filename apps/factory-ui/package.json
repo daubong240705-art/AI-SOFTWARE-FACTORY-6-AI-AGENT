@@ -38,7 +38,6 @@
     "read-excel-file": "9.3.13",
     "rehype-sanitize": "6.0.0",
     "remark-gfm": "4.0.1",
-    "shiki": "4.5.0",
     "sonner": "2.0.8",
     "tailwind-merge": "3.7.0",
     "tailwindcss": "4.3.3",
