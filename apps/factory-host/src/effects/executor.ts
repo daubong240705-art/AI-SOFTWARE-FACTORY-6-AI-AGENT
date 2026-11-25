@@ -136,8 +136,10 @@ export function createEffectExecutor(deps: {
   raw: Database; hub: EventHub; clock: Clock; newId: () => string; remotes: PushRemote[];
   sshCommand?: string; runGit?: (options: RunOptions) => Promise<RunResult>; timeoutMs?: number;
   projectRootFor(projectId: string): string | null;
+  integrations?: { store: IntegrationStore; fetch?: typeof fetch };
 }) {
   const { raw, hub } = deps;
+  const http = deps.integrations && createHttpEffects({ ...deps, ...deps.integrations });
   const configured = deps.remotes.length ? parsePushRemotes(deps.remotes.map((remote) => `${remote.name}=${remote.url}`).join(",")) : [];
   validatePushSshCommand(deps.sshCommand);
   const remotes = new Map(configured.map((remote) => [remote.name, remote]));
@@ -145,7 +147,7 @@ export function createEffectExecutor(deps: {
   const handles = new Set<RunHandle>();
   let stopped = false;
   let closing: Promise<void> | undefined;
-  const rowOf = (projectId: string, id: string): Row | undefined => raw.prepare("SELECT * FROM effects WHERE project_id = ? AND id = ?")
+  const rowOf = (projectId: string, id: string): Row | undefined => raw.prepare("SELECT * FROM effects WHERE project_id = ? AND id = ? AND kind = 'git.push-branch'")
     .get(projectId, id) as Row | undefined;
   const publish = (row: Row, revision: number): void => { hub.append({ projectId: row.project_id, causationId: row.id,
     payload: { type: "entity.changed", entity: { kind: "effect", id: row.id, revision } } }); };
@@ -217,10 +219,11 @@ export function createEffectExecutor(deps: {
     return update(row, "done", null);
   };
   const executor = {
+    http,
     remoteNames(): string[] { return configured.map(describeRemote); },
     getEffect(projectId: string, effectId: string): EffectView | null { const row = rowOf(projectId, effectId); return row ? view(row) : null; },
     listEffects(projectId: string, options: { attemptId?: string } = {}): EffectView[] {
-      const rows = raw.prepare("SELECT * FROM effects WHERE project_id = ? ORDER BY created_at, rowid").all(projectId) as Row[];
+      const rows = raw.prepare("SELECT * FROM effects WHERE project_id = ? AND kind = 'git.push-branch' ORDER BY created_at, rowid").all(projectId) as Row[];
       return rows.filter((row) => options.attemptId === undefined || row.attempt_id === options.attemptId).map(view);
     },
     requestPush(input: { projectId: string; attemptId: string; remote: string }): Promise<EffectView> {
@@ -228,7 +231,7 @@ export function createEffectExecutor(deps: {
       try {
         if (stopped || raw.inTransaction) throw new PushError("not-available");
         if (!remotes.has(input.remote)) throw new PushError("unknown-remote");
-        const prior = raw.prepare("SELECT * FROM effects WHERE project_id = ? AND attempt_id = ? AND state <> 'failed' ORDER BY rowid DESC")
+        const prior = raw.prepare("SELECT * FROM effects WHERE project_id = ? AND attempt_id = ? AND kind = 'git.push-branch' AND state <> 'failed' ORDER BY rowid DESC")
           .all(input.projectId, input.attemptId) as Row[];
         const existing = prior.find((row) => targetOf(row).remote === input.remote);
         if (existing) return Promise.resolve(view(existing));
@@ -247,7 +250,7 @@ export function createEffectExecutor(deps: {
         if (!ready) throw new PushError("workspace-not-ready");
         if (!validBranch(ready.branch)) throw new PushError("invalid-branch");
         const branch = ready.branch;
-        const previous = (raw.prepare("SELECT * FROM effects WHERE project_id = ? AND attempt_id = ? ORDER BY rowid")
+        const previous = (raw.prepare("SELECT * FROM effects WHERE project_id = ? AND attempt_id = ? AND kind = 'git.push-branch' ORDER BY rowid")
           .all(input.projectId, input.attemptId) as Row[]).filter((row) => {
           const target = targetOf(row); return target.remote === remote.name && target.branch === branch;
         });
@@ -290,13 +293,15 @@ export function createEffectExecutor(deps: {
     },
     recoverAtStart(): void {
       if (raw.inTransaction || queues.size) throw new PushError("not-available");
-      for (const row of raw.prepare("SELECT * FROM effects WHERE state = 'pending'").all() as Row[]) update(row, "unknown", "other");
+      for (const row of raw.prepare("SELECT * FROM effects WHERE state = 'pending' AND kind = 'git.push-branch'").all() as Row[]) update(row, "unknown", "other");
+      http?.recoverAtStart();
     },
     close(): Promise<void> {
       stopped = true;
       closing ??= (async () => {
         await Promise.allSettled([...handles].map((handle) => handle.stop("shutdown")));
         await Promise.allSettled([...queues.values()]);
+        await http?.close();
       })();
       return closing;
     },
@@ -304,3 +309,5 @@ export function createEffectExecutor(deps: {
   return executor;
 }
 export type EffectExecutor = ReturnType<typeof createEffectExecutor>;
+import { createHttpEffects } from "../integrations/http-effects.js";
+import type { IntegrationStore } from "../integrations/store.js";

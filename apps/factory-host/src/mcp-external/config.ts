@@ -3,7 +3,7 @@ import { z } from "zod";
 
 export const serverNamePattern = /^[a-z0-9][a-z0-9-]{1,29}$/;
 export const remoteToolPattern = /^[A-Za-z0-9_-]{1,64}$/;
-export const externalToolPattern = /^ext\.([a-z0-9][a-z0-9-]{1,29})\.([A-Za-z0-9_-]{1,64}|\*)$/;
+export const externalToolPattern = /^(?:ext|http)\.([a-z0-9][a-z0-9-]{1,29})\.([A-Za-z0-9_-]{1,64}|\*)$/;
 const reserved = new Set(["host", "content-length", "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
   "te", "trailer", "transfer-encoding", "upgrade", "cookie", "set-cookie", "content-type", "accept",
   "mcp-session-id", "mcp-protocol-version", "expect", "origin", "referer", "forwarded"]);
@@ -36,6 +36,7 @@ export const cliServerSchema = z.strictObject({
   command: cliText.min(1),
   args: z.array(cliText).max(64).default([]),
   envNames: z.array(z.string().regex(envNamePattern)).max(16).default([]),
+  env: z.record(z.string().regex(envNamePattern), cliText).optional(),
   clis: z.array(z.enum(["claude", "codex"])).min(1).max(2).default(["claude", "codex"]),
 });
 export const mcpServersSchema = z.strictObject({ servers: z.array(z.union([mcpServerSchema, cliServerSchema])).max(16)

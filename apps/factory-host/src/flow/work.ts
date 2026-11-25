@@ -21,6 +21,28 @@ export type NodeOutcome =
   | { kind: "waiting"; patch: Partial<NodeRow> }
   | { kind: "failed"; error: string; retryable?: boolean; errorPort?: boolean };
 
+const httpCaller = (run: RunRow, row: NodeRow) => `flow:${run.id}:${row.node_id}:${row.iteration}`;
+function renderHttpArgs(source: string, context: unknown, missing: Set<string>): unknown {
+  const exact = /^\s*\{\{\s*([^{}\s]+)\s*\}\}\s*$/;
+  const whole = exact.exec(source)?.[1];
+  if (whole) {
+    const value = readPath(context, whole);
+    if (value === undefined) missing.add(whole);
+    return typeof value === "string" ? JSON.parse(value) : value;
+  }
+  const walk = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(walk);
+    if (value !== null && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, walk(entry)]));
+    if (typeof value !== "string") return value;
+    const path = exact.exec(value)?.[1];
+    if (!path) return render(value, context, missing);
+    const resolved = readPath(context, path);
+    if (resolved === undefined) missing.add(path);
+    return resolved;
+  };
+  return walk(JSON.parse(source));
+}
+
 export function activeAgents(raw: Database, projectId: string): Seat[] {
   return listSeats(raw).filter((seat) => raw.prepare("SELECT 1 FROM seats WHERE id=? AND project_id=?").get(seat.id, projectId));
 }
@@ -153,7 +175,30 @@ export function executeWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefiniti
     case "parallel": return { kind: "failed", error: "parallel forEach arrives later" };
     case "orchestrate": return { kind: "failed", error: "orchestrate arrives in U6" };
     case "action": {
-      const params = Object.fromEntries(Object.entries(item.params).map(([key, value]) => [key, typeof value === "string" ? render(value, context, missing) : value]));
+      const params = Object.fromEntries(Object.entries(item.params).map(([key, value]) => [key,
+        typeof value === "string" && !(item.action === "http.request" && key === "args") ? render(value, context, missing) : value]));
+      if (item.action === "http.request") {
+        if (!deps.httpAction) return { kind: "failed", error: "action not available yet" };
+        if (missing.size) return { kind: "failed", error: "HTTP request template input is missing" };
+        const integration = deps.httpAction.store.forProject(run.project_id).find((entry) => entry.name === params.integration || entry.id === params.integration);
+        if (integration?.kind !== "http-api") return { kind: "failed", error: "HTTP integration not found in project scope" };
+        const operation = integration.config.operations.find((entry) => entry.name === params.operation);
+        if (!operation) return { kind: "failed", error: "HTTP operation not found" };
+        try {
+          const args = params.args === undefined ? {} : typeof params.args === "string" ? renderHttpArgs(params.args, context, missing) : params.args;
+          if (missing.size) return { kind: "failed", error: "HTTP request template input is missing" };
+          const advance = () => { if (deps.raw.open) advanceRun(deps, run.project_id, run.id); };
+          void deps.httpAction.effects.submit({ projectId: run.project_id, caller: httpCaller(run, row), nodeAttempt: row.attempt_no,
+            integration, operation, args, beforeSend: () => {
+              const node = deps.raw.prepare(`SELECT 1 FROM flow_node_runs n JOIN flow_runs r ON r.project_id=n.project_id AND r.id=n.run_id
+                WHERE n.project_id=? AND n.run_id=? AND n.node_id=? AND n.iteration=? AND n.attempt_no=?
+                AND n.state='waiting' AND r.state IN ('running','waiting','paused')`).get(run.project_id, run.id, row.node_id, row.iteration, row.attempt_no);
+              if (!node) throw new Error("HTTP node is no longer active");
+            } })
+            .then(advance, advance).catch(() => {});
+          return { kind: "waiting", patch: {} };
+        } catch { return { kind: "failed", error: "Invalid HTTP request arguments" }; }
+      }
       if (item.action === "notify.send") {
         const id = deps.newId();
         const { created } = createNotification(deps.raw, { projectId: run.project_id, dedupKey: notificationKey("flow", run.id, row.node_id, row.iteration, row.attempt_no),
@@ -223,6 +268,12 @@ export function executeWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefiniti
 }
 
 export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition, item: FlowNode, row: NodeRow): NodeOutcome | null {
+  if (item.type === "action" && item.action === "http.request") {
+    const effect = deps.httpAction?.effects.latest(run.project_id, httpCaller(run, row));
+    if (!effect || effect.state === "pending" || effect.state === "unknown") return null;
+    return effect.state === "done" ? { kind: "done", port: "out", output: effect.output }
+      : { kind: "failed", error: effect.error ?? "HTTP request failed" };
+  }
   if (row.approval_id) {
     const approval = deps.raw.prepare("SELECT state,outcome_option_id,revision,context_digest,expires_at FROM approvals WHERE project_id=? AND id=?")
       .get(run.project_id, row.approval_id) as { state: string; outcome_option_id: string | null; revision: number; context_digest: string; expires_at: string } | undefined;

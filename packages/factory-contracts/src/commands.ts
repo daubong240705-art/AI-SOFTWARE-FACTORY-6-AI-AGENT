@@ -6,6 +6,10 @@ import { autonomyLevelSchema } from "./autonomy.js";
 import { modelSettingsSetSchema } from "./model-settings.js";
 import { z } from "zod";
 import {
+  integrationsCreatePayloadSchema, integrationsUpdatePayloadSchema, integrationsDeletePayloadSchema, integrationsTestPayloadSchema,
+  credentialsCreatePayloadSchema, credentialsReplacePayloadSchema, credentialsDeletePayloadSchema,
+} from "./integrations.js";
+import {
   groupsCreatePayloadSchema, groupsUpdatePayloadSchema, groupsMovePayloadSchema, groupsArchivePayloadSchema,
   groupsDeletePayloadSchema, groupsSetSettingsPayloadSchema, projectsSetGroupPayloadSchema,
 } from "./groups.js";
@@ -52,6 +56,13 @@ const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
 const change = { expectedRevision: revisionSchema };
 // No actor, credentials, effective grant, status category or windowId supplied by the browser.
 export const commandSchema = z.discriminatedUnion("type", [
+  command("integrations.create", integrationsCreatePayloadSchema),
+  command("integrations.update", integrationsUpdatePayloadSchema),
+  command("integrations.delete", integrationsDeletePayloadSchema),
+  command("integrations.test", integrationsTestPayloadSchema),
+  command("credentials.create", credentialsCreatePayloadSchema),
+  command("credentials.replace", credentialsReplacePayloadSchema),
+  command("credentials.delete", credentialsDeletePayloadSchema),
   command("integration.retry", z.strictObject({ taskId: idSchema })),
   command("integration.skip", z.strictObject({ taskId: idSchema })),
   command("standing-approvals.create", standingCreateSchema),
