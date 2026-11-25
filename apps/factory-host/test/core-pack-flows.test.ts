@@ -210,12 +210,16 @@ test("bug fix does not start a repair without reproduction", (context) => {
   run.expectNoApproval("blocked-repro");
 });
 
-test("a requested peer change takes the error edge, not operator approval", (context) => {
+test("a requested peer change sends the work back to its author instead of the error edge", (context) => {
   const run = mockRun(context, "software-team", "bug-fix");
   run.complete("reproduce", "Tester", { verdict: "reproduced", area: "backend", notes: "Mock regression failed as expected." });
   run.complete("fix-backend", backend);
   run.review("fix-backend", frontend, "changes-requested");
-  run.expectNoApproval("fix-backend-error");
+  const row = run.row("fix-backend");
+  assert.equal(row.state, "failed");
+  assert.match(row.error ?? "", /^changes-requested/);
+  assert.equal(row.attempt_no, 1);
+  assert.equal(run.row("fix-backend-error").started_at, null);
 });
 
 test("research report holds saving until the fact-checked draft is approved", (context) => {

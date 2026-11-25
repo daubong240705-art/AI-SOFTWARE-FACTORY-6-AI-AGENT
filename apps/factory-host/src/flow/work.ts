@@ -20,7 +20,7 @@ export type NodeOutcome =
   | { kind: "done"; port: string | null; output: unknown; pinned?: boolean }
   | { kind: "waiting"; patch: Partial<NodeRow> }
   | { kind: "stalled"; reason: string; output: unknown }
-  | { kind: "failed"; error: string; retryable?: boolean; errorPort?: boolean; output?: unknown };
+  | { kind: "failed"; error: string; retryable?: boolean; rework?: boolean; errorPort?: boolean; output?: unknown };
 
 const httpCaller = (run: RunRow, row: NodeRow) => `flow:${run.id}:${row.node_id}:${row.iteration}`;
 export const bundleStallReason = "bundle-outcome-unknown";
@@ -327,9 +327,13 @@ export function executeWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefiniti
           } else notes.push(`${path}: ${JSON.stringify(entry)}`);
         }
       }
+      const previous = row.attempt_no > 1 ? deps.raw.prepare(`SELECT error FROM flow_node_runs WHERE project_id=? AND run_id=? AND node_id=? AND iteration=? AND attempt_no=?`)
+        .get(run.project_id, run.id, row.node_id, row.iteration, row.attempt_no - 1) as { error: string | null } | undefined : undefined;
+      const rework = previous?.error?.startsWith("changes-requested")
+        ? `\n\nReview round ${row.attempt_no}: the reviewer asked for changes to your previous result. Address every point, then report again.\nReviewer notes: ${previous.error.slice("changes-requested".length).replace(/^:\s*/, "") || "(no details given)"}` : "";
       const authoring = item.outputSchema ? `\nReport the structured result with task.result. Schema: ${JSON.stringify(item.outputSchema)}` : "";
       const taskId = makeTask(deps, run, row, owner, { title: render(item.task.title, context, missing),
-        brief: `${render(item.task.instructions, context, missing)}${authoring}${notes.length ? `\nInputs:\n${notes.join("\n")}` : ""}`,
+        brief: `${render(item.task.instructions, context, missing)}${rework}${authoring}${notes.length ? `\nInputs:\n${notes.join("\n")}` : ""}`,
         acceptance: item.task.acceptance.map((text) => render(text, context, missing)), inputs: [...inputs.values()].slice(0, 100), human: item.review === "human" });
       return { kind: "waiting", patch: { task_id: taskId } };
     }
@@ -449,7 +453,13 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
     const reviewed = taskOutput(deps, run.project_id, review.id).result;
     // A mock reviewer accepts (happy path); pin outputs or use real agents to test change requests.
     const verdict = run.mock_agents && reviewed === null ? "accepted" : readPath(reviewed, "verdict");
-    if (verdict !== "accepted") return { kind: "failed", error: verdict === "changes-requested" ? verdict : "reviewer did not report a verdict" };
+    if (verdict === "changes-requested") {
+      // The reviewer's notes travel in the error so the next round of the same node can hand them to the author.
+      const notes = [readPath(reviewed, "reasons"), readPath(reviewed, "comments"), readPath(reviewed, "notes"), taskOutput(deps, run.project_id, review.id).summary]
+        .flatMap((value) => Array.isArray(value) ? value : value === undefined || value === null ? [] : [value]).map((value) => typeof value === "string" ? value : JSON.stringify(value));
+      return { kind: "failed", error: `changes-requested${notes.length ? `: ${notes.join(" | ").slice(0, 1500)}` : ""}`, rework: true };
+    }
+    if (verdict !== "accepted") return { kind: "failed", error: "reviewer did not report a verdict" };
   }
   const projected = output.result !== null && typeof output.result === "object" && !Array.isArray(output.result) ? output.result : {};
   return { kind: "done", port: "out", output: { ...projected, ...output } };

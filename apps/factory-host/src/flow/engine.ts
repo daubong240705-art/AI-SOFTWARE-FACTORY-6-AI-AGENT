@@ -22,6 +22,9 @@ export interface FlowEngineDeps {
   httpAction?: { effects: import("../integrations/http-effects.js").HttpEffects; store: import("../integrations/store.js").IntegrationStore };
   bundleAction?: import("../integrations/bundle-effects.js").BundleEffects;
 }
+/** Review rounds per agent node before a "changes-requested" verdict takes the error path. */
+export const REVIEW_REWORK_ROUNDS = 2;
+
 type TimerKind = "wait" | "node-timeout" | "run-timeout" | "retry-backoff" | "approval-timeout";
 interface TimerRow { project_id: string; run_id: string; node_id: string; iteration: number; kind: TimerKind; due_at: string }
 const active = (row: NodeRow) => ["pending", "ready", "running", "waiting"].includes(row.state);
@@ -243,6 +246,12 @@ function finish(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition, item: Fl
     if (row.approval_id) {
       closeApproval(deps, run, row.approval_id, "withdrawn");
       stopTasks(deps, run, true, row);
+    }
+    // A review that asks for changes sends the work back to its author (bounded), instead of failing the node.
+    if (result.kind === "failed" && result.rework && row.attempt_no <= REVIEW_REWORK_ROUNDS) {
+      setNode(deps, run, row, { state: "failed", error, ended_at: timestamp(deps) });
+      arm(deps, run, row, "retry-backoff", future(deps, 1000));
+      return;
     }
     if (result.retryable && item.retry && row.attempt_no <= item.retry.max) {
       setNode(deps, run, row, { state: "failed", error, ended_at: timestamp(deps) });
