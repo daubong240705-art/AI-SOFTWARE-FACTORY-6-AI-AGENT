@@ -3,7 +3,7 @@ import { defaultSettingsSection, settingsSections, type SettingsSection } from '
 export type { SettingsSection } from '../project-settings/sections';
 
 export type ProjectTab = 'overview' | 'agents' | 'flows' | 'office' | 'board' | 'knowledge' | 'code' | 'settings';
-export type View = 'overview' | 'needs-attention' | 'library' | 'world' | 'system' | `project:${string}`;
+export type View = 'overview' | 'needs-attention' | 'library' | 'world' | 'system' | `project:${string}` | `group:${string}`;
 const tabs: ProjectTab[] = ['overview', 'agents', 'flows', 'office', 'board', 'knowledge', 'code', 'settings'];
 export type FlowRoute = { kind: 'flows' | 'runs'; id: string };
 export function flowRoute(hash: string): FlowRoute | null {
@@ -30,6 +30,7 @@ export function openFlowRoute(projectId: string, route?: FlowRoute) {
   if (allowHash(hash) && location.hash !== hash) location.hash = hash;
 }
 export function viewHash(view: View, tab: ProjectTab = 'overview', section?: SettingsSection): string {
+  if (view.startsWith('group:')) return `#/g/${encodeURIComponent(view.slice(6))}`;
   if (!view.startsWith('project:')) return view === 'needs-attention' ? '#/attention' : `#/${view}`;
   const id = encodeURIComponent(view.slice(8));
   if (tab === 'code') return `#/project/${id}/settings/${tab}`;
@@ -42,6 +43,8 @@ export function parseHash(hash: string): View {
   if (hash === '#/library') return 'library';
   if (hash === '#/attention' || hash.startsWith('#/attention/')) return 'needs-attention';
   if (hash === '#/world' || hash.startsWith('#/world?')) return 'world';
+  const group = /^#\/g\/([^/]+)$/.exec(hash)?.[1];
+  if (group) { try { const id = decodeURIComponent(group); if (id.trim()) return `group:${id}`; } catch { return 'overview'; } }
   const project = /^#\/project\/([^/]+)(?:\/(?:overview|agents|agent|flows|office|board|workflow|knowledge|code|automation)|\/(?:flows|runs)\/[^/]+|\/settings(?:\/[^/]+)?)?$/.exec(hash);
   if (project?.[1]) { try { const id = decodeURIComponent(project[1]); if (id.trim()) return `project:${id}`; } catch { /* Invalid encodings return home. */ } }
   return 'overview';

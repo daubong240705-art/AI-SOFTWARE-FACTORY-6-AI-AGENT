@@ -1,6 +1,7 @@
 import { officeReadModel } from './officeModels';
 import { m3Models } from './m3Models';
 import { agentModels } from './agentModels';
+import { groupModels } from './groupModels';
 import { flowModels, type FlowIssue } from './flowModels';
 import { agentClisModel } from './agentRuntime';
 import { packDetailModel, mcpServersModel } from './agentProfileModels';
@@ -168,6 +169,10 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     getAgent: (id: string, agentId: string, signal?: AbortSignal) => request(`${projectPath(id)}/agents/${encodeURIComponent(agentId)}`, agentModels.detail, undefined, false, signal),
     getAgentRevision: (id: string, agentId: string, revision: number, signal?: AbortSignal) => request(`${projectPath(id)}/agents/${encodeURIComponent(agentId)}/revisions/${encodeURIComponent(revision)}`, agentModels.revision, undefined, false, signal),
     getAgentLibrary: (signal?: AbortSignal) => request('/library', agentModels.library, undefined, false, signal),
+    getScopedLibrary: (scope: { groupId: string } | { projectId: string }, signal?: AbortSignal) =>
+      request(`/library?${new URLSearchParams(scope)}`, agentModels.library, undefined, false, signal),
+    listGroups: (signal?: AbortSignal) => request('/groups', groupModels.list, undefined, false, signal),
+    getGroup: (id: string, signal?: AbortSignal) => request(`/groups/${encodeURIComponent(id)}`, groupModels.detail, undefined, false, signal),
     getSkill: (id: string, signal?: AbortSignal) => request(`/library/skills/${encodeURIComponent(id)}`, agentModels.skill, undefined, false, signal),
     getSkillVersion: (id: string, version: number | 'latest', signal?: AbortSignal) => request(`/library/skills/${encodeURIComponent(id)}/versions/${encodeURIComponent(version)}`, agentModels.skillVersion, undefined, false, signal),
     getAgentTemplate: (id: string, signal?: AbortSignal) => request(`/library/templates/${encodeURIComponent(id)}`, agentModels.template, undefined, false, signal),
@@ -200,7 +205,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     async session() { const result = await request('/auth/session', auth); csrfToken = result.csrfToken; return result; },
     async logout() { const result = await request('/auth/logout', ok, {}); csrfToken = null; return result; },
     listProjects: (signal?: AbortSignal) => request('/projects', projects, undefined, false, signal),
-    getProject: (id: string) => request(projectPath(id), ok.extend({ project: projectSchema })),
+    getProject: (id: string, signal?: AbortSignal) => request(projectPath(id), ok.extend({ project: projectSchema }), undefined, false, signal),
     getTeam: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/team`, team, undefined, false, signal),
     listTasks: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks`, tasks, undefined, false, signal),
     listAttempts: (id: string, taskId: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/attempts`, readModels.attempts, undefined, false, signal),
@@ -304,7 +309,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     sendCommand: (command: Command) => {
       // Validate without replacing/mutating the caller's object or generating a new identity.
       if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');
-      return request('/commands', successResponseSchema, command, /^(rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts|models)\./.test(command.type));
+      return request('/commands', successResponseSchema, command, command.type === 'projects.create' || /^(rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts|models)\./.test(command.type));
     },
   };
 }

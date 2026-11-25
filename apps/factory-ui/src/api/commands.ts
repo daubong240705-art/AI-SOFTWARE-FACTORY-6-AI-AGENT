@@ -1,5 +1,5 @@
 import { API_VERSION, commandSchema, type Command } from '@factory/contracts';
-import { LIBRARY_SCOPE_ID } from '@factory/contracts';
+import { LIBRARY_SCOPE_ID, SYSTEM_SCOPE_ID } from '@factory/contracts';
 
 type Of<T extends Command['type']> = Extract<Command, { type: T }>;
 function build<T extends Command['type']>(type: T, projectId: string, payload: Of<T>['payload']): Of<T> {
@@ -44,9 +44,16 @@ export function standingApprovalsRevoke({ projectId, ...payload }: Of<'standing-
   return build('standing-approvals.revoke', projectId, payload);
 }
 
-export function projectsCreate({ name, root, kind = 'directory', teamTemplate }: { name: string; root: string; kind?: 'directory' | 'git'; teamTemplate?: string | undefined }) {
-  return build('projects.create', crypto.randomUUID(), { name, workspace: { kind, root }, ...(teamTemplate ? { teamTemplate } : {}) });
+export function projectsCreate({ name, root, kind = 'directory', teamTemplate, groupId }: { name: string; root: string; kind?: 'directory' | 'git'; teamTemplate?: string | undefined; groupId?: string | null }) {
+  return build('projects.create', crypto.randomUUID(), { name, workspace: { kind, root }, ...(teamTemplate ? { teamTemplate } : {}), ...(groupId ? { groupId } : {}) });
 }
+export function groupsCreate(payload: Omit<Of<'groups.create'>['payload'], 'groupId'>) { return build('groups.create', SYSTEM_SCOPE_ID, { ...payload, groupId: crypto.randomUUID() }); }
+export function groupsUpdate(payload: Of<'groups.update'>['payload']) { return build('groups.update', SYSTEM_SCOPE_ID, payload); }
+export function groupsMove(payload: Of<'groups.move'>['payload']) { return build('groups.move', SYSTEM_SCOPE_ID, payload); }
+export function groupsArchive(payload: Of<'groups.archive'>['payload']) { return build('groups.archive', SYSTEM_SCOPE_ID, payload); }
+export function groupsDelete(payload: Of<'groups.delete'>['payload']) { return build('groups.delete', SYSTEM_SCOPE_ID, payload); }
+export function groupsSetSettings(payload: Of<'groups.set-settings'>['payload']) { return build('groups.set-settings', SYSTEM_SCOPE_ID, payload); }
+export function projectsSetGroup(projectId: string, payload: Of<'projects.set-group'>['payload']) { return build('projects.set-group', projectId, payload); }
 export function projectsArchive({ projectId, expectedRevision, confirmName }: { projectId: string; expectedRevision: number; confirmName: string }) {
   return build('projects.archive', projectId, { expectedRevision, confirmName });
 }

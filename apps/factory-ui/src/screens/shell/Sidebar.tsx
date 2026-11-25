@@ -1,7 +1,7 @@
 import { Skeleton } from '@/components/ui/skeleton';
 import { shallowSelectionEqual } from '@/state/storeSelector';
 import { deriveDisplayStatus, isLiveAttempt } from '@factory/contracts';
-import { Activity, Earth, House, Inbox, Library, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { Activity, Earth, House, Inbox, Library, PanelLeftClose, PanelLeftOpen, Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,14 +12,20 @@ import type { Store } from '../../state/store';
 import { inboxCount } from '@/lib/inbox';
 import { attentionItems } from './attention';
 import { NavButton } from './NavButton';
-import { ProjectTile } from './ProjectTile';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ReadFeedback } from '../library/shared';
+import { useGroupLabels, useGroups } from '../groups/GroupsContext';
+import { SidebarTree } from '../groups/SidebarTree';
 import { Settings } from './Settings';
 import type { View } from './navigation';
 
-export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate, onCollapse }: {
+export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate, onCollapse, onNewProject, onNewGroup }: {
   store: Store; view: View; collapsed: boolean; compact: boolean; expanded: boolean;
   onNavigate: (view: View) => void; onCollapse: () => void;
+  onNewProject: () => void; onNewGroup: () => void;
 }) {
+  const groupLabel = useGroupLabels();
+  const { list, refresh } = useGroups();
   const t = useT(); const state = store.useStoreSelector(value => ({ globalInbox: value.globalInbox, selectedProjectId: value.selectedProjectId, tasks: value.tasks, liveAttempts: value.liveAttempts, loading: value.loading, errors: value.errors, projects: value.projects }), shallowSelectionEqual);
   const items = attentionItems(state.globalInbox);
   const labelClass = collapsed ? 'hidden' : 'min-w-0 truncate';
@@ -41,17 +47,16 @@ export function Sidebar({ store, view, collapsed, compact, expanded, onNavigate,
     <NavButton collapsed={collapsed} aria-label={t('nav.world')} aria-current={view === 'world' ? 'page' : undefined} onClick={() => onNavigate('world')}><Earth /><span className={labelClass}>{t('nav.world')}</span></NavButton>
     <div className={cn('mt-4 flex h-8 shrink-0 items-center justify-between px-2.5 text-xs font-medium tracking-wide text-muted-foreground uppercase', collapsed && 'justify-center px-0')}>
       <span className={collapsed ? 'sr-only' : ''}>{t('global.projects')}</span>
+      <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label={groupLabel('createMenu')}><Plus aria-hidden="true" /></Button></DropdownMenuTrigger>
+        <DropdownMenuContent align="end"><DropdownMenuItem onSelect={onNewProject}>{groupLabel('newProject')}</DropdownMenuItem><DropdownMenuItem onSelect={onNewGroup}>{groupLabel('newGroup')}</DropdownMenuItem></DropdownMenuContent>
+      </DropdownMenu>
     </div>
     <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block">
       <div className="py-1">
       {state.loading.projects && !state.projects.length && <ul className="m-0 flex list-none flex-col gap-1 p-0" role="status" aria-label={t('viewStates.loading')}>{[0, 1, 2].map(row => <li key={row} className="flex h-10 items-center gap-2.5 px-3"><Skeleton className="size-7 rounded-md" /><Skeleton className="h-3.5 flex-1" /></li>)}</ul>}
       {state.errors.projects && <><ErrorNotice error={state.errors.projects} /><Button variant="outline" onClick={() => { void store.loadProjects(); }}>{t('errors.retry')}</Button></>}
-      <ul className="m-0 flex list-none flex-col gap-1 p-0">{state.projects.map(project => <li key={project.id} className="h-10 w-full shrink-0">
-        <NavButton collapsed={collapsed} aria-label={project.name} title={project.name} aria-current={view === `project:${project.id}` ? 'page' : undefined} onClick={() => onNavigate(`project:${project.id}`)}>
-          <ProjectTile id={project.id} name={project.name} /><span className={labelClass}>{project.name}</span>
-          {projectStatus(project.id) && <span className={cn('ml-auto size-2 shrink-0 rounded-full', projectStatus(project.id) === 'need' ? 'bg-need' : 'bg-run', collapsed && 'absolute top-1 right-0.5')} role="img" aria-label={t(projectStatus(project.id) === 'need' ? 'inboxUi.needsDecision' : 'taskUi.display.running')} title={t(projectStatus(project.id) === 'need' ? 'inboxUi.needsDecision' : 'taskUi.display.running')} />}
-        </NavButton>
-      </li>)}</ul>
+      <ReadFeedback error={list.error} loading={list.loading && !list.data} retry={refresh} />
+      <SidebarTree projects={state.projects} view={view} collapsed={collapsed} onNavigate={onNavigate} projectStatus={projectStatus} />
       </div>
     </ScrollArea>
     <footer className="mt-auto flex shrink-0 flex-col gap-1 border-t border-border pt-3">

@@ -15,6 +15,9 @@ import { DialogFooter, DialogHeader, DialogDescription, DialogTitle } from '@/co
 import { cn } from '@/lib/utils';
 import { Folder, FolderOpen, GitBranch } from 'lucide-react';
 import { FolderPicker } from './projects/FolderPicker';
+import { GroupPicker } from './groups/GroupTree';
+import { useGroupLabels, useGroups } from './groups/GroupsContext';
+import { ReadFeedback } from './library/shared';
 
 type ValidationErrors = { name?: string; root?: string };
 function invalidFields(error: unknown): ValidationErrors {
@@ -29,8 +32,12 @@ function invalidFields(error: unknown): ValidationErrors {
   return Object.keys(errors).length ? errors : { name: 'validation.projectName' };
 }
 
-export function CreateProject({ store, onClose, onCreated }: { store: Store; onClose: () => void; onCreated?: (id: string) => void }) {
+export function CreateProject({ store, initialGroupId = null, onClose, onCreated }: { store: Store; initialGroupId?: string | null; onClose: () => void; onCreated?: (id: string) => void }) {
   const t = useT(); const titleId = useId();
+  const groupLabel = useGroupLabels();
+  const { list: groups, refresh } = useGroups();
+  const [groupId, setGroupId] = useState(initialGroupId);
+  const invalidGroup = groupId !== null && !groups.data?.groups.some(group => group.id === groupId && !group.archived);
   const [name, setName] = useState(''); const [root, setRoot] = useState('');
   const [kind, setKind] = useState<'directory' | 'git'>('directory');
   // The platform never imposes a team: empty by default, a pack's seats only when the operator picks a template.
@@ -43,6 +50,7 @@ export function CreateProject({ store, onClose, onCreated }: { store: Store; onC
   const [errors, setErrors] = useState<ValidationErrors>({}); const [command, setCommand] = useState<Command | null>(null);
   const [busy, setBusy] = useState(false); const inFlight = useRef(false);
   const pending = store.useStoreSelector(state => command ? state.pending[command.commandId] : undefined);
+  const canCorrect = pending?.status === 'failed' && !!pending.error?.code;
   async function execute(created: Command, retry = false) {
     if (inFlight.current) return; inFlight.current = true; setBusy(true);
     try {
@@ -51,20 +59,24 @@ export function CreateProject({ store, onClose, onCreated }: { store: Store; onC
         await store.loadProjects();
         if (store.getState().session === 'authenticated') { onCreated ? onCreated(created.projectId) : void store.selectProject(created.projectId); onClose(); }
       }
-    } finally { inFlight.current = false; setBusy(false); }
+    } finally { refresh(); inFlight.current = false; setBusy(false); }
   }
   function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (inFlight.current || command) return;
+    event.preventDefault(); if (inFlight.current || command || invalidGroup) return;
     let created: Command;
-    try { created = projectsCreate({ name: name.trim(), root, kind, teamTemplate: teamTemplate || undefined }); }
+    try { created = projectsCreate({ name: name.trim(), root, kind, teamTemplate: teamTemplate || undefined, groupId }); }
     catch (error) { setErrors(invalidFields(error)); return; }
     setErrors({}); setCommand(created); void execute(created);
   }
   const unsafePath = /^\/mnt\//i.test(root.trim()) || /^[A-Za-z]:/.test(root.trim());
-  return <Dialog labelledBy={titleId} onClose={onClose}>
+  return <Dialog labelledBy={titleId} onClose={() => { if (!inFlight.current) onClose(); }}>
     <DialogHeader className="gap-2 text-left"><DialogTitle id={titleId} className="font-display text-2xl">{t('ux5.createTitle')}</DialogTitle><DialogDescription>{t('ux5.createDescription')}</DialogDescription></DialogHeader>
     <form className="mt-2 space-y-6" onSubmit={submit} noValidate>
       <Field><FieldLabel htmlFor={`${titleId}-name`}>{t('projects.name')}</FieldLabel><Input id={`${titleId}-name`} value={name} disabled={!!command} aria-invalid={!!errors.name} aria-describedby={errors.name ? `${titleId}-name-error` : undefined} onChange={event => setName(event.target.value)} />{errors.name && <FieldError id={`${titleId}-name-error`}>{t(errors.name)}</FieldError>}</Field>
+      <GroupPicker groups={groups.data?.groups ?? []} label={groupLabel('projectGroup')} rootLabel={groupLabel('noGroup')} value={groupId} disabled={busy || !!command && !canCorrect}
+        onChange={value => { setGroupId(value); setCommand(null); }} />
+      <ReadFeedback error={groups.error} loading={groups.loading && !groups.data} retry={refresh} />
+      {invalidGroup && !groups.loading && <FieldError>{groupLabel('invalidDestination')}</FieldError>}
       <fieldset disabled={!!command} className="grid gap-3 border-0 p-0"><legend className="mb-3 text-sm font-medium">{t('inboxUi.workspaceKind')}</legend>
         <RadioGroup value={kind} onValueChange={value => setKind(value as typeof kind)} className="grid grid-cols-2 gap-3" aria-label={t('inboxUi.workspaceKind')}>
           {(['directory', 'git'] as const).map(value => <Label key={value} htmlFor={`${titleId}-${value}`} className={cn('flex cursor-pointer items-start gap-3 rounded-lg border p-4 text-left transition-colors', kind === value ? 'border-ring bg-secondary' : 'border-border hover:bg-secondary/50')}>
@@ -97,7 +109,7 @@ export function CreateProject({ store, onClose, onCreated }: { store: Store; onC
         {errors.root && <FieldError id={`${titleId}-root-error`}>{t(errors.root)}</FieldError>}
       </Field>
       {pending?.error && <ErrorNotice error={pending.error} />}
-      <DialogFooter className="-mx-6 border-t border-border px-6 pt-4"><Button type="button" variant="ghost" onClick={onClose}>{t('actions.cancel')}</Button>{pending?.status === 'failed' && command ? <Button type="button" disabled={busy} onClick={() => { void execute(command, true); }}>{t('errors.retry')}</Button> : <Button type="submit" disabled={busy || !!command}>{t('projects.create')}</Button>}</DialogFooter>
+      <DialogFooter className="-mx-6 border-t border-border px-6 pt-4"><Button type="button" variant="ghost" disabled={busy} onClick={onClose}>{t('actions.cancel')}</Button>{canCorrect ? <Button type="button" onClick={() => setCommand(null)}>{t('groupsUi.editInputs')}</Button> : pending?.status === 'failed' && command ? <Button type="button" disabled={busy} onClick={() => { void execute(command, true); }}>{t('errors.retry')}</Button> : <Button type="submit" disabled={busy || !!command || invalidGroup}>{busy ? t('viewStates.loading') : t('projects.create')}</Button>}</DialogFooter>
     </form>
     {pickerOpen && <FolderPicker initialPath={root} browseFolders={store.browseFolders}
       onClose={() => setPickerOpen(false)}
