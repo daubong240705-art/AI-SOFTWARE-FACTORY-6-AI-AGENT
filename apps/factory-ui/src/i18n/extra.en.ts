@@ -1,6 +1,9 @@
 import type { FlowIssueCode } from '@factory/contracts';
 
 export const extra = {
+  leadChatUi: { setting: 'How to work with Lead', auto: 'Recognize my decisions automatically (new)', classic: 'Classic: Ask/Delegate and approve proposals',
+    help: 'Discuss freely, then confirm the plan in your own words.', brief: 'Decision brief v{version}', started: 'Started workflow {title}',
+    run: 'Workflow run {title}', tasks: 'Created {count} task(s)', stop: 'Stop run', stopConfirm: 'Stop the workflow run for {title}? This cancels remaining work.', stopReason: 'The operator requested a stop from Lead chat.' },
   commonUi: { close: 'Close', actions: 'More actions', unnamed: 'Unnamed', imported: 'Imported', unavailable: 'Unavailable', package: 'Pack: {name}', technicalDetails: 'Technical details' },
   traceUi: {
     monitor: 'Monitor', trace: 'Trace', monitorHelp: 'See what is running and follow requests end to end.', refresh: 'Refresh',

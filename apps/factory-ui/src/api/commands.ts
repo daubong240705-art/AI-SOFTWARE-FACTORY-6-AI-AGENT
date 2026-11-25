@@ -74,9 +74,12 @@ export function conversationsCreate({ projectId, seatId, title }: { projectId: s
   return build('conversations.create', projectId, { conversationId: crypto.randomUUID(), agentId: seatId, title, workItemId: null });
 }
 export function chatSend({ projectId, conversationId, conversationRevision, text, intent }: {
-  projectId: string; conversationId: string; conversationRevision: number; text: string; intent: 'discuss' | 'delegate';
+  projectId: string; conversationId: string; conversationRevision: number; text: string; intent?: 'discuss' | 'delegate';
 }) {
-  return build('chat.send', projectId, { conversationId, expectedRevision: conversationRevision, messageId: crypto.randomUUID(), text, intent, attachmentIds: [], context: [], draftRevision: null });
+  return build('chat.send', projectId, { conversationId, expectedRevision: conversationRevision, messageId: crypto.randomUUID(), text, ...(intent ? { intent } : {}), attachmentIds: [], context: [], draftRevision: null });
+}
+export function setLeadChatMode({ projectId, ...payload }: Of<'projects.set-lead-chat-mode'>['payload'] & { projectId: string }) {
+  return build('projects.set-lead-chat-mode', projectId, payload);
 }
 export function tasksTransition({ projectId, ...payload }: Of<'tasks.transition'>['payload'] & { projectId: string }) {
   return build('tasks.transition', projectId, payload);

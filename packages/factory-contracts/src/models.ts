@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { leadCardSchema, leadChatModeSchema } from "./lead-cards.js";
 import {
   idSchema,
   revisionSchema,
@@ -47,6 +48,7 @@ export const projectSchema = z.strictObject({
   disposition: z.enum(["active", "parked", "archived"]),
   /** U9: containing group, null at the root (defaulted for older Hosts). */
   groupId: idSchema.nullable().default(null),
+  leadChatMode: leadChatModeSchema.optional(),
 });
 export const workCategorySchema = z.enum([
   "backlog",
@@ -139,6 +141,7 @@ export const messageSchema = z
     text: textSchema,
     attachmentIds: z.array(idSchema).max(20),
     runId: idSchema.nullable(),
+    leadCards: z.array(leadCardSchema).max(2).optional(),
   })
   .refine(
     (value) =>
@@ -146,7 +149,7 @@ export const messageSchema = z
         ? value.agentId !== null
         : value.agentId === null,
     "Only agent messages carry an agent identity",
-  );
+  ).refine((value) => value.speaker === "agent" || value.leadCards === undefined, "Only agent messages carry Lead cards");
 export const draftSchema = z.strictObject({
   projectId: idSchema,
   conversationId: idSchema,

@@ -24,7 +24,8 @@ import { createCollaborationMcp, withCollaborationApprovalEffects } from "./coll
 import { completeFlowTask } from "./flow/work.js";
 import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
 import type { EventHub } from "./events/hub.js";
-import { TraceEventHub, TraceRecorder } from "./trace/recorder.js";
+import { LeadEventHub, LeadTraceRecorder } from "./lead/causation.js";
+import { exposeLeadChatMode, setLeadChatMode } from "./lead/settings.js";
 import { registerTraceRoutes } from "./trace/routes.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { createIdGenerator, systemClock, type Clock } from "./ids.js";
@@ -448,8 +449,8 @@ export async function startHost(options: {
     // U1: every pack is also imported into the library (versioned skills + agent templates). Idempotent.
     importPacksToLibrary(storage.raw, packs, { newId: createIdGenerator(clock), clock },
       (packKey, message) => console.error(`Library import (${packKey}): ${message}`));
-    const trace = new TraceRecorder(storage.raw, clock);
-    const hub = new TraceEventHub(storage.raw, trace, { clock });
+    const trace = new LeadTraceRecorder(storage.raw, clock);
+    const hub = new LeadEventHub(storage.raw, trace, { clock });
     trace.backfill();
     const integrationIds = createIdGenerator(clock);
     const suppliedKey = options.config?.FACTORY_SECRET_KEY ?? process.env.FACTORY_SECRET_KEY;
@@ -576,6 +577,8 @@ export async function startHost(options: {
       profileText: readFileSync(join(pack.dir, leadSeat.profile), "utf8"),
       ...(options.lead === undefined ? {} : { config: options.lead }),
       getModelConfig: getLeadModelConfig,
+      execute: (...args) => pipeline.execute(...args),
+      onAction: () => dispatch?.kick(),
     });
     runner.recover();
     const raw = storage.raw;
@@ -827,6 +830,7 @@ export async function startHost(options: {
         return groupHandlers["groups.delete"](ctx, command);
       },
       ...createFlowHandlers({ packs, engine: flowEngine }),
+      "projects.set-lead-chat-mode": setLeadChatMode,
       "projects.archive": createProjectsArchiveHandler({ engine: flowEngine,
         projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") }),
       ...createRequestHandlers({ multiTeam: true, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
@@ -882,6 +886,7 @@ export async function startHost(options: {
       leadCli: options.modelGateway?.providerId === "claude-cli",
     };
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
+      exposeLeadChatMode(app, raw);
       routes(app, guards);
       registerFlowRoutes(app, guards, { storage: storage! });
       registerTraceRoutes(app, guards, { raw, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes });

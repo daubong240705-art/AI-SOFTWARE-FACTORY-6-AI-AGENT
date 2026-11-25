@@ -3,6 +3,9 @@ import type { extra as en } from './extra.en';
 type Translated<T> = { [K in keyof T]: T[K] extends string ? string : Translated<T[K]> };
 
 export const extra: Translated<typeof en> = {
+  leadChatUi: { setting: 'Cách làm việc với Lead', auto: 'Tự hiểu khi tôi chốt (mới)', classic: 'Cổ điển: nút Hỏi/Giao việc và duyệt đề xuất',
+    help: 'Trao đổi tự do, rồi chốt phương án bằng lời của bạn.', brief: 'Bản chốt v{version}', started: 'Đã chạy workflow {title}',
+    run: 'Run của workflow {title}', tasks: 'Đã tạo {count} task', stop: 'Dừng run', stopConfirm: 'Dừng run của workflow {title}? Các việc còn lại sẽ bị hủy.', stopReason: 'Người điều hành yêu cầu dừng từ chat với Lead.' },
   commonUi: { close: 'Đóng', actions: 'Thêm thao tác', unnamed: 'Chưa đặt tên', imported: 'Đã nhập', unavailable: 'Không còn khả dụng', package: 'Gói: {name}', technicalDetails: 'Chi tiết kỹ thuật' },
   traceUi: {
     monitor: 'Monitor', trace: 'Trace', monitorHelp: 'Xem hoạt động đang chạy và theo dõi từng yêu cầu từ đầu đến cuối.', refresh: 'Tải lại',

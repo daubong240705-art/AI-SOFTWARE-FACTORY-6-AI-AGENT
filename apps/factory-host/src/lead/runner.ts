@@ -1,13 +1,13 @@
-import { messageSchema, type FactoryEvent } from "@factory/contracts";
+import { messageSchema, type FactoryEvent, type LeadCard } from "@factory/contracts";
 import { appendMessage, getConversation, listPendingTurns, setTurnState, type LeadTurn } from "../chat/service.js";
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
-import { ModelError, type ModelGateway, type ModelResult, type ReasoningEffort } from "../models/gateway.js";
+import { ModelError, type ModelGateway, type ModelRequest, type ModelResult, type ReasoningEffort } from "../models/gateway.js";
 import { findLeadSeat, getPrimaryEngagement, listSeats } from "../org/service.js";
 import { checkAndReserve, DEFAULT_BUDGET_CONFIG, recordUsage, type BudgetConfig } from "../policy/budget.js";
 import { getProject } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
-import { createProposedTasks, listTasks } from "../work/service.js";
+import { createProposedTasks, getTask, listTasks, tasksTransitionHandler } from "../work/service.js";
 import { buildLeadRequest } from "./prompt.js";
 import type { ContentStore } from "../artifacts/content-store.js";
 import type { DocumentConfig } from "../artifacts/limits.js";
@@ -56,6 +56,10 @@ function namedDocuments(raw: Database, store: ContentStore, projectId: string, u
 }
 import { parseLeadOutput } from "./protocol.js";
 import { prepareLeadView } from "./view.js";
+import { applyLeadAction, leadContext } from "./actions.js";
+import { leadHistory, redactLeadText } from "./history.js";
+import { leadChatMode } from "./settings.js";
+import type { createCommandPipeline } from "../commands/pipeline.js";
 
 export interface LeadConfig {
   model: string; effort: ReasoningEffort | null; maxOutputTokens: number; maxHistoryMessages: number;
@@ -69,10 +73,14 @@ export interface LeadRunner {
   kick(): void; recover(): number; idle(): Promise<void>; stop(): Promise<void>;
 }
 
+class LeadSummaryBudgetError extends Error {}
+
 export function createLeadRunner(deps: {
   storage: Storage; hub: EventHub; gateway: ModelGateway | null; profileText: string;
   config?: Partial<LeadConfig>; budgetConfig?: BudgetConfig; clock?: Clock; newId?: () => string;
   getModelConfig?: () => Pick<LeadConfig, "model" | "effort">;
+  execute?: ReturnType<typeof createCommandPipeline>["execute"];
+  onAction?: () => void;
   /** Documents the Lead may read (named in chat) and the store/quota for the plan files it writes. */
   documents?: { store: ContentStore; config: DocumentConfig; afterRegister: (ref: { projectId: string; artifactId: string; version: number }) => void };
   /** Where read-only project views for the Lead chat live (Claude Code CLI Lead only); absent: the Lead has no tools. */
@@ -132,17 +140,15 @@ export function createLeadRunner(deps: {
       const user = raw.prepare("SELECT body_json, ordinal FROM messages WHERE project_id = ? AND conversation_id = ? AND id = ?")
         .get(turn.projectId, turn.conversationId, turn.id) as { body_json: string; ordinal: number } | undefined;
       if (!user) throw new Error("Missing user message");
-      const intent = JSON.parse(user.body_json).intent === "delegate" ? "delegate" : "discuss";
-      // Bound by the triggering ordinal BEFORE limiting history; later messages cannot displace it.
-      const rows = raw.prepare(`SELECT body_json FROM messages WHERE project_id = ? AND conversation_id = ?
-        AND ordinal <= ? AND json_extract(body_json, '$.message.speaker') != ? ORDER BY ordinal DESC LIMIT ?`)
-        .all(turn.projectId, turn.conversationId, user.ordinal, "system", Math.max(1, config.maxHistoryMessages)) as { body_json: string }[];
-      const history = rows.reverse().map((row) => messageSchema.parse(JSON.parse(row.body_json).message));
+      const body = JSON.parse(user.body_json);
+      const operator = messageSchema.parse(body.message);
+      if (operator.speaker !== "user") throw new Error("Missing operator message");
+      const intent = body.intent === "delegate" || body.intent === "discuss" ? body.intent
+        : leadChatMode(raw, turn.projectId) === "classic" ? "discuss" : "auto";
+      const { history, refresh } = leadHistory(raw, turn, user.ordinal, config, intent === "auto");
       // The engaged team's own Lead profile (pinned pack snapshot) wins over the Host default pack's profile.
       let profileText = deps.profileText;
       try { profileText = (lead ? getSeatInstructions(raw, { seatId: lead.id })?.profile : undefined) ?? deps.profileText; } catch { /* default */ }
-      const userText = history.filter((message) => message.speaker === "user").map((message) => message.text).join("\n");
-      const documents = deps.documents ? namedDocuments(raw, deps.documents.store, turn.projectId, userText) : [];
       const references = (raw.prepare(`SELECT v.artifact_id AS artifactId, v.title, v.media_type AS mediaType, v.abstract_l1 AS note
         FROM artifact_versions v WHERE v.project_id = ? AND v.origin = 'upload' AND v.media_type LIKE 'image/%'
           AND v.status NOT IN ('withdrawn', 'rejected')
@@ -151,13 +157,32 @@ export function createLeadRunner(deps: {
       // The Lead inspects the latest integrated code read-only; without a Git workspace it plans without tools.
       const view = deps.viewRoot && gateway?.providerId === "claude-cli" && project.workspace.kind === "git"
         ? await prepareLeadView(deps.viewRoot, turn.projectId, project.workspace.root) : null;
-      const built = buildLeadRequest({ profileText, ...(view ? { view } : {}),
-        project: { name: project.name, workspaceRoot: project.workspace.root }, seats, tasks: listTasks(raw, turn.projectId),
-        history, intent, config, documents, references });
       if (gateway === null) {
         terminal(turn, "failed", "not-configured", "The model gateway is not configured. Set NINE_ROUTER_API_KEY and restart the Host.");
         return;
       }
+      const summary = await refresh(async (request: ModelRequest) => {
+        const estimatedTokens = Math.ceil((request.system.length + request.messages.reduce((sum, item) => sum + item.content.length, 0)) / 3) + request.maxOutputTokens;
+        if (!checkAndReserve(raw, { projectId: turn.projectId, taskId, now: clock(), estimateTokens: estimatedTokens, config: budgetConfig }).ok)
+          throw new LeadSummaryBudgetError();
+        controller = new AbortController();
+        let result: ModelResult | undefined;
+        try { result = await gateway.complete({ ...request, signal: controller.signal }); }
+        finally {
+          recordUsage(raw, { id: newId(), projectId: turn.projectId, taskId, attemptId: null, conversationId: conversation.id,
+            provider: result?.provider ?? gateway.providerId, model: result?.model ?? config.model, effort: config.effort,
+            usage: result?.usage ?? null, estimatedTokens, recordedAt: clock().toISOString() });
+        }
+        if (result.finishReason === "length") throw new Error("Incomplete Lead summary");
+        return result.text;
+      });
+      const userText = [summary, ...history.filter((message) => message.speaker === "user").map((message) => message.text)].join("\n");
+      const documents = deps.documents ? namedDocuments(raw, deps.documents.store, turn.projectId, userText) : [];
+      const built = buildLeadRequest({ profileText, ...(view ? { view } : {}),
+        project: { name: project.name, workspaceRoot: project.workspace.root }, seats, tasks: listTasks(raw, turn.projectId),
+        history: intent === "auto" ? history.map((message) => ({ ...message, text: redactLeadText(message.text) })) : history,
+        intent, config, documents: intent === "auto" ? documents.map((document) => ({ ...document, text: redactLeadText(document.text) })) : documents,
+        references, ...(intent === "auto" ? { summary, actionContext: leadContext(raw, turn) } : {}) });
       const reservation = checkAndReserve(raw, { projectId: turn.projectId, taskId, now: clock(),
         estimateTokens: built.estimateTokens, config: budgetConfig });
       if (!reservation.ok) {
@@ -182,19 +207,50 @@ export function createLeadRunner(deps: {
         return;
       }
       const parsed = parseLeadOutput(result.text, intent);
+      let acceptedAction = false;
       hub.transaction(() => {
         const now = clock().toISOString();
         recordUsage(raw, { id: newId(), projectId: turn.projectId, taskId, attemptId: null,
           conversationId: conversation.id, provider: result.provider, model: result.model, effort: config.effort,
           usage: result.usage, estimatedTokens: built.estimateTokens, recordedAt: now });
-        const { message } = appendMessage(raw, { projectId: turn.projectId, conversationId: conversation.id,
-          id: newId(), speaker: "agent", agentId: conversation.agentId, text: parsed.reply, createdAt: now });
+        let actionResult: { text: string; cards: LeadCard[] } | undefined;
         let duplicateNote: string | null = null;
-        const tasks = parsed.plan === null ? [] : createProposedTasks(raw, { projectId: turn.projectId,
-          turnId: turn.id, plan: parsed.plan, briefs: parsed.briefs, engagementId: engagement?.id ?? null,
-          onDuplicates: (count) => { duplicateNote = `${count} task(s) in this plan already exist and are still open, so no copy was created.`; } });
+        const tasks = (brief?: { artifactId: string; version: number }) => {
+          if (!parsed.plan) return [];
+          const plan = brief ? { ...parsed.plan, tasks: parsed.plan.tasks.map((entry) => ({ ...entry,
+            inputs: [...new Set([brief.artifactId, ...(entry.inputs ?? [])])].slice(0, 20) })) } : parsed.plan;
+          return createProposedTasks(raw, { projectId: turn.projectId, turnId: turn.id, plan, briefs: parsed.briefs,
+            engagementId: engagement?.id ?? null,
+            onDuplicates: (count) => { duplicateNote = `${count} task(s) in this plan already exist and are still open, so no copy was created.`; } });
+        };
+        let changed = [] as ReturnType<typeof tasks>;
+        if (intent === "auto" && parsed.requested) {
+          actionResult = applyLeadAction({ raw, hub, turn, parsed, user: operator, ordinal: user.ordinal,
+            ...(deps.documents && { upload: { raw, hub, now: clock, ...deps.documents } }), ...(deps.execute && { execute: deps.execute }),
+            budgetAllowsStart: () => checkAndReserve(raw, { projectId: turn.projectId, taskId, now: clock(), estimateTokens: 0, config: budgetConfig }).ok,
+            acceptTasks: (brief) => {
+              changed = raw.transaction(() => [...new Map(tasks(brief).map((task) => [task.id, task])).values()].flatMap((task) => {
+                if (task.state !== "proposed") return [];
+                const command = { apiVersion: 1, type: "tasks.transition", projectId: turn.projectId, commandId: newId(),
+                  payload: { taskId: task.id, expectedRevision: task.revision, to: "accepted" } } as const;
+                tasksTransitionHandler({ raw, hub, clock, newId, actorId: "lead", actorIsOperator: false }, command);
+                return [getTask(raw, turn.projectId, task.id)!];
+              }))();
+              acceptedAction ||= changed.length > 0;
+              return changed.length ? { kind: "tasks", tasks: changed.map(({ id, title }) => ({ id, title })) } : null;
+            },
+          });
+          acceptedAction ||= actionResult.cards.some((card) => card.kind === "run");
+        } else changed = tasks();
+        const { message: stored } = appendMessage(raw, { projectId: turn.projectId, conversationId: conversation.id,
+          id: newId(), speaker: "agent", agentId: conversation.agentId,
+          text: actionResult?.text ?? (intent === "auto" ? redactLeadText(parsed.reply).trim() || (changed.length
+            ? "Đã ghi đề xuất để bạn xem xét; chưa giao việc." : "Bạn muốn Lead làm rõ phần nào?") : parsed.reply), createdAt: now });
+        const message = actionResult?.cards.length ? messageSchema.parse({ ...stored, leadCards: actionResult.cards }) : stored;
+        if (message.leadCards) raw.prepare("UPDATE messages SET body_json=? WHERE project_id=? AND id=?")
+          .run(JSON.stringify({ message }), turn.projectId, message.id);
         event(turn, { type: "message.appended", message });
-        if (parsed.note !== null) systemMessage(turn, parsed.note, now);
+        if (parsed.note !== null && !actionResult) systemMessage(turn, parsed.note, now);
         if (duplicateNote !== null) systemMessage(turn, duplicateNote, now);
         if (parsed.csv !== null && deps.documents) {
           // The plan file is an ordinary project document (kind plan): the operator opens or downloads it in Knowledge
@@ -211,9 +267,14 @@ export function createLeadRunner(deps: {
           }
         }
         setTurnState(raw, turn.projectId, turn.id, "done", { now, replyMessageId: message.id });
-        for (const task of tasks) event(turn, { type: "entity.changed", entity: { kind: "task", id: task.id, revision: task.revision } });
+        for (const task of changed) event(turn, { type: "entity.changed", entity: { kind: "task", id: task.id, revision: task.revision } });
       });
+      if (acceptedAction) { try { deps.onAction?.(); } catch { /* Work is already committed. */ } }
     } catch (error) {
+      if (error instanceof LeadSummaryBudgetError) {
+        terminal(turn, "budget-blocked", "budget-summary", "Không thể tóm tắt cuộc trao đổi cũ vì đã chạm giới hạn ngân sách.");
+        return;
+      }
       const kind = calling && error instanceof ModelError ? error.kind : "internal";
       const uncertain = ["timeout", "unavailable", "bad-response", "cancelled"].includes(kind);
       // Spend must reach the ledger even when only the bookkeeping after a successful call failed.

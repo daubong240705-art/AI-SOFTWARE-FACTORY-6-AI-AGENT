@@ -115,7 +115,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
         </Reveal>
       </div>
       <PanelPresence className="project-chat-dock min-h-0 min-w-0" fallbackFocus={actionFocus} onExitComplete={chatExited}>{chat && <DockedPane id={`${id}-chat`} label={t('projectUi.chat')} className="project-chat-dock h-full p-0" onClose={() => setChat(false)} fallbackFocus={actionFocus}>
-        <ProjectChat store={store} projectId={project.id} onClose={() => { setChat(false); actionFocus()?.focus(); }} />
+        <ProjectChat store={store} projectId={project.id} onOpenTask={openTask} onClose={() => { setChat(false); actionFocus()?.focus(); }} />
       </DockedPane>}</PanelPresence>
     </div>
   </div>;
