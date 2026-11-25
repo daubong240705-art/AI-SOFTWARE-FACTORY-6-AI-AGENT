@@ -46,6 +46,8 @@ export function advanceTasks(raw: Database, projectId: string, deps: { dispatche
   }
   for (const task of listTasks(raw, projectId)) {
     if (task.state !== "ready" || !dependenciesDone(raw, projectId, task) || task.holds.some((hold) => hold.kind === "decision" || hold.kind === "cross-team")) continue;
+    if (!task.gate.requiresGo && raw.prepare("SELECT 1 FROM agent_wakeups WHERE project_id=? AND task_id=? AND agent_id=?")
+      .get(projectId, task.id, task.ownerSeatId)) continue;
     if (deps.dispatcher.multiTeam && !engagementAvailable(raw, projectId, task.engagementId)) continue;
     const next = task.gate.requiresGo ? moveTask(raw, projectId, task.id, "awaiting-go")
       : startTask(raw, projectId, task.id, deps).task;

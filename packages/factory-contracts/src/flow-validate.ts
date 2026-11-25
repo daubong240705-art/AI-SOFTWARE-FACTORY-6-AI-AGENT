@@ -4,7 +4,7 @@ import { flowPathSchema, FLOW_NODE_PORTS, type FlowCondition, type FlowDefinitio
 export interface FlowIssue { code: FlowIssueCode; message: string; node?: string; edge?: string }
 export type FlowIssueCode = "no-trigger" | "unknown-node" | "unknown-port" | "unreachable" | "cycle-without-loop"
   | "bad-loop-back" | "join-needs-two-inputs" | "trigger-has-input" | "unknown-path" | "subflow-self"
-  | "duplicate-edge" | "output-has-edges" | "agent-not-found";
+  | "duplicate-edge" | "output-has-edges" | "agent-not-found" | "budget";
 export interface FlowValidationContext {
   /** When provided, every `{ agent: id }` selector must be in this set. */
   agentIds?: ReadonlySet<string>;
@@ -126,6 +126,9 @@ export function validateFlow(definition: FlowDefinition, context?: FlowValidatio
       issues.push({ code: "cycle-without-loop", message: "Node is in or downstream of a cycle without a loopBack edge", node: node.id });
     if (node.type === "subflow" && node.workflow === definition.key)
       issues.push({ code: "subflow-self", message: "A subflow cannot reference its own workflow", node: node.id });
+    if (node.type === "orchestrate" && node.budgetTokens !== undefined && definition.settings.budgetTokens !== undefined
+      && node.budgetTokens > definition.settings.budgetTokens)
+      issues.push({ code: "budget", message: "Orchestrate budget exceeds the flow budget", node: node.id });
     visitNode(node, (path) => {
       const referenced = /^nodes\.([A-Za-z0-9_-]+)/.exec(path)?.[1];
       if (referenced !== undefined && !ports.has(referenced))

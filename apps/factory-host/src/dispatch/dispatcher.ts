@@ -29,6 +29,7 @@ import { groupBudgetRefusal, recordUsage } from "../policy/budget.js";
 import { resolveProjectSettings } from "../groups/settings.js";
 import type { DependencyCache } from "../deps/cache.js";
 import { DEFAULT_LEAD_CONFIG } from "../lead/runner.js";
+import { consumeWakeup, sweepWakeups, wakeupContext } from "../collab/wakeups.js";
 
 export interface DispatcherConfig {
   /** Seats without an override and whose pack declares OpenCode run on this local CLI (FACTORY_DEFAULT_AGENT_CLI). */
@@ -216,6 +217,7 @@ export function createDispatcher(deps: {
     if (apiAgent) stateEvent(a, { to: "runtime-configured", agent: { model, effort, timeoutMinutes: apiConfig?.timeoutMinutes ?? 60 } });
     else if (config) stateEvent(a, { to: "runtime-configured", agent: { ...(config.cli ? { cli: config.cli } : {}),
       model: config.model, effort: config.effort, permission: config.permission } });
+    consumeWakeup(raw, a, now());
     changed(a);
     return a;
   };
@@ -428,6 +430,8 @@ export function createDispatcher(deps: {
         storeContextPack(raw, preparing.projectId, preparing.id, pack);
         contextPack = renderContextPack(pack);
       } catch { console.error("Context pack unavailable"); }
+      const waking = wakeupContext(raw, preparing.projectId, preparing.id);
+      if (waking) contextPack = contextPack ? `${waking}\n\n${contextPack}` : waking;
       let instructions: AttemptContext["instructions"] = null;
       try {
         const pin = getAttemptInstructionPin(raw, preparing.projectId, preparing.id);
@@ -542,6 +546,7 @@ export function createDispatcher(deps: {
   const pump = async (): Promise<void> => {
     pumping = true;
     try {
+      sweepWakeups(raw, hub, dispatcher, now());
       if (deps.multiTeam) hub.transaction(() => {
         for (const project of raw.prepare("SELECT id FROM projects ORDER BY id").all() as { id: string }[])
           for (const task of advanceTasks(raw, project.id, { dispatcher }))
@@ -560,7 +565,8 @@ export function createDispatcher(deps: {
           const rows = raw.prepare(`SELECT a.project_id, a.id, e.id AS engagement_id, e.max_concurrent FROM attempts AS a JOIN tasks AS t
             ON t.project_id = a.project_id AND t.id = a.task_id JOIN engagements AS e
             ON e.project_id = t.project_id AND e.id = t.engagement_id JOIN teams team ON team.id = e.team_id
-            WHERE a.state = ? AND t.state = ? AND NOT EXISTS (SELECT 1 FROM task_holds h WHERE h.project_id = t.project_id AND h.task_id = t.id AND h.kind IN ('decision','cross-team')) ${deps.multiTeam ? "AND e.state = 'active' AND team.lifecycle = 'active'" : ""}
+            WHERE a.state = ? AND t.state = ? AND NOT EXISTS (SELECT 1 FROM task_holds h WHERE h.project_id = t.project_id AND h.task_id = t.id AND h.kind IN ('decision','cross-team'))
+            AND NOT EXISTS (SELECT 1 FROM seats s WHERE s.id=t.owner_seat_id AND s.config_revision IS NOT NULL AND s.status<>'active') ${deps.multiTeam ? "AND e.state = 'active' AND team.lifecycle = 'active'" : ""}
             ORDER BY e.priority DESC, a.rowid`).all("queued", "active") as
             { project_id: string; id: string; engagement_id: string; max_concurrent: number }[];
           const row = rows.find((row) => {
@@ -689,9 +695,10 @@ export function createDispatcher(deps: {
     return promise;
   };
   const parkAttempt = (ref: { projectId: string; attemptId: string; epoch: number }): Promise<boolean> => {
+    if (stopped) return Promise.resolve(false);
     const original = getAttempt(raw, ref.projectId, ref.attemptId);
     const key = `${ref.projectId}:${ref.attemptId}`;
-    if (stopped || stops.has(key) || !original || original.state !== "running" || !original.leaseId
+    if (stops.has(key) || !original || original.state !== "running" || !original.leaseId
       || isStaleCallback(original, { ...ref, leaseId: original.leaseId }, clock().getTime())) return Promise.resolve(false);
     // Register the owner before fencing the iterator. A concurrent operator stop joins this same
     // verified stop, and run's finalizer retains the live entry until evidence is safely recorded.

@@ -10,6 +10,7 @@ import {
   requestKindSchema,
 } from "./work.js";
 import { capabilityIdSchema } from "./nodes.js";
+import { agentConfigSchema, agentSelectorSchema } from "./agents.js";
 
 /**
  * The tool surface an agent sees through the node's MCP relay (C-01, ADR-T06). Inputs carry NO
@@ -168,7 +169,29 @@ export const projectBriefingInputSchema = z.strictObject({});
 export const skillGetInputSchema = z.strictObject({ name: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/) });
 export type SkillGetInput = z.infer<typeof skillGetInputSchema>;
 
+const targetAgentSchema = z.union([idSchema, agentSelectorSchema]);
+const estimateTokensSchema = z.number().int().positive().default(1000);
+export const reviewVerdictSchema = z.strictObject({ verdict: z.enum(["approved", "changes-requested"]), notes: z.string().max(4000) });
+export const taskResultInputSchema = z.strictObject({ result: z.json().optional(),
+  verdict: reviewVerdictSchema.shape.verdict.optional(), notes: reviewVerdictSchema.shape.notes.optional() }).refine(
+    (input) => input.result === undefined ? input.verdict !== undefined && input.notes !== undefined
+      : input.verdict === undefined && input.notes === undefined, "Report either a result or a verdict with notes");
+export const COLLABORATION_TOOLS = {
+  "agent.directory": z.strictObject({}),
+  "task.create": z.strictObject({ target: targetAgentSchema, title: labelSchema, goal: textSchema.max(500),
+    brief: textSchema.max(32000).optional(), acceptance: z.array(textSchema.max(500)).max(20).default([]),
+    estimateTokens: estimateTokensSchema, parent: z.boolean().default(true), force: z.boolean().default(false) }),
+  "task.depend": z.strictObject({ taskId: idSchema, dependsOn: idSchema }),
+  "task.comment": z.strictObject({ taskId: idSchema, text: textSchema.max(4000), mention: idSchema.optional() }),
+  "task.request-review": z.strictObject({ reviewer: targetAgentSchema, artifacts: z.array(artifactRefSchema).min(1).max(20),
+    notes: z.string().max(4000).default(""), estimateTokens: estimateTokensSchema }),
+  "task.block": z.strictObject({ reason: textSchema.max(4000) }),
+  "agent.propose": z.strictObject({ config: agentConfigSchema, reason: textSchema.max(4000) }),
+  "task.result": taskResultInputSchema,
+} as const;
+
 export const MCP_TOOLS = {
+  ...COLLABORATION_TOOLS,
   "skill.get": skillGetInputSchema,
   "project.briefing": projectBriefingInputSchema,
   "task.propose": taskProposeInputSchema,
