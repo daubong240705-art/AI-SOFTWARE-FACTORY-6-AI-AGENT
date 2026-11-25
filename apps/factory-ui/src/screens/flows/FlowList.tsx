@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useCallback, useReducer, useState } from 'react';
 import { Plus, Upload, Archive, ArchiveRestore, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import type { ApiClient } from '@/api/client';
 import { flowCommand } from '@/api/commands';
 import { flowDefinitionSchema, flowsImportV1PayloadSchema } from '@factory/contracts';
 import { useFlowLabels, useFlowEvents, useFlowWrite, FlowDialog, FlowError, RunState, duration, timestamp, useRead } from './shared';
-import { Field, Choice } from './shared';
+import { Field } from './shared';
 import { newNode } from './nodeTypes';
 import { openFlowRoute } from '../shell/navigation';
 import { SetupDialog } from '../setup/SetupDialog';
@@ -62,6 +63,6 @@ export function FlowList({ projectId, api }: { projectId: string; api: ApiClient
     </div>
     {setupOpen && <SetupDialog projectId={projectId} target={{ mode: 'flow' }} close={() => setSetupOpen(false)} onApplied={refresh} />}
     {createOpen && <FlowDialog title={label('create')} description={label('createHelp')} close={() => setCreateOpen(false)} busy={write.busy} submit={label('create')} onSubmit={() => void create()}><div className="grid gap-3"><Field label={label('field.title')}>{props => <input data-testid="flow-title" {...props} className="h-9 rounded-md border bg-background px-2 text-sm" value={newTitle} onChange={event => setNewTitle(event.target.value)} autoFocus />}</Field><Field label={label('field.key')}>{props => <input data-testid="flow-key" {...props} className="h-9 rounded-md border bg-background px-2 font-mono text-sm" value={newKey} onChange={event => setNewKey(event.target.value)} />}</Field><p className="text-xs text-muted-foreground">{label('blankHelp')}</p><FlowError error={write.error} /></div></FlowDialog>}
-    {importOpen && <FlowDialog title={label('import')} description={label('importHelp')} close={() => setImportOpen(false)} busy={write.busy} disabled={!selectedDefinition || !selectedPack} submit={label('import')} onSubmit={() => void importFlow()}><div className="grid gap-3"><Field label={label('pack')}>{props => <Choice {...props} value={selectedPack} onChange={event => { setSelectedPack(event.target.value); setSelectedDefinition(''); }}><option value="">{label('selectPack')}</option>{[...new Set(packs.map(item => item.packKey))].map(pack => <option key={pack} value={pack}>{pack}</option>)}</Choice>}</Field><Field label={label('definition')}>{props => <Choice {...props} value={selectedDefinition} onChange={event => setSelectedDefinition(event.target.value)}><option value="">{label('selectDefinition')}</option>{definitions.map(item => <option key={item.key} value={item.key}>{item.title}</option>)}</Choice>}</Field>{legacy.loading && <p role="status">{label('loading')}</p>}{!legacy.loading && !legacy.error && !packs.length && <p>{label('noDefinitions')}</p>}<FlowError error={legacy.error ?? write.error} /></div></FlowDialog>}
+    {importOpen && <FlowDialog title={label('import')} description={label('importHelp')} close={() => setImportOpen(false)} busy={write.busy} disabled={!selectedDefinition || !selectedPack} submit={label('import')} onSubmit={() => void importFlow()}><div className="grid gap-3"><Field label={label('pack')}>{props => <Choice {...props} value={selectedPack} onValueChange={selectedValue => { setSelectedPack(selectedValue); setSelectedDefinition(''); }}><ChoiceOption value="">{label('selectPack')}</ChoiceOption>{[...new Set(packs.map(item => item.packKey))].map(pack => <ChoiceOption key={pack} value={pack}>{pack}</ChoiceOption>)}</Choice>}</Field><Field label={label('definition')}>{props => <Choice {...props} value={selectedDefinition} onValueChange={selectedValue => setSelectedDefinition(selectedValue)}><ChoiceOption value="">{label('selectDefinition')}</ChoiceOption>{definitions.map(item => <ChoiceOption key={item.key} value={item.key}>{item.title}</ChoiceOption>)}</Choice>}</Field>{legacy.loading && <p role="status">{label('loading')}</p>}{!legacy.loading && !legacy.error && !packs.length && <p>{label('noDefinitions')}</p>}<FlowError error={legacy.error ?? write.error} /></div></FlowDialog>}
   </div>;
 }

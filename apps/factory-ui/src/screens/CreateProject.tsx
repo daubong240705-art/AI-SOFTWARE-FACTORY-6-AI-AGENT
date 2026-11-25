@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 ﻿import { lazy, Suspense, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import type { Command } from '@factory/contracts';
 import { projectsCreate } from '../api/commands';
@@ -99,11 +100,11 @@ export function CreateProject({ store, initialGroupId = null, onClose, onCreated
       </Field>
       {!byWords && <Field>
         <FieldLabel htmlFor={`${titleId}-team`}>{t('ux5.teamTemplate')}</FieldLabel>
-        <select id={`${titleId}-team`} value={teamTemplate} disabled={!!command} onChange={event => setTeamTemplate(event.target.value)}
+        <Choice id={`${titleId}-team`} value={teamTemplate} disabled={!!command} onValueChange={selectedValue => setTeamTemplate(selectedValue)}
           className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm">
-          <option value="">{t('ux5.teamTemplateNone')}</option>
-          {packs.map(pack => <option key={pack.key} value={pack.key}>{`${pack.name} (${pack.seats.length} agent)`}</option>)}
-        </select>
+          <ChoiceOption value="">{t('ux5.teamTemplateNone')}</ChoiceOption>
+          {packs.map(pack => <ChoiceOption key={pack.key} value={pack.key}>{`${pack.name} (${pack.seats.length} agent)`}</ChoiceOption>)}
+        </Choice>
         <FieldDescription>{t(teamTemplate ? 'ux5.teamTemplateHelp' : 'ux5.teamTemplateNoneHelp')}</FieldDescription>
       </Field>}
       <Field>

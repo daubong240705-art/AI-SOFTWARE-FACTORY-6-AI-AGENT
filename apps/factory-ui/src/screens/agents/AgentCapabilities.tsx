@@ -1,3 +1,4 @@
+import { Choice, ChoiceGroup, ChoiceOption } from '@/components/ui/choice';
 import { useContext, useState } from 'react';
 import { MCP_TOOL_NAMES, type AgentConfig } from '@factory/contracts';
 import type { AgentLibrary } from '@/api/agentModels';
@@ -5,7 +6,7 @@ import type { ApiClient } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Choice, Field, ReadStatus, useAgentLabels, useRead } from './shared';
+import { Field, ReadStatus, useAgentLabels, useRead } from './shared';
 import { IntegrationProject, RetryRead, useIntegrationLabels, useProjectIntegrations } from '../integrations/shared';
 
 const builtinTools = MCP_TOOL_NAMES.filter(name => name !== 'task.propose' && name !== 'handoff.submit');
@@ -29,10 +30,10 @@ export function AgentCapabilities({ api, library, skills, tools, setSkills, setT
       <h3 className="font-semibold">{t('fields.skills')}</h3>
       <ReadStatus loading={result.loading} error={result.error} missingRoute />
       {result.error && <Button type="button" size="sm" variant="outline" onClick={() => setRetry(value => value + 1)}>{t('reload')}</Button>}
-      <Field label={t('librarySkill')} invalid={invalid('skills')}>{props => <Choice {...props} value="" disabled={skills.length >= 40 || !available.length} onChange={event => {
-        const skillId = event.target.value;
+      <Field label={t('librarySkill')} invalid={invalid('skills')}>{props => <Choice {...props} value="" disabled={skills.length >= 40 || !available.length} onValueChange={selectedValue => {
+        const skillId = selectedValue;
         if (skillId) setSkills([...skills, { skillId, version: 'latest' }]);
-      }}><option value="">—</option>{available.filter(skill => !assigned.has(skill.id)).map(skill => <option key={skill.id} value={skill.id}>{skill.name}{skill.description && ` — ${skill.description}`}</option>)}</Choice>}</Field>
+      }}><ChoiceOption value="">—</ChoiceOption>{available.filter(skill => !assigned.has(skill.id)).map(skill => <ChoiceOption key={skill.id} value={skill.id}>{skill.name}{skill.description && ` — ${skill.description}`}</ChoiceOption>)}</Choice>}</Field>
       {!skills.length && <p className="text-sm text-muted-foreground">{t('noSkills')}</p>}
       {skills.map(({ skillId, version }, index) => {
         const item = byId.get(skillId);
@@ -58,19 +59,19 @@ export function AgentCapabilities({ api, library, skills, tools, setSkills, setT
           const change = (patch: Partial<typeof grant>) => setTools(tools.map((item, position) => position === index ? { ...item, ...patch } : item));
           return <div key={index} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_9rem_auto]">
             <Input className="col-span-2 sm:col-span-1" aria-label={`${t('toolPattern')} ${index + 1}`} aria-invalid={!!invalid(`tools.${index}`)} value={grant.tool} placeholder="knowledge.*" maxLength={120} onChange={event => change({ tool: event.target.value })} />
-            <Choice aria-label={`${t('toolMode')} ${index + 1}`} value={grant.mode} onChange={event => change({ mode: event.target.value === 'deny' ? 'deny' : event.target.value === 'ask' ? 'ask' : 'allow' })}>
-              <option value="allow">{t('allow')}</option><option value="ask">{label('ask')}</option><option value="deny">{t('deny')}</option>
+            <Choice aria-label={`${t('toolMode')} ${index + 1}`} value={grant.mode} onValueChange={selectedValue => change({ mode: selectedValue === 'deny' ? 'deny' : selectedValue === 'ask' ? 'ask' : 'allow' })}>
+              <ChoiceOption value="allow">{t('allow')}</ChoiceOption><ChoiceOption value="ask">{label('ask')}</ChoiceOption><ChoiceOption value="deny">{t('deny')}</ChoiceOption>
             </Choice>
             <Button type="button" variant="ghost" aria-label={`${t('remove')} ${index + 1}`} onClick={() => setTools(tools.filter((_, position) => position !== index))}>{t('remove')}</Button>
-            <Choice className="col-span-full" aria-label={`${label('pickTool')} ${index + 1}`} value="" onChange={event => { if (event.target.value) change({ tool: event.target.value }); }}>
-              <option value="">{label('pickTool')}</option>
-              <optgroup label={label('builtinTools')}>{builtinTools.map(name => <option key={name} value={name}>{name}</option>)}</optgroup>
+            <Choice className="col-span-full" aria-label={`${label('pickTool')} ${index + 1}`} value="" onValueChange={selectedValue => { if (selectedValue) change({ tool: selectedValue }); }}>
+              <ChoiceOption value="">{label('pickTool')}</ChoiceOption>
+              <ChoiceGroup label={label('builtinTools')}>{builtinTools.map(name => <ChoiceOption key={name} value={name}>{name}</ChoiceOption>)}</ChoiceGroup>
               {integrations.data?.map(integration => {
                 const prefix = `${integration.kind === 'http-api' ? 'http' : 'ext'}.${integration.name}.`;
-                return <optgroup key={integration.id} label={integration.name}>
-                  {integration.kind !== 'http-api' && <option value={`${prefix}*`}>{prefix}*</option>}
-                  {integration.tools.map(tool => <option key={tool.name} value={`${prefix}${tool.name}`}>{prefix}{tool.name}</option>)}
-                </optgroup>;
+                return <ChoiceGroup key={integration.id} label={integration.name}>
+                  {integration.kind !== 'http-api' && <ChoiceOption value={`${prefix}*`}>{prefix}*</ChoiceOption>}
+                  {integration.tools.map(tool => <ChoiceOption key={tool.name} value={`${prefix}${tool.name}`}>{prefix}{tool.name}</ChoiceOption>)}
+                </ChoiceGroup>;
               })}
             </Choice>
             {grant.mode === 'ask' && <p className="col-span-full text-xs text-muted-foreground">{label('askHelp')}</p>}

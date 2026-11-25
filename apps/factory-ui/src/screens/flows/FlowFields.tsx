@@ -1,9 +1,10 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useId } from 'react';
 import { flowConditionSchema, type AgentSelector, type FlowCondition, type FlowDefinition, type ProjectAgentsResponse } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Choice, Field, JsonField, useFlowLabels } from './shared';
+import { Field, JsonField, useFlowLabels } from './shared';
 
 export function TextField({ name, value, set, suggestions, template, multi = false, type = 'text' }: {
   name: string; value: string; set: (value: string) => void; suggestions?: string[] | undefined; template?: boolean; multi?: boolean; type?: string;
@@ -14,8 +15,8 @@ export function TextField({ name, value, set, suggestions, template, multi = fal
     {multi ? <Textarea data-testid={`flow-field-${name}`} {...props} rows={3} value={value} onChange={event => set(event.target.value)} />
       : <Input {...props} type={type} value={value} list={suggestions && !template ? id : undefined} onChange={event => set(event.target.value)} />}
     {suggestions && !template && <datalist id={id}>{suggestions.map(path => <option key={path} value={path} />)}</datalist>}
-    {suggestions && template && <Choice aria-label={`${label('insertPath')}: ${label(`field.${name}`)}`} value="" onChange={event => { if (event.target.value) set(`${value}{{ ${event.target.value} }}`); }}>
-      <option value="">{label('insertPath')}</option>{suggestions.map(path => <option key={path} value={path}>{path}</option>)}
+    {suggestions && template && <Choice aria-label={`${label('insertPath')}: ${label(`field.${name}`)}`} value="" onValueChange={selectedValue => { if (selectedValue) set(`${value}{{ ${selectedValue} }}`); }}>
+      <ChoiceOption value="">{label('insertPath')}</ChoiceOption>{suggestions.map(path => <ChoiceOption key={path} value={path}>{path}</ChoiceOption>)}
     </Choice>}
   </>}</Field>;
 }
@@ -27,8 +28,8 @@ export function NumField({ name, value, set, optional = false }: { name: string;
 
 export function EnumField<Value extends string>({ name, value, options, set }: { name: string; value: Value; options: readonly Value[]; set: (value: Value) => void }) {
   const label = useFlowLabels();
-  return <Field label={label(`field.${name}`)}>{props => <Choice {...props} value={value} onChange={event => set(event.target.value as Value)}>
-    {options.map(option => <option key={option} value={option}>{label(`option.${option}`)}</option>)}
+  return <Field label={label(`field.${name}`)}>{props => <Choice {...props} value={value} onValueChange={selectedValue => set(selectedValue as Value)}>
+    {options.map(option => <ChoiceOption key={option} value={option}>{label(`option.${option}`)}</ChoiceOption>)}
   </Choice>}</Field>;
 }
 
@@ -72,9 +73,9 @@ export function AgentField({ name, selector, set, roster }: { name: string; sele
   const label = useFlowLabels();
   const mode = 'agent' in selector ? 'agent' : 'team' in selector ? 'team' : 'role' in selector ? 'role' : 'tags';
   function picker(key: string, current: string, items: { id: string; name: string }[], change: (value: string) => void) {
-    return <Field label={label(`field.${key}`)}>{props => <Choice {...props} value={current} onChange={event => change(event.target.value)}>
-      {!items.some(item => item.id === current) && <option value={current}>{current === emptyId ? label('none') : current}</option>}
-      {items.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+    return <Field label={label(`field.${key}`)}>{props => <Choice {...props} value={current} onValueChange={selectedValue => change(selectedValue)}>
+      {!items.some(item => item.id === current) && <ChoiceOption value={current}>{current === emptyId ? label('none') : label(key === 'agent' ? 'missingAgent' : 'nodeTeam')}</ChoiceOption>}
+      {items.map(item => <ChoiceOption key={item.id} value={item.id}>{item.name}</ChoiceOption>)}
     </Choice>}</Field>;
   }
   return <fieldset className="grid gap-2 rounded-lg border p-2"><legend className="px-1 text-xs font-medium">{label(`field.${name}`)}</legend>

@@ -15,7 +15,11 @@ export function Fold({ title, children }: { title: string; children: ReactNode }
 }
 
 export function Facts({ rows, mono = false }: { rows: string[][]; mono?: boolean }) {
-  return <dl className="grid gap-2 text-sm">{rows.map(([label, value], index) => <div key={index} className="flex min-w-0 flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{label}</dt><dd className={cn('m-0 min-w-0 break-all text-right', mono && 'font-mono text-xs text-muted-foreground')}>{value}</dd></div>)}</dl>;
+  const t = useT();
+  return <dl className="grid gap-2 text-sm">{rows.map(([label, value], index) => {
+    const identifier = value && /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(value) ? value : undefined;
+    return <div key={index} className="flex min-w-0 flex-wrap justify-between gap-x-4 gap-y-1"><dt className="text-muted-foreground">{label}</dt><dd title={identifier} className={cn('m-0 min-w-0 break-all text-right', mono && 'font-mono text-xs text-muted-foreground')}>{identifier ? t('attention.identifier') : value}</dd></div>;
+  })}</dl>;
 }
 
 export function AgentSummary({ text }: { text: string }) {

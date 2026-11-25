@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useEffect, useMemo, useState } from 'react';
 import dagre from '@dagrejs/dagre';
 import { Background, Controls, MarkerType, Position, ReactFlow, useReactFlow, type Edge, type Node } from '@xyflow/react';
@@ -7,7 +8,8 @@ import type { AgentProjectResponse } from '@/api/agentModels';
 import { relationsSet } from '@/api/commands';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Choice, ErrorText, useAgentLabels, useWriteFeedback, type Submit } from './shared';
+import { useT } from '@/i18n';
+import { ErrorText, useAgentLabels, useWriteFeedback, type Submit } from './shared';
 
 type Draft = { revision: number; rows: { key: string; relation: AgentRelation }[] };
 const width = 158, height = 44;
@@ -45,7 +47,7 @@ export function RelationsPanel({ projectId, data, submit, refreshing }: { projec
       <TableHeader className="sr-only sm:not-sr-only"><TableRow>{['from', 'kind', 'to'].map(key => <TableHead key={key}>{t(`relations.${key}`)}</TableHead>)}<TableHead><span className="sr-only">{t('remove')}</span></TableHead></TableRow></TableHeader>
       <TableBody>{rows.map(({ key, relation }, index) => <TableRow data-testid="relation-row" key={key} className="grid grid-cols-2 gap-1 py-2 sm:table-row sm:py-0">
         <TableCell className="col-span-2 min-w-0"><AgentChoice agents={data.agents} selected={relation.from} label={`${t('relations.from')} ${index + 1}`} disabled={writer.busy} invalid={invalid && !valid(relation)} change={from => update(index, { from })} /></TableCell>
-        <TableCell className="col-span-2 min-w-0"><Choice data-testid="relation-kind" aria-label={`${t('relations.kind')} ${index + 1}`} disabled={writer.busy} value={relation.kind} onChange={event => update(index, { kind: agentRelationKindSchema.parse(event.target.value) })}>{agentRelationKindSchema.options.map(kind => <option key={kind} value={kind}>{t(`relations.kinds.${kind}`)}</option>)}</Choice></TableCell>
+        <TableCell className="col-span-2 min-w-0"><Choice data-testid="relation-kind" aria-label={`${t('relations.kind')} ${index + 1}`} disabled={writer.busy} value={relation.kind} onValueChange={selectedValue => update(index, { kind: agentRelationKindSchema.parse(selectedValue) })}>{agentRelationKindSchema.options.map(kind => <ChoiceOption key={kind} value={kind}>{t(`relations.kinds.${kind}`)}</ChoiceOption>)}</Choice></TableCell>
         <TableCell className="col-span-2 min-w-0"><AgentChoice agents={data.agents} selected={relation.to} label={`${t('relations.to')} ${index + 1}`} disabled={writer.busy} invalid={invalid && !valid(relation)} change={to => update(index, { to })} /></TableCell>
         <TableCell><Button data-testid="relation-delete" type="button" size="sm" variant="ghost" disabled={writer.busy} aria-label={`${t('remove')} ${index + 1}`} onClick={() => change(rows.filter((_, position) => position !== index))}>{t('remove')}</Button></TableCell>
       </TableRow>)}</TableBody>
@@ -56,13 +58,15 @@ export function RelationsPanel({ projectId, data, submit, refreshing }: { projec
 }
 
 function AgentChoice({ agents, selected, label, disabled, invalid, change }: { agents: AgentSummary[]; selected: string; label: string; disabled: boolean; invalid: boolean; change: (id: string) => void }) {
-  return <Choice data-testid="relation-agent" aria-label={label} aria-invalid={invalid} disabled={disabled} value={selected} onChange={event => change(event.target.value)}>
-    <option value="">—</option>{selected && !agents.some(agent => agent.id === selected) && <option value={selected}>{selected}</option>}{agents.map(agent => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
+  const t = useT();
+  return <Choice data-testid="relation-agent" aria-label={label} aria-invalid={invalid} disabled={disabled} value={selected} onValueChange={selectedValue => change(selectedValue)}>
+    <ChoiceOption value="">—</ChoiceOption>{selected && !agents.some(agent => agent.id === selected) && <ChoiceOption value={selected}>{t('flowsUi.missingAgent')}</ChoiceOption>}{agents.map(agent => <ChoiceOption key={agent.id} value={agent.id}>{agent.name}</ChoiceOption>)}
   </Choice>;
 }
 
 function RelationGraph({ agents, relations }: { agents: AgentSummary[]; relations: AgentRelation[] }) {
   const t = useAgentLabels();
+  const label = useT();
   const { nodes, links } = useMemo(() => {
     const graph = new dagre.graphlib.Graph({ multigraph: true }).setGraph({ rankdir: 'LR', nodesep: 28, ranksep: 118 }).setDefaultEdgeLabel(() => ({}));
     const linked = new Set(relations.flatMap(({ from, to }) => [from, to]));
@@ -84,7 +88,8 @@ function RelationGraph({ agents, relations }: { agents: AgentSummary[]; relation
   const edges: Edge[] = links.map(({ relation, id }) => ({ id, source: relation.from, target: relation.to, type: 'smoothstep', label: t(`relations.kinds.${relation.kind}`), markerEnd: { type: MarkerType.ArrowClosed }, labelStyle: { fill: 'var(--color-foreground)' }, labelBgStyle: { fill: 'var(--color-card)' } }));
   if (!nodes.length) return null;
   return <div className="space-y-2"><h4 className="text-sm font-medium">{t('relations.graph')}</h4>
-    <div className="h-72 overflow-hidden rounded-lg border border-border" role="region" aria-label={t('relations.graph')}><ReactFlow nodes={nodes} edges={edges} fitView minZoom={0.05} nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} deleteKeyCode={null} zoomOnScroll={false} edgesFocusable={false} nodesFocusable={false} proOptions={{ hideAttribution: true }}>
+    <div className="h-72 overflow-hidden rounded-lg border border-border" role="region" aria-label={t('relations.graph')}><ReactFlow nodes={nodes} edges={edges} fitView minZoom={0.05} nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} deleteKeyCode={null} zoomOnScroll={false} edgesFocusable={false} nodesFocusable={false} disableKeyboardA11y proOptions={{ hideAttribution: true }}
+      ariaLabelConfig={{ 'node.a11yDescription.default': label('flowsUi.canvasNodeKeys'), 'node.a11yDescription.keyboardDisabled': t('relations.graph'), 'edge.a11yDescription.default': t('relations.graph'), 'controls.ariaLabel': label('flowsUi.canvasControls'), 'controls.zoomIn.ariaLabel': label('flowsUi.zoomIn'), 'controls.zoomOut.ariaLabel': label('flowsUi.zoomOut'), 'controls.fitView.ariaLabel': label('flowsUi.fit') }}>
       <Background /><Controls showInteractive={false} /><FitRelations nodes={nodes} />
     </ReactFlow></div>
   </div>;

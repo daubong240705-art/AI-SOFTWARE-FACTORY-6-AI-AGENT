@@ -1,10 +1,12 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useMemo } from 'react';
 import { FLOW_NODE_PORTS, jsonSubsetSchema, type FlowDefinition, type FlowNode, type ProjectAgentsResponse } from '@factory/contracts';
 import type { FlowIssue } from '@/api/flowModels';
 import type { ApiClient } from '@/api/client';
 import { Button } from '@/components/ui/button';
+import { extra } from '@/i18n/extra.en';
 import { AgentField, ConditionFields, EnumField, MappingField, NumField, SelectorList, StringsField, TextField, Toggle, defaultCondition, initialSelector, pathsFor } from './FlowFields';
-import { Choice, Field, JsonField, useFlowLabels } from './shared';
+import { Field, flowNodeTitle, JsonField, PortLabel, useFlowLabels } from './shared';
 import type { Selection } from './FlowCanvas';
 import { actionKinds, unsupported, unsupportedAction } from './nodeTypes';
 import { HttpActionFields } from './HttpActionFields';
@@ -47,12 +49,12 @@ export function NodeInspector({ api, projectId, node, definition, roster, setNod
       <Toggle name={label('field.outputSchema')} checked={!!node.outputSchema} set={enabled => set({ outputSchema: enabled ? { type: 'object', properties: {} } : undefined })} />
       {node.outputSchema && <JsonField title={label('field.outputSchema')} value={node.outputSchema} parse={raw => jsonSubsetSchema.parse(raw)} onChange={outputSchema => set({ outputSchema })} />}
     </>}
-    {node.type === 'action' && <><Field label={label('field.action')}>{props => <Choice {...props} value={node.action} onChange={event => {
-      const action = event.target.value as typeof node.action;
+    {node.type === 'action' && <><Field label={label('field.action')}>{props => <Choice {...props} value={node.action} onValueChange={selectedValue => {
+      const action = selectedValue as typeof node.action;
       const params = action === 'http.request' ? Object.fromEntries(Object.entries(node.params).filter(([key]) => ['integration', 'operation', 'args'].includes(key))) : node.params;
       set({ action, params });
     }}>
-      {actionKinds.map(kind => <option key={kind} value={kind}>{kind}{unsupportedAction(kind) ? ` (${label('unsupportedNode')})` : ''}</option>)}</Choice>}</Field>
+      {actionKinds.map(kind => <ChoiceOption key={kind} value={kind}>{kind}{unsupportedAction(kind) ? ` (${label('unsupportedNode')})` : ''}</ChoiceOption>)}</Choice>}</Field>
       {node.action === 'http.request' ? <HttpActionFields api={api} projectId={projectId} params={node.params} paths={paths} set={params => set({ params })} />
         : <MappingField name="params" value={node.params} paths={paths} scalar set={params => set({ params })} />}</>}
     {node.type === 'condition' && <div className="grid gap-3">{node.rules.map((rule, index) => <fieldset key={index} className="grid gap-2 rounded-lg border p-2"><legend className="px-1 text-xs">{label('rule')} {index + 1}</legend>
@@ -75,7 +77,7 @@ export function NodeInspector({ api, projectId, node, definition, roster, setNod
       <MappingField name="inputs" value={node.inputs} paths={paths} set={inputs => set({ inputs: Object.fromEntries(Object.entries(inputs).map(([key, value]) => [key, String(value)])) })} /></>}
     {node.type === 'orchestrate' && <><AgentField name="lead" selector={node.lead} roster={roster} set={lead => set({ lead })} /><TextField name="goal" value={node.goal} multi template suggestions={paths} set={goal => set({ goal })} /><SelectorList selectors={node.allowed} roster={roster} set={allowed => set({ allowed })} /><NumField name="maxTasks" value={node.maxTasks} set={maxTasks => set({ maxTasks: maxTasks ?? 1 })} /><NumField name="maxDepth" value={node.maxDepth} set={maxDepth => set({ maxDepth: maxDepth ?? 1 })} /><NumField name="budgetTokens" value={node.budgetTokens} optional set={budgetTokens => set({ budgetTokens })} /></>}
     {node.type === 'output' && <><EnumField name="target" value={node.target} options={['artifact', 'knowledge', 'deliver']} set={target => set({ target })} /><StringsField name="from" values={node.from} suggestions={paths} set={from => set({ from })} /></>}
-    <p className="text-xs text-muted-foreground">{label('ports')}: {FLOW_NODE_PORTS(node).join(', ') || label('none')}</p>
+    <p className="flex flex-wrap gap-1 text-xs text-muted-foreground">{label('ports')}: {FLOW_NODE_PORTS(node).length ? FLOW_NODE_PORTS(node).map(port => <PortLabel key={port} port={port} />) : label('none')}</p>
   </div>;
 }
 
@@ -111,14 +113,26 @@ export function FlowSettings({ definition, setDefinition }: { definition: FlowDe
   </div>;
 }
 
-export function IssueList({ issues, onSelect }: { issues: FlowIssue[]; onSelect: (selection: Selection) => void }) {
+export function IssueList({ definition, issues, onSelect }: { definition: FlowDefinition; issues: FlowIssue[]; onSelect: (selection: Selection) => void }) {
   const label = useFlowLabels();
-  return <div className="grid gap-1">{issues.length === 0 ? <p className="text-sm text-emerald-600">{label('noIssues')}</p> : issues.map((issue, index) => <button key={`${issue.code}-${index}`} type="button" className="rounded-md border border-destructive/40 p-2 text-left text-xs hover:bg-destructive/10" onClick={() => onSelect(issue.node ? { kind: 'node', id: issue.node } : issue.edge ? { kind: 'edge', id: issue.edge } : null)}><span className="font-semibold">{issue.code}</span> {issue.message}</button>)}</div>;
+  return <div className="grid gap-1">{issues.length === 0 ? <p className="text-sm text-emerald-600">{label('noIssues')}</p> : issues.map((issue, index) => {
+    const edge = definition.edges.find(item => item.id === issue.edge);
+    const node = definition.nodes.find(item => item.id === issue.node) ?? definition.nodes.find(item => item.id === edge?.from.node) ?? definition.nodes.find(item => item.id === edge?.to.node);
+    const selection: Selection = issue.edge ? { kind: 'edge', id: issue.edge } : node ? { kind: 'node', id: node.id } : null;
+    const code = Object.hasOwn(extra.flowsUi.validation, issue.code) ? issue.code : 'invalid';
+    const key = `${issue.code}-${index}`;
+    const text = <>{node && <span className="block font-semibold">{flowNodeTitle(node, label)}</span>}{label(`validation.${code}`)}</>;
+    const style = 'rounded-md border border-destructive/40 p-2 text-left text-xs';
+    return selection ? <button key={key} type="button" title={issue.message} className={`${style} hover:bg-destructive/10`} onClick={() => onSelect(selection)}>{text}</button>
+      : <p key={key} title={issue.message} className={style}>{text}</p>;
+  })}</div>;
 }
 
 export function EdgeInspector({ selection, definition, setDefinition }: { selection: string; definition: FlowDefinition; setDefinition: (definition: FlowDefinition) => void }) {
   const label = useFlowLabels();
   const edge = definition.edges.find(item => item.id === selection);
   if (!edge) return null;
-  return <div className="grid gap-3"><p className="text-sm font-semibold">{label('edge')}</p><p className="font-mono text-xs text-muted-foreground">{edge.from.node}:{edge.from.port} → {edge.to.node}</p><label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-primary" checked={edge.loopBack} onChange={event => setDefinition({ ...definition, edges: definition.edges.map(item => item.id === edge.id ? { ...item, loopBack: event.target.checked } : item) })} />{label('loopBack')}</label></div>;
+  const from = definition.nodes.find(node => node.id === edge.from.node);
+  const to = definition.nodes.find(node => node.id === edge.to.node);
+  return <div className="grid gap-3"><p className="text-sm font-semibold">{label('edge')}</p><p className="break-words text-xs text-muted-foreground">{from ? flowNodeTitle(from, label) : label('missingNode')} · <PortLabel port={edge.from.port} /> → {to ? flowNodeTitle(to, label) : label('missingNode')}</p><label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-primary" checked={edge.loopBack} onChange={event => setDefinition({ ...definition, edges: definition.edges.map(item => item.id === edge.id ? { ...item, loopBack: event.target.checked } : item) })} />{label('loopBack')}</label></div>;
 }

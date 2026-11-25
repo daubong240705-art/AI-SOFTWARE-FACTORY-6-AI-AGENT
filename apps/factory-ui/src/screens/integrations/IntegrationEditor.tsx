@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useState, type ComponentProps } from 'react';
 import { httpOperationSchema, integrationSpecSchema, jsonSubsetSchema, sensitiveIntegrationName, type Credential, type GroupSummary, type Integration, type IntegrationSpec, type JsonSubset } from '@factory/contracts';
 import { integrationsCreate, integrationsUpdate } from '@/api/commands';
@@ -5,7 +6,7 @@ import type { ApiClient } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { AdminDialog, Choice, DialogButtons, Field } from '../agents/shared';
+import { AdminDialog, DialogButtons, Field } from '../agents/shared';
 import { CredentialChoice, IntegrationError, RetryRead, ScopeChoice, useIntegrationLabels, useIntegrationWrite, visibleCredentials } from './shared';
 
 type Value = { value: string } | { credential: string };
@@ -48,8 +49,8 @@ function Rows({ kind, rows, set, invalid, ...pickers }: PickerData & { kind: 'en
       const isCredential = 'credential' in row.entry;
       return <div key={row.id} className="grid items-start gap-2 rounded-md border p-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto]">
         <TextInput label={`${t('key')} ${index + 1}`} value={row.name} maxLength={128} invalid={invalid(`config.${kind}.${row.name}`)} set={name => change({ name, ...(sensitiveIntegrationName(name) && !isCredential ? { entry: { credential: '' } } : {}) })} />
-        <Field label={t('valueType')}>{props => <Choice {...props} value={isCredential ? 'credential' : 'plain'} onChange={event => change({ entry: event.target.value === 'credential' ? { credential: '' } : { value: '' } })}>
-          <option value="plain" disabled={sensitiveIntegrationName(row.name)}>{t('plain')}</option><option value="credential">{t('credential')}</option>
+        <Field label={t('valueType')}>{props => <Choice {...props} value={isCredential ? 'credential' : 'plain'} onValueChange={selectedValue => change({ entry: selectedValue === 'credential' ? { credential: '' } : { value: '' } })}>
+          <ChoiceOption value="plain" disabled={sensitiveIntegrationName(row.name)}>{t('plain')}</ChoiceOption><ChoiceOption value="credential">{t('credential')}</ChoiceOption>
         </Choice>}</Field>
         {isCredential ? <Field label={t('credential')}>{props => <CredentialChoice {...props} {...pickers} value={'credential' in row.entry ? row.entry.credential : ''} onChange={credential => change({ entry: { credential } })} />}</Field>
           : <TextInput label={t('plain')} value={'value' in row.entry ? row.entry.value : ''} maxLength={8192} hint={t('plainHelp')} set={value => change({ entry: { value } })} />}
@@ -69,8 +70,8 @@ function OperationSchema({ schema, set, invalid }: { schema: SchemaDraft; set: (
       const change = (patch: Partial<SchemaField>) => set({ fields: schema.fields.map(item => item.id === field.id ? { ...item, ...patch } : item) });
       return <div key={field.id} className="flex flex-wrap items-center gap-2">
         <Input className="min-w-28 flex-1" aria-label={`${t('fieldName')} ${index + 1}`} placeholder={t('fieldName')} value={field.name} onChange={event => change({ name: event.target.value })} />
-        <Choice className="w-auto" aria-label={`${t('fieldType')} ${index + 1}`} value={field.type} onChange={event => change({ type: event.target.value as SchemaField['type'] })}>
-          {scalarTypes.map(type => <option key={type} value={type}>{t(type)}</option>)}
+        <Choice className="w-auto" aria-label={`${t('fieldType')} ${index + 1}`} value={field.type} onValueChange={selectedValue => change({ type: selectedValue as SchemaField['type'] })}>
+          {scalarTypes.map(type => <ChoiceOption key={type} value={type}>{t(type)}</ChoiceOption>)}
         </Choice>
         <label className="flex items-center gap-1 text-sm"><input type="checkbox" checked={field.required} onChange={event => change({ required: event.target.checked })} />{t('required')}</label>
         <Button type="button" variant="ghost" size="sm" aria-label={`${t('remove')} ${t('fieldName')} ${index + 1}`} onClick={() => set({ fields: schema.fields.filter(item => item.id !== field.id) })}>{t('remove')}</Button>
@@ -90,12 +91,12 @@ function Operations({ operations, set, invalid }: { operations: DraftOperation[]
       return <fieldset key={operation.id} className="grid gap-3 rounded-lg border p-3"><legend className="px-1 text-sm font-medium">{t('operation')} {index + 1}</legend>
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_7rem_minmax(0,1.3fr)]">
           <TextInput data-testid="connection-operation-name" label={t('name')} required value={operation.name} maxLength={64} hint={t('operationNameHelp')} invalid={invalid(`${prefix}.name`)} set={name => change({ name })} />
-          <Field label={t('method')}>{props => <Choice {...props} value={operation.method} onChange={event => change({ method: event.target.value as Operation['method'] })}>{httpOperationSchema.shape.method.options.map(method => <option key={method}>{method}</option>)}</Choice>}</Field>
+          <Field label={t('method')}>{props => <Choice {...props} value={operation.method} onValueChange={selectedValue => change({ method: selectedValue as Operation['method'] })}>{httpOperationSchema.shape.method.options.map(method => <ChoiceOption key={method} value={method}>{method}</ChoiceOption>)}</Choice>}</Field>
           <TextInput label={t('path')} required value={operation.path} maxLength={8192} hint={t('pathHelp')} invalid={invalid(`${prefix}.path`)} set={path => change({ path })} />
         </div>
         <OperationSchema schema={operation.schema} invalid={invalid(`${prefix}.inputSchema`)} set={schema => change({ schema })} />
-        <Field label={t('sideEffect')} hint={operation.sideEffect === 'external' ? t('externalWarning') : undefined}>{props => <Choice {...props} value={operation.sideEffect} onChange={event => change({ sideEffect: event.target.value === 'external' ? 'external' : 'none' })}>
-          <option value="none">{t('none')}</option><option value="external">{t('external')}</option>
+        <Field label={t('sideEffect')} hint={operation.sideEffect === 'external' ? t('externalWarning') : undefined}>{props => <Choice {...props} value={operation.sideEffect} onValueChange={selectedValue => change({ sideEffect: selectedValue === 'external' ? 'external' : 'none' })}>
+          <ChoiceOption value="none">{t('none')}</ChoiceOption><ChoiceOption value="external">{t('external')}</ChoiceOption>
         </Choice>}</Field>
         <Button type="button" variant="ghost" className="justify-self-start" disabled={operations.length === 1} onClick={() => set(operations.filter(item => item.id !== operation.id))}>{t('removeOperation')}</Button>
       </fieldset>;
@@ -165,7 +166,7 @@ export function IntegrationEditor({ api, item, groupId, groups, credentials, cre
       <TextInput data-testid="connection-name" label={t('name')} value={name} maxLength={30} required set={setName} hint={t('nameHelp')} invalid={invalid('name')} />
       <ScopeChoice groups={groups} value={scope} set={setScope} fixed={!!groupId} />
     </div>
-    <Field label={t('kind')}>{props => <Choice data-testid="connection-kind" {...props} value={kind} onChange={event => setKind(event.target.value as IntegrationSpec['kind'])}>{kinds.map(value => <option key={value} value={value}>{t(value)}</option>)}</Choice>}</Field>
+    <Field label={t('kind')}>{props => <Choice data-testid="connection-kind" {...props} value={kind} onValueChange={selectedValue => setKind(selectedValue as IntegrationSpec['kind'])}>{kinds.map(value => <ChoiceOption key={value} value={value}>{t(value)}</ChoiceOption>)}</Choice>}</Field>
     <RetryRead error={credentialError} loading={loadingCredentials} retry={refresh} />
     {kind === 'mcp-stdio' && <>
       <TextInput label={t('command')} value={command} set={setCommand} required maxLength={8192} invalid={invalid('config.command')} />
@@ -185,8 +186,8 @@ export function IntegrationEditor({ api, item, groupId, groups, credentials, cre
     </>}
     {kind === 'http-api' && <>
       <TextInput data-testid="connection-base-url" label={t('baseUrl')} value={baseUrl} set={setBaseUrl} required maxLength={8192} hint={t('urlHelp')} invalid={invalid('config.baseUrl')} />
-      <Field label={t('auth')} invalid={invalid('config.auth')}>{props => <Choice {...props} value={auth} onChange={event => setAuth(event.target.value === 'bearer' ? 'bearer' : event.target.value === 'header' ? 'header' : 'none')}>
-        <option value="none">{t('none')}</option><option value="bearer">{t('bearer')}</option><option value="header">{t('authHeader')}</option>
+      <Field label={t('auth')} invalid={invalid('config.auth')}>{props => <Choice {...props} value={auth} onValueChange={selectedValue => setAuth(selectedValue === 'bearer' ? 'bearer' : selectedValue === 'header' ? 'header' : 'none')}>
+        <ChoiceOption value="none">{t('none')}</ChoiceOption><ChoiceOption value="bearer">{t('bearer')}</ChoiceOption><ChoiceOption value="header">{t('authHeader')}</ChoiceOption>
       </Choice>}</Field>
       {auth === 'header' && <TextInput label={t('headerName')} value={header} set={setHeader} required maxLength={128} />}
       {auth !== 'none' && <Field label={t('credential')}>{props => <CredentialChoice {...props} {...pickers} value={credential} onChange={setCredential} />}</Field>}

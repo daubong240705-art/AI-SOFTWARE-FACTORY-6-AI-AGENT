@@ -1,9 +1,10 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useCallback, useMemo, useState } from 'react';
 import type { AgentConfig, AgentDetail } from '@factory/contracts';
 import type { ApiClient } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { i18n } from '@/i18n';
-import { Choice, Field, ReadStatus, useAgentLabels, useRead } from './shared';
+import { Field, ReadStatus, useAgentLabels, useRead } from './shared';
 
 function lineDiff(before: string, after: string) {
   const oldLines = before ? before.split('\n') : [];
@@ -59,11 +60,11 @@ export function AgentHistory({ api, detail, busy, rollback }: { api: ApiClient; 
   const diff = useMemo(() => data ? configDiff(data.config, detail.config) : [], [data, detail.config]);
   const instructions = useMemo(() => data && data.config.instructions !== detail.config.instructions ? lineDiff(data.config.instructions, detail.config.instructions) : null, [data, detail.config.instructions]);
   return <div className="space-y-4">
-    <Field label={t('tabs.history')} hint={t('historyHelp')}>{props => <Choice data-testid="agent-history-version" {...props} value={revision ?? ''} onChange={event => setRevision(event.target.value ? Number(event.target.value) : null)}>
-      <option value="">—</option>
-      {[...detail.revisions].sort((left, right) => right.revision - left.revision).map(item => <option key={item.revision} value={item.revision}>
+    <Field label={t('tabs.history')} hint={t('historyHelp')}>{props => <Choice data-testid="agent-history-version" {...props} value={revision ?? ''} onValueChange={selectedValue => setRevision(selectedValue ? Number(selectedValue) : null)}>
+      <ChoiceOption value="">—</ChoiceOption>
+      {[...detail.revisions].sort((left, right) => right.revision - left.revision).map(item => <ChoiceOption key={item.revision} value={item.revision}>
         r{item.revision} · {new Date(item.createdAt).toLocaleString(i18n.locale)}{item.revision === detail.configRevision ? ` · ${t('current')}` : ''}{item.note ? ` · ${item.note}` : ''}
-      </option>)}
+      </ChoiceOption>)}
     </Choice>}</Field>
     <ReadStatus loading={loading} error={error} />
     {error && <Button type="button" variant="outline" onClick={() => setRetry(value => value + 1)}>{t('reload')}</Button>}

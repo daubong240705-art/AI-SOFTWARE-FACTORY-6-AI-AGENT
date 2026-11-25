@@ -1,22 +1,19 @@
 import dagre from '@dagrejs/dagre';
 import { FLOW_NODE_PORTS, type FlowDefinition, type FlowEdge, type FlowNode, type FlowNodeRunState } from '@factory/contracts';
-import type { Edge, Node, XYPosition } from '@xyflow/react';
+import type { Edge, Node } from '@xyflow/react';
 
 export type CanvasNode = Node<{ node: FlowNode; invalid?: boolean; state?: FlowNodeRunState }, 'flow'>;
 export type CanvasEdge = Edge<{ loopBack: boolean }>;
 export const nodeWidth = 212;
 export const nodeHeight = (node: FlowNode) => 86 + FLOW_NODE_PORTS(node).length * 20;
 
-function fallback(index: number): XYPosition {
-  return { x: (index % 3) * 290, y: Math.floor(index / 3) * 340 };
-}
-
 export function definitionToGraph(definition: FlowDefinition) {
   const { nodes, edges, ...metadata } = definition;
+  const layout = resolveLayout(definition);
   return {
     metadata,
-    nodes: nodes.map((node, index): CanvasNode => ({ id: node.id, type: 'flow', width: nodeWidth, height: nodeHeight(node),
-      position: { ...(definition.layout[node.id] ?? fallback(index)) }, data: { node } })),
+    nodes: nodes.map((node): CanvasNode => ({ id: node.id, type: 'flow', width: nodeWidth, height: nodeHeight(node),
+      position: { ...layout[node.id]! }, data: { node } })),
     edges: edges.map((edge): CanvasEdge => ({ id: edge.id, source: edge.from.node, sourceHandle: edge.from.port,
       target: edge.to.node, targetHandle: 'in', data: { loopBack: edge.loopBack } })),
   };
@@ -24,10 +21,7 @@ export function definitionToGraph(definition: FlowDefinition) {
 
 export function graphToDefinition({ metadata, nodes, edges }: ReturnType<typeof definitionToGraph>): FlowDefinition {
   const layout = { ...metadata.layout };
-  nodes.forEach(({ id, position }, index) => {
-    const initial = fallback(index);
-    if (Object.hasOwn(layout, id) || initial.x !== position.x || initial.y !== position.y) layout[id] = { ...position };
-  });
+  nodes.forEach(({ id, position }) => { layout[id] = { ...position }; });
   return { ...metadata, layout, nodes: nodes.map(({ id, data }) => ({ ...data.node, id })),
     edges: edges.map(({ id, source, sourceHandle, target, data }) => ({ id, from: { node: source, port: sourceHandle ?? '' },
       to: { node: target }, loopBack: data?.loopBack ?? false })) };
@@ -64,4 +58,26 @@ export function autoLayout(definition: FlowDefinition): FlowDefinition['layout']
     const { x, y } = graph.node(node.id);
     return [node.id, { x: x - nodeWidth / 2, y: y - nodeHeight(node) / 2 }];
   }));
+}
+
+export function resolveLayout(definition: FlowDefinition): FlowDefinition['layout'] {
+  const { layout, nodes } = definition;
+  const missing = nodes.filter(node => !Object.hasOwn(layout, node.id));
+  if (!missing.length) return layout;
+  const generated = autoLayout(definition);
+  const placed = nodes.filter(node => Object.hasOwn(layout, node.id)).map(node => ({ ...layout[node.id]!, height: nodeHeight(node) }));
+  if (!placed.length) return generated;
+  const resolved = { ...layout };
+  for (const node of missing) {
+    const { x, y } = generated[node.id]!;
+    const height = nodeHeight(node);
+    const position = { x, y };
+    const conflicts = () => placed.filter(item => Math.abs(item.x - x) < nodeWidth + 24 && item.y < position.y + height + 24 && position.y < item.y + item.height + 24);
+    for (let overlap = conflicts(); overlap.length; overlap = conflicts()) {
+      position.y = Math.max(...overlap.map(item => item.y + item.height + 24));
+    }
+    resolved[node.id] = position;
+    placed.push({ ...position, height });
+  }
+  return resolved;
 }

@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useState } from 'react';
 import { agentAdapterSchema, agentEffortSchema, groupSettingsSchema, type GroupDetail, type GroupSettings as Settings } from '@factory/contracts';
 import { groupsSetSettings } from '@/api/commands';
@@ -5,7 +6,7 @@ import { ApiClientError } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { i18n, useT } from '@/i18n';
-import { Choice, Field, useWriteFeedback } from '../agents/shared';
+import { Field, useWriteFeedback } from '../agents/shared';
 import { useGroupLabels, useGroups } from './GroupsContext';
 import { WriteIssue } from './GroupDialogs';
 
@@ -57,9 +58,9 @@ export function GroupSettings({ detail, blocked }: { detail: GroupDetail; blocke
         <div className="flex flex-wrap items-end gap-2"><div className="min-w-48 flex-1">
           <Field label={t(key)} hint={key === 'defaultModel' ? t('modelHint') : key === 'budgetTokens30d' ? t('budgetHint') : undefined}
             invalid={tried && invalid ? t(`invalid.${key}`) : undefined}>
-            {props => key === 'defaultAdapter' || key === 'defaultEffort' ? <Choice data-testid={`group-setting-${key}`} {...props} disabled={writer.busy} value={values[key]} onChange={event => change(key, event.target.value)}>
-              <option value="">{t('inherit')}</option>
-              {(key === 'defaultAdapter' ? agentAdapterSchema.options : agentEffortSchema.options).map(value => <option key={value} value={value}>{display(key, value)}</option>)}
+            {props => key === 'defaultAdapter' || key === 'defaultEffort' ? <Choice data-testid={`group-setting-${key}`} {...props} disabled={writer.busy} value={values[key]} onValueChange={selectedValue => change(key, selectedValue)}>
+              <ChoiceOption value="">{t('inherit')}</ChoiceOption>
+              {(key === 'defaultAdapter' ? agentAdapterSchema.options : agentEffortSchema.options).map(value => <ChoiceOption key={value} value={value}>{display(key, value)}</ChoiceOption>)}
             </Choice> : <Input data-testid={`group-setting-${key}`} {...props} disabled={writer.busy} value={values[key]} placeholder={t('inherit')}
               {...(key === 'defaultModel' ? { maxLength: 256 } : { type: 'number', min: 1, max: Number.MAX_SAFE_INTEGER, step: 1 })} onChange={event => change(key, event.target.value)} />}
           </Field></div>

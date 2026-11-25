@@ -15,7 +15,7 @@ import { nodeIcons, nodeKinds, newNode } from './nodeTypes';
 import { FlowError, NodePicker, PendingJson, timestamp, useFlowEvents, useFlowLabels, useFlowWrite, useRead } from './shared';
 import { RunDialog } from './RunDialog';
 import { guardFlowDraft } from '../shell/navigation';
-import { autoLayout, definitionToGraph, isLoopReturn, nodeWidth } from './graphModel';
+import { autoLayout, definitionToGraph, isLoopReturn, nodeWidth, resolveLayout } from './graphModel';
 
 export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient; projectId: string; flowId: string; onBack: () => void }) {
   const label = useFlowLabels();
@@ -105,7 +105,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
     const agent = roster?.agents.find(item => item.status === 'active');
     const node = newNode(type as FlowNode['type'], label(`node.${type}`), definition!.nodes, agent ? { agent: agent.id } : { role: 'worker' }, label('acceptance'));
     const right = Math.max(0, ...definitionToGraph(definition!).nodes.map(item => item.position.x + nodeWidth));
-    replace({ ...definition!, nodes: [...definition!.nodes, node], layout: { ...definition!.layout, [node.id]: position ?? { x: right + 70, y: 32 } } });
+    replace({ ...definition!, nodes: [...definition!.nodes, node], layout: { ...resolveLayout(definition!), [node.id]: position ?? { x: right + 70, y: 32 } } });
     if (!position) setFitKey(value => value + 1);
     select({ kind: 'node', id: node.id });
   }
@@ -156,7 +156,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
       <main className="flex min-h-[420px] min-w-0 flex-col gap-2 lg:min-h-0">
         {pane && <><NodePicker definition={pane} current={selection?.kind === 'node' ? selection.id : undefined} onChange={id => select(id ? { kind: 'node', id } : null)} />
           <div className="min-h-0 flex-1"><FlowCanvas key={previewVersion ?? 'draft'} agentNames={agentNames} definition={pane} selection={selection} onSelect={select} issues={previewVersion === null ? issues : []} fitKey={fitKey}
-            {...(writable ? { edit: { move: (id, position) => update(current => ({ ...current, layout: { ...current.layout, [id]: position } })), connect, remove, add } } : {})} /></div></>}
+            {...(writable ? { edit: { move: (id, position) => update(current => ({ ...current, layout: { ...resolveLayout(current), [id]: position } })), connect, remove, add } } : {})} /></div></>}
         {!pane && <p role="status" className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">{label(versions.loading || snapshot.loading ? 'loading' : 'versionBodyUnavailable')}</p>}
         {previewVersion !== null && <Badge variant="outline">{label('readOnlyVersion', { version: previewVersion })}</Badge>}
       </main>
@@ -175,7 +175,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
               <FlowError error={rosterRead.error} />
             </fieldset>}
           </TabsContent>
-          <TabsContent value="issues"><IssueList issues={issues} onSelect={target => {
+          <TabsContent value="issues"><IssueList definition={definition} issues={issues} onSelect={target => {
             if (target?.kind !== 'edge') { if (target) select(target); return; }
             const edge = definition.edges.find(item => item.id === target.id);
             const node = edge && definition.nodes.find(item => item.id === edge.from.node || item.id === edge.to.node);

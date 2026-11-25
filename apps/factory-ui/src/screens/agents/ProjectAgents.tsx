@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { agentsClonePayloadSchema, type AgentSummary } from '@factory/contracts';
 import { Bot, Ellipsis, Plus, Star } from 'lucide-react';
@@ -17,7 +18,7 @@ import { RelationsPanel } from './RelationsPanel';
 import { TeamsPanel } from './TeamsPanel';
 import { TemplateDialog, type TemplateDraft } from './TemplateDialog';
 import { SaveTemplateDialog, UpgradeTemplateDialog } from '../library/AgentTemplateActions';
-import { AdminDialog, Choice, DialogButtons, ErrorText, Field, ReadStatus, useAgentLabels, useAgentWrite, useRead, useWriteFeedback, type Submit } from './shared';
+import { AdminDialog, DialogButtons, ErrorText, Field, ReadStatus, useAgentLabels, useAgentWrite, useRead, useWriteFeedback, type Submit } from './shared';
 
 const baseUrl = import.meta.env.DEV ? '/api' : '';
 const filters = ['active', 'paused', 'archived', 'all'] as const;
@@ -81,13 +82,13 @@ export function ProjectAgents({ projectId, linkedAgentId = null }: { projectId: 
     <ErrorText error={direct.error} />
     {data && <>
       <section className="space-y-3 rounded-xl border border-border bg-card/60 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">{t('agents')}</h3><Choice data-testid="agent-status-filter" className="w-auto" aria-label={t('filter')} value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>{filters.map(value => <option key={value} value={value}>{t(`status.${value}`)}</option>)}</Choice></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">{t('agents')}</h3><Choice data-testid="agent-status-filter" className="w-auto" aria-label={t('filter')} value={filter} onValueChange={selectedValue => setFilter(selectedValue as typeof filter)}>{filters.map(value => <ChoiceOption key={value} value={value}>{t(`status.${value}`)}</ChoiceOption>)}</Choice></div>
         {!visible.length && <p className="rounded-lg border border-dashed border-border px-4 py-7 text-center text-sm text-muted-foreground">{t(data.agents.length ? 'emptyFilter' : 'emptyAgents')}</p>}
         <ul className="grid gap-2">{visible.map(agent => <li data-testid={`agent-row-${agent.id}`} key={agent.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-background/60 p-3">
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2"><strong className="break-all">{agent.name}</strong>{agent.isLead && <span className="inline-flex items-center gap-1 text-xs font-medium"><Star className="size-3 fill-current" aria-hidden="true" />{t('lead')}</span>}<Badge variant={agent.status === 'active' ? 'secondary' : 'outline'}>{t(`status.${agent.status}`)}</Badge></div>
             <p className="break-words text-sm text-muted-foreground">{agent.role} · {agent.adapter} / {agent.model ?? t('default')} · {t('live', { count: agent.live })}</p>
-            {!!agent.teamIds.length && <div className="flex flex-wrap gap-1">{agent.teamIds.map(id => <Badge key={id} variant="outline" className="max-w-full truncate">{teamNames.get(id) ?? id}</Badge>)}</div>}
+            {!!agent.teamIds.length && <div className="flex flex-wrap gap-1">{agent.teamIds.map(id => <Badge key={id} variant="outline" className="max-w-full truncate">{teamNames.get(id) ?? translate('settingsUi.unknownTeam')}</Badge>)}</div>}
             {agent.template && <p className="text-xs text-muted-foreground">{t(agent.template.latestRevision > agent.template.revision ? 'templateUpdate' : 'templateLink', { revision: agent.template.revision, latest: agent.template.latestRevision })}</p>}
           </div>
           <DropdownMenu>

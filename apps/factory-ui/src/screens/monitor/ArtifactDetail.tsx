@@ -1,3 +1,4 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { lazy, Suspense, useCallback, useReducer, useState } from 'react';
 import { ApiClientError, createApiClient } from '@/api/client';
 import { LoadingState } from '@/components/LoadingState';
@@ -34,9 +35,9 @@ export default function ArtifactDetail({ store, projectId, target }: { store: St
     {artifact.data && <section className="space-y-3 rounded-xl border bg-card p-4 [overflow-wrap:anywhere]">
       <h2 className="font-display text-2xl">{artifact.data.artifact.title}</h2>
       {current && <p className="whitespace-pre-wrap">{current.abstractL0}</p>}
-      {!!versions.length && <label className="flex flex-wrap items-center gap-2">{t('knowledgeUi.version')}<select className="rounded-md border bg-background px-3 py-1.5" data-testid="trace-artifact-version" value={current?.version ?? ''} onChange={event => { location.hash = artifactHash(projectId, { id: target.id, version: Number(event.target.value) }); }}>
-        {!current && <option disabled value="">{label('unknown')}</option>}{versions.map(version => <option key={version.version} value={version.version}>{formatNumber(version.version)}</option>)}
-      </select></label>}
+      {!!versions.length && <label className="flex flex-wrap items-center gap-2">{t('knowledgeUi.version')}<Choice className="rounded-md border bg-background px-3 py-1.5" data-testid="trace-artifact-version" value={current?.version ?? ''} onValueChange={selectedValue => { location.hash = artifactHash(projectId, { id: target.id, version: Number(selectedValue) }); }}>
+        {!current && <ChoiceOption disabled value="">{label('unknown')}</ChoiceOption>}{versions.map(version => <ChoiceOption key={version.version} value={version.version}>{formatNumber(version.version)}</ChoiceOption>)}
+      </Choice></label>}
       <div className="flex flex-wrap gap-2">
         {current && <>
           <Button variant="outline" data-testid="trace-artifact-preview" onClick={() => setOpen(true)}>{label('documentDetails')}</Button>

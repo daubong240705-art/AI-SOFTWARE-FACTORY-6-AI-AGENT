@@ -1,12 +1,14 @@
+import { Choice, ChoiceOption } from '@/components/ui/choice';
 import { useCallback, useId, useState } from 'react';
 import type { AgentTemplateDetail, AgentTemplateSummary } from '@factory/contracts';
 import type { AgentLibrary } from '@/api/agentModels';
 import type { ApiClient } from '@/api/client';
 import { templatesCreate, templatesDelete, templatesUpdate } from '@/api/commands';
 import { Button } from '@/components/ui/button';
+import { useT } from '@/i18n';
 import { AgentEditor } from '../agents/AgentEditor';
-import { Choice, Field, useAgentLabels, useRead, type Submit } from '../agents/shared';
-import { DeleteDialog, LibraryRow, panelClass, PlainText, ReadFeedback, useLibraryLabels } from './shared';
+import { Field, useAgentLabels, useRead, type Submit } from '../agents/shared';
+import { DeleteDialog, LibraryRow, panelClass, ReadFeedback, useLibraryLabels } from './shared';
 
 const pageSize = 25;
 
@@ -17,7 +19,7 @@ export function TemplatesTab({ api, library, refreshKey, refresh, submit, blocke
   const [selected, select] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const summary = library.templates.find(template => template.id === selected);
-  return <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+  return <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
     <section className={panelClass}>
       <Button data-testid="template-create" type="button" disabled={blocked} onClick={() => setCreating(true)}>{t('createTemplate')}</Button>
       {!library.templates.length ? <p className="text-sm text-muted-foreground">{t('emptyTemplates')}</p> :
@@ -36,8 +38,9 @@ export function TemplatesTab({ api, library, refreshKey, refresh, submit, blocke
 
 function TemplateMetadata({ template }: { template: AgentTemplateSummary }) {
   const t = useLibraryLabels();
+  const common = useT();
   return <span className="flex flex-wrap gap-x-2 gap-y-1 break-all text-xs text-muted-foreground">
-    <span>{template.source ? `pack:${template.source.packKey}` : t('custom')}</span><span>{t('latestRevision', { revision: template.latestRevision })}</span>
+    <span>{template.source ? common('commonUi.package').replace('{name}', template.source.packKey) : t('custom')}</span><span>{t('latestRevision', { revision: template.latestRevision })}</span>
   </span>;
 }
 
@@ -74,7 +77,13 @@ function TemplatePanel({ api, library, summary, refreshKey, refresh, submit, blo
       {picked !== null && <ReadFeedback error={revision.error} loading={revision.loading} retry={refresh} />}
       {displayed && <>
         <h3 className="text-sm font-medium">{t('configuration', { revision: displayed.revision })}</h3>
-        <PlainText>{JSON.stringify(displayed.config, null, 2)}</PlainText>
+        <dl className="grid min-w-0 gap-2 text-sm [overflow-wrap:anywhere]">
+          <div><dt className="font-medium">{agentLabel('fields.name')}</dt><dd>{displayed.config.name}</dd></div>
+          <div><dt className="font-medium">{agentLabel('fields.role')}</dt><dd>{displayed.config.role}</dd></div>
+          <div><dt className="font-medium">{agentLabel('tabs.runtime')}</dt><dd>{displayed.config.runtime.adapter} · {displayed.config.runtime.model ?? agentLabel('default')}</dd></div>
+          {!!displayed.config.description && <div><dt className="font-medium">{agentLabel('fields.description')}</dt><dd>{displayed.config.description}</dd></div>}
+        </dl>
+        {displayed.config.instructions && <details className="min-w-0 text-sm"><summary className="cursor-pointer font-medium">{agentLabel('fields.instructions')}</summary><p className="max-h-96 overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere]">{displayed.config.instructions}</p></details>}
       </>}
     </>}
     {dialog?.kind === 'edit' && <AgentEditor api={api} library={library} initial={dialog.snapshot.config} close={() => setDialog(null)} submit={submit} refresh={refresh} loading={waiting} readError={latest.error ?? libraryError}
@@ -93,9 +102,9 @@ function RevisionPicker({ latest, value, onPick }: { latest: number; value: numb
   const entries = Array.from({ length: end - start + 1 }, (_, index) => end - index);
   const selected = value ?? latest;
   return <div className="space-y-2">
-    <Field label={t('revisions')}>{props => <Choice {...props} value={selected} onChange={event => onPick(Number(event.target.value) === latest ? null : Number(event.target.value))}>
-      {!entries.includes(selected) && <option value={selected}>r{selected}</option>}
-      {entries.map(item => <option key={item} value={item}>r{item}</option>)}
+    <Field label={t('revisions')}>{props => <Choice {...props} value={selected} onValueChange={selectedValue => onPick(Number(selectedValue) === latest ? null : Number(selectedValue))}>
+      {!entries.includes(selected) && <ChoiceOption value={selected}>r{selected}</ChoiceOption>}
+      {entries.map(item => <ChoiceOption key={item} value={item}>r{item}</ChoiceOption>)}
     </Choice>}</Field>
     {latest > pageSize && <div className="flex flex-wrap gap-2">
       <Button type="button" size="sm" variant="outline" disabled={page === 0} onClick={() => setPage(previous => previous - 1)}>{t('newerRevisions')}</Button>
