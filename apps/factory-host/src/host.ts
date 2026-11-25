@@ -23,7 +23,9 @@ import { advanceProject, createFlowHandlers, FLOW_COMMANDS, recoverFlows, regist
 import { createCollaborationMcp, withCollaborationApprovalEffects } from "./collab/service.js";
 import { completeFlowTask } from "./flow/work.js";
 import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
-import { EventHub } from "./events/hub.js";
+import type { EventHub } from "./events/hub.js";
+import { TraceEventHub, TraceRecorder } from "./trace/recorder.js";
+import { registerTraceRoutes } from "./trace/routes.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { createIdGenerator, systemClock, type Clock } from "./ids.js";
 import { createLeadRunner, type LeadConfig, type LeadRunner } from "./lead/runner.js";
@@ -442,7 +444,9 @@ export async function startHost(options: {
     // U1: every pack is also imported into the library (versioned skills + agent templates). Idempotent.
     importPacksToLibrary(storage.raw, packs, { newId: createIdGenerator(clock), clock },
       (packKey, message) => console.error(`Library import (${packKey}): ${message}`));
-    const hub = new EventHub(storage.raw, { clock });
+    const trace = new TraceRecorder(storage.raw, clock);
+    const hub = new TraceEventHub(storage.raw, trace, { clock });
+    trace.backfill();
     const integrationIds = createIdGenerator(clock);
     const suppliedKey = options.config?.FACTORY_SECRET_KEY ?? process.env.FACTORY_SECRET_KEY;
     let crypto: ReturnType<typeof credentialCrypto> | undefined;
@@ -571,7 +575,7 @@ export async function startHost(options: {
     runner.recover();
     const raw = storage.raw;
     const makeAttemptMcp = (dispatcher: Dispatcher) => withHttpToolDispatch(createMcpHandler({
-      external: integrationTools, collaboration: createCollaborationMcp({ raw, hub, dispatcher, clock, newId: resultId, budgetConfig }),
+      trace, external: integrationTools, collaboration: createCollaborationMcp({ raw, hub, dispatcher, clock, newId: resultId, budgetConfig }),
       toolPolicy: createToolPolicy(raw), approveTool,
       standing: createStandingApprovalMcp({ raw, hub, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes }),
       skills: createSkillsMcp({ raw, now: clock }),
@@ -603,7 +607,7 @@ export async function startHost(options: {
           return ref;
         });
       },
-    }), integrationTools);
+    }), { ...integrationTools, call: async (grant, name, input) => trace.tool(grant, name, input, () => integrationTools.call(grant, name, input)) });
     if (options.localCli?.enabled) localTokens = createTokenRegistry({ clock });
     if (options.modelProxy) {
       const configured = options.modelProxy;
@@ -864,6 +868,7 @@ export async function startHost(options: {
     app = createApiServer({ origins, gate, sessions, clock, ...(options.openLogin ? { openLogin: true } : {}), register(app, guards) {
       routes(app, guards);
       registerFlowRoutes(app, guards, { storage: storage! });
+      registerTraceRoutes(app, guards, { raw, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes });
       registerGroupRoutes(app, guards, { raw: storage!.raw, clock });
       registerIntegrationRoutes(app, guards, integrationStore, httpEffects, (projectId) => advanceProject(flowEngine, projectId));
       applyLibraryListScope(app, storage!.raw);

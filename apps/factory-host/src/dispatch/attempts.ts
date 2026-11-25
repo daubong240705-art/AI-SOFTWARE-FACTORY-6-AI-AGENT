@@ -1,4 +1,5 @@
 import type { Database } from "better-sqlite3";
+import { tracesFor } from "../trace/recorder.js";
 import { canTransitionAttempt, isLiveAttempt, LIVE_ATTEMPT_STATES, TERMINAL_ATTEMPT_STATES, type AttemptState } from "@factory/contracts";
 import type { AttemptRecord, AttemptRef, AttemptRow, ReasoningEffort, RuntimeKind } from "./types.js";
 
@@ -71,6 +72,7 @@ export function createAttempt(raw: Database, input: {
     }
     raw.prepare("INSERT INTO attempt_seats (project_id, attempt_id, seat_id) VALUES (?, ?, ?)")
       .run(input.projectId, input.id, input.seatId);
+    tracesFor(raw)?.entity(input.projectId, { kind: "attempt", ref: input.id }, input.now);
     return getAttempt(raw, input.projectId, input.id) as AttemptRecord;
   }).immediate();
 }
@@ -109,6 +111,7 @@ function transition(raw: Database, ref: { projectId: string; id: string }, to: A
       .run(to, nodeId, leaseId, leaseExpiresAt, patch.startedAt === undefined ? attempt.startedAt : patch.startedAt,
         endedAt, outcome, ref.projectId, ref.id, attempt.state, attempt.leaseId);
     if (changed.changes !== 1) throw new AttemptError("state-changed");
+    tracesFor(raw)?.entity(ref.projectId, { kind: "attempt", ref: ref.id }, patch.now);
     return getAttempt(raw, ref.projectId, ref.id) as AttemptRecord;
   }).immediate();
 }

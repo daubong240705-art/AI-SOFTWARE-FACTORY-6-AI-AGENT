@@ -11,6 +11,9 @@ import { ensureLocalNode, LOCAL_NODE_ID } from "../src/dispatch/node.js";
 import { RuntimeRegistry } from "../src/dispatch/runtime.js";
 import { moveTask } from "../src/dispatch/tasks.js";
 import { EventHub } from "../src/events/hub.js";
+import { TraceEventHub, TraceRecorder, spanId } from "../src/trace/recorder.js";
+import { listTraces, readMonitor, readTrace } from "../src/trace/read.js";
+import { recordUsage } from "../src/policy/budget.js";
 import { createFlowHandlers, fireFlowTimers, recoverFlows, registerFlowEngine, startFlowTimers } from "../src/flow/index.js";
 import { getRun, latestNodes, nodeHistory } from "../src/flow/store.js";
 import { activeAgents } from "../src/flow/work.js";
@@ -26,13 +29,14 @@ const output = (id: string, ...from: string[]) => ({ id, title: id, type: "outpu
 const definition = (nodes: unknown[], edges: unknown[], key = "fixture", extra: Record<string, unknown> = {}) =>
   ({ schema: 2, key, title: key, nodes: [trigger, ...nodes], edges, ...extra });
 
-function fixture(context: TestContext) {
+function fixture(context: TestContext, tracing = false) {
   const storage = migratedStorage();
   const { raw } = storage;
   const newId = idFactory();
   let time = Date.parse("2026-11-19T10:00:00Z");
   const clock = () => new Date(time);
-  const hub = new EventHub(raw, { clock, newId });
+  const trace = tracing ? new TraceRecorder(raw, clock) : undefined;
+  const hub = trace ? new TraceEventHub(raw, trace, { clock, newId }) : new EventHub(raw, { clock, newId });
   const pack = loadPack(fileURLToPath(new URL("../../../../packs/software-team", import.meta.url)));
   const dispatcher = createDispatcher({ storage, hub, clock, newId, registry: new RuntimeRegistry() });
   context.after(async () => { await dispatcher.stop(); storage.close(); });
@@ -78,9 +82,69 @@ function fixture(context: TestContext) {
       moveTask(raw, projectId, taskId, "failed");
     });
   };
-  return { raw, engine, newId, agents, projectId, request, command, agent, create, start, run, current, history, complete, fail,
+  return { raw, engine, trace, newId, agents, projectId, request, command, agent, create, start, run, current, history, complete, fail,
     tick: (ms: number) => { time += ms; }, publish: (flowId: string, expectedRevision = 1) => command("flows.publish", { flowId, expectedRevision }) };
 }
+
+test("one request traces a flow with two agent nodes, tasks, and attempts", (context) => {
+  const fx = fixture(context, true);
+  const runId = fx.start(fx.create(definition([fx.agent("first"), fx.agent("second", 1), output("done", "nodes.second.output")],
+    [edge("start", "first"), edge("first", "second"), edge("second", "done")])), { mockAgents: true });
+  const root = listTraces(fx.raw, fx.projectId, 10);
+  assert.equal(root.length, 1);
+  assert.equal(root[0]?.title, "flow-runs.start");
+  assert.equal(readMonitor(fx.raw, fx.projectId, fx.engine.clock(), 0).activeFlowRuns[0]?.progress.completed, 1);
+  ensureLocalNode(fx.raw, { slots: 2, now: fx.engine.clock().toISOString() });
+  for (const nodeId of ["first", "second"]) {
+    const taskId = fx.current(runId, nodeId).task_id!;
+    const attempt = listAttempts(fx.raw, fx.projectId, taskId)[0]!;
+    const ref = { projectId: fx.projectId, id: attempt.id };
+    const now = fx.engine.clock().toISOString();
+    transitionAttempt(fx.raw, ref, "leased", { now, nodeId: LOCAL_NODE_ID, leaseId: fx.newId(), leaseExpiresAt: now });
+    transitionAttempt(fx.raw, ref, "preparing", { now });
+    transitionAttempt(fx.raw, ref, "running", { now, startedAt: now });
+    transitionAttempt(fx.raw, ref, "submitting", { now });
+    if (nodeId === "first") recordUsage(fx.raw, { id: fx.newId(), projectId: fx.projectId, taskId, attemptId: attempt.id,
+      conversationId: null, provider: attempt.provider, model: attempt.model, effort: attempt.effort, recordedAt: now, estimatedTokens: null,
+      usage: { inputTokens: 10, cachedInputTokens: 2, outputTokens: 3, reasoningOutputTokens: 0 } });
+    transitionAttempt(fx.raw, ref, "succeeded", { now });
+    fx.complete(runId, nodeId);
+  }
+  const trace = readTrace(fx.raw, fx.projectId, root[0]!.id)!;
+  assert.deepEqual(trace.summary, { known: 13, estimated: 0, unknownSpans: 1 });
+  const run = trace.spans.find(({ kind }) => kind === "flow-run")!;
+  assert.equal(run.parentId, root[0]!.id);
+  assert.equal(run.status, "succeeded");
+  for (const nodeId of ["first", "second"]) {
+    const node = trace.spans.find(({ detail }) => detail.nodeId === nodeId)!;
+    const task = trace.spans.find(({ parentId }) => parentId === node.id)!;
+    const attempt = trace.spans.find(({ parentId }) => parentId === task.id)!;
+    assert.equal(node.parentId, run.id);
+    assert.deepEqual([node.status, task.status, attempt.status], ["succeeded", "done", "succeeded"]);
+    assert.equal(attempt.tokens, nodeId === "first" ? 13 : null);
+    assert.ok(node.endedAt && task.endedAt && attempt.endedAt);
+  }
+  assert.equal(run.id, spanId("flow-run", runId));
+  fx.trace!.backfill();
+  assert.deepEqual(readTrace(fx.raw, fx.projectId, root[0]!.id), trace);
+});
+
+test("trace backfill recovers a manual flow and its queued attempt, within the 30 day window", (context) => {
+  const fx = fixture(context);
+  const flowId = fx.create(definition([fx.agent("work"), output("done", "nodes.work.output")], [edge("start", "work"), edge("work", "done")]));
+  const older = fx.start(flowId);
+  fx.complete(older, "work");
+  fx.tick(31 * 86_400_000);
+  const recent = fx.start(flowId, { mockAgents: true });
+  const recorder = new TraceRecorder(fx.raw, fx.engine.clock);
+  recorder.backfill();
+  const roots = listTraces(fx.raw, fx.projectId, 10);
+  assert.deepEqual(roots.map(({ kind, detail }) => [kind, detail.targetId]), [["request", recent]]);
+  const trace = readTrace(fx.raw, fx.projectId, roots[0]!.id)!;
+  assert.equal(trace.spans.find(({ kind }) => kind === "attempt")?.status, "queued");
+  recorder.backfill();
+  assert.deepEqual(readTrace(fx.raw, fx.projectId, roots[0]!.id), trace);
+});
 
 test("linear flow creates and dispatches a task for the selected agent", (context) => {
   const fx = fixture(context);
@@ -100,7 +164,7 @@ test("linear flow creates and dispatches a task for the selected agent", (contex
 });
 
 test("parallel agent branches join; a real rejection skips only the dead path", (context) => {
-  const fx = fixture(context);
+  const fx = fixture(context, true);
   const branches = ["alpha", "beta", "gamma"];
   const runId = fx.start(fx.create(definition([fx.agent("lead"), ...branches.map((name, index) => fx.agent(name, index + 1)),
     { id: "join", type: "join", title: "Join", policy: "all" }, { id: "gate", type: "approval", title: "Gate", approver: "operator", prompt: "Review branches" },
@@ -117,6 +181,11 @@ test("parallel agent branches join; a real rejection skips only the dead path", 
   assert.equal(fx.current(runId, "ship").state, "skipped");
   assert.equal(fx.current(runId, "reject").state, "succeeded");
   assert.equal(fx.run(runId).state, "succeeded");
+  const trace = readTrace(fx.raw, fx.projectId, listTraces(fx.raw, fx.projectId, 1)[0]!.traceId)!;
+  const approvalSpan = trace.spans.find(({ kind, ref }) => kind === "approval" && ref === approval.id)!;
+  assert.equal(approvalSpan.status, "applied");
+  assert.ok(approvalSpan.endedAt);
+  assert.equal(approvalSpan.parentId, trace.spans.find(({ detail }) => detail.nodeId === "gate")?.id);
 });
 
 test("condition reads pinned structured output and fails on an unknown verdict", (context) => {

@@ -26,6 +26,7 @@ import { integratePending, integrationBlocked } from "../integration/service.js"
 import { getSeatRuntimeConfig } from "../org/runtime-config.js";
 import { LOCAL_CLI_FAILURES } from "../runtimes/failures.js";
 import { groupBudgetRefusal, recordUsage } from "../policy/budget.js";
+import { tracesFor } from "../trace/recorder.js";
 import { resolveProjectSettings } from "../groups/settings.js";
 import type { DependencyCache } from "../deps/cache.js";
 import { DEFAULT_LEAD_CONFIG } from "../lead/runner.js";
@@ -350,6 +351,7 @@ export function createDispatcher(deps: {
           a.provider, identity.model, a.effort, u?.inputTokens ?? null, u?.cachedInputTokens ?? null,
           u?.outputTokens ?? null, u?.reasoningOutputTokens ?? null, identity.recordedAt);
       }
+      tracesFor(raw)?.entity(a.projectId, { kind: "attempt", ref: a.id });
     };
     let startInvoked = false;
     try {

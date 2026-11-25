@@ -2,6 +2,7 @@ import { COLLABORATION_TOOLS, notifySendInternalInputSchema } from "@factory/con
 import { z } from "zod";
 import { artifactKindSchema, artifactRefSchema, criterionReportInputSchema, decisionRequestInputSchema, knowledgeGetInputSchema, knowledgeSearchInputSchema, labelSchema, taskProgressInputSchema, requestCreateInputSchema, requestReplyInputSchema, requestGetInputSchema } from "@factory/contracts";
 import type { TokenGrant } from "../proxy/tokens.js";
+import type { TraceRecorder } from "../trace/recorder.js";
 import { McpToolError, sanitizeAgentText } from "./security.js";
 import { cleanArtifactSummary } from "../artifacts/summary.js";
 import { isAllowedMediaType } from "../artifacts/media.js";
@@ -36,6 +37,7 @@ export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
   return clean.data;
 }
 export interface McpDeps {
+  trace?: TraceRecorder;
   collaboration?: { call(grant: TokenGrant, name: keyof typeof COLLABORATION_TOOLS, input: unknown): ToolResult };
   standing?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   external?: ExternalTools;
@@ -107,7 +109,7 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
   const maxProgress = options.maxProgressPerAttempt ?? 500;
   const progressCalls = new Map<string, number>();
   const criterionCalls = new Map<string, number>(); const maxCriteria = 64;
-  return { call(grant, name, args) {
+  const dispatch = (grant: TokenGrant, name: string, args: unknown): ToolResult | Promise<ToolResult> => {
     try {
       if (/^(ext|http)\./.test(name)) return deps.external?.call(grant, name, args) ?? result("tool is not available", true);
       if (!toolAllowed(deps, grant, name)) return result("tool is not available", true);
@@ -160,5 +162,7 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
     } catch (error) {
       return result(error instanceof McpToolError ? error.reason : "tool could not be completed", true);
     }
-  } };
+  };
+  return { call: (grant, name, args) => deps.trace ? deps.trace.tool(grant, name, args, () => dispatch(grant, name, args),
+    toolDefinitions.some((tool) => tool.name === name)) : dispatch(grant, name, args) };
 }
