@@ -66,6 +66,8 @@ function FlowTile({ id, data, selected, isConnectable }: NodeProps<CanvasNode>) 
 }
 
 const nodeTypes = { flow: FlowTile };
+/** Below this zoom node titles are unreadable; the canvas starts at the trigger instead of fitting everything. */
+const readableZoom = 0.7;
 const noIssues: FlowIssue[] = [];
 const noRuns: FlowNodeRun[] = [];
 
@@ -77,6 +79,21 @@ export function FlowCanvas({ definition, selection, onSelect, issues = noIssues,
   const label = useFlowLabels();
   const attempts = runs ?? noRuns;
   const instance = useRef<ReactFlowInstance<CanvasNode, CanvasEdge> | null>(null);
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  // Fit the whole graph; when that would make nodes unreadable, keep a readable zoom and start at the trigger instead.
+  const fitReadable = () => {
+    const flow = instance.current;
+    if (!flow) return;
+    void flow.fitView({ padding: 0.15, maxZoom: 1 }).then(() => {
+      if (flow.getZoom() >= readableZoom) return;
+      const nodes = flow.getNodes();
+      const start = nodes.find(node => node.data.node.type === 'trigger') ?? nodes[0];
+      const box = frameRef.current?.getBoundingClientRect();
+      if (!start || !box) return;
+      const height = start.measured?.height ?? 120;
+      void flow.setViewport({ x: 32 - start.position.x * readableZoom, y: box.height / 2 - (start.position.y + height / 2) * readableZoom, zoom: readableZoom });
+    });
+  };
   const graph = useMemo(() => definitionToGraph(definition), [definition]);
   const { latest, takenPorts } = useMemo(() => {
     const byNode = new Map<string, FlowNodeRun>();
@@ -96,17 +113,17 @@ export function FlowCanvas({ definition, selection, onSelect, issues = noIssues,
   }, [graph.edges, issues]);
   useEffect(() => {
     if (!fitKey) return;
-    const frame = requestAnimationFrame(() => { void instance.current?.fitView({ padding: 0.15, maxZoom: 1 }); });
+    const frame = requestAnimationFrame(fitReadable);
     return () => cancelAnimationFrame(frame);
   }, [fitKey]);
   const names = useMemo(() => agentNames ?? new Map<string, string>(), [agentNames]);
   const titles = useMemo(() => new Map(definition.nodes.map(node => [node.id, flowNodeTitle(node, label)])), [definition.nodes, label]);
-  return <AgentNames.Provider value={names}><div className="h-full min-h-[390px] min-w-0 overflow-hidden rounded-xl border border-border bg-muted/35" role="region" aria-label={label('canvas')}
+  return <AgentNames.Provider value={names}><div ref={frameRef} className="h-full min-h-[390px] min-w-0 overflow-hidden rounded-xl border border-border bg-muted/35" role="region" aria-label={label('canvas')}
     onDragOver={event => { if (edit && event.dataTransfer.types.includes(nodeDragType)) { event.preventDefault(); event.dataTransfer.dropEffect = 'copy'; } }}
     onDrop={event => { if (!edit || !instance.current) return; const type = event.dataTransfer.getData(nodeDragType); if (!type) return; event.preventDefault();
       edit.add(type, instance.current.screenToFlowPosition({ x: event.clientX, y: event.clientY })); }}
     onKeyDown={event => { if (edit && (event.key === 'Delete' || event.key === 'Backspace') && (event.target as HTMLElement).closest('.react-flow__node, .react-flow__edge, .react-flow__pane')) { event.preventDefault(); edit.remove(); } }}>
-    <ReactFlow<CanvasNode, CanvasEdge> nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.15, maxZoom: 1 }} minZoom={0.2} maxZoom={2}
+    <ReactFlow<CanvasNode, CanvasEdge> nodeTypes={nodeTypes} minZoom={0.2} maxZoom={2}
       className="[--xy-controls-button-background-color:var(--color-card)] [--xy-controls-button-background-color-hover:var(--color-accent)] [--xy-controls-button-border-color:var(--color-border)] [--xy-controls-button-color:var(--color-foreground)]"
       nodes={graph.nodes.map(node => {
         const state = runs ? latest.get(node.id)?.state ?? 'pending' : undefined;
@@ -123,7 +140,7 @@ export function FlowCanvas({ definition, selection, onSelect, issues = noIssues,
           markerEnd: { type: MarkerType.ArrowClosed, color: stroke }, style: { stroke, strokeWidth: active ? 3 : 1.5, ...(edge.data?.loopBack ? { strokeDasharray: '6 4' } : {}) } };
       })}
       nodesDraggable={!!edit} nodesConnectable={!!edit} deleteKeyCode={null} multiSelectionKeyCode={null}
-      onInit={value => { instance.current = value; }} onPaneClick={() => onSelect(null)}
+      onInit={value => { instance.current = value; requestAnimationFrame(fitReadable); }} onPaneClick={() => onSelect(null)}
       onNodeClick={(_event, node) => onSelect({ kind: 'node', id: node.id })} onEdgeClick={(_event, edge) => onSelect({ kind: 'edge', id: edge.id })}
       onNodesChange={changes => { for (const change of changes) {
         if (change.type === 'position' && change.position) edit?.move(change.id, change.position);
