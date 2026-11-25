@@ -81,6 +81,8 @@ export function createLeadRunner(deps: {
   getModelConfig?: () => Pick<LeadConfig, "model" | "effort">;
   execute?: ReturnType<typeof createCommandPipeline>["execute"];
   onAction?: () => void;
+  /** Integrations the project may use (ids for workflow inputs such as portalIntegrationId); never their secrets. */
+  integrations?: (projectId: string) => readonly { id: string; name: string; kind: string }[];
   /** Documents the Lead may read (named in chat) and the store/quota for the plan files it writes. */
   documents?: { store: ContentStore; config: DocumentConfig; afterRegister: (ref: { projectId: string; artifactId: string; version: number }) => void };
   /** Where read-only project views for the Lead chat live (Claude Code CLI Lead only); absent: the Lead has no tools. */
@@ -182,7 +184,7 @@ export function createLeadRunner(deps: {
         project: { name: project.name, workspaceRoot: project.workspace.root }, seats, tasks: listTasks(raw, turn.projectId),
         history: intent === "auto" ? history.map((message) => ({ ...message, text: redactLeadText(message.text) })) : history,
         intent, config, documents: intent === "auto" ? documents.map((document) => ({ ...document, text: redactLeadText(document.text) })) : documents,
-        references, ...(intent === "auto" ? { summary, actionContext: leadContext(raw, turn) } : {}) });
+        references, ...(intent === "auto" ? { summary, actionContext: leadContext(raw, turn, deps.integrations?.(turn.projectId) ?? []) } : {}) });
       const reservation = checkAndReserve(raw, { projectId: turn.projectId, taskId, now: clock(),
         estimateTokens: built.estimateTokens, config: budgetConfig });
       if (!reservation.ok) {

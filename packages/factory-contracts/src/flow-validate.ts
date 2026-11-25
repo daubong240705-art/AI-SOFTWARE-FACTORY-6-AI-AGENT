@@ -24,7 +24,9 @@ export function validateBundleParams(params: Extract<FlowNode, { type: "action" 
   const id = idSchema.safeParse(integrationId);
   const expression = typeof integrationId === "string" ? /^\{\{\s*([^\s{}]+)\s*\}\}$/.exec(integrationId)?.[1] : undefined;
   const add = (code: FlowIssueCode, message: string) => { issues.push({ code, message }); };
-  if (!id.success && !flowPathSchema.safeParse(expression).success) add("bundle-integration", "Use an HTTP integration ID or a flow expression");
+  // Like http.request, the integration may be named (e.g. "lazy-gaming-portal") instead of referenced by id.
+  const named = !id.success && typeof integrationId === "string" && /^[a-z0-9][a-z0-9-]{1,29}$/.test(integrationId);
+  if (!id.success && !named && !flowPathSchema.safeParse(expression).success) add("bundle-integration", "Use an HTTP integration ID, name or a flow expression");
   if (typeof operation !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(operation)) add("bundle-operation", "Use an HTTP operation name");
   else if (id.success && context?.bundleOperations) {
     const operations = context.bundleOperations(id.data);

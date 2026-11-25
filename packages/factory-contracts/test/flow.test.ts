@@ -4,6 +4,7 @@ import {
   flowConditionSchema, flowDefinitionSchema, flowGraph, flowNodeSchema, FLOW_NODE_PORTS, jsonSubsetSchema, validateFlow,
   type FlowIssueCode,
 } from "../src/index.js";
+import { validateBundleParams } from "../src/flow-validate.js";
 
 const trigger = { id: "start", type: "trigger", title: "Start", trigger: { kind: "manual" } } as const;
 const agent = (id: string) => ({ id, type: "agent", title: id, agent: { role: id },
@@ -121,4 +122,12 @@ test("checks explicit agent IDs in all selector positions only when given a set"
   assert.deepEqual(validateFlow(definition, { agentIds: new Set([selector(1).agent]) }).map(({ code, node }) => [code, node]), [
     ["agent-not-found", "lead"], ["agent-not-found", "review"], ["agent-not-found", "plan"], ["agent-not-found", "plan"],
   ]);
+});
+
+test("bundle.publish accepts an integration id, name or expression and rejects anything else", () => {
+  const base = { operation: "publish" };
+  assert.deepEqual(validateBundleParams({ ...base, integrationId: "00000000-0000-4000-8000-000000000001" }), []);
+  assert.deepEqual(validateBundleParams({ ...base, integrationId: "lazy-gaming-portal" }), []);
+  assert.deepEqual(validateBundleParams({ ...base, integrationId: "{{inputs.portalIntegrationId}}" }), []);
+  assert.equal(validateBundleParams({ ...base, integrationId: "Not A Name!" })[0]?.code, "bundle-integration");
 });

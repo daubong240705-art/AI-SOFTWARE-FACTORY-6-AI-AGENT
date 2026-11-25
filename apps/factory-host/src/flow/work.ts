@@ -235,8 +235,8 @@ export function executeWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefiniti
         if (validateBundleParams(item.params).length) return fail("Invalid bundle publish parameters");
         const { integrationId, operation: name, dir, ref, scripts, query, ...pathParams } = item.params;
         if (typeof integrationId !== "string") return fail("Bundle integration is required");
-        const id = idSchema.safeParse(render(integrationId, context, new Set()));
-        const integration = id.success && store.forProject(run.project_id).find((entry) => entry.id === id.data);
+        const reference = render(integrationId, context, new Set());
+        const integration = reference !== "" && store.forProject(run.project_id).find((entry) => entry.id === reference || entry.name === reference);
         if (!integration || integration.kind !== "http-api") return fail("Bundle HTTP integration not found in project scope");
         const operation = integration.config.operations.find((entry) => entry.name === name);
         if (!isBundleOperation(operation)) return fail("Bundle requires an external POST or PUT operation");

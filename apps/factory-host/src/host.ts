@@ -598,6 +598,7 @@ export async function startHost(options: {
       ...(options.lead === undefined ? {} : { config: options.lead }),
       getModelConfig: getLeadModelConfig,
       execute: (...args) => pipeline.execute(...args),
+      integrations: (projectId) => integrationStore.forProject(projectId).map(({ id, name, kind }) => ({ id, name, kind })),
       onAction: () => dispatch?.kick(),
     });
     runner.recover();

@@ -14,7 +14,7 @@ import type { parseLeadOutput } from "./protocol.js";
 import { leadChatMode } from "./settings.js";
 import { redactLeadText } from "./history.js";
 
-export function leadContext(raw: Database, turn: LeadTurn): string {
+export function leadContext(raw: Database, turn: LeadTurn, integrations: readonly { id: string; name: string; kind: string }[] = []): string {
   const published = raw.prepare(`SELECT f.key, v.definition_json FROM flows f JOIN flow_versions v ON v.project_id=f.project_id AND v.flow_id=f.id
     WHERE f.project_id=? AND f.archived=0 AND v.version=(SELECT max(latest.version) FROM flow_versions latest
       WHERE latest.project_id=f.project_id AND latest.flow_id=f.id) ORDER BY f.key`).all(turn.projectId) as { key: string; definition_json: string }[];
@@ -30,7 +30,8 @@ export function leadContext(raw: Database, turn: LeadTurn): string {
     const { title, description, inputs } = definitionOf(definition_json);
     return { key, title: redactLeadText(title), description: redactLeadText(description),
       inputs: inputs.map(({ default: _default, values, ...input }) => ({ ...input, values: values?.map(redactLeadText), hasDefault: _default !== undefined })) };
-  }), briefTopics: briefTopics.map(({ topic }) => topic), activeRuns: runs, recentChatRuns });
+  }), integrations: integrations.slice(0, 40).map(({ id, name, kind }) => ({ id, name, kind })),
+    briefTopics: briefTopics.map(({ topic }) => topic), activeRuns: runs, recentChatRuns });
 }
 
 type ActionResult = { text: string; cards: LeadCard[] };
