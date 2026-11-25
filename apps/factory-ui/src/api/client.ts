@@ -182,6 +182,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listMcpServers: () => request('/mcp-servers', mcpServersModel),
     systemHealth: () => request('/health', systemModels.health),
     systemCapabilities: () => request('/system/capabilities', systemModels.capabilities),
+    systemDoctor: (checkModel = false, signal?: AbortSignal) => request(`/system/doctor${checkModel ? '?model=1' : ''}`, systemModels.doctor, undefined, false, signal),
     getAgentClis: () => request('/system/agent-clis', agentClisModel),
     systemBackups: () => request('/system/backups', systemModels.backups),
     getModelSettings: () => request('/system/models', modelSettingsResponse),
