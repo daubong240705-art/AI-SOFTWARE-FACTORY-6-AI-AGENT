@@ -3,12 +3,11 @@ import type { Interaction, Office } from '@/api/officeModels';
 import type { FlowRunDetail, FlowRunSummary, GroupsResponse, Project, Task } from '@factory/contracts';
 import type { AgentProjectResponse } from '@/api/agentModels';
 import type { Desk, FlowList, ProjectAttempt, ProjectInbox, nodeProgress } from '../../office/liveModel';
-import type { Room } from '../layout/campus';
 export type PodKey = 'lead' | 'a' | 'b' | 'c' | 'd' | 'east' | 'annex';
 export type WorldAgent = {
   projectId: string;
   desk: Desk;
-  room: Room;
+  projectColor: string;
   collaborationAt: string | null;
   workflowTask: boolean;
   seatId: string;
@@ -70,7 +69,7 @@ export type WorldModel = {
   hotProjects: Project[];
   projects: Project[];
   buildings: { id: string; name: string | null; rooms: Project[] }[];
-  rooms: Room[];
+  floorSouth: number;
   workflows: WorldRun[];
   workflowLoaded: boolean;
   stations: Record<string, { workflows?: WorldRun[]; approvalCount?: number }>;

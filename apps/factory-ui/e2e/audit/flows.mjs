@@ -111,9 +111,14 @@ function scenarios(page, fixture, base, endpoint, canaries) {
       step('create', 'New agent appears in the project tree destination.', async () => {
         await go('overview'); await openTreeProject(page, project, [fixture.groups.parent, fixture.groups.child]);
         await byId('project-tab-agents').click(); await byId('agent-create').click();
-        await fill('agent-name', agentName); await fill('agent-role', 'Kiểm thử'); await submit();
+        await fill('agent-name', agentName); await fill('agent-role', 'Kiểm thử');
+        await hidden(byId('agent-tab-capabilities'));
+        await byId('agent-advanced').click(); await byId('agent-tab-capabilities').waitFor();
+        await byId('agent-advanced').click();
+        await choose(byId('agent-mascot'), 'owl'); await submit();
         agentId = (await eventually(async () => (await agents()).agents.find(item => item.name === agentName))).id;
         await byId(`agent-row-${agentId}`).waitFor();
+        assert.ok((await getAgent(agentId)).config.tags.includes('mascot.owl'));
       }),
       step('edit', 'Role change creates revision 2.', async () => {
         await agent('edit'); await fill('agent-role', 'Kiểm tra bản sửa'); await hook(modal(), 'dialog-save').click();

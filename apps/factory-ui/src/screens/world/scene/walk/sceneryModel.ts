@@ -6,7 +6,7 @@ export const walkFixtures = [
   { id: 'coat-rack', position: [-17, 13.2] as const, half: [0.35, 0.35] as const, radius: 0.35, yaw: 0 },
 ];
 /** Closed solids, shared by the renderer and analytic Walk camera obstruction checks. */
-export function walkSceneryParts(): Part[] {
+export function walkSceneryParts(floorSouth?: number): Part[] {
   const parts: Part[] = [];
   const box = (color: string, position: Part['position'], scale: Part['scale'], yaw = 0) => parts.push({ shape: 'detail', color, position, scale, yaw });
   // South doors align with the two existing north/south walking lanes. East door opens onto the courtyard path.
@@ -22,15 +22,23 @@ export function walkSceneryParts(): Part[] {
     for (let a = start; a <= end; a += 2.5) box(palette.cream, p(a, walkWindow.centerY), east ? [0.24, walkWindow.height, 0.06] : [0.06, walkWindow.height, 0.24]);
     for (const y of [0.12, 1.14, walkWindow.top, 3.53]) box(palette.wood, p(middle, y), scale(width, 0.07));
   };
-  for (const [a, b] of southWindows) wall(a!, b!);
-  box(palette.wall, southWallBay.position, southWallBay.size);
-  for (const y of [0.12, 0.9, 3.53]) box(palette.wood, [4.9, y, 13.94], [4, 0.07, 0.12]);
-  for (const [a, b] of eastWindows) wall(a!, b!, true);
-  for (const x of [-8, 8]) {
-    box(palette.wall, [x, 3, 14], [2.2, 1.2, 0.2]);
-    for (const dx of [-1.1, 1.1]) box(palette.wood, [x + dx, 1.2, 13.94], [0.12, 2.4, 0.3]);
-    box(palette.wood, [x, 2.4, 13.94], [2.3, 0.12, 0.3]);
+  if (floorSouth !== undefined) {
+    const length = floorSouth - 14;
+    box(palette.wall, [0, 1.8, floorSouth], [36, 3.6, .2]);
+    box(palette.wall, [18, 1.8, 14 + length / 2], [.2, 3.6, length]);
+    box('#EFE5D4', [0, 3.7, 14 + length / 2], [36.2, .2, length]);
+  } else {
+    for (const [a, b] of southWindows) wall(a!, b!);
+    box(palette.wall, southWallBay.position, southWallBay.size);
+    for (const y of [0.12, 0.9, 3.53]) box(palette.wood, [4.9, y, 13.94], [4, 0.07, 0.12]);
+    for (const x of [-8, 8]) {
+      box(palette.wall, [x, 3, 14], [2.2, 1.2, 0.2]);
+      for (const dx of [-1.1, 1.1]) box(palette.wood, [x + dx, 1.2, 13.94], [0.12, 2.4, 0.3]);
+      box(palette.wood, [x, 2.4, 13.94], [2.3, 0.12, 0.3]);
+    }
   }
+  for (const [a, b] of eastWindows) wall(a!, b!, true);
+  if (floorSouth !== undefined) box(palette.wall, [18, 1.2, -1], [.2, 2.4, 2.2]);
   box(palette.wall, [18, 3, -1], [0.2, 1.2, 2.2]);
   for (const z of [-2.1, 0.1]) box(palette.wood, [17.94, 1.2, z], [0.3, 2.4, 0.12]);
   box(palette.wood, [17.94, 2.4, -1], [0.3, 0.12, 2.3]);
@@ -45,6 +53,7 @@ export function walkSceneryParts(): Part[] {
     box('#FFF5D4', [x!, 2.77, z!], [0.5, 0.04, 0.5]);
   }
   for (const d of desks) {
+    if (floorSouth !== undefined && d.id !== 'owner' && d.id !== 'counter') continue;
     const [x, z] = d.position;
     box('#69523E', [x, 0.69, z], [1.45, 0.04, 0.68]);
     box('#34404B', [x, 0.55, z + 0.23], [0.9, 0.08, 0.22]);

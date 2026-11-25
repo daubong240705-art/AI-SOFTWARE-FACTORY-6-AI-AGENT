@@ -6,12 +6,12 @@ import { daylight } from '../props/state';
 import { walkSceneryParts } from './sceneryModel';
 
 const ignore = () => {};
-function Shell({ low }: { low: boolean }) {
+function Shell({ low, floorSouth }: { low: boolean; floorSouth: number }) {
   const invalidate = useThree(s => s.invalidate);
   const [resource, setResource] = useState<THREE.Group | null>(null);
   useEffect(() => {
     const group = new THREE.Group(); group.name = 'walk-eye-level-shell';
-    const parts = walkSceneryParts(), geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [];
+    const parts = walkSceneryParts(floorSouth), geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [];
     const add = (selected: typeof parts, material: THREE.Material, baked = false) => {
       const geometry = colouredGeometry(selected.map(p => ({ color: p.color, at: p.position, size: p.scale, yaw: p.yaw } satisfies Piece)));
       if (baked) {
@@ -34,12 +34,12 @@ function Shell({ low }: { low: boolean }) {
     group.traverse(o => { o.raycast = ignore; });
     setResource(group);
     return () => { clearInterval(timer); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); };
-  }, [low, invalidate]);
+  }, [low, floorSouth, invalidate]);
   return resource ? <primitive object={resource} /> : null;
 }
 /** Unmounted in iso: no roof, front walls or extra furnishings in the dollhouse view. */
-export function WalkScenery({ quality }: { quality: 'high' | 'low' }) {
-  return <><Shell low={quality === 'low'} /></>;
+export function WalkScenery({ quality, floorSouth }: { quality: 'high' | 'low'; floorSouth: number }) {
+  return <Shell low={quality === 'low'} floorSouth={floorSouth} />;
 }
 export function WalkLighting({ quality }: { quality: 'high' | 'low' }) {
   const [day, setDay] = useState(() => daylight(new Date()));

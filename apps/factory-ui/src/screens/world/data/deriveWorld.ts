@@ -2,7 +2,7 @@ import { meaningfulOfficeItems, type Interaction } from '../../../api/officeMode
 import type { GroupsResponse, Project, Task } from '@factory/contracts';
 import { desksFor, isActiveRun, latestNodeRuns, nodeProgress, runTitle } from '../../office/liveModel';
 import { assignDesks } from './assignDesks';
-import { campusRooms } from '../layout/campus';
+import { deskFloorSouth, projectColor } from '../layout/campus';
 import type { Assignments, Endpoint, Handoff, PodKey, TaskCard, WorldAgent, WorldInputs, WorldModel } from './types';
 
 const columns = ['todo', 'doing', 'review', 'failed', 'done'] as const;
@@ -54,20 +54,14 @@ export function deriveWorld(inputs: WorldInputs, previous: Assignments = {}): { 
   const projects = (inputs.projects ?? []).filter(project => project.disposition !== 'archived').sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
   const hotProjects = projects.filter(project => inputs.rosters?.[project.id]?.agents.some(agent => agent.status === 'active' && agent.live > 0));
   const focusProjectId = (projects.some(project => project.id === inputs.focusProjectId) ? inputs.focusProjectId : null) ?? hotProjects[0]?.id ?? projects[0]?.id ?? null;
-  const agents: WorldAgent[] = [];
-  const assign: Assignments = {};
+  const rows: Omit<WorldAgent, 'slotIndex' | 'overflow'>[] = [];
   const buildings = projectBuildings(projects, inputs.groups);
-  const rooms = campusRooms(buildings, new Map(projects.map(project => [project.id, inputs.rosters?.[project.id]?.agents.filter(agent => agent.status === 'active').length ?? 0])));
-  const roomsById = new Map(rooms.map(room => [room.id, room]));
-  for (const project of projects) {
+  for (const [index, project] of projects.entries()) {
     const roster = inputs.rosters?.[project.id]; if (!roster) continue;
-    const room = roomsById.get(project.id)!;
     const inbox = inputs.inboxes?.[project.id];
     const desks = desksFor(roster, inputs.tasks[project.id] ?? [], inputs.attempts?.[project.id] ?? [], inbox, inputs.activity, Date.parse(generatedAt))
       .filter(desk => desk.agent.status === 'active');
     const teamOrder = [...new Set(desks.filter(desk => !desk.agent.isLead).map(desk => desk.team?.id))];
-    const allocation = assignDesks(desks.map(desk => ({ seatId: desk.agent.id, podKey: desk.agent.isLead ? 'lead' : ordinaryPods[teamOrder.indexOf(desk.team?.id) % ordinaryPods.length]! })), previous);
-    Object.assign(assign, allocation);
     const lastHandoff = new Map<string, string>();
     for (const item of inputs.interactions[project.id]?.items ?? []) {
       if (!['handoff', 'request'].includes(item.kind) || item.from.kind !== 'seat' || item.to?.kind !== 'seat') continue;
@@ -86,10 +80,13 @@ export function deriveWorld(inputs: WorldInputs, previous: Assignments = {}): { 
         projectId: project.id, projectName: project.name, taskId: attempt.taskId, code: attempt.taskCode, title: attempt.taskTitle,
         attemptId: attempt.id, attemptState: attempt.state, nodeId: attempt.nodeId ?? null, startedAt: attempt.startedAt, progress: attempt === live[0] ? desk.progress : null,
       }));
-      agents.push({ ...allocation[agent.id]!, desk, room, collaborationAt: lastHandoff.get(agent.id) ?? null, workflowTask: !!task && workflowTasks.has(task.id), projectId: project.id, seatId: agent.id, ownerSeatId: agent.id, seatName: agent.name, slot: 0, teamId: project.id, teamName: project.name,
+      rows.push({ podKey: agent.isLead ? 'lead' : ordinaryPods[teamOrder.indexOf(desk.team?.id) % ordinaryPods.length]!, desk, projectColor: projectColor(index), collaborationAt: lastHandoff.get(agent.id) ?? null, workflowTask: !!task && workflowTasks.has(task.id), projectId: project.id, seatId: agent.id, ownerSeatId: agent.id, seatName: agent.name, slot: 0, teamId: project.id, teamName: project.name,
+        paused: desk.status === 'paused',
         name: agent.name, role: agent.role, isLead: agent.isLead, slots: 1, status: desk.status === 'paused' ? 'idle' : desk.status, pose: poses[desk.status], runs, queued: 0, needsYou, lastFinished: null });
     }
   }
+  const assign = assignDesks(rows, previous);
+  const agents: WorldAgent[] = rows.map(agent => ({ ...agent, ...assign[agent.seatId]! }));
   const taskColumns: Record<TaskCard['column'], TaskCard[]> = { todo: [], doing: [], review: [], failed: [], done: [] };
   for (const task of focusProjectId ? inputs.tasks[focusProjectId] ?? [] : []) {
     const target = column(task);
@@ -116,7 +113,7 @@ export function deriveWorld(inputs: WorldInputs, previous: Assignments = {}): { 
     };
   }
   const workflows = focusProjectId ? stations[focusProjectId]?.workflows : undefined;
-  return { assign, model: { generatedAt, agents, projects, hotProjects, focusProjectId, buildings, rooms,
+  return { assign, model: { generatedAt, agents, projects, hotProjects, focusProjectId, buildings, floorSouth: deskFloorSouth(agents.length),
     workflows: workflows ?? [], workflowLoaded: !!workflows, stations, tasks: { columns: taskColumns, overflow }, handoffs,
     loaded: { activity: !!inputs.projects && projects.every(project => inputs.rosters?.[project.id]), projects: !!inputs.projects,
       interactions: focusProjectId && inputs.interactions[focusProjectId] && inputs.rosters?.[focusProjectId] ? [focusProjectId] : [] } } };

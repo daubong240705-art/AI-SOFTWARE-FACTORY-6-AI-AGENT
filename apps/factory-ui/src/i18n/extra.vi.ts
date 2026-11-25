@@ -185,7 +185,7 @@ export const extra: Translated<typeof en> = {
     option: { fail: 'Dừng và báo lỗi', continue: 'Tiếp tục', port: 'Dùng cổng lỗi', manual: 'Thủ công', chat: 'Trò chuyện', schedule: 'Lịch', webhook: 'Webhook', event: 'Sự kiện', api: 'API', 'task.created': 'Đã tạo task', 'task.done': 'Task xong', 'artifact.approved': 'Sản phẩm được duyệt', 'run.completed': 'Run xong', agent: 'Agent', role: 'Vai trò', tags: 'Thẻ', team: 'Team', 'least-busy': 'Ít bận nhất', 'round-robin': 'Luân session', none: 'Không có', human: 'Người duyệt', eq: 'Bằng', ne: 'Khác', lt: 'Nhỏ hơn', lte: 'Không quá', gt: 'Lớn hơn', gte: 'Ít nhất', in: 'Trong danh sách', all: 'Tất cả', any: 'Bất kỳ', quorum: 'Đủ branch', list: 'Danh sách', object: 'Đối tượng', operator: 'Người vận hành', 'relation:approves': 'Quan hệ phê duyệt', for: 'Thời lượng', until: 'Ngày giờ', published: 'Version đã publish mới nhất', specific: 'Version cụ thể', artifact: 'Sản phẩm', knowledge: 'Tri thức', deliver: 'Giao kết quả', allow: 'Cho chạy song song', queue: 'Xếp hàng', skip: 'Bỏ qua nếu bận', string: 'Văn bản', number: 'Số', bool: 'Đúng/sai', boolean: 'Đúng/sai', enum: 'Lựa chọn', true: 'Đúng', false: 'Sai' },
   },
   agentsAdmin: {
-    title: 'Agent & Team', agents: 'Danh sách agent', counts: '{total} agent · {active} đang hoạt động · {teams} team',
+    title: 'Agent & Team', agents: 'Danh sách agent', counts: '{total} agent · {active} agent đang hoạt động · {teams} team',
     create: 'Tạo agent', fromTemplate: 'Tạo từ template', edit: 'Sửa', clone: 'Nhân bản', makeLead: 'Đặt làm Lead dự án', saveAsTemplate: 'Lưu làm template', upgradeFromTemplate: 'Nâng cấp theo template (version {revision})',
     pause: 'Tạm dừng', activate: 'Kích hoạt', archive: 'Lưu trữ', delete: 'Xóa', lead: 'Lead', actions: 'Thao tác với {name}',
     status: { active: 'Đang hoạt động', paused: 'Tạm dừng', archived: 'Đã lưu trữ', 'pending-approval': 'Chờ phê duyệt', all: 'Tất cả' },
@@ -197,7 +197,10 @@ export const extra: Translated<typeof en> = {
     default: 'Mặc định', none: 'Không có', invalid: 'Kiểm tra giá trị và giới hạn của trường này.', invalidForm: 'Kiểm tra các trường được đánh dấu trước khi lưu.',
     errors: { olderHost: 'Host chưa hỗ trợ quản trị agent', conflict: 'Có người vừa thay đổi mục này. Hãy tải lại trước khi lưu.', missing: 'Mục này không còn tồn tại.', unsupported: 'Thao tác này chưa được hỗ trợ. Runtime api-agent sẽ có ở U3.', unknown: 'Thao tác chưa hoàn tất. Hãy tải lại để kiểm tra trạng thái hiện tại.' },
     tabs: { profile: 'Hồ sơ', runtime: 'Runtime', capabilities: 'Năng lực', collaboration: 'Cộng tác', history: 'Lịch sử' },
-    editorHelp: 'Thiết lập hồ sơ, cách thực thi, tool và quyền cộng tác của agent.',
+    editorHelp: 'Bắt đầu với thông tin cơ bản. Mở Nâng cao để tinh chỉnh cách agent làm việc.',
+    shortDescription: 'Mô tả ngắn', mainInstructions: 'Hướng dẫn chính', applyTemplate: 'Áp dụng template',
+    advanced: { title: 'Nâng cao', skills: 'Skill & Tool', permissions: 'Quyền & ủy quyền', limits: 'Giới hạn & ngân sách', other: 'Khác', summaryFields: 'Nội dung hồ sơ' },
+    mascot: { label: 'Mascot', auto: 'Theo vai trò', full: 'Bỏ một tag để chọn mascot riêng.', species: { cat: 'Mèo', 'glasses-cat': 'Mèo đeo kính', bear: 'Gấu', rabbit: 'Thỏ', penguin: 'Chim cánh cụt', raccoon: 'Gấu mèo', chick: 'Gà con', fox: 'Cáo', deer: 'Hươu', owl: 'Cú', whale: 'Cá voi', octopus: 'Bạch tuộc', shark: 'Cá mập', unicorn: 'Kỳ lân', dragon: 'Rồng', 'wizard-cat': 'Mèo phù thủy', blob: 'Mochi' } },
     fields: { name: 'Tên', role: 'Vai trò', description: 'Mô tả', goals: 'Mục tiêu', instructions: 'Chỉ dẫn', workRules: 'Quy tắc làm việc', tags: 'Thẻ', adapter: 'Runtime', model: 'Model', effort: 'Effort', permission: 'Quyền thực thi', maxConcurrent: 'Số attempt đồng thời (1–8)', timeoutMinutes: 'Thời gian chờ tối đa (phút)', skills: 'Skill', tools: 'Tool', canAssign: 'Có thể giao task cho', canProposeAgents: 'Có thể đề xuất agent', maxDepth: 'Độ sâu giao task tối đa', maxOpenSubtasks: 'Số task con đang mở tối đa', autonomy: 'Mức tự chủ', perTaskTokens: 'Token mỗi task (không bắt buộc)', monthlyTokens: 'Token mỗi tháng (không bắt buộc)', note: 'Ghi chú version (không bắt buộc)' },
     permission: { 'workspace-write': 'Ghi trong workspace', autonomous: 'Tự chủ' },
     effort: { low: 'Thấp', medium: 'Vừa', high: 'Cao', xhigh: 'Rất cao' },
@@ -222,7 +225,7 @@ export const extra: Translated<typeof en> = {
   },
   worldUi: {
     expandHotbar: 'Mở hotbar', collapseHotbar: 'Thu gọn hotbar', chairmanDoorPlate: 'Chủ tịch / Chairman',
-    campus: { shared: 'Khu chung', meeting: 'Phòng họp', approval: 'Bàn duyệt', board: 'Bảng workflow', library: 'Kệ thư viện', rest: 'Góc nghỉ', nodeCount: '{done}/{total} node hoàn tất', more: '+{count} mục khác', projects: 'Phòng dự án', enter: 'Đến phòng', loading: 'Đang tải dữ liệu…' },
+    campus: { shared: 'Văn phòng chung', meeting: 'Bàn họp', approval: 'Bàn duyệt', board: 'Bảng workflow', library: 'Kệ thư viện', rest: 'Góc nghỉ', nodeCount: '{done}/{total} node hoàn tất', more: '+{count} mục khác', projects: 'Làm nổi bật dự án', allProjects: 'Tất cả dự án', loading: 'Đang tải dữ liệu…' },
     neon: 'Factory',
     chairman: { fullPage: 'Mở trang đầy đủ', seated: 'Đang ngồi · Nhấp đồ vật để mở · Esc để đứng dậy', tabs: { assign: 'Giao task / Hỏi Lead', attention: 'Cần xử lý', create: 'Tạo dự án hoặc task', projects: 'Dự án', agents: 'Agent', knowledge: 'Tài liệu', flows: 'Workflow', chat: 'Chat với Lead', activity: 'Hoạt động gần đây' } },
     walk: { bump: 'Ối!', boss: 'Sếp tới!', spin: 'E — Cho OIIA xoay', title: 'Đi bộ', owner: 'Ngồi vào ghế chủ tịch', open: 'E — Mở {name}', click: 'Nhấp để nhìn · Kéo chuột nếu không khóa được con trỏ', minimap: 'Bản đồ nhỏ studio', activity: 'Cột hoạt động', paused: 'Tạm dừng di chuyển · Đóng bảng để tiếp tục', controls: 'WASD / phím mũi tên · Shift chạy · Space nhảy · C đổi góc nhìn · Cuộn để thu phóng · E tương tác · 1–7 đồ chơi · V / Esc nhìn từ trên' },
@@ -239,7 +242,7 @@ export const extra: Translated<typeof en> = {
     title: 'Thế giới studio', map: 'Bản đồ studio', toolbar: 'Tùy chọn thế giới',
     mapHint: 'Kéo để di chuyển, cuộn để phóng to. Phím mũi tên di chuyển, cộng và trừ phóng to thu nhỏ, 0 về tổng thể, Shift+1–6 chọn khu, 1–9 chọn ô tool, Esc dừng theo dõi.',
     home: 'Về tổng thể', dragHint: 'Kéo để di chuyển · cuộn để phóng to',
-    zones: { A: 'Phòng chủ tịch', B: 'Xưởng', C: 'Cộng tác', D: 'Kiểm thử', E: 'Trưng bày', F: 'Sân trong' },
+    zones: { A: 'Phòng chủ tịch', B: 'Bàn làm việc', C: 'Bàn họp', D: 'Bàn duyệt', E: 'Góc nghỉ', F: 'Workflow' },
     scene: {
       owner: 'Bạn', empty: 'Chỗ trống', comingSoon: 'Sắp mở', backlog: 'Chờ làm', working: 'Đang làm', review: 'Chờ duyệt', error: 'Gặp lỗi', done: 'Xong',
       zones: { A: 'Phòng chủ tịch', B: 'Xưởng sản xuất', C: 'Bàn cộng tác', D: 'Phòng kiểm thử', E: 'Phòng trưng bày', F: 'Sân trong' },

@@ -6,6 +6,7 @@ import { ApiClientError, createApiClient } from '@/api/client';
 import { agentsClone, agentsDelete, agentsSetLead, agentsSetStatus } from '@/api/commands';
 import { openProjectEvents } from '@/api/events';
 import { Page } from '@/components/Page';
+import { AgentMascot, AgentMascotProvider } from '@/components/mascot/AgentMascot';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -70,7 +71,7 @@ export function ProjectAgents({ projectId, linkedAgentId = null }: { projectId: 
   const olderHost = !data && roster.error instanceof ApiClientError && roster.error.status === 404;
   const editGone = detail.error instanceof ApiClientError && detail.error.status === 404;
 
-  return <Page className="space-y-5 px-4 py-5 sm:px-8">
+  return <AgentMascotProvider api={api} agents={data?.agents}><Page className="space-y-5 px-4 py-5 sm:px-8">
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 className="flex items-center gap-2 text-xl font-semibold"><Bot className="size-5 text-muted-foreground" aria-hidden="true" />{t('title')}</h2>
         {data && <p className="mt-1 text-sm text-muted-foreground">{t('counts', { total: data.agents.length, active: data.agents.filter(agent => agent.status === 'active').length, teams: data.teams.length })}</p>}
@@ -85,12 +86,12 @@ export function ProjectAgents({ projectId, linkedAgentId = null }: { projectId: 
         <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">{t('agents')}</h3><Choice data-testid="agent-status-filter" className="w-auto" aria-label={t('filter')} value={filter} onValueChange={selectedValue => setFilter(selectedValue as typeof filter)}>{filters.map(value => <ChoiceOption key={value} value={value}>{t(`status.${value}`)}</ChoiceOption>)}</Choice></div>
         {!visible.length && <p className="rounded-lg border border-dashed border-border px-4 py-7 text-center text-sm text-muted-foreground">{t(data.agents.length ? 'emptyFilter' : 'emptyAgents')}</p>}
         <ul className="grid gap-2">{visible.map(agent => <li data-testid={`agent-row-${agent.id}`} key={agent.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-background/60 p-3">
-          <div className="min-w-0 space-y-1">
+          <div className="flex min-w-0 items-start gap-3"><AgentMascot agent={agent} size={40} state={agent.live ? 'working' : agent.status === 'active' ? 'idle' : 'offline'} /><div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2"><strong className="break-all">{agent.name}</strong>{agent.isLead && <span className="inline-flex items-center gap-1 text-xs font-medium"><Star className="size-3 fill-current" aria-hidden="true" />{t('lead')}</span>}<Badge variant={agent.status === 'active' ? 'secondary' : 'outline'}>{t(`status.${agent.status}`)}</Badge></div>
-            <p className="break-words text-sm text-muted-foreground">{agent.role} · {agent.adapter} / {agent.model ?? t('default')} · {t('live', { count: agent.live })}</p>
+            <p className="break-words text-sm text-muted-foreground">{agent.role} · {t(`adapters.${agent.adapter}`)} / {agent.model ?? t('default')} · {t('live', { count: agent.live })}</p>
             {!!agent.teamIds.length && <div className="flex flex-wrap gap-1">{agent.teamIds.map(id => <Badge key={id} variant="outline" className="max-w-full truncate">{teamNames.get(id) ?? translate('settingsUi.unknownTeam')}</Badge>)}</div>}
             {agent.template && <p className="text-xs text-muted-foreground">{t(agent.template.latestRevision > agent.template.revision ? 'templateUpdate' : 'templateLink', { revision: agent.template.revision, latest: agent.template.latestRevision })}</p>}
-          </div>
+          </div></div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button data-testid="agent-row-menu" type="button" size="icon" variant="ghost" aria-label={t('actions', { name: agent.name })} disabled={direct.busy || !!roster.error}><Ellipsis aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -120,7 +121,7 @@ export function ProjectAgents({ projectId, linkedAgentId = null }: { projectId: 
     {dialog?.kind === 'save-template' && <SaveTemplateDialog agent={dialog.agent} close={close} submit={submit} />}
     {dialog?.kind === 'upgrade-template' && <UpgradeTemplateDialog api={api} agent={dialog.agent} detail={detail.data} template={template.data} loading={detail.loading || template.loading || roster.loading} error={detail.error ?? template.error ?? roster.error} current={data?.agents.find(agent => agent.id === dialog.agent.id)} close={close} submit={submit} refresh={refresh} />}
     {dialog && (dialog.kind === 'clone' || dialog.kind === 'archive' || dialog.kind === 'delete') && <ActionDialog action={dialog.kind} agent={dialog.agent} current={data?.agents.find(agent => agent.id === dialog.agent.id)} close={close} submit={submit} />}
-  </Page>;
+  </Page></AgentMascotProvider>;
 }
 
 function ActionDialog({ action, agent, current, close, submit }: { action: Action; agent: AgentSummary; current: AgentSummary | undefined; close: () => void; submit: Submit }) {

@@ -4,7 +4,7 @@ import { createApiClient } from '@/api/client';
 import type { OrgActivity } from '@/api/activityModels';
 import type { ActivityRun } from '@/api/activityModels';
 import type { AgentProjectResponse } from '@/api/agentModels';
-import { Mascot } from '@/components/mascot';
+import { AgentMascot, AgentMascotProvider } from '@/components/mascot/AgentMascot';
 import { Page } from '@/components/Page';
 import { LoadingState } from '@/components/LoadingState';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ function AgentDesk({ desk, roster, onTask }: { desk: Desk; roster: AgentProjectR
     return other ? [{ edge, other }] : [];
   });
   return <article className="universal-desk" data-status={status} data-lead={agent.isLead} tabIndex={0} aria-label={agent.name}>
-    <div className="flex min-w-0 items-start gap-3"><Mascot seat={agent.name} isLead={agent.isLead} state={mascot[status]} size={48} />
+    <div className="flex min-w-0 items-start gap-3"><AgentMascot agent={agent} state={mascot[status]} size={48} animated />
       <div className="min-w-0 flex-1"><h3 className="break-words font-semibold">{agent.name}</h3><p className="break-words text-xs">{agent.role}</p></div>
       <span className="desk-status">{t(`officeUi.floorLive.status.${status}`)}</span>
     </div>
@@ -116,7 +116,7 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
   const approvals = [...(inbox?.approvals ?? []).filter(item => item.state === 'requested' || item.state === 'pending').map(item => ({ key: `approval:${item.id}`, title: item.subject })),
     ...(inbox?.startGates ?? []).map(item => ({ key: `gate:${item.taskId}`, title: item.title }))];
   const renderDesk = (desk: Desk) => <AgentDesk key={desk.agent.id} desk={desk} roster={roster!} onTask={setSelectedTask} />;
-  return <Page><section className="universal-office">
+  return <AgentMascotProvider api={api} agents={roster?.agents}><Page><section className="universal-office">
     <header className="office-mast"><div><p className="text-xs font-semibold uppercase tracking-widest">{t('projectUi.office')}</p><h2 className="font-display text-3xl font-semibold">{t('officeUi.floorLive.title')}</h2><p className="mt-1 text-sm">{t('officeUi.floorLive.subtitle')}</p></div><Coffee aria-hidden="true" className="size-10 shrink-0" /></header>
     {(failed.size > 0 || taskError) && <div role="status" className="office-refresh">{t('officeUi.floorLive.unavailable')}<Button type="button" size="sm" variant="outline" onClick={() => setRetry(value => value + 1)}>{t('worldUi.retry')}</Button></div>}
     <div className="office-plan"><div className="office-floor-live">
@@ -129,5 +129,5 @@ export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; p
       <section><h3><Inbox className="size-4" />{t('officeUi.floorLive.approvals')}</h3>{!inbox ? failed.has('inbox') ? <p>{t('officeUi.floorLive.unavailable')}</p> : <LoadingState inline /> : approvals.length ? <ul>{approvals.map(item => <li key={item.key}><a href={attentionHash(item.key)}>{item.title} <ArrowUpRight className="size-4 shrink-0" /></a></li>)}</ul> : <p>{t('officeUi.floorLive.noApprovals')}</p>}</section>
     </aside></div>
     {selectedTask && <TaskDetail key={selectedTask} store={store} taskId={selectedTask} onClose={() => setSelectedTask(null)} />}
-  </section></Page>;
+  </section></Page></AgentMascotProvider>;
 }

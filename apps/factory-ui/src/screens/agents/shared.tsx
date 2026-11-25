@@ -96,14 +96,14 @@ export function Field({ label, invalid, hint, children }: { label: string; inval
   </div>;
 }
 
-export function AdminDialog({ title, description, close, busy, wide, children, footer, onSubmit }: {
-  title: string; description: string; close: () => void; busy?: boolean; wide?: boolean; children: ReactNode; footer?: ReactNode; onSubmit?: () => void;
+export function AdminDialog({ title, icon, description, close, busy, wide, children, footer, onSubmit }: {
+  title: string; icon?: ReactNode; description: string; close: () => void; busy?: boolean; wide?: boolean; children: ReactNode; footer?: ReactNode; onSubmit?: () => void;
 }) {
   function submit(event: FormEvent) { event.preventDefault(); if (!busy) onSubmit?.(); }
   return <Dialog open onOpenChange={open => { if (!open && !busy) close(); }}>
     <DialogContent showCloseButton={!busy} className={`max-h-[90dvh] gap-0 overflow-hidden p-0 ${wide ? 'sm:max-w-3xl' : ''}`}>
       <form noValidate onSubmit={submit} className="flex max-h-[90dvh] min-w-0 flex-col">
-        <DialogHeader className="shrink-0 p-5 pr-12"><DialogTitle className="break-words">{title}</DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>
+        <DialogHeader className="shrink-0 p-5 pr-12"><DialogTitle className="flex items-center gap-2 break-words">{icon}<span className="min-w-0">{title}</span></DialogTitle><DialogDescription>{description}</DialogDescription></DialogHeader>
         <div className="min-h-0 space-y-4 overflow-auto px-5 pb-5">{children}</div>
         {footer && <DialogFooter className="shrink-0 border-t border-border p-4">{footer}</DialogFooter>}
       </form>

@@ -1,4 +1,5 @@
 import { Choice, ChoiceOption } from '@/components/ui/choice';
+import { AgentChoiceLabel } from '@/components/mascot/AgentMascot';
 import { useId } from 'react';
 import { flowConditionSchema, type AgentSelector, type FlowCondition, type FlowDefinition, type ProjectAgentsResponse } from '@factory/contracts';
 import { Button } from '@/components/ui/button';
@@ -72,10 +73,10 @@ export function initialSelector(mode: SelectorMode, roster?: ProjectAgentsRespon
 export function AgentField({ name, selector, set, roster }: { name: string; selector: AgentSelector; set: (selector: AgentSelector) => void; roster?: ProjectAgentsResponse | undefined }) {
   const label = useFlowLabels();
   const mode = 'agent' in selector ? 'agent' : 'team' in selector ? 'team' : 'role' in selector ? 'role' : 'tags';
-  function picker(key: string, current: string, items: { id: string; name: string }[], change: (value: string) => void) {
+  function picker(key: string, current: string, items: { id: string; name: string; role?: string; isLead?: boolean }[], change: (value: string) => void) {
     return <Field label={label(`field.${key}`)}>{props => <Choice {...props} value={current} onValueChange={selectedValue => change(selectedValue)}>
       {!items.some(item => item.id === current) && <ChoiceOption value={current}>{current === emptyId ? label('none') : label(key === 'agent' ? 'missingAgent' : 'nodeTeam')}</ChoiceOption>}
-      {items.map(item => <ChoiceOption key={item.id} value={item.id}>{item.name}</ChoiceOption>)}
+      {items.map(item => <ChoiceOption key={item.id} value={item.id} textValue={item.name}>{item.role !== undefined ? <AgentChoiceLabel agent={{ ...item, role: item.role }} /> : item.name}</ChoiceOption>)}
     </Choice>}</Field>;
   }
   return <fieldset className="grid gap-2 rounded-lg border p-2"><legend className="px-1 text-xs font-medium">{label(`field.${name}`)}</legend>
