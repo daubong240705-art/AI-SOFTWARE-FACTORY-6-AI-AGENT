@@ -51,7 +51,7 @@ export function MonitorView({ api, projectId, onOpenTask }: { api: ApiClient; pr
     groups.set(key, group);
   }
   for (const entry of monitor?.today.byAgentAndModel ?? []) {
-    addUsage(byAgent, entry.agent?.id ?? null, entry.agent?.name ?? label('unknown'), entry);
+    addUsage(byAgent, entry.agent?.id ?? null, entry.agent?.name ?? label('noAgent'), entry);
     addUsage(byModel, JSON.stringify([entry.provider, entry.model]), `${entry.provider} / ${entry.model}`, entry);
   }
   const names = new Map(monitor?.today.byAgentAndModel.flatMap(entry => entry.agent ? [[entry.agent.id, entry.agent.name] as const] : []));

@@ -98,7 +98,7 @@ export function SetupDialog({ projectId, target, close, onApplied }: { projectId
   const title = target.mode === 'project' ? 'projectTitle' : target.flowId ? 'editFlow' : 'newFlow';
   const locked = busy || detail.loading || !!detail.error;
 
-  return <Dialog labelledBy={titleId} onClose={close} className="sm:max-w-4xl">
+  return <Dialog labelledBy={titleId} onClose={close} className="sm:max-w-4xl [&>*]:min-w-0">
     <DialogHeader className="text-left"><DialogTitle id={titleId} className="font-display text-2xl">{t(`setupProposalUi.${title}`)}</DialogTitle><DialogDescription>{t(target.mode === 'flow' && target.flowId ? 'setupProposalUi.editFlowHelp' : 'setupProposalUi.help')}</DialogDescription></DialogHeader>
     {id === null ? <form noValidate className="space-y-2" onSubmit={submit}>
       <label className="font-medium" htmlFor={inputId}>{t('setupProposalUi.request')}</label>

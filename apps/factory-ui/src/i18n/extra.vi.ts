@@ -6,7 +6,7 @@ export const extra: Translated<typeof en> = {
     monitor: 'Monitor', trace: 'Trace', monitorHelp: 'Xem hoạt động đang chạy và theo dõi từng yêu cầu từ đầu đến cuối.', refresh: 'Tải lại',
     attempts: 'Đang chạy', runs: 'Run đang chạy', tools: 'Tool call gần đây', failures: 'Lỗi gần đây', today: 'Token hôm nay',
     byAgent: 'Theo agent', byModel: 'Theo model', recentTraces: 'Trace gần đây', runtime: 'Runtime', model: 'Model', nodes: 'node',
-    inputSize: 'Kích thước đầu vào', outputSize: 'Kích thước đầu ra', tokens: 'Token', unknown: 'chưa rõ', unknownCount: 'chưa rõ ({count} lượt)', estimated: 'ước tính: {count}',
+    noAgent: 'Không gắn agent (Lead chat, đề xuất thiết lập)', inputSize: 'Kích thước đầu vào', outputSize: 'Kích thước đầu ra', tokens: 'Token', unknown: 'chưa rõ', unknownCount: 'chưa rõ ({count} lượt)', estimated: 'ước tính: {count}',
     noAttempts: 'Không có attempt đang chạy.', noRuns: 'Không có run đang chạy.', noTools: 'Chưa có tool call gần đây.', noFailures: 'Không có lỗi gần đây.',
     noUsage: 'Chưa ghi nhận token hôm nay.', noTraces: 'Chưa có trace. Tạo task hoặc chạy workflow để xem trace.', noProgress: 'Chưa có cập nhật tiến độ.',
     readError: 'Không tải được dữ liệu. Hãy thử tải lại.', stale: 'Không tải được dữ liệu mới. Đang hiển thị dữ liệu lần trước.',

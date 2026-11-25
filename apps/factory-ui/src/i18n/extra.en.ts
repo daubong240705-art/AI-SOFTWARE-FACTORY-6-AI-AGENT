@@ -3,7 +3,7 @@ export const extra = {
     monitor: 'Monitor', trace: 'Trace', monitorHelp: 'See what is running and follow requests end to end.', refresh: 'Refresh',
     attempts: 'Running attempts', runs: 'Active runs', tools: 'Recent tool calls', failures: 'Recent failures', today: 'Tokens today',
     byAgent: 'By agent', byModel: 'By model', recentTraces: 'Recent traces', runtime: 'Runtime', model: 'Model', nodes: 'nodes',
-    inputSize: 'Input size', outputSize: 'Output size', tokens: 'Tokens', unknown: 'unknown', unknownCount: 'unknown ({count} runs)', estimated: '{count} estimated',
+    noAgent: 'No agent (Lead chat, setup proposals)', inputSize: 'Input size', outputSize: 'Output size', tokens: 'Tokens', unknown: 'unknown', unknownCount: 'unknown ({count} runs)', estimated: '{count} estimated',
     noAttempts: 'No active attempts.', noRuns: 'No active runs.', noTools: 'No recent tool calls.', noFailures: 'No recent failures.',
     noUsage: 'No usage recorded today.', noTraces: 'No traces yet. Create a task or start a workflow run to see its trace.', noProgress: 'No progress reported.',
     readError: 'Could not load the data. Try refreshing.', stale: 'Could not refresh. Showing the last loaded data.',
