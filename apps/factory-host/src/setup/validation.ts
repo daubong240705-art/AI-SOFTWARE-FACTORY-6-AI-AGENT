@@ -51,6 +51,11 @@ export function validateProposal(raw: Database, row: ProposalRow, candidate: unk
     if (!current || current.archived || current.revision !== row.flow_revision)
       add("flows.0", "Workflow gốc đã thay đổi. Hãy tạo đề xuất mới từ bản nháp hiện tại.");
   }
+  // The local selector prefix is only for workflow selectors; a role like "setup:qa" is the model mixing them up.
+  proposal.agents.forEach((agent, index) => {
+    if (agent.config.role.trim().toLowerCase().startsWith(localPrefix))
+      add(`agents.${index}.config.role`, "Vai trò phải là chức danh dễ đọc, không dùng mã \"setup:\" (mã đó chỉ dùng trong selector của workflow).");
+  });
   const seats = raw.prepare<[string], { id: string; name: string; status: string }>(
     "SELECT id, name, status FROM seats WHERE project_id=?").all(projectId);
   const keys = new Set<string>();
