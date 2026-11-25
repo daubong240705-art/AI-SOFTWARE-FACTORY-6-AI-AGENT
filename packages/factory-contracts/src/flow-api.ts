@@ -3,7 +3,7 @@ import { idSchema, labelSchema, revisionSchema, timestampSchema } from "./base.j
 import { flowDefinitionSchema, flowNodeIdSchema } from "./flow.js";
 
 /**
- * U4 (docs/architecture/17 §8): commands and read models of the Workflow v2 engine.
+ * Workflow v2 (see docs/architecture.md): commands and read models of the Workflow v2 engine.
  * Command names avoid the v1 `workflows.*` and the attempt-level `runs.*` families.
  */
 

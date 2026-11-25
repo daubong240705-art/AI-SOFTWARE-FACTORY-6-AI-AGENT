@@ -2,7 +2,7 @@ import { z } from "zod";
 import { idSchema, labelSchema, revisionSchema, timestampSchema } from "./base.js";
 
 /**
- * U1 (docs/architecture/17 §5): agents are project-scoped and configured in the database.
+ * Agents (see docs/architecture.md): agents are project-scoped and configured in the database.
  * The physical table stays `seats`; on the wire and in the UI the entity is an "agent".
  * Every config change creates an immutable Agent Revision; attempts pin the revision they ran with.
  */

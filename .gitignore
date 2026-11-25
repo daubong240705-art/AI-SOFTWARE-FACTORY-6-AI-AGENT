@@ -13,12 +13,14 @@ dist/
 *.egg-info/
 .cache/
 
-# Local upstream reference checkout; not part of the product.
-/crewhub/
-
-# Generated UI screenshots stay local. Keep source/design assets trackable.
+# Generated UI screenshots stay local; only the curated README images in docs/images are tracked.
 /docs/**/*.png
+!/docs/images/*.png
 
-# Source art of the mascot set (about 18 MB of PNG and previews). Only the cropped SVGs used by the UI are tracked,
-# in apps/factory-ui/src/assets/mascot/original; regenerate them with scripts/crop-mascot-assets.mjs.
+# Personal documents kept next to the checkout (never published).
+/*.docx
+/*.pdf
+
+# Source art of the mascot set (large PNGs). Only the cropped SVGs used by the UI are tracked,
+# in apps/factory-ui/src/assets/mascot/original.
 /mascot/

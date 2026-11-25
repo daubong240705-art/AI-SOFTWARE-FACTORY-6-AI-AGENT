@@ -3,7 +3,7 @@ import { idSchema, labelSchema, revisionSchema, timestampSchema } from "./base.j
 import { agentAdapterSchema, agentEffortSchema } from "./agents.js";
 
 /**
- * U9 (docs/architecture/19-groups.md): GitLab-like groups. Groups nest up to GROUP_MAX_DEPTH levels; a project belongs
+ * GitLab-like groups (see docs/architecture.md). Groups nest up to GROUP_MAX_DEPTH levels; a project belongs
  * to at most one group. Groups share CONFIGURATION (templates, skills, default model/runtime, budget), never runtime
  * state: agents, sessions, memory and workspaces stay per project.
  * Group commands are global and use SYSTEM_SCOPE_ID as `projectId` (like the library).
