@@ -20,7 +20,7 @@ import { createApiServer, createRoutes, isLoopbackHost, listenLoopback, listenOn
 import { createCommandPipeline } from "./commands/pipeline.js";
 import { CommandError } from "./commands/errors.js";
 import { advanceProject, createFlowHandlers, FLOW_COMMANDS, recoverFlows, registerFlowEngine, registerFlowRoutes, startFlowTimers } from "./flow/index.js";
-import { withFlowResultTool } from "./flow/mcp.js";
+import { createCollaborationMcp, withCollaborationApprovalEffects } from "./collab/service.js";
 import { completeFlowTask } from "./flow/work.js";
 import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
 import { EventHub } from "./events/hub.js";
@@ -570,8 +570,9 @@ export async function startHost(options: {
     });
     runner.recover();
     const raw = storage.raw;
-    const makeAttemptMcp = (dispatcher: Dispatcher) => withFlowResultTool(raw, clock, withHttpToolDispatch(createMcpHandler({
-      external: integrationTools, toolPolicy: createToolPolicy(raw), approveTool,
+    const makeAttemptMcp = (dispatcher: Dispatcher) => withHttpToolDispatch(createMcpHandler({
+      external: integrationTools, collaboration: createCollaborationMcp({ raw, hub, dispatcher, clock, newId: resultId, budgetConfig }),
+      toolPolicy: createToolPolicy(raw), approveTool,
       standing: createStandingApprovalMcp({ raw, hub, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes }),
       skills: createSkillsMcp({ raw, now: clock }),
       briefing: createBriefingMcp({ raw, store: artifacts.store, now: clock }),
@@ -602,7 +603,7 @@ export async function startHost(options: {
           return ref;
         });
       },
-    }), integrationTools));
+    }), integrationTools);
     if (options.localCli?.enabled) localTokens = createTokenRegistry({ clock });
     if (options.modelProxy) {
       const configured = options.modelProxy;
@@ -816,8 +817,8 @@ export async function startHost(options: {
       "budgets.set": budgetsSetHandler,
       "autonomy.set": setAutonomyHandler,
       "models.set": modelsSetHandler,
-      "approvals.decide": withKnowledgeEffects(withToolApprovalDecisions(dispatch === null ? approvalsDecideHandler
-        : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: true }))),
+      "approvals.decide": withKnowledgeEffects(withToolApprovalDecisions(withCollaborationApprovalEffects(dispatch === null ? approvalsDecideHandler
+        : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: true })))),
         ...createKnowledgeHandlers({ multiTeam: true }),
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
       ...dispatchHandlers,

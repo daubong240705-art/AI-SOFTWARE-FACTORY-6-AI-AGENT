@@ -63,7 +63,6 @@ export function publishIssues(raw: Database, projectId: string, definition: Flow
   };
   for (const node of definition.nodes) {
     if (node.type === "parallel") issues.push({ code: "unsupported", message: "parallel forEach arrives later", node: node.id });
-    if (node.type === "orchestrate") issues.push({ code: "unsupported", message: "orchestrate arrives in U6", node: node.id });
     if (node.type === "subflow" && node.workflow !== definition.key && recursive(node.workflow, node.version, new Set()))
       issues.push({ code: "subflow-recursion", message: "Sub-workflow would create recursion", node: node.id });
     const checkCondition = (condition: FlowCondition): void => {

@@ -1,4 +1,4 @@
-import { notifySendInternalInputSchema } from "@factory/contracts";
+import { COLLABORATION_TOOLS, notifySendInternalInputSchema } from "@factory/contracts";
 import { z } from "zod";
 import { artifactKindSchema, artifactRefSchema, criterionReportInputSchema, decisionRequestInputSchema, knowledgeGetInputSchema, knowledgeSearchInputSchema, labelSchema, taskProgressInputSchema, requestCreateInputSchema, requestReplyInputSchema, requestGetInputSchema } from "@factory/contracts";
 import type { TokenGrant } from "../proxy/tokens.js";
@@ -36,9 +36,10 @@ export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
   return clean.data;
 }
 export interface McpDeps {
+  collaboration?: { call(grant: TokenGrant, name: keyof typeof COLLABORATION_TOOLS, input: unknown): ToolResult };
   standing?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   external?: ExternalTools;
-  toolPolicy?: (grant: TokenGrant) => { allows(name: string): boolean; mode?(name: string): "allow" | "ask" | "deny"; explicit?(name: string): boolean };
+  toolPolicy?: (grant: TokenGrant) => { allows(name: string): boolean; mode?(name: string): "allow" | "ask" | "deny"; explicit?(name: string): boolean; review?: boolean };
   approveTool?: (grant: TokenGrant, name: string, args: unknown) => string | null;
   skills?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   briefing?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
@@ -55,16 +56,30 @@ const result = (text: string, isError = false): ToolResult => ({ content: [{ typ
 
 const coreTools = new Set(["task.progress", "criterion.report", "output.register", "decision.request", "skill.get"]);
 export function toolAllowed(deps: McpDeps, grant: TokenGrant, name: string): boolean {
+  if (Object.hasOwn(COLLABORATION_TOOLS, name) && !deps.collaboration) return false;
   if ((/^(ext|http)\./.test(name) || name === "notify.send-internal") && deps.toolPolicy === undefined) return false;
   if (deps.toolPolicy === undefined) return true;
   try {
     const policy = deps.toolPolicy(grant);
+    if (coreTools.has(name) && policy.review) return name !== "output.register" && name !== "decision.request";
     return (coreTools.has(name) && !policy.explicit?.(name)) || policy.allows(name);
   }
   catch { return false; }
 }
 
+const collaborationDescriptions: Record<keyof typeof COLLABORATION_TOOLS, string> = {
+  "agent.directory": "List active agents you may assign work to.",
+  "task.create": "Delegate a task. Reuses a similar open task unless force is true.",
+  "task.depend": "Make one task you created wait for another task you created.",
+  "task.comment": "Comment on a task you own, created, or review. Mentioning its owner or reviewer wakes them.",
+  "task.request-review": "Assign a read-only review of referenced artifact versions.",
+  "task.block": "Report a blocker and stop working until a manager or the operator answers.",
+  "agent.propose": "Propose a configured agent for operator approval.",
+  "task.result": "Record the current task's structured result or review verdict.",
+};
 export const toolDefinitions = [
+  ...Object.entries(COLLABORATION_TOOLS).map(([name, schema]) => ({ name,
+    description: collaborationDescriptions[name as keyof typeof COLLABORATION_TOOLS], inputSchema: z.toJSONSchema(schema, { io: "input" }) })),
   { name: "notify.send-internal", description: "Send an internal project notification under standing approval. Never include secrets.", inputSchema: z.toJSONSchema(notifySendInternalInputSchema) },
   { name: "skill.get", description: "Read a skill from this team's pinned pack snapshot.", inputSchema: z.toJSONSchema(skillGetInputSchema) },
   { name: "project.briefing", description: "Read the project resume briefing and knowledge freshness.", inputSchema: z.toJSONSchema(z.strictObject({})) },
@@ -101,6 +116,7 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
         const waiting = deps.approveTool(grant, name, args);
         if (waiting) return result(waiting, true);
       }
+      if (Object.hasOwn(COLLABORATION_TOOLS, name)) return deps.collaboration!.call(grant, name as keyof typeof COLLABORATION_TOOLS, args);
       if (name === "notify.send-internal") return deps.standing?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "skill.get") return deps.skills?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "project.briefing") return deps.briefing?.call(grant,name,args) ?? result("tool is not available",true);

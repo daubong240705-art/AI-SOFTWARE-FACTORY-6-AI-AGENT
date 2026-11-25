@@ -1,20 +1,20 @@
 import type { Database } from "better-sqlite3";
-import { API_VERSION, LIVE_ATTEMPT_STATES, artifactRefSchema, idSchema, isTerminalFlowRunState, type AgentSelector, type FlowDefinition, type FlowEdge, type FlowNode, type Seat } from "@factory/contracts";
+import { API_VERSION, artifactRefSchema, idSchema, isTerminalFlowRunState, type FlowDefinition, type FlowEdge, type FlowNode, type Seat } from "@factory/contracts";
 import { approvalsDecideHandler, publicApprovalText } from "../approvals/service.js";
 import { listTaskArtifacts } from "../artifacts/service.js";
 import { DocumentError, registerUpload, uploadQuerySchema } from "../artifacts/uploads.js";
 import { CommandError } from "../commands/errors.js";
 import { startTask } from "../dispatch/advance.js";
-import { listAttempts } from "../dispatch/attempts.js";
+import { listAttempts, liveAttemptOfTask } from "../dispatch/attempts.js";
 import { moveTask } from "../dispatch/tasks.js";
-import { currentAgentConfig, groupIdsForAgent } from "../org/agents.js";
-import { listSeats } from "../org/service.js";
+import { isTerminalTask } from "../collab/policy.js";
 import { createNotification, notificationKey } from "../notify/service.js";
 import { getTask, tasksCreateHandler } from "../work/service.js";
 import { withoutWorkflowAdvancement } from "./lifecycle.js";
 import { advanceRun, arm, insertRun, runOutputs, type FlowEngineDeps } from "./engine.js";
 import { matchesSchema, readPath, render } from "./expressions.js";
 import { boundedJson, decode, definitionOf, emit, flowByKey, getRun, getVersion, hash, latestNodes, type NodeRow, type RunRow } from "./store.js";
+import { activeAgents, chooseAgent as choose } from "./selector.js";
 
 export type NodeOutcome =
   | { kind: "done"; port: string | null; output: unknown; pinned?: boolean }
@@ -43,25 +43,11 @@ function renderHttpArgs(source: string, context: unknown, missing: Set<string>):
   return walk(JSON.parse(source));
 }
 
-export function activeAgents(raw: Database, projectId: string): Seat[] {
-  return listSeats(raw).filter((seat) => raw.prepare("SELECT 1 FROM seats WHERE id=? AND project_id=?").get(seat.id, projectId));
-}
-function choose(raw: Database, projectId: string, selector: AgentSelector): Seat | undefined {
-  const states = [...LIVE_ATTEMPT_STATES];
-  const count = raw.prepare(`SELECT count(*) AS live FROM attempt_seats s JOIN attempts a ON a.project_id=s.project_id AND a.id=s.attempt_id
-    WHERE s.project_id=? AND s.seat_id=? AND a.state IN (${states.map(() => "?").join(",")})`);
-  return activeAgents(raw, projectId).filter((seat) => {
-    if ("agent" in selector) return seat.id === selector.agent;
-    if ("role" in selector) return seat.role.toLowerCase() === selector.role.toLowerCase();
-    if ("tags" in selector) return selector.tags.every((tag) => (currentAgentConfig(raw, seat.id)?.config.tags ?? []).includes(tag));
-    return groupIdsForAgent(raw, projectId, seat.id).includes(selector.team);
-  }).map((seat) => ({ seat, live: (count.get(projectId, seat.id, ...states) as { live: number }).live }))
-    .sort((first, second) => first.live - second.live || first.seat.name.localeCompare(second.seat.name, "en") || first.seat.id.localeCompare(second.seat.id))[0]?.seat;
-}
+export { activeAgents } from "./selector.js";
 
 function makeTask(deps: FlowEngineDeps, run: RunRow, row: NodeRow, owner: Seat, spec: {
   title: string; brief: string; acceptance: string[]; parent?: string; inputs?: Array<{ artifactId: string; version: number }>;
-  role?: "agent" | "subtask"; human?: boolean;
+  role?: "agent" | "subtask" | "orchestrator"; human?: boolean;
 }): string {
   const { raw, hub, clock, newId } = deps;
   const taskId = newId();
@@ -137,12 +123,13 @@ function createApproval(deps: FlowEngineDeps, run: RunRow, row: NodeRow, item: E
   return { kind: "waiting", patch };
 }
 
-function taskOutput(deps: FlowEngineDeps, projectId: string, taskId: string) {
+function taskOutput(deps: FlowEngineDeps, projectId: string, taskId: string, latestReport = false) {
   const attempt = listAttempts(deps.raw, projectId, taskId).at(-1);
   const submission = attempt && deps.raw.prepare(`SELECT json_extract(body_json,'$.summary') AS summary FROM attempt_events
     WHERE project_id=? AND attempt_id=? AND kind='state' AND json_extract(body_json,'$.to')='submitting' ORDER BY seq DESC LIMIT 1`)
     .get(projectId, attempt.id) as { summary?: string } | undefined;
-  const reported = attempt && deps.raw.prepare("SELECT result_json FROM flow_task_results WHERE project_id=? AND attempt_id=?").get(projectId, attempt.id) as { result_json: string } | undefined;
+  const reported = (latestReport ? latestTaskResult(deps.raw, projectId, taskId)
+    : attempt && deps.raw.prepare("SELECT result_json FROM flow_task_results WHERE project_id=? AND attempt_id=?").get(projectId, attempt.id)) as { result_json: string } | undefined;
   const artifacts = listTaskArtifacts(deps.raw, projectId, taskId).flatMap(({ artifactId, kind, versions }) =>
     versions[0] ? [{ artifactId, version: versions[0].version, kind, status: versions[0].status }] : []);
   return { summary: typeof submission?.summary === "string" ? publicApprovalText(submission.summary).slice(0, 4000) : null,
@@ -173,7 +160,25 @@ export function executeWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefiniti
     }
     case "approval": return createApproval(deps, run, row, item, context, fired, missing);
     case "parallel": return { kind: "failed", error: "parallel forEach arrives later" };
-    case "orchestrate": return { kind: "failed", error: "orchestrate arrives in U6" };
+    case "orchestrate": {
+      const errorPort = def.edges.some((edge) => edge.from.node === item.id && edge.from.port === "error");
+      const lead = choose(deps.raw, run.project_id, item.lead);
+      if (!lead) return { kind: "failed", error: "no agent matches orchestrator lead", errorPort };
+      const goal = render(item.goal, context, missing);
+      const limits = { allowed: item.allowed, maxTasks: item.maxTasks, maxDepth: item.maxDepth, budgetTokens: item.budgetTokens };
+      try {
+        const taskId = makeTask(deps, run, row, lead, { title: item.title, role: "orchestrator", acceptance: [],
+          brief: `${goal.slice(0, 27000)}\n\nDelegation limits: ${JSON.stringify(limits)}. Use agent.directory, task.create and task.depend. Report your final answer with task.result. You may finish an attempt while waiting for subtasks; their outcomes will wake you.` });
+        deps.raw.prepare(`INSERT INTO collab_orchestrators(project_id,task_id,run_id,node_id,iteration,attempt_no,goal,allowed_json,max_tasks,max_depth,budget_tokens)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?)`)
+          .run(run.project_id, taskId, run.id, row.node_id, row.iteration, row.attempt_no, goal, JSON.stringify(item.allowed), item.maxTasks, item.maxDepth, item.budgetTokens ?? null);
+        deps.raw.prepare("UPDATE tasks SET node_run_id=? WHERE project_id=? AND id=?").run(taskId, run.project_id, taskId);
+        return { kind: "waiting", patch: { task_id: taskId } };
+      } catch (error) {
+        if (error instanceof CommandError) return { kind: "failed", error: error.message, errorPort };
+        throw error;
+      }
+    }
     case "action": {
       const params = Object.fromEntries(Object.entries(item.params).map(([key, value]) => [key,
         typeof value === "string" && !(item.action === "http.request" && key === "args") ? render(value, context, missing) : value]));
@@ -274,6 +279,23 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
     return effect.state === "done" ? { kind: "done", port: "out", output: effect.output }
       : { kind: "failed", error: effect.error ?? "HTTP request failed" };
   }
+  if (item.type === "orchestrate" && row.task_id) {
+    const task = getTask(deps.raw, run.project_id, row.task_id);
+    if (!task) return { kind: "failed", error: "orchestrator task not found" };
+    if (isTerminalTask(task.state) && task.state !== "done") return taskFailure(deps, run, task.id, task.state);
+    const subtasks = deps.raw.prepare("SELECT id,state FROM tasks WHERE project_id=? AND node_run_id=? AND id<>? ORDER BY code,id")
+      .all(run.project_id, task.id, task.id) as { id: string; state: string }[];
+    if (!latestTaskResult(deps.raw, run.project_id, task.id) || subtasks.some((subtask) => !isTerminalTask(subtask.state))
+      || liveAttemptOfTask(deps.raw, run.project_id, task.id) || task.holds.length || deps.raw.prepare(
+        "SELECT 1 FROM collab_orchestrators WHERE project_id=? AND task_id=? AND failure_pending=1").get(run.project_id, task.id)) return null;
+    if (task.state === "in-review") {
+      const completed = moveTask(deps.raw, run.project_id, task.id, "done");
+      emit(deps.hub, run.project_id, run.id, { kind: "task", id: task.id, revision: completed.revision });
+    } else if (task.state !== "done") return null;
+    const { result } = taskOutput(deps, run.project_id, task.id, true);
+    return { kind: "done", port: "out", output: { result, subtasks: subtasks.map(({ id, state }) => ({ taskId: id, state,
+      artifacts: taskOutput(deps, run.project_id, id).artifacts })) } };
+  }
   if (row.approval_id) {
     const approval = deps.raw.prepare("SELECT state,outcome_option_id,revision,context_digest,expires_at FROM approvals WHERE project_id=? AND id=?")
       .get(run.project_id, row.approval_id) as { state: string; outcome_option_id: string | null; revision: number; context_digest: string; expires_at: string } | undefined;
@@ -333,16 +355,22 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
   return { kind: "done", port: "out", output: { ...projected, ...output } };
 }
 
-export function saveTaskResult(raw: Database, projectId: string, taskId: string, attemptId: string, result: unknown): void {
+function latestTaskResult(raw: Database, projectId: string, taskId: string): { result_json: string } | undefined {
+  return raw.prepare(`SELECT r.result_json FROM flow_task_results r JOIN attempts a ON a.project_id=r.project_id AND a.id=r.attempt_id
+    WHERE a.project_id=? AND a.task_id=? ORDER BY a.epoch DESC LIMIT 1`).get(projectId, taskId) as { result_json: string } | undefined;
+}
+
+export function saveTaskResult(raw: Database, projectId: string, taskId: string, attemptId: string, result: unknown, collaboration = false): void {
   const row = raw.prepare(`SELECT r.definition_json, f.node_id, f.role FROM flow_tasks f JOIN flow_runs r ON r.project_id=f.project_id AND r.id=f.run_id
     WHERE f.project_id=? AND f.task_id=? AND r.state NOT IN ('failed','succeeded','cancelled')`).get(projectId, taskId) as
     { definition_json: string; node_id: string; role: string } | undefined;
-  if (!row) throw new CommandError("validation", "task does not accept a flow result", "correct-input");
-  const node = definitionOf(row.definition_json).nodes.find(({ id }) => id === row.node_id);
+  if (!row && (!collaboration || raw.prepare("SELECT 1 FROM flow_tasks WHERE project_id=? AND task_id=?").get(projectId, taskId)))
+    throw new CommandError("validation", "task does not accept a flow result", "correct-input");
+  const node = row && definitionOf(row.definition_json).nodes.find(({ id }) => id === row.node_id);
   const verdict = readPath(result, "verdict");
-  if (row.role === "agent" && node?.type === "agent" && node.outputSchema && !matchesSchema(result, node.outputSchema))
+  if (row?.role === "agent" && node?.type === "agent" && node.outputSchema && !matchesSchema(result, node.outputSchema))
     throw new CommandError("validation", "task result does not match output schema", "correct-input");
-  if (row.role === "subtask" && !(node?.type === "approval" ? verdict === "approve" || verdict === "reject" : verdict === "accepted" || verdict === "changes-requested"))
+  if (row?.role === "subtask" && !collaboration && !(node?.type === "approval" ? verdict === "approve" || verdict === "reject" : verdict === "accepted" || verdict === "changes-requested"))
     throw new CommandError("validation", "invalid verdict", "correct-input");
   raw.prepare(`INSERT INTO flow_task_results VALUES(?,?,?) ON CONFLICT(project_id,attempt_id) DO UPDATE SET result_json=excluded.result_json`)
     .run(projectId, attemptId, boundedJson(result, 32768));
@@ -350,8 +378,14 @@ export function saveTaskResult(raw: Database, projectId: string, taskId: string,
 
 export function completeFlowTask(deps: FlowEngineDeps, input: { projectId: string; taskId: string }): boolean {
   const task = getTask(deps.raw, input.projectId, input.taskId);
-  if (task?.reviewPolicy !== "automatic" || task.state !== "in-review" || !deps.raw.prepare("SELECT 1 FROM flow_tasks WHERE project_id=? AND task_id=?")
-    .get(input.projectId, input.taskId)) return false;
+  if (task?.reviewPolicy !== "automatic" || task.state !== "in-review") return false;
+  const flowTask = deps.raw.prepare("SELECT role FROM flow_tasks WHERE project_id=? AND task_id=?")
+    .get(input.projectId, input.taskId) as { role: string } | undefined;
+  if (flowTask?.role === "orchestrator") return true;
+  const assignment = deps.raw.prepare("SELECT kind FROM collab_assignments WHERE project_id=? AND task_id=?")
+    .get(input.projectId, input.taskId) as { kind: string } | undefined;
+  if (!flowTask && !assignment) return false;
+  if (assignment && assignment.kind !== "delegation" && !latestTaskResult(deps.raw, input.projectId, input.taskId)) return false;
   return deps.hub.transaction(() => {
     const current = moveTask(deps.raw, input.projectId, input.taskId, "done", { now: deps.clock().toISOString() });
     emit(deps.hub, input.projectId, input.taskId, { kind: "task", id: input.taskId, revision: current.revision });
