@@ -195,7 +195,7 @@ test("API agents inherit group model and effort; shared budgets refuse new work 
     const reservation = checkAndReserve(raw, { projectId, taskId: null, now: clock(), estimateTokens: 1, config: DEFAULT_BUDGET_CONFIG });
     assert.equal(reservation.ok, false);
     if (!reservation.ok) assert.equal(reservation.scope, "group");
-    assert.throws(() => dispatcher.enqueue({ projectId, taskId: task(), seatId }), /Nhóm root.*30 ngày/);
+    assert.throws(() => dispatcher.enqueue({ projectId, taskId: task(), seatId }), /Group root.*30 ngày/);
     assert.equal(detail(root).rollup.tokens30d, null);
     assert.equal(detail(root).rollup.liveAttempts, 1);
     assert.deepEqual(detail(root).rollup.tasksByState, { active: 2 });

@@ -21,7 +21,7 @@ export function withFlowResultTool(raw: Database, clock: Clock, next: ReturnType
     if (rpc?.method === "tools/call" && rpc.params?.name === "task.result") {
       const parsed = call.safeParse(input);
       if (!parsed.success) return rpcError(-32602);
-      let text = "Đã ghi kết quả công việc";
+      let text = "Đã ghi kết quả task";
       let isError = false;
       try {
         assertActiveGrant(raw, grant, clock());

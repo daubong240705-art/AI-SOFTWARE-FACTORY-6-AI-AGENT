@@ -71,17 +71,17 @@ async function checkModel(input: DoctorInput): Promise<DoctorCheck> {
   const base = input.config.FACTORY_MODEL_BASE_URL ?? input.config.FACTORY_GATEWAY_URL;
   const provider = input.config.FACTORY_MODEL_PROVIDER;
   const key = input.config.FACTORY_MODEL_API_KEY ?? input.config.NINE_ROUTER_API_KEY;
-  if (provider === "none" || !base) return fail("D-MODEL", "optional", "Chưa cấu hình nhà cung cấp model (cần cho Lead chat và agent api-agent).", "Chạy: factory setup");
+  if (provider === "none" || !base) return fail("D-MODEL", "optional", "Chưa cấu hình model provider (cần cho Lead chat và agent api-agent).", "Chạy: factory setup");
   try {
     const models = await probeModels(base, key, input.fetch);
-    if (models.length === 0) return fail("D-MODEL", "required", "Nhà cung cấp không có model nào.", "Kiểm tra quyền API và danh sách model.");
+    if (models.length === 0) return fail("D-MODEL", "required", "Model provider không có model nào.", "Kiểm tra quyền API và danh sách model.");
     const leadModel = input.config.FACTORY_LEAD_CLI === "claude" ? undefined : input.config.FACTORY_LEAD_MODEL;
     const requested = [leadModel, ...(input.config.FACTORY_AGENT_MODELS ?? "").split(",")].filter((value): value is string => Boolean(value));
     const missing = requested.filter((model) => !models.includes(model));
     // Some gateways serve models they do not list (e.g. a newer model behind an alias list), so an unlisted model is
     // only a warning; the real call (checkModel) decides.
     if (missing.length && !input.checkModel)
-      return fail("D-MODEL", "warning", `Model ${missing.join(", ")} không có trong danh sách GET /models của nhà cung cấp.`,
+      return fail("D-MODEL", "warning", `Model ${missing.join(", ")} không có trong danh sách GET /models của model provider.`,
         "Bấm \"Kiểm tra cả model\" (hoặc factory doctor --model) để gọi thử thật; nếu lỗi thì chọn model có trong danh sách.");
     if (input.checkModel) {
       for (const model of requested.length ? requested : [models[0]!]) await probeCompletion(base, key, model, input.fetch);
@@ -103,7 +103,7 @@ function modelProbeFailure(error: unknown): DoctorCheck {
     current = item.cause;
   }
   const text = chain.join(" ");
-  const summary = "Phép thử nhà cung cấp model không thành công.";
+  const summary = "Kiểm tra model provider thất bại.";
   if (/CERT|SELF_SIGNED|UNABLE_TO_VERIFY|unable to get local issuer/i.test(text))
     return fail("D-MODEL", "required", `${summary} Chứng chỉ TLS của máy chủ không được tin cậy.`,
       "Đặt NODE_EXTRA_CA_CERTS tới file CA gốc của máy chủ model (ví dụ CA nội bộ của reverse proxy) trong file cấu hình hoặc dịch vụ, rồi khởi động lại.", "tls");
@@ -112,10 +112,10 @@ function modelProbeFailure(error: unknown): DoctorCheck {
   if (/ECONNREFUSED|ECONNRESET|ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT|timeout|aborted/i.test(text))
     return fail("D-MODEL", "required", `${summary} Không kết nối được tới máy chủ.`, "Kiểm tra máy chủ model đang chạy, cổng, tường lửa và proxy.", "network");
   if (status === 401 || status === 403)
-    return fail("D-MODEL", "required", `${summary} Khóa API bị từ chối (HTTP ${status}).`, "Chạy factory setup để nhập lại khóa API.", `HTTP ${status}`);
+    return fail("D-MODEL", "required", `${summary} API key bị từ chối (HTTP ${status}).`, "Chạy factory setup để nhập lại API key.", `HTTP ${status}`);
   if (status === 429)
-    return fail("D-MODEL", "required", `${summary} Đã chạm hạn mức (HTTP 429).`, "Chờ hạn mức hồi lại hoặc tăng hạn mức ở nhà cung cấp.", "HTTP 429");
-  return fail("D-MODEL", "required", summary, "Kiểm tra URL, CA, mạng, khóa API và hạn mức.", status === undefined ? undefined : `HTTP ${status}`);
+    return fail("D-MODEL", "required", `${summary} Đã chạm hạn mức (HTTP 429).`, "Chờ hạn mức hồi lại hoặc tăng hạn mức ở model provider.", "HTTP 429");
+  return fail("D-MODEL", "required", summary, "Kiểm tra URL, CA, mạng, API key và hạn mức.", status === undefined ? undefined : `HTTP ${status}`);
 }
 
 async function checkCli(id: "D-CODEX" | "D-CLAUDE", command: string, statusArgs: string[], exec: DoctorExec): Promise<DoctorCheck> {
@@ -178,8 +178,8 @@ export async function runDoctor(input: DoctorInput): Promise<DoctorReport> {
     const temp = await mkdtemp(join(backupDir, ".doctor-"));
     try { await writeFile(join(temp, "probe"), "", { flag: "wx" }); } finally { await rm(temp, { recursive: true, force: true }); }
     const newest = listBackups(backupDir)[0];
-    checks.push(!newest ? fail("D-BACKUP", "warning", "Thư mục backup ghi được nhưng chưa có bản sao lưu.", "Chạy backup đầu tiên sau khi cấu hình Host.")
-      : Date.now() - newest.at.getTime() > 86_400_000 ? fail("D-BACKUP", "warning", "Bản sao lưu mới nhất đã quá 24 giờ.", "Chạy backup và kiểm tra scheduler.") : pass("D-BACKUP", "warning", "Thư mục backup ghi được và có bản sao lưu mới."));
+    checks.push(!newest ? fail("D-BACKUP", "warning", "Thư mục backup ghi được nhưng chưa có backup nào.", "Chạy backup đầu tiên sau khi cấu hình Host.")
+      : Date.now() - newest.at.getTime() > 86_400_000 ? fail("D-BACKUP", "warning", "Backup mới nhất đã quá 24 giờ.", "Chạy backup và kiểm tra scheduler.") : pass("D-BACKUP", "warning", "Thư mục backup ghi được và có backup mới."));
   } catch { checks.push(fail("D-BACKUP", "warning", "Thư mục backup không ghi được.", "Tạo thư mục backup và cấp quyền cho tài khoản chạy Host.")); }
   const ca = input.config.NODE_EXTRA_CA_CERTS;
   if (ca) try {

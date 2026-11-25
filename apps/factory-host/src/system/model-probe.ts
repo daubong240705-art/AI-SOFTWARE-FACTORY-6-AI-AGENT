@@ -1,7 +1,7 @@
 import { validModelName, validModelUrl } from "../config/schema.js";
 
 export class ModelProbeError extends Error {
-  constructor(readonly status?: number) { super("Không kiểm tra được nhà cung cấp model."); }
+  constructor(readonly status?: number) { super("Không kiểm tra được model provider."); }
 }
 
 async function modelJson(base: string, key: string | undefined, path: string, fetchImpl: typeof fetch, body?: object): Promise<unknown> {

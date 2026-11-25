@@ -54,7 +54,7 @@ export function resolveConfig(realEnv: ConfigEnv, file: Readonly<Record<string, 
   for (const [key, value] of Object.entries(file)) if (configKey(key)) put(key, value, "file");
   for (const [key, value] of Object.entries(realEnv)) if (configKey(key) && value !== undefined) put(key, value, "env");
   if (env.FACTORY_MODEL_API_KEY !== undefined && env.NINE_ROUTER_API_KEY !== undefined && env.FACTORY_MODEL_API_KEY !== env.NINE_ROUTER_API_KEY)
-    issues.push({ code: "C-CONFLICT", key: "FACTORY_MODEL_API_KEY", message: "Hai khóa API mới và cũ không trùng nhau.",
+    issues.push({ code: "C-CONFLICT", key: "FACTORY_MODEL_API_KEY", message: "API key mới và cũ không trùng nhau.",
       fix: "Chỉ đặt một trong FACTORY_MODEL_API_KEY hoặc NINE_ROUTER_API_KEY, hoặc đặt cùng giá trị." });
   const alias = (canonical: string, legacy: string): void => {
     const selected = env[canonical] !== undefined && (sources[legacy] !== "env" || sources[canonical] === "env") ? canonical : legacy;
@@ -78,7 +78,7 @@ export function resolveConfig(realEnv: ConfigEnv, file: Readonly<Record<string, 
   })) if (env[key] === undefined) put(key, value, "default");
   put("FACTORY_CONFIG", path, realEnv.FACTORY_CONFIG === undefined ? "default" : "env");
   if (providerSource && env.FACTORY_MODEL_PROVIDER === "openai-compatible" && baseUrl === undefined)
-    issues.push({ code: "C-VALUE", key: "FACTORY_MODEL_BASE_URL", message: "Thiếu địa chỉ nhà cung cấp model.",
+    issues.push({ code: "C-VALUE", key: "FACTORY_MODEL_BASE_URL", message: "Thiếu địa chỉ model provider.",
       fix: "Đặt FACTORY_MODEL_BASE_URL hoặc dùng FACTORY_MODEL_PROVIDER=none." });
   const model: ModelProvider | null = env.FACTORY_MODEL_PROVIDER === "openai-compatible" && baseUrl ? {
     baseUrl, ...(env.FACTORY_MODEL_API_KEY ? { apiKey: env.FACTORY_MODEL_API_KEY } : {}), legacy: compatUrl !== undefined,

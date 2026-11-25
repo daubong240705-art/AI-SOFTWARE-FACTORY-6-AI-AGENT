@@ -40,7 +40,7 @@ export function WorldHotbar({ collapsed, onCollapse }: { walking: boolean; colla
     return [name(slot), tool ? t(tool === 'whip' ? 'worldUi.toys.whipCount' : 'worldUi.toys.count').replace('{tool}', name(slot)).replace('{count}', String(state.counts[tool] ?? 0)) : '', t('worldUi.toys.note'), '1–9 · Alt + wheel'].filter(Boolean).join(' · ');
   };
   return <div className={`world-hotbar${collapsed ? ' world-hotbar-collapsed' : ''}`}>
-    <button className="world-hotbar-handle" aria-expanded={!collapsed} aria-controls={id} aria-label={collapsed ? 'Mở hotbar' : 'Thu gọn hotbar'} onClick={() => onCollapse(!collapsed)}>{collapsed ? '▴' : '▾'}</button>
+    <button className="world-hotbar-handle" aria-expanded={!collapsed} aria-controls={id} aria-label={t(collapsed ? 'worldUi.expandHotbar' : 'worldUi.collapseHotbar')} onClick={() => onCollapse(!collapsed)}>{collapsed ? '▴' : '▾'}</button>
     <div id={id} hidden={collapsed} role="toolbar" aria-label={t('worldUi.toys.title')} className="world-hotbar-slots" onKeyDown={event => {
       if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();

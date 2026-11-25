@@ -100,7 +100,7 @@ export function createProjectsArchiveHandler(deps: {
     if (payload.confirmName !== project.name)
       throw new CommandError("validation", "Tên xác nhận phải trùng khớp chính xác với tên dự án.", "correct-input");
     if (hasLiveAttempt(raw, projectId))
-      throw new CommandError("conflict", "Dự án còn lượt chạy đang hoạt động hoặc chưa rõ kết quả. Hãy dừng lượt chạy và đối soát trước khi xoá dự án.", "refresh");
+      throw new CommandError("conflict", "Dự án còn run đang hoạt động hoặc chưa rõ kết quả. Hãy dừng run và đối soát trước khi xoá dự án.", "refresh");
 
     let workspace: ReturnType<typeof planArchiveWorkspace>;
     try { workspace = planArchiveWorkspace(deps.projectsRoot, project.workspace.root, ctx.clock()); }

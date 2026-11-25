@@ -46,7 +46,7 @@ export function validateConfig(env: ConfigEnv): ConfigIssue[] {
   if (env.FACTORY_MODEL_BASE_URL !== undefined && !validModelUrl(env.FACTORY_MODEL_BASE_URL))
     invalid("FACTORY_MODEL_BASE_URL", "Dùng URL HTTPS hoặc HTTP loopback, không kèm thông tin đăng nhập, truy vấn hay fragment.");
   if (env.FACTORY_MODEL_API_KEY && /[\s\p{Cc}]/u.test(env.FACTORY_MODEL_API_KEY))
-    invalid("FACTORY_MODEL_API_KEY", "Dùng khóa API không chứa khoảng trắng hay ký tự điều khiển.");
+    invalid("FACTORY_MODEL_API_KEY", "Dùng API key không chứa khoảng trắng hay ký tự điều khiển.");
   if (env.FACTORY_LEAD_MODEL !== undefined && !validModelName(env.FACTORY_LEAD_MODEL))
     invalid("FACTORY_LEAD_MODEL", "Chọn một mã model không chứa khoảng trắng.");
   if (env.FACTORY_AGENT_MODELS !== undefined && !agentModelsSchema.safeParse(env.FACTORY_AGENT_MODELS.split(",")).success)
