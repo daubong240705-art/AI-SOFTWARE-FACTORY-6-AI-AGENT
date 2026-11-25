@@ -578,6 +578,7 @@ Có ít nhất một Trigger; mọi node đến được từ Trigger; mọi chu
 - **Tool call:** Host ghi mọi lời gọi qua MCP endpoint (tên, trạng thái, thời gian, kích thước; không ghi bí mật). Tool runtime-native lấy từ luồng JSON của CLI khi CLI có báo.
 - **Chi phí:** giữ bất biến "unknown, không bao giờ 0"; cộng theo agent, team, node, workflow, project; hiển thị phần **ước tính** riêng.
 - **Phân tích run** (nền cho Self-Improving, §12): thời gian chờ và chạy của từng node, số lần retry, số vòng rework, tỉ lệ review không đạt, chi phí mỗi node, agent quá tải.
+- **U8:** Host tính chỉ số bằng mã xác định theo cửa sổ 1–90 ngày và kèm tối đa 10 tham chiếu bằng chứng cho mỗi chỉ số. Quy tắc chỉ nêu phát hiện khi đủ mẫu. Đề xuất cải tiến có thể liên kết với một đề xuất Setup do AI tạo; người vận hành duyệt và áp dụng vào bản nháp hoặc cấu hình agent. Không có bước tự xuất bản.
 
 ---
 

@@ -5,6 +5,7 @@ import { ruleInputSchema, rulePatchSchema } from "./rules.js";
 import { autonomyLevelSchema } from "./autonomy.js";
 import { modelSettingsSetSchema } from "./model-settings.js";
 import { setupApplyPayloadSchema, setupDiscardPayloadSchema, setupProposePayloadSchema } from "./setup.js";
+import { insightsApplyPayloadSchema, insightsDiscardPayloadSchema, insightsProposePayloadSchema } from "./insights.js";
 import { z } from "zod";
 import {
   integrationsCreatePayloadSchema, integrationsUpdatePayloadSchema, integrationsDeletePayloadSchema, integrationsTestPayloadSchema,
@@ -228,6 +229,9 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("setup.propose", setupProposePayloadSchema),
   command("setup.apply", setupApplyPayloadSchema),
   command("setup.discard", setupDiscardPayloadSchema),
+  command("insights.propose", insightsProposePayloadSchema),
+  command("insights.apply", insightsApplyPayloadSchema),
+  command("insights.discard", insightsDiscardPayloadSchema),
   command("flows.save-draft", flowsSaveDraftPayloadSchema),
   command("flows.publish", flowsPublishPayloadSchema),
   command("flows.archive", flowsArchivePayloadSchema),

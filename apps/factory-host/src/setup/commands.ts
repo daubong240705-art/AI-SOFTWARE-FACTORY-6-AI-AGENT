@@ -1,7 +1,7 @@
 import { API_VERSION, commandSchema, type AgentAdapter, type AgentRelation, type ApiError, type Command } from "@factory/contracts";
 import type { Database } from "better-sqlite3";
 import { CommandError } from "../commands/errors.js";
-import type { HandlerMap, createCommandPipeline } from "../commands/pipeline.js";
+import type { HandlerContext, HandlerMap, createCommandPipeline } from "../commands/pipeline.js";
 import type { EventHub } from "../events/hub.js";
 import { getFlow } from "../flow/store.js";
 import { relationsRevision } from "../org/agents.js";
@@ -26,24 +26,27 @@ function applyError(code: ApiError["code"], path: string, message: string, field
   return new CommandError(code, message, "correct-input", extra);
 }
 
+export function proposeSetup({ raw, clock }: HandlerContext,
+  { projectId, payload }: Pick<Extract<Command, { type: "setup.propose" }>, "projectId" | "payload">, kick: () => void) {
+  if (!raw.prepare("SELECT 1 FROM projects WHERE id=?").get(projectId))
+    throw new CommandError("not-found", "Không tìm thấy project.", "correct-input");
+  if (getProposal(raw, projectId, payload.proposalId))
+    throw new CommandError("conflict", "Mã đề xuất đã được sử dụng.", "correct-input");
+  const flowId = payload.mode === "flow" ? payload.flowId : undefined;
+  const flow = flowId ? getFlow(raw, projectId, flowId) : undefined;
+  if (flowId && (!flow || flow.archived))
+    throw new CommandError("not-found", "Không tìm thấy workflow có thể chỉnh sửa.", "correct-input");
+  raw.prepare(`INSERT INTO setup_proposals (project_id,id,state,request,mode,flow_id,flow_revision,created_at)
+    VALUES (?,?,'generating',?,?,?,?,?)`).run(projectId, payload.proposalId, payload.request, payload.mode,
+    flowId ?? null, flow?.revision ?? null, clock().toISOString());
+  kick();
+  return { effects: [] };
+}
+
 export function createSetupHandlers(deps: { adapters: ReadonlySet<AgentAdapter>; executeChild: Pipeline["execute"]; kick: () => void }):
   Pick<HandlerMap, typeof SETUP_COMMANDS[number]> {
   return {
-    "setup.propose": ({ raw, clock }, { projectId, payload }) => {
-      if (!raw.prepare("SELECT 1 FROM projects WHERE id=?").get(projectId))
-        throw new CommandError("not-found", "Không tìm thấy project.", "correct-input");
-      if (getProposal(raw, projectId, payload.proposalId))
-        throw new CommandError("conflict", "Mã đề xuất đã được sử dụng.", "correct-input");
-      const flowId = payload.mode === "flow" ? payload.flowId : undefined;
-      const flow = flowId ? getFlow(raw, projectId, flowId) : undefined;
-      if (flowId && (!flow || flow.archived))
-        throw new CommandError("not-found", "Không tìm thấy workflow có thể chỉnh sửa.", "correct-input");
-      raw.prepare(`INSERT INTO setup_proposals (project_id,id,state,request,mode,flow_id,flow_revision,created_at)
-        VALUES (?,?,'generating',?,?,?,?,?)`).run(projectId, payload.proposalId, payload.request, payload.mode,
-        flowId ?? null, flow?.revision ?? null, clock().toISOString());
-      deps.kick();
-      return { effects: [] };
-    },
+    "setup.propose": (ctx, command) => proposeSetup(ctx, command, deps.kick),
     "setup.apply": (ctx, { projectId, payload }) => {
       const { raw, newId } = ctx;
       const row = requireProposal(raw, projectId, payload.proposalId, payload.expectedRevision);

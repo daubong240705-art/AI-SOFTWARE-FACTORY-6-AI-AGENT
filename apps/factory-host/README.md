@@ -487,6 +487,26 @@ Environment and output:
 Task and approval changes notify the flow engine through `src/flow/lifecycle.ts`.
 Use `flows.import-v1` to convert pack JSON into an editable v2 draft. The v1 engine and its job schedules are retired.
 
+## Run insights and improvement proposals
+
+The session-guarded `GET /projects/:projectId/insights` and
+`GET /projects/:projectId/flows/:flowId/insights` accept `days` from 1–90 (default 30).
+Flow analytics group runs created in the window, including draft tests under a `null` version.
+Node titles come from run snapshots. Rates use decided outcomes, durations use measured samples,
+and each metric includes its sample count and up to ten evidence references. Agent summaries
+include standalone attempts (attempt IDs when there is no node-run key). Busy share estimates
+started attempt time in the window divided by currently configured slot capacity. Wait times
+without recorded ready/queue timestamps are unavailable, not zero. Reported and estimated
+tokens are separate; unpriced or missing usage remains unknown.
+
+`insights.propose` saves the selected findings and rules-based patch for review at
+`/projects/:projectId/improvement-proposals`. `useAi` also starts a separate, linked Setup
+proposal for the same workflow. Review and apply that alternative through Setup; neither
+generation path modifies a draft. `insights.apply` rejects stale drafts and invalid patches,
+then saves only the draft or updates reviewed agent models through `agents.update`.
+`insights.discard` discards the rules proposal; the linked Setup proposal is managed separately.
+Only an explicit `flows.publish` changes the published workflow version.
+
 ## Automation rules and monitors
 
 Rules observe task, artifact, and monitor events with a cursor, debounce, and hourly rate limit.

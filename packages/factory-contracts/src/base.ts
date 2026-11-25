@@ -51,6 +51,7 @@ export const entityKindSchema = z.enum([
   // U4: Workflow v2.
   "flow",
   "flow-run",
+  "improvement-proposal",
   // U9
   "group",
 ]);

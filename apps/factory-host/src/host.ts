@@ -24,8 +24,11 @@ import { createCollaborationMcp, withCollaborationApprovalEffects } from "./coll
 import { completeFlowTask } from "./flow/work.js";
 import { chatSendHandler, conversationsCreateHandler } from "./chat/index.js";
 import type { EventHub } from "./events/hub.js";
-import { TraceEventHub, TraceRecorder } from "./trace/recorder.js";
+import { TraceEventHub } from "./trace/recorder.js";
 import { registerTraceRoutes } from "./trace/routes.js";
+import { createInsightsHandlers, INSIGHTS_COMMANDS } from "./insights/commands.js";
+import { InsightsTraceRecorder } from "./insights/record.js";
+import { registerInsightsRoutes } from "./insights/routes.js";
 import { createBootstrapGate, createSessionStore } from "./identity/index.js";
 import { createIdGenerator, systemClock, type Clock } from "./ids.js";
 import { createLeadRunner, type LeadConfig, type LeadRunner } from "./lead/runner.js";
@@ -448,7 +451,7 @@ export async function startHost(options: {
     // U1: every pack is also imported into the library (versioned skills + agent templates). Idempotent.
     importPacksToLibrary(storage.raw, packs, { newId: createIdGenerator(clock), clock },
       (packKey, message) => console.error(`Library import (${packKey}): ${message}`));
-    const trace = new TraceRecorder(storage.raw, clock);
+    const trace = new InsightsTraceRecorder(storage.raw, clock);
     const hub = new TraceEventHub(storage.raw, trace, { clock });
     trace.backfill();
     const integrationIds = createIdGenerator(clock);
@@ -805,6 +808,7 @@ export async function startHost(options: {
         timeoutMs: options.lead?.timeoutMs ?? DEFAULT_LEAD_CONFIG.timeoutMs }) });
     const pipeline: ReturnType<typeof createCommandPipeline> = createCommandPipeline({ storage, hub, clock, handlers: {
       ...createSetupHandlers({ adapters: setupAdapters, kick: setup.kick, executeChild: (...args) => pipeline.execute(...args) }),
+      ...createInsightsHandlers({ kickSetup: setup.kick, executeChild: (...args) => pipeline.execute(...args) }),
       ...createNotificationHandlers(),
       ...createStandingApprovalHandlers(),
       ...createRuleHandlers(),
@@ -867,7 +871,7 @@ export async function startHost(options: {
       afterCommand: (type, result) => {
           if (result.body.ok && (type === "approvals.decide" || type === "tasks.transition" || INTEGRATION_COMMANDS.some((command) => command === type))) dispatch?.kick();
         if (type === "chat.send") lead.kick();
-        if (result.body.ok && (type === "setup.apply" || AGENT_COMMANDS.some((command) => command === type)) && dispatch) {
+        if (result.body.ok && (type === "setup.apply" || type === "insights.apply" || AGENT_COMMANDS.some((command) => command === type)) && dispatch) {
           dispatch.kick();
         }
       },
@@ -885,6 +889,7 @@ export async function startHost(options: {
       routes(app, guards);
       registerFlowRoutes(app, guards, { storage: storage! });
       registerTraceRoutes(app, guards, { raw, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes });
+      registerInsightsRoutes(app, guards, { raw, clock });
       registerSetupRoutes(app, guards, raw);
       registerGroupRoutes(app, guards, { raw: storage!.raw, clock });
       registerIntegrationRoutes(app, guards, integrationStore, httpEffects, (projectId) => advanceProject(flowEngine, projectId));
@@ -920,6 +925,7 @@ export async function startHost(options: {
           "dossier.refresh",
           ...FLOW_COMMANDS,
           ...SETUP_COMMANDS,
+          ...INSIGHTS_COMMANDS,
           ...MONITOR_COMMANDS,
           ...RULE_COMMANDS,
           ...INTEGRATION_COMMANDS,

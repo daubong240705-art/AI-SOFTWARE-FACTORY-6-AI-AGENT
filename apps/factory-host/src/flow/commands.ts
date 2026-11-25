@@ -1,5 +1,5 @@
 import type { Database } from "better-sqlite3";
-import { convertWorkflowV1, validateFlow, type ApiError, type FlowCondition, type FlowDefinition, type JsonSubset } from "@factory/contracts";
+import { convertWorkflowV1, validateFlow, type ApiError, type Command, type FlowCondition, type FlowDefinition, type JsonSubset } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerContext, HandlerMap } from "../commands/pipeline.js";
 import { registryPack, type RegistryPack } from "../org/registry.js";
@@ -93,18 +93,20 @@ function assertPublishable(raw: Database, projectId: string, definition: FlowDef
   throw new CommandError("validation", `${issues.length} issue(s) block publishing`, "correct-input", extra);
 }
 
+export function saveFlowDraft(ctx: HandlerContext, { projectId, payload }: Pick<Extract<Command, { type: "flows.save-draft" }>, "projectId" | "payload">) {
+  const flow = getFlow(ctx.raw, projectId, payload.flowId);
+  checkRevision(flow, "flow", payload.expectedRevision);
+  const definition = payload.definition;
+  draftKey(ctx.raw, projectId, payload.flowId, definition.key);
+  ctx.raw.prepare("UPDATE flows SET key=?,title=?,draft_json=?,updated_at=?,revision=revision+1 WHERE project_id=? AND id=?")
+    .run(definition.key, definition.title, boundedJson(definition), ctx.clock().toISOString(), projectId, payload.flowId);
+  return { effects: [flowRef(getFlow(ctx.raw, projectId, payload.flowId)!)] };
+}
+
 export function createFlowHandlers({ engine, packs = [] }: { engine: FlowEngineDeps; packs?: readonly RegistryPack[] }): Pick<HandlerMap, typeof FLOW_COMMANDS[number]> {
   return {
     "flows.create": (ctx, { projectId, payload }) => create(ctx, projectId, payload.flowId, payload.definition, null),
-    "flows.save-draft": (ctx, { projectId, payload }) => {
-      const flow = getFlow(ctx.raw, projectId, payload.flowId);
-      checkRevision(flow, "flow", payload.expectedRevision);
-      const definition = payload.definition;
-      draftKey(ctx.raw, projectId, payload.flowId, definition.key);
-      ctx.raw.prepare("UPDATE flows SET key=?,title=?,draft_json=?,updated_at=?,revision=revision+1 WHERE project_id=? AND id=?")
-        .run(definition.key, definition.title, boundedJson(definition), ctx.clock().toISOString(), projectId, payload.flowId);
-      return { effects: [flowRef(getFlow(ctx.raw, projectId, payload.flowId)!)] };
-    },
+    "flows.save-draft": saveFlowDraft,
     "flows.publish": (ctx, { projectId, payload }) => {
       const flow = getFlow(ctx.raw, projectId, payload.flowId);
       checkRevision(flow, "flow", payload.expectedRevision);

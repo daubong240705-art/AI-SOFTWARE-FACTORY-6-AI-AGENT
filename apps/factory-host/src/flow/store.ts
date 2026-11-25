@@ -38,6 +38,8 @@ export function boundedJson(value: unknown, limit = 524288): string {
 }
 export const getFlow = (raw: Database, projectId: string, flowId: string) =>
   raw.prepare("SELECT * FROM flows WHERE project_id=? AND id=?").get(projectId, flowId) as FlowRow | undefined;
+export const listFlows = (raw: Database, projectId: string) =>
+  raw.prepare("SELECT * FROM flows WHERE project_id=? ORDER BY id").all(projectId) as FlowRow[];
 export const flowByKey = (raw: Database, projectId: string, key: string) =>
   raw.prepare("SELECT * FROM flows WHERE project_id=? AND key=? AND archived=0").get(projectId, key) as FlowRow | undefined;
 export const getVersion = (raw: Database, projectId: string, flowId: string, version?: number) =>
