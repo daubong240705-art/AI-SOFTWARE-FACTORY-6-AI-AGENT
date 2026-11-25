@@ -13,7 +13,13 @@ destination=${root%/}/$1
 mkdir -- "$destination" || exit 1
 trap 'rm -rf -- "$destination"' EXIT
 
-if ! git -c core.hooksPath=/dev/null clone --quiet -- "$starter" "$destination" </dev/null 2>/dev/null; then
+# The starter may be a git repository/URL (cloned) or a plain directory (copied without build output and dependencies).
+if [[ -d $starter && ! -e $starter/.git ]]; then
+  if ! tar -C "$starter" --exclude=./node_modules --exclude=./dist --exclude=./.dev -cf - . | tar -C "$destination" -xf -; then
+    printf '%s\n' 'Không sao chép được game starter.' >&2
+    exit 1
+  fi
+elif ! git -c core.hooksPath=/dev/null clone --quiet -- "$starter" "$destination" </dev/null 2>/dev/null; then
   printf '%s\n' 'Không sao chép được game starter.' >&2
   exit 1
 fi
