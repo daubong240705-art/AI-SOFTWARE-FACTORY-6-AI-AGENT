@@ -12,6 +12,8 @@ Người dùng yêu cầu (25/11/2026): thuật ngữ mà người làm phần m
 
 ## Dùng tiếng Anh
 
+**Bản chốt** (decision brief): tài liệu ghi lại phương án đã chốt với Lead; dùng nhãn **Bản chốt v<n>** cho từng version.
+
 | Thay cho | Dùng |
 |---|---|
 | Thông tin bí mật | **Secret** |

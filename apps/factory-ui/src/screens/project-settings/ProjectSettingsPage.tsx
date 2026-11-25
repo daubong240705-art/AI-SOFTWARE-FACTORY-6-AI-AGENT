@@ -15,6 +15,7 @@ import { ProjectCode } from '../ProjectCode';
 import { ApprovalsSection } from './ApprovalsSection';
 import { ArchiveProject } from './ArchiveProject';
 import { ProjectGroupSection } from './ProjectGroupSection';
+import { LeadChatModeSetting } from './LeadChatModeSetting';
 
 const sections = [
   { key: 'automation', icon: Zap }, { key: 'budget', icon: Gauge },
@@ -42,6 +43,7 @@ export function ProjectSettingsPage({ store, projectId, section, onSection }: {
   return <Page className="min-w-0 space-y-6">
     <PageHeader title={t('shellUi.projectSettings')} actions={section !== 'group' && <Button type="button" variant="ghost" disabled={busy} onClick={() => void refresh()}><RefreshCw aria-hidden="true" />{t('m5Ui.refresh')}</Button>} />
     <SplitView persistentList className="lg:grid-cols-[14rem_minmax(0,1fr)]" list={list} detail={detail} listLabel={t('shellUi.projectSettings')} />
+    <LeadChatModeSetting key={projectId} store={store} projectId={projectId} />
     <ArchiveProject store={store} projectId={projectId} />
   </Page>;
 }

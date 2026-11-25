@@ -7,6 +7,7 @@ import { modelSettingsSetSchema } from "./model-settings.js";
 import { setupApplyPayloadSchema, setupDiscardPayloadSchema, setupProposePayloadSchema } from "./setup.js";
 import { insightsApplyPayloadSchema, insightsDiscardPayloadSchema, insightsProposePayloadSchema } from "./insights.js";
 import { z } from "zod";
+import { chatIntentSchema, leadChatModeSchema } from "./lead-cards.js";
 import {
   integrationsCreatePayloadSchema, integrationsUpdatePayloadSchema, integrationsDeletePayloadSchema, integrationsTestPayloadSchema,
   credentialsCreatePayloadSchema, credentialsReplacePayloadSchema, credentialsDeletePayloadSchema,
@@ -98,6 +99,7 @@ export const commandSchema = z.discriminatedUnion("type", [
     }),
   ),
   command("projects.update", z.strictObject({ ...change, name: labelSchema })),
+  command("projects.set-lead-chat-mode", z.strictObject({ ...change, leadChatMode: leadChatModeSchema })),
   command("projects.archive", z.strictObject({ ...change, confirmName: z.string().max(160) })),
   command(
     "agents.configure",
@@ -130,7 +132,7 @@ export const commandSchema = z.discriminatedUnion("type", [
       messageId: idSchema,
       text: textSchema,
       attachmentIds: z.array(idSchema).max(20),
-      intent: z.enum(["discuss", "delegate"]),
+      intent: chatIntentSchema.optional(),
       context: z.array(versionedRefSchema).max(100),
       // Host clears only this exact draft revision; a newer draft must survive send acknowledgement.
       draftRevision: revisionSchema.nullable(),

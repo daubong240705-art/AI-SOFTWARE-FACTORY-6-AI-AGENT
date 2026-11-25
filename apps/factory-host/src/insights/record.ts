@@ -4,7 +4,7 @@ import { TraceRecorder } from "../trace/recorder.js";
 import type { Entity } from "../trace/sources.js";
 
 export class InsightsTraceRecorder extends TraceRecorder {
-  constructor(private readonly db: Database, private readonly now: Clock) { super(db, now); }
+  constructor(private readonly db: Database, private readonly now: Clock, log?: (message: string) => void) { super(db, now, ...(log ? [log] : [])); }
 
   override entity(projectId: string, entity: Entity, at?: string, parent?: Entity): ReturnType<TraceRecorder["entity"]> {
     const timestamp = at ?? this.now().toISOString();

@@ -7,7 +7,8 @@ import { flowDefinitionSchema, flowNodeIdSchema } from "./flow.js";
  * Command names avoid the v1 `workflows.*` and the attempt-level `runs.*` families.
  */
 
-export const flowRunStateSchema = z.enum(["queued", "running", "waiting", "paused", "stalled", "succeeded", "failed", "cancelled"]);
+import { flowRunStateSchema } from "./lead-cards.js";
+export { flowRunStateSchema };
 export type FlowRunState = z.infer<typeof flowRunStateSchema>;
 export const FLOW_RUN_TRANSITIONS: Readonly<Record<FlowRunState, readonly FlowRunState[]>> = {
   queued: ["running", "cancelled"],

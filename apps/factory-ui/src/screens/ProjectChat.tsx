@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { readableText } from './attention/presentation';
+import { LeadChatCard, useLeadRunUpdates } from './LeadChatCard';
 
 type Draft = { text: string; intent: 'discuss' | 'delegate' };
 const drafts = new WeakMap<Store, Map<string, Draft>>();
@@ -35,7 +36,7 @@ function ChatHeader({ onClose }: { onClose?: (() => void) | undefined }) {
   return <header className="flex shrink-0 items-center gap-3 border-b border-border p-4"><LeadAvatar /><div className="min-w-0"><h2 className="font-display text-base font-semibold">Lead</h2><p className="text-xs text-muted-foreground">{t('chatUi.speakers.agent')}</p></div><span className="ml-auto"><Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-sm" aria-label={t('projectUi.closeChat')} onClick={onClose}><X /></Button></TooltipTrigger><TooltipContent>{t('projectUi.closeChat')} <Kbd>Esc</Kbd></TooltipContent></Tooltip></span></header>;
 }
 
-export function ProjectChat({ store, projectId, onClose }: { store: Store; projectId: string; onClose?: (() => void) | undefined }) {
+export function ProjectChat({ store, projectId, onClose, onOpenTask }: { store: Store; projectId: string; onClose?: (() => void) | undefined; onOpenTask?: ((id: string) => void) | undefined }) {
   const t = useT();
   const [command, setCommand] = useState<Command | null>(null);
   const state = store.useStoreSelector(value => ({ team: value.team, conversations: value.conversations, session: value.session, pending: command ? value.pending[command.commandId] : undefined, conversationError: value.errors.conversations, teamError: value.errors.team }), shallowSelectionEqual);
@@ -53,7 +54,7 @@ export function ProjectChat({ store, projectId, onClose }: { store: Store; proje
       else if (store.getState().pending[created.commandId]?.error?.code === 'conflict') await store.loadConversations();
     } finally { inFlight.current = false; setBusy(false); }
   }
-  if (conversation) return <ConversationChat key={`${projectId}:${conversation.id}`} store={store} projectId={projectId} conversation={conversation} onClose={onClose} />;
+  if (conversation) return <ConversationChat key={`${projectId}:${conversation.id}`} store={store} projectId={projectId} conversation={conversation} onClose={onClose} onOpenTask={onOpenTask} />;
   return <div className="flex h-full min-h-0 flex-col"><ChatHeader onClose={onClose} /><div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center"><MascotEmpty seat="Lead" size={64} fallback={<><MessageCircle className="size-6 text-muted-foreground" aria-hidden="true" /><p className="text-sm text-muted-foreground">{t('empty.conversations')}</p></>}><p className="text-sm text-muted-foreground">{t('empty.conversations')}</p><p className="text-sm text-muted-foreground">{t('chatUi.greeting')}</p></MascotEmpty>{state.conversationError && <ErrorNotice error={state.conversationError} />}{state.teamError && <ErrorNotice error={state.teamError} />}{state.team && !lead && <p role="alert" className="text-sm text-need">{t('chatUi.noLead')}</p>}{pending?.error && <ErrorNotice error={pending.error} />}{pending?.status === 'failed' && command ? <Button variant="outline" disabled={busy || state.session !== 'authenticated'} onClick={() => { void execute(command, true); }}>{t('errors.retry')}</Button> : <Button disabled={!state.team || !lead || busy || state.session !== 'authenticated'} onClick={() => { if (!lead || inFlight.current) return; const created = conversationsCreate({ projectId, seatId: lead.id, title: 'Lead' }); setCommand(created); void execute(created); }}>{t('chatUi.start')}</Button>}</div></div>;
 }
 
@@ -115,7 +116,7 @@ function ProposalCard({ store, projectId, task, detailsOpen }: { store: Store; p
   </div>;
 }
 
-function ConversationChat({ store, projectId, conversation, onClose }: { store: Store; projectId: string; conversation: Conversation; onClose?: (() => void) | undefined }) {
+function ConversationChat({ store, projectId, conversation, onClose, onOpenTask }: { store: Store; projectId: string; conversation: Conversation; onClose?: (() => void) | undefined; onOpenTask?: ((id: string) => void) | undefined }) {
   const t = useT();
   const id = useId();
   const draftKey = `${projectId}:${conversation.id}`;
@@ -123,6 +124,7 @@ function ConversationChat({ store, projectId, conversation, onClose }: { store: 
   const [draft, setDraft] = useState<Draft>(() => entries.get(draftKey) ?? emptyDraft());
   const [attempt, setAttempt] = useState<{ command: ReturnType<typeof chatSend>; draft: Draft } | null>(null);
   const state = store.useStoreSelector(value => ({ messages: value.messages[conversation.id], turns: value.turns[conversation.id], messageError: value.errors[`messages:${conversation.id}`], pending: attempt ? value.pending[attempt.command.commandId] : undefined, tasks: value.tasks, session: value.session }), shallowSelectionEqual);
+  const classic = store.useStoreSelector(value => value.projects.find(project => project.id === projectId)?.leadChatMode === 'classic');
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const composing = useRef(false);
@@ -130,6 +132,8 @@ function ConversationChat({ store, projectId, conversation, onClose }: { store: 
   const nearBottom = useRef(true);
   const [jump, setJump] = useState(false);
   const messages = state.messages;
+  const runIds = messages?.flatMap(({ message }) => message.leadCards?.flatMap(card => card.kind === 'run' ? [card.runId] : []) ?? []).join(',') ?? '';
+  const runUpdates = useLeadRunUpdates(projectId, runIds);
   const lastUser = messages?.findLast(item => item.message.speaker === 'user');
   const turn = lastUser && state.turns?.find(item => item.id === lastUser.message.id);
   const pending = state.pending;
@@ -156,7 +160,8 @@ function ConversationChat({ store, projectId, conversation, onClose }: { store: 
   function submit(event?: FormEvent) {
     event?.preventDefault();
     if (disabled || inFlight.current) return;
-    const created = { command: chatSend({ projectId, conversationId: conversation.id, conversationRevision: conversation.revision, text: draft.text, intent: draft.intent }), draft };
+    const created = { command: chatSend({ projectId, conversationId: conversation.id, conversationRevision: conversation.revision,
+      text: draft.text, ...(classic ? { intent: draft.intent } : {}) }), draft };
     setAttempt(created); void execute(created);
   }
   return <div className="project-chat flex h-full min-h-0 flex-col overflow-hidden">
@@ -173,6 +178,8 @@ function ConversationChat({ store, projectId, conversation, onClose }: { store: 
             <div className={`min-w-0 rounded-xl px-4 py-3 text-sm leading-6 ${user ? 'bg-secondary' : 'bg-transparent'}`}>
               {user ? <p className="whitespace-pre-wrap [overflow-wrap:anywhere]">{message.text}</p> : <MarkdownContent content={message.text} className="space-y-3 leading-6 [&_pre]:max-w-full [&_pre]:p-3" />}
             </div>
+            {message.leadCards?.map(card => <LeadChatCard key={card.kind} projectId={projectId} card={card} onOpenTask={onOpenTask}
+              refreshKey={card.kind === 'run' ? runUpdates.epoch + (runUpdates.revisions[card.runId] ?? 0) : 0} />)}
             <time dateTime={message.createdAt} className={`block text-xs text-muted-foreground ${user ? 'text-right' : ''}`}>{date.format(new Date(message.createdAt))}</time>
           </div>
         </article>;
@@ -195,9 +202,9 @@ function ConversationChat({ store, projectId, conversation, onClose }: { store: 
     {turn && turn.state !== 'done' && <p role="status" className="flex items-center gap-2 px-4 pb-3 text-sm text-muted-foreground"><Mascot seat="Lead" state={turn.state === 'queued' || turn.state === 'running' ? 'thinking' : 'attention'} size={32} fallback={<Spinner />} />{t(turn.state === 'queued' || turn.state === 'running' ? 'chatUi.working' : turn.state === 'budget-blocked' ? 'chatUi.blocked' : 'chatUi.resend')}</p>}
     <form className="shrink-0 space-y-3 border-t border-border p-4" onSubmit={submit}>
       <label htmlFor={`${id}-message`} className="sr-only">{t('chatUi.message')}</label><Textarea id={`${id}-message`} rows={3} maxLength={32_001} value={draft.text} aria-invalid={tooLong || undefined} aria-describedby={`${id}-help${draft.text.length ? ` ${id}-count` : ''}${tooLong ? ` ${id}-limit` : ''}`} placeholder={t('chatUi.message')} className="max-h-52 min-h-16 resize-none px-3 py-2 [field-sizing:content]" onChange={event => changeDraft({ ...draft, text: event.target.value })} onCompositionStart={() => { composing.current = true; }} onCompositionEnd={() => { composing.current = false; }} onKeyDown={event => { if (event.key === 'Enter' && event.ctrlKey && !event.nativeEvent.isComposing && !composing.current && event.keyCode !== 229) { event.preventDefault(); submit(); } }} />
-      <div className="flex flex-wrap items-center gap-3"><ToggleGroup type="single" value={draft.intent} disabled={busy} onValueChange={value => { if (value === 'discuss' || value === 'delegate') changeDraft({ ...draft, intent: value }); }} aria-label={t('chatUi.intent')} spacing={0} className="rounded-md border border-border"><ToggleGroupItem value="discuss" title={t('chatUi.discussHelp')} aria-describedby={`${id}-discuss-help`} className="h-8 rounded-md border-0 px-3 text-xs font-normal data-[state=on]:bg-secondary">{t('chatUi.discuss')}</ToggleGroupItem><ToggleGroupItem value="delegate" title={t('chatUi.delegateHelp')} aria-describedby={`${id}-delegate-help`} className="h-8 rounded-md border-0 px-3 text-xs font-normal data-[state=on]:bg-secondary">{t('chatUi.delegate')}</ToggleGroupItem></ToggleGroup><span id={`${id}-shortcut`} className="ml-auto text-xs text-muted-foreground"><KbdGroup><Kbd>Ctrl</Kbd><Kbd>Enter</Kbd></KbdGroup></span><Button type="submit" size="icon" className="h-9 w-9 border-0" disabled={disabled} aria-label={t('chatUi.send')}><ArrowUp className="size-4" /></Button></div>
+      <div className="flex flex-wrap items-center gap-3">{classic && <ToggleGroup type="single" value={draft.intent} disabled={busy} onValueChange={value => { if (value === 'discuss' || value === 'delegate') changeDraft({ ...draft, intent: value }); }} aria-label={t('chatUi.intent')} spacing={0} className="rounded-md border border-border"><ToggleGroupItem value="discuss" title={t('chatUi.discussHelp')} aria-describedby={`${id}-discuss-help`} className="h-8 rounded-md border-0 px-3 text-xs font-normal data-[state=on]:bg-secondary">{t('chatUi.discuss')}</ToggleGroupItem><ToggleGroupItem value="delegate" title={t('chatUi.delegateHelp')} aria-describedby={`${id}-delegate-help`} className="h-8 rounded-md border-0 px-3 text-xs font-normal data-[state=on]:bg-secondary">{t('chatUi.delegate')}</ToggleGroupItem></ToggleGroup>}<span id={`${id}-shortcut`} className="ml-auto text-xs text-muted-foreground"><KbdGroup><Kbd>Ctrl</Kbd><Kbd>Enter</Kbd></KbdGroup></span><Button type="submit" size="icon" className="h-9 w-9 border-0" disabled={disabled} aria-label={t('chatUi.send')}><ArrowUp className="size-4" /></Button></div>
       <span id={`${id}-discuss-help`} className="sr-only">{t('chatUi.discussHelp')}</span><span id={`${id}-delegate-help`} className="sr-only">{t('chatUi.delegateHelp')}</span>
-      <p id={`${id}-help`} className="sr-only">{t(draft.intent === 'discuss' ? 'chatUi.discussHelp' : 'chatUi.delegateHelp')}</p><div className="flex justify-end gap-3 text-xs">{(draft.text.length > 0) && <span id={`${id}-count`} className={`whitespace-nowrap ${tooLong ? 'text-destructive' : 'text-muted-foreground'}`}>{number.format(draft.text.length)} / {number.format(32_000)}</span>}</div>
+      <p id={`${id}-help`} className="sr-only">{t(classic ? draft.intent === 'discuss' ? 'chatUi.discussHelp' : 'chatUi.delegateHelp' : 'leadChatUi.help')}</p><div className="flex justify-end gap-3 text-xs">{(draft.text.length > 0) && <span id={`${id}-count`} className={`whitespace-nowrap ${tooLong ? 'text-destructive' : 'text-muted-foreground'}`}>{number.format(draft.text.length)} / {number.format(32_000)}</span>}</div>
       {tooLong && <p id={`${id}-limit`} role="alert" className="text-sm text-destructive">{t('chatUi.tooLong')}</p>}{pending?.error && <ErrorNotice error={pending.error} />}<div className="flex justify-end">{pending?.status === 'failed' && attempt && <Button type="button" variant="outline" disabled={busy || state.session !== 'authenticated'} onClick={() => { void execute(attempt, true); }}>{t('errors.retry')}</Button>}</div>
     </form>
   </div>;

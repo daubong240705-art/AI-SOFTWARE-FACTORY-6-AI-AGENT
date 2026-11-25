@@ -24,7 +24,7 @@ import { Page } from '../components/Page';
 
 type Intent = 'discuss' | 'delegate';
 // Keep command identities across retries, including unknown transport outcomes.
- type Attempt = { projectId: string; text: string; intent: Intent; create?: Command; send?: Command };
+type Attempt = { projectId: string; text: string; intent?: Intent; create?: Command; send?: Command };
 export function Overview({ store, onProject, onOpenProject, onAttention, onCreate, operatorName, focusComposer, onTask, composerOnly }: {
   store: Store; onProject: (id: string) => void; onOpenProject: (id: string) => void; onAttention: (item?: AttentionItem) => void; onCreate: (kind: 'task' | 'project') => void; operatorName?: string; focusComposer?: number; composerOnly?: { id: string; onChange: (id: string) => void }; onTask?: (projectId: string, taskId: string) => void;
 }) {
@@ -39,6 +39,7 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
     return () => cancelAnimationFrame(frame);
   }, [focusComposer]);
   const projectId = state.projects.some(project => project.id === (composerOnly?.id ?? chosen)) ? (composerOnly?.id ?? chosen) : state.projects[0]?.id ?? '';
+  const classic = state.projects.find(project => project.id === projectId)?.leadChatMode === 'classic';
   const pending = attempt.current?.send ?? attempt.current?.create;
   const error = pending ? state.pending[pending.commandId]?.error : undefined;
   const tooLong = text.length > 32_000;
@@ -46,7 +47,7 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
   const selecting = useRef<Promise<void> | undefined>(undefined);
   async function submit(retry = false) {
     if (sending.current || (!retry && disabled)) return;
-    const entry = retry ? attempt.current : { projectId, text, intent };
+    const entry = retry ? attempt.current : { projectId, text, ...(classic ? { intent } : {}) };
     if (!entry) return;
     attempt.current = entry; sending.current = true; setBusy(true); setProblem('');
     const current = () => store.getState().session === 'authenticated' && store.getState().selectedProjectId === entry.projectId;
@@ -70,7 +71,8 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
         conversation = store.getState().conversations.find(item => item.agentId === lead.id && item.workItemId === null);
       }
       if (!conversation) { setProblem('overview.conversationUnavailable'); return; }
-      entry.send ??= chatSend({ projectId: entry.projectId, conversationId: conversation.id, conversationRevision: conversation.revision, text: entry.text, intent: entry.intent });
+      entry.send ??= chatSend({ projectId: entry.projectId, conversationId: conversation.id, conversationRevision: conversation.revision,
+        text: entry.text, ...(entry.intent ? { intent: entry.intent } : {}) });
       if (!await send(entry.send) || !current()) {
         if (current() && store.getState().pending[entry.send.commandId]?.error?.code === 'conflict') await store.loadConversations();
         return;
@@ -95,10 +97,10 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
         <Separator className="my-4" />
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-3"><label htmlFor={`${id}-project`} className="text-sm whitespace-nowrap text-muted-foreground">{t('overview.project')}</label><Select id={`${id}-project`} value={projectId} disabled={busy} onValueChange={next => { setChosen(next); composerOnly?.onChange(next); attempt.current = null; }} options={state.projects.map(project => ({ value: project.id, label: project.name }))} className="w-48" /></div>
-          <ToggleGroup type="single" value={intent} disabled={busy} onValueChange={value => { if (value === 'discuss' || value === 'delegate') { setIntent(value); attempt.current = null; } }} aria-label={t('chatUi.intent')} spacing={0} className="rounded-md border border-border">
+          {classic && <ToggleGroup type="single" value={intent} disabled={busy} onValueChange={value => { if (value === 'discuss' || value === 'delegate') { setIntent(value); attempt.current = null; } }} aria-label={t('chatUi.intent')} spacing={0} className="rounded-md border border-border">
             <ToggleGroupItem value="discuss" className="h-8 min-h-8 rounded-md border-0 px-3 text-sm font-normal data-[state=on]:bg-secondary">{t('overview.ask')}</ToggleGroupItem>
             <ToggleGroupItem value="delegate" className="h-8 min-h-8 rounded-md border-0 px-3 text-sm font-normal data-[state=on]:bg-secondary">{t('overview.delegate')}</ToggleGroupItem>
-          </ToggleGroup>
+          </ToggleGroup>}
           <div className="ml-auto flex items-center gap-3"><span className="whitespace-nowrap text-xs text-muted-foreground" id={`${id}-shortcut`}><Kbd>Ctrl</Kbd> <Kbd>Enter</Kbd> {t('overview.toSend')}</span>
           <Button type="submit" variant="default" className="h-9 border-0 px-4" disabled={disabled}>{t('chatUi.send')}</Button></div>
         </div>
