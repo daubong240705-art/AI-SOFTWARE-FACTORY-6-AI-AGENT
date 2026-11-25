@@ -318,7 +318,9 @@ export async function runCrudFlows({ page, fixture, base, endpoint, canaries, re
         const result = { flow: scenario.id, name: item.name, expected: item.expected, status: blocked ? 'SKIP' : 'PASS' };
         results.push(result);
         if (blocked) continue;
-        try { await item.run(); }
+        console.log(`[audit] ${scenario.id}/${item.name}`);
+        // A hung step must not stall the whole audit: 60 s per step, then it is a FAIL with a clear reason.
+        try { await Promise.race([item.run(), new Promise((_, reject) => setTimeout(() => reject(new Error('Step timed out after 60 s')), 60_000))]); }
         catch (error) {
           blocked = true; result.status = 'FAIL';
           result.error = scenario.sensitive && !/^A (credential|same-origin)/.test(error.message) ? 'Credential check failed; details and screenshot withheld.' : safeText(error.message);
