@@ -66,7 +66,7 @@ if [ -f "$HOME/.codex/config.toml" ] && ! grep -q '^\[model_providers.9router\]'
 fi
 if grep -q '^\[model_providers.9router\]' "$HOME/.codex/config.toml" 2>/dev/null; then echo "9router provider already configured"; else
   cat >> "$HOME/.codex/config.toml" <<EOF
-model = "gpt-6.1-sol"
+model = "gpt-6.2-sol"
 model_provider = "9router"
 model_reasoning_effort = "high"
 

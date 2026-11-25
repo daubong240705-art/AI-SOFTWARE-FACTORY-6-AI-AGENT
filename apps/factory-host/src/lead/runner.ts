@@ -62,7 +62,7 @@ export interface LeadConfig {
   maxHistoryChars: number; maxTasksInContext: number; timeoutMs: number;
 }
 export const DEFAULT_LEAD_CONFIG: LeadConfig = {
-  model: "gpt-6.1-sol", effort: "medium", maxOutputTokens: 4096, maxHistoryMessages: 20,
+  model: "gpt-6.2-sol", effort: "medium", maxOutputTokens: 4096, maxHistoryMessages: 20,
   maxHistoryChars: 40_000, maxTasksInContext: 50, timeoutMs: 120_000,
 };
 export interface LeadRunner {

@@ -83,8 +83,32 @@ async function checkModel(input: DoctorInput): Promise<DoctorCheck> {
       await probeCompletion(base, key, requested[0] ?? models[0]!, input.fetch);
     }
     return pass("D-MODEL", "required", input.checkModel ? "GET /models và chat completion hoạt động." : "GET /models hoạt động và model đã chọn có sẵn.");
-  } catch (error) { return fail("D-MODEL", "required", "Phép thử nhà cung cấp model không thành công.", "Kiểm tra URL, CA, mạng, khóa API và hạn mức.",
-    error instanceof ModelProbeError && error.status !== undefined ? `HTTP ${error.status}` : undefined); }
+  } catch (error) { return modelProbeFailure(error); }
+}
+
+/** Turns a provider probe error into a specific, actionable Vietnamese fix (no secrets, no raw stack). */
+function modelProbeFailure(error: unknown): DoctorCheck {
+  const status = error instanceof ModelProbeError ? error.status : undefined;
+  const chain: string[] = [];
+  for (let current: unknown = error, depth = 0; current && depth < 4; depth++) {
+    const item = current as { code?: unknown; message?: unknown; cause?: unknown };
+    chain.push(`${typeof item.code === "string" ? item.code : ""} ${typeof item.message === "string" ? item.message : ""}`);
+    current = item.cause;
+  }
+  const text = chain.join(" ");
+  const summary = "Phép thử nhà cung cấp model không thành công.";
+  if (/CERT|SELF_SIGNED|UNABLE_TO_VERIFY|unable to get local issuer/i.test(text))
+    return fail("D-MODEL", "required", `${summary} Chứng chỉ TLS của máy chủ không được tin cậy.`,
+      "Đặt NODE_EXTRA_CA_CERTS tới file CA gốc của máy chủ model (ví dụ CA nội bộ của reverse proxy) trong file cấu hình hoặc dịch vụ, rồi khởi động lại.", "tls");
+  if (/ENOTFOUND|EAI_AGAIN/i.test(text))
+    return fail("D-MODEL", "required", `${summary} Không phân giải được tên máy chủ.`, "Kiểm tra FACTORY_MODEL_BASE_URL và DNS của máy này.", "dns");
+  if (/ECONNREFUSED|ECONNRESET|ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT|timeout|aborted/i.test(text))
+    return fail("D-MODEL", "required", `${summary} Không kết nối được tới máy chủ.`, "Kiểm tra máy chủ model đang chạy, cổng, tường lửa và proxy.", "network");
+  if (status === 401 || status === 403)
+    return fail("D-MODEL", "required", `${summary} Khóa API bị từ chối (HTTP ${status}).`, "Chạy factory setup để nhập lại khóa API.", `HTTP ${status}`);
+  if (status === 429)
+    return fail("D-MODEL", "required", `${summary} Đã chạm hạn mức (HTTP 429).`, "Chờ hạn mức hồi lại hoặc tăng hạn mức ở nhà cung cấp.", "HTTP 429");
+  return fail("D-MODEL", "required", summary, "Kiểm tra URL, CA, mạng, khóa API và hạn mức.", status === undefined ? undefined : `HTTP ${status}`);
 }
 
 async function checkCli(id: "D-CODEX" | "D-CLAUDE", command: string, statusArgs: string[], exec: DoctorExec): Promise<DoctorCheck> {

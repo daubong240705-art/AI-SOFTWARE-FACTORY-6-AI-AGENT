@@ -28,7 +28,7 @@ Host in ra một **token khởi tạo dùng một lần**. Mở `http://127.0.0.
 | `FACTORY_MIGRATION_BACKUP_DIR` | `<state>/backups` | Sao lưu ngay trước mỗi migration |
 | `NINE_ROUTER_API_KEY` | (không) | Key 9Router; chỉ đọc từ môi trường |
 | `FACTORY_GATEWAY_URL` | `https://ai.lazy.local/v1` | Gateway OpenAI-compatible |
-| `FACTORY_LEAD_MODEL`, `FACTORY_LEAD_EFFORT` | `gpt-6.1-sol`, `medium` | Model và effort của Lead |
+| `FACTORY_LEAD_MODEL`, `FACTORY_LEAD_EFFORT` | `gpt-6.2-sol`, `medium` | Model và effort của Lead |
 | `FACTORY_BUDGET_TASK_TOKENS`, `FACTORY_BUDGET_DAY_TOKENS` | 200000, 1000000 | Ngân sách mặc định; đổi bằng lệnh `budgets.set` |
 | `FACTORY_UI_DIR` | `<app>/apps/factory-ui/dist` | Thư mục UI đã build |
 

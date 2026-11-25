@@ -21,7 +21,7 @@ export function RuntimeFields({ draft, onChange, models, disabled }: {
   const isCli = choice === 'codex' || choice === 'claude';
   const configured = [...new Set([...(models?.settings.agentModels ?? []), ...(choice === 'native-opencode' && model ? [model] : [])])];
   const gateway = [...(models?.available ?? []), ...(models?.catalog?.map(item => item.id) ?? [])];
-  const suggestions = choice === 'codex' ? [...new Set(['gpt-6.1-sol', 'gpt-6-sol', 'gpt-5.6-sol', ...gateway.filter(value => value.startsWith('cx/')).map(value => value.slice(3))])] : ['opus', 'sonnet', 'haiku'];
+  const suggestions = choice === 'codex' ? [...new Set(['gpt-6.2-sol', 'gpt-6.1-sol', 'gpt-6-sol', ...gateway.filter(value => value.startsWith('cx/')).map(value => value.slice(3))])] : ['opus', 'sonnet', 'haiku'];
   return <div className="space-y-5">
     <div className="space-y-2"><Label htmlFor={`${id}-model`}>{t('agentConfig.model')}</Label>
       {isCli ? <><Input id={`${id}-model`} list={`${id}-models`} value={model} disabled={disabled} maxLength={200} onChange={event => onChange({ ...draft, model: event.target.value })} placeholder={t('agentConfig.cliModelDefault')} />
