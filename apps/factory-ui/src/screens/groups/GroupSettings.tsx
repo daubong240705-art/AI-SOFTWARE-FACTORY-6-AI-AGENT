@@ -57,10 +57,10 @@ export function GroupSettings({ detail, blocked }: { detail: GroupDetail; blocke
         <div className="flex flex-wrap items-end gap-2"><div className="min-w-48 flex-1">
           <Field label={t(key)} hint={key === 'defaultModel' ? t('modelHint') : key === 'budgetTokens30d' ? t('budgetHint') : undefined}
             invalid={tried && invalid ? t(`invalid.${key}`) : undefined}>
-            {props => key === 'defaultAdapter' || key === 'defaultEffort' ? <Choice {...props} disabled={writer.busy} value={values[key]} onChange={event => change(key, event.target.value)}>
+            {props => key === 'defaultAdapter' || key === 'defaultEffort' ? <Choice data-testid={`group-setting-${key}`} {...props} disabled={writer.busy} value={values[key]} onChange={event => change(key, event.target.value)}>
               <option value="">{t('inherit')}</option>
               {(key === 'defaultAdapter' ? agentAdapterSchema.options : agentEffortSchema.options).map(value => <option key={value} value={value}>{display(key, value)}</option>)}
-            </Choice> : <Input {...props} disabled={writer.busy} value={values[key]} placeholder={t('inherit')}
+            </Choice> : <Input data-testid={`group-setting-${key}`} {...props} disabled={writer.busy} value={values[key]} placeholder={t('inherit')}
               {...(key === 'defaultModel' ? { maxLength: 256 } : { type: 'number', min: 1, max: Number.MAX_SAFE_INTEGER, step: 1 })} onChange={event => change(key, event.target.value)} />}
           </Field></div>
           <Button type="button" variant="outline" disabled={writer.busy || !values[key]} aria-label={`${t('clearOverride')}: ${t(key)}`} onClick={() => change(key, '')}>{t('clearOverride')}</Button>
@@ -72,6 +72,6 @@ export function GroupSettings({ detail, blocked }: { detail: GroupDetail; blocke
       if (draft) setDraft({ ...draft, revision: detail.settingsRevision });
       writer.setError(null);
     }} />
-    <Button type="submit" disabled={disabled || writer.busy}>{writer.busy ? global('viewStates.loading') : t('save')}</Button>
+    <Button data-testid="group-settings-save" type="submit" disabled={disabled || writer.busy}>{writer.busy ? global('viewStates.loading') : t('save')}</Button>
   </form>;
 }

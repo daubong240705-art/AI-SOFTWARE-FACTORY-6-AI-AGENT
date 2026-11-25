@@ -23,8 +23,8 @@ export default function LibraryPage() {
     <ReadFeedback error={library.error} loading={library.loading} retry={refresh} />
     <Tabs defaultValue="skills">
       <TabsList aria-label={t('title')}>
-        <TabsTrigger value="skills">{t('skills')}</TabsTrigger>
-        <TabsTrigger value="templates">{t('templates')}</TabsTrigger>
+        <TabsTrigger data-testid="library-skills" value="skills">{t('skills')}</TabsTrigger>
+        <TabsTrigger data-testid="library-templates" value="templates">{t('templates')}</TabsTrigger>
       </TabsList>
       {library.data && <>
         <TabsContent value="skills"><SkillsTab {...props} library={library.data} /></TabsContent>

@@ -31,7 +31,7 @@ export function TopBar({ store, compact, expanded, onToggle, onCreate, onProject
   const streamLabel = state.stream === 'closed' ? 'shell.offline' : 'shell.reconnecting';
   return <>
     <header className="col-start-2 flex min-w-0 items-center gap-3 border-b border-border bg-topbar px-8 2xl:px-12 max-[1179px]:col-start-1 max-sm:gap-2 max-sm:px-4">
-      {compact && <Button variant="ghost" size="icon" aria-label={t('shell.toggleProjects')} aria-expanded={expanded} aria-controls="factory-navigation" onClick={onToggle}><Menu /></Button>}
+      {compact && <Button data-testid="sidebar-toggle" variant="ghost" size="icon" aria-label={t('shell.toggleProjects')} aria-expanded={expanded} aria-controls="factory-navigation" onClick={onToggle}><Menu /></Button>}
       <div className="relative min-w-0 flex-1 sm:max-w-[min(56vw,960px)]">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input ref={search} readOnly aria-label={t('shell.searchTasks')} aria-haspopup="dialog" aria-expanded={open} placeholder={t('shell.searchPlaceholder')} className="h-9 cursor-text border-border bg-transparent pr-14 pl-9 shadow-none dark:bg-transparent max-sm:pr-2" onClick={() => setOpen(true)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(true); } }} />
@@ -41,10 +41,10 @@ export function TopBar({ store, compact, expanded, onToggle, onCreate, onProject
       {state.selectedProjectId && state.stream !== 'open' && <p role="status" className="hidden items-center gap-2 text-xs text-muted-foreground xl:flex"><span className={`size-[5px] rounded-full ${state.stream === 'closed' ? 'bg-muted-foreground' : 'bg-run'}`} aria-hidden="true" />{t(streamLabel)}</p>}
       {state.selectedProjectId && <NotificationsBell key={state.selectedProjectId} store={store} projectId={state.selectedProjectId} onTask={onTask} />}
       <DropdownMenu>
-        <DropdownMenuTrigger asChild><Button type="button" aria-label={t('shellUi.create')} className="rounded-lg max-sm:size-9 max-sm:px-0"><Plus aria-hidden="true" /><span className="max-sm:hidden">{t('shellUi.create')}</span></Button></DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild><Button data-testid="shell-create" type="button" aria-label={t('shellUi.create')} className="rounded-lg max-sm:size-9 max-sm:px-0"><Plus aria-hidden="true" /><span className="max-sm:hidden">{t('shellUi.create')}</span></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="end" onCloseAutoFocus={event => { if (creating.current) event.preventDefault(); creating.current = false; }}>
-          <DropdownMenuItem onSelect={() => create('task')}><ListTodo aria-hidden="true" />{t('shellUi.newTask')}</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => create('project')}><FolderPlus aria-hidden="true" />{t('shellUi.newProject')}</DropdownMenuItem>
+          <DropdownMenuItem data-testid="task-create" onSelect={() => create('task')}><ListTodo aria-hidden="true" />{t('shellUi.newTask')}</DropdownMenuItem>
+          <DropdownMenuItem data-testid="project-create" onSelect={() => create('project')}><FolderPlus aria-hidden="true" />{t('shellUi.newProject')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </header>

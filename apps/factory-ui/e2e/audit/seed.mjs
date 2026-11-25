@@ -1,11 +1,9 @@
-import { execFileSync } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { commandSchema } from '@factory/contracts';
+import { commandSchema, LIBRARY_SCOPE_ID, SYSTEM_SCOPE_ID } from '@factory/contracts';
 
-const LIBRARY_SCOPE_ID = '00000000-0000-4000-8000-000000000000';
 const apiVersion = 1;
 const id = () => randomUUID();
 
@@ -35,15 +33,6 @@ export class HostApi {
   async json(path) { const result = await this.request(path); if (!result.body || result.response.status >= 400) throw new Error(`${path}: HTTP ${result.response.status}`); return result.body; }
 }
 
-async function initGitRepo(root) {
-  await mkdir(root, { recursive: true });
-  const env = { PATH: process.env.PATH, HOME: root, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_TEMPLATE_DIR: '',
-    GIT_AUTHOR_NAME: 'Factory Audit', GIT_AUTHOR_EMAIL: 'audit@example.invalid', GIT_COMMITTER_NAME: 'Factory Audit', GIT_COMMITTER_EMAIL: 'audit@example.invalid' };
-  const options = { cwd: root, stdio: 'ignore', env };
-  execFileSync('git', ['init', '-q'], options);
-  execFileSync('git', ['commit', '--allow-empty', '-qm', 'seed'], options);
-}
-
 async function tryCommand(api, log, projectId, type, payload) {
   try { return await api.command(projectId, type, payload); }
   catch (error) { log.push({ type, error: String(error.message ?? error) }); return null; }
@@ -68,11 +57,14 @@ export async function seed({ base, projectsRoot }) {
   const api = new HostApi(base); const log = [];
   await api.session();
   const firstRoot = join(projectsRoot, 'audit-default-pack'); const secondRoot = join(projectsRoot, 'audit-no-extra-data');
-  await initGitRepo(firstRoot); await initGitRepo(secondRoot);
+  await Promise.all([firstRoot, secondRoot].map(root => mkdir(root, { recursive: true })));
   const project = id(); const emptyProject = id();
+  const groups = { parent: id(), child: id() };
+  await api.command(SYSTEM_SCOPE_ID, 'groups.create', { groupId: groups.parent, parentId: null, slug: 'audit-parent', name: 'Audit parent' });
+  await api.command(SYSTEM_SCOPE_ID, 'groups.create', { groupId: groups.child, parentId: groups.parent, slug: 'audit-child', name: 'Audit child' });
   const projectNames = { primary: 'Audit · Gói mặc định', empty: 'Audit · Không dữ liệu thêm' };
-  await api.command(project, 'projects.create', { name: projectNames.primary, workspace: { kind: 'git', root: firstRoot } });
-  await api.command(emptyProject, 'projects.create', { name: projectNames.empty, workspace: { kind: 'git', root: secondRoot } });
+  await api.command(project, 'projects.create', { name: projectNames.primary, groupId: groups.child, teamTemplate: 'software-team', workspace: { kind: 'directory', root: firstRoot } });
+  await api.command(emptyProject, 'projects.create', { name: projectNames.empty, workspace: { kind: 'directory', root: secondRoot } });
   const agentResponse = await api.json(`/projects/${project}/agents`).catch(error => { log.push({ type: 'agents.read', error: String(error.message) }); return { agents: [], teams: [], relations: [], relationsRevision: 0 }; });
   const agents = agentResponse.agents ?? [];
   const detail = agents[0] ? await api.json(`/projects/${project}/agents/${agents[0].id}`).catch(() => null) : null;
@@ -126,12 +118,11 @@ export async function seed({ base, projectsRoot }) {
       }
     } catch (error) { log.push({ type: `flow-runs.${kind}`, error: error.message }); }
   }
-  await tryCommand(api, log, project, 'workflows.create', { instanceId: id(), definitionKey: 'software-delivery', packKey: 'software-team', title: 'Quy trình v1 audit' });
   const task = await createTask(api, project, { code: 'AU-001', title: 'Việc nháp audit' });
   for (const [index, target] of ['proposed', 'accepted'].entries()) {
     const taskId = await createTask(api, project, { code: `AU-00${index + 2}`, title: `Việc ${target === 'proposed' ? 'đề xuất' : 'đã chấp nhận'} audit` });
     await tryCommand(api, log, project, 'tasks.transition', { taskId, expectedRevision: 1, to: 'proposed' });
     if (target === 'accepted') await tryCommand(api, log, project, 'tasks.transition', { taskId, expectedRevision: 2, to: 'accepted' });
   }
-  return { projects: { primary: project, empty: emptyProject }, projectNames, agents: { primary: agentId, fresh, paused, archived }, team, skill, template, flow: flowId, runs, approval, task, seedFailures: log, apiFailures: api.failures, api };
+  return { projects: { primary: project, empty: emptyProject }, groups, agents: { primary: agentId, fresh, paused, archived }, team, skill, template, flow: flowId, runs, approval, task, seedFailures: log, apiFailures: api.failures, api };
 }

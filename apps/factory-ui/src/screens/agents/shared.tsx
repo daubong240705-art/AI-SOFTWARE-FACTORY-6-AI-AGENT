@@ -118,7 +118,7 @@ export function AdminDialog({ title, description, close, busy, wide, children, f
 export function DialogButtons({ close, label, busy, disabled, destructive }: { close: () => void; label: string; busy?: boolean; disabled?: boolean; destructive?: boolean }) {
   const t = useAgentLabels();
   return <>
-    <Button type="button" variant="outline" disabled={busy} onClick={close}>{t('cancel')}</Button>
-    <Button type="submit" variant={destructive ? 'destructive' : 'default'} disabled={busy || disabled}>{busy ? t('loading') : label}</Button>
+    <Button data-testid="dialog-cancel" type="button" variant="outline" disabled={busy} onClick={close}>{t('cancel')}</Button>
+    <Button data-testid={destructive ? 'dialog-confirm' : 'dialog-save'} type="submit" variant={destructive ? 'destructive' : 'default'} disabled={busy || disabled}>{busy ? t('loading') : label}</Button>
   </>;
 }

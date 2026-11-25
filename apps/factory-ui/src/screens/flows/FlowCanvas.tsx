@@ -50,7 +50,7 @@ function FlowTile({ id, data, selected, isConnectable }: NodeProps<CanvasNode>) 
   useLayoutEffect(() => update(id), [handles, id, update]);
   const detail = summary(node, label, useContext(AgentNames));
   return <div className={cn('relative h-full w-full rounded-xl border-2 border-border bg-card px-3 py-2 text-card-foreground shadow-sm', state && stateStyles[state], selected && 'ring-2 ring-ring ring-offset-2 ring-offset-background', invalid && 'border-destructive')}>
-    {node.type !== 'trigger' && <Handle id="in" type="target" position={Position.Left} isConnectable={isConnectable} className="!size-3 !bg-primary" />}
+    {node.type !== 'trigger' && <Handle data-testid={`flow-handle-${id}-in`} id="in" type="target" position={Position.Left} isConnectable={isConnectable} className="!size-3 !bg-primary" />}
     <div className="flex min-w-0 items-center gap-2">
       <span className="grid size-8 shrink-0 place-items-center rounded-md bg-accent text-accent-foreground"><Icon className="size-4" aria-hidden="true" /></span>
       <div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label(`node.${node.type}`)}</p><p className="truncate text-sm font-semibold" title={node.title}>{node.title || id}</p></div>
@@ -59,7 +59,7 @@ function FlowTile({ id, data, selected, isConnectable }: NodeProps<CanvasNode>) 
     {state ? <Badge variant="outline" className="mt-1 text-[10px]">{label(`state.${state}`)}</Badge> : unsupported(node) && <Badge variant="destructive" className="mt-1 text-[10px]">{label('unsupportedNode')}</Badge>}
     {ports.map((port, index) => <div key={port}>
       <span aria-hidden="true" className="absolute right-3 font-mono text-[10px] text-muted-foreground" style={{ top: 79 + index * 20 }}>{port}</span>
-      <Handle id={port} type="source" position={Position.Right} isConnectable={isConnectable} className="!size-3 !bg-primary" style={{ top: 87 + index * 20 }} />
+      <Handle data-testid={`flow-handle-${id}-${port}`} id={port} type="source" position={Position.Right} isConnectable={isConnectable} className="!size-3 !bg-primary" style={{ top: 87 + index * 20 }} />
     </div>)}
   </div>;
 }

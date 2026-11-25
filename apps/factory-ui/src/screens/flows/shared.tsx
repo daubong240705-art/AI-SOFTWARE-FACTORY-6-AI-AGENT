@@ -72,8 +72,8 @@ export function FlowDialog({ title, description, close, busy, disabled, onSubmit
 }) {
   const label = useFlowLabels();
   return <AdminDialog title={title} description={description} close={close} busy={busy} wide={wide} onSubmit={onSubmit} footer={<>
-    <Button type="button" variant="outline" disabled={busy} onClick={close}>{label('close')}</Button>
-    <Button type="submit" disabled={busy || disabled}>{busy ? label('loading') : submit}</Button>
+    <Button data-testid="flow-cancel" type="button" variant="outline" disabled={busy} onClick={close}>{label('close')}</Button>
+    <Button data-testid={wide ? 'flow-start-run' : 'flow-submit'} type="submit" disabled={busy || disabled}>{busy ? label('loading') : submit}</Button>
   </>}>{children}</AdminDialog>;
 }
 

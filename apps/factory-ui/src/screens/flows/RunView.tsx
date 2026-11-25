@@ -45,7 +45,7 @@ export function RunView({ api, projectId, runId, onBack, onOpenTask, onOpenAppro
     if (dialog === 'pause') void write.run(() => flowCommand('flow-runs.pause', projectId, { ...base, stopRunning }), () => setDialog(null));
     if (dialog === 'cancel' && reason.trim()) void write.run(() => flowCommand('flow-runs.cancel', projectId, { ...base, reason }), () => setDialog(null));
   }
-  return <div className="flex h-full min-h-0 flex-col">
+  return <div data-testid="flow-run-detail" className="flex h-full min-h-0 flex-col">
     <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
       <Button variant="ghost" size="icon" aria-label={label('back')} onClick={onBack}><ArrowLeft className="size-4" /></Button>
       <div className="min-w-36 flex-1"><h2 className="truncate text-lg font-semibold">{run.flowTitle}</h2><p className="text-xs text-muted-foreground">{timestamp(run.startedAt ?? run.createdAt)} · {duration(run.startedAt, run.endedAt)} · r{run.revision}</p></div>

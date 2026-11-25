@@ -1,8 +1,8 @@
-# R-0 · Rà soát giao diện
+# R-1 · Rà soát giao diện
 
 Trạng thái: **CHƯA CHẠY**.
 
-Giới hạn lần chạy: Không thể mở cổng loopback cho Host: EPERM.
+Mẫu báo cáo; chưa chạy trình duyệt. Liên kết sâu có thể bị chuyển về Tổng quan. Audit tải `/` để thiết lập phiên, mở hash đích và, nếu bị chuyển hướng, đặt lại hash rồi reload. Báo cáo ghi riêng lỗi điều hướng và kết quả khôi phục.
 
 ## Ma trận màn hình × C1–C12
 
@@ -12,53 +12,42 @@ Giới hạn lần chạy: Không thể mở cổng loopback cho Host: EPERM.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | overview | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | attention | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| team | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| team-config | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | library | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| library-templates | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| integrations | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| integration-secrets | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | world | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | system | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| mascots | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| portal | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| system-setup | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | sign-in | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| library-templates | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| group-overview | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| group-children | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| group-settings | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| group-library | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| group-integrations | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-overview | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-agents | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-office | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-board | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-knowledge | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| project-code | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-flows | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| project-empty-flows | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-flow-detail | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-run-waiting | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-run-finished | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| project-empty-flows | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| project-workflow-v1 | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-settings-automation | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-settings-budget | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-settings-autonomy | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-settings-approvals | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| project-settings-workflow | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | project-settings-code | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| new-project | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| new-game | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| project-folder | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| search | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| settings | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| system-model-picker | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| new-task | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| task-detail | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| decision | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| decision-confirm | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| project-preview | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| project-archive | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| project-settings-group | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | agent-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | agent-edit | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| agent-comparison | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| agent-history | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | agent-clone | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | agent-archive | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | agent-delete | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | agent-from-template | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| agent-save-template | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | team-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | team-edit | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | team-delete | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
@@ -68,19 +57,21 @@ Giới hạn lần chạy: Không thể mở cổng loopback cho Host: EPERM.
 | template-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | template-edit | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | template-delete | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| connection-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| secret-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| group-create-child | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| group-edit | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| group-move | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| group-archive | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| group-delete | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| project-group-move | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | flow-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| flow-import-v1 | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| flow-test | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| flow-import | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| flow-test-run | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 | flow-run | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| flow-cancel-run | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| workflow-v1-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| document-upload | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| autonomy-edit | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| standing-approval-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| automation-schedule-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| automation-rule-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| automation-monitor-create | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
-| workflow-v1-add-stage | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| new-task | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| task-detail | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
+| decision | — | — | — | — | — | — | — | — | — | — | — | — | Chưa có ảnh. |
 
 ## Phát hiện ưu tiên
 

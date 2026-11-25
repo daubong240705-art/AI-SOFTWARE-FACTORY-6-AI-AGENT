@@ -19,7 +19,7 @@ export function TemplatesTab({ api, library, refreshKey, refresh, submit, blocke
   const summary = library.templates.find(template => template.id === selected);
   return <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
     <section className={panelClass}>
-      <Button type="button" disabled={blocked} onClick={() => setCreating(true)}>{t('createTemplate')}</Button>
+      <Button data-testid="template-create" type="button" disabled={blocked} onClick={() => setCreating(true)}>{t('createTemplate')}</Button>
       {!library.templates.length ? <p className="text-sm text-muted-foreground">{t('emptyTemplates')}</p> :
         <ul className="grid max-h-[min(52vh,32rem)] gap-2 overflow-y-auto p-1">{library.templates.map(template => <LibraryRow key={template.id} selected={selected === template.id} onSelect={() => select(template.id)}>
           <span className="block break-words font-semibold">{template.name}</span>
@@ -67,8 +67,8 @@ function TemplatePanel({ api, library, summary, refreshKey, refresh, submit, blo
     <ReadFeedback error={latest.error} loading={latest.loading} retry={refresh} />
     {detail && <>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" disabled={waiting} onClick={() => setDialog({ kind: 'edit', snapshot: detail })}>{agentLabel('edit')}</Button>
-        <Button type="button" variant="destructive" disabled={waiting} onClick={() => setDialog({ kind: 'delete', snapshot: detail })}>{agentLabel('delete')}</Button>
+        <Button data-testid="template-edit" type="button" variant="outline" disabled={waiting} onClick={() => setDialog({ kind: 'edit', snapshot: detail })}>{agentLabel('edit')}</Button>
+        <Button data-testid="template-delete" type="button" variant="destructive" disabled={waiting} onClick={() => setDialog({ kind: 'delete', snapshot: detail })}>{agentLabel('delete')}</Button>
       </div>
       <RevisionPicker latest={detail.revision} value={picked} onPick={setPicked} />
       {picked !== null && <ReadFeedback error={revision.error} loading={revision.loading} retry={refresh} />}

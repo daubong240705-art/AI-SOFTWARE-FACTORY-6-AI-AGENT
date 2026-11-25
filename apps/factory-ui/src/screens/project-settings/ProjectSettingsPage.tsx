@@ -31,7 +31,7 @@ export function ProjectSettingsPage({ store, projectId, section, onSection }: {
   const refresh = section === 'automation' ? store.loadAutomation : section === 'budget' ? store.loadBudget : section === 'autonomy' ? store.loadAutonomy : section === 'code' ? store.refreshCode : store.loadStandingApprovals;
   const busy = section === 'automation' ? ['rules', 'monitors', 'breakers'].some(area => state.loading[area]) : !!state.loading[section === 'approvals' ? 'standingApprovals' : section === 'code' ? 'integration' : section];
   const list = <div className="flex gap-2 overflow-x-auto lg:grid lg:content-start">{sections.map(({ key, icon: Icon }) =>
-    <Button key={key} type="button" variant="ghost" className={cn('justify-start whitespace-nowrap', section === key && 'bg-secondary text-foreground')} aria-current={section === key ? 'page' : undefined} onClick={() => onSection(key)}><Icon aria-hidden="true" />{t(key === 'group' ? 'groupsUi.projectGroup' : key === 'code' ? `projectUi.${key}` : `shellUi.${key}`)}</Button>
+    <Button data-testid={`project-settings-${key}`} key={key} type="button" variant="ghost" className={cn('justify-start whitespace-nowrap', section === key && 'bg-secondary text-foreground')} aria-current={section === key ? 'page' : undefined} onClick={() => onSection(key)}><Icon aria-hidden="true" />{t(key === 'group' ? 'groupsUi.projectGroup' : key === 'code' ? `projectUi.${key}` : `shellUi.${key}`)}</Button>
   )}</div>;
   const detail = section === 'code' ? <ProjectCode key={projectId} store={store} projectId={projectId} />
     : section === 'automation' ? <AutomationSettings key={projectId} store={store} projectId={projectId} />

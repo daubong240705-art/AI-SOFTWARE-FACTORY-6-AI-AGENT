@@ -34,7 +34,7 @@ export function PlainText({ children }: { children: string }) {
 }
 
 export function LibraryRow({ selected, onSelect, children }: { selected: boolean; onSelect: () => void; children: ReactNode }) {
-  return <li><button type="button" aria-pressed={selected} onClick={onSelect} className="w-full min-w-0 space-y-1 rounded-lg border border-border bg-background/60 p-3 text-start hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-ring aria-pressed:border-ring aria-pressed:bg-muted">
+  return <li><button data-testid="library-row" type="button" aria-pressed={selected} onClick={onSelect} className="w-full min-w-0 space-y-1 rounded-lg border border-border bg-background/60 p-3 text-start hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-ring aria-pressed:border-ring aria-pressed:bg-muted">
     {children}
   </button></li>;
 }

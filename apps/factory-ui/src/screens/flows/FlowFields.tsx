@@ -11,7 +11,7 @@ export function TextField({ name, value, set, suggestions, template, multi = fal
   const id = useId();
   const label = useFlowLabels();
   return <Field label={label(`field.${name}`)}>{props => <>
-    {multi ? <Textarea {...props} rows={3} value={value} onChange={event => set(event.target.value)} />
+    {multi ? <Textarea data-testid={`flow-field-${name}`} {...props} rows={3} value={value} onChange={event => set(event.target.value)} />
       : <Input {...props} type={type} value={value} list={suggestions && !template ? id : undefined} onChange={event => set(event.target.value)} />}
     {suggestions && !template && <datalist id={id}>{suggestions.map(path => <option key={path} value={path} />)}</datalist>}
     {suggestions && template && <Choice aria-label={`${label('insertPath')}: ${label(`field.${name}`)}`} value="" onChange={event => { if (event.target.value) set(`${value}{{ ${event.target.value} }}`); }}>
@@ -33,7 +33,7 @@ export function EnumField<Value extends string>({ name, value, options, set }: {
 }
 
 export function Toggle({ name, checked, set }: { name: string; checked: boolean; set: (checked: boolean) => void }) {
-  return <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-primary" checked={checked} onChange={event => set(event.target.checked)} />{name}</label>;
+  return <label className="flex items-center gap-2 text-sm"><input data-testid="flow-toggle" type="checkbox" className="size-4 accent-primary" checked={checked} onChange={event => set(event.target.checked)} />{name}</label>;
 }
 
 export function pathsFor(definition: FlowDefinition) {

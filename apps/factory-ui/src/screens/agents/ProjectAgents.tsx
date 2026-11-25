@@ -66,16 +66,16 @@ export function ProjectAgents({ projectId }: { projectId: string }) {
       <div><h2 className="flex items-center gap-2 text-xl font-semibold"><Bot className="size-5 text-muted-foreground" aria-hidden="true" />{t('title')}</h2>
         {data && <p className="mt-1 text-sm text-muted-foreground">{t('counts', { total: data.agents.length, active: data.agents.filter(agent => agent.status === 'active').length, teams: data.teams.length })}</p>}
       </div>
-      {data && <div className="flex flex-wrap gap-2"><Button type="button" onClick={() => setDialog({ kind: 'new' })}><Plus aria-hidden="true" />{t('create')}</Button><Button type="button" variant="outline" onClick={() => setDialog({ kind: 'template' })}>{t('fromTemplate')}</Button></div>}
+      {data && <div className="flex flex-wrap gap-2"><Button data-testid="agent-create" type="button" onClick={() => setDialog({ kind: 'new' })}><Plus aria-hidden="true" />{t('create')}</Button><Button data-testid="agent-from-template" type="button" variant="outline" onClick={() => setDialog({ kind: 'template' })}>{t('fromTemplate')}</Button></div>}
     </header>
     {olderHost ? <div className="rounded-xl border border-border bg-card/60 p-8 text-center text-muted-foreground"><p>{t('errors.olderHost')}</p><Button className="mt-3" type="button" variant="outline" onClick={refresh}>{t('reload')}</Button></div> :
       <><ReadStatus loading={!data && roster.loading} error={roster.error} />{roster.error && <Button type="button" variant="outline" onClick={refresh}>{t('reload')}</Button>}</>}
     <ErrorText error={direct.error} />
     {data && <>
       <section className="space-y-3 rounded-xl border border-border bg-card/60 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">{t('agents')}</h3><Choice className="w-auto" aria-label={t('filter')} value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>{filters.map(value => <option key={value} value={value}>{t(`status.${value}`)}</option>)}</Choice></div>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">{t('agents')}</h3><Choice data-testid="agent-status-filter" className="w-auto" aria-label={t('filter')} value={filter} onChange={event => setFilter(event.target.value as typeof filter)}>{filters.map(value => <option key={value} value={value}>{t(`status.${value}`)}</option>)}</Choice></div>
         {!visible.length && <p className="rounded-lg border border-dashed border-border px-4 py-7 text-center text-sm text-muted-foreground">{t(data.agents.length ? 'emptyFilter' : 'emptyAgents')}</p>}
-        <ul className="grid gap-2">{visible.map(agent => <li key={agent.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-background/60 p-3">
+        <ul className="grid gap-2">{visible.map(agent => <li data-testid={`agent-row-${agent.id}`} key={agent.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-3 rounded-lg border border-border bg-background/60 p-3">
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2"><strong className="break-all">{agent.name}</strong>{agent.isLead && <span className="inline-flex items-center gap-1 text-xs font-medium"><Star className="size-3 fill-current" aria-hidden="true" />{t('lead')}</span>}<Badge variant={agent.status === 'active' ? 'secondary' : 'outline'}>{t(`status.${agent.status}`)}</Badge></div>
             <p className="break-words text-sm text-muted-foreground">{agent.role} · {agent.adapter} / {agent.model ?? t('default')} · {t('live', { count: agent.live })}</p>
@@ -83,17 +83,17 @@ export function ProjectAgents({ projectId }: { projectId: string }) {
             {agent.template && <p className="text-xs text-muted-foreground">{t(agent.template.latestRevision > agent.template.revision ? 'templateUpdate' : 'templateLink', { revision: agent.template.revision, latest: agent.template.latestRevision })}</p>}
           </div>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button type="button" size="icon" variant="ghost" aria-label={t('actions', { name: agent.name })} disabled={direct.busy || !!roster.error}><Ellipsis aria-hidden="true" /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button data-testid="agent-row-menu" type="button" size="icon" variant="ghost" aria-label={t('actions', { name: agent.name })} disabled={direct.busy || !!roster.error}><Ellipsis aria-hidden="true" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setDialog({ kind: 'edit', agent })}>{t('edit')}</DropdownMenuItem>
+              <DropdownMenuItem data-testid="agent-edit" onSelect={() => setDialog({ kind: 'edit', agent })}>{t('edit')}</DropdownMenuItem>
               <DropdownMenuItem onSelect={() => setDialog({ kind: 'save-template', agent })}>{t('saveAsTemplate')}</DropdownMenuItem>
               {agent.template && agent.template.latestRevision > agent.template.revision && <DropdownMenuItem onSelect={() => setDialog({ kind: 'upgrade-template', agent })}>{t('upgradeFromTemplate', { revision: agent.template.latestRevision })}</DropdownMenuItem>}
-              <DropdownMenuItem onSelect={() => setDialog({ kind: 'clone', agent })}>{t('clone')}</DropdownMenuItem>
+              <DropdownMenuItem data-testid="agent-clone" onSelect={() => setDialog({ kind: 'clone', agent })}>{t('clone')}</DropdownMenuItem>
               <DropdownMenuItem disabled={agent.isLead || agent.status !== 'active'} onSelect={() => void direct.run(() => agentsSetLead({ projectId, agentId: agent.id, expectedRevision: agent.revision }))}>{t('makeLead')}</DropdownMenuItem>
-              {agent.status !== 'pending-approval' && <DropdownMenuItem onSelect={() => updateStatus(agent, agent.status === 'active' ? 'paused' : 'active')}>{t(agent.status === 'active' ? 'pause' : 'activate')}</DropdownMenuItem>}
+              {agent.status !== 'pending-approval' && <DropdownMenuItem data-testid={agent.status === 'active' ? 'agent-pause' : 'agent-activate'} onSelect={() => updateStatus(agent, agent.status === 'active' ? 'paused' : 'active')}>{t(agent.status === 'active' ? 'pause' : 'activate')}</DropdownMenuItem>}
               <DropdownMenuSeparator />
-              <DropdownMenuItem disabled={agent.status === 'archived'} onSelect={() => setDialog({ kind: 'archive', agent })}>{t('archive')}</DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" onSelect={() => setDialog({ kind: 'delete', agent })}>{t('delete')}</DropdownMenuItem>
+              <DropdownMenuItem data-testid="agent-archive" disabled={agent.status === 'archived'} onSelect={() => setDialog({ kind: 'archive', agent })}>{t('archive')}</DropdownMenuItem>
+              <DropdownMenuItem data-testid="agent-delete" variant="destructive" onSelect={() => setDialog({ kind: 'delete', agent })}>{t('delete')}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </li>)}</ul>
@@ -130,6 +130,6 @@ function ActionDialog({ action, agent, current, close, submit }: { action: Actio
   return <AdminDialog title={t(action)} description={t(`${action}Help`, { name: agent.name })} close={close} busy={writer.busy} onSubmit={save} footer={<DialogButtons close={close} label={t(action)} busy={writer.busy} disabled={stale} destructive={action === 'delete'} />}>
     <ErrorText error={writer.error} />
     {stale && <p role="status" className="text-sm text-muted-foreground">{t(current ? 'errors.conflict' : 'errors.missing')}</p>}
-    {action === 'clone' && <Field label={t('fields.name')} invalid={invalid ? t('invalid') : undefined}>{props => <Input {...props} value={name} maxLength={80} onChange={event => { setName(event.target.value); setInvalid(false); }} />}</Field>}
+    {action === 'clone' && <Field label={t('fields.name')} invalid={invalid ? t('invalid') : undefined}>{props => <Input data-testid="agent-clone-name" {...props} value={name} maxLength={80} onChange={event => { setName(event.target.value); setInvalid(false); }} />}</Field>}
   </AdminDialog>;
 }
