@@ -100,15 +100,17 @@ export function createIntegrationStore(raw: Database, crypto: () => Crypto, cloc
       const record = row(id);
       checkRevision(record, expected);
       if (record?.status === "checking") throw new CommandError("conflict", "Connection check already running", "refresh");
-      raw.prepare("UPDATE integrations SET status='checking',revision=revision+1,updated_at=? WHERE id=?").run(now(), id);
+      // A connection check is not a config change: keep the revision so the operator's next edit/delete is not a false conflict.
+      // finishCheck still drops the result when the config changed meanwhile (it matches on the revision read here).
+      raw.prepare("UPDATE integrations SET status='checking',updated_at=? WHERE id=?").run(now(), id);
       return get(id)!;
     },
     finishCheck(id: string, revision: number, ok: boolean, tools: ExternalDefinition[]) {
       if (!raw.open) return;
       raw.transaction(() => {
-        const result = raw.prepare(`UPDATE integrations SET status=?,last_check_at=?,last_check_json=?,updated_at=?,revision=revision+1
+        const result = raw.prepare(`UPDATE integrations SET status=?,last_check_at=?,last_check_json=?,updated_at=?
           WHERE id=? AND revision=? AND status='checking'`).run(ok ? "ready" : "error", now(), JSON.stringify({ ok,
-            message: ok ? "Connection succeeded" : "Connection check failed" }), now(), id, revision);
+            message: ok ? "Kết nối thành công" : "Kiểm tra kết nối thất bại" }), now(), id, revision);
         if (result.changes && ok && row(id)?.kind !== "http-api") putTools(id, tools);
       })();
     },
