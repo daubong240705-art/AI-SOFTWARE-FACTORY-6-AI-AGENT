@@ -124,5 +124,8 @@ export async function seed({ base, projectsRoot }) {
     await tryCommand(api, log, project, 'tasks.transition', { taskId, expectedRevision: 1, to: 'proposed' });
     if (target === 'accepted') await tryCommand(api, log, project, 'tasks.transition', { taskId, expectedRevision: 2, to: 'accepted' });
   }
-  return { projects: { primary: project, empty: emptyProject }, groups, agents: { primary: agentId, fresh, paused, archived }, team, skill, template, flow: flowId, runs, approval, task, seedFailures: log, apiFailures: api.failures, api };
+  // Newest root span (the finished/waiting runs above write one) gives the Trace screen something to show.
+  const trace = (await api.json(`/projects/${project}/traces?limit=1`).catch(error => { log.push({ type: 'traces.read', error: String(error.message) }); return { traces: [] }; })).traces[0]?.traceId ?? null;
+  if (!trace) log.push({ type: 'traces.read', error: 'No trace was recorded for the seeded runs.' });
+  return { projects: { primary: project, empty: emptyProject }, groups, agents: { primary: agentId, fresh, paused, archived }, team, skill, template, flow: flowId, runs, approval, task, trace, seedFailures: log, apiFailures: api.failures, api };
 }

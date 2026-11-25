@@ -24,6 +24,8 @@ export const screens = [
     ready: { agents: 'agent-create', flows: 'flow-create' }[tab],
     selector: { office: '.universal-office', board: '.project-tasks' }[tab],
   })),
+  project('project-monitor', 'monitor', { ready: 'monitor-refresh' }),
+  project('project-trace', 'monitor', { trace: true, ready: 'trace-refresh' }),
   project('project-empty-flows', 'flows', { project: 'empty', ready: 'flow-create' }),
   project('project-flow-detail', 'flows', { flow: true, ready: 'flow-save' }),
   ...['waiting', 'finished'].map(run => project(`project-run-${run}`, 'flows', { run, ready: 'flow-run-detail' })),
@@ -104,6 +106,7 @@ export function hashFor(screen, fixture) {
   if (screen.group) return `#/g/${fixture.groups.child}`;
   if (!screen.project) return screen.hash ?? '';
   const prefix = `#/project/${fixture.projects[screen.project]}`;
+  if (screen.trace) return `${prefix}/trace/${encodeURIComponent(fixture.trace)}`;
   if (screen.run) return `${prefix}/runs/${fixture.runs[screen.run]}`;
   if (screen.flow) return `${prefix}/flows/${fixture.flow}`;
   if (screen.section) return `${prefix}/settings/${screen.section}`;
