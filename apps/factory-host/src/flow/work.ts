@@ -1,5 +1,5 @@
 import type { Database } from "better-sqlite3";
-import { API_VERSION, artifactRefSchema, bundleQuerySchema, bundleScriptsSchema, idSchema, isBundleOperation, isTerminalFlowRunState, validateBundleParams, type FlowDefinition, type FlowEdge, type FlowNode, type Seat } from "@factory/contracts";
+import { API_VERSION, artifactRefSchema, bundleQuerySchema, bundleScriptsSchema, idSchema, isBundleOperation, isTerminalFlowRunState, validateBundleParams, type FlowCondition, type FlowDefinition, type FlowEdge, type FlowNode, type JsonSubset, type Seat } from "@factory/contracts";
 import { approvalsDecideHandler, publicApprovalText } from "../approvals/service.js";
 import { listTaskArtifacts } from "../artifacts/service.js";
 import { DocumentError, registerUpload, uploadQuerySchema } from "../artifacts/uploads.js";
@@ -123,6 +123,51 @@ function createApproval(deps: FlowEngineDeps, run: RunRow, row: NodeRow, item: E
   emit(deps.hub, run.project_id, run.id, { kind: "approval", id, revision: 1 });
   arm(deps, run, row, "approval-timeout", expiry);
   return { kind: "waiting", patch };
+}
+
+/** Smallest value that matches a JSON subset schema (enums take their first value). */
+function sampleOf(schema: JsonSubset): unknown {
+  switch (schema.type) {
+    case "object": return Object.fromEntries(Object.entries(schema.properties).map(([key, value]) => [key, sampleOf(value)]));
+    case "array": return [];
+    case "string": return schema.enum?.[0] ?? "mock";
+    case "number": case "integer": return 0;
+    case "boolean": return true;
+  }
+}
+
+/**
+ * Mock agents report no result. A test run with mock agents follows the happy path: the output matches the node's
+ * outputSchema and every field a Condition reads from this node takes the value of that Condition's FIRST rule.
+ * Pin node outputs to walk any other branch.
+ */
+function mockResult(def: FlowDefinition, nodeId: string, schema: JsonSubset | undefined): unknown {
+  const sampled = schema ? sampleOf(schema) : undefined;
+  const result: Record<string, unknown> = sampled !== null && typeof sampled === "object" && !Array.isArray(sampled) ? sampled as Record<string, unknown> : {};
+  const prefix = `nodes.${nodeId}.output.`;
+  const set = (path: string, value: unknown) => {
+    const keys = path.split(".");
+    let target = result;
+    keys.slice(0, -1).forEach((key) => {
+      const next = target[key];
+      target = (target[key] = next !== null && typeof next === "object" && !Array.isArray(next) ? next : {}) as Record<string, unknown>;
+    });
+    target[keys.at(-1)!] = value;
+  };
+  const visit = (condition: FlowCondition): void => {
+    if ("all" in condition) condition.all.forEach(visit);
+    else if ("any" in condition) { if (condition.any[0]) visit(condition.any[0]); }
+    else if ("path" in condition && condition.path.startsWith(prefix)) {
+      const { op, value } = condition;
+      const first = Array.isArray(value) ? value[0] : value;
+      const pick = op === "eq" || op === "in" || op === "gte" || op === "lte" ? first
+        : op === "gt" && typeof first === "number" ? first + 1 : op === "lt" && typeof first === "number" ? first - 1 : undefined;
+      if (pick !== undefined) set(condition.path.slice(prefix.length), pick);
+    }
+  };
+  for (const node of def.nodes) if (node.type === "condition" && node.rules[0]) visit(node.rules[0].when);
+  // Nothing to satisfy: keep "no result", exactly like a real agent that reported nothing.
+  return schema === undefined && Object.keys(result).length === 0 ? null : result;
 }
 
 function taskOutput(deps: FlowEngineDeps, projectId: string, taskId: string, latestReport = false) {
@@ -357,7 +402,8 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
     const task = getTask(deps.raw, run.project_id, row.task_id);
     if (task && ["failed", "cancelled", "declined"].includes(task.state)) return taskFailure(deps, run, task.id, task.state);
     if (task?.state !== "done") return null;
-    const verdict = readPath(taskOutput(deps, run.project_id, task.id).result, "verdict");
+    const decided = taskOutput(deps, run.project_id, task.id).result;
+    const verdict = run.mock_agents && decided === null ? "approve" : readPath(decided, "verdict");
     if (verdict !== "approve" && verdict !== "reject") return { kind: "failed", error: "approver did not report a decision" };
     const result = withoutWorkflowAdvancement(deps.raw, () => approvalsDecideHandler({ ...deps, actorId: task.ownerSeatId ?? "flow" }, {
       apiVersion: API_VERSION, projectId: run.project_id, commandId: deps.newId(), type: "approvals.decide", payload: {
@@ -378,7 +424,8 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
   if (!task) return { kind: "failed", error: "task not found" };
   if (["failed", "cancelled", "declined"].includes(task.state)) return taskFailure(deps, run, task.id, task.state);
   if (task.state !== "done") return null;
-  const output = taskOutput(deps, run.project_id, task.id);
+  const reported = taskOutput(deps, run.project_id, task.id);
+  const output = run.mock_agents && reported.result === null ? { ...reported, result: mockResult(def, item.id, item.outputSchema) } : reported;
   if (item.outputSchema && !matchesSchema(output.result, item.outputSchema)) return { kind: "failed", error: "task result does not match output schema" };
   if (typeof item.review === "object") {
     const review = deps.raw.prepare("SELECT id FROM tasks WHERE project_id=? AND parent_task_id=? AND EXISTS (SELECT 1 FROM flow_tasks f WHERE f.project_id=tasks.project_id AND f.task_id=tasks.id AND role='subtask')")
@@ -399,7 +446,9 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
     const reviewTask = getTask(deps.raw, run.project_id, review.id);
     if (reviewTask && ["failed", "cancelled", "declined"].includes(reviewTask.state)) return taskFailure(deps, run, review.id, reviewTask.state);
     if (reviewTask?.state !== "done") return null;
-    const verdict = readPath(taskOutput(deps, run.project_id, review.id).result, "verdict");
+    const reviewed = taskOutput(deps, run.project_id, review.id).result;
+    // A mock reviewer accepts (happy path); pin outputs or use real agents to test change requests.
+    const verdict = run.mock_agents && reviewed === null ? "accepted" : readPath(reviewed, "verdict");
     if (verdict !== "accepted") return { kind: "failed", error: verdict === "changes-requested" ? verdict : "reviewer did not report a verdict" };
   }
   const projected = output.result !== null && typeof output.result === "object" && !Array.isArray(output.result) ? output.result : {};

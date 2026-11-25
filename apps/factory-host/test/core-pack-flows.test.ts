@@ -117,11 +117,11 @@ function mockRun(context: TestContext, packKey: PackKey, definitionKey: string, 
       assert.ok(taskId, nodeId);
       finish(taskId, role, result);
     },
-    review(nodeId: string, role: string, verdict = "accepted") {
+    review(nodeId: string, role: string, verdict: string | null = "accepted") {
       const child = raw.prepare("SELECT id FROM tasks WHERE project_id=? AND parent_task_id=?")
         .get(projectId, row(nodeId).task_id) as { id: string } | undefined;
       assert.ok(child, `${nodeId}: no reviewer task`);
-      finish(child.id, role, { verdict });
+      finish(child.id, role, verdict === null ? undefined : { verdict });
     },
     expectFirstApproval() {
       assert.equal(run().state, "waiting");
@@ -181,6 +181,19 @@ for (const outcome of ["direct", "repaired", "exhausted"] as const) {
     else run.expectFirstApproval();
   });
 }
+
+test("mock agents that report nothing follow the happy path up to approval", (context) => {
+  const run = mockRun(context, "software-team", "software-delivery");
+  run.complete("requirements", "Business analyst");
+  run.complete("plan", "Product manager");
+  run.complete("backend", backend);
+  run.review("backend", frontend, null);
+  run.complete("frontend", frontend);
+  run.review("frontend", backend, null);
+  run.complete("test", "Tester");
+  assert.equal(run.row("test-gate").port, "pass");
+  run.expectFirstApproval();
+});
 
 test("bug fix verifies the peer-reviewed regression repair before approval", (context) => {
   const run = mockRun(context, "software-team", "bug-fix");
