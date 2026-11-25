@@ -1,3 +1,5 @@
+import type { AgentConfig } from "@factory/contracts";
+import { resolveProjectSettings } from "../groups/settings.js";
 import type { Database } from "better-sqlite3";
 import { MCP_TOOL_NAMES } from "@factory/contracts";
 import { capturePackSnapshot } from "../instructions/snapshot.js";
@@ -21,11 +23,15 @@ function uniqueName(names: Set<string>, name: string, suffix: string, limit: num
 }
 
 function snapshotTemplate(raw: Database, pack: LoadedPack, seatName: string,
-  skills: ReturnType<typeof importPackToLibrary>["skills"], deps: RosterDeps) {
+  skills: ReturnType<typeof importPackToLibrary>["skills"], deps: RosterDeps, groupAdapter: AgentConfig["runtime"]["adapter"] | null = null) {
   const template = findPackTemplate(raw, pack.manifest.key, pack.manifest.version, seatName);
   if (!template) throw new Error("Pack seat template unavailable");
   const config = seatToAgentConfig(pack, seatName, skills.map(({ skillId, version }) => ({ skillId, version })));
-  if (config.runtime.adapter === "opencode" && deps.defaultAgentCli) {
+  // U9: the project's group chooses the default adapter for agents created from a template (never overrides "fake").
+  if (groupAdapter && groupAdapter !== "api-agent" && config.runtime.adapter !== "fake" && config.runtime.adapter !== groupAdapter) {
+    config.runtime.adapter = groupAdapter;
+    if (groupAdapter === "codex" || groupAdapter === "claude-code") config.runtime.permission = "autonomous";
+  } else if (config.runtime.adapter === "opencode" && deps.defaultAgentCli) {
     config.runtime.adapter = deps.defaultAgentCli === "claude" ? "claude-code" : "codex";
     config.runtime.permission = "autonomous";
   }
@@ -54,6 +60,7 @@ export function agentsFromPack(raw: Database, input: {
   return raw.transaction(() => {
     const { projectId, pack, actorId, groupName } = input;
     const { skills } = importPackToLibrary(raw, pack, deps);
+    const groupAdapter = resolveProjectSettings(raw, projectId).defaultAdapter.value;
     const { manifest } = pack;
     const { id: rosterId } = ensureRoster(raw, projectId, deps);
     const digest = capturePackSnapshot(raw, pack, deps.clock());
@@ -65,7 +72,7 @@ export function agentsFromPack(raw: Database, input: {
     let hasLead = Boolean(findLeadSeat(raw, rosterId));
     let groupLeadId: string | null = null;
     for (const seat of manifest.seats) {
-      const template = snapshotTemplate(raw, pack, seat.name, skills, deps);
+      const template = snapshotTemplate(raw, pack, seat.name, skills, deps, groupAdapter);
       const config = { ...template.config, name: uniqueName(names, template.config.name, ` (${manifest.name.slice(0, 70)})`, 80) };
       const agentId = deps.newId();
       writeAgentRevision(raw, { agentId, projectId, config, actorId, clock: deps.clock,

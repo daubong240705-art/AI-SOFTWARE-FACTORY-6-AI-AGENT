@@ -84,6 +84,20 @@ try {
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
 } catch (error) {
-  process.stderr.write(`${error instanceof ConfigError ? formatConfigError(error) : "Không khởi động được Factory Host. Chạy factory doctor để kiểm tra."}\n`);
+  process.stderr.write(`${error instanceof ConfigError ? formatConfigError(error) : startupFailure(error)}\n`);
   process.exitCode = 1;
+}
+
+/** A specific, secret-free reason for a failed start (the operator should not need a stack trace). */
+function startupFailure(error: unknown): string {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  const port = process.env.FACTORY_PORT ?? "8787";
+  if (code === "EADDRINUSE")
+    return `Không khởi động được Factory Host: cổng ${port} đã có tiến trình khác dùng (có thể là một Factory Host khác).\n  Cách sửa: dừng tiến trình đó (factory stop) hoặc đặt FACTORY_PORT khác.`;
+  if (code === "EACCES")
+    return `Không khởi động được Factory Host: không có quyền nghe trên cổng ${port}.\n  Cách sửa: dùng cổng từ 1024 trở lên.`;
+  let detail = error instanceof Error ? error.message : String(error);
+  for (const [name, value] of Object.entries(process.env))
+    if (value && value.length >= 8 && /(?:KEY|TOKEN|SECRET|PASSWORD)/i.test(name)) detail = detail.replaceAll(value, "[ẩn]");
+  return `Không khởi động được Factory Host: ${detail.slice(0, 400)}\n  Chạy factory doctor để kiểm tra từng mục.`;
 }
