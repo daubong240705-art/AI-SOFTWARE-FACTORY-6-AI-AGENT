@@ -41,9 +41,9 @@ run_step() {
     printf '[%s] %s: %s\n' "$base" "$name" "$output" >&2; row+=(SKIP)
   elif [[ $status == 0 ]]; then row+=(PASS)
   else
-    printf '[%s] %s failed (exit %s); last 40 lines:\n' "$base" "$name" "$status" >&2
-    printf '%s\n' "$output" | tail -n 40 >&2
-    if [[ -n $container ]]; then docker exec "$container" sh -c 'tail -n 40 "$HOME/.factory/logs/host.log" 2>/dev/null' >&2 || true; fi
+    printf '[%s] %s failed (exit %s); last 150 lines:\n' "$base" "$name" "$status" >&2
+    printf '%s\n' "$output" | tail -n 150 >&2
+    if [[ -n $container ]]; then docker exec "$container" sh -c 'tail -n 150 "$HOME/.factory/logs/host.log" 2>/dev/null' >&2 || true; fi
     row+=(FAIL); blocked=1; failed=1
   fi
 }
