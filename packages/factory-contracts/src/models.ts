@@ -7,22 +7,9 @@ import {
   timestampSchema,
   textSchema,
   versionedRefSchema,
-  freshnessSchema,
   linuxPathSchema,
 } from "./base.js";
 
-export const readinessSchema = z.strictObject({
-  state: z.enum(["unconfigured", "needs-auth", "ready", "offline", "unknown"]),
-  reason: z.string().max(2000).optional(),
-  freshness: freshnessSchema,
-});
-export const agentActivitySchema = z.strictObject({
-  state: z.enum(["idle", "working", "waiting", "blocked", "unknown"]),
-  activeRunIds: z.array(idSchema).max(64),
-  activeJobIds: z.array(idSchema).max(64),
-  reason: z.string().max(2000).optional(),
-  freshness: freshnessSchema,
-});
 export const agentSchema = z.strictObject({
   id: idSchema,
   projectId: idSchema,

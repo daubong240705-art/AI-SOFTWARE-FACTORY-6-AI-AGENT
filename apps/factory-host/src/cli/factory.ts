@@ -81,7 +81,7 @@ async function setup(args: string[], env: ConfigEnv, print: (line: string) => vo
     finally { hidden = false; process.stdout.write("\n"); }
   };
   try {
-    const answer = flags["base-url"] ?? await ask("URL model provider (none để bỏ qua)", existing.model?.legacy ? "" : existing.model?.baseUrl);
+    const answer = flags["base-url"] ?? await ask("URL model provider (none để bỏ qua)", existing.model?.baseUrl);
     const base = answer === "none" ? "" : answer;
     for (const key of ["FACTORY_MODEL_BASE_URL", "FACTORY_GATEWAY_URL", "FACTORY_MODEL_API_KEY", "NINE_ROUTER_API_KEY", "FACTORY_LEAD_MODEL", "FACTORY_AGENT_MODELS"])
       delete values[key];

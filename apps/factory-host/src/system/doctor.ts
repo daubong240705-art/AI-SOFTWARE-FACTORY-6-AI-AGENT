@@ -74,7 +74,8 @@ async function checkModel(input: DoctorInput): Promise<DoctorCheck> {
   const base = input.config.FACTORY_MODEL_BASE_URL ?? input.config.FACTORY_GATEWAY_URL;
   const provider = input.config.FACTORY_MODEL_PROVIDER;
   const key = input.config.FACTORY_MODEL_API_KEY ?? input.config.NINE_ROUTER_API_KEY;
-  if (provider === "none" || !base) return fail("D-MODEL", "optional", "Chưa cấu hình model provider (cần cho Lead chat và agent api-agent).", "Chạy: factory setup");
+  if (provider === "none" || !base) return fail("D-MODEL", "optional", "Chưa cấu hình model provider (cần cho Lead chat qua gateway và agent api-agent).",
+    "Chạy factory setup hoặc đặt FACTORY_MODEL_BASE_URL và FACTORY_MODEL_API_KEY nếu gateway yêu cầu.");
   try {
     const models = await probeModels(base, key, input.fetch);
     if (models.length === 0) return fail("D-MODEL", "required", "Model provider không có model nào.", "Kiểm tra quyền API và danh sách model.");

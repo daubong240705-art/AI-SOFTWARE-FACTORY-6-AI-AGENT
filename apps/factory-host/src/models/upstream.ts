@@ -59,7 +59,7 @@ export function createUpstream(options: {
   baseUrl: string; apiKey: string; providerId?: string; fetchImpl?: typeof fetch; connectTimeoutMs?: number;
   modelListTimeoutMs?: number;
 }): Upstream {
-  const { apiKey, providerId = "9router", fetchImpl = fetch, connectTimeoutMs = 30_000, modelListTimeoutMs = 10_000 } = options;
+  const { apiKey, providerId = "openai-compatible", fetchImpl = fetch, connectTimeoutMs = 30_000, modelListTimeoutMs = 10_000 } = options;
   if (typeof apiKey !== "string" || !apiKey || /[\s\p{Cc}]/u.test(apiKey)
     || typeof providerId !== "string" || providerId.includes(apiKey)
     || !Number.isSafeInteger(connectTimeoutMs) || connectTimeoutMs < 1 || connectTimeoutMs > 2_147_483_647

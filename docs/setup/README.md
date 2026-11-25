@@ -64,7 +64,7 @@ Factory dùng mọi nhà cung cấp có API tương thích OpenAI (`GET /models`
 
 | Nhà cung cấp | `FACTORY_MODEL_BASE_URL` | Ghi chú |
 |---|---|---|
-| Gateway nội bộ (9Router, LiteLLM…) | `https://<máy chủ>/v1` | Nếu gateway dùng chứng chỉ nội bộ, đặt `NODE_EXTRA_CA_CERTS` tới file CA gốc |
+| Gateway nội bộ | `https://gateway.example/v1` | Thay bằng URL của bạn. Nếu dùng chứng chỉ nội bộ, đặt `NODE_EXTRA_CA_CERTS` tới file CA gốc |
 | OpenAI | `https://api.openai.com/v1` | |
 | OpenRouter | `https://openrouter.ai/api/v1` | |
 | Ollama | `http://127.0.0.1:11434/v1` | HTTP chỉ chấp nhận trên localhost |
@@ -72,6 +72,7 @@ Factory dùng mọi nhà cung cấp có API tương thích OpenAI (`GET /models`
 | Anthropic | Endpoint tương thích OpenAI của Anthropic | |
 
 Các khóa liên quan:
+- `FACTORY_MODEL_BASE_URL`: địa chỉ gateway. Factory không tự chọn địa chỉ nếu chỉ có API key.
 - `FACTORY_MODEL_API_KEY`: khóa API.
 - `FACTORY_LEAD_MODEL`: model cho Lead chat.
 - `FACTORY_AGENT_MODELS`: tối đa 8 model cho agent `api-agent`, ngăn cách bằng dấu phẩy.
@@ -122,6 +123,4 @@ Khi Host không khởi động được, dòng lỗi nêu nguyên nhân (ví d�
 - Cài với `--prefix` khác vẫn ghi đè lệnh `factory` chung ở `~/.local/bin`.
 - Arch (mirror chập chờn khi kiểm), macOS và WSL2 chưa kiểm xong.
 
-## 9. Ví dụ: cấu hình máy chủ hiện tại của dự án
-
-Máy `.12` chạy bằng launcher cũ `scripts/factory-v2/start-host-cli.sh --agents codex --lead 9router` với `~/.config/factory/env`. Launcher này vẫn được hỗ trợ: khi chỉ có `NINE_ROUTER_API_KEY` mà không có địa chỉ gateway, Host dùng địa chỉ 9Router cũ và in cảnh báo nhắc đặt `FACTORY_MODEL_BASE_URL`.
+Xem [kiến trúc Factory](../architecture.md) để hiểu các thành phần, vòng đời workflow và ranh giới bảo mật.

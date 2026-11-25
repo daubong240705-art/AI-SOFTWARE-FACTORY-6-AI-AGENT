@@ -73,7 +73,7 @@ export function createChatCompletionsGateway(options: {
   defaultTimeoutMs?: number; maxResponseBytes?: number;
 }): ModelGateway {
   // Credentials remain in the closure, never on the inspectable gateway or an error.
-  const { apiKey, providerId = "9router", fetchImpl = fetch,
+  const { apiKey, providerId = "openai-compatible", fetchImpl = fetch,
     defaultTimeoutMs = 120_000, maxResponseBytes = 1_048_576 } = options;
   if (typeof apiKey !== "string" || apiKey.length === 0 || /[\s\p{Cc}]/u.test(apiKey)
     || typeof providerId !== "string" || providerId.includes(apiKey)

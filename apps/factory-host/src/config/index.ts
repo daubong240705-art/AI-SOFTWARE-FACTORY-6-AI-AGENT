@@ -11,7 +11,7 @@ export { ConfigError, configError, extensionKeys, formatConfigError, secretKey }
 export type { ConfigEnv, ConfigIssue } from "./schema.js";
 
 export type ConfigSource = "env" | "file" | "default";
-export interface ModelProvider { baseUrl: string; apiKey?: string; legacy: boolean; providerId: "openai-compatible" | "9router" }
+export interface ModelProvider { baseUrl: string; apiKey?: string }
 export interface FactoryConfig {
   path: string; env: ConfigEnv; sources: Readonly<Record<string, ConfigSource>>;
   model: ModelProvider | null; issues: ConfigIssue[]; warnings: ConfigIssue[];
@@ -29,22 +29,15 @@ export function directoryDefaults(env: ConfigEnv, home = homedir()): Record<stri
   const state = env.FACTORY_STATE_DIR ?? join(root, "state");
   return {
     FACTORY_HOME: factoryHome, FACTORY_STATE_DIR: state,
-    FACTORY_PROJECTS_ROOT: legacy && existsSync("/srv/factory/workspaces") ? "/srv/factory/workspaces" : join(root, "workspaces"),
+    FACTORY_PROJECTS_ROOT: join(root, "workspaces"),
     FACTORY_WORKTREES_ROOT: join(root, "worktrees"),
     FACTORY_MIGRATION_BACKUP_DIR: join(state, "backups"),
-    FACTORY_BACKUP_DIR: legacy && existsSync("/mnt/d") ? "/mnt/d/factory-backup" : join(state, "backups", "periodic"),
+    FACTORY_BACKUP_DIR: join(state, "backups", "periodic"),
     FACTORY_DOC_WORKER_PYTHON: join(root, "doc-worker", "venv", "bin", "python"),
     FACTORY_UI_DIR: fileURLToPath(new URL("../../../factory-ui/dist/", import.meta.url)),
     FACTORY_EXTENSIONS: "",
     FACTORY_EXTENSIONS_DIR: fileURLToPath(new URL("../../../../extensions/", import.meta.url)),
   };
-}
-
-export function applyLegacyNineRouterLeadDefault(env: ConfigEnv, warnings: ConfigIssue[]): string | undefined {
-  if (!env.NINE_ROUTER_API_KEY || env.FACTORY_MODEL_BASE_URL !== undefined || env.FACTORY_MODEL_PROVIDER === "none") return undefined;
-  warnings.push({ code: "C-DEPRECATED", key: "NINE_ROUTER_API_KEY", message: "Đang dùng địa chỉ mặc định cũ của 9Router.",
-    fix: "Hãy đặt FACTORY_MODEL_BASE_URL (set FACTORY_MODEL_BASE_URL)." });
-  return "https://ai.lazy.local/v1";
 }
 
 export function resolveConfig(realEnv: ConfigEnv, file: Readonly<Record<string, string>>, path: string, home = homedir()): FactoryConfig {
@@ -63,12 +56,14 @@ export function resolveConfig(realEnv: ConfigEnv, file: Readonly<Record<string, 
     const value = env[selected];
     if (value !== undefined) { put(canonical, value, sources[selected]!); put(legacy, value, sources[selected]!); }
   };
-  const usesLegacyNames = env.FACTORY_MODEL_BASE_URL === undefined && env.FACTORY_MODEL_API_KEY === undefined && Boolean(env.NINE_ROUTER_API_KEY);
   alias("FACTORY_MODEL_BASE_URL", "FACTORY_GATEWAY_URL");
-  const compatUrl = applyLegacyNineRouterLeadDefault(env, warnings);
-  alias("FACTORY_MODEL_API_KEY", "NINE_ROUTER_API_KEY");
-  if (compatUrl !== undefined) put("FACTORY_MODEL_BASE_URL", compatUrl, "default");
-  const baseUrl = env.FACTORY_MODEL_BASE_URL ?? compatUrl;
+  const baseUrl = env.FACTORY_MODEL_BASE_URL;
+  if (env.NINE_ROUTER_API_KEY && env.FACTORY_MODEL_PROVIDER !== "none") {
+    warnings.push({ code: "C-DEPRECATED", key: "NINE_ROUTER_API_KEY",
+      message: baseUrl ? "Đang dùng tên cấu hình API key đã lỗi thời." : "Bỏ qua API key cũ vì chưa đặt địa chỉ model provider.",
+      fix: "Hãy đặt FACTORY_MODEL_BASE_URL (set FACTORY_MODEL_BASE_URL) và dùng FACTORY_MODEL_API_KEY." });
+  }
+  if (baseUrl) alias("FACTORY_MODEL_API_KEY", "NINE_ROUTER_API_KEY");
   const providerSource = sources.FACTORY_MODEL_PROVIDER;
   for (const [key, value] of Object.entries({
     ...directoryDefaults(env, home), FACTORY_CONFIG: path, FACTORY_PORT: "8787", FACTORY_LISTEN_HOST: "127.0.0.1",
@@ -83,8 +78,7 @@ export function resolveConfig(realEnv: ConfigEnv, file: Readonly<Record<string, 
     issues.push({ code: "C-VALUE", key: "FACTORY_MODEL_BASE_URL", message: "Thiếu địa chỉ model provider.",
       fix: "Đặt FACTORY_MODEL_BASE_URL hoặc dùng FACTORY_MODEL_PROVIDER=none." });
   const model: ModelProvider | null = env.FACTORY_MODEL_PROVIDER === "openai-compatible" && baseUrl ? {
-    baseUrl, ...(env.FACTORY_MODEL_API_KEY ? { apiKey: env.FACTORY_MODEL_API_KEY } : {}), legacy: compatUrl !== undefined,
-    providerId: usesLegacyNames ? "9router" : "openai-compatible",
+    baseUrl, ...(env.FACTORY_MODEL_API_KEY ? { apiKey: env.FACTORY_MODEL_API_KEY } : {}),
   } : null;
   return { path, env, sources, model, issues: [...issues, ...validateConfig(env)], warnings };
 }

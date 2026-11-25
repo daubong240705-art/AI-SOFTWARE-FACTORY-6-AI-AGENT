@@ -15,6 +15,9 @@ const doctorCheck = object.extend({
   detail: doctorText.optional(),
 }).strip();
 export const systemModels = {
+  mcpServers: object.extend({ servers: object.extend({
+    name: text, state: text.catch('unknown'), tools: usageSchema.shape.inputTokens.catch(0),
+  }).loose().array() }).loose(),
   doctor: object.extend({
     ok: successResponseSchema.shape.ok,
     apiVersion: groupDetailSchema.shape.rollup.shape.budgetTokens30d.unwrap(),

@@ -202,8 +202,10 @@ function parseHostEnv(env: ConfigEnv): {
   if (runtime !== "fake" && runtime !== "opencode") throw new Error("Unsupported FACTORY_RUNTIME");
   let opencode: { dir: string } | undefined;
   if (runtime === "opencode") {
-    for (const name of ["FACTORY_OPENCODE_DIR", "FACTORY_PROXY_SOCKET", "FACTORY_AGENT_MODELS", "NINE_ROUTER_API_KEY", "FACTORY_GATEWAY_URL"] as const)
+    for (const name of ["FACTORY_OPENCODE_DIR", "FACTORY_PROXY_SOCKET", "FACTORY_AGENT_MODELS"] as const)
       if (!env[name]?.trim()) throw new Error(`${name} is required for FACTORY_RUNTIME=opencode`);
+    if (!(env.FACTORY_MODEL_API_KEY ?? env.NINE_ROUTER_API_KEY)?.trim())
+      throw new Error("FACTORY_MODEL_API_KEY is required for FACTORY_RUNTIME=opencode");
     const dir = env.FACTORY_OPENCODE_DIR;
     try {
       if (!dir || !isAbsolute(dir) || /[\0\r\n]/.test(dir) || !statSync(dir).isDirectory()
@@ -211,9 +213,9 @@ function parseHostEnv(env: ConfigEnv): {
       opencode = { dir };
     } catch { throw new Error("FACTORY_OPENCODE_DIR must be an absolute directory containing bin/opencode"); }
     try {
-      const url = new URL(env.FACTORY_GATEWAY_URL ?? "");
+      const url = new URL(env.FACTORY_MODEL_BASE_URL ?? env.FACTORY_GATEWAY_URL ?? "");
       if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error();
-    } catch { throw new Error("FACTORY_GATEWAY_URL must be an HTTP or HTTPS URL without credentials"); }
+    } catch { throw new Error("FACTORY_MODEL_BASE_URL must be an HTTP or HTTPS URL without credentials"); }
   }
   let approvedModels: string[] | undefined;
   if (env.FACTORY_AGENT_MODELS !== undefined) {

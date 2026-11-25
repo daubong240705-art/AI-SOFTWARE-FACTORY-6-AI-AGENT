@@ -1,6 +1,6 @@
 {
   "kind": "http-api",
-  "name": "lazy-gaming-portal",
+  "name": "game-portal",
   "scopeGroupId": null,
   "config": {
     "baseUrl": "https://portal.example.com",

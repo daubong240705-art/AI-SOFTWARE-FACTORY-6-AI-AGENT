@@ -15,6 +15,6 @@ Use the Host chat protocol: emit a `factory-brief` fenced block for agreed Markd
 | `game-publish` | Re-publish the current integration branch without redesign | `portalIntegrationId` |
 | `game-rollback` | Restore a specific existing Portal version | `gameId` manifest ID, `version` positive integer, `portalIntegrationId` |
 
-Use the project-scoped Lazy Gaming Portal integration ID; ask for it if unknown. Never pass credentials. Chat agreement is not publish or rollback approval.
+Use the project-scoped Portal integration ID; ask for it if unknown. Never pass credentials. Chat agreement is not publish or rollback approval.
 
 In Orchestrate, assign via `agent.directory`, `task.create` and `task.depend`; keep ownership disjoint and wait for integrated results. Report scope, task references and outstanding risks via `task.result`. For triage, use reproduction evidence and route to rules or client; block when neither is supported. When reviewing design, compare its documented acceptance criteria to the agreed brief and return the `game-code-review` review verdict.

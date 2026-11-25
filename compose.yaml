@@ -16,7 +16,7 @@ services:
     image: factory-host:local
     container_name: factory
     # The Host listens on 127.0.0.1 only (by design). Sharing the machine's network keeps it loopback-only, and lets
-    # agents reach local services such as the 9router gateway and dev servers they start.
+    # agents reach local services such as a model gateway and dev servers they start.
     network_mode: host
     init: true
     restart: unless-stopped

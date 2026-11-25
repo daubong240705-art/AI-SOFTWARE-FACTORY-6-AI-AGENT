@@ -19,7 +19,6 @@ export const seatRuntimeInputSchema = z.strictObject({
 }).refine((value) => (value.runtime === "acp") === (value.cli !== undefined), {
   message: "cli is required exactly when runtime is acp", path: ["cli"],
 });
-export type SeatRuntimeInput = z.infer<typeof seatRuntimeInputSchema>;
 
 /**
  * Teams come from Packs (a folder under packs/), so the MVP has no "teams.create" command.
