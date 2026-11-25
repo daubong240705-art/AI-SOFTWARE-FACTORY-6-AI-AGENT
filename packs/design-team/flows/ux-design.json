@@ -1,0 +1,106 @@
+{
+  "schema": 2,
+  "key": "ux-design",
+  "title": "UX design",
+  "description": "Specify the user journey, interface and design tokens, then address accessibility findings before operator sign-off.",
+  "inputs": [
+    {
+      "name": "brief",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "briefArtifactId",
+      "type": "artifact",
+      "required": false
+    }
+  ],
+  "nodes": [
+    {"id":"start","title":"Confirmed brief","type":"trigger","trigger":{"kind":"manual"}},
+    {
+      "id": "journey",
+      "title": "Map the user journey",
+      "type": "agent",
+      "agent": {"role":"User experience designer"},
+      "timeoutMinutes": 40,
+      "onError": "port",
+      "review": {"agent":{"role":"Interface specification designer"}},
+      "task": {
+        "title": "Map the user journey",
+        "instructions": "Use ux-flow. Register a ui-spec journey covering entry, task completion, alternate routes, recovery and assumptions. Include task-based acceptance checks.\n\nAgreed brief:\n{{inputs.brief}}\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The main flow, error recovery, and keyboard path are understandable without a prototype."],
+        "inputs": ["inputs.briefArtifactId"]
+      }
+    },
+    {"id":"revisions","title":"Bounded revision rounds","type":"loop","maxIterations":2,"until":{"path":"nodes.accessibility.output.verdict","op":"eq","value":"pass"}},
+    {
+      "id": "spec",
+      "title": "Specify interface and tokens",
+      "type": "agent",
+      "agent": {"role":"Interface specification designer"},
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "task": {
+        "title": "Specify interface and tokens",
+        "instructions": "Use ui-spec and design-tokens. Register a ui-spec with screen states, responsive layouts, semantic tokens and component mappings. Specify keyboard and focus behavior, contrast and reduced-motion alternatives. This is draft round {{loop.iteration}}. On revision, find the Accessibility review note for run {{run.id}} in project knowledge; do not treat missing evidence as clearance.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The spec covers component states and tokens for the agreed journey."],
+        "inputs": ["nodes.journey.artifacts"]
+      }
+    },
+    {
+      "id": "accessibility",
+      "title": "Review accessibility and handoff",
+      "type": "agent",
+      "agent": {"role":"Independent design reviewer"},
+      "timeoutMinutes": 35,
+      "onError": "port",
+      "outputSchema": {"type":"object","properties":{"verdict":{"type":"string","enum":["pass","fail"]},"notes":{"type":"string","maxLength":2400}},"required":["verdict","notes"]},
+      "task": {
+        "title": "Review accessibility and handoff",
+        "instructions": "Use accessibility-review and workflow-verdict. Check keyboard and focus, names, contrast, motion and narrow layouts against the written spec. Separate what can be verified in the spec from what requires a rendered UI. Register a ui-spec note titled Accessibility review {{run.id}} round {{loop.iteration}}, and return pass or fail with notes.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["A pass means the spec is ready for handoff, not that a rendered UI has been tested."],
+        "inputs": ["nodes.journey.artifacts","nodes.spec.artifacts"]
+      }
+    },
+    {"id":"review-gate","title":"Did independent review pass?","type":"condition","rules":[{"port":"pass","when":{"path":"nodes.accessibility.output.verdict","op":"eq","value":"pass"}}]},
+    {"id":"approve","title":"Operator sign-off","type":"approval","approver":"operator","timeoutMinutes":1440,"prompt":"Sign off on the reviewed journey, interface spec, and tokens. Note the accessibility checks still needed on a rendered implementation.\n\nReview notes: {{nodes.accessibility.output.notes}}"},
+    {"id":"delivered","title":"Signed-off design specification","type":"output","target":"deliver","from":["nodes.journey.artifacts","nodes.spec.artifacts","nodes.accessibility.output.notes"]},
+    {"id":"blocked","title":"Review did not pass within two drafts","type":"output","target":"deliver","from":["nodes.accessibility.output.notes"]},
+    {"id":"not-approved","title":"Not signed off","type":"output","target":"deliver","from":["nodes.approve.port"]},
+    {"id":"journey-error","title":"Stopped: Map the user journey","type":"output","target":"deliver","from":["nodes.journey.output.error"]},
+    {"id":"spec-error","title":"Stopped: Specify interface and tokens","type":"output","target":"deliver","from":["nodes.spec.output.error"]},
+    {"id":"accessibility-error","title":"Stopped: Review accessibility and handoff","type":"output","target":"deliver","from":["nodes.accessibility.output.error"]}
+  ],
+  "edges": [
+    {"id":"start-out-journey","from":{"node":"start","port":"out"},"to":{"node":"journey"}},
+    {"id":"journey-out-revisions","from":{"node":"journey","port":"out"},"to":{"node":"revisions"}},
+    {"id":"revisions-body-spec","from":{"node":"revisions","port":"body"},"to":{"node":"spec"}},
+    {"id":"spec-out-accessibility","from":{"node":"spec","port":"out"},"to":{"node":"accessibility"}},
+    {"id":"accessibility-out-revisions","from":{"node":"accessibility","port":"out"},"to":{"node":"revisions"},"loopBack":true},
+    {"id":"revisions-done-review-gate","from":{"node":"revisions","port":"done"},"to":{"node":"review-gate"}},
+    {"id":"review-gate-pass-approve","from":{"node":"review-gate","port":"pass"},"to":{"node":"approve"}},
+    {"id":"review-gate-else-blocked","from":{"node":"review-gate","port":"else"},"to":{"node":"blocked"}},
+    {"id":"approve-approved-delivered","from":{"node":"approve","port":"approved"},"to":{"node":"delivered"}},
+    {"id":"approve-rejected-not-approved","from":{"node":"approve","port":"rejected"},"to":{"node":"not-approved"}},
+    {"id":"approve-timeout-not-approved","from":{"node":"approve","port":"timeout"},"to":{"node":"not-approved"}},
+    {"id":"journey-error-journey-error","from":{"node":"journey","port":"error"},"to":{"node":"journey-error"}},
+    {"id":"spec-error-spec-error","from":{"node":"spec","port":"error"},"to":{"node":"spec-error"}},
+    {"id":"accessibility-error-accessibility-error","from":{"node":"accessibility","port":"error"},"to":{"node":"accessibility-error"}}
+  ],
+  "settings": {"concurrency":"queue"},
+  "layout": {
+    "start": {"x":80,"y":100},
+    "journey": {"x":370,"y":100},
+    "revisions": {"x":660,"y":100},
+    "spec": {"x":950,"y":100},
+    "accessibility": {"x":1240,"y":100},
+    "review-gate": {"x":950,"y":300},
+    "approve": {"x":1240,"y":300},
+    "delivered": {"x":1530,"y":100},
+    "blocked": {"x":1240,"y":500},
+    "not-approved": {"x":1530,"y":300},
+    "journey-error": {"x":660,"y":300},
+    "spec-error": {"x":1240,"y":700},
+    "accessibility-error": {"x":1530,"y":500}
+  }
+}

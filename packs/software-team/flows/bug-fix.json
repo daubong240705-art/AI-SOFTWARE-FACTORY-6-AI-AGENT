@@ -1,0 +1,140 @@
+{
+  "schema": 2,
+  "key": "bug-fix",
+  "title": "Bug fix",
+  "description": "Reproduce a defect with a failing regression test, route it to the responsible engineer, and verify the reviewed repair before sign-off.",
+  "inputs": [
+    {
+      "name": "brief",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "briefArtifactId",
+      "type": "artifact",
+      "required": false
+    }
+  ],
+  "nodes": [
+    {"id":"start","title":"Confirmed brief","type":"trigger","trigger":{"kind":"manual"}},
+    {
+      "id": "reproduce",
+      "title": "Reproduce with a failing test",
+      "type": "agent",
+      "agent": {"role":"Tester"},
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "outputSchema": {"type":"object","properties":{"verdict":{"type":"string","enum":["reproduced","not-reproduced"]},"area":{"type":"string","enum":["frontend","backend","unknown"]},"notes":{"type":"string","maxLength":2400}},"required":["verdict","area","notes"]},
+      "task": {
+        "title": "Reproduce with a failing test",
+        "instructions": "Use fix-bug and workflow-verdict. Add the smallest regression test and run it against the unchanged product. Report reproduced only if it fails for the reported reason. Register a code-ref with the failing test patch, expected versus actual behavior, command and exit code. Use area frontend or backend only when the evidence identifies the owning code; otherwise use unknown.\n\nAgreed brief:\n{{inputs.brief}}\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The verdict is backed by execution evidence, not inferred from symptoms."],
+        "inputs": ["inputs.briefArtifactId"]
+      }
+    },
+    {"id":"repro-gate","title":"Is the failure reproduced and owned?","type":"condition","rules":[{"port":"reproduced","when":{"all":[{"path":"nodes.reproduce.output.verdict","op":"eq","value":"reproduced"},{"path":"nodes.reproduce.output.area","op":"in","value":["frontend","backend"]}]}}]},
+    {"id":"repairs","title":"Bounded revision rounds","type":"loop","maxIterations":2,"until":{"path":"nodes.verify.output.verdict","op":"eq","value":"pass"}},
+    {"id":"route","title":"Which code owns the defect?","type":"condition","rules":[{"port":"frontend","when":{"path":"nodes.reproduce.output.area","op":"eq","value":"frontend"}}]},
+    {
+      "id": "fix-ui",
+      "title": "Fix the frontend defect",
+      "type": "agent",
+      "agent": {"role":"Frontend developer"},
+      "timeoutMinutes": 50,
+      "onError": "port",
+      "review": {"agent":{"role":"Backend developer"}},
+      "task": {
+        "title": "Fix the frontend defect",
+        "instructions": "Use fix-bug. Keep the supplied regression test and fix the smallest cause in frontend code. For a later round, use knowledge.search to find the previous fix and QA handoffs for run {{run.id}} before revising the candidate. Register a code-ref handoff titled Frontend repair {{run.id}} round {{loop.iteration}} with changed paths, the tested base, check results, and a scoped unified patch where applicable, so the next seat can inspect or test the exact candidate in a fresh worktree. Do not commit, push, or deploy.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The candidate includes the regression and a scoped frontend repair."],
+        "inputs": ["nodes.reproduce.artifacts","nodes.reproduce.output.notes"]
+      }
+    },
+    {
+      "id": "fix-backend",
+      "title": "Fix the backend defect",
+      "type": "agent",
+      "agent": {"role":"Backend developer"},
+      "timeoutMinutes": 50,
+      "onError": "port",
+      "review": {"agent":{"role":"Frontend developer"}},
+      "task": {
+        "title": "Fix the backend defect",
+        "instructions": "Use fix-bug. Keep the supplied regression test and fix the smallest cause in backend code. For a later round, use knowledge.search to find the previous fix and QA handoffs for run {{run.id}} before revising the candidate. Register a code-ref handoff titled Backend repair {{run.id}} round {{loop.iteration}} with changed paths, the tested base, check results, and a scoped unified patch where applicable, so the next seat can inspect or test the exact candidate in a fresh worktree. Do not commit, push, or deploy.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The candidate includes the regression and a scoped backend repair."],
+        "inputs": ["nodes.reproduce.artifacts","nodes.reproduce.output.notes"]
+      }
+    },
+    {"id":"candidate","title":"Collect the reviewed repair","type":"join","policy":"any","merge":"list"},
+    {
+      "id": "verify",
+      "title": "Rerun the regression and neighboring checks",
+      "type": "agent",
+      "agent": {"role":"Tester"},
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "outputSchema": {"type":"object","properties":{"verdict":{"type":"string","enum":["pass","fail"]},"notes":{"type":"string","maxLength":2400}},"required":["verdict","notes"]},
+      "task": {
+        "title": "Rerun the regression and neighboring checks",
+        "instructions": "Use testing and workflow-verdict. Verify the exact candidate in your own worktree; if a supplied patch is not already present, check and apply it locally without overwriting existing changes. Run the agreed checks and report pass or fail with commands, exit codes, and unverified cases. Ensure the original regression now passes unchanged and include nearby regression checks. Register a plan artifact titled Bug fix QA {{run.id}} round {{loop.iteration}} for later rounds.\nWrite operator-facing text in the operator's language.",
+        "acceptance": ["The original failing regression and relevant neighboring checks pass, or the failure is documented."],
+        "inputs": ["nodes.reproduce.artifacts","nodes.candidate.output[0].artifacts"]
+      }
+    },
+    {"id":"verify-gate","title":"Did verification pass?","type":"condition","rules":[{"port":"pass","when":{"path":"nodes.verify.output.verdict","op":"eq","value":"pass"}}]},
+    {"id":"approve","title":"Operator sign-off","type":"approval","approver":"operator","timeoutMinutes":1440,"prompt":"The defect was reproduced, the repair was peer reviewed, and verification passed. Inspect the regression evidence and sign off on the candidate. No deployment is performed.\n\nVerification notes: {{nodes.verify.output.notes}}"},
+    {"id":"delivered","title":"Signed-off bug fix","type":"output","target":"deliver","from":["nodes.reproduce.artifacts","nodes.candidate.output[0].artifacts","nodes.verify.output.notes"]},
+    {"id":"blocked-repro","title":"No actionable reproduction","type":"output","target":"deliver","from":["nodes.reproduce.output.result"]},
+    {"id":"blocked-verify","title":"Repair limit reached without a pass","type":"output","target":"deliver","from":["nodes.verify.output.notes"]},
+    {"id":"not-approved","title":"Not signed off","type":"output","target":"deliver","from":["nodes.approve.port"]},
+    {"id":"reproduce-error","title":"Stopped: Reproduce with a failing test","type":"output","target":"deliver","from":["nodes.reproduce.output.error"]},
+    {"id":"fix-ui-error","title":"Stopped: Fix the frontend defect","type":"output","target":"deliver","from":["nodes.fix-ui.output.error"]},
+    {"id":"fix-backend-error","title":"Stopped: Fix the backend defect","type":"output","target":"deliver","from":["nodes.fix-backend.output.error"]},
+    {"id":"verify-error","title":"Stopped: Rerun the regression and neighboring checks","type":"output","target":"deliver","from":["nodes.verify.output.error"]}
+  ],
+  "edges": [
+    {"id":"start-out-reproduce","from":{"node":"start","port":"out"},"to":{"node":"reproduce"}},
+    {"id":"reproduce-out-repro-gate","from":{"node":"reproduce","port":"out"},"to":{"node":"repro-gate"}},
+    {"id":"repro-gate-reproduced-repairs","from":{"node":"repro-gate","port":"reproduced"},"to":{"node":"repairs"}},
+    {"id":"repro-gate-else-blocked-repro","from":{"node":"repro-gate","port":"else"},"to":{"node":"blocked-repro"}},
+    {"id":"repairs-body-route","from":{"node":"repairs","port":"body"},"to":{"node":"route"}},
+    {"id":"route-frontend-fix-ui","from":{"node":"route","port":"frontend"},"to":{"node":"fix-ui"}},
+    {"id":"route-else-fix-backend","from":{"node":"route","port":"else"},"to":{"node":"fix-backend"}},
+    {"id":"fix-ui-out-candidate","from":{"node":"fix-ui","port":"out"},"to":{"node":"candidate"}},
+    {"id":"fix-backend-out-candidate","from":{"node":"fix-backend","port":"out"},"to":{"node":"candidate"}},
+    {"id":"candidate-out-verify","from":{"node":"candidate","port":"out"},"to":{"node":"verify"}},
+    {"id":"verify-out-repairs","from":{"node":"verify","port":"out"},"to":{"node":"repairs"},"loopBack":true},
+    {"id":"repairs-done-verify-gate","from":{"node":"repairs","port":"done"},"to":{"node":"verify-gate"}},
+    {"id":"verify-gate-pass-approve","from":{"node":"verify-gate","port":"pass"},"to":{"node":"approve"}},
+    {"id":"verify-gate-else-blocked-verify","from":{"node":"verify-gate","port":"else"},"to":{"node":"blocked-verify"}},
+    {"id":"approve-approved-delivered","from":{"node":"approve","port":"approved"},"to":{"node":"delivered"}},
+    {"id":"approve-rejected-not-approved","from":{"node":"approve","port":"rejected"},"to":{"node":"not-approved"}},
+    {"id":"approve-timeout-not-approved","from":{"node":"approve","port":"timeout"},"to":{"node":"not-approved"}},
+    {"id":"reproduce-error-reproduce-error","from":{"node":"reproduce","port":"error"},"to":{"node":"reproduce-error"}},
+    {"id":"fix-ui-error-fix-ui-error","from":{"node":"fix-ui","port":"error"},"to":{"node":"fix-ui-error"}},
+    {"id":"fix-backend-error-fix-backend-error","from":{"node":"fix-backend","port":"error"},"to":{"node":"fix-backend-error"}},
+    {"id":"verify-error-verify-error","from":{"node":"verify","port":"error"},"to":{"node":"verify-error"}}
+  ],
+  "settings": {"concurrency":"queue"},
+  "layout": {
+    "start": {"x":80,"y":100},
+    "reproduce": {"x":370,"y":100},
+    "repro-gate": {"x":660,"y":100},
+    "repairs": {"x":950,"y":100},
+    "route": {"x":1240,"y":100},
+    "fix-ui": {"x":1530,"y":100},
+    "fix-backend": {"x":1530,"y":300},
+    "candidate": {"x":1820,"y":100},
+    "verify": {"x":2110,"y":100},
+    "verify-gate": {"x":1240,"y":300},
+    "approve": {"x":1530,"y":500},
+    "delivered": {"x":1820,"y":300},
+    "blocked-repro": {"x":950,"y":300},
+    "blocked-verify": {"x":1530,"y":700},
+    "not-approved": {"x":1820,"y":500},
+    "reproduce-error": {"x":660,"y":300},
+    "fix-ui-error": {"x":1820,"y":700},
+    "fix-backend-error": {"x":1820,"y":900},
+    "verify-error": {"x":2400,"y":100}
+  }
+}

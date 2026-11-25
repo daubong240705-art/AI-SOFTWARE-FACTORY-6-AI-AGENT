@@ -216,7 +216,7 @@ test("loopBack keeps each body iteration and exits at the limit", (context) => {
 test("imports a pack's v1 definition as a v2 flow draft", (context) => {
   const fx = fixture(context);
   const flowId = fx.newId();
-  fx.command("flows.import-v1", { flowId, packKey: "software-team", definitionKey: "software-delivery" });
+  fx.command("flows.import-v1", { flowId, packKey: "software-team", definitionKey: "software-delivery-classic" });
   const row = fx.raw.prepare("SELECT draft_json,source FROM flows WHERE project_id=? AND id=?").get(fx.projectId, flowId) as { draft_json: string; source: string };
   assert.equal(row.source, "pack:software-team");
   const draft = flowDefinitionSchema.parse(JSON.parse(row.draft_json));
