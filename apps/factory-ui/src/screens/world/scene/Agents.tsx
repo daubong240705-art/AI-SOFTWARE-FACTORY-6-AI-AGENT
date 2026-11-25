@@ -8,9 +8,10 @@ import { createScreenTexture, type ScreenTexture } from './screenTexture';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import { CharacterRig, characterStats, hopAlong, phaseForSeat, specForSeat, type HopMotion } from '../characters';
+import { CharacterRig, characterStats, hopAlong, phaseForSeat, specForRole, type HopMotion } from '../characters';
 import type { Handoff, WorldAgent } from '../data/types';
 import { deskForAgent } from '../agentPresentation';
+import { agentStation, roomDestination, roomNorth } from '../layout/campus';
 import { activitySpots, ownerDesk, type Point } from '../layout/zones';
 import { navigationAnchors, pathBetween } from '../layout/waypoints';
 import { useWorldMotion } from './Ticker';
@@ -98,10 +99,13 @@ export function Agents({ events, courier, agents, baseline, quality, still, hidd
         const apply = !old || !baseline || agent.status !== 'idle' || now - since >= 1500;
         const activity = agent.status === 'idle' && !agent.paused ? wandering.current.activity(agent.seatId) : null;
         const pose = activity ? activity === 'sofa' ? 'resting' : 'idle' : apply ? agent.pose : old.pose;
-        const anchor = action?.kind === 'depart' ? action.spot!.id : action || !wandering.current.wandering(agent.seatId) ? desk.id : old?.anchor ?? desk.id;
+        const station = agentStation(agent, Date.now());
+        const home = station === 'desk' ? desk.id : `${station}:${agent.projectId}`;
+        const anchor = action?.kind === 'depart' ? action.spot!.id : action || !wandering.current.wandering(agent.seatId) ? home : old?.anchor ?? home;
         const point = anchor === desk.id ? desk.seat : navigationAnchors[anchor]!;
         const seated = activity === 'sofa' && !old?.trip && action?.kind !== 'depart';
-        const position: [number, number, number] = seated ? [-14.5, 0.8, 12.1] : [point[0], anchor === desk.id ? 0.57 : 0.04, point[1]];
+        const position: [number, number, number] = anchor === home ? roomDestination(agent.room, agent, station)
+          : seated ? [-14.5, 0.8, 12.1] : point ? [point[0], .04, point[1]] : roomDestination(agent.room, agent, station);
         let trip = baseline && !still && !hidden ? old?.trip ?? null : null; let started = old?.started ?? now;
         // Real work interrupts leisure immediately, including a trip still on its outbound leg.
         if (agent.status !== 'idle' && couriers.current.has(agent.seatId)) {
@@ -109,13 +113,19 @@ export function Agents({ events, courier, agents, baseline, quality, still, hidd
           couriers.current.delete(agent.seatId);
           trip = baseline && !still && !hidden && actual ? hopAlong([[actual.x, actual.y, actual.z], position], 3.2) : null; started = now;
         }
-        if (action && old) {
+        if ((action || old?.anchor !== anchor) && old) {
           couriers.current.delete(agent.seatId);
-          if (action.kind === 'reset' || !baseline || still || hidden) trip = null;
+          if (!baseline || still || hidden) trip = null;
           else {
             const actual = groups.current.get(agent.seatId)?.position;
             const from: [number, number, number] = actual ? [actual.x, actual.y, actual.z] : old.position;
-            const route = action.urgent ? [] : pathBetween(old.anchor, anchor).map(([x, z]) => [x, 0.04, z] as [number, number, number]);
+            const route = action?.urgent ? [] : pathBetween(old.anchor, anchor).map(([x, z]) => [x, 0.04, z] as [number, number, number]);
+            if (!route.length && (old.anchor === desk.id || anchor === desk.id)) {
+              const lane = Math.min(agent.room.z + 1.75, Math.max(roomNorth(agent.room) + 1, desk.position[1] - 1.25));
+              const aisle = desk.position[0] + (desk.position[0] < agent.room.x ? 1.6 : -1.6);
+              const way: [number, number, number][] = [[desk.position[0], .04, lane], [aisle, .04, lane], [aisle, .04, agent.room.z + 1.75]];
+              route.push(...(old.anchor === desk.id ? way : way.reverse()));
+            }
             trip = hopAlong([from, ...route, position], 3.2); started = now;
           }
         }
@@ -124,7 +134,7 @@ export function Agents({ events, courier, agents, baseline, quality, still, hidd
       });
       const changed = next.size !== current.current.size || [...next].some(([id, value]) => {
         const old = current.current.get(id);
-        return !old || old.pose !== value.pose || old.anchor !== value.anchor || old.trip !== value.trip || old.pending !== value.pending || old.activity !== value.activity || old.position[1] !== value.position[1];
+        return !old || old.pose !== value.pose || old.anchor !== value.anchor || old.trip !== value.trip || old.pending !== value.pending || old.activity !== value.activity || value.position.some((part, index) => part !== old.position[index]);
       });
       current.current = next;
       if (changed) { setPlacements(next); invalidate(); }
@@ -144,11 +154,9 @@ export function Agents({ events, courier, agents, baseline, quality, still, hidd
       const agent = agents.find(a => a.seatId === id);
       const placement = current.current.get(id);
       if (!agent || agent.paused || agent.status !== 'idle' || !placement || placement.trip || wandering.current.wandering(id) || couriers.current.has(id)) return;
-      const route = pathBetween(placement.anchor, 'table-0');
-      if (route.length < 2) return;
       const at = groups.current.get(id)?.position;
-      const ground = route.map(([x, z]) => [x, 0.04, z] as [number, number, number]);
-      const path = [at ? [at.x, at.y, at.z] as [number, number, number] : placement.position, ...ground, ...ground.slice(0, -1).reverse(), placement.position];
+      const meeting = roomDestination(agent.room, agent, 'meeting');
+      const path = [at ? [at.x, at.y, at.z] as [number, number, number] : placement.position, meeting, placement.position];
       couriers.current.set(id, { trip: hopAlong(path, 5), started: performance.now() });
       setCourierCount(couriers.current.size); invalidate();
     };
@@ -237,7 +245,7 @@ export function Agents({ events, courier, agents, baseline, quality, still, hidd
         <group ref={node => { if (node) groups.current.set(agent.seatId, node); else groups.current.delete(agent.seatId); }} position={placement.position}>
           <WorkerAwareness agent={agent} still={still || hidden} toyAnimated={toyMotion}>
           <ToyWorker effect={toy} still={!toyMotion} low={quality === 'low' || effects === 'lite'}>
-          <CharacterRig reaction={toyMotion ? toy : undefined} spec={specForSeat(agent.seatName, agent.isLead)} pose={catAudience.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} speed={toyMotion && toy?.tool === 'megaphone' ? 2 : 1} />
+          <CharacterRig reaction={toyMotion ? toy : undefined} spec={specForRole(agent.role)} pose={catAudience.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} speed={toyMotion && toy?.tool === 'megaphone' ? 2 : 1} />
           </ToyWorker>
           </WorkerAwareness>
           {catAudience.has(agent.seatId) && agent.status === 'idle' && !still && !hidden && effects !== 'off' && <CatClap />}

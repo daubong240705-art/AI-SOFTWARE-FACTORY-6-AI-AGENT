@@ -1,10 +1,16 @@
 import type { ActivitySeat, OrgActivity } from '@/api/activityModels';
 import type { Interaction, Office } from '@/api/officeModels';
-import type { Project, Task } from '@factory/contracts';
-export type PodKey = 'lead' | 'design' | 'rules' | 'art' | 'client' | 'qa' | 'annex';
-/** One character per seat slot. `seatId` is the unique worker key (slot 0 keeps the real seat id, later slots add `#2`, `#3`);
- * `ownerSeatId` is the real seat for panels and API calls, `seatName` its name (characters are chosen by it). */
+import type { FlowRunDetail, FlowRunSummary, GroupsResponse, Project, Task } from '@factory/contracts';
+import type { AgentProjectResponse } from '@/api/agentModels';
+import type { Desk, FlowList, ProjectAttempt, ProjectInbox, nodeProgress } from '../../office/liveModel';
+import type { Room } from '../layout/campus';
+export type PodKey = 'lead' | 'a' | 'b' | 'c' | 'd' | 'east' | 'annex';
 export type WorldAgent = {
+  projectId: string;
+  desk: Desk;
+  room: Room;
+  collaborationAt: string | null;
+  workflowTask: boolean;
   seatId: string;
   ownerSeatId: string;
   seatName: string;
@@ -63,6 +69,11 @@ export type WorldModel = {
   agents: WorldAgent[];
   hotProjects: Project[];
   projects: Project[];
+  buildings: { id: string; name: string | null; rooms: Project[] }[];
+  rooms: Room[];
+  workflows: WorldRun[];
+  workflowLoaded: boolean;
+  stations: Record<string, { workflows?: WorldRun[]; approvalCount?: number }>;
   focusProjectId: string | null;
   tasks: {
     columns: Record<TaskCard['column'], TaskCard[]>;
@@ -70,11 +81,18 @@ export type WorldModel = {
   };
   handoffs: Handoff[];
 };
+export type WorldRun = { run: FlowRunSummary; title: string; progress?: ReturnType<typeof nodeProgress> };
 export type WorldInputs = {
   activity?: OrgActivity;
   projects?: Project[];
   interactions: Record<string, Office | undefined>;
   tasks: Record<string, Task[]>;
+  rosters?: Record<string, AgentProjectResponse>;
+  attempts?: Record<string, ProjectAttempt[]>;
+  inboxes?: Record<string, ProjectInbox>;
+  flows?: Record<string, FlowList>;
+  runDetails?: Record<string, FlowRunDetail>;
+  groups?: GroupsResponse;
   serverNow?: string;
   focusProjectId?: string | null;
 };
@@ -82,6 +100,4 @@ export type Assignments = Record<string, {
   podKey: PodKey;
   slotIndex: number;
   overflow: boolean;
-  /** Attempt this worker showed on the last poll, so a run keeps its character when another run ends. */
-  run?: string;
 }>;

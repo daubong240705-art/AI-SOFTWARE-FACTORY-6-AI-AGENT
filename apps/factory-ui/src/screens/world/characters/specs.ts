@@ -21,6 +21,9 @@ export function specForSeat(name: string, isLead = false): CharacterSpec {
   const code = mascotCodeForSeat(name, seatHash(name), isLead);
   return characterSpecs[code];
 }
+export function specForRole(role: string): CharacterSpec {
+  return characterSpecs[characterCodes[(seatHash(role.trim().toLowerCase()) >>> 0) % characterCodes.length]!];
+}
 
 /** The operator has a distinct cache key and never borrows a worker's geometry. */
 export const operatorSpec: CharacterSpec = { code: 'OPERATOR', colors: { body: '#FFF0CD', belly: '#FFF0CD', accent: '#527C86', inner: '#FFE0B0', dark: '#393F57', cheek: '#F2B8A9', outline }, ears: 'none', face: { eyes: 'oval', cheeks: true }, accessories: ['boss-cap'] };

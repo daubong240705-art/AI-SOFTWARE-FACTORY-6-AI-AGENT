@@ -10,9 +10,9 @@ export const progressFillOffset = 0.03;
 const desk = (id: string, x: number, z: number): DeskAnchor => ({ id, position: [x, z], yaw: 0, stand: [x, z - 1.9], seat: [x, z - 0.94], monitor: [x - 0.16, z + 0.24], sideMonitor: [x - 0.62, z + 0.02] });
 export const zones = [
   { id: 'A', name: 'Chairman’s Office', rect: [-18, -9, -14, -3], anchor: [-13.5, -3.2], color: '#E0A458' },
-  { id: 'B', name: 'Production Studio', rect: [-7, 7, -14, -3], anchor: [0, -3.2], color: '#B5D3A7' },
-  { id: 'C', name: 'Collaboration Zone', rect: [-7, 7, 1, 13], anchor: [0, 1.6], color: '#AFCFE6' },
-  { id: 'D', name: 'Quiet Room', rect: [9, 18, -14, -3], anchor: [13.5, -2.6], color: '#CDBFE6' },
+  { id: 'B', name: 'Project office', rect: [-7, 7, -14, -3], anchor: [0, -3.2], color: '#B5D3A7' },
+  { id: 'C', name: 'Meeting room', rect: [-7, 7, 1, 13], anchor: [0, 1.6], color: '#AFCFE6' },
+  { id: 'D', name: 'Approval desk', rect: [9, 18, -14, -3], anchor: [13.5, -2.6], color: '#CDBFE6' },
   { id: 'E', name: 'Lounge', rect: [9, 18, 1, 14], anchor: [13.5, 3.2], color: '#F7DC8A' },
   { id: 'F', name: 'Courtyard', rect: [24, 44, -26, -6], anchor: [34, -12], color: '#B5D3A7' },
 ] as const satisfies readonly Zone[];
@@ -37,13 +37,12 @@ export const studio = { size: [36, 0.4, 28], center: [0, -0.2, 0], wallHeight: 3
 export const courtyardPath: readonly Point[] = [[18, -1], [23, -1], [27, -6], [30, -11], [34, -16]];
 export const anchors = {
   bookshelf: [-10.5, -13.6], taskBoard: [0, -13.8], whiteboard: [-4.8, 8.8],
-  labBench: [15, -7.5], scanner: [11.3, -7.5], counter: [16.5, 12.5],
-  sofa: [-14.5, 12.4], coffee: [-17, 9], gate: [25, -3],
+  approvalDesk: [15, -7.5], flowBoard: [7, -13.45], counter: [16.5, 12.5],
+  sofa: [-14.5, 12.4], coffee: [-17, 9],
 } as const satisfies Record<string, Point>;
 export const funProps = { server: [-6.3, 3.6], aquarium: [1.6, 12], pingPong: [-3.2, 2.2], fan: [0, 0], board: [16, -13.65] } as const satisfies Record<string, Point>;
 export const activitySpots = { 'ping-left': [-5.4, 2.2], 'ping-right': [-1, 2.2], cat: [-12.8, 10.1], 'plant-water': [5.5, 10.95] } as const satisfies Record<string, Point>;
 export const catAnchors = { 'cat-perch': [-12.8, 10.95] } as const satisfies Record<string, Point>;
-export const pen = { rect: [10, 17.5, -6, -3.5] as const };
 export const plants: readonly Point[] = [[-5.5, 12], [5.5, 12], [-17, -13.1], [6.3, -12], [17, 6], [-9.5, 13.2]];
 export const rugs = [
   { position: [-13.4, -8] as Point, size: [8.4, 10] as Point, color: '#E0A458' },
@@ -78,22 +77,17 @@ export const furnitureFootprints: Footprint[] = [
   { id: 'meeting-table', position: meetingTable.position, half: [1.8, 1.8], yaw: 0, radius: 1.8 },
   { id: 'sofa', position: anchors.sofa, half: [2.5, 0.65], yaw: 0 },
   { id: 'coffee', position: anchors.coffee, half: [0.5, 0.5], yaw: 0 },
-  { id: 'bench', position: anchors.labBench, half: [1.4, 0.55], yaw: 0 },
-  { id: 'gallery-north', position: [13.5, 1.6], half: [4, 0.12], yaw: 0 },
-  { id: 'gallery-west', position: [9.6, 6.5], half: [0.12, 5], yaw: 0 },
+  { id: 'approval-desk', position: anchors.approvalDesk, half: [1.4, 0.55], yaw: 0 },
   { id: 'qa-partition', position: [9.2, -9], half: [0.1, 4.5], yaw: 0 },
-  { id: 'pen', position: [13.75, -4.75], half: [3.75, 1.25], yaw: 0 },
   { id: 'bookshelf', position: anchors.bookshelf, half: [1.2, 0.25], yaw: 0 },
   { id: 'whiteboard', position: anchors.whiteboard, half: [1.2, 0.18], yaw: Math.PI / 2 },
   { id: 'snack-shelf', position: loungeProps.snack, half: [0.5, 0.3], yaw: 0 },
   { id: 'console-tv', position: loungeProps.tv, half: [0.9, 0.27], yaw: 0 },
   ...loungeProps.beanbags.map((p, i) => ({ id: `beanbag-${i}`, position: p, half: [0.65, 0.65] as Point, yaw: 0 })),
-  { id: 'ribbon-rope', position: [14, 9.6], half: [1.2, 0.12], yaw: 0 },
-  ...[-0.85, 0.85].map(dx => ({ id: `scanner-${dx}`, position: [anchors.scanner[0] + dx, anchors.scanner[1]] as Point, half: [0.125, 0.175] as Point, yaw: 0 })),
   ...plants.map((p, i) => ({ id: `plant-${i}`, position: p, half: [0.35, 0.35] as Point, yaw: 0 })),
 ];
 
-export const palette = { cream: '#FFF8E7', rug: '#F6EBD3', wall: '#F1DFBC', trim: '#E9D4AE', wood: '#C99A6B', darkWood: '#A87A50', apricot: '#E0A458', butter: '#F7DC8A', sage: '#B5D3A7', sky: '#AFCFE6', rose: '#F2B8A9', lavender: '#CDBFE6', mint: '#BDE3D2', ink: '#4A3B2F' };
+export const palette = { milk: '#FFFBEA', cream: '#FFFDD0', rug: '#F3E8D2', wall: '#F1DFBC', trim: '#E9D4AE', wood: '#C99A6B', darkWood: '#A87A50', apricot: '#F6D9A8', butter: '#F7DC8A', sage: '#B5D3A7', sky: '#AFCFE6', rose: '#F2B8A9', lavender: '#CDBFE6', mint: '#BDE3D2', ink: '#4A3B2F' };
 export const desktopHeight = 0.89;
 export type Shape = 'box' | 'detail' | 'cylinder' | 'sphere' | 'screen' | 'glass' | 'rug';
 export type Part = { shape: Shape; position: [number, number, number]; scale: [number, number, number]; yaw: number; color: string; zone?: string; mount?: string };
@@ -239,11 +233,8 @@ export function environmentModel() {
     const x = -4.3 + i * 2.15;
     box(palette.cream, [x, 1.53, -13.62], [2.02, 1.16, 0.04]);
     label(['To do', 'In progress', 'In review', 'Failed', 'Done'][i]!, ['backlog', 'working', 'review', 'error', 'done'][i]!, [x, 1.96, -13.585], 1.85, 0.22);
-    // Neutral blank sticky notes are decoration, not invented task status.
-    for (let j = 0; j < 3; j++) box(colors[(i + j) % colors.length]!, [x - 0.58 + j * 0.58, 1.48 - (j % 2) * 0.25, -13.58], [0.37, 0.28, 0.015]);
   }
   mount = undefined;
-  sign('FACTORY', 0, 2.93, -13.7, 5.2, palette.mint);
   // Soft string lights follow the north wall, below its crown trim.
   box(palette.ink, [0, 3.31, -13.64], [35, 0.025, 0.025]);
   for (let i = 0; i < 31; i++) {
@@ -266,24 +257,10 @@ export function environmentModel() {
   mount = undefined;
   add('glass', palette.sky, [9.2, 0.65, -9], [0.14, 1.3, 9]);
   for (const z of [-13.4, -9, -4.6]) box(palette.cream, [9.2, 0.7, z], [0.23, 1.4, 0.23]);
-  const [lx, lz] = anchors.labBench;
+  const [lx, lz] = anchors.approvalDesk;
   box(palette.cream, [lx, 0.45, lz], [2.8, 0.9, 1.1]); box(palette.lavender, [lx, 0.95, lz], [3, 0.12, 1.2]);
-  box(palette.ink, [lx - 0.3, 1.3, lz], [1.4, 0.6, 0.1]);
-  box(palette.ink, [lx - 0.3, 1.08, lz], [0.1, 0.18, 0.1]);
-  box(palette.ink, [lx + 0.95, 1.25, lz + 0.1], [0.28, 0.52, 0.07]);
-  add('sphere', palette.cream, [lx + 0.95, 1.02, lz + 0.15], [0.035, 0.035, 0.02]); blob(anchors.labBench, 3.6, 2);
-  const [ax, az] = anchors.scanner;
-  for (const dx of [-0.85, 0.85]) {
-    box(palette.lavender, [ax + dx, 0.9, az], [0.25, 1.8, 0.35]);
-    add('screen', palette.mint, [ax + dx, 0.95, az + 0.19], [0.07, 1.5, 0.025]);
-  }
-  box(palette.lavender, [ax, 1.85, az], [1.95, 0.25, 0.35]);
-  add('screen', palette.mint, [ax, 1.85, az + 0.19], [1.65, 0.06, 0.025]);
-  const [px0, px1, pz0, pz1] = pen.rect;
-  for (const z of [pz0, pz1]) box(palette.wood, [(px0 + px1) / 2, 0.43, z], [px1 - px0, 0.09, 0.12]);
-  for (const x of [px0, px1]) box(palette.wood, [x, 0.43, (pz0 + pz1) / 2], [0.12, 0.09, pz1 - pz0]);
-  for (let x = px0; x <= px1; x += 0.75) for (const z of [pz0, pz1]) box(palette.darkWood, [x, 0.27, z], [0.12, 0.54, 0.12]);
-  sign('Bug pen', 13.7, 0.76, -3.47, 1.8, palette.lavender);
+  for (const offset of [-1, 0, 1]) box(palette.milk, [lx + offset, 1.04, lz], [0.45, 0.045, 0.37]);
+  blob(anchors.approvalDesk, 3.6, 2);
   const [cx, cz] = anchors.sofa;
   box(palette.rose, [cx, 0.46, cz], [5, 0.62, 1.3]); box(palette.rose, [cx, 0.95, cz + 0.5], [5, 0.65, 0.3]);
   for (const dx of [-2.3, 2.3]) box(palette.rose, [cx + dx, 0.8, cz], [0.35, 0.6, 1.4]);
@@ -308,16 +285,10 @@ export function environmentModel() {
   // Mounted signs have no posts in the walking lanes.
   // The office door plate replaces the former wall-wide owner sign.
   sign(zones[1].name, 7, 2.93, -13.71, 4.4, palette.sage);
-  sign(zones[2].name, wx, 2.2, wz, 3, palette.sky, Math.PI / 2);
-  for (const dz of [-1, 1]) box(palette.darkWood, [wx, 1.95, wz + dz], [0.06, 0.5, 0.06]);
-  sign(zones[3].name, 13.7, 2.93, -13.71, 4.5, palette.lavender);
   sign(zones[4].name, 13.5, 3.05, 1.75, 4.5, palette.butter);
   sign('Annex', -17.68, 2.85, 2.8, 3, palette.sage, Math.PI / 2);
   sign('Lounge', -17.68, 2.85, 10.6, 3, palette.rose, Math.PI / 2);
   add('cylinder', palette.sage, [34, -0.25, -16], [20, 0.5, 20]); add('cylinder', palette.rug, [34, 0.015, -16], [12, 0.035, 12]);
   for (let i = 1; i < courtyardPath.length; i++) { const a = courtyardPath[i - 1]!, b = courtyardPath[i]!; box(palette.rug, [(a[0] + b[0]) / 2, -0.03, (a[1] + b[1]) / 2], [2, 0.12, Math.hypot(b[0] - a[0], b[1] - a[1]) + 0.5], Math.atan2(b[0] - a[0], b[1] - a[1])); }
-  for (const dx of [-1.3, 1.3]) box(palette.wood, [anchors.gate[0] + dx, 1.3, anchors.gate[1]], [0.35, 2.6, 0.4]);
-  sign(zones[5].name, 25, 2.65, -3, 4.4, palette.mint);
-  label('Coming soon', 'comingSoon', [25, 2.13, -2.74], 2.4, 0.26);
   return { parts: [...parts, ...chairmanParts()], labels, shadows, artwork };
 }

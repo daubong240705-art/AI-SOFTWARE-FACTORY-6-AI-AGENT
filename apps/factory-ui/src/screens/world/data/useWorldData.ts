@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createApiClient } from '@/api/client';
 import { createWorldDataController, emptyWorldSnapshot, type WorldDataApi, type WorldSnapshot } from './controller';
+import { listGroups } from './groups';
 export type { WorldDataApi, WorldSource } from './controller';
 
 export type WorldData = WorldSnapshot & {
   focusProjectId: string | null;
   setFocusProjectId: (id: string | null) => void;
   consumeEvents: (ids?: readonly string[]) => void;
+  refresh: (keys: readonly string[]) => void;
 };
 
 /** Accepts either a validated API client or the store's stateless read passthroughs. */
 export function useWorldData(apiArg?: WorldDataApi): WorldData {
-  const api = useMemo(() => apiArg ?? createApiClient({baseUrl: import.meta.env.DEV ? '/api' : ''}), [apiArg]);
+  const api = useMemo(() => apiArg ?? { ...createApiClient({baseUrl: import.meta.env.DEV ? '/api' : ''}), listGroups }, [apiArg]);
   const [snapshot, setSnapshot] = useState(emptyWorldSnapshot);
   const choice = useRef<string | null>(null);
   const controller = useRef<ReturnType<typeof createWorldDataController> | null>(null);
@@ -20,6 +22,7 @@ export function useWorldData(apiArg?: WorldDataApi): WorldData {
     controller.current?.setFocusProjectId(id);
   }, []);
   const consumeEvents = useCallback((ids?: readonly string[]) => controller.current?.consumeEvents(ids), []);
+  const refresh = useCallback((keys: readonly string[]) => controller.current?.refresh(keys), []);
   useEffect(() => {
     const engine = createWorldDataController(api, {hidden: () => document.hidden, onSnapshot: setSnapshot, focusProjectId: choice.current});
     controller.current = engine;
@@ -32,5 +35,5 @@ export function useWorldData(apiArg?: WorldDataApi): WorldData {
       if (controller.current === engine) controller.current = null;
     };
   }, [api]);
-  return {...snapshot, focusProjectId: snapshot.model.focusProjectId, setFocusProjectId, consumeEvents};
+  return {...snapshot, focusProjectId: snapshot.model.focusProjectId, setFocusProjectId, consumeEvents, refresh};
 }

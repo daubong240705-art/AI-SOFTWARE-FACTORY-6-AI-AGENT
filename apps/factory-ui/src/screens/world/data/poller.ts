@@ -4,9 +4,11 @@ const clock: PollClock = {set: (fn, ms) => setTimeout(fn, ms), clear: id => clea
 type JobState = {job: PollJob; timer?: unknown; controller: AbortController | null; failures: number; again: boolean; done: boolean; enabled: boolean};
 
 /** One in-flight request per key, including invalidations and scope changes. */
-export function createWorldPoller(options: {hidden: () => boolean; onError: (key: string) => void; clock?: PollClock}) {
+export function createWorldPoller(options: {hidden: () => boolean; onError: (key: string) => void; clock?: PollClock; maxConcurrent?: number}) {
   const timer = options.clock ?? clock;
   const jobs = new Map<string, JobState>();
+  const waiting = new Set<JobState>();
+  let active = 0;
   let stopped = false;
   function clear(state: JobState) {
     if (state.timer !== undefined) timer.clear(state.timer);
@@ -21,6 +23,8 @@ export function createWorldPoller(options: {hidden: () => boolean; onError: (key
   async function run(state: JobState) {
     if (stopped || !state.enabled || options.hidden()) return;
     if (state.controller) {state.again = true; return;}
+    if (active >= (options.maxConcurrent ?? Infinity)) {waiting.add(state); return;}
+    waiting.delete(state); active++;
     const controller = new AbortController();
     state.controller = controller;
     try {
@@ -29,6 +33,7 @@ export function createWorldPoller(options: {hidden: () => boolean; onError: (key
     } catch {
       if (!controller.signal.aborted) {state.failures++; options.onError(state.job.key);}
     } finally {
+      active--;
       state.controller = null;
       if (!state.enabled) jobs.delete(state.job.key);
       else if (!stopped) {
@@ -39,13 +44,17 @@ export function createWorldPoller(options: {hidden: () => boolean; onError: (key
         state.again = false;
         schedule(state, delay);
       }
+      for (const next of waiting) {
+        if (active >= (options.maxConcurrent ?? Infinity)) break;
+        waiting.delete(next); void run(next);
+      }
     }
   }
   return {
     sync(wanted: PollJob[]) {
       const keys = new Set(wanted.map(job => job.key));
       for (const [key, state] of jobs) if (!keys.has(key)) {
-        clear(state); state.enabled = false; state.again = false; state.controller?.abort();
+        clear(state); waiting.delete(state); state.enabled = false; state.again = false; state.controller?.abort();
         // Retain an aborted request until its promise settles. Re-adding the
         // same key must not start another request alongside it.
         if (!state.controller) jobs.delete(key);
@@ -77,6 +86,7 @@ export function createWorldPoller(options: {hidden: () => boolean; onError: (key
       stopped = true;
       for (const state of jobs.values()) {clear(state); state.controller?.abort();}
       jobs.clear();
+      waiting.clear();
     },
   };
 }

@@ -7,10 +7,12 @@ import { ownerDesk, zones, type Point } from '../layout/zones';
 import { useCameraBridge, type CameraApi, type CameraState } from '../cameraContext';
 import { toys } from './toys/store';
 import { useWorldMotion } from './Ticker';
+import { roomDepth, roomWidth, type Room } from '../layout/campus';
 export type WorldLocations = RefObject<Map<string, readonly [number, number, number]>>;
 export type Locate = (kind: 'agent' | 'owner' | 'zone' | 'card', id?: string) => { x: number; y: number } | null;
-export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, locations, enabled = true, returnPoint }: {
+export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, locations, enabled = true, returnPoint, rooms }: {
   enabled?: boolean; returnPoint?: RefObject<import('./walk/state').WalkState>;
+  rooms: readonly Room[];
   agentPositions: RefObject<Map<string, Point>>; locations: WorldLocations;
   mapRef: RefObject<HTMLDivElement | null>; still: boolean;
   onState: (state: CameraState) => void; onLocate: (locate: Locate | null) => void;
@@ -23,6 +25,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
   const motion = useWorldMotion();
   const viewport = useRef(size); viewport.current = size;
   const stillRef = useRef(still); stillRef.current = still;
+  const campus = useRef(rooms); campus.current = rooms;
   const engine = useRef<{ controls: MapControls; api: CameraApi } | null>(null);
   const animate = useRef<(now: number, delta: number) => void>(() => {});
   useEffect(() => {
@@ -36,7 +39,9 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
     const offset = new Vector3().setScalar(isoDistance / Math.sqrt(3));
     const cancel = () => { tween = null; getter = null; release?.(); release = null; };
     const clamp = () => {
-      controls.target.set(MathUtils.clamp(controls.target.x, cameraBounds.x[0], cameraBounds.x[1]), 0, MathUtils.clamp(controls.target.z, cameraBounds.z[0], cameraBounds.z[1]));
+      const maxX = Math.max(cameraBounds.x[1], ...campus.current.map(room => room.x + roomWidth / 2));
+      const maxZ = Math.max(cameraBounds.z[1], ...campus.current.map(room => room.z + roomDepth / 2));
+      controls.target.set(MathUtils.clamp(controls.target.x, cameraBounds.x[0], maxX), 0, MathUtils.clamp(controls.target.z, cameraBounds.z[0], maxZ));
       camera.position.copy(controls.target).add(offset); camera.lookAt(controls.target);
       camera.zoom = MathUtils.clamp(camera.zoom, controls.minZoom, controls.maxZoom);
       camera.updateProjectionMatrix();

@@ -84,8 +84,8 @@ export const extra = {
     errors: { live: 'Stop the running attempt and reconcile any uncertain outcome before deleting this project.', name: 'The confirmation must match the project name exactly.', revision: 'The project changed. Review the latest data and try again.', archived: 'This project has already been archived.' },
   },
   worldUi: {
+    campus: { shared: 'Shared campus', meeting: 'Meeting table', approval: 'Approval desk', board: 'Workflow board', library: 'Library shelf', rest: 'Rest area', nodeCount: '{done}/{total} nodes complete', more: '+{count} more', projects: 'Project rooms', enter: 'Go to room', loading: 'Loading station…' },
     neon: 'Factory',
-    redesign: 'Some World panels are being redesigned.',
     chairman: { fullPage: 'Open full page', seated: 'Seated · Click objects · Esc to stand', tabs: { assign: 'Assign / Ask Lead', attention: 'Needs attention', create: 'Create project or task', projects: 'Projects', agents: 'Agents', knowledge: 'Documents', flows: 'Workflows', chat: 'Chat with Lead', activity: 'Recent activity' } },
     walk: { bump: 'Oops!', boss: 'Boss is here!', spin: 'E — Spin OIIA', title: 'Walk', owner: 'Sit at the executive desk', open: 'E — Open {name}', click: 'Click to look · Drag if pointer lock is unavailable', minimap: 'Studio mini-map', activity: 'Activity column', paused: 'Movement paused · Close the panel to resume', controls: 'WASD / arrows · Shift run · Space hop · C first/third person · Wheel zoom · E interact · 1–7 tools · V / Esc iso' },
     toys: { title: 'Toys', note: 'Just for fun', whip: 'Whip', taser: 'Taser', coffee: 'Coffee', hammer: 'Squeaky hammer', feather: 'Feather tickle', megaphone: 'Megaphone', cookie: 'Cookie', soundOn: 'Sound on', soundOff: 'Sound off', pointer: 'Normal pointer', keyboard: 'Select a worker; keys 1–7 use toys. Escape closes.', count: 'Today: {tool} used {count} times', whipCount: 'Today you have whipped {count} times', oiia: 'OIIA!', combo: 'COMBO x{count}', sulking: 'Sulking', megaSpin: 'MEGA SPIN', needsYou: 'Needs you!', bubbles: { whip: 'Ouch!', taser: 'Bzzzt!', coffee: 'Coffee time! ✦', hammer: 'Squeak!', feather: 'Hahaha!', megaphone: 'Hurry up!', cookie: 'Yum! ♥' } },
@@ -291,6 +291,7 @@ export const extra = {
     engagements: 'Project engagements', running: 'Running', teamActions: 'Team actions',
   },
   officeUi: {
+    floorLive: { title: 'Project office', subtitle: 'See who’s working, how work is moving, and what needs your decision.', head: 'Lead desk', common: 'Common area', empty: 'No agents at their desks yet', emptyHelp: 'Open Agents & Teams to create an agent or create one from a template.', noTask: 'No current task', noProgress: 'No progress report yet', today: 'Today’s attempts', relations: 'Agent relations', flows: 'Active workflows', approvals: 'Waiting for you', noFlows: 'No active workflow runs.', noApprovals: 'No decisions waiting for you.', unavailable: 'Some live data is unavailable. Showing the last available data.', status: { working: 'Working', waiting: 'Needs approval', idle: 'Idle', paused: 'Paused', problem: 'Error' }, relation: { manages: 'Manages', reviews: 'Reviews', collaborates: 'Collaborates', approves: 'Approves' } },
     unreported: 'Not reported',
     running: 'Running', runningJustStarted: 'Running just now', runningMinute: 'Running {count} minute', runningMinutes: 'Running {count} minutes',
     taskProgress: 'Task progress',

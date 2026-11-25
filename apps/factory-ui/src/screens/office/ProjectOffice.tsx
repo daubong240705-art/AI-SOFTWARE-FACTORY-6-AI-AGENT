@@ -1,227 +1,133 @@
-import { LoadingState } from '@/components/LoadingState';
-import { PageHeader } from '@/components/app';
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
-import { ArrowRight, BookOpen, FileText, HelpCircle, Mail, UserRound } from 'lucide-react';
-import { meaningfulOfficeItems, type Interaction, type InteractionKind, type OfficeSeat, type Party } from '@/api/officeModels';
-import { AgentCard, AgentOverview, mascotFor, type OfficeNeed, type OpenOfficeTask } from './AgentCard';
-import { OfficePulse, OfficeRoomTrim, CoffeeCorner } from './OfficePulse';
-import { FeedMessage } from './FeedMessage';
-import { TaskDetail } from '../TaskDetail';
-import { DecisionDialog } from '../DecisionDialog';
-import { ErrorNotice } from '@/components/ErrorNotice';
-import { Page } from '@/components/Page';
+import { useEffect, useState } from 'react';
+import { ArrowUpRight, Coffee, GitBranch, Inbox, Users } from 'lucide-react';
+import { createApiClient } from '@/api/client';
+import type { OrgActivity } from '@/api/activityModels';
+import type { ActivityRun } from '@/api/activityModels';
+import type { AgentProjectResponse } from '@/api/agentModels';
 import { Mascot } from '@/components/mascot';
-import { Badge } from '@/components/ui/badge';
+import { Page } from '@/components/Page';
+import { LoadingState } from '@/components/LoadingState';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { useT } from '@/i18n';
-import { cn } from '@/lib/utils';
+import { i18n, useT } from '@/i18n';
 import type { Store } from '@/state/store';
-import { activityTime } from './presentation';
-import { StatusPill } from './StatusPill';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { attentionHash } from '../Attention';
+import { TaskDetail } from '../TaskDetail';
+import { openFlowRoute } from '../shell/navigation';
+import { createWorldPoller } from '../world/data/poller';
+import { desksFor, isActiveRun, runTitle, type Desk, type FlowList, type ProjectAttempt, type ProjectInbox } from './liveModel';
+import './office.css';
 
-type NodeKey = string;
-type Flight = { id: string; kind: InteractionKind; x0: number; y0: number; x1: number; y1: number; delay: number };
+type Snapshot = { roster?: AgentProjectResponse; attempts?: ProjectAttempt[]; inbox?: ProjectInbox; flows?: FlowList; activity?: OrgActivity };
+const api = createApiClient({ baseUrl: import.meta.env.DEV ? '/api' : '' });
+const mascot = { working: 'working', waiting: 'attention', idle: 'idle', paused: 'offline', problem: 'error' } as const;
 
-const RECENT_MS = 20_000;
-const BUBBLE_MS = 120_000;
-const nodeKey = (party: Party): NodeKey => party.kind === 'seat' ? `seat:${party.seatId}` : party.kind;
-const kindTone: Record<InteractionKind, string> = {
-  assign: 'bg-run/10 text-run', request: 'bg-run/10 text-run', handoff: 'bg-run/10 text-run',
-  question: 'bg-need/10 text-need', review: 'bg-need/10 text-need', 'start-gate': 'bg-need/10 text-need', rework: 'bg-need/10 text-need',
-  answer: 'bg-ok/10 text-ok', finished: 'bg-ok/10 text-ok', failed: 'bg-info/10 text-info',
-  output: 'bg-secondary text-foreground', progress: 'bg-secondary text-muted-foreground', message: 'bg-secondary text-muted-foreground',
-  unknown: 'bg-secondary text-muted-foreground',
-};
-function FlightIcon({ kind }: { kind: InteractionKind }) {
-  if (kind === 'output') return <FileText className="size-4" />;
-  if (kind === 'question' || kind === 'review' || kind === 'start-gate') return <HelpCircle className="size-4" />;
-  return <Mail className="size-4" />;
-}
-
-/** Event-driven refresh while the tab is open, plus a short poll for progress lines, paused while the page is hidden. */
-function useOffice(store: Store, projectId: string) {
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    let poll: ReturnType<typeof setInterval> | undefined;
-    let unwatch: (() => void) | undefined;
-    const stop = () => { clearInterval(poll); unwatch?.(); unwatch = undefined; };
-    const sync = () => {
-      stop();
-      if (document.hidden) return;
-      unwatch = store.watchM3('office', store.loadOffice);
-      poll = setInterval(() => { void store.loadOffice(); setNow(Date.now()); }, 5000);
-    };
-    sync(); document.addEventListener('visibilitychange', sync);
-    return () => { stop(); document.removeEventListener('visibilitychange', sync); };
-  }, [store, projectId]);
-  return now;
-}
-
-export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; projectId: string; onOpenTab: (tab: 'knowledge') => void }) {
-  const t = useT(); const id = useId();
-  const now = useOffice(store, projectId);
-  const { office, error } = store.useStoreSelector(state => ({ office: state.office, error: state.errors.office }));
-  const seats = useMemo(() => [...(office?.seats ?? [])].sort((left, right) => Number(right.isLead) - Number(left.isLead) || left.name.localeCompare(right.name)), [office?.seats]);
-  const [hideProgress, setHideProgress] = useState(false);
-  const [lively, setLively] = useState(true);
-  const [selectedSeatId, setSelectedSeatId] = useState<string | null>(null);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [selectedTaskTab, setSelectedTaskTab] = useState<'overview' | 'process' | 'results'>('overview');
-  const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
-  const selectedSeat = office?.seats.find(seat => seat.id === selectedSeatId) ?? null;
-  const party = (value: Party) => value.kind === 'seat' ? value.name : t(value.kind === 'operator' ? 'officeUi.you' : 'officeUi.knowledge');
-  const items = useMemo(() => meaningfulOfficeItems(office?.items ?? []), [office?.items]);
-  const openTask: OpenOfficeTask = (taskId, tab = 'overview') => {
-    setSelectedTaskId(taskId); setSelectedTaskTab(tab); setSelectedSeatId(null);
-  };
-  const review = (need: OfficeNeed) => {
-    setSelectedSeatId(null);
-    if (need.kind === 'start-gate') openTask(need.taskId, 'overview');
-    else setSelectedApprovalId(need.approvalId);
-  };
-  const closeDecision = () => { setSelectedApprovalId(null); void store.loadOffice(); };
-
-  return <Page className={cn("flex min-h-full min-w-0 flex-col gap-5", !lively && "office-quiet")}>
-    <PageHeader title={t('officeUi.title')} />
-    {error && <div className="space-y-3"><ErrorNotice error={error} /><Button variant="outline" size="sm" onClick={() => { void store.loadOffice(); }}>{t('errors.retry')}</Button></div>}
-    {!office && !error && <LoadingState />}
-    {office && <OfficePulse store={store} office={office} now={now} lively={lively} onLivelyChange={setLively} />}
-    {office && <div className="grid min-w-0 items-stretch gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,380px)]">
-      <OfficeFloor store={store} lively={lively} seats={seats} items={items} now={now} party={party} onSelectSeat={seat => setSelectedSeatId(seat.id)} onOpenTask={openTask} onReview={review} onOpenKnowledge={() => onOpenTab('knowledge')} />
-      <div className="min-h-0 min-w-0 lg:[contain:size]"><section aria-labelledby={`${id}-feed`} className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-card max-lg:h-[min(32rem,65dvh)] lg:sticky lg:top-4 lg:h-[calc(100dvh-12rem)] lg:max-h-full lg:self-start">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-          <h3 id={`${id}-feed`} className="font-display text-base font-semibold">{t('officeUi.feed')}</h3>
-          <div className="flex items-center gap-2"><Checkbox id={`${id}-progress`} checked={hideProgress} onCheckedChange={value => setHideProgress(value === true)} />
-            <Label htmlFor={`${id}-progress`} className="text-xs text-muted-foreground">{t('officeUi.hideProgress')}</Label></div>
-        </div>
-        <Feed items={items.filter(item => !hideProgress || item.kind !== 'progress')} now={now} party={party} onOpenTask={taskId => { setSelectedTaskId(taskId); setSelectedTaskTab('overview'); }} />
-      </section></div>
-    </div>}
-    <Sheet open={!!selectedSeat} onOpenChange={open => { if (!open) setSelectedSeatId(null); }}>
-      <SheetContent side="right" className="w-full min-w-0 overflow-y-auto sm:max-w-lg">
-        {selectedSeat && <>
-          <SheetHeader className="border-b border-border px-5 py-5 pr-12 text-left">
-            <div className="flex flex-wrap items-center gap-3"><Mascot seat={selectedSeat.isLead ? 'Lead' : selectedSeat.name} state={mascotFor[selectedSeat.status]} size={48} /><div className="min-w-0"><SheetTitle className="truncate">{selectedSeat.name}</SheetTitle><SheetDescription className="truncate">{selectedSeat.role}</SheetDescription></div><StatusPill status={selectedSeat.status} /></div>
-          </SheetHeader>
-          <div className="space-y-5 p-5">
-            <AgentOverview store={store} seat={selectedSeat} now={now} onOpenTask={openTask} onReview={review} />
-            <section className="flex max-h-[65dvh] min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-border"><h3 className="border-b border-border p-4 text-sm font-semibold">{t('officeUi.feed')}</h3>
-              <Feed items={items.filter(item => (item.from.kind === 'seat' && item.from.seatId === selectedSeat.id) || (item.to?.kind === 'seat' && item.to.seatId === selectedSeat.id))} now={now} party={party} onOpenTask={taskId => { setSelectedSeatId(null); setSelectedTaskId(taskId); setSelectedTaskTab('overview'); }} />
-            </section>
-          </div>
-        </>}
-      </SheetContent>
-    </Sheet>
-    {selectedApprovalId && <DecisionDialog store={store} approvalId={selectedApprovalId} onClose={closeDecision} />}
-    {selectedTaskId && <TaskDetail key={selectedTaskId} store={store} taskId={selectedTaskId} initialTab={selectedTaskTab} onClose={() => setSelectedTaskId(null)} />}
-    </Page>;
-}
-
-function OfficeFloor({ store, lively, seats, items, now, party, onSelectSeat, onOpenTask, onReview, onOpenKnowledge }: {
-  store: Store; lively: boolean; seats: OfficeSeat[]; items: Interaction[]; now: number; party: (value: Party) => string;
-  onSelectSeat: (seat: OfficeSeat) => void; onOpenTask: OpenOfficeTask; onReview: (need: OfficeNeed) => void;
-  onOpenKnowledge: () => void;
-}) {
-  const t = useT(); const reduced = useReducedMotion();
-  const floor = useRef<HTMLDivElement>(null);
-  const nodes = useRef(new Map<NodeKey, HTMLElement>());
-  const seen = useRef<Set<string> | null>(null);
-  const [flights, setFlights] = useState<Flight[]>([]);
-  const register = (key: NodeKey) => (element: HTMLElement | null) => { if (element) nodes.current.set(key, element); else nodes.current.delete(key); };
-  const lead = seats.find(seat => seat.isLead) ?? null;
-  const others = seats.filter(seat => seat !== lead);
-  // The newest item a node sent recently becomes its speech bubble; nodes that just sent or received glow.
-  const { bubbles, active } = useMemo(() => {
-    const bubbles = new Map<NodeKey, Interaction>(); const active = new Set<NodeKey>();
-    for (const item of items) {
-      const age = now - Date.parse(item.at);
-      const from = nodeKey(item.from);
-      if (age <= BUBBLE_MS && !bubbles.has(from) && item.text) bubbles.set(from, item);
-      if (age <= RECENT_MS) { active.add(from); if (item.to) active.add(nodeKey(item.to)); }
-    }
-    return { bubbles, active };
-  }, [items, now]);
-
-  // Exchanges that arrive while the tab is open fly from sender to receiver. The first load only sets the baseline.
-  useLayoutEffect(() => {
-    if (seen.current === null) { seen.current = new Set(items.map(item => item.id)); return; }
-    const fresh = items.filter(item => !seen.current!.has(item.id));
-    for (const item of fresh) seen.current.add(item.id);
-    const box = floor.current?.getBoundingClientRect();
-    if (reduced || !lively || !box) return;
-    const center = (key: NodeKey) => {
-      const rect = nodes.current.get(key)?.getBoundingClientRect();
-      return rect ? { x: rect.left - box.left + rect.width / 2 - 14, y: rect.top - box.top + rect.height / 2 - 14 } : null;
-    };
-    const next = fresh.filter(item => item.to).slice(0, 6).reverse().flatMap((item, index): Flight[] => {
-      const a = center(nodeKey(item.from)); const b = center(nodeKey(item.to!));
-      return a && b ? [{ id: item.id, kind: item.kind, x0: a.x, y0: a.y, x1: b.x, y1: b.y, delay: index * 0.4 }] : [];
-    });
-    if (next.length) setFlights(previous => [...previous, ...next].slice(-12));
-  }, [items, reduced, lively]);
-
-  const bubble = (key: NodeKey) => {
-    const item = bubbles.get(key);
-    return item ? <div className="pointer-events-none mt-2 max-w-full rounded-xl rounded-tl-sm border border-border bg-background px-2.5 py-1.5 text-xs text-foreground shadow-xs">
-      <p className="line-clamp-2 [overflow-wrap:anywhere]"><span className="font-medium">{t(`officeUi.kinds.${item.kind}`)}</span>{item.code && <span className="font-mono text-muted-foreground"> {item.code}</span>}: {item.text}</p>
-    </div> : null;
-  };
-  const glow = (key: NodeKey) => active.has(key) && 'ring-2 ring-run/40 motion-safe:transition-shadow';
-
-  return <section aria-label={t('officeUi.floor')} className="flex min-w-0 flex-col">
-    <div ref={floor} className="office-floor relative flex min-h-[max(32rem,calc(100dvh-26rem))] flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-muted/30 p-4 sm:p-6">
-      <OfficeRoomTrim now={now} />
-      {!seats.length ? <p className="py-16 text-center text-sm text-muted-foreground">{t('officeUi.noSeats')}</p> : <>
-        <div className="office-lead-row grid items-start gap-3">
-          <div ref={register('operator')} className={cn('justify-self-start rounded-2xl border border-border bg-card p-3 text-sm text-center', glow('operator'))}>
-            <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-secondary"><UserRound className="size-6" aria-hidden="true" /></span>
-            <p className="mt-2 text-sm font-semibold">{t('officeUi.you')}</p>
-          </div>
-          {lead ? <AgentCard store={store} seat={lead} featured innerRef={register(`seat:${lead.id}`)} className={cn('office-lead-card w-full max-w-80', glow(`seat:${lead.id}`))} bubble={bubble(`seat:${lead.id}`)} now={now} onSelectSeat={onSelectSeat} onOpenTask={onOpenTask} onReview={onReview} /> : <span />}
-          <button type="button" ref={register('knowledge')} onClick={onOpenKnowledge} aria-label={t('officeUi.openKnowledge')} className={cn('justify-self-end rounded-2xl border border-border bg-card p-3 text-sm text-center hover:border-info/50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring', glow('knowledge'))}>
-            <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-secondary"><BookOpen className="size-6" aria-hidden="true" /></span>
-            <span className="mt-2 block text-sm font-semibold">{t('officeUi.knowledge')}</span>
-          </button>
-        </div>
-        <ul className="office-seat-grid m-0 mt-6 grid list-none items-stretch gap-4 p-0">
-          {others.map(seat => <li key={seat.id} className="min-w-0"><AgentCard store={store} seat={seat} innerRef={register(`seat:${seat.id}`)} className={cn(glow(`seat:${seat.id}`))} bubble={bubble(`seat:${seat.id}`)} now={now} onSelectSeat={onSelectSeat} onOpenTask={onOpenTask} onReview={onReview} /></li>)}
-        </ul>
-      </>}
-      <div className="mt-auto pt-5"><CoffeeCorner /></div>
-      {lively && flights.map(flight => <motion.span key={flight.id} aria-hidden="true"
-        className={cn('pointer-events-none absolute top-0 left-0 z-10 flex size-7 items-center justify-center rounded-full border border-border shadow-md', kindTone[flight.kind], 'bg-card')}
-        initial={{ x: flight.x0, y: flight.y0, scale: 0.6, opacity: 0 }}
-        animate={{ x: [flight.x0, (flight.x0 + flight.x1) / 2, flight.x1], y: [flight.y0, Math.min(flight.y0, flight.y1) - 40, flight.y1], scale: [0.6, 1.15, 0.8], opacity: [0, 1, 0] }}
-        transition={{ duration: 1.6, delay: flight.delay, ease: 'easeInOut' }}
-        onAnimationComplete={() => setFlights(previous => previous.filter(item => item.id !== flight.id))}>
-        <FlightIcon kind={flight.kind} />
-      </motion.span>)}
+function AgentDesk({ desk, roster, onTask }: { desk: Desk; roster: AgentProjectResponse; onTask: (id: string) => void }) {
+  const t = useT(); const { agent, status, task, progress, today } = desk;
+  const relations = roster.relations.filter(edge => edge.from === agent.id || edge.to === agent.id).flatMap(edge => {
+    const other = roster.agents.find(item => item.id === (edge.from === agent.id ? edge.to : edge.from));
+    return other ? [{ edge, other }] : [];
+  });
+  return <article className="universal-desk" data-status={status} data-lead={agent.isLead} tabIndex={0} aria-label={agent.name}>
+    <div className="flex min-w-0 items-start gap-3"><Mascot seat={agent.name} isLead={agent.isLead} state={mascot[status]} size={48} />
+      <div className="min-w-0 flex-1"><h3 className="break-words font-semibold">{agent.name}</h3><p className="break-words text-xs">{agent.role}</p></div>
+      <span className="desk-status">{t(`officeUi.floorLive.status.${status}`)}</span>
     </div>
-    <p className="sr-only" aria-live="polite">{items[0] ? `${party(items[0].from)} ${t(`officeUi.kinds.${items[0].kind}`)} ${items[0].code ?? ''}` : ''}</p>
-  </section>;
+    <p className="desk-chip" title={[agent.adapter, agent.model].filter(Boolean).join(' / ')}>{[agent.adapter, agent.model].filter(Boolean).join(' / ')}</p>
+    {task ? <button className="desk-task" type="button" onClick={() => onTask(task.id)}><span className="line-clamp-2 text-left">{task.title}</span><ArrowUpRight className="size-4 shrink-0" /></button>
+      : <p className="text-sm opacity-75">{t('officeUi.floorLive.noTask')}</p>}
+    <p className="line-clamp-2 break-words text-xs opacity-80">{progress?.message || t('officeUi.floorLive.noProgress')}</p>
+    <div className="desk-history"><span>{t('officeUi.floorLive.today')} · {today.length}</span><ol className="flex flex-wrap gap-1" aria-label={t('officeUi.floorLive.today')}>
+      {[...today].reverse().map(attempt => {
+        const label = `${attempt.startedAt ? new Intl.DateTimeFormat(i18n.locale, { hour: '2-digit', minute: '2-digit' }).format(new Date(attempt.startedAt)) + ' · ' : ''}${attempt.taskTitle} · ${t(`workUi.states.${attempt.state}`)}`;
+        return <li key={attempt.id}><button type="button" className="desk-tick" data-state={attempt.state} title={label} aria-label={label} onClick={() => onTask(attempt.taskId)} /></li>;
+      })}
+    </ol></div>
+    {relations.length > 0 && <div className="desk-relations" aria-label={t('officeUi.floorLive.relations')}>{relations.map(({ edge, other }) => <span key={`${edge.from}:${edge.to}:${edge.kind}`}>{edge.from === agent.id ? '→' : '←'} {t(`officeUi.floorLive.relation.${edge.kind}`)} · {other.name}</span>)}</div>}
+  </article>;
 }
 
-export function Feed({ items, now, party, onOpenTask }: { items: Interaction[]; now: number; party: (value: Party) => string; onOpenTask: (taskId: string) => void }) {
+export function ProjectOffice({ store, projectId, onOpenTab }: { store: Store; projectId: string; onOpenTab: (tab: 'agents') => void }) {
   const t = useT();
-  if (!items.length) return <p className="flex min-h-0 flex-1 items-center justify-center px-4 py-10 text-center text-sm text-muted-foreground">{t('officeUi.empty')}</p>;
-  const avatar = (value: Party) => value.kind === 'seat' ? <Mascot seat={value.name} size={22} animated={false} />
-    : <span className="flex size-[22px] items-center justify-center rounded-full bg-secondary">{value.kind === 'operator' ? <UserRound className="size-3.5" aria-hidden="true" /> : <BookOpen className="size-3.5" aria-hidden="true" />}</span>;
-  return <ol aria-label={t('officeUi.feed')} className="m-0 min-h-0 flex-1 list-none divide-y divide-border overflow-auto overscroll-contain p-0 [scrollbar-gutter:stable]">
-    {items.map(item => <li key={item.id} className="min-w-0 space-y-2 px-4 py-4 [overflow-wrap:anywhere]">
-      <div className="flex flex-wrap items-center gap-1.5 text-xs">
-        {avatar(item.from)}<span className="font-medium">{party(item.from)}</span>
-        {item.to && <><ArrowRight className="size-3 text-muted-foreground" aria-label={t('officeUi.to')} />{avatar(item.to)}<span className="font-medium">{party(item.to)}</span></>}
-        <Badge variant="secondary" className={cn('ml-auto border-0 font-normal', kindTone[item.kind])}>{t(`officeUi.kinds.${item.kind}`)}</Badge>
-      </div>
-      {item.code && (item.taskId
-        ? <Button type="button" variant="outline" size="sm" className="h-auto max-w-full px-2 py-1 font-mono text-xs text-info" onClick={() => onOpenTask(item.taskId!)}>{item.code}</Button>
-        : <span className="font-mono text-xs text-muted-foreground">{item.code}</span>)}
-      <FeedMessage text={item.text} />
-      <p className="text-xs text-muted-foreground"><time dateTime={item.at}>{activityTime(item.at, now)}</time></p>
-    </li>)}
-  </ol>;
+  const [snapshot, setSnapshot] = useState<Snapshot>({});
+  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
+  const [retry, setRetry] = useState(0);
+  const [selectedTask, setSelectedTask] = useState<string | null>(null);
+  const [reported, setReported] = useState<Record<string, NonNullable<ActivityRun['progress']>>>({});
+  const tasks = store.useStoreSelector(state => state.tasks);
+  const taskError = store.useStoreSelector(state => state.errors.tasks);
+  useEffect(() => {
+    const poller = createWorldPoller({ hidden: () => document.hidden, onError: key => setFailed(old => new Set(old).add(key)) });
+    function read<Key extends keyof Snapshot>(key: Key, interval: number, load: (signal: AbortSignal) => Promise<NonNullable<Snapshot[Key]>>) {
+      return { key, interval, async run(signal: AbortSignal) {
+        const result = await load(signal);
+        if (signal.aborted) return;
+        setSnapshot(old => ({ ...old, [key]: result }));
+        setFailed(old => { if (!old.has(key)) return old; const next = new Set(old); next.delete(key); return next; });
+      } };
+    }
+    poller.sync([
+      read('roster', 10000, signal => api.listProjectAgents(projectId, signal)),
+      read('attempts', 6000, () => api.listProjectAttempts(projectId, { limit: 500 }).then(result => result.attempts)),
+      read('inbox', 6000, () => api.getInbox(projectId)),
+      read('flows', 6000, signal => api.listProjectFlows(projectId, signal)),
+      read('activity', 6000, api.getOrgActivity),
+      { key: 'tasks', interval: 8000, run: async () => { await store.loadTasks(); } },
+    ]);
+    const visibility = () => poller.visibility();
+    document.addEventListener('visibilitychange', visibility);
+    return () => { poller.stop(); document.removeEventListener('visibilitychange', visibility); };
+  }, [projectId, retry, store]);
+  const { roster, attempts, inbox, flows, activity } = snapshot;
+  const desks = roster ? desksFor(roster, tasks, attempts ?? [], inbox, activity, Date.now(), reported) : [];
+  const watchAttempts = desks.flatMap(desk => {
+    const attempt = desk.live[0] ?? desk.today[0];
+    return attempt ? [attempt.id] : [];
+  }).sort().join(' ');
+  useEffect(() => {
+    if (!watchAttempts) return;
+    const ids = watchAttempts.split(' ');
+    const poller = createWorldPoller({ hidden: () => document.hidden, maxConcurrent: 6, onError: () => {} });
+    poller.sync(ids.map(id => {
+      let cursor = 0;
+      return { key: id, interval: 6000, async run(signal: AbortSignal) {
+        const { events } = await api.listAttemptEvents(projectId, id, { afterSeq: cursor, limit: 500 }, signal);
+        if (signal.aborted) return;
+        for (const event of events) cursor = Math.max(cursor, event.seq);
+        const last = events.findLast(event => {
+          if (event.kind !== 'progress' || !event.body || typeof event.body !== 'object' || !('message' in event.body) || typeof event.body.message !== 'string') return false;
+          const message = event.body.message.trim();
+          return message && !/^(working$|starting$|tool:|tool failed:)/i.test(message);
+        });
+        if (last) setReported(old => ({ ...old, [id]: { message: (last.body as { message: string }).message, at: last.at, percent: null } }));
+      } };
+    }));
+    const visibility = () => poller.visibility();
+    document.addEventListener('visibilitychange', visibility);
+    return () => { poller.stop(); document.removeEventListener('visibilitychange', visibility); };
+  }, [projectId, watchAttempts]);
+  const head = desks.filter(desk => desk.agent.isLead);
+  const areas = new Map<string, { title: string; desks: Desk[] }>();
+  for (const desk of desks.filter(item => !item.agent.isLead)) {
+    const key = desk.team?.id ?? '';
+    const area = areas.get(key) ?? { title: desk.team?.name ?? t('officeUi.floorLive.common'), desks: [] };
+    area.desks.push(desk); areas.set(key, area);
+  }
+  const runs = flows?.runs.filter(isActiveRun) ?? [];
+  const approvals = [...(inbox?.approvals ?? []).filter(item => item.state === 'requested' || item.state === 'pending').map(item => ({ key: `approval:${item.id}`, title: item.subject })),
+    ...(inbox?.startGates ?? []).map(item => ({ key: `gate:${item.taskId}`, title: item.title }))];
+  const renderDesk = (desk: Desk) => <AgentDesk key={desk.agent.id} desk={desk} roster={roster!} onTask={setSelectedTask} />;
+  return <Page><section className="universal-office">
+    <header className="office-mast"><div><p className="text-xs font-semibold uppercase tracking-widest">{t('projectUi.office')}</p><h2 className="font-display text-3xl font-semibold">{t('officeUi.floorLive.title')}</h2><p className="mt-1 text-sm">{t('officeUi.floorLive.subtitle')}</p></div><Coffee aria-hidden="true" className="size-10 shrink-0" /></header>
+    {(failed.size > 0 || taskError) && <div role="status" className="office-refresh">{t('officeUi.floorLive.unavailable')}<Button type="button" size="sm" variant="outline" onClick={() => setRetry(value => value + 1)}>{t('worldUi.retry')}</Button></div>}
+    <div className="office-plan"><div className="office-floor-live">
+      {!roster ? failed.has('roster') ? null : <LoadingState inline /> : !desks.length ? <div className="office-vacant"><Users className="mb-3 size-7" /><h3 className="font-semibold">{t('officeUi.floorLive.empty')}</h3><p className="my-2 text-sm">{t('officeUi.floorLive.emptyHelp')}</p><Button onClick={() => onOpenTab('agents')}>{t('projectUi.agents')} <ArrowUpRight className="size-4" /></Button></div> : <>
+        {head.length > 0 && <section className="office-area"><h3>{t('officeUi.floorLive.head')}{head[0]?.team ? ` · ${head[0].team.name}` : ''}</h3><div className="office-desks">{head.map(renderDesk)}</div></section>}
+        {[...areas].map(([key, area]) => <section key={key} className="office-area"><h3>{area.title}</h3><div className="office-desks">{area.desks.map(renderDesk)}</div></section>)}
+      </>}
+    </div><aside className="office-strip">
+      <section><h3><GitBranch className="size-4" />{t('officeUi.floorLive.flows')}</h3>{!flows ? failed.has('flows') ? <p>{t('officeUi.floorLive.unavailable')}</p> : <LoadingState inline /> : runs.length ? <ul>{runs.map(run => <li key={run.id}><button type="button" onClick={() => openFlowRoute(projectId, { kind: 'runs', id: run.id })}><span>{runTitle(run)}</span><small>{t(`flowsUi.state.${run.state}`)}</small></button></li>)}</ul> : <p>{t('officeUi.floorLive.noFlows')}</p>}</section>
+      <section><h3><Inbox className="size-4" />{t('officeUi.floorLive.approvals')}</h3>{!inbox ? failed.has('inbox') ? <p>{t('officeUi.floorLive.unavailable')}</p> : <LoadingState inline /> : approvals.length ? <ul>{approvals.map(item => <li key={item.key}><a href={attentionHash(item.key)}>{item.title} <ArrowUpRight className="size-4 shrink-0" /></a></li>)}</ul> : <p>{t('officeUi.floorLive.noApprovals')}</p>}</section>
+    </aside></div>
+    {selectedTask && <TaskDetail key={selectedTask} store={store} taskId={selectedTask} onClose={() => setSelectedTask(null)} />}
+  </section></Page>;
 }
