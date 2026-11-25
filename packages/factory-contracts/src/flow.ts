@@ -93,7 +93,7 @@ const nodes = z.discriminatedUnion("type", [
       acceptance: z.array(z.string().min(1).max(500)).min(1).max(8), inputs: z.array(flowPathSchema).max(8) }),
     review: z.union([z.enum(["none", "human"]), agent]).default("none"), outputSchema: jsonSubsetSchema.optional() }),
   z.strictObject({ ...common, type: z.literal("action"),
-    action: z.enum(["http.request", "git.push-branch", "notify.send", "artifact.save", "knowledge.publish", "portal.publish"]),
+    action: z.enum(["http.request", "git.push-branch", "notify.send", "artifact.save", "knowledge.publish"]),
     params: z.record(z.string(), z.union([flowTemplateSchema, z.number().finite(), z.boolean()]))
       .refine((params) => Object.keys(params).length <= 20, "At most 20 action parameters are allowed") }),
   z.strictObject({ ...common, type: z.literal("condition"), rules }),

@@ -2,7 +2,7 @@ import { readFileSync, realpathSync, statSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { loadPack, packManifestSchema } from "./pack.js";
 import { loadMcpServers } from "../mcp-external/config.js";
-import { validateWorkflowDefinition } from "../workflow/validate.js";
+import { validateWorkflowDefinition } from "./validate-workflow.js";
 
 export interface PackCheckResult {
   ok: boolean; errors: string[]; warnings: string[];

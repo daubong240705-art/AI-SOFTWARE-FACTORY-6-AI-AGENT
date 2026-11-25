@@ -1,4 +1,3 @@
-import { PortalCard } from './PortalCard';
 import { PageHeader, Panel, Section } from '@/components/app';
 import { LoadingState } from '@/components/LoadingState';
 import { MascotEmpty } from '@/components/mascot';
@@ -26,8 +25,8 @@ import { Page } from '../components/Page';
 type Intent = 'discuss' | 'delegate';
 // Keep command identities across retries, including unknown transport outcomes.
  type Attempt = { projectId: string; text: string; intent: Intent; create?: Command; send?: Command };
-export function Overview({ store, onProject, onOpenProject, onAttention, onCreate, onPortal, operatorName, focusComposer, onTask, composerOnly }: {
-  onPortal: () => void; store: Store; onProject: (id: string) => void; onOpenProject: (id: string) => void; onAttention: (item?: AttentionItem) => void; onCreate: (kind: 'task' | 'game' | 'project') => void; operatorName?: string; focusComposer?: number; composerOnly?: { id: string; onChange: (id: string) => void }; onTask?: (projectId: string, taskId: string) => void;
+export function Overview({ store, onProject, onOpenProject, onAttention, onCreate, operatorName, focusComposer, onTask, composerOnly }: {
+  store: Store; onProject: (id: string) => void; onOpenProject: (id: string) => void; onAttention: (item?: AttentionItem) => void; onCreate: (kind: 'task' | 'project') => void; operatorName?: string; focusComposer?: number; composerOnly?: { id: string; onChange: (id: string) => void }; onTask?: (projectId: string, taskId: string) => void;
 }) {
   const t = useT(); const id = useId(); const state = store.useStoreSelector(value => value);
   const [text, setText] = useState(''); const [chosen, setChosen] = useState(''); const [intent, setIntent] = useState<Intent>('delegate');
@@ -105,7 +104,7 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
         </div>
         {error && <ErrorNotice error={error} />}{problem && <p role="alert">{t(problem)}</p>}
         {(error || problem) && <Button type="button" variant="outline" disabled={busy} onClick={() => { void submit(true); }}>{t('errors.retry')}</Button>}
-      </form></Panel> : <Panel aria-label={t('overview.composer')}><MascotEmpty seat="Lead"><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button onClick={() => onCreate('game')}>{t('shellUi.newGame')}</Button><Button variant="outline" onClick={() => onCreate('project')}>{t('shellUi.newProject')}</Button></div></MascotEmpty></Panel>;
+      </form></Panel> : <Panel aria-label={t('overview.composer')}><MascotEmpty seat="Lead"><p className="m-0 text-sm text-muted-foreground">{t('projects.empty')}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button variant="outline" onClick={() => onCreate('project')}>{t('shellUi.newProject')}</Button></div></MascotEmpty></Panel>;
   if (composerOnly) return composerPanel;
   return <Page className="overview min-w-0"><div className="mx-auto max-w-5xl space-y-6">
     <PageHeader title={<>{t('overview.greetingStart')} <span className="text-project-1">{t(`overview.${dayPart}`)}</span>{operatorName && <>, {operatorName}</>}</>} />
@@ -115,12 +114,12 @@ export function Overview({ store, onProject, onOpenProject, onAttention, onCreat
           const name = item.projectName ?? state.projects.find(project => project.id === item.projectId)?.name ?? t('overview.project');
           return <StaggerItem key={item.key} index={index}><div className="flex items-center gap-3 py-3">
             <div className="min-w-0 flex-1"><p className="text-sm font-medium [overflow-wrap:anywhere]">{item.title}</p><span className="flex items-center gap-2 text-xs text-muted-foreground"><ProjectTile id={item.projectId} name={name} className="size-5 rounded-md" />{name}</span></div>
-            <Button type="button" variant="outline" size="sm" onClick={() => onAttention(item)}>{t('gameSummary.action')}</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => onAttention(item)}>{t('attention.open')}</Button>
           </div></StaggerItem>;
         })}</Stagger>
         <Button type="button" variant="link" className="h-auto px-0" onClick={() => onAttention()}>{t('overview.viewAll')}<ChevronRight className="size-4" /></Button>
       </Section> : <p className="text-sm text-muted-foreground">{t('overview.caughtUp')}</p>}
-      <ProjectGrid store={store} onProject={onOpenProject}><PortalCard store={store} onChat={onOpenProject} onGames={onPortal} /></ProjectGrid>
+      <ProjectGrid store={store} onProject={onOpenProject} />
       <ActivityFeed store={store} onTask={(projectId, taskId) => { if (onTask) onTask(projectId, taskId); else onProject(projectId); }} />
     </div>
   </Page>;

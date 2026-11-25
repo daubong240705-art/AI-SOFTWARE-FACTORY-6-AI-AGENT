@@ -1,4 +1,4 @@
-import { catAnchors, activitySpots, anchors, desks, displayFrames, furnitureFootprints, loungeSpots, meetingSpots, portalPath, walkwayLanes, laneJunctions, navigationBounds, type Footprint, type Point } from './zones';
+import { catAnchors, activitySpots, anchors, desks, furnitureFootprints, loungeSpots, meetingSpots, courtyardPath, walkwayLanes, laneJunctions, navigationBounds, type Footprint, type Point } from './zones';
 export type Waypoint = { readonly id: string; readonly position: Point };
 export type Edge = readonly [string, string];
 const clearance = 0.3;
@@ -25,7 +25,6 @@ export const navigationAnchors: Record<string, Point> = Object.fromEntries(Objec
   ...Object.fromEntries(desks.map(d => [d.id, d.stand])),
   ...Object.fromEntries(loungeSpots.map((p, i) => [`rest-${i}`, p])),
   ...Object.fromEntries(meetingSpots.map((p, i) => [`table-${i}`, p])),
-  ...Object.fromEntries(displayFrames.map(f => [f.id, [f.position[0] + Math.sin(f.yaw) * 1, f.position[1] + Math.cos(f.yaw) * 1] as Point])),
   ...activitySpots, ...catAnchors,
   counter: [16.5, 10.6],
   coffee: [-15.95, 9],
@@ -95,8 +94,8 @@ for (const [a, b] of walkwayLanes) {
   const line = [a, ...crossings.map(n => n.position), b].sort((p, q) => a[0] === b[0] ? p[1] - q[1] : p[0] - q[0]);
   for (let i = 1; i < line.length; i++) if (clear(line[i - 1]!, line[i]!)) join(add(line[i - 1]!), add(line[i]!));
 }
-const portalEntry = add(walkwayLanes[0]![1]); let tail = portalEntry;
-for (let i = 0; i < portalPath.length; i++) { const next = add(portalPath[i]!, i === portalPath.length - 1 ? 'portal' : undefined); join(tail, next); tail = next; }
+const courtyardEntry = add(walkwayLanes[0]![1]); let tail = courtyardEntry;
+for (let i = 0; i < courtyardPath.length; i++) { const next = add(courtyardPath[i]!, i === courtyardPath.length - 1 ? 'courtyard' : undefined); join(tail, next); tail = next; }
 // Bound the first perpendicular step at every destination even when the next
 // retained lane intersection is farther away.
 for (let i = edges.length - 1; i >= 0; i--) {

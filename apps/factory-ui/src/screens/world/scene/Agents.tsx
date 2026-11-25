@@ -60,9 +60,9 @@ function HitTarget({ position, owner = false, onSelect, onHover, walkId }: { pos
     <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
   </mesh>;
 }
-export function Agents({ events, courier, celebration, agents, baseline, quality, still, hidden, selected, positions, debug, onSelect, onHover, attention, effects = 'full' }: {
+export function Agents({ events, courier, agents, baseline, quality, still, hidden, selected, positions, debug, onSelect, onHover, attention, effects = 'full' }: {
   effects?: EffectsLevel;
-  events: readonly WorldEvent[]; courier: Courier; celebration: number; agents: readonly WorldAgent[]; baseline: boolean; quality: WorldQuality; still: boolean; hidden: boolean; selected: string | null;
+  events: readonly WorldEvent[]; courier: Courier; agents: readonly WorldAgent[]; baseline: boolean; quality: WorldQuality; still: boolean; hidden: boolean; selected: string | null;
   positions: AgentPositions; debug: MutableRefObject<SceneDebug>; onSelect: (id: string) => void; onOwner: () => void; onHover: (hover: AgentHover) => void; attention: number;
 }) {
   const toyState = useToys();
@@ -75,7 +75,6 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
   const groups = useRef(new Map<string, THREE.Group>()); const transitions = useRef(debug.current.director.transitions);
   const couriers = useRef(new Map<string, { trip: HopMotion; started: number }>());
   const [courierCount, setCourierCount] = useState(0);
-  const [celebrants, setCelebrants] = useState(new Set<string>());
   const [catAudience, setCatAudience] = useState(new Set<string>());
   const wandering = useRef(new WanderingDirector());
   const poseEvents = useRef(new Set(events.map(event => event.id)));
@@ -167,13 +166,6 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
     }
   }, [events]);
   useEffect(() => {
-    if (!celebration || still || hidden || effects === 'off' || performance.now() - celebration >= 2500) { setCelebrants(new Set()); return; }
-    setCelebrants(new Set(agents.filter(a => a.status === 'idle' && !a.paused && !a.overflow && !couriers.current.has(a.seatId) && !wandering.current.wandering(a.seatId)).map(a => a.seatId)));
-    const release = motion.request('live');
-    const timer = setTimeout(() => { setCelebrants(new Set()); release(); }, Math.max(0, celebration + 2500 - performance.now()));
-    return () => { clearTimeout(timer); release(); };
-  }, [celebration, still, hidden, effects, motion]);
-  useEffect(() => {
     const spin = toyState.catSpin;
     if (still || hidden || effects === 'off' || !spin.audience || Date.now() - spin.started > 3000) { setCatAudience(new Set()); return; }
     const audience = new Set(agents.filter(a => {
@@ -213,10 +205,6 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
           group.scale.x = 1 + Math.abs(Math.sin(Date.now() / 100)) * 0.06;
           group.scale.y = 1 - Math.abs(Math.sin(Date.now() / 100)) * 0.05;
         } else group.scale.x = 1;
-        const elapsed = (performance.now() - celebration) / 1000;
-        if (!still && !hidden && celebrants.has(id) && elapsed >= 0 && elapsed < 2.5 && agents.some(a => a.seatId === id && a.status === 'idle')) {
-          group.position.y += Math.sin(Math.min(1, elapsed / 0.65) * Math.PI) * 0.18;
-        }
       }
     }
     if (finished) { setPlacements(new Map(current.current)); setCourierCount(couriers.current.size); }
@@ -249,7 +237,7 @@ export function Agents({ events, courier, celebration, agents, baseline, quality
         <group ref={node => { if (node) groups.current.set(agent.seatId, node); else groups.current.delete(agent.seatId); }} position={placement.position}>
           <WorkerAwareness agent={agent} still={still || hidden} toyAnimated={toyMotion}>
           <ToyWorker effect={toy} still={!toyMotion} low={quality === 'low' || effects === 'lite'}>
-          <CharacterRig reaction={toyMotion ? toy : undefined} spec={specForSeat(agent.seatName, agent.isLead)} pose={(celebrants.has(agent.seatId) || catAudience.has(agent.seatId)) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} speed={toyMotion && toy?.tool === 'megaphone' ? 2 : 1} />
+          <CharacterRig reaction={toyMotion ? toy : undefined} spec={specForSeat(agent.seatName, agent.isLead)} pose={catAudience.has(agent.seatId) && agent.status === 'idle' ? 'success' : placement.pose} position={[0, 0, 0]} phase={phaseForSeat(agent.seatId)} quality={quality} visible={!hidden} speed={toyMotion && toy?.tool === 'megaphone' ? 2 : 1} />
           </ToyWorker>
           </WorkerAwareness>
           {catAudience.has(agent.seatId) && agent.status === 'idle' && !still && !hidden && effects !== 'off' && <CatClap />}

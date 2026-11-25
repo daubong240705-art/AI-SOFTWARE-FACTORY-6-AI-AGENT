@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { palette, type ArtKind, type ArtPanel } from '../layout/zones';
 
 const tileWidth = 256, tileHeight = 160, columns = 4;
-const screens = new Set<ArtKind>(['design', 'rules', 'art', 'client', 'qa', 'lead', 'owner', 'game']);
+const screens = new Set<ArtKind>(['design', 'rules', 'art', 'client', 'qa', 'lead', 'owner']);
 const accents = [palette.rose, palette.sky, palette.sage, palette.butter, palette.lavender, palette.mint];
 // All imagery is local canvas drawing: no image requests, logos, blob URLs or external fonts.
 function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string, aspect = tileWidth / tileHeight) {
@@ -24,14 +24,6 @@ function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string, a
     line(palette.ink, [-5, -7, 0, -4, 5, -7], 2);
     rect(palette.sage, -17, 7, 34, 30); line(palette.ink, [-13, 39, -18, 49], 5); line(palette.ink, [13, 39, 18, 49], 5);
     ctx.restore();
-  };
-  const game = (x: number, y: number, w: number, h: number) => {
-    rect(palette.sky, x, y, w, h); circle(palette.butter, x + w * 0.8, y + h * 0.2, h * 0.12);
-    rect(palette.sage, x, y + h * 0.75, w, h * 0.25);
-    rect(palette.wood, x + w * 0.12, y + h * 0.57, w * 0.23, h * 0.08);
-    rect(palette.wood, x + w * 0.58, y + h * 0.4, w * 0.25, h * 0.08);
-    sketch(x + w * 0.45, y + h * 0.43, h / 150);
-    for (let i = 0; i < 3; i++) circle(palette.butter, x + w * (0.6 + i * 0.09), y + h * 0.28, h * 0.035);
   };
   if (kind === 'sign') {
     // Compensate for the wide sign's atlas cell so letters stay proportional.
@@ -56,7 +48,7 @@ function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string, a
       for (let x = 10; x < 247; x += 16) line('#D6C9B1', [x, 26, x, 150], 1);
       for (let y = 26; y < 151; y += 16) line('#D6C9B1', [10, y, 246, y], 1);
       line(palette.ink, [27, 123, 27, 94, 78, 94, 78, 64, 155, 64, 155, 109, 225, 109], 4);
-      sketch(123, 89, 0.5); words('LEVEL 01 · SKETCH', 18, 140, 11); break;
+      sketch(123, 89, 0.5); words('DRAFT · SKETCH', 18, 140, 11); break;
     case 'rules':
     case 'client':
       rect('#354952', 8, 26, 30, 126);
@@ -65,7 +57,7 @@ function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string, a
         rect(accents[i % 6]!, 48 + (i % 3) * 8, 30 + i * 12, 55 + (i * 29 % 104), 4);
         rect('#718C93', 49 + (i % 3) * 8, 36 + i * 12, 24 + (i * 7 % 50), 2);
       }
-      if (kind === 'client') { rect(palette.cream, 140, 71, 109, 82); game(145, 76, 99, 72); } break;
+      break;
     case 'art':
       rect(palette.cream, 36, 25, 164, 126); rect('#5C6A70', 6, 25, 23, 126);
       for (let i = 0; i < 6; i++) { rect(accents[i]!, 11, 31 + i * 18, 12, 12); circle(accents[i]!, 225, 39 + i * 20, 7); }
@@ -75,7 +67,7 @@ function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string, a
       for (let i = 0; i < 5; i++) {
         const y = 48 + i * 20, color = i === 3 ? palette.rose : palette.mint;
         rect('#40545C', 10, y, 235, 16); rect(color, 14, y + 3, 10, 10);
-        words(['input', 'round loop', 'save / load', 'edge case', 'viewport'][i]!, 33, y + 8, 11, palette.cream);
+        words(['input', 'navigation', 'save / load', 'edge case', 'viewport'][i]!, 33, y + 8, 11, palette.cream);
         words(i === 3 ? '×' : '✓', 220, y + 8, 13, color);
       } break;
     case 'lead':
@@ -92,7 +84,6 @@ function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string, a
       for (let i = 0; i < 3; i++) { rect('#40545C', 12 + i * 81, 48, 72, 28); rect(accents[i + 2]!, 19 + i * 81, 55, 40, 5); rect(palette.cream, 19 + i * 81, 65, 25, 4); }
       for (let i = 0; i < 8; i++) rect(accents[i % 6]!, 15 + i * 19, 139 - (i * 11 % 46), 12, 10 + (i * 11 % 46));
       line(palette.mint, [178, 133, 192, 117, 207, 122, 221, 98, 243, 87], 4); break;
-    case 'game': game(8, 25, 240, 127); break;
     case 'sticky':
       words('Ideas together', 14, 18, 17);
       for (let col = 0; col < 3; col++) {
@@ -104,25 +95,6 @@ function drawTile(ctx: CanvasRenderingContext2D, kind: ArtKind, text?: string, a
           line(palette.darkWood, [x + 8, y + 21, x + 31, y + 21], 2);
         }
       } break;
-    case 'caro':
-      rect(palette.sky, 0, 0, 256, 160); words('Cờ caro', 19, 23, 24);
-      for (let i = 0; i < 4; i++) { line(palette.cream, [82 + i * 29, 47, 82 + i * 29, 142], 2); line(palette.cream, [66, 58 + i * 25, 186, 58 + i * 25], 2); }
-      for (let i = 0; i < 3; i++) { line(palette.ink, [90 + i * 29, 67 + i * 25, 102 + i * 29, 79 + i * 25]); line(palette.ink, [102 + i * 29, 67 + i * 25, 90 + i * 29, 79 + i * 25]); }
-      ctx.strokeStyle = palette.rose; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(126, 73, 8, 0, Math.PI * 2); ctx.stroke(); break;
-    case 'uno':
-      rect(palette.rose, 0, 0, 256, 160); words('UNO · Change color!', 17, 24, 22);
-      for (let i = 0; i < 4; i++) { rect(palette.cream, 33 + i * 47, 49 + i % 2 * 10, 43, 86); rect(accents[i + 1]!, 37 + i * 47, 53 + i % 2 * 10, 35, 78); words(String(i + 2), 44 + i * 47, 91 + i % 2 * 10, 27); } break;
-    case 'baucua':
-      rect(palette.mint, 0, 0, 256, 160); words('Bầu Cua', 18, 23, 24);
-      for (let i = 0; i < 6; i++) {
-        const x = 50 + (i % 3) * 78, y = 66 + Math.floor(i / 3) * 57;
-        rect(palette.cream, x - 26, y - 22, 52, 45); circle(accents[i]!, x, y, 14);
-        if (i % 2) { line(palette.ink, [x - 17, y - 13, x + 17, y + 13], 2); line(palette.ink, [x + 17, y - 13, x - 17, y + 13], 2); }
-        circle(palette.ink, x - 5, y - 3, 2); circle(palette.ink, x + 5, y - 3, 2);
-      } break;
-    case 'taixiu':
-      rect(palette.lavender, 0, 0, 256, 160); words('Tài Xỉu · Dice', 15, 24, 22);
-      for (let i = 0; i < 3; i++) { const x = 28 + i * 78; rect(palette.cream, x, 64, 58, 58); for (let dot = 0; dot <= i; dot++) circle(palette.ink, x + 15 + dot * 13, 80 + dot * 13, 4); } break;
   }
 }
 

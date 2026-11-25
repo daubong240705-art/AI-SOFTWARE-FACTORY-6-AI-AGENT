@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { Section } from '@/components/app';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -11,13 +10,9 @@ import { TaskStatus } from './shell/TaskStatus';
 import { taskTime } from './shell/taskTime';
 import { Page } from '../components/Page';
 import { IntegrationCard } from './overview/IntegrationCard';
-import { StudioGameOverview } from './studio/StudioGameOverview';
 
 export function ProjectOverview({ store, onOpenTask, onOpenSettings }: { store: Store; onOpenTask: (id: string) => void; onOpenSettings?: (section: SettingsSection) => void }) {
   const t = useT(); const state = store.useStoreSelector(value => value);
-  useEffect(() => store.watchM5('workflows', store.loadWorkflows), [store, state.selectedProjectId]);
-  const gameWorkflow = state.m5.workflows.filter(workflow => workflow.key === 'game-build').sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
-  const project = state.projects.find(item => item.id === state.selectedProjectId);
   const counts = [
     ['running', state.tasks.filter(task => task.state === 'active').length],
     ['review', state.tasks.filter(task => task.state === 'in-review').length],
@@ -26,7 +21,6 @@ export function ProjectOverview({ store, onOpenTask, onOpenSettings }: { store: 
   ] as const;
   const approvals = new Set(state.inbox.approvals.map(item => item.taskId));
   const tasks = state.tasks.filter(task => ['active', 'awaiting-go', 'in-review'].includes(task.state) || task.holds.some(hold => hold.needsAction) || approvals.has(task.id));
-  if (gameWorkflow && project) return <StudioGameOverview key={project.id} store={store} projectId={project.id} gameName={project.name} workflow={gameWorkflow} />;
   return <Page className="space-y-6">
     <Section title={t('projectUi.summaryTitle')}>
       <p className="text-sm tabular-nums text-muted-foreground">{counts.map(([key, value], index) => <span key={key}>{index > 0 && ' · '}<span className={cn(key === 'waiting' && value > 0 && 'text-need')}>{t(`projectUi.summary.${key}`).replace('{count}', new Intl.NumberFormat(i18n.locale).format(value))}</span></span>)}</p>

@@ -5,11 +5,11 @@ import { createWorldPoller, type PollClock, type PollJob } from './poller';
 import { createWorldSeen, diffWorld, type WorldEvent } from './events';
 import type { Assignments, WorldInputs, WorldModel } from './types';
 
-export type WorldDataApi = Pick<ApiClient, 'getOrgActivity' | 'listTeams' | 'listGames' | 'getProjectInteractions' | 'listTasks' | 'getWorkflow' | 'getGameReport' | 'listReleases' | 'getPortal' | 'portalGames' | 'portalStats'>;
+export type WorldDataApi = Pick<ApiClient, 'getOrgActivity' | 'listProjects' | 'getProjectInteractions' | 'listTasks'>;
 export type WorldSource = {state: 'ok' | 'error' | 'pending'; at: number};
-export type WorldSnapshot = {baseline: boolean; model: WorldModel; events: WorldEvent[]; sources: Record<string, WorldSource>; reports: Record<string, import('@factory/contracts').GameReport | undefined>; interactions: WorldInputs['interactions']};
-const emptyInputs = (): WorldInputs => ({interactions: {}, tasks: {}, workflows: {}, reports: {}, releases: {}});
-export const emptyWorldSnapshot = (): WorldSnapshot => ({baseline: false, model: deriveWorld(emptyInputs()).model, events: [], sources: {}, reports: {}, interactions: {}});
+export type WorldSnapshot = {baseline: boolean; model: WorldModel; events: WorldEvent[]; sources: Record<string, WorldSource>; interactions: WorldInputs['interactions']};
+const emptyInputs = (): WorldInputs => ({interactions: {}, tasks: {}});
+export const emptyWorldSnapshot = (): WorldSnapshot => ({baseline: false, model: deriveWorld(emptyInputs()).model, events: [], sources: {}, interactions: {}});
 
 /** Browser-independent polling coordinator. All time and visibility can be injected. */
 export function createWorldDataController(api: WorldDataApi, options: {
@@ -32,8 +32,6 @@ export function createWorldDataController(api: WorldDataApi, options: {
   const serverNow = () => serverClock ? serverClock.at + localNow() - serverClock.received : localNow();
   let seen = createWorldSeen(serverNow());
   const successful = new Set<string>();
-  const releaseSignatures = new Map<string, string>();
-  let seats: string | null = null;
   let hiddenSince: number | null = options.hidden() ? localNow() : null;
   let baselineTimer: unknown;
   const emit = (patch: Partial<WorldSnapshot>) => {
@@ -55,10 +53,8 @@ export function createWorldDataController(api: WorldDataApi, options: {
     const model = result.model;
     // Keep last good data visible on resume while refreshing animation baselines.
     model.loaded = {
-      activity: successful.has('activity'), teams: successful.has('teams'), games: successful.has('games'),
+      activity: successful.has('activity'), projects: successful.has('projects'),
       interactions: model.loaded.interactions.filter(id => successful.has(`interactions:${id}`)),
-      reports: model.loaded.reports.filter(id => successful.has(`report:${id}`)),
-      releases: model.loaded.releases.filter(id => successful.has(`releases:${id}`)),
     };
     const diff = diffWorld(previous, model, seen, now);
     seen = diff.seen;
@@ -66,7 +62,7 @@ export function createWorldDataController(api: WorldDataApi, options: {
     // generatedAt is transport metadata, not scene content. Preserve the last
     // timestamp when all rendered slices are unchanged.
     const stable = shareEqual(snapshot.model, { ...model, generatedAt: snapshot.model.generatedAt });
-    emit({baseline: seen.baseline, model: stable === snapshot.model ? stable : { ...stable, generatedAt: model.generatedAt }, reports: {...inputs.reports}, interactions: {...inputs.interactions}, events: [...snapshot.events, ...diff.events]});
+    emit({baseline: seen.baseline, model: stable === snapshot.model ? stable : { ...stable, generatedAt: model.generatedAt }, interactions: {...inputs.interactions}, events: [...snapshot.events, ...diff.events]});
     sync(model);
   }
   function read<T>(key: string, interval: number, fetch: (signal: AbortSignal) => Promise<T>, accept: (value: T) => void): PollJob {
@@ -82,56 +78,27 @@ export function createWorldDataController(api: WorldDataApi, options: {
   }
   function sync(model: WorldModel) {
     const jobs: PollJob[] = [
-      read('activity', 5000, s => api.getOrgActivity(s), v => {
-        inputs.activity = v;
-        serverClock = {at: Date.parse(v.generatedAt), received: localNow()};
+      read('activity', 5000, api.getOrgActivity, value => {
+        inputs.activity = value;
+        serverClock = {at: Date.parse(value.generatedAt), received: localNow()};
         if (!successful.has('activity')) seen.startedAt = serverNow() - (localNow() - started);
-        const ids = v.teams.flatMap(t => t.seats.map(s => s.id)).sort().join('|');
-        if (seats !== null && ids !== seats) poller.refresh('teams');
-        seats = ids;
       }),
-      read('games', 10000, s => api.listGames(s), v => {
-        inputs.games = v;
-        const active = new Set(v.games.map(game => game.projectId));
+      read('projects', 10000, api.listProjects, value => {
+        inputs.projects = value.projects.filter(project => project.disposition !== 'archived');
+        const active = new Set(inputs.projects.map(project => project.id));
         if (inputs.focusProjectId && !active.has(inputs.focusProjectId)) inputs.focusProjectId = null;
-        for (const collection of [inputs.interactions, inputs.tasks, inputs.workflows, inputs.reports, inputs.releases]) {
+        for (const collection of [inputs.tasks, inputs.interactions]) {
           for (const id of Object.keys(collection)) if (!active.has(id)) delete collection[id];
         }
-        emit({ events: snapshot.events.filter(event => {
-          const id = event.type === 'handoff' ? event.handoff.projectId : event.type === 'release' ? event.release.projectId
-            : event.type === 'poseChanged' ? null : event.bug.projectId;
-          return id === null || active.has(id);
-        }) });
-        for (const g of v.games) {
-          const sig = g.release ? `${g.release.version}:${g.release.state}` : '';
-          const old = releaseSignatures.get(g.projectId);
-          releaseSignatures.set(g.projectId, sig);
-          if (old !== undefined && old !== sig) poller.refresh(`releases:${g.projectId}`);
-        }
+        emit({events: snapshot.events.filter(event => event.type !== 'handoff' || active.has(event.handoff.projectId))});
       }),
-      read('teams', 60000, s => api.listTeams(s), v => {inputs.teams = v;}),
-      read('portal', Infinity, s => api.getPortal(s), v => {inputs.portal = v;}),
     ];
-    const games = inputs.games?.games ?? [];
-    for (const g of model.hotProjects) {
-      const id = g.projectId;
-      jobs.push(read(`interactions:${id}`, 6000, s => api.getProjectInteractions(id, 60, s), v => {inputs.interactions[id] = v;}));
-      jobs.push(read(`report:${id}`, 15000, s => api.getGameReport(id, s), v => {inputs.reports[id] = v;}));
-    }
     const focus = model.focusProjectId;
-    // The activity column shows the focused game even when it is not running, at a slower pace.
-    if (focus && !model.hotProjects.some(g => g.projectId === focus))
-      jobs.push(read(`interactions:${focus}`, 15000, s => api.getProjectInteractions(focus, 60, s), v => {inputs.interactions[focus] = v;}));
-    if (focus) {
-      jobs.push(read(`tasks:${focus}`, 15000, s => api.listTasks(focus, s), v => {inputs.tasks[focus] = v.items;}));
-      const workflow = games.find(g => g.projectId === focus)?.workflow;
-      if (workflow) jobs.push(read(`workflow:${focus}:${workflow.instanceId}`, 15000, s => api.getWorkflow(focus, workflow.instanceId, s), v => {inputs.workflows[focus] = v.instance;}));
+    const hot = model.hotProjects.map(project => project.id);
+    for (const id of new Set(focus ? [...hot, focus] : hot)) {
+      jobs.push(read(`interactions:${id}`, hot.includes(id) ? 6000 : 15000, signal => api.getProjectInteractions(id, 60, signal), value => { inputs.interactions[id] = value; }));
     }
-    for (const g of games) jobs.push(read(`releases:${g.projectId}`, 60000, s => api.listReleases(g.projectId, s), v => {inputs.releases[g.projectId] = v;}));
-    if (inputs.portal?.configured) {
-      jobs.push(read('portal-games', 60000, s => api.portalGames(s), v => {inputs.portalGames = v;}));
-      jobs.push(read('portal-stats', 15000, s => api.portalStats({}, s), v => {inputs.portalStats = v;}));
-    }
+    if (focus) jobs.push(read(`tasks:${focus}`, 15000, signal => api.listTasks(focus, signal), value => { inputs.tasks[focus] = value.items; }));
     poller.sync(jobs);
   }
   function startBaselineTimer() {

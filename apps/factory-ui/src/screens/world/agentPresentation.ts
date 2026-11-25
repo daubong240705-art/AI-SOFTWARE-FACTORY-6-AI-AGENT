@@ -1,10 +1,10 @@
 import type { WorldAgent } from './data/types';
-import { annexDesks, portalDesk, leadDesks, loungeSpots, productionDesks, qaDesks, type DeskAnchor, type Point } from './layout/zones';
+import { annexDesks, leadDesks, loungeSpots, productionDesks, qaDesks, type DeskAnchor, type Point } from './layout/zones';
 
 export function deskForAgent(agent: WorldAgent): DeskAnchor | null {
   if (agent.overflow) return null;
   const candidates = agent.podKey === 'lead' ? leadDesks : agent.podKey === 'qa' ? qaDesks
-    : agent.podKey === 'annex' ? annexDesks : agent.podKey === 'portal' ? [portalDesk]
+    : agent.podKey === 'annex' ? annexDesks
       : productionDesks.filter(desk => desk.id.startsWith(`${agent.podKey}-`));
   return candidates[agent.slotIndex] ?? null;
 }

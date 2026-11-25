@@ -2,8 +2,7 @@ import type { Database } from "better-sqlite3";
 import { convertWorkflowV1, validateFlow, type ApiError, type FlowCondition, type FlowDefinition, type JsonSubset } from "@factory/contracts";
 import { CommandError } from "../commands/errors.js";
 import type { HandlerContext, HandlerMap } from "../commands/pipeline.js";
-import type { RegistryPack } from "../org/registry.js";
-import { matchWorkflowDefinitions } from "../workflow/definitions.js";
+import { registryPack, type RegistryPack } from "../org/registry.js";
 import { advanceProject, cancelRun, fireFlowTimers, insertRun, retryNode, setRun, stopTasks, type FlowEngineDeps } from "./engine.js";
 import { boundedJson, definitionOf, flowByKey, flowRef, getFlow, getRun, getVersion, hash, runRef } from "./store.js";
 import { activeAgents } from "./work.js";
@@ -130,7 +129,8 @@ export function createFlowHandlers({ engine, packs = [] }: { engine: FlowEngineD
       return { effects: [flowRef(getFlow(ctx.raw, projectId, payload.flowId)!)] };
     },
     "flows.import-v1": (ctx, { projectId, payload }) => {
-      const match = matchWorkflowDefinitions(packs, payload)[0];
+      const pack = packs.find(({ key }) => key === payload.packKey);
+      const match = pack && registryPack(pack).files.workflows.find(({ definition }) => definition.key === payload.definitionKey);
       if (!match) throw missing("workflow pack definition");
       return create(ctx, projectId, payload.flowId, convertWorkflowV1(match.definition).definition, `pack:${payload.packKey}`);
     },

@@ -14,7 +14,7 @@ import { RequestPanel } from './Requests';
 import { attentionItems, type AttentionItem } from './shell/attention';
 import { relativeTime } from '@/lib/inbox';
 import { ProjectTile } from './shell/ProjectTile';
-import { GatePanel, PatchPanel, ReadOnlyPanel, IntegrationConflictPanel } from './attention/Details';
+import { GatePanel, ReadOnlyPanel, IntegrationConflictPanel } from './attention/Details';
 import { attentionTitle } from './attention/presentation';
 
 export function attentionHash(key?: string): string { return key ? `#/attention/${encodeURIComponent(key)}` : '#/attention'; }
@@ -107,7 +107,7 @@ export function Attention({ store, embedded = false }: { store: Store; embedded?
       <Stagger ref={list} aria-label={t('attention.list')} className="m-0 list-none p-0"><AnimatePresence initial={false}>{rows.map((row, index) => {
         const code = row.code ?? state.tasks.find(task => task.projectId === row.projectId && task.id === state.globalInbox.approvals.find(approval => `approval:${approval.id}` === row.key)?.taskId)?.code;
         return <StaggerItem key={row.key} index={index} collapse><Button type="button" variant="ghost" data-row-key={row.key} aria-current={selected?.key === row.key ? 'true' : undefined} aria-selected={selected?.key === row.key} className={cn('h-auto w-full flex-col items-stretch gap-2 rounded-none border-t border-l-2 border-t-border border-l-transparent px-6 py-3 text-left whitespace-normal hover:bg-card', selected?.key === row.key && 'border-l-need bg-secondary hover:bg-secondary')} onClick={() => select(row)}>
-          <span className="flex items-start gap-3"><StatusDot tone={['review', 'question', 'request', 'start-gate', 'plan-patch'].includes(row.kind) ? 'need' : 'error'} label={t(`attention.kinds.${row.kind}`)} labelHidden className="mt-1" /><strong className="line-clamp-2 min-w-0 flex-1 text-sm leading-relaxed font-semibold [overflow-wrap:anywhere]">{attentionTitle(row.title)}</strong></span>
+          <span className="flex items-start gap-3"><StatusDot tone={['review', 'question', 'request', 'start-gate'].includes(row.kind) ? 'need' : 'error'} label={t(`attention.kinds.${row.kind}`)} labelHidden className="mt-1" /><strong className="line-clamp-2 min-w-0 flex-1 text-sm leading-relaxed font-semibold [overflow-wrap:anywhere]">{attentionTitle(row.title)}</strong></span>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal text-muted-foreground"><ProjectTile id={row.projectId} name={name(row)} className="size-5" /><span>{name(row)}</span>{code && <span className="font-mono">{code}</span>}{!row.since.startsWith('9999') && <time dateTime={row.since} className="ml-auto">{relativeTime(row.since)}</time>}</span>
         </Button></StaggerItem>;
       })}</AnimatePresence></Stagger>
@@ -124,6 +124,5 @@ function AttentionDetail({ store, row, onSuccess }: { store: Store; row: Attenti
   if ((row.kind === 'review' || row.kind === 'question') && row.selection) return <DecisionPanel store={store} approvalId={row.selection.id} onClose={() => {}} inline onSuccess={onSuccess} />;
   if (row.kind === 'request' && row.selection) return <RequestPanel store={store} taskId={row.selection.id} onClose={() => {}} inline onSuccess={onSuccess} />;
   if (row.kind === 'start-gate' && row.selection) return <GatePanel store={store} row={row} taskId={row.selection.id} onSuccess={onSuccess} />;
-  if (row.kind === 'plan-patch') return <PatchPanel store={store} row={row} onSuccess={onSuccess} />;
   return <ReadOnlyPanel store={store} row={row} />;
 }

@@ -1,5 +1,5 @@
 import type { PodKey, Assignments } from './types';
-const caps: Record<PodKey, number> = { lead: 3, design: 2, rules: 2, art: 2, client: 2, qa: 3, portal: 1, annex: 8 };
+const caps: Record<PodKey, number> = { lead: 3, design: 2, rules: 2, art: 2, client: 2, qa: 3, annex: 8 };
 export function assignDesks(items: {
   seatId: string;
   podKey: PodKey;

@@ -4,11 +4,10 @@ import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import { ModelError, type ModelGateway, type ModelResult, type ReasoningEffort } from "../models/gateway.js";
 import { findLeadSeat, getPrimaryEngagement, listSeats } from "../org/service.js";
-import { packManifestSchema } from "../org/pack.js";
 import { checkAndReserve, DEFAULT_BUDGET_CONFIG, recordUsage, type BudgetConfig } from "../policy/budget.js";
 import { getProject } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
-import { createProposedTasks, createReadySeatTask, listTasks } from "../work/service.js";
+import { createProposedTasks, listTasks } from "../work/service.js";
 import { buildLeadRequest } from "./prompt.js";
 import type { ContentStore } from "../artifacts/content-store.js";
 import type { DocumentConfig } from "../artifacts/limits.js";
@@ -55,8 +54,7 @@ function namedDocuments(raw: Database, store: ContentStore, projectId: string, u
   }
   return documents;
 }
-import { leadGameStages, normalizeLeadGame, parseLeadOutput, type LeadGameParams } from "./protocol.js";
-import type { PortalOpsService } from "../portalops/service.js";
+import { parseLeadOutput } from "./protocol.js";
 import { prepareLeadView } from "./view.js";
 
 export interface LeadConfig {
@@ -79,11 +77,6 @@ export function createLeadRunner(deps: {
   documents?: { store: ContentStore; config: DocumentConfig; afterRegister: (ref: { projectId: string; artifactId: string; version: number }) => void };
   /** Where read-only project views for the Lead chat live (Claude Code CLI Lead only); absent: the Lead has no tools. */
   viewRoot?: string;
-  /** Synchronous command pipeline call; the Host checks concurrency and creates/starts atomically. */
-  startWorkflow?: (input: { projectId: string; definitionKey: string; packKey: string; params: LeadGameParams; title: string }) => "started" | "already-running";
-  /** Wake dispatch after an accepted quick task has been made ready. */
-  onTaskReady?: () => void;
-  portalOps?: Pick<PortalOpsService, "context" | "blocks">;
 }): LeadRunner {
   const { raw } = deps.storage;
   const { hub, gateway } = deps;
@@ -148,13 +141,6 @@ export function createLeadRunner(deps: {
       // The engaged team's own Lead profile (pinned pack snapshot) wins over the Host default pack's profile.
       let profileText = deps.profileText;
       try { profileText = (lead ? getSeatInstructions(raw, { seatId: lead.id })?.profile : undefined) ?? deps.profileText; } catch { /* default */ }
-      const packRow = lead ? raw.prepare(`SELECT p.manifest_json AS manifest FROM seats s
-        JOIN teams t ON t.id = s.team_id JOIN pack_snapshots p ON p.digest = t.pack_digest WHERE s.id = ?`)
-        .get(lead.id) as { manifest: string } | undefined : undefined;
-      const manifest = packRow ? packManifestSchema.parse(JSON.parse(packRow.manifest) as unknown) : undefined;
-      const leadWorkflow = manifest?.leadWorkflow;
-      const leadPortal = manifest?.leadPortal === true;
-      const portalContext = leadPortal ? await deps.portalOps?.context() ?? "Portal chưa được cấu hình." : "";
       const userText = history.filter((message) => message.speaker === "user").map((message) => message.text).join("\n");
       const documents = deps.documents ? namedDocuments(raw, deps.documents.store, turn.projectId, userText) : [];
       const references = (raw.prepare(`SELECT v.artifact_id AS artifactId, v.title, v.media_type AS mediaType, v.abstract_l1 AS note
@@ -165,8 +151,7 @@ export function createLeadRunner(deps: {
       // The Lead inspects the latest integrated code read-only; without a Git workspace it plans without tools.
       const view = deps.viewRoot && gateway?.providerId === "claude-cli" && project.workspace.kind === "git"
         ? await prepareLeadView(deps.viewRoot, turn.projectId, project.workspace.root) : null;
-      const built = buildLeadRequest({ profileText, leadPortal, portalContext, ...(view ? { view } : {}),
-        ...(leadWorkflow === undefined ? {} : { leadWorkflow }),
+      const built = buildLeadRequest({ profileText, ...(view ? { view } : {}),
         project: { name: project.name, workspaceRoot: project.workspace.root }, seats, tasks: listTasks(raw, turn.projectId),
         history, intent, config, documents, references });
       if (gateway === null) {
@@ -196,7 +181,7 @@ export function createLeadRunner(deps: {
             usage: result.usage, estimatedTokens: built.estimateTokens, recordedAt: clock().toISOString() }));
         return;
       }
-      const parsed = parseLeadOutput(result.text, intent, leadPortal ? "portal" : leadWorkflow === undefined ? "plan" : "game");
+      const parsed = parseLeadOutput(result.text, intent);
       hub.transaction(() => {
         const now = clock().toISOString();
         recordUsage(raw, { id: newId(), projectId: turn.projectId, taskId, attemptId: null,
@@ -211,36 +196,6 @@ export function createLeadRunner(deps: {
         event(turn, { type: "message.appended", message });
         if (parsed.note !== null) systemMessage(turn, parsed.note, now);
         if (duplicateNote !== null) systemMessage(turn, duplicateNote, now);
-        if (parsed.task !== null && intent === "delegate") {
-          try {
-            const outcome = createReadySeatTask({ raw, hub, clock, newId, actorId: "operator" }, {
-              projectId: turn.projectId, turnId: turn.id, ...parsed.task,
-            });
-            if (outcome.status === "created") {
-              tasks.push(outcome.task);
-              systemMessage(turn, `Đã giao việc cho ${outcome.seat}: ${outcome.task.code}`, now);
-              deps.onTaskReady?.();
-            } else systemMessage(turn, outcome.status === "already-running"
-              ? "Chưa giao việc: game-build của dự án đang chạy hoặc đang chờ."
-              : "Chưa giao việc: không tìm thấy vị trí không phải Lead trong đội của dự án.", now);
-          } catch {
-            systemMessage(turn, "Không thể giao việc. Vui lòng thử lại.", now);
-          }
-        }
-        if (parsed.game !== null && intent === "delegate" && leadWorkflow !== undefined && manifest) {
-          const title = `Game: ${parsed.game.request.slice(0, 60).replace(/\s+/g, " ").trim()}`;
-          try {
-            if (!deps.startWorkflow) throw new Error("Lead workflow starter is not configured");
-            const params = normalizeLeadGame(parsed.game);
-            const outcome = deps.startWorkflow({ projectId: turn.projectId, definitionKey: leadWorkflow,
-              packKey: manifest.key, params, title });
-            systemMessage(turn, outcome === "already-running" ? "A build is already running for this project."
-              : `Sẽ chạy: ${leadGameStages(params)}`, now);
-          } catch (error) {
-            console.error("Lead workflow start failed", error);
-            systemMessage(turn, "The game workflow could not be started. Please try again.", now);
-          }
-        }
         if (parsed.csv !== null && deps.documents) {
           // The plan file is an ordinary project document (kind plan): the operator opens or downloads it in Knowledge
           // and later asks the Lead to apply it. Saving it never creates tasks.
@@ -258,10 +213,6 @@ export function createLeadRunner(deps: {
         setTurnState(raw, turn.projectId, turn.id, "done", { now, replyMessageId: message.id });
         for (const task of tasks) event(turn, { type: "entity.changed", entity: { kind: "task", id: task.id, revision: task.revision } });
       });
-      if (parsed.portal.length && deps.portalOps) {
-        try { await deps.portalOps.blocks(parsed.portal, conversation.id); }
-        catch { hub.transaction(() => systemMessage(turn, "Không xử lý được yêu cầu Portal. Chưa tự gửi lại; hãy kiểm tra trạng thái thao tác.", clock().toISOString())); }
-      }
     } catch (error) {
       const kind = calling && error instanceof ModelError ? error.kind : "internal";
       const uncertain = ["timeout", "unavailable", "bad-response", "cancelled"].includes(kind);

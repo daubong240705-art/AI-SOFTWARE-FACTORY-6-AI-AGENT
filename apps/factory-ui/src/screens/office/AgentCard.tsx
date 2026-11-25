@@ -8,8 +8,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useT } from '@/i18n';
 import type { Store } from '@/state/store';
-import { activityTime } from '../teams/activity/presentation';
-import { StatusPill } from '../teams/activity/StatusPill';
+import { activityTime } from './presentation';
+import { StatusPill } from './StatusPill';
 
 export type OfficeNeed = OfficeSeat['needsYou'][number];
 export type OpenOfficeTask = (taskId: string, tab?: 'overview' | 'process' | 'results') => void;

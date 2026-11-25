@@ -1,13 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { WorldModel } from '../../data/types';
 import { colouredGeometry, type Piece } from '../props/geometry';
 import { daylight } from '../props/state';
-import { coverFor, type CoverResource } from '../gallery/coverTexture';
-import { thumbnailUrl } from '../gallery/thumbnailUrl';
-import { createScreenTexture, type ScreenTexture } from '../screenTexture';
-import { walkPosters, walkWorkflow } from './wallLayout';
 import { walkSceneryParts } from './sceneryModel';
 
 const ignore = () => {};
@@ -42,46 +37,9 @@ function Shell({ low }: { low: boolean }) {
   }, [low, invalidate]);
   return resource ? <primitive object={resource} /> : null;
 }
-function WorkflowBoard({ model }: { model: WorldModel }) {
-  const invalidate = useThree(s => s.invalidate), [screen, setScreen] = useState<ScreenTexture | null>(null);
-  useEffect(() => { const value = createScreenTexture(1024, 512, invalidate); setScreen(value); return value.dispose; }, [invalidate]);
-  useEffect(() => {
-    screen?.draw(ctx => {
-      ctx.fillStyle = '#FFFDF3'; ctx.fillRect(0, 0, 1024, 512);
-      ctx.fillStyle = '#34404B'; ctx.font = '600 40px sans-serif'; ctx.fillText('FACTORY / WORKFLOW', 36, 62);
-      const names: Record<string, string> = { design: 'Design', rules: 'Rules', art: 'Art', client: 'Client', qa: 'QA' };
-      if (!model.stages.length) { ctx.font = '28px sans-serif'; ctx.fillText('—', 36, 160); }
-      model.stages.forEach((stage, i) => {
-        const column = Math.floor(i / 6), row = i % 6, columns = Math.ceil(model.stages.length / 6), width = 950 / columns;
-        ctx.fillStyle = stage.state === 'active' ? '#C65742' : '#527C86'; ctx.font = '28px sans-serif';
-        ctx.fillText(`${i + 1}. ${names[stage.key] ?? stage.key} · ${stage.state}`, 36 + column * width, 128 + row * 59, width - 18);
-      });
-    });
-  }, [model.stages, screen]);
-  return <group position={walkWorkflow.position} rotation={[0, Math.PI, 0]}>
-    <mesh raycast={ignore}><boxGeometry args={walkWorkflow.frame} /><meshToonMaterial color="#A87A50" /></mesh>
-    {screen && <mesh position={[0, 0, walkWorkflow.faceOffset]} raycast={ignore}><planeGeometry args={walkWorkflow.face} /><meshBasicMaterial ref={m => { if (m) screen.attach(m); }} map={screen.texture} /></mesh>}
-    <mesh position={[0, -0.96, 0.15]} raycast={ignore}><boxGeometry args={[3.4, 0.05, 0.2]} /><meshToonMaterial color="#81929C" /></mesh>
-  </group>;
-}
-function ReleasePoster({ item, slot }: { item: WorldModel['gallery'][number] | undefined; slot: number }) {
-  const invalidate = useThree(s => s.invalidate), cache = useRef(new Map<string, CoverResource>());
-  const [cover, setCover] = useState<CoverResource | null>(null);
-  useEffect(() => { if (item) setCover(coverFor(cache.current, item, thumbnailUrl(item.projectId, item.releaseId), invalidate, slot)); }, [item, slot, invalidate]);
-  useEffect(() => { const covers = cache.current; return () => { covers.forEach(c => c.dispose()); covers.clear(); }; }, []);
-  const layout = walkPosters[slot]!;
-  return <group visible={!!item} position={layout.position} rotation={[0, Math.PI, 0]}>
-    <mesh raycast={ignore}><boxGeometry args={layout.frame} /><meshLambertMaterial color="#A87A50" /></mesh>
-    {cover && <mesh position={[0, 0, layout.faceOffset]} raycast={ignore}><planeGeometry args={layout.face} /><meshBasicMaterial map={cover.texture} /></mesh>}
-  </group>;
-}
-function ReleasePosters({ items }: { items: WorldModel['gallery'] }) {
-  const released = items.filter(item => item.state === 'done').slice(0, walkPosters.length);
-  return <>{walkPosters.map((_, slot) => <ReleasePoster key={slot} slot={slot} item={released[slot]} />)}</>;
-}
 /** Unmounted in iso: no roof, front walls or extra furnishings in the dollhouse view. */
-export function WalkScenery({ model, quality }: { model: WorldModel; quality: 'high' | 'low' }) {
-  return <><Shell low={quality === 'low'} /><WorkflowBoard model={model} /><ReleasePosters items={model.gallery} /></>;
+export function WalkScenery({ quality }: { quality: 'high' | 'low' }) {
+  return <><Shell low={quality === 'low'} /></>;
 }
 export function WalkLighting({ quality }: { quality: 'high' | 'low' }) {
   const [day, setDay] = useState(() => daylight(new Date()));

@@ -6,7 +6,7 @@ export const nodeIcons = {
   approval: ShieldCheck, loop: Repeat, wait: Clock, subflow: Workflow, orchestrate: ListTree, output: CircleCheck,
 } satisfies Record<FlowNode['type'], typeof Bot>;
 export const nodeKinds = Object.keys(nodeIcons) as FlowNode['type'][];
-export const actionKinds = ['notify.send', 'artifact.save', 'http.request', 'git.push-branch', 'knowledge.publish', 'portal.publish'] as const;
+export const actionKinds = ['notify.send', 'artifact.save', 'http.request', 'git.push-branch', 'knowledge.publish'] as const;
 export const unsupported = (node: FlowNode) => node.type === 'parallel' || node.type === 'orchestrate' ||
   (node.type === 'action' && node.action !== 'notify.send' && node.action !== 'artifact.save');
 

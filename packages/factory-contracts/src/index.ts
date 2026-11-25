@@ -22,14 +22,11 @@ export * from "./mcp-tools.js";
 export * from "./context.js";
 export * from "./dossier.js";
 export * from "./workflow.js";
-export * from "./schedule.js";
 
 export * from "./automation.js";
 export * from "./rules.js";
 export * from "./notifications.js";
 export * from "./standing.js";
-export * from "./games.js";
-export * from "./portal.js";
 export * from "./flow.js";
 export * from "./flow-validate.js";
 export * from "./flow-convert.js";

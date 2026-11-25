@@ -30,7 +30,9 @@ export function deterministicUuid(value: string): string {
 
 export function listSeats(raw: Database, teamId?: string, limit = -1): Seat[] {
   // Dispatch must never select paused or archived project agents; legacy pack seats remain active.
-  return (raw.prepare(`SELECT * FROM seats WHERE status = 'active' ${teamId === undefined ? "" : "AND team_id = ?"}
+  return (raw.prepare(`SELECT * FROM seats WHERE status = 'active'
+    AND (project_id IS NULL OR project_id IN (SELECT id FROM projects WHERE disposition <> 'archived'))
+    ${teamId === undefined ? "" : "AND team_id = ?"}
     ORDER BY team_id, is_lead DESC, name, id LIMIT ?`)
     .all(...(teamId === undefined ? [] : [teamId]), limit) as SeatRow[]).map(seatFromRow);
 }

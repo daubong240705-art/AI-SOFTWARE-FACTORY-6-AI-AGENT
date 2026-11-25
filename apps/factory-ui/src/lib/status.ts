@@ -1,7 +1,7 @@
-import type { AttemptState, TaskState, WorkflowInstanceState, WorkflowStageState } from '@factory/contracts';
+import type { AttemptState, TaskState } from '@factory/contracts';
 
 export type StatusTone = 'need' | 'run' | 'ok' | 'error' | 'idle';
-export type StatusKind = 'task' | 'attempt' | 'stage' | 'workflow' | 'automation' | 'activity';
+export type StatusKind = 'task' | 'attempt' | 'automation' | 'activity';
 
 export const toneDot: Record<StatusTone, string> = {
   need: 'bg-need', run: 'bg-run', ok: 'bg-ok', error: 'bg-need', idle: 'bg-muted-foreground',
@@ -24,15 +24,6 @@ const attempt = {
   'lease-expired': 'error', unknown: 'error', reconciling: 'error', requeued: 'idle',
   starting: 'run', 'in-progress': 'run', 'cancelled-with-error': 'error',
 } satisfies Record<AttemptState, StatusTone> & Record<string, StatusTone>;
-const stage = {
-  pending: 'idle', ready: 'idle', active: 'run', done: 'ok', skipped: 'idle', failed: 'error', blocked: 'error',
-  cancelled: 'idle', unknown: 'error', 'awaiting-approval': 'need', waiting: 'need', 'in-progress': 'run', passed: 'ok',
-} satisfies Record<WorkflowStageState, StatusTone> & Record<string, StatusTone>;
-const workflow = {
-  draft: 'idle', proposed: 'idle', active: 'run', 'awaiting-approval': 'need', paused: 'idle',
-  resuming: 'run', suspended: 'idle', stalled: 'error', completed: 'ok', failed: 'error', cancelled: 'idle', superseded: 'idle',
-  unknown: 'error', 'in-progress': 'run', rejected: 'error', 'cancelled-with-error': 'error',
-} satisfies Record<WorkflowInstanceState, StatusTone> & Record<string, StatusTone>;
 const automation = {
   active: 'run', enabled: 'ok', paused: 'idle', disabled: 'idle', quarantined: 'error', unknown: 'error',
   ok: 'ok', tripped: 'error', open: 'error', 'half-open': 'error', closed: 'idle',
@@ -41,7 +32,7 @@ const automation = {
 const activity = {
   waiting: 'need', problem: 'error', working: 'run', queued: 'idle', done: 'ok', idle: 'idle',
 } as const;
-const tones: Record<StatusKind, Readonly<Record<string, StatusTone>>> = { task, attempt, stage, workflow, automation, activity };
+const tones: Record<StatusKind, Readonly<Record<string, StatusTone>>> = { task, attempt, automation, activity };
 
 export function toneOf(kind: StatusKind, state: string): StatusTone {
   const table = tones[kind];

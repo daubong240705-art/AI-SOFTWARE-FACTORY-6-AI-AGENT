@@ -12,10 +12,9 @@ type ProfileButtonProps = {
   packKey: string | null;
   packVersion: string | null;
   seatName: string;
-  seatId?: string;
 };
 
-export function AgentProfileButton({ store, packKey, packVersion, seatName, seatId }: ProfileButtonProps) {
+export function AgentProfileButton({ store, packKey, packVersion, seatName }: ProfileButtonProps) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const label = t('agentProfile.open').replace('{name}', seatName);
@@ -42,7 +41,7 @@ export function AgentProfileButton({ store, packKey, packVersion, seatName, seat
           <IdCard aria-hidden="true" />{t('agentProfile.profile')}
         </Button>
       </SheetTrigger>
-      {open && <AgentProfileSheet store={store} packKey={packKey} packVersion={packVersion} seatName={seatName} {...(seatId ? { seatId } : {})} />}
+      {open && <AgentProfileSheet store={store} packKey={packKey} packVersion={packVersion} seatName={seatName} />}
     </Sheet>
   );
 }

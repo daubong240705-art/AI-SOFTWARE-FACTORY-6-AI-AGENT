@@ -31,7 +31,7 @@ export function NotificationsBell({ store, projectId, onTask }: { store: Store; 
     else if (item.entityKind === 'approval') {
       const row = attentionItems(store.getState().globalInbox).find(row => row.projectId === projectId && row.key === `approval:${item.entityId}`);
       if (row) { setOpen(false); location.hash = attentionHash(row.key); }
-    } else if (item.entityKind === 'workflow') { setOpen(false); location.hash = `#/project/${encodeURIComponent(projectId)}/settings/workflow`; }
+    }
   }
   return <Popover open={open} onOpenChange={value => { setOpen(value); if (value) void store.loadNotifications(); }}>
     <PopoverTrigger asChild><Button variant="ghost" size="icon" className="relative shrink-0" aria-label={t('notificationsUi.title')}><Bell className="size-4" />{state.notifications.unread > 0 && <Badge className={cn('pointer-events-none absolute -top-1 -right-1 h-4 min-w-4 justify-center rounded-full border-0 px-1 text-xs', urgent ? 'bg-need text-need-foreground' : 'bg-primary text-primary-foreground')}>{state.notifications.unread > 99 ? '99+' : state.notifications.unread}</Badge>}</Button></PopoverTrigger>

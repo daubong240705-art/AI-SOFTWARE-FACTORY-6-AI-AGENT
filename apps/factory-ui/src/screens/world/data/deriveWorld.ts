@@ -4,20 +4,10 @@ import type { Task } from '@factory/contracts';
 import type { ActivitySeat } from '../../../api/activityModels';
 import { classifyPod } from './classify';
 import { assignDesks } from './assignDesks';
-import type { Assignments, Bug, Endpoint, GalleryItem, Handoff, TaskCard, WorldAgent, WorldInputs, WorldModel } from './types';
+import type { Assignments, Endpoint, Handoff, TaskCard, WorldAgent, WorldInputs, WorldModel } from './types';
 const columns = ['todo', 'doing', 'review', 'failed', 'done'] as const;
 const poses = { working: 'working', queued: 'thinking', waiting: 'attention', problem: 'error', done: 'success', idle: 'idle' } as const;
 const time = (at: string) => Date.parse(at);
-const newest = <T extends {
-  updatedAt: string;
-}>(a: T, b: T) => time(b.updatedAt) - time(a.updatedAt) || a.updatedAt.localeCompare(b.updatedAt);
-/** Deterministic across polls, input order and JavaScript processes. */
-export function criterionHash(text: string): string {
-  let hash = 2166136261;
-  for (let i = 0; i < text.length; i++)
-    hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
-  return (hash >>> 0).toString(16);
-}
 function column(task: Task): TaskCard['column'] | null {
   if (task.disposition !== 'active')
     return null;
@@ -91,16 +81,15 @@ export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): 
   assign: Assignments;
 } {
   const generatedAt = inputs.activity?.generatedAt ?? inputs.serverNow ?? '';
-  const games = [...(inputs.games?.games ?? [])].sort((a, b) => newest(a, b) || a.projectId.localeCompare(b.projectId));
+  const projects = (inputs.projects ?? []).filter(project => project.disposition !== 'archived').sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
   const agents: WorldAgent[] = [];
   const runOf = new Map<string, string | undefined>();
   for (const team of inputs.activity?.teams ?? []) {
-    const org = inputs.teams?.teams.find(t => t.id === team.id);
-    if (team.lifecycle === 'archived' || org?.lifecycle === 'archived')
+    if (team.lifecycle === 'archived')
       continue;
     for (const seat of team.seats) {
-      const paused = org?.lifecycle === 'paused' || team.lifecycle === 'paused';
-      const podKey = classifyPod(seat, org);
+      const paused = team.lifecycle === 'paused';
+      const podKey = classifyPod(seat);
       for (const worker of splitSeat(seat, prevAssign)) {
         let pose: WorldAgent['pose'] = poses[worker.status];
         if (paused || worker.status === 'idle' && (!seat.lastFinished?.at || time(generatedAt) - time(seat.lastFinished.at) >= 900000))
@@ -119,12 +108,8 @@ export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): 
     agent.podKey = desk.podKey; agent.slotIndex = desk.slotIndex; agent.overflow = desk.overflow;
   }
   const liveProjects = new Set(agents.flatMap(a => a.runs.filter(r => ['queued', 'leased', 'preparing', 'running', 'waiting-input', 'stopping', 'submitting'].includes(r.attemptState)).map(r => r.projectId)));
-  const hotProjects = games.filter(g => liveProjects.has(g.projectId) || g.workflow && ['active', 'awaiting-approval', 'stalled', 'paused'].includes(g.workflow.state)).slice(0, 3);
-  const focusProjectId = (games.some(game => game.projectId === inputs.focusProjectId) ? inputs.focusProjectId : null) ?? hotProjects[0]?.projectId ?? games[0]?.projectId ?? null;
-  const detail = focusProjectId ? inputs.workflows[focusProjectId] : undefined;
-  const workflow = detail?.id === games.find(g => g.projectId === focusProjectId)?.workflow?.instanceId ? detail : undefined;
-  const stages = (workflow?.stages ?? []).map(s => ({ key: s.key, state: s.state, loopCount: s.loopCount ?? 0 }));
-  const order = new Map((workflow?.stages ?? []).flatMap((s, i) => s.tasks.map(t => [t.taskId, i] as const)));
+  const hotProjects = projects.filter(project => liveProjects.has(project.id)).slice(0, 3);
+  const focusProjectId = (projects.some(project => project.id === inputs.focusProjectId) ? inputs.focusProjectId : null) ?? hotProjects[0]?.id ?? projects[0]?.id ?? null;
   const taskColumns: Record<TaskCard['column'], TaskCard[]> = { todo: [], doing: [], review: [], failed: [], done: [] };
   for (const task of focusProjectId ? inputs.tasks[focusProjectId] ?? [] : []) {
     const c = column(task);
@@ -133,65 +118,12 @@ export function deriveWorld(inputs: WorldInputs, prevAssign: Assignments = {}): 
   }
   const overflow = Object.fromEntries(columns.map(c => [c, Math.max(0, taskColumns[c].length - 6)])) as Record<TaskCard['column'], number>;
   for (const c of columns) {
-    taskColumns[c].sort((a, b) => (order.get(a.taskId) ?? -1) - (order.get(b.taskId) ?? -1) || a.code.localeCompare(b.code));
+    taskColumns[c].sort((a, b) => a.code.localeCompare(b.code));
     taskColumns[c] = c === 'done' ? taskColumns[c].slice(-6) : taskColumns[c].slice(0, 6);
   }
   const handoffs = Object.entries(inputs.interactions).flatMap(([id, o]) => meaningfulOfficeItems(o?.items ?? []).flatMap(item => { const h = handoff(item, id); return h ? [h] : []; })).sort((a, b) => time(a.at) - time(b.at) || a.id.localeCompare(b.id));
-  const bugs: Bug[] = [];
-  for (const game of games) {
-    const rounds = [...(inputs.reports[game.projectId]?.qaRounds ?? [])].sort((a, b) => a.iteration - b.iteration);
-    const latest = rounds.at(-1);
-    if (!latest || latest.verdict === 'passed')
-      continue;
-    const failed = latest.verdict === 'running' ? rounds.slice(0, -1).reverse().find(r => r.verdict !== 'running') : latest;
-    if (failed?.verdict !== 'changes-requested')
-      continue;
-    for (const c of failed.criteria.filter(c => c.passed === false)) {
-      const id = `${game.projectId}:${criterionHash(c.criterion)}`;
-      if (!bugs.some(b => b.id === id))
-        bugs.push({ id, taskCode: failed.taskCode, taskId: inputs.tasks[game.projectId]?.find(task => task.code === failed.taskCode)?.id ?? null, projectId: game.projectId, criterion: c.criterion, evidence: c.evidence, state: latest.verdict === 'running' ? 'retesting' : 'open' });
-    }
-  }
-  const gallery: (GalleryItem & {
-    at: string;
-  })[] = [];
-  for (const game of games) {
-    const releases = (inputs.releases[game.projectId]?.releases ?? []).filter(r => r.kind === 'publish').sort((a, b) => time(b.createdAt) - time(a.createdAt));
-    const lastDone = releases.find(r => r.state === 'done');
-    const portal = inputs.portal?.configured ? inputs.portalGames?.games.find(g => g.id === game.gameId) : undefined;
-    const live = inputs.portal?.configured ? inputs.portalStats?.live.byGame[game.gameId] : undefined;
-    for (const release of releases) {
-      if (release.state !== 'done' && release.state !== 'pending' && !(release.state === 'failed' && (!lastDone || time(release.createdAt) > time(lastDone.createdAt))))
-        continue;
-      gallery.push({ projectId: game.projectId, gameId: game.gameId, name: game.name, version: release.version, playUrl: release.playUrl, state: release.state as GalleryItem['state'], current: release.state === 'done' && release.version !== null && portal?.currentVersion === release.version, enabled: portal?.enabled ?? null, playing: live?.playing ?? null, releaseId: release.id, at: release.completedAt ?? release.createdAt });
-    }
-  }
-  gallery.sort((a, b) => time(b.at) - time(a.at) || a.releaseId.localeCompare(b.releaseId));
-  const releaseVersions: WorldModel['releaseVersions'] = {};
-  for (const r of gallery)
-    if (r.state === 'done' && r.version !== null && r.version > (releaseVersions[r.projectId]?.version ?? 0))
-      releaseVersions[r.projectId] = { projectId: r.projectId, version: r.version, releaseId: r.releaseId, at: r.at };
-  const gameIds = new Set(games.map(g => g.projectId));
-  const loaded = { activity: !!inputs.activity, teams: !!inputs.teams, games: !!inputs.games, interactions: Object.keys(inputs.interactions).filter(k => !!inputs.interactions[k]), reports: Object.keys(inputs.reports).filter(k => gameIds.has(k) && !!inputs.reports[k]), releases: Object.keys(inputs.releases).filter(k => gameIds.has(k) && !!inputs.releases[k]) };
-  const configured = inputs.portal?.configured === true;
-  let completedCount = 0;
-  const displayGallery = gallery.filter(item => item.state !== 'done' || completedCount++ < 9)
-    .map(({at: _, ...item}) => item);
-  const portal = {
-    configured,
-    onlineUsers: configured ? inputs.portalStats?.live.onlineUsers ?? null : null,
-    booths: configured ? (inputs.portalGames?.games ?? []).flatMap(game => {
-      const stats = inputs.portalStats?.live.byGame[game.id];
-      return stats ? [{gameId: game.id, name: game.name, rooms: stats.rooms, playing: stats.playing}] : [];
-    }) : [],
-  };
-  return {
-    assign,
-    model: {
-      generatedAt, loaded, releaseVersions, bugIds: bugs.map(bug => bug.id),
-      agents, games, productionGames: games.filter(g => liveProjects.has(g.projectId) || g.workflow && ['active', 'awaiting-approval', 'resuming', 'stalled', 'paused'].includes(g.workflow.state)).length, hotProjects, focusProjectId, tasks: {columns: taskColumns, overflow},
-      stages, handoffs, bugs: bugs.slice(0, 12), bugOverflow: Math.max(0, bugs.length - 12),
-      gallery: displayGallery, portal,
-    },
-  };
+  return { assign, model: {
+    generatedAt, agents, projects, hotProjects, focusProjectId, tasks: { columns: taskColumns, overflow }, handoffs,
+    loaded: { activity: !!inputs.activity, projects: !!inputs.projects, interactions: Object.keys(inputs.interactions).filter(id => !!inputs.interactions[id]) },
+  } };
 }

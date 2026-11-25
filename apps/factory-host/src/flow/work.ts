@@ -11,7 +11,7 @@ import { currentAgentConfig, groupIdsForAgent } from "../org/agents.js";
 import { listSeats } from "../org/service.js";
 import { createNotification, notificationKey } from "../notify/service.js";
 import { getTask, tasksCreateHandler } from "../work/service.js";
-import { withoutWorkflowAdvancement } from "../workflow/lifecycle.js";
+import { withoutWorkflowAdvancement } from "./lifecycle.js";
 import { advanceRun, arm, insertRun, runOutputs, type FlowEngineDeps } from "./engine.js";
 import { matchesSchema, readPath, render } from "./expressions.js";
 import { boundedJson, decode, definitionOf, emit, flowByKey, getRun, getVersion, hash, latestNodes, type NodeRow, type RunRow } from "./store.js";

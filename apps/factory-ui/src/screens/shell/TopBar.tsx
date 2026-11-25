@@ -1,7 +1,7 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { shallowSelectionEqual } from '@/state/storeSelector';
 import { useEffect, useRef, useState } from 'react';
-import { FolderPlus, Gamepad2, ListTodo, Menu, Plus, Search } from 'lucide-react';
+import { FolderPlus, ListTodo, Menu, Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Kbd } from '@/components/ui/kbd';
@@ -14,12 +14,12 @@ import { TaskStatus } from './TaskStatus';
 import { NotificationsBell } from './NotificationsBell';
 
 export function TopBar({ store, compact, expanded, onToggle, onCreate, onProject, onTask }: {
-  store: Store; compact: boolean; expanded: boolean; onToggle: () => void; onCreate: (kind: 'task' | 'game' | 'project') => void;
+  store: Store; compact: boolean; expanded: boolean; onToggle: () => void; onCreate: (kind: 'task' | 'project') => void;
   onProject: (id: string) => void; onTask: (projectId: string, taskId: string) => void;
 }) {
   const t = useT(); const state = store.useStoreSelector(value => ({ selectedProjectId: value.selectedProjectId, stream: value.stream, tasks: value.tasks, projects: value.projects, liveAttempts: value.liveAttempts }), shallowSelectionEqual);
   const creating = useRef(false);
-  function create(kind: 'task' | 'game' | 'project') { creating.current = true; onCreate(kind); }
+  function create(kind: 'task' | 'project') { creating.current = true; onCreate(kind); }
   const [open, setOpen] = useState(false); const search = useRef<HTMLInputElement>(null);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
@@ -44,7 +44,6 @@ export function TopBar({ store, compact, expanded, onToggle, onCreate, onProject
         <DropdownMenuTrigger asChild><Button type="button" aria-label={t('shellUi.create')} className="rounded-lg max-sm:size-9 max-sm:px-0"><Plus aria-hidden="true" /><span className="max-sm:hidden">{t('shellUi.create')}</span></Button></DropdownMenuTrigger>
         <DropdownMenuContent align="end" onCloseAutoFocus={event => { if (creating.current) event.preventDefault(); creating.current = false; }}>
           <DropdownMenuItem onSelect={() => create('task')}><ListTodo aria-hidden="true" />{t('shellUi.newTask')}</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => create('game')}><Gamepad2 aria-hidden="true" />{t('shellUi.newGame')}</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => create('project')}><FolderPlus aria-hidden="true" />{t('shellUi.newProject')}</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

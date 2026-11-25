@@ -2,7 +2,7 @@ import type { Database } from "better-sqlite3";
 import { canTransitionTask, taskSchema, type Task, type TaskState } from "@factory/contracts";
 import { getTask } from "../work/service.js";
 import type { AttemptRecord } from "./types.js";
-import { workflowChanged } from "../workflow/lifecycle.js";
+import { workflowChanged } from "../flow/lifecycle.js";
 import { requestTaskTransition } from "../requests/lifecycle.js";
 
 export class TaskMoveError extends Error {

@@ -30,12 +30,12 @@ const { makeFunProps } = await import('./FunProps.tsx');
 const { deriveWorld } = await import('../../data/deriveWorld.ts');
 const { auraFor } = await import('../effects/Aura.tsx');
 const { Box3 } = await import('three');
-const model = deriveWorld({ interactions: {}, tasks: {}, workflows: {}, reports: {}, releases: {} }).model;
+const model = deriveWorld({ interactions: {}, tasks: {} }).model;
 model.agents = Array.from({ length: 10 }, (_, i) => ({ seatId: String(i), status: 'working' }));
 const positions = { current: new Map() }, debug = { current: { agents: [] } };
 for (const low of [false, true]) {
   const props = makeFunProps(low, noop);
-  props.paint({ model, reports: {}, debug, positions, locale: 'en' }, new Date(2026, 10, 19, 23));
+  props.paint({ model, debug, positions, locale: 'en' }, new Date(2026, 10, 19, 23));
   flush();
   props.sample(10, true);
   assert.equal(props.group.getObjectByName('server-leds').count, 10);
@@ -62,7 +62,7 @@ for (const low of [false, true]) {
   const next = []; props.group.traverse(o => { if (o.isInstancedMesh) next.push(...o.instanceMatrix.array); });
   assert.deepEqual(next, snapshot, 'still prop instances do not move');
   assert(new Box3().setFromObject(props.group).max.y < 4);
-  assert(labels.some(l => l.includes('—')), 'missing source data is unknown');
+  assert(labels.includes('Factory'), 'studio sign is rendered');
   console.log(`${low ? 'low' : 'high'} props: ${draws} draws (+1 paired ball); LED count, fish, work interruption, still frames, finite geometry PASS`);
   props.dispose(); debug.current.agents = [];
 }
@@ -74,20 +74,6 @@ assert.equal(auraFor({ ...idle, status: 'waiting' }), 'alarm');
 assert.equal(auraFor({ ...idle, status: 'done' }), 'stars');
 assert.equal(auraFor({ ...idle, status: 'working', runs: [{ startedAt: new Date(0).toISOString() }] }, 21 * 60000), 'super');
 console.log('Aura state selection: PASS');
-
-const { LabEventTracker } = await import('../lab/BugMonsters.tsx');
-const bug = { id: 'b', projectId: 'p', criterion: 'test', evidence: null, state: 'open' };
-const defeated = { type: 'bugDefeated', id: 'qa:passed', at: new Date().toISOString(), bug };
-const tracker = new LabEventTracker();
-tracker.observe([], [bug], 1, false); tracker.positions.set('b', { x: 12, z: -5 });
-tracker.observe([defeated], [], 2, false);
-assert.equal(tracker.struck, 2); assert.equal(tracker.exits.length, 1); assert.equal(tracker.defeated, 1);
-tracker.observe([defeated], [], 2.1, false); assert.equal(tracker.exits.length, 1, 'acknowledgement cannot replay QA');
-tracker.expire(4); assert.equal(tracker.exits.length, 0);
-const quietTracker = new LabEventTracker(); quietTracker.observe([], [bug], 1, true);
-quietTracker.positions.set('b', { x: 12, z: -5 }); quietTracker.observe([defeated], [], 2, true);
-assert.equal(quietTracker.struck, 0); assert.equal(quietTracker.exits.length, 0); assert.equal(quietTracker.puffs.length, 0);
-console.log('QA gong/bug exits: event-only, once, expires, still/off suppression PASS');
 
 const { toyModels } = await import('../toys/models.ts');
 for (const [name, geometry] of Object.entries(toyModels)) {
@@ -107,7 +93,7 @@ assert.equal(layout.blockedEdges, 0);
 // +X is the office cat's nose; after the yaw correction it must align with hopAlong's +Z tangent.
 const { Vector3 } = await import('three');
 const props = makeFunProps(false, noop);
-props.paint({ model, reports: {}, debug, positions, locale: 'en' }, new Date());
+props.paint({ model, debug, positions, locale: 'en' }, new Date());
 props.sample(10, true); props.sample(10.2, true);
 const cat = props.group.getObjectByName('office-cat'), previous = cat.position.clone();
 props.sample(10.4, true);
@@ -170,7 +156,7 @@ assert(!greeting(2, false, true, true).waves, 'sulking suppresses greetings unti
 const { walkSceneryParts } = await import('../walk/sceneryModel.ts');
 for (const p of walkSceneryParts()) assert([...p.position, ...p.scale, p.yaw].every(Number.isFinite));
 const followingProps = makeFunProps(false, noop);
-followingProps.paint({ model, reports: {}, debug, positions, locale: 'en' }, new Date());
+followingProps.paint({ model, debug, positions, locale: 'en' }, new Date());
 const follower = followingProps.group.getObjectByName('office-cat');
 follower.position.set(-8, 0.04, -1);
 const random = Math.random;

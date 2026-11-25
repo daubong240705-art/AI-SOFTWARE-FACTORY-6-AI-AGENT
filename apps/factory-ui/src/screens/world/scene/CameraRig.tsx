@@ -8,7 +8,7 @@ import { useCameraBridge, type CameraApi, type CameraState } from '../cameraCont
 import { toys } from './toys/store';
 import { useWorldMotion } from './Ticker';
 export type WorldLocations = RefObject<Map<string, readonly [number, number, number]>>;
-export type Locate = (kind: 'agent' | 'owner' | 'zone' | 'card' | 'bug' | 'frame', id?: string) => { x: number; y: number } | null;
+export type Locate = (kind: 'agent' | 'owner' | 'zone' | 'card', id?: string) => { x: number; y: number } | null;
 export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, locations, enabled = true, returnPoint }: {
   enabled?: boolean; returnPoint?: RefObject<import('./walk/state').WalkState>;
   agentPositions: RefObject<Map<string, Point>>; locations: WorldLocations;

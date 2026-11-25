@@ -57,9 +57,8 @@ export function validateConfig(env: ConfigEnv): ConfigIssue[] {
   if (env.FACTORY_DEFAULT_AGENT_CLI && !["codex", "claude"].includes(env.FACTORY_DEFAULT_AGENT_CLI))
     invalid("FACTORY_DEFAULT_AGENT_CLI", "Dùng codex, claude hoặc bỏ khóa này.");
   if (env.FACTORY_DEFAULT_AGENT_CLI && env.FACTORY_LOCAL_CLI !== "1") invalid("FACTORY_LOCAL_CLI", "Đặt FACTORY_LOCAL_CLI=1 để dùng CLI agent mặc định.");
-  for (const key of ["FACTORY_MULTI_TEAM", "FACTORY_LOCAL_CLI"]) {
-    if (env[key] !== undefined && env[key] !== "0" && env[key] !== "1") invalid(key, "Dùng 0 hoặc 1.");
-  }
+  if (env.FACTORY_LOCAL_CLI !== undefined && env.FACTORY_LOCAL_CLI !== "0" && env.FACTORY_LOCAL_CLI !== "1")
+    invalid("FACTORY_LOCAL_CLI", "Dùng 0 hoặc 1.");
   if (env.FACTORY_RUNTIME !== undefined && !["fake", "opencode"].includes(env.FACTORY_RUNTIME)) invalid("FACTORY_RUNTIME", "Dùng fake hoặc opencode.");
   const listen = env.FACTORY_LISTEN_HOST?.trim() || "127.0.0.1";
   if (!isLoopbackHost(listen) && (isIP(listen) !== 4 || listen === "0.0.0.0"))

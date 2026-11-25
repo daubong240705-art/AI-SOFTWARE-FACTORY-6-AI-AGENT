@@ -3,7 +3,7 @@ import type { Office } from '@/api/officeModels';
 import type { Store } from '@/state/store';
 import { i18n, useT } from '@/i18n';
 import { cn } from '@/lib/utils';
-import { activityTime } from '../teams/activity/presentation';
+import { activityTime } from './presentation';
 
 export function OfficePulse({ store, office, now, lively, onLivelyChange }: { store: Store; office: Office; now: number; lively: boolean; onLivelyChange: (value: boolean) => void }) {
   const t = useT(); const tasks = store.useStoreSelector(state => state.tasks);

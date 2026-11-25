@@ -1,4 +1,3 @@
-import { portalResponseSchema, portalJoinedGamesResponseSchema, portalStatsResponseSchema, portalAuditResponseSchema, portalActionsResponseSchema, portalActionResponseSchema, portalActionRequestSchema, type PortalActionRequest } from "@factory/contracts";
 import { officeReadModel } from './officeModels';
 import { m3Models } from './m3Models';
 import { agentModels } from './agentModels';
@@ -15,11 +14,9 @@ import { extractionModels, mediaTypeForFile } from './documents';
 import { systemModels } from './systemModels';
 import { folderBrowseModel } from './folderModels';
 import { modelSettingsResponse } from './modelSettings';
-import { gamesResponseSchema, gameReportResponseSchema, newGameRequestSchema, newGameResponseSchema, releaseViewSchema, releasesResponseSchema, rollbackRequestSchema, type NewGameRequest } from '@factory/contracts';
 export type { FolderListing } from './folderModels';
 export type { SystemHealth, SystemCapabilities, SystemBackup } from './systemModels';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
-import { workflowErrorKey } from './workflowErrors';
 import { commandSchema, successResponseSchema, failureResponseSchema, projectSchema,
   conversationSchema, messageSchema, taskSchema, teamSchema, seatSchema, engagementSchema, idSchema,
   textSchema, usageSchema, budgetSchema, type ApiError, type Command } from '@factory/contracts';
@@ -28,7 +25,7 @@ import { codeReadModels } from './codeModels';
 export type { KnowledgeResult, KnowledgeItem, KnowledgeArtifact, KnowledgeFilters, KnowledgePage, KnowledgeGroup, KnowledgeGroups, KnowledgeGroupKey } from './readModels';
 export type DocumentUploadMeta = { kind: NonNullable<KnowledgePage['kinds']>[number]; title?: string; artifactId?: string; note?: string };
 export type { Attempt, AttemptEvent, AttemptPatch, TaskArtifact, ArtifactContent, Inbox, Effect } from './readModels';
-export type { WorkflowInstance, WorkflowDetail, WorkflowStage, WorkflowGraph, WorkflowDefinition, Schedule, AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './readModels';
+export type { AutomationRule, Monitor, RouteBreaker, TeamBreaker } from './readModels';
 
 // Extend exported strict contract objects to validate the Host's HTTP envelopes without
 // importing their private schema-library dependency into this package.
@@ -36,7 +33,6 @@ const ok = successResponseSchema.pick({ ok: true, apiVersion: true });
 const object = ok.omit({ ok: true, apiVersion: true });
 const auth = ok.extend({ csrfToken: textSchema });
 const projects = ok.extend({ projects: projectSchema.array() });
-const releaseResponse = ok.extend({ release: releaseViewSchema });
 // The Host adds fields to this response over time (M3 added `engagements`): unknown fields are ignored, known ones stay strict.
 const team = ok.extend({ team: teamSchema, seats: seatSchema.array(), engagement: engagementSchema }).loose();
 const tasks = ok.extend({ items: taskSchema.array() });
@@ -77,7 +73,7 @@ export class ApiClientError extends Error {
     this.nextAction = error?.nextAction;
     this.correlationId = error?.correlationId;
     this.currentRevision = error?.currentRevision;
-    this.detailKey = includeHostMessage && error ? workflowErrorKey(error.message) ?? settingsErrorKey(error.message) ?? automationErrorKey(error.message) ?? knowledgeErrorKey(error.message) : undefined;
+    this.detailKey = includeHostMessage && error ? settingsErrorKey(error.message) ?? automationErrorKey(error.message) ?? knowledgeErrorKey(error.message) : undefined;
   }
 }
 export class DocumentUploadError extends ApiClientError {
@@ -159,7 +155,6 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listIntegration: (id: string) => request(`${projectPath(id)}/integration`, notificationReadModels.integration),
     getOrgActivity: (signal?: AbortSignal) => request('/org/activity', activityReadModel, undefined, false, signal),
     getProjectInteractions: (id: string, limit = 120, signal?: AbortSignal) => request(`${projectPath(id)}/interactions?limit=${limit}`, officeReadModel, undefined, false, signal),
-    listTeams: (signal?: AbortSignal) => request('/teams', m3Models.teams, undefined, false, signal),
     listProjectAgents: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/agents`, agentModels.project, undefined, false, signal),
     listProjectFlows: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/flows`, flowModels.list, undefined, false, signal),
     getFlow: (id: string, flowId: string, signal?: AbortSignal) => request(`${projectPath(id)}/flows/${encodeURIComponent(flowId)}`, flowModels.detail, undefined, false, signal),
@@ -191,7 +186,6 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     systemBackups: () => request('/system/backups', systemModels.backups),
     getModelSettings: () => request('/system/models', modelSettingsResponse),
     browseFolders: (path?: string, signal?: AbortSignal) => request(`/system/browse${path ? `?${new URLSearchParams({ path })}` : ''}`, folderBrowseModel, undefined, false, signal),
-    getTeamQueue: (id: string) => request(`/teams/${encodeURIComponent(id)}/queue`, m3Models.queue),
     listRequests: (id: string, filters: { state?: string; team?: string } = {}) => {
       const params = new URLSearchParams({ limit: '100', ...filters });
       return request(`${projectPath(id)}/requests?${params}`, m3Models.requests);
@@ -205,22 +199,8 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     async bootstrap(token: string) { const result = await request('/auth/bootstrap', auth, { token }); csrfToken = result.csrfToken; return result; },
     async session() { const result = await request('/auth/session', auth); csrfToken = result.csrfToken; return result; },
     async logout() { const result = await request('/auth/logout', ok, {}); csrfToken = null; return result; },
-    listProjects: () => request('/projects', projects),
+    listProjects: (signal?: AbortSignal) => request('/projects', projects, undefined, false, signal),
     getProject: (id: string) => request(projectPath(id), ok.extend({ project: projectSchema })),
-    getPortal: (signal?: AbortSignal) => request('/portal', portalResponseSchema, undefined, false, signal),
-    portalGames: (signal?: AbortSignal) => request('/portal/games', portalJoinedGamesResponseSchema, undefined, false, signal),
-    portalStats: (query: { game?: string; from?: string; to?: string } = {}, signal?: AbortSignal) => request(`/portal/stats?${new URLSearchParams(query)}`, portalStatsResponseSchema, undefined, false, signal),
-    portalAudit: (game?: string) => request(`/portal/audit?${new URLSearchParams(game ? { game, limit: '30' } : { limit: '30' })}`, portalAuditResponseSchema),
-    portalActions: () => request('/portal/actions', portalActionsResponseSchema),
-    proposePortalAction: (body: PortalActionRequest) => request('/portal/actions', portalActionResponseSchema, portalActionRequestSchema.parse(body)),
-    reconcilePortalAction: (id: string) => request(`/portal/actions/${encodeURIComponent(id)}/reconcile`, portalActionResponseSchema, {}),
-    listGames: (signal?: AbortSignal) => request('/games', gamesResponseSchema, undefined, false, signal),
-    getGameReport: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/game-report`, gameReportResponseSchema, undefined, false, signal),
-    createGame: (body: NewGameRequest) => request('/games', newGameResponseSchema, newGameRequestSchema.parse(body)),
-    listReleases: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/releases`, releasesResponseSchema, undefined, false, signal),
-    publishGame: (id: string) => request(`${projectPath(id)}/publish`, releaseResponse, {}),
-    reconcileRelease: (id: string, releaseId: string) => request(`${projectPath(id)}/releases/${encodeURIComponent(releaseId)}/reconcile`, releaseResponse, {}),
-    rollbackRelease: (id: string, version: number) => request(`${projectPath(id)}/releases/rollback`, releaseResponse, rollbackRequestSchema.parse({ version })),
     getTeam: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/team`, team, undefined, false, signal),
     listTasks: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks`, tasks, undefined, false, signal),
     listAttempts: (id: string, taskId: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/attempts`, readModels.attempts, undefined, false, signal),
@@ -245,9 +225,6 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     searchKnowledge: (id: string, options: KnowledgePage & { query: string }) => request(`${projectPath(id)}/knowledge/search${knowledgeQuery(options, options.query)}`, readModels.knowledgeSearch),
     listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     listDocuments: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
-    getPreview: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/preview`, readModels.preview, undefined, false, signal),
-    startPreview: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/preview/start`, readModels.preview, {}, false, signal),
-    stopPreview: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/preview/stop`, readModels.preview, {}, false, signal),
     knowledgeGroups: (id: string) => request(`${projectPath(id)}/knowledge/groups`, readModels.knowledgeGroups),
     getKnowledgeArtifact: (id: string, artifactId: string) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact),
     getExtraction: (id: string, artifactId: string, version: number) => request(extractionPath(id, artifactId, version), extractionModels.detail),
@@ -297,33 +274,16 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
       xhr.send(file);
     }),
     listTaskApprovals: (id: string, taskId: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/approvals`, readModels.approvals, undefined, false, signal),
-    listWorkflows: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/workflows`, m5ReadModels.workflows, undefined, false, signal),
-    getWorkflow: (id: string, instanceId: string, signal?: AbortSignal) => request(`${projectPath(id)}/workflows/${encodeURIComponent(instanceId)}`, m5ReadModels.workflow, undefined, false, signal),
-    getWorkflowDefinitions: (id: string) => request(`${projectPath(id)}/workflow-definitions`, m5ReadModels.workflowDefinitions),
-    listSchedules: (id: string) => request(`${projectPath(id)}/schedules`, m5ReadModels.schedules),
     listRules: (id: string) => request(`${projectPath(id)}/rules`, m5ReadModels.rules),
     listMonitors: (id: string) => request(`${projectPath(id)}/monitors`, m5ReadModels.monitors),
     listBreakers: (id: string) => request(`${projectPath(id)}/breakers`, m5ReadModels.breakers),
-    listScheduleOccurrences: (id: string, scheduleId: string) => request(`${projectPath(id)}/schedules/${encodeURIComponent(scheduleId)}/occurrences`, m5ReadModels.occurrences),
     listRuleFires: (id: string, ruleId: string) => request(`${projectPath(id)}/rules/${encodeURIComponent(ruleId)}/fires`, m5ReadModels.fires),
     listMonitorEvents: (id: string, monitorId: string) => request(`${projectPath(id)}/monitors/${encodeURIComponent(monitorId)}/events`, m5ReadModels.monitorEvents),
     async getInbox(id: string) {
       const inbox = await request(`${projectPath(id)}/inbox`, readModels.inbox);
-      return { ...inbox, startGates: inbox.startGates.map(item => ({ ...item, projectId: id })), requests: (inbox.requests ?? []).map(item => ({ ...item, projectId: id })), stalledWorkflows: (inbox.stalledWorkflows ?? []).map(item => ({ ...item, projectId: id })) };
+      return { ...inbox, startGates: inbox.startGates.map(item => ({ ...item, projectId: id })), requests: (inbox.requests ?? []).map(item => ({ ...item, projectId: id })) };
     },
-    async getGlobalInbox() {
-      const inbox = await request('/inbox', readModels.globalInbox);
-      // Older Hosts omit the project on global stalled-workflow rows. Resolve ownership
-      // using scoped inboxes, without guessing or dropping rows from the global count.
-      if (!(inbox.stalledWorkflows ?? []).some(item => !item.projectId)) return inbox;
-      const owners = await request('/projects', projects);
-      const scoped = await Promise.all(owners.projects.map(async project => ({ project, inbox: await request(`${projectPath(project.id)}/inbox`, readModels.inbox) })));
-      return { ...inbox, stalledWorkflows: (inbox.stalledWorkflows ?? []).map(item => {
-        const owner = scoped.find(entry => entry.inbox.stalledWorkflows?.some(row => row.instanceId === item.instanceId));
-        if (!owner) throw new ApiClientError('bad-response');
-        return { ...item, projectId: owner.project.id, projectName: owner.project.name };
-      }) };
-    },
+    getGlobalInbox: () => request('/inbox', readModels.globalInbox),
     getApproval: (id: string, approvalId: string) => request(`${projectPath(id)}/approvals/${encodeURIComponent(approvalId)}`, readModels.approval),
     // Remote names feed push commands: keep the strict contract (envelope, name pattern, size bounds).
     getEffectRemotes: () => request('/effects/remotes', readModels.remotes),
@@ -344,7 +304,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     sendCommand: (command: Command) => {
       // Validate without replacing/mutating the caller's object or generating a new identity.
       if (!commandSchema.safeParse(command).success) throw new ApiClientError('bad-response');
-      return request('/commands', successResponseSchema, command, command.type === 'seats.set-runtime' || /^(workflows|schedules|rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts|models)\./.test(command.type));
+      return request('/commands', successResponseSchema, command, /^(rules|monitors|autonomy|standing-approvals|notifications|integration|artifacts|models)\./.test(command.type));
     },
   };
 }

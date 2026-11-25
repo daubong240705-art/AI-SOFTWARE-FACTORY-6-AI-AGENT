@@ -3,20 +3,12 @@ import { createDependencyCache, type DependencyCache } from "./deps/cache.js";
 import { createStandingApprovalHandlers, createStandingApprovalMcp, STANDING_COMMANDS } from "./standing/index.js";
 import { tickRules, type RuleDeps } from "./automation/rules.js";
 import { tickTeamBreakers } from "./automation/breakers.js";
-import { tickNotifications, createNotificationHandlers, NOTIFICATION_COMMANDS, type PushChannel } from "./notify/index.js";
-import { createFanOutChannel, type ExternalNotifications } from "./notify/channels.js";
-import { registerNotifyRoutes } from "./notify/routes.js";
-import { startTelegramBot } from "./notify/telegram-bot.js";
+import { tickNotifications, createNotificationHandlers, NOTIFICATION_COMMANDS } from "./notify/index.js";
 import { createRouteBreaker } from "./policy/breaker.js";
 import { createRuleHandlers, RULE_COMMANDS } from "./automation/ruleCommands.js";
 import { createIntegrationHandlers, INTEGRATION_COMMANDS } from "./integration/commands.js";
-import { runWatchdog } from "./automation/watchdog.js";
 import { tickMonitors, type MonitorDeps } from "./automation/monitors.js";
 import { createMonitorHandlers, MONITOR_COMMANDS } from "./automation/monitorCommands.js";
-import { createWorkflowPatchMcp } from "./workflow/mcp.js";
-import { createScheduleHandlers, SCHEDULE_COMMANDS } from "./schedule/commands.js";
-import { tickSchedules } from "./schedule/scheduler.js";
-import { registerWorkflowEngine, sweepWorkflows } from "./workflow/engine.js";
 import { expireRequests } from "./requests/service.js";
 import type { FastifyInstance } from "fastify";
 import { createServer } from "node:net";
@@ -26,7 +18,6 @@ import { dirname, isAbsolute, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApiServer, createRoutes, isLoopbackHost, listenLoopback, listenOn, originsFor, registerStaticUi } from "./api/index.js";
 import { createCommandPipeline } from "./commands/pipeline.js";
-import { createWorkflowHandlers, WORKFLOW_COMMANDS } from "./workflow/commands.js";
 import { advanceProject, createFlowHandlers, FLOW_COMMANDS, recoverFlows, registerFlowEngine, registerFlowRoutes, startFlowTimers } from "./flow/index.js";
 import { withFlowResultTool } from "./flow/mcp.js";
 import { completeFlowTask } from "./flow/work.js";
@@ -44,10 +35,10 @@ import type { ModelGateway } from "./models/index.js";
 import { createUpstream, type ModelInfo } from "./models/upstream.js";
 import { createModelProxy, createTokenRegistry, type TokenRegistry } from "./proxy/index.js";
 import type { ModelAccess } from "./dispatch/dispatcher.js";
-import { AGENT_COMMANDS, createAgentHandlers, createOrgHandlers, loadPack, loadPackRegistry, registryEntry, ORG_COMMANDS } from "./org/index.js";
+import { AGENT_COMMANDS, createAgentHandlers, isRetiredGamePack, loadPack, loadPackRegistry, registryEntry } from "./org/index.js";
 import { budgetsSetHandler, setAutonomyHandler, DEFAULT_BUDGET_CONFIG, type BudgetConfig } from "./policy/index.js";
 import { createProjectsCreateHandler } from "./projects/service.js";
-import { createProjectsArchiveHandler } from "./projects/archive.js";
+import { archiveGameProjects, createProjectsArchiveHandler } from "./projects/archive.js";
 import { openStorage, type Storage } from "./storage/database.js";
 import { getTask, tasksCreateHandler, tasksTransitionHandler } from "./work/service.js";
 import { extensionFor, mediaKind } from "./artifacts/media.js";
@@ -73,17 +64,6 @@ import { createEffectExecutor, type EffectExecutor } from "./effects/executor.js
 import { createKnowledgeIndex, type KnowledgeIndex } from "./knowledge/index.js";
 import { registerKnowledgeRoutes } from "./knowledge/routes.js";
 import { createArtifactTaskRefs } from "./work/artifact-tasks.js";
-import { createPreviewService, type PreviewService } from "./preview/service.js";
-import { registerPreviewRoutes } from "./preview/routes.js";
-import { createPublishService, type PublishService, type PortalConfig } from "./publish/service.js";
-import { registerPublishRoutes } from "./publish/routes.js";
-import { withPortalDecision } from "./portalops/decisions.js";
-import { createPortalOpsService, type PortalOpsService } from "./portalops/service.js";
-import { registerPortalOpsRoutes } from "./portalops/routes.js";
-import { ensurePortalProject } from "./portalops/project.js";
-import { registryPack } from "./org/registry.js";
-import { createGameService } from "./games/create.js";
-import { registerGameRoutes } from "./games/routes.js";
 import { registerDocumentRoutes } from "./artifacts/routes.js";
 import { DEFAULT_DOCUMENT_CONFIG, type DocumentConfig } from "./artifacts/limits.js";
 import { createKnowledgeMcp } from "./knowledge/mcp.js";
@@ -93,7 +73,7 @@ import { createRequestsMcp } from "./requests/mcp.js";
 import { createRequestHandlers, REQUEST_COMMANDS } from "./requests/commands.js";
 import { createDossierHandlers } from "./dossier/commands.js";
 import { createBriefingMcp } from "./dossier/mcp.js";
-import { backfillPackSnapshots, followPackUpdates } from "./instructions/snapshot.js";
+import { backfillPackSnapshots } from "./instructions/snapshot.js";
 import { applyLibraryListScope, createLibraryHandlers, importPacksToLibrary, LIBRARY_COMMANDS, registerLibraryRoutes,
   withAgentLibraryScope } from "./library/index.js";
 import { createGroupHandlers, GROUP_COMMANDS, registerGroupRoutes } from "./groups/index.js";
@@ -145,9 +125,8 @@ export function parseEnv(env: ConfigEnv): ReturnType<typeof parseHostEnv> {
 }
 
 function parseHostEnv(env: ConfigEnv): {
-  defaultPack: string; packKeys?: string[]; gameStarterDir?: string;
+  defaultPack: string; packKeys?: string[];
   mcpServers?: McpServersConfig;
-  multiTeam: boolean;
   stateDir: string; port: number; backupDir?: string;
   periodicBackup: { dir: string; intervalMs: number };
   documents: DocumentConfig;
@@ -167,8 +146,6 @@ function parseHostEnv(env: ConfigEnv): {
   if (!validPackKey(defaultPack)) throw new Error("FACTORY_DEFAULT_PACK must be a pack key");
   if (packKeys && (packKeys.length === 0 || packKeys.some((key) => !validPackKey(key))))
     throw new Error("FACTORY_PACKS must be comma-separated pack keys");
-  if (env.FACTORY_MULTI_TEAM !== undefined && env.FACTORY_MULTI_TEAM !== "0" && env.FACTORY_MULTI_TEAM !== "1")
-    throw new Error("FACTORY_MULTI_TEAM must be 0 or 1");
   const pushRemotes = env.FACTORY_PUSH_REMOTES === undefined ? null : parsePushRemotes(env.FACTORY_PUSH_REMOTES);
   if (env.FACTORY_LOCAL_CLI !== undefined && env.FACTORY_LOCAL_CLI !== "0" && env.FACTORY_LOCAL_CLI !== "1")
     throw new Error("FACTORY_LOCAL_CLI must be 0 or 1");
@@ -253,9 +230,8 @@ function parseHostEnv(env: ConfigEnv): {
   return {
     defaultPack,
     ...(packKeys === undefined ? {} : { packKeys }),
-    ...(env.FACTORY_GAME_STARTER_DIR === undefined ? {} : { gameStarterDir: env.FACTORY_GAME_STARTER_DIR }),
     ...(!env.FACTORY_MCP_SERVERS_FILE ? {} : { mcpServers: loadMcpServers(env.FACTORY_MCP_SERVERS_FILE) }),
-    multiTeam: env.FACTORY_MULTI_TEAM === "1", localCli: env.FACTORY_LOCAL_CLI === "1",
+    localCli: env.FACTORY_LOCAL_CLI === "1",
     ...(cliPassEnv === undefined ? {} : { cliPassEnv }),
     stateDir, port: Number(input), dispatch: { nodeSlots: Number(slots), ...(defaultAgentCli === undefined ? {} : { defaultAgentCli }) }, workspace, pushRemotes,
     ...(env.FACTORY_PUSH_SSH_COMMAND === undefined ? {} : { pushSshCommand: env.FACTORY_PUSH_SSH_COMMAND }),
@@ -289,11 +265,9 @@ async function freeLoopbackPort(): Promise<number> {
 
 export async function startHost(options: {
   config?: ConfigEnv;
-  defaultPack?: string; packKeys?: readonly string[]; gameStarterDir?: string;
-  pushChannel?: PushChannel;
-  notify?: ExternalNotifications;
+  defaultPack?: string; packKeys?: readonly string[];
   mcpServers?: McpServersConfig;
-  multiTeam?: boolean; packsDir?: string; openLogin?: boolean;
+  packsDir?: string; openLogin?: boolean;
   /** Network access (all three are set from the environment in main.ts): the address to listen on, extra Host/Origin names, and the sign-in token. */
   listenHost?: string; allowedHosts?: readonly string[]; loginToken?: string;
   contentDir?: string;
@@ -301,11 +275,9 @@ export async function startHost(options: {
   docWorker?: DocWorkerConfig;
   pushRemotes?: PushRemote[] | null;
   pushSshCommand?: string;
-  portal?: PortalConfig | null;
-  portalConfigured?: boolean;
   monitorStatfs?: MonitorDeps["statfs"];
   timers?: Timers;
-  stateDir: string; port: number; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
+  stateDir: string; port: number; listen?: false; backupDir?: string; migrationsDir?: string; packDir?: string; clock?: Clock;
   onBootstrapToken: (token: string) => void; keepAliveMs?: number; modelGateway?: ModelGateway | null;
   budgetConfig?: BudgetConfig; lead?: Partial<LeadConfig>; uiDir?: string;
   agentModels?: string[];
@@ -341,7 +313,6 @@ export async function startHost(options: {
   validatePushSshCommand(options.pushSshCommand);
   const pushRemotes = options.pushRemotes?.length
     ? parsePushRemotes(options.pushRemotes.map((remote) => `${remote.name}=${remote.url}`).join(",")) : null;
-  const portalConfigured = options.portalConfigured ?? Boolean(options.portal);
   const clock = options.clock ?? systemClock;
   const defaultAgentCli = options.dispatch?.defaultAgentCli;
   const routeBreaker = options.modelProxy ? createRouteBreaker({ clock }) : undefined;
@@ -366,17 +337,12 @@ export async function startHost(options: {
   let scheduler: ReturnType<typeof startBackupScheduler> | undefined;
   let unlockState: (() => void) | undefined;
   let expiryTimer: unknown;
-  let scheduleTimer: unknown;
   let stopFlowTimers: (() => void) | undefined;
   let monitorTick: Promise<void> | undefined;
   let ruleDeps: RuleDeps | undefined;
   let knowledgeTimer: ReturnType<typeof setImmediate> | undefined;
   let extractions: ExtractionService | undefined;
-  let previews: PreviewService | undefined;
-  let publishing: PublishService | undefined;
   let hostDependencyCache: DependencyCache | undefined;
-  let portalOps: PortalOpsService | undefined;
-  let telegramBot: ReturnType<typeof startTelegramBot> | undefined;
   let localMcp: FastifyInstance | undefined;
   let localTokens: TokenRegistry | undefined;
   let localMcpUrl: string | undefined;
@@ -391,14 +357,9 @@ export async function startHost(options: {
     closePromise ??= (async () => {
       external?.close();
       if (expiryTimer !== undefined) { clearExpiry(expiryTimer); expiryTimer = undefined; }
-      if (scheduleTimer !== undefined) { clearExpiry(scheduleTimer); scheduleTimer = undefined; }
       stopFlowTimers?.();
       if (knowledgeTimer !== undefined) { clearImmediate(knowledgeTimer); knowledgeTimer = undefined; }
-      await telegramBot?.stop();
-      await previews?.close();
       await hostDependencyCache?.close();
-      await publishing?.close();
-      await portalOps?.stop();
       await extractions?.close();
       await effects?.close();
       await localMcp?.close();
@@ -432,7 +393,7 @@ export async function startHost(options: {
   };
   try {
     const packsDir = options.packsDir ?? fileURLToPath(new URL("../../../packs/", import.meta.url));
-    const defaultKey = options.defaultPack ?? "software-team";
+    const defaultKey = options.defaultPack && !isRetiredGamePack(options.defaultPack) ? options.defaultPack : "software-team";
     const namedPack = (key: string) => {
       if (!/^[a-z0-9-]{2,40}$/.test(key)) throw new Error("Invalid pack key");
       const dir = join(packsDir, key);
@@ -446,9 +407,8 @@ export async function startHost(options: {
     const pack = options.packDir ? loadPack(options.packDir) : namedPack(defaultKey);
     const packs = options.packKeys === undefined ? loadPackRegistry(packsDir, {
       defaultPack: pack, onError: (message) => { console.error(message); },
-    }) : [...new Set([...options.packKeys, pack.manifest.key, ...(portalConfigured ? ["portal-ops"] : [])])].sort().map((key) =>
+    }) : [...new Set([...options.packKeys.filter((key) => !isRetiredGamePack(key)), pack.manifest.key])].sort().map((key) =>
       registryEntry(key === pack.manifest.key ? pack : namedPack(key), key === pack.manifest.key));
-    if (portalConfigured && !packs.some(p => p.key === "portal-ops")) packs.push(registryEntry(namedPack("portal-ops")));
     unlockState = lockStateDirectory(stateDir);
     const dependencyCache = createDependencyCache(stateDir);
     hostDependencyCache = dependencyCache;
@@ -471,6 +431,8 @@ export async function startHost(options: {
     // U1: every pack is also imported into the library (versioned skills + agent templates). Idempotent.
     importPacksToLibrary(storage.raw, packs, { newId: createIdGenerator(clock), clock },
       (packKey, message) => console.error(`Library import (${packKey}): ${message}`));
+    const hub = new EventHub(storage.raw, { clock });
+    archiveGameProjects(storage.raw, hub, clock);
     for (const report of migrateProjectsToRosters(storage.raw, { newId: createIdGenerator(clock), clock, defaultAgentCli,
       ...(backup === null ? {} : { backup: () => {
         const result = backup!.service.run("manual");
@@ -478,11 +440,7 @@ export async function startHost(options: {
       } }) })) {
       console.log(`Roster migration ${report.projectId}: ${report.status}${report.detail ? ` ${report.detail}` : ""}`);
     }
-    // FACTORY_PACK_FOLLOW: packs whose teams follow pack edits of the same version ("none" to pin every team).
-    const follow = ((options.config ?? process.env).FACTORY_PACK_FOLLOW ?? "web-games,portal-ops").split(",").map((key: string) => key.trim()).filter((key: string) => key !== "" && key !== "none");
-    for (const line of followPackUpdates(storage.raw, packs, follow, clock())) console.log(`Team instructions updated: ${line}`);
     if (mcpServers) external = createExternalTools(mcpServers, { raw: storage.raw, now: () => clock().getTime() });
-    const hub = new EventHub(storage.raw, { clock });
     if (pushRemotes) {
       const raw = storage.raw;
       let roots: ReturnType<typeof canonicalRoots> | null = null;
@@ -500,14 +458,6 @@ export async function startHost(options: {
       effects.recoverAtStart();
     }
     const approvalRaw = storage.raw;
-    publishing = createPublishService({ raw: approvalRaw, stateDir, dependencyCache, portal: options.portal ?? null, clock,
-      projectRootFor(projectId) {
-        const row = approvalRaw.prepare("SELECT workspace_root, workspace_kind FROM projects WHERE id = ?").get(projectId) as
-          { workspace_root: string; workspace_kind: string } | undefined;
-        try { return options.workspace && row?.workspace_kind === "git"
-          ? assertInside(canonicalRoots(options.workspace).projectsRoot, row.workspace_root) : null; } catch { return null; }
-      } });
-    publishing.recoverAtStart();
     const modelSeed: ModelSettingsSeed = {
       leadModel: options.lead?.model ?? DEFAULT_LEAD_CONFIG.model,
       leadEffort: options.lead?.effort ?? DEFAULT_LEAD_CONFIG.effort ?? "medium",
@@ -528,28 +478,20 @@ export async function startHost(options: {
     };
     const sweepApprovals = (): void => {
       expirePendingApprovals({ raw: approvalRaw, hub, now: clock });
-      try { sweepWorkflows({ raw: approvalRaw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) }); }
-      catch { console.error("Workflow sweep failed"); }
-      runWatchdog({ raw: approvalRaw, hub, clock }, clock());
       monitorTick ??= tickMonitors({ raw: approvalRaw, hub, stateDir, statfs: options.monitorStatfs ?? statfs }, clock())
         .then(async () => {
           tickTeamBreakers({ raw: approvalRaw, hub }, clock());
           if (ruleDeps) tickRules(ruleDeps, clock());
-          const pushChannel = options.pushChannel ?? (options.notify?.channels.length ? createFanOutChannel(options.notify.channels) : undefined);
-          await tickNotifications({ raw: approvalRaw, hub, utcOffsetMinutes: budgetConfig.utcOffsetMinutes,
-            ...(options.notify?.baseUrl === undefined ? {} : { baseUrl: options.notify.baseUrl }),
-            ...(options.portal?.publicUrl === undefined ? {} : { publicUrl: options.portal.publicUrl }),
-            ...(pushChannel === undefined ? {} : { pushChannel }) }, clock());
+          tickNotifications({ raw: approvalRaw, hub, utcOffsetMinutes: budgetConfig.utcOffsetMinutes }, clock());
         })
         .finally(() => { monitorTick = undefined; });
-      if (options.multiTeam && dispatch) {
+      if (dispatch) {
         try { expireRequests({ raw: approvalRaw, hub, dispatcher: dispatch, multiTeam: true, now: clock, newId: createIdGenerator(clock) }, clock()); }
         catch { console.error("Request expiry failed"); }
       }
     };
     const documentConfig = options.documents ?? DEFAULT_DOCUMENT_CONFIG;
     const artifacts = { store: createContentStore({ dir: options.contentDir ?? join(stateDir, "content"), maxObjectBytes: Math.max(8 * 1024 * 1024, documentConfig.maxBytes) }) };
-    options.notify?.telegram?.client.bind(approvalRaw, artifacts.store);
     const knowledge = createKnowledgeIndex({ raw: storage.raw, store: artifacts.store });
     const extraction = createExtractionService({ raw: storage.raw, store: artifacts.store, knowledge, now: clock,
       ...(options.docWorker === undefined ? {} : { config: options.docWorker }) });
@@ -571,7 +513,7 @@ export async function startHost(options: {
     const runAutoReview = (input: { projectId: string; taskId: string; attemptId: string }): void => {
       if (!dispatch) return;
       const reviewDeps = { raw: approvalRaw, hub, now: clock, newId: resultId };
-      try { autoReviewTask({ ...reviewDeps, dispatcher: dispatch, multiTeam: options.multiTeam === true }, input); }
+      try { autoReviewTask({ ...reviewDeps, dispatcher: dispatch, multiTeam: true }, input); }
       catch {
         console.error("Automatic review failed; asking the operator");
         try {
@@ -586,30 +528,10 @@ export async function startHost(options: {
     };
     const leadSeat = pack.manifest.seats.find((seat) => seat.isLead);
     if (!leadSeat) throw new Error("Pack has no Lead seat");
-    portalOps = createPortalOpsService({ raw: approvalRaw, hub, clock, publish: publishing, configured: portalConfigured,
-      documents: { store: artifacts.store, config: documentConfig, afterRegister } });
-    runner = createLeadRunner({ portalOps, storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
+    runner = createLeadRunner({ storage, hub, gateway: options.modelGateway ?? null, budgetConfig, clock,
       documents: { store: artifacts.store, config: documentConfig, afterRegister },
       viewRoot: join(stateDir, "lead-view"),
       profileText: readFileSync(join(pack.dir, leadSeat.profile), "utf8"),
-      onTaskReady() { dispatch?.kick(); },
-      startWorkflow({ projectId, definitionKey, packKey, params, title }) {
-        return hub.transaction(() => raw.transaction(() => {
-          if (raw.prepare(`SELECT 1 FROM workflow_instances WHERE project_id = ? AND key = ? AND pack_key = ?
-            AND state NOT IN ('completed', 'cancelled') LIMIT 1`).get(projectId, definitionKey, packKey)) return "already-running" as const;
-          const instanceId = resultId();
-          const command = (type: string, payload: unknown): void => {
-            const result = workflowPipeline.execute({ apiVersion: 1, projectId, commandId: resultId(), type, payload }, "lead");
-            if (!result.body.ok) throw new Error(`Workflow command rejected: ${result.body.error.code}: ${result.body.error.message}`);
-          };
-          command("workflows.create", { instanceId, definitionKey, packKey, title, params: {
-            mode: params.mode, request: params.request, touchRules: params.touchRules, touchUi: params.touchUi,
-            runDesign: params.runDesign, runRules: params.runRules, runArt: params.runArt, runClient: params.runClient, qa: params.qa,
-          } });
-          command("workflows.start", { instanceId, expectedRevision: 1 });
-          return "started" as const;
-        })());
-      },
       ...(options.lead === undefined ? {} : { config: options.lead }),
       getModelConfig() {
         const settings = effectiveModels();
@@ -620,11 +542,10 @@ export async function startHost(options: {
     const raw = storage.raw;
     const makeAttemptMcp = (dispatcher: Dispatcher) => withFlowResultTool(raw, clock, createMcpHandler({
       ...(external === undefined ? {} : { external }), toolPolicy: createToolPolicy(raw),
-      workflow: createWorkflowPatchMcp({ raw, hub, clock, dispatcher }),
       standing: createStandingApprovalMcp({ raw, hub, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes }),
       skills: createSkillsMcp({ raw, now: clock }),
-      ...(options.multiTeam ? { briefing: createBriefingMcp({ raw, store: artifacts.store, now: clock }),
-        requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }) } : {}),
+      briefing: createBriefingMcp({ raw, store: artifacts.store, now: clock }),
+        requests: createRequestsMcp({ raw, hub, dispatcher, multiTeam: true, now: clock, newId: resultId }),
       knowledge: createKnowledgeMcp({ raw, knowledge, store: artifacts.store, now: clock }),
       requestDecision(grant, request) {
         const result = requestAgentDecision({ raw, hub, now: clock, newId: resultId }, { grant, request });
@@ -728,7 +649,7 @@ export async function startHost(options: {
         // api-agent talks to the model proxy; without one its tasks fail loudly with "runtime unavailable".
         ...(modelAccess === undefined || options.modelProxy === undefined ? [] : [createApiAgentRuntime()]),
       ]);
-      dispatch = createDispatcher({ storage, hub, registry, clock, config, dependencyCache, multiTeam: options.multiTeam ?? false,
+      dispatch = createDispatcher({ storage, hub, registry, clock, config, dependencyCache, multiTeam: true,
         defaultAgentModel: () => effectiveModels().leadModel,
         ...(options.timers === undefined ? {} : { timers: options.timers }),
         onInReview(input) {
@@ -807,10 +728,8 @@ export async function startHost(options: {
         } catch { console.error("Dispatch startup catch-up failed for project", project.id); }
       }
     }
-    const workflowEngine = { raw: storage.raw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) };
-    registerWorkflowEngine(workflowEngine);
-    try { sweepWorkflows(workflowEngine); } catch { console.error("Workflow sweep failed"); }
-    const flowEngine = { ...workflowEngine, newId: resultId, upload: { store: artifacts.store, config: documentConfig, afterRegister } };
+    const flowBase = { raw: storage.raw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) };
+    const flowEngine = { ...flowBase, newId: resultId, upload: { store: artifacts.store, config: documentConfig, afterRegister } };
     registerFlowEngine(flowEngine);
     recoverFlows(flowEngine);
     stopFlowTimers = startFlowTimers(flowEngine, options.timers);
@@ -822,17 +741,9 @@ export async function startHost(options: {
         const input = { projectId: row.projectId, taskId: row.taskId, attemptId: row.attemptId };
         if (!completeFlowTask(flowEngine, input)) runAutoReview(input);
       }
+    ruleDeps = { raw, hub };
     const lead = runner;
     const dispatchHandlers = dispatch === null ? {} : createDispatchHandlers({ dispatcher: dispatch });
-    const workflowHandlers = createWorkflowHandlers({ packs, engine: { raw: storage.raw, hub, clock,
-      ...(dispatch === null ? {} : { dispatcher: dispatch }) } });
-    const workflowPipeline = createCommandPipeline({ storage, hub, clock, handlers: workflowHandlers });
-    const scheduleDeps = { raw: storage.raw, hub, packs, pipeline: workflowPipeline };
-    ruleDeps = scheduleDeps;
-    tickRules(ruleDeps, clock());
-    const sweepSchedules = (): void => tickSchedules(scheduleDeps, clock());
-    sweepSchedules();
-    scheduleTimer = interval(sweepSchedules, 30_000);
     let projectsRootGuard: ((root: string) => boolean) | undefined;
     if (dispatch && options.workspace) {
       const guardRoots = canonicalRoots(options.workspace);
@@ -840,15 +751,12 @@ export async function startHost(options: {
     }
     const agents = createAgentHandlers();
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
-      "portal-ops.apply": portalOps.handler,
       ...createNotificationHandlers(),
       ...createStandingApprovalHandlers(),
-      ...createRuleHandlers({ packs }),
+      ...createRuleHandlers(),
       ...createIntegrationHandlers(),
       ...createMonitorHandlers(),
-      ...createScheduleHandlers({ packs, pipeline: workflowPipeline }),
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
-      ...createOrgHandlers({ packs, multiTeam: options.multiTeam ?? false }),
       ...agents,
       "agents.create": withAgentLibraryScope(agents["agents.create"]),
       "agents.update": withAgentLibraryScope(agents["agents.update"]),
@@ -856,19 +764,18 @@ export async function startHost(options: {
       "agents.rollback": withAgentLibraryScope(agents["agents.rollback"]),
       ...createLibraryHandlers(),
       ...createGroupHandlers(),
-      ...workflowHandlers,
       ...createFlowHandlers({ packs, engine: flowEngine }),
-      "projects.archive": createProjectsArchiveHandler({ cancelWorkflow: workflowHandlers["workflows.cancel"]!,
+      "projects.archive": createProjectsArchiveHandler({ engine: flowEngine,
         projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") }),
-      ...createRequestHandlers({ multiTeam: options.multiTeam ?? false, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
-      "projects.create": createProjectsCreateHandler({ pack, packs, startEmpty: true, multiTeam: options.multiTeam ?? false, defaultAgentCli,
+      ...createRequestHandlers({ multiTeam: true, ...(dispatch === null ? {} : { dispatcher: dispatch }) }),
+      "projects.create": createProjectsCreateHandler({ pack, packs, startEmpty: true, defaultAgentCli,
         ...(projectsRootGuard === undefined ? {} : { checkWorkspaceRoot: projectsRootGuard }) }),
       "tasks.create": tasksCreateHandler,
       "budgets.set": budgetsSetHandler,
       "autonomy.set": setAutonomyHandler,
       "models.set": modelsSetHandler,
-      "approvals.decide": withPortalDecision(withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: options.multiTeam === true }))),
-        ...createKnowledgeHandlers({ multiTeam: options.multiTeam ?? false }),
+      "approvals.decide": withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: true })),
+        ...createKnowledgeHandlers({ multiTeam: true }),
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
       ...dispatchHandlers,
       "tasks.transition": withKnowledgeEffects(dispatchHandlers["tasks.transition"] ?? ((ctx, command) => {
@@ -877,16 +784,6 @@ export async function startHost(options: {
         return result;
       })),
     } });
-    if (portalConfigured) {
-      const portalPack = packs.find(p => p.key === "portal-ops");
-      if (!portalPack) throw new Error("Portal pack unavailable.");
-      await ensurePortalProject({ storage, hub, clock, pack: registryPack(portalPack), defaultAgentCli,
-        projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") });
-    }
-    portalOps.start(pipeline);
-    if (options.notify?.telegram) telegramBot = startTelegramBot({ ...options.notify.telegram, raw: approvalRaw, hub, pipeline,
-      lead, portalOps, kickDispatch: () => dispatch?.kick(),
-      ...(options.notify.baseUrl === undefined ? {} : { baseUrl: options.notify.baseUrl }) });
     sweepApprovals();
     await monitorTick;
     expiryTimer = interval(() => { try { sweepApprovals(); } catch { console.error("Approval expiry failed"); } }, 60_000);
@@ -897,7 +794,7 @@ export async function startHost(options: {
     if (networked && options.openLogin) throw new Error("Open login cannot be combined with a network listen address");
     const gate = createBootstrapGate({ clock, ...(options.loginToken === undefined ? {} : { token: options.loginToken, reusable: true }) });
     const sessions = createSessionStore({ clock });
-    const port = options.port === 0 ? await freeLoopbackPort() : options.port;
+    const port = options.port === 0 && options.listen !== false ? await freeLoopbackPort() : options.port;
     const origins = originsFor(port, [...(networked ? [listenHost] : []), ...(options.allowedHosts ?? [])]);
     const routes = createRoutes({ storage, hub, pipeline, clock, budgetConfig, artifacts, packs, backupStatus: () => backup?.status() ?? null,
       ...(routeBreaker === undefined ? {} : { routeBreaker }),
@@ -905,9 +802,8 @@ export async function startHost(options: {
       ...(effects === null ? {} : { effects }),
       afterCommand: (type, result) => {
           if (result.body.ok && (type === "approvals.decide" || type === "tasks.transition" || INTEGRATION_COMMANDS.some((command) => command === type))) dispatch?.kick();
-        if (result.body.ok && (type === "schedules.resume" || type === "schedules.run-now")) sweepSchedules();
         if (type === "chat.send") lead.kick();
-        if (result.body.ok && [...ORG_COMMANDS, ...AGENT_COMMANDS].some((command) => command === type) && dispatch) {
+        if (result.body.ok && AGENT_COMMANDS.some((command) => command === type) && dispatch) {
           dispatch.kick();
         }
       },
@@ -927,36 +823,9 @@ export async function startHost(options: {
       registerGroupRoutes(app, guards, { raw: storage!.raw, clock });
       applyLibraryListScope(app, storage!.raw);
       registerLibraryRoutes(app, guards, { raw: storage!.raw });
-      registerNotifyRoutes(app, guards, options.notify ?? { channels: [] }, telegramBot);
-      registerPublishRoutes(app, guards, publishing!);
-      registerPortalOpsRoutes(app, guards, portalOps!, publishing!);
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store, tasks: createArtifactTaskRefs(approvalRaw) });
       registerDocumentRoutes(app, guards, { raw: approvalRaw, store: artifacts.store, hub, config: documentConfig, now: clock, afterRegister });
       registerExtractionRoutes(app, guards, extraction);
-      const gamePack = packs.find(({ key }) => key === "web-games");
-      registerGameRoutes(app, guards, {
-        raw: approvalRaw, publicUrl: options.portal?.publicUrl ?? null,
-        ...(options.gameStarterDir === undefined ? {} : { starterDir: options.gameStarterDir }),
-        ...(options.gameStarterDir && options.workspace ? { games: createGameService({
-          storage: storage!, hub, clock, pipeline, pack: pack.manifest.leadWorkflow || !gamePack ? pack : registryPack(gamePack),
-          starterDir: options.gameStarterDir, defaultAgentCli,
-          projectsRoot: canonicalRoots(options.workspace).projectsRoot,
-        }) } : {}),
-      });
-      {
-        let previewRoots: ReturnType<typeof canonicalRoots> | null = null;
-        try { if (options.workspace) previewRoots = canonicalRoots(options.workspace); } catch { previewRoots = null; }
-        const roots = previewRoots;
-        if (roots) {
-          previews = createPreviewService({ viewRoot: join(stateDir, "preview"), hostPort: options.port, dependencyCache, now: clock,
-            projectRootFor(projectId) {
-              const row = approvalRaw.prepare("SELECT workspace_root, workspace_kind FROM projects WHERE id = ?").get(projectId) as
-                { workspace_root: string; workspace_kind: string } | undefined;
-              try { return row?.workspace_kind === "git" ? assertInside(roots.projectsRoot, row.workspace_root) : null; } catch { return null; }
-            } });
-          registerPreviewRoutes(app, guards, { raw: approvalRaw, preview: previews });
-        }
-      }
       app.get("/system/models", { preHandler: guards.session }, async () => {
         const catalog = await availableModels();
         return { apiVersion: 1, ok: true, settings: effectiveModels(),
@@ -982,30 +851,27 @@ export async function startHost(options: {
         app.get("/system/capabilities", { preHandler: guards.session }, async () => ({
         apiVersion: 1, ok: true, commands: ["projects.create", "projects.archive", "tasks.create", "tasks.transition", "budgets.set", "autonomy.set", "models.set",
           "dossier.refresh",
-          ...WORKFLOW_COMMANDS,
           ...FLOW_COMMANDS,
-          ...SCHEDULE_COMMANDS,
           ...MONITOR_COMMANDS,
           ...RULE_COMMANDS,
           ...INTEGRATION_COMMANDS,
           ...NOTIFICATION_COMMANDS,
           ...STANDING_COMMANDS,
-          "seats.set-runtime",
-          ...AGENT_COMMANDS,
           ...LIBRARY_COMMANDS,
           ...GROUP_COMMANDS,
-          ...(options.multiTeam ? [...ORG_COMMANDS.filter((command) => command !== "seats.set-runtime"), ...REQUEST_COMMANDS] : []),
+          ...REQUEST_COMMANDS,
           "conversations.create", "chat.send", "approvals.decide", "artifacts.transition", "artifacts.share", "artifacts.clear-stale",
           ...(dispatch === null ? [] : ["tasks.release", "runs.cancel", "runs.reconcile", "work.assign"])],
         capabilities: ["inbox", "approvals.review"],
         // Read-only facts for the operator's System page; no paths, tokens or environment values.
         host: { startedAt: hostStartedAt, nodeVersion: process.version, platform: process.platform },
-        features: { multiTeam: options.multiTeam === true, dispatch: dispatch !== null, documentExtraction: options.docWorker?.enabled ?? true, localCli: options.localCli?.enabled === true },
+        features: { dispatch: dispatch !== null, documentExtraction: options.docWorker?.enabled ?? true, localCli: options.localCli?.enabled === true },
       }));
       app.get("/system/agent-clis", { preHandler: guards.session }, async () => ({ apiVersion: 1, ok: true, ...(await probeAgentClis()), ...runtimeFacts }));
       if (options.uiDir) registerStaticUi(app, { dir: options.uiDir });
     } });
-    await listenOn(app, port, listenHost);
+    if (options.listen === false) await app.ready();
+    else await listenOn(app, port, listenHost);
     lead.kick();
     dispatch?.kick();
     if (options.loginToken === undefined) {

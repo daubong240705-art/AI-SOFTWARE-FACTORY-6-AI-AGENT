@@ -29,7 +29,7 @@ const eastWall = new Ray(new Vector3(16, 1.9, 4), new Vector3(1, 0, 0));
 const southWall = new Ray(new Vector3(0, 1.9, 12.5), new Vector3(0, 0, 1));
 assert(obstructionDistance(eastWall, 4) < 2, 'camera cannot pass through east glazing');
 assert(obstructionDistance(southWall, 4) < 2, 'camera cannot pass through south glazing');
-assert.equal(obstructionDistance(new Ray(new Vector3(16, 1.9, -1), new Vector3(1, 0, 0)), 3), 3, 'Portal doorway stays open');
+assert.equal(obstructionDistance(new Ray(new Vector3(16, 1.9, -1), new Vector3(1, 0, 0)), 3), 3, 'Courtyard doorway stays open');
 for (const x of [-8, 8]) assert.equal(obstructionDistance(new Ray(new Vector3(x, 1.9, 12), new Vector3(0, 0, 1)), 3), 3, 'south walking lane stays open');
 assert(obstructionDistance(new Ray(new Vector3(0, 2, 0), new Vector3(0, 1, 0)), 3) < 1.7, 'ceiling retracts upward camera boom');
 const cooler = resolveWalkMove({ x: 17, z: 11.8 }, { x: 0, z: 1.3 });

@@ -22,11 +22,11 @@ const createProject: HandlerMap["projects.create"] = ({ raw, hub }, command) => 
 
 export const projectsCreateHandler: HandlerMap["projects.create"] = createProject;
 
-export function createProjectsCreateHandler({ pack, packs = [], startEmpty = false, multiTeam = false, checkWorkspaceRoot, defaultAgentCli }: {
+export function createProjectsCreateHandler({ pack, packs = [], startEmpty = false, checkWorkspaceRoot, defaultAgentCli }: {
   pack: LoadedPack; packs?: readonly RegistryPack[];
   /** true: without `teamTemplate` the project starts with no agents (the platform never imposes a team). */
   startEmpty?: boolean;
-  multiTeam?: boolean; checkWorkspaceRoot?: (root: string) => boolean; defaultAgentCli?: RosterDeps["defaultAgentCli"];
+  checkWorkspaceRoot?: (root: string) => boolean; defaultAgentCli?: RosterDeps["defaultAgentCli"];
 }): HandlerMap["projects.create"] {
   return (ctx, command) => {
     // Agents run in worktrees of a clone under the Host's projects root; any other path would fail at the first task.
@@ -37,8 +37,6 @@ export function createProjectsCreateHandler({ pack, packs = [], startEmpty = fal
     if (key !== undefined && !entry && key !== pack.manifest.key)
       throw new CommandError("not-found", "team template not found", "correct-input");
     const result = createProject(ctx, command);
-    // With multi-team the operator adds teams explicitly (teams.create-from-pack, engagements.create); no default team.
-    if (multiTeam) return result;
     const source = entry ? registryPack(entry) : key !== undefined || !startEmpty ? pack : undefined;
     if (!source) {
       // An empty roster still gives the project its engagement, so tasks and agents can be added at once.

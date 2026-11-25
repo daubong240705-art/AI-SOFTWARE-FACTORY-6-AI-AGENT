@@ -1,7 +1,7 @@
 import type { Database } from "better-sqlite3";
 import { canTransitionArtifact, type ArtifactStatus, type EntityRef } from "@factory/contracts";
 import { visibleToScope, type KnowledgeScope } from "./permissions.js";
-import { workflowChanged } from "../workflow/lifecycle.js";
+import { workflowChanged } from "../flow/lifecycle.js";
 import { sanitizeAgentText } from "../mcp/security.js";
 
 export class ArtifactLifecycleError extends Error {

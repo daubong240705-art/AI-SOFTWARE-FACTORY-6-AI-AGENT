@@ -5,7 +5,6 @@ import { ruleInputSchema, rulePatchSchema } from "./rules.js";
 import { autonomyLevelSchema } from "./autonomy.js";
 import { modelSettingsSetSchema } from "./model-settings.js";
 import { z } from "zod";
-import { seatRuntimeInputSchema } from "./org.js";
 import {
   groupsCreatePayloadSchema, groupsUpdatePayloadSchema, groupsMovePayloadSchema, groupsArchivePayloadSchema,
   groupsDeletePayloadSchema, groupsSetSettingsPayloadSchema, projectsSetGroupPayloadSchema,
@@ -21,8 +20,6 @@ import {
   skillsCreatePayloadSchema, skillsUpdatePayloadSchema, skillsDeletePayloadSchema, templatesCreatePayloadSchema,
   templatesUpdatePayloadSchema, templatesDeletePayloadSchema, agentsUpgradeFromTemplatePayloadSchema, agentsSaveAsTemplatePayloadSchema,
 } from "./agents.js";
-import { scheduleInputSchema, schedulePatchSchema } from "./schedule.js";
-import { workflowKeySchema, workflowPatchSchema } from "./workflow.js";
 import {
   API_VERSION,
   idSchema,
@@ -55,7 +52,6 @@ const command = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
 const change = { expectedRevision: revisionSchema };
 // No actor, credentials, effective grant, status category or windowId supplied by the browser.
 export const commandSchema = z.discriminatedUnion("type", [
-  command("portal-ops.apply", z.strictObject({ operationId: idSchema })),
   command("integration.retry", z.strictObject({ taskId: idSchema })),
   command("integration.skip", z.strictObject({ taskId: idSchema })),
   command("standing-approvals.create", standingCreateSchema),
@@ -74,22 +70,6 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("monitors.pause", z.strictObject({ monitorId: idSchema, ...change })),
   command("monitors.resume", z.strictObject({ monitorId: idSchema, ...change })),
   command("monitors.delete", z.strictObject({ monitorId: idSchema, ...change })),
-  command("schedules.create", scheduleInputSchema.safeExtend({ scheduleId: idSchema })),
-  command("schedules.update", z.strictObject({ scheduleId: idSchema, ...change, patch: schedulePatchSchema })),
-  command("schedules.pause", z.strictObject({ scheduleId: idSchema, ...change })),
-  command("schedules.resume", z.strictObject({ scheduleId: idSchema, ...change })),
-  command("schedules.delete", z.strictObject({ scheduleId: idSchema, ...change })),
-  command("schedules.run-now", z.strictObject({ scheduleId: idSchema, ...change })),
-  command("workflows.patch", z.strictObject({ instanceId: idSchema, ...change, ...workflowPatchSchema.shape })),
-  command("workflows.decide-patch", z.strictObject({ patchId: idSchema, decision: z.enum(["approve", "reject"]), comment: z.string().max(500).optional() })),
-  command("workflows.create", z.strictObject({ instanceId: idSchema, definitionKey: workflowKeySchema,
-    packKey: workflowKeySchema.optional(), params: z.record(z.string(), z.union([z.boolean(), z.string().max(4000), z.number().finite()])).optional(),
-    title: labelSchema.optional() })),
-  command("workflows.assign-stage", z.strictObject({ instanceId: idSchema, ...change, stageKey: workflowKeySchema, engagementId: idSchema.nullable() })),
-  command("workflows.start", z.strictObject({ instanceId: idSchema, ...change })),
-  command("workflows.pause", z.strictObject({ instanceId: idSchema, ...change, reason: z.string().min(1).max(500) })),
-  command("workflows.resume", z.strictObject({ instanceId: idSchema, ...change })),
-  command("workflows.cancel", z.strictObject({ instanceId: idSchema, ...change, reason: z.string().min(1).max(500) })),
   command(
     "projects.create",
     z.strictObject({
@@ -210,30 +190,6 @@ export const commandSchema = z.discriminatedUnion("type", [
       evidenceIds: z.array(idSchema).max(100),
     }),
   ),
-  // ---- Added in contracts 0.2.0 (M0-lite). Additive: the commands above are unchanged. -----------
-  command(
-    "engagements.create",
-    z.strictObject({
-      engagementId: idSchema,
-      teamId: idSchema,
-      priority: z.number().int().min(0).max(100),
-      maxConcurrent: z.number().int().min(1).max(32),
-    }),
-  ),
-  command("teams.create-from-pack", z.strictObject({
-    teamId: idSchema, packKey: labelSchema, packVersion: labelSchema,
-  })),
-  command("teams.set-lifecycle", z.strictObject({
-    ...change, teamId: idSchema, lifecycle: z.enum(["active", "paused", "archived"]),
-  })),
-  command("engagements.update", z.strictObject({
-    ...change, engagementId: idSchema,
-    priority: z.number().int().min(0).max(100).optional(),
-    maxConcurrent: z.number().int().min(1).max(32).optional(),
-    state: z.enum(["active", "paused", "ended"]).optional(),
-  })),
-  // Seats remain elastic; dedicated node assignment arrives in M4.
-  command("seats.set-runtime", seatRuntimeInputSchema),
   // U1 (doc 17 §5.7): project-scoped agents, teams and relations configured in the database.
   command("agents.create", agentsCreatePayloadSchema),
   command("agents.update", agentsUpdatePayloadSchema),
@@ -274,9 +230,6 @@ export const commandSchema = z.discriminatedUnion("type", [
   command("groups.delete", groupsDeletePayloadSchema),
   command("groups.set-settings", groupsSetSettingsPayloadSchema),
   command("projects.set-group", projectsSetGroupPayloadSchema),
-  command("seats.update", z.strictObject({
-    ...change, seatId: idSchema, slots: z.number().int().min(1).max(8).optional(),
-  })),
   command(
     "tasks.create",
     z.strictObject({

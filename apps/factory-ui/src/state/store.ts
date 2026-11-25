@@ -1,6 +1,6 @@
 import { createSelectorSnapshot, shallowSelectionEqual } from './storeSelector';
 import type { Office } from '@/api/officeModels';
-import type { OrgTeam, RequestItem, RequestDetail, Dossier, Briefing, TaskContext } from '../api/m3Models';
+import type { RequestItem, RequestDetail, Dossier, Briefing, TaskContext } from '../api/m3Models';
 import type { PackDetail, McpServer } from '../api/agentProfileModels';
 import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { Approval, Command, Conversation, FactoryEvent, Project, Task } from '@factory/contracts';
@@ -23,12 +23,8 @@ import type { NotificationsResponse, IntegrationResponse } from '../api/notifica
 import { notificationsMarkRead } from '../api/commands';
 import { emptySystem, systemAreas, type SystemArea, type SystemState } from './system';
 import { modelSettingsPendingKey } from '../api/modelSettings';
-import { seatRuntimePendingKey } from '../api/agentRuntime';
-import { workflowPatchOpSchema, type WorkflowPatchOp } from '@factory/contracts';
-import { workflowsPatch } from '../api/commands';
-import { canPatchWorkflow, emptyPatchDraft, patchDecisionKey, patchOutcomeText, patchPendingKey, type PatchDraft } from './workflowPatches';
 
-type AutomationCommand = Extract<Command, { type: `schedules.${string}` | `rules.${string}` | `monitors.${string}` }>;
+type AutomationCommand = Extract<Command, { type: `rules.${string}` | `monitors.${string}` }>;
 
 export type DocumentUploadState = { busy: boolean; progress: number; error: { status: number; code: string } | null };
 export type KnowledgeState = { query: string; filters: KnowledgeFilters; results: KnowledgeResult[]; list: KnowledgeItem[]; groups: KnowledgeGroups | null; detail: Record<string, KnowledgeArtifact>; loading: Record<string, boolean>; errors: Record<string, StoreError | undefined>; hasMore: boolean; upload: DocumentUploadState };
@@ -39,9 +35,9 @@ export type StoreError = { kind: string; message: string; correlationId?: string
 export type PendingCommand = { command: Command; status: 'pending' | 'failed'; error?: StoreError };
 export type TaskDetailState = { loading: boolean; error?: StoreError | undefined; attempts: Attempt[]; events: Record<string, AttemptEvent[]>; artifacts: TaskArtifact[]; approvals: Approval[]; patches: Record<string, AttemptPatch | null>; effects: Record<string, Effect[]> };
 const emptyDetail = (): TaskDetailState => ({ loading: false, attempts: [], events: {}, artifacts: [], approvals: [], patches: {}, effects: {} });
-const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], requests: [], patches: [], monitors: [], stalledWorkflows: [], quarantinedRules: [], teamBreakers: [], integrationConflicts: [], counts: { approvals: 0, startGates: 0, total: 0 } });
-export type M3State = { teams: OrgTeam[]; packs: Awaited<ReturnType<ApiClient['listPacks']>>['packs']; queues: Record<string, Awaited<ReturnType<ApiClient['getTeamQueue']>>['items']>; disabled: boolean; requestTargets: RequestItem[]; requests: RequestItem[]; requestDetails: Record<string, RequestDetail>; dossier: Dossier | null; briefing: Briefing | null; contexts: Record<string, TaskContext[]> };
-const emptyM3 = (): M3State => ({ teams: [], packs: [], queues: {}, disabled: false, requestTargets: [], requests: [], requestDetails: {}, dossier: null, briefing: null, contexts: {} });
+const emptyInbox = (): Inbox => ({ approvals: [], startGates: [], requests: [], monitors: [], quarantinedRules: [], teamBreakers: [], integrationConflicts: [], counts: { approvals: 0, startGates: 0, total: 0 } });
+export type M3State = { packs: Awaited<ReturnType<ApiClient['listPacks']>>['packs']; requestTargets: RequestItem[]; requests: RequestItem[]; requestDetails: Record<string, RequestDetail>; dossier: Dossier | null; briefing: Briefing | null; contexts: Record<string, TaskContext[]> };
+const emptyM3 = (): M3State => ({ packs: [], requestTargets: [], requests: [], requestDetails: {}, dossier: null, briefing: null, contexts: {} });
 export type StoreState = {
   system: SystemState;
   packDetails: Record<string, PackDetail>;
@@ -228,22 +224,18 @@ export function createStore(options: StoreOptions = {}) {
     return launch();
   }
   function m3Patch(patch: Partial<M3State>): Partial<StoreState> {
-    return { get m3() { return { ...state.m3, ...patch, queues: { ...state.m3.queues, ...patch.queues }, contexts: { ...state.m3.contexts, ...patch.contexts }, requestDetails: { ...state.m3.requestDetails, ...patch.requestDetails } }; } };
+    return { get m3() { return { ...state.m3, ...patch, contexts: { ...state.m3.contexts, ...patch.contexts }, requestDetails: { ...state.m3.requestDetails, ...patch.requestDetails } }; } };
   }
   const m3Revisions = new Map<string, number>();
   function readM3(area: string, work: (projectId: string) => Promise<Partial<M3State>>) {
     const id = state.selectedProjectId;
-    if (state.session !== 'authenticated' || (!id && area !== 'teams')) return Promise.resolve();
+    if (state.session !== 'authenticated' || (!id && area !== 'packs')) return Promise.resolve();
     const revision = (m3Revisions.get(area) ?? 0) + 1; m3Revisions.set(area, revision);
     return enqueue(area, generation, async () => {
-      try { return m3Patch(await work(id ?? '')); }
-      catch (error) {
-        if (area === 'teams' && error instanceof ApiClientError && (error.code === 'unsupported' || error.status === 404 || error.status === 501 || (error.kind === 'bad-response' && error.status !== 401))) return m3Patch({ disabled: true });
-        throw error;
-      }
+      return m3Patch(await work(id ?? ''));
     }, false, () => m3Revisions.get(area) === revision);
   }
-  const loadTeams = () => readM3('teams', async () => { const [teams, packs] = await Promise.all([api.listTeams(), api.listPacks()]); return { teams: teams.teams, packs: packs.packs }; });
+  const loadPacks = () => readM3('packs', async () => ({ packs: (await api.listPacks()).packs }));
   function loadPack(key: string, retry = false) {
     const area = `pack:${key}`;
     if (state.session !== 'authenticated' || state.loading[area] || (!retry && (state.packDetails[key] || state.errors[area]))) return Promise.resolve();
@@ -284,7 +276,6 @@ export function createStore(options: StoreOptions = {}) {
       return { get system() { return { ...state.system, ...patch }; } };
     })));
   }
-  const loadQueue = (teamId: string) => readM3(`queue:${teamId}`, async () => ({ queues: { ...state.m3.queues, [teamId]: (await api.getTeamQueue(teamId)).items } }));
   const loadModelSettings = () => state.session !== 'authenticated' ? Promise.resolve()
     : enqueue('system:models', generation, async () => {
       const models = await api.getModelSettings();
@@ -331,24 +322,14 @@ export function createStore(options: StoreOptions = {}) {
     return enqueue(area, generation, async () => {
       const patch = await work(id);
       return { get m5() { return { ...state.m5, ...patch,
-        workflowDetails: { ...state.m5.workflowDetails, ...patch.workflowDetails },
-        occurrences: { ...state.m5.occurrences, ...patch.occurrences }, fires: { ...state.m5.fires, ...patch.fires }, monitorEvents: { ...state.m5.monitorEvents, ...patch.monitorEvents },
+        fires: { ...state.m5.fires, ...patch.fires }, monitorEvents: { ...state.m5.monitorEvents, ...patch.monitorEvents },
       }; } };
     });
   }
-  const loadWorkflow = (instanceId: string) => readM5(`workflow:${instanceId}`, async id => ({ workflowDetails: { [instanceId]: (await api.getWorkflow(id, instanceId)).instance } }));
-  const loadWorkflowDefinitions = () => readM5('workflow-definitions', async id => ({ workflowDefinitions: (await api.getWorkflowDefinitions(id)).items }));
-  async function loadWorkflows() {
-    const scope = generation;
-    await readM5('workflows', async id => ({ workflows: (await api.listWorkflows(id)).instances }));
-    if (active(scope) && !state.errors.workflows) await Promise.all(state.m5.workflows.map(item => loadWorkflow(item.id)));
-  }
-  const loadSchedules = () => readM5('schedules', async id => ({ schedules: (await api.listSchedules(id)).items }));
   const loadRules = () => readM5('rules', async id => ({ rules: (await api.listRules(id)).items }));
   const loadMonitors = () => readM5('monitors', async id => ({ monitors: (await api.listMonitors(id)).items }));
   const loadBreakers = () => readM5('breakers', async id => ({ breakers: await api.listBreakers(id) }));
-  const loadAutomation = async () => { await Promise.all([loadSchedules(), loadRules(), loadMonitors(), loadBreakers()]); };
-  const loadScheduleOccurrences = (scheduleId: string) => readM5(`occurrences:${scheduleId}`, async id => ({ occurrences: { [scheduleId]: (await api.listScheduleOccurrences(id, scheduleId)).items } }));
+  const loadAutomation = async () => { await Promise.all([loadRules(), loadMonitors(), loadBreakers()]); };
   const loadRuleFires = (ruleId: string) => readM5(`fires:${ruleId}`, async id => ({ fires: { [ruleId]: (await api.listRuleFires(id, ruleId)).items } }));
   const loadMonitorEvents = (monitorId: string) => readM5(`monitor-events:${monitorId}`, async id => ({ monitorEvents: { [monitorId]: (await api.listMonitorEvents(id, monitorId)).items } }));
   function knowledgePatch(patch: Partial<KnowledgeState>): Partial<StoreState> {
@@ -762,7 +743,6 @@ export function createStore(options: StoreOptions = {}) {
       return undefined;
     } catch (error) {
       if (active(scope)) {
-        if (error instanceof ApiClientError && error.code === 'unsupported' && /^(teams|seats|engagements)\./.test(command.type)) update(m3Patch({ disabled: true }));
         failed('command', error);
         if (active(scope)) update({ pending: { ...state.pending, [command.commandId]: { command, status: 'failed', error: errorDetails(error) } } });
       }
@@ -770,20 +750,17 @@ export function createStore(options: StoreOptions = {}) {
     }
   }
   async function sendAutomation(command: AutomationCommand) {
-    const area = command.type.split('.')[0] as 'schedules' | 'rules' | 'monitors';
+    const area = command.type.split('.')[0] as 'rules' | 'monitors';
     const payload = command.payload;
     const id = command.type.endsWith('.create') ? 'new'
-      : 'scheduleId' in payload ? payload.scheduleId : 'ruleId' in payload ? payload.ruleId : payload.monitorId;
-    return sendCollectionCommand(command, `automation:${area}:${id}`, ({ schedules: loadSchedules, rules: loadRules, monitors: loadMonitors })[area], 'automationWrite.conflict');
+      : 'ruleId' in payload ? payload.ruleId : payload.monitorId;
+    return sendCollectionCommand(command, `automation:${area}:${id}`, ({ rules: loadRules, monitors: loadMonitors })[area], 'automationWrite.conflict');
   }
   function sendSettings(command: SettingsCommand) {
     return sendCollectionCommand(command, settingsPendingKey(command), loadSettings, 'settingsWrite.conflict');
   }
   function sendModelSettings(command: Extract<Command, { type: 'models.set' }>) {
     return sendCollectionCommand(command, modelSettingsPendingKey, loadModelSettings, 'modelsUi.conflict');
-  }
-  function sendSeatRuntime(command: Extract<Command, { type: 'seats.set-runtime' }>) {
-    return sendCollectionCommand(command, seatRuntimePendingKey(command.payload.seatId), loadTeams, 'agentConfig.conflict');
   }
   function sendKnowledge(command: KnowledgeCommand) {
     return sendCollectionCommand(command, knowledgePendingKey(command.payload.artifactId, command.payload.version), async () => {
@@ -831,7 +808,7 @@ export function createStore(options: StoreOptions = {}) {
   }
   async function sendCollectionCommand(command: Command, key: string, reload: () => Promise<void>, conflictKey: string, quietConflict = false, recoverNotFound = false) {
     const scope = generation;
-    const projectId = command.type === 'models.set' || command.type === 'seats.set-runtime' ? state.selectedProjectId ?? state.projects[0]?.id : state.selectedProjectId;
+    const projectId = command.type === 'models.set' ? state.selectedProjectId ?? state.projects[0]?.id : state.selectedProjectId;
     if (state.loading[key] || state.session !== 'authenticated' || command.projectId !== projectId) return;
     update({ loading: { ...state.loading, [key]: true }, errors: { ...state.errors, [key]: undefined } });
     try {
@@ -850,46 +827,7 @@ export function createStore(options: StoreOptions = {}) {
       if (active(scope)) update({ loading: { ...state.loading, [key]: false } });
     }
   }
-  function editPatchDraft(instanceId: string, edit: (draft: PatchDraft) => PatchDraft) {
-    if (state.loading[patchPendingKey(instanceId)]) return;
-    const draft = edit(state.m5.patchDrafts[instanceId] ?? emptyPatchDraft());
-    update({ m5: { ...state.m5, patchDrafts: { ...state.m5.patchDrafts, [instanceId]: draft }, patchOutcomes: { ...state.m5.patchOutcomes, [instanceId]: undefined } } });
-  }
-  async function submitPatch(instanceId: string, reason: string) {
-    const detail = state.m5.workflowDetails[instanceId]; const projectId = state.selectedProjectId; const scope = generation;
-    const draft = state.m5.patchDrafts[instanceId];
-    if (!projectId || !detail || detail.revision === undefined || !canPatchWorkflow(detail.state) || !draft?.ops.length || draft.ops.length > 10 || !reason.trim() || reason.length > 500 || state.loading[patchPendingKey(instanceId)]) return;
-    const previous = new Set(detail.patches.map(patch => patch.id));
-    const response = await sendCollectionCommand(workflowsPatch({ projectId, instanceId, expectedRevision: detail.revision, ops: draft.ops, reason: reason.trim() }), patchPendingKey(instanceId), () => loadWorkflow(instanceId), 'planPatch.conflict');
-    if (!active(scope) || !response || typeof response === 'boolean') return;
-    const current = state.m5.workflowDetails[instanceId];
-    const patch = current?.patches.filter(item => !previous.has(item.id) && item.proposedBy === 'operator').sort((a, b) => b.number - a.number)[0];
-    if (!patch) {
-      update({ errors: { ...state.errors, [patchPendingKey(instanceId)]: { kind: 'unexpected', message: 'The patch outcome could not be confirmed.', detailKey: 'planPatch.errors.outcome' } } });
-      toast.info(i18n.t('planPatch.errors.outcome')); return;
-    }
-    const outcome = { ...patch, appliedRevision: patch.appliedRevision ?? (patch.state === 'applied' ? response.receipt.effects.find(effect => effect.id === instanceId)?.revision ?? current?.revision ?? null : null) };
-    update({ m5: { ...state.m5, patchOutcomes: { ...state.m5.patchOutcomes, [instanceId]: outcome }, patchDrafts: { ...state.m5.patchDrafts, [instanceId]: ['applied', 'pending'].includes(outcome.state) ? emptyPatchDraft() : draft } } });
-    const message = patchOutcomeText(outcome, i18n.t);
-    if (outcome.state === 'refused') toast.error(message); else toast.success(message);
-    void loadWorkflows();
-    return outcome;
-  }
   const store = {
-    addPatchOp(instanceId: string, op: WorkflowPatchOp) {
-      if (!canPatchWorkflow(state.m5.workflowDetails[instanceId]?.state ?? '') || !workflowPatchOpSchema.safeParse(op).success) return false;
-      if ((state.m5.patchDrafts[instanceId]?.ops.length ?? 0) >= 10 || state.loading[patchPendingKey(instanceId)]) return false;
-      editPatchDraft(instanceId, draft => ({ ...draft, ops: [...draft.ops, op] })); return true;
-    },
-    removePatchOp: (instanceId: string, index: number) => editPatchDraft(instanceId, draft => ({ ...draft, ops: draft.ops.filter((_, i) => i !== index) })),
-    clearPatchDraft: (instanceId: string) => editPatchDraft(instanceId, emptyPatchDraft),
-    setPatchReason: (instanceId: string, reason: string) => editPatchDraft(instanceId, draft => ({ ...draft, reason: reason.slice(0, 500) })),
-    submitPatch,
-    decideWorkflowPatch(instanceId: string, command: Extract<Command, { type: 'workflows.decide-patch' }>) {
-      return sendCollectionCommand(command, patchDecisionKey(command.payload.patchId), async () => {
-        await Promise.all([loadWorkflow(instanceId), readM5('workflows', async id => ({ workflows: (await api.listWorkflows(id)).instances }))]);
-      }, 'planPatch.conflict');
-    },
     getState: () => state,
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     boot: () => authAction(() => api.session()),
@@ -901,14 +839,14 @@ export function createStore(options: StoreOptions = {}) {
     },
     loadProjects: () => loadProjects(),
     getProject: api.getProject,
-    loadWorkflows, loadWorkflow, loadWorkflowDefinitions, loadAutomation, loadSchedules, loadRules, loadMonitors, loadBreakers,
-    loadScheduleOccurrences, loadRuleFires, loadMonitorEvents, sendAutomation,
+    loadAutomation, loadRules, loadMonitors, loadBreakers,
+    loadRuleFires, loadMonitorEvents, sendAutomation,
     loadAutonomy, loadStandingApprovals, loadSettings, sendSettings,
     loadNotifications: () => loadNotifications(), loadIntegration: () => loadIntegration(), sendNotification, sendIntegration, markAllNotificationsRead,
-    watchM5: (area: 'workflows' | 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
+    watchM5: (area: 'automation' | 'settings', read: () => Promise<void>) => { openM5.set(area, read); void read(); return () => { openM5.delete(area); }; },
     refreshM3: (area: string) => openM3.get(area)?.() ?? Promise.resolve(),
-    loadTeams, loadPack, loadMcpServers, loadQueue, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
-    loadActivity, loadOffice, loadSystem, loadAgentClis, loadModelSettings, sendModelSettings, sendSeatRuntime,
+    loadPacks, loadPack, loadMcpServers, loadRequests, loadRequestTargets, loadRequest, loadDossier, loadBriefing, loadContext,
+    loadActivity, loadOffice, loadSystem, loadAgentClis, loadModelSettings, sendModelSettings,
     browseFolders: api.browseFolders,
     watchActivity: () => {
       openM3.set('activity', loadActivity); void loadActivity();
@@ -930,17 +868,11 @@ export function createStore(options: StoreOptions = {}) {
     knowledgeTimer: timer,
     uploadDocument,
     resetDocumentUpload: () => { if (!state.knowledge.upload.busy) update(knowledgePatch({ upload: emptyUpload() })); },
-    getPortal: api.getPortal, portalGames: api.portalGames, portalStats: api.portalStats, portalAudit: api.portalAudit,
-    portalActions: api.portalActions, proposePortalAction: api.proposePortalAction, reconcilePortalAction: api.reconcilePortalAction,
-    getPreview: api.getPreview, startPreview: api.startPreview, stopPreview: api.stopPreview,
-    createGame: api.createGame, listReleases: api.listReleases, publishGame: api.publishGame,
-    listGames: api.listGames, getGameReport: api.getGameReport,
-    getOrgActivity: api.getOrgActivity, listTeams: api.listTeams,
-    getProjectInteractions: api.getProjectInteractions, listTasks: api.listTasks, getWorkflow: api.getWorkflow,
+    getOrgActivity: api.getOrgActivity, listProjects: api.listProjects,
+    getProjectInteractions: api.getProjectInteractions, listTasks: api.listTasks,
     listAttempts: api.listAttempts, listAttemptEvents: api.listAttemptEvents,
     listTaskArtifacts: api.listTaskArtifacts, listTaskApprovals: api.listTaskApprovals,
-    getArtifactContent: api.getArtifactContent, getTeam: api.getTeam, listWorkflows: api.listWorkflows,
-    reconcileRelease: api.reconcileRelease, rollbackRelease: api.rollbackRelease,
+    getArtifactContent: api.getArtifactContent, getTeam: api.getTeam,
     rawDocumentUrl: api.rawDocumentUrl,
     fetchRawDocument: api.fetchRawDocument,
     getExtraction: api.getExtraction,

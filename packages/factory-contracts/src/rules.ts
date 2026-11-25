@@ -1,18 +1,16 @@
 import { z } from "zod";
 import { labelSchema } from "./base.js";
-import { scheduleActionSchema } from "./schedule.js";
 
-export const ruleEventTypeSchema = z.enum(["task.status-changed", "artifact.status-changed", "workflow.state-changed", "monitor.changed"]);
+export const ruleEventTypeSchema = z.enum(["task.status-changed", "artifact.status-changed", "monitor.changed"]);
 export const RULE_FIELDS = {
   "task.status-changed": ["to", "taskCode"],
   "artifact.status-changed": ["to", "artifactKind"],
-  "workflow.state-changed": ["to", "workflowKey"],
   "monitor.changed": ["from", "to", "monitorName", "monitorKind"],
 } as const;
 export type RuleCondition = { field: string; op: "eq" | "ne"; value: string }
   | { field: string; op: "in"; value: string[] }
   | { all: RuleCondition[] } | { any: RuleCondition[] } | { not: RuleCondition };
-const field = z.enum(["to", "from", "taskCode", "artifactKind", "workflowKey", "monitorName", "monitorKind"]);
+const field = z.enum(["to", "from", "taskCode", "artifactKind", "monitorName", "monitorKind"]);
 const leaf = z.union([
   z.strictObject({ field, op: z.enum(["eq", "ne"]), value: z.string().min(1).max(160) }),
   z.strictObject({ field, op: z.literal("in"), value: z.array(z.string().min(1).max(160)).min(1).max(10) }),
@@ -30,7 +28,7 @@ export function validRuleFields(eventType: keyof typeof RULE_FIELDS, value: Rule
   if ("not" in value) return validRuleFields(eventType, value.not);
   return (RULE_FIELDS[eventType] as readonly string[]).includes(value.field);
 }
-export const ruleActionSchema = scheduleActionSchema.omit({ autoStart: true }).extend({ kind: z.literal("start-workflow") });
+export const ruleActionSchema = z.strictObject({ kind: z.literal("observe") });
 const fields = { name: labelSchema, eventType: ruleEventTypeSchema, condition: ruleConditionSchema, action: ruleActionSchema,
   debounceSeconds: z.number().int().min(0).max(86400).default(0),
   maxFiresPerHour: z.number().int().min(1).max(60).default(6), enabled: z.boolean().default(true) };

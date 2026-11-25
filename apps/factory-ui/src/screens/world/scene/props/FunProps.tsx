@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import type { WorldInputs, WorldModel } from '../../data/types';
+import type { WorldModel } from '../../data/types';
 import type { SceneDebug } from '../../debugHook';
 import { anchors, desks, funProps, plants } from '../../layout/zones';
 import { useWalkPresence } from '../walk/awareness';
@@ -18,10 +18,10 @@ import type { AgentPositions } from '../Agents';
 import { colouredGeometry, type Piece } from './geometry';
 import { OiiaCat } from './OiiaCat';
 import type { EffectsLevel } from '../effects/Aura';
-import { achievements, daylight, propIds, setCatPettable } from './state';
+import { daylight, propIds, setCatPettable } from './state';
 
 const ignore = () => {};
-type State = { model: WorldModel; reports: WorldInputs['reports']; debug: MutableRefObject<SceneDebug>; positions: AgentPositions; locale: WorldLocale };
+type State = { model: WorldModel; debug: MutableRefObject<SceneDebug>; positions: AgentPositions; locale: WorldLocale };
 export function makeFunProps(low: boolean, invalidate: () => void, workerCapacity = 24) {
   const group = new THREE.Group();
   const geometries: THREE.BufferGeometry[] = [], materials: THREE.Material[] = [];
@@ -53,7 +53,6 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
   for (const dz of [-0.77, 0, 0.77]) add('#FFF8E7', [px, 1, pz + dz], [2.98, 0.012, 0.025]);
   add('#C4DBCD', [px, 1.14, pz], [0.035, 0.28, 1.66]);
   for (const dx of [-1.47, 1.47]) add('#FFF8E7', [px + dx, 1, pz], [0.025, 0.012, 1.6]);
-  const [bx, bz] = funProps.board; add('#A87A50', [bx, 1.85, bz], [3.4, 1.25, 0.08]);
   mesh(staticPieces);
   const glass = instance(unitBox, '#67C5D4', 1, low ? 0.16 : 0.23); put(glass, 0, [ax, 1.28, az], [2.29, 0.82, 0.91]); updateInstances(glass);
   const fishShape = colouredGeometry([
@@ -109,11 +108,8 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
   const paint = (next: State, date: Date) => {
     state = next; time = date;
     screen.draw(ctx => {
-    const counts = achievements(next.model, next.reports, date), copy = worldCopy[next.locale].props;
-    ctx.fillStyle = '#FFF8E7'; ctx.fillRect(0, 0, 1024, 128); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#4A3B2F'; ctx.font = '600 28px sans-serif';
-    ctx.fillText(copy.achievements, 512, 23); ctx.font = '26px sans-serif';
-    ctx.fillText(`${copy.released}: ${counts.released ?? '—'}`, 512, 63); ctx.fillText(`${copy.qaWeek}: ${counts.passed ?? '—'}`, 512, 102);
-    ctx.fillStyle = '#243D48'; ctx.fillRect(0, 128, 1024, 128); ctx.fillStyle = '#80F1D4'; ctx.font = '700 75px sans-serif'; ctx.shadowColor = '#60DFCA'; ctx.shadowBlur = 9; ctx.fillText(copy.neon, 512, 194, 980); ctx.shadowBlur = 0;
+    const copy = worldCopy[next.locale];
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#243D48'; ctx.fillRect(0, 128, 1024, 128); ctx.fillStyle = '#80F1D4'; ctx.font = '700 75px sans-serif'; ctx.shadowColor = '#60DFCA'; ctx.shadowBlur = 9; ctx.fillText(copy.neon, 512, 194, 980); ctx.shadowBlur = 0;
     const day = daylight(date); night = day === 'night';
     const gradient = ctx.createLinearGradient(0, 256, 0, 384); gradient.addColorStop(0, night ? '#182947' : day === 'sunset' ? '#E6908E' : '#85CFE6'); gradient.addColorStop(1, night ? '#405577' : day === 'sunset' ? '#F9CE8C' : '#D8F0E5'); ctx.fillStyle = gradient; ctx.fillRect(0, 256, 1024, 128);
     ctx.fillStyle = night ? '#FFF2C5' : '#FFF1B3'; ctx.beginPath(); ctx.arc(780, night ? 287 : day === 'sunset' ? 350 : 287, night ? 16 : 23, 0, Math.PI * 2); ctx.fill();
@@ -192,7 +188,7 @@ export function makeFunProps(low: boolean, invalidate: () => void, workerCapacit
   return { group, paint, sample, clock: () => time, dispose() { setCatPettable(false); geometries.forEach(g => g.dispose()); materials.forEach(m => m.dispose()); screen.dispose(); group.traverse(o => { if (o instanceof THREE.InstancedMesh) o.dispose(); }); } };
 }
 
-export function FunProps({ effects, model, reports, quality, still, hidden, debug, positions, locale }: State & { effects: EffectsLevel; quality: 'high' | 'low'; still: boolean; hidden: boolean }) {
+export function FunProps({ effects, model, quality, still, hidden, debug, positions, locale }: State & { effects: EffectsLevel; quality: 'high' | 'low'; still: boolean; hidden: boolean }) {
   const [resource, setResource] = useState<ReturnType<typeof makeFunProps> | null>(null);
   const presence = useWalkPresence();
   const current = useRef(resource); current.current = resource;
@@ -201,10 +197,10 @@ export function FunProps({ effects, model, reports, quality, still, hidden, debu
   useEffect(() => { debug.current.props = hidden ? [] : [...propIds]; return () => { debug.current.props = []; }; }, [debug, hidden]);
   useEffect(() => {
     if (!resource) return;
-    const update = () => resource.paint({ model, reports, debug, positions, locale }, still ? resource.clock() : new Date());
+    const update = () => resource.paint({ model, debug, positions, locale }, still ? resource.clock() : new Date());
     update(); if (still || hidden) return;
     const timer = setInterval(update, 60_000); return () => clearInterval(timer);
-  }, [resource, model, reports, debug, positions, locale, still, hidden]);
+  }, [resource, model, debug, positions, locale, still, hidden]);
   useEffect(() => { if (!hidden && !still) return motion.request('ambient'); }, [hidden, still, motion]);
   useEffect(() => { if (still) resource?.sample(0, false); }, [still, resource]);
   useFrame(() => { if (!hidden && !still) current.current?.sample(performance.now() / 1000, true, presence?.active ? presence.state.current.position : undefined); });

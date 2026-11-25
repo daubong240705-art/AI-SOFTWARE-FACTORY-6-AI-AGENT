@@ -26,7 +26,7 @@ export function HostCard({ store, now }: { store: Store; now: number }) {
         <Fact label={t('systemUi.platform')} mono>{host?.platform || t('systemUi.unknown')}</Fact>
       </dl>
       <div className="divide-y divide-border border-t border-border">
-        {(['multiTeam', 'dispatch', 'documentExtraction'] as const).map(key => {
+        {(['dispatch', 'documentExtraction'] as const).map(key => {
           const value = capabilities?.features?.[key];
           return <div key={key} className="space-y-2 py-3 last:pb-0">
             <div className="flex items-center justify-between gap-3 text-sm"><span>{t(`systemUi.${key}`)}</span>
