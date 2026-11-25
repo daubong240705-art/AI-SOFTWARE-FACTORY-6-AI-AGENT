@@ -84,7 +84,7 @@ export function BundleActionFields({ api, projectId, params, inputs, set }: {
     </Choice>}</Field>
     <fieldset className="flex flex-wrap gap-3 rounded-lg border p-2"><legend className="px-1 text-xs font-medium">{t('flowBundleUi.scripts')}</legend>
       {bundleScriptsSchema.element.options.map(script => <label key={script} className="flex items-center gap-1 text-sm"><input type="checkbox" data-testid={`flow-bundle-script-${script}`} className="accent-primary" checked={scripts.data?.includes(script) ?? false}
-        onChange={event => set({ ...params, scripts: bundleScriptsSchema.element.options.filter(item => item === script ? event.target.checked : scripts.data?.includes(item)) })} />{script}</label>)}
+        onChange={event => set({ ...params, scripts: bundleScriptsSchema.element.options.filter(item => item === script ? event.target.checked : scripts.data?.includes(item)) })} /><code translate="no" className="font-mono text-xs">{script}</code></label>)}
       {!scripts.success && <p role="alert" className="text-xs text-destructive">{t('flowsUi.validation.bundle-scripts')}</p>}
     </fieldset>
     {(placeholders.length > 0 || dynamic || pathEntries.length > 0) && <fieldset className="grid min-w-0 gap-2 rounded-lg border p-2"><legend className="px-1 text-xs font-medium">{t('flowBundleUi.path')}</legend>
@@ -101,7 +101,7 @@ export function BundleActionFields({ api, projectId, params, inputs, set }: {
           else set(Object.fromEntries(Object.entries(params).filter(entry => entry[0] !== key)));
         }
         return <div key={index} className="grid gap-1">
-          {!fixed && <Field label={t('flowBundleUi.key')} invalid={!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? t('flowsUi.validation.bundle-path-param') : undefined}>{props => <Input {...props} data-testid={`${suffix}-key`} value={key} onChange={event => {
+          {!fixed && <Field label={t('flowBundleUi.key')} invalid={!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) ? t('flowsUi.validation.bundle-path-param') : undefined}>{props => <Input {...props} translate="no" data-testid={`${suffix}-key`} value={key} onChange={event => {
             const name = event.target.value;
             if (reserved.has(name) || Object.hasOwn(params, name)) return;
             set(Object.fromEntries(Object.entries(params).map(entry => entry[0] === key ? [name, value ?? ''] : entry)));
@@ -113,7 +113,7 @@ export function BundleActionFields({ api, projectId, params, inputs, set }: {
             ? <Choice {...props} data-testid={suffix} value={value === true ? 'true' : value === false ? 'false' : ''} onValueChange={next => change(next ? next === 'true' : undefined)}>
               <ChoiceOption value="">{t('flowsUi.none')}</ChoiceOption><ChoiceOption value="true">{t('flowsUi.option.true')}</ChoiceOption><ChoiceOption value="false">{t('flowsUi.option.false')}</ChoiceOption>
             </Choice> : <Input {...props} data-testid={suffix} type={valueType === 'number' ? 'number' : 'text'} step={property?.type === 'integer' ? 1 : 'any'} maxLength={20000}
-              value={typeof value === 'object' ? '' : String(value ?? '')} placeholder={valueType === 'string' ? '{{inputs.name}}' : undefined} onChange={event => {
+              value={typeof value === 'object' ? '' : String(value ?? '')} placeholder={valueType === 'string' ? '{{inputs.id}}' : undefined} onChange={event => {
                 if (valueType !== 'number') change(event.target.value);
                 else if (Number.isFinite(event.target.valueAsNumber)) change(event.target.valueAsNumber);
                 else change(fixed ? undefined : 0);

@@ -122,10 +122,12 @@ const englishCandidates = 'abort accept accepted access account add advanced all
 async function inspect(page, allowed) {
   const dom = await page.evaluate(({ allowed, englishCandidates }) => {
     const visible = element => element.checkVisibility({ checkVisibilityCSS: true, contentVisibilityAuto: true }) && element.getClientRects().length > 0;
-    const text = document.body.innerText || '';
+    // Text marked translate="no" (code, script names, identifiers) is not UI wording.
+    const codeText = [...document.querySelectorAll('[translate="no"]')].map(element => element.innerText || element.value || '').filter(Boolean);
+    const text = codeText.reduce((all, part) => all.split(part).join(' '), document.body.innerText || '');
     const allowedSet = new Set(allowed);
     const candidates = new Set(englishCandidates);
-    const labels = [...document.querySelectorAll('[aria-label], [placeholder], [title]')].filter(visible)
+    const labels = [...document.querySelectorAll('[aria-label], [placeholder], [title]')].filter(element => visible(element) && !element.closest('[translate="no"]'))
       .flatMap(element => ['aria-label', 'placeholder', 'title'].map(attr => element.getAttribute(attr) ?? ''));
     const english = [text, ...labels].join('\n').match(/(?<![\p{L}\p{M}\p{N}])[a-z]+(?:-[a-z]+)*(?![\p{L}\p{M}\p{N}])/giu)
       ?.map(word => word.toLowerCase()).filter(word => candidates.has(word) && !allowedSet.has(word)) ?? [];

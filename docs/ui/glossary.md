@@ -39,6 +39,7 @@ Người dùng yêu cầu (25/11/2026): thuật ngữ mà người làm phần m
 | Dữ liệu ghim | **Pinned data** |
 | Agent giả | **Mock agent** |
 | Phiên | **Session** |
+| Thử lại | **Retry** |
 | Sao lưu | **Backup** |
 | Truy vết / Giám sát | **Trace / Monitor** |
 | Nhánh | **Branch** (cũng giữ: commit, merge, repo, worktree, workspace, log, prompt, deploy) |
