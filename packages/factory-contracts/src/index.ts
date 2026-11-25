@@ -10,6 +10,7 @@ export * from "./permissions.js";
 // versions, Approval, Effect records, usage and budget, nodes, agent tool surface.
 export * from "./org.js";
 export * from "./agents.js";
+export * from "./integrations.js";
 export * from "./work.js";
 export * from "./attempt.js";
 export * from "./knowledge.js";

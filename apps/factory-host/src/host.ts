@@ -18,6 +18,7 @@ import { dirname, isAbsolute, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createApiServer, createRoutes, isLoopbackHost, listenLoopback, listenOn, originsFor, registerStaticUi } from "./api/index.js";
 import { createCommandPipeline } from "./commands/pipeline.js";
+import { CommandError } from "./commands/errors.js";
 import { advanceProject, createFlowHandlers, FLOW_COMMANDS, recoverFlows, registerFlowEngine, registerFlowRoutes, startFlowTimers } from "./flow/index.js";
 import { withFlowResultTool } from "./flow/mcp.js";
 import { completeFlowTask } from "./flow/work.js";
@@ -81,8 +82,16 @@ import { migrateProjectsToRosters } from "./org/roster-migration.js";
 import { createSkillsMcp } from "./instructions/mcp.js";
 import { createToolPolicy } from "./mcp/policy.js";
 import { loadMcpServers, parseMcpServers, type McpServersConfig } from "./mcp-external/config.js";
-import { createExternalTools, type ExternalTools } from "./mcp-external/index.js";
-import { assertCliServerEnvironment, createCliMcpResolver } from "./mcp-external/cli-native.js";
+import type { ExternalTools } from "./mcp-external/index.js";
+import { createCliMcpResolver } from "./mcp-external/cli-native.js";
+import { credentialCrypto, secretKey } from "./integrations/crypto.js";
+import { createIntegrationStore } from "./integrations/store.js";
+import { importLegacy } from "./integrations/legacy.js";
+import { createToolApproval, withToolApprovalDecisions } from "./integrations/approval.js";
+import { createIntegrationTools, withHttpToolDispatch } from "./integrations/tools.js";
+import { createIntegrationCommands, INTEGRATION_CONFIG_COMMANDS, withIntegrationGrants } from "./integrations/commands.js";
+import { registerIntegrationRoutes } from "./integrations/routes.js";
+import type { StdioLaunch } from "./integrations/stdio.js";
 import { docWorkerConfig, type DocWorkerConfig } from "./documents/config.js";
 import { createExtractionService, type ExtractionService } from "./documents/service.js";
 import { registerExtractionRoutes } from "./documents/routes.js";
@@ -265,6 +274,8 @@ async function freeLoopbackPort(): Promise<number> {
 
 export async function startHost(options: {
   config?: ConfigEnv;
+  integrationFetch?: typeof fetch;
+  integrationStdio?: StdioLaunch;
   defaultPack?: string; packKeys?: readonly string[];
   mcpServers?: McpServersConfig;
   packsDir?: string; openLogin?: boolean;
@@ -316,8 +327,8 @@ export async function startHost(options: {
   const clock = options.clock ?? systemClock;
   const defaultAgentCli = options.dispatch?.defaultAgentCli;
   const routeBreaker = options.modelProxy ? createRouteBreaker({ clock }) : undefined;
-  const mcpServers = options.mcpServers === undefined ? undefined : parseMcpServers(options.mcpServers);
-  if (options.localCli?.enabled) assertCliServerEnvironment(mcpServers, options.localCli.passEnv);
+  const legacyPath = options.config?.FACTORY_MCP_SERVERS_FILE ?? process.env.FACTORY_MCP_SERVERS_FILE;
+  const mcpServers = options.mcpServers !== undefined ? parseMcpServers(options.mcpServers) : legacyPath ? loadMcpServers(legacyPath) : undefined;
   let external: ExternalTools | undefined;
   const budgetConfig = options.budgetConfig ?? { ...DEFAULT_BUDGET_CONFIG };
   let storage: Storage | undefined;
@@ -432,6 +443,16 @@ export async function startHost(options: {
     importPacksToLibrary(storage.raw, packs, { newId: createIdGenerator(clock), clock },
       (packKey, message) => console.error(`Library import (${packKey}): ${message}`));
     const hub = new EventHub(storage.raw, { clock });
+    const integrationIds = createIdGenerator(clock);
+    const suppliedKey = options.config?.FACTORY_SECRET_KEY ?? process.env.FACTORY_SECRET_KEY;
+    let crypto: ReturnType<typeof credentialCrypto> | undefined;
+    if (suppliedKey !== undefined) crypto = credentialCrypto(secretKey(stateDir, suppliedKey));
+    const integrationStore = createIntegrationStore(storage.raw, () => crypto ??= credentialCrypto(secretKey(stateDir)), clock);
+    integrationStore.recoverChecks();
+    const importedIntegrations = mcpServers ? (() => {
+      console.warn("FACTORY_MCP_SERVERS_FILE is deprecated; use database integrations.");
+      return importLegacy(storage!.raw, integrationStore, mcpServers, integrationIds, { ...process.env, ...options.config });
+    })() : [];
     archiveGameProjects(storage.raw, hub, clock);
     for (const report of migrateProjectsToRosters(storage.raw, { newId: createIdGenerator(clock), clock, defaultAgentCli,
       ...(backup === null ? {} : { backup: () => {
@@ -440,13 +461,13 @@ export async function startHost(options: {
       } }) })) {
       console.log(`Roster migration ${report.projectId}: ${report.status}${report.detail ? ` ${report.detail}` : ""}`);
     }
-    if (mcpServers) external = createExternalTools(mcpServers, { raw: storage.raw, now: () => clock().getTime() });
-    if (pushRemotes) {
+    {
       const raw = storage.raw;
       let roots: ReturnType<typeof canonicalRoots> | null = null;
-      try { if (options.workspace) roots = canonicalRoots(options.workspace); }
+      try { if (pushRemotes && options.workspace) roots = canonicalRoots(options.workspace); }
       catch { throw new Error("Invalid push workspace configuration"); }
-      effects = createEffectExecutor({ raw, hub, clock, newId: createIdGenerator(clock), remotes: pushRemotes,
+      effects = createEffectExecutor({ raw, hub, clock, newId: integrationIds, remotes: pushRemotes ?? [],
+        integrations: { store: integrationStore, ...(options.integrationFetch ? { fetch: options.integrationFetch } : {}) },
         ...(options.pushSshCommand === undefined ? {} : { sshCommand: options.pushSshCommand }),
         projectRootFor(projectId) {
           const row = raw.prepare("SELECT workspace_root, workspace_kind FROM projects WHERE id = ?").get(projectId) as
@@ -456,6 +477,15 @@ export async function startHost(options: {
         },
       });
       effects.recoverAtStart();
+    }
+    const httpEffects = effects.http!;
+    const approveTool = createToolApproval({ raw: storage.raw, hub, clock, newId: integrationIds });
+    const integrationTools = createIntegrationTools({ raw: storage.raw, store: integrationStore, http: httpEffects, stateDir, clock, approve: approveTool,
+      ...(options.integrationStdio ? { launch: options.integrationStdio } : {}), ...(options.integrationFetch ? { fetch: options.integrationFetch } : {}) });
+    external = integrationTools;
+    for (const id of importedIntegrations) {
+      const integration = integrationStore.startCheck(id, 1);
+      void integrationTools.check(integration).catch(() => {});
     }
     const approvalRaw = storage.raw;
     const modelSeed: ModelSettingsSeed = {
@@ -540,8 +570,8 @@ export async function startHost(options: {
     });
     runner.recover();
     const raw = storage.raw;
-    const makeAttemptMcp = (dispatcher: Dispatcher) => withFlowResultTool(raw, clock, createMcpHandler({
-      ...(external === undefined ? {} : { external }), toolPolicy: createToolPolicy(raw),
+    const makeAttemptMcp = (dispatcher: Dispatcher) => withFlowResultTool(raw, clock, withHttpToolDispatch(createMcpHandler({
+      external: integrationTools, toolPolicy: createToolPolicy(raw), approveTool,
       standing: createStandingApprovalMcp({ raw, hub, clock, utcOffsetMinutes: budgetConfig.utcOffsetMinutes }),
       skills: createSkillsMcp({ raw, now: clock }),
       briefing: createBriefingMcp({ raw, store: artifacts.store, now: clock }),
@@ -572,7 +602,7 @@ export async function startHost(options: {
           return ref;
         });
       },
-    }));
+    }), integrationTools));
     if (options.localCli?.enabled) localTokens = createTokenRegistry({ clock });
     if (options.modelProxy) {
       const configured = options.modelProxy;
@@ -645,7 +675,8 @@ export async function startHost(options: {
       const registry = new RuntimeRegistry([
         createFakeRuntime(stepMs === undefined ? {} : { stepMs }), ...(adapters ?? []), ...(options.runtimes ?? []),
         ...(options.localCli?.enabled ? [createLocalCliRuntime({ codexCommand: localCliCommands.codex, claudeCommand: localCliCommands.claude,
-          ...(options.localCli.passEnv === undefined ? {} : { passEnv: options.localCli.passEnv }) })] : []),
+          ...(options.localCli.passEnv === undefined ? {} : { passEnv: options.localCli.passEnv.filter((name) => name !== "FACTORY_SECRET_KEY"
+            && !mcpServers?.servers.some((server) => "envNames" in server && server.envNames.includes(name))) }) })] : []),
         // api-agent talks to the model proxy; without one its tasks fail loudly with "runtime unavailable".
         ...(modelAccess === undefined || options.modelProxy === undefined ? [] : [createApiAgentRuntime()]),
       ]);
@@ -660,7 +691,7 @@ export async function startHost(options: {
           else requestTaskReview({ raw, hub, now: clock, newId: resultId }, input);
         },
         ...(modelAccess === undefined ? {} : { modelAccess }),
-        ...(options.localCli?.enabled ? { cliMcp: createCliMcpResolver(raw, mcpServers) } : {}),
+        ...(options.localCli?.enabled ? { cliMcp: createCliMcpResolver(raw) } : {}),
         attemptInputs(projectId: string, taskId: string): AttemptInputFile[] {
           const files: AttemptInputFile[] = [];
           const read = raw.prepare(`SELECT title, media_type AS mediaType, content_hash AS hash, size_bytes AS size, abstract_l1 AS note
@@ -729,7 +760,8 @@ export async function startHost(options: {
       }
     }
     const flowBase = { raw: storage.raw, hub, clock, ...(dispatch === null ? {} : { dispatcher: dispatch }) };
-    const flowEngine = { ...flowBase, newId: resultId, upload: { store: artifacts.store, config: documentConfig, afterRegister } };
+    const flowEngine = { ...flowBase, newId: resultId, httpAction: { effects: httpEffects, store: integrationStore },
+      upload: { store: artifacts.store, config: documentConfig, afterRegister } };
     registerFlowEngine(flowEngine);
     recoverFlows(flowEngine);
     stopFlowTimers = startFlowTimers(flowEngine, options.timers);
@@ -750,6 +782,8 @@ export async function startHost(options: {
       projectsRootGuard = (root) => { try { assertInside(guardRoots.projectsRoot, root); return true; } catch { return false; } };
     }
     const agents = createAgentHandlers();
+    const libraryHandlers = createLibraryHandlers();
+    const groupHandlers = createGroupHandlers();
     const pipeline = createCommandPipeline({ storage, hub, clock, handlers: {
       ...createNotificationHandlers(),
       ...createStandingApprovalHandlers(),
@@ -757,13 +791,21 @@ export async function startHost(options: {
       ...createIntegrationHandlers(),
       ...createMonitorHandlers(),
       ...createDossierHandlers({ store: artifacts.store,afterRegister }),
+      ...createIntegrationCommands(integrationStore, (integration) => integrationTools.check(integration)),
       ...agents,
-      "agents.create": withAgentLibraryScope(agents["agents.create"]),
-      "agents.update": withAgentLibraryScope(agents["agents.update"]),
-      "agents.clone": withAgentLibraryScope(agents["agents.clone"]),
-      "agents.rollback": withAgentLibraryScope(agents["agents.rollback"]),
-      ...createLibraryHandlers(),
-      ...createGroupHandlers(),
+      "agents.create": withIntegrationGrants(integrationStore, withAgentLibraryScope(agents["agents.create"])),
+      "agents.update": withIntegrationGrants(integrationStore, withAgentLibraryScope(agents["agents.update"])),
+      "agents.clone": withIntegrationGrants(integrationStore, withAgentLibraryScope(agents["agents.clone"])),
+      "agents.rollback": withIntegrationGrants(integrationStore, withAgentLibraryScope(agents["agents.rollback"])),
+      ...libraryHandlers,
+      "agents.upgrade-from-template": withIntegrationGrants(integrationStore, libraryHandlers["agents.upgrade-from-template"]),
+      ...groupHandlers,
+      "groups.delete": (ctx, command) => {
+        const id = command.payload.groupId;
+        if (ctx.raw.prepare("SELECT 1 FROM integrations WHERE scope_group_id=? UNION ALL SELECT 1 FROM credentials WHERE scope_group_id=?").get(id, id))
+          throw new CommandError("conflict", "Group has integrations or credentials", "correct-input");
+        return groupHandlers["groups.delete"](ctx, command);
+      },
       ...createFlowHandlers({ packs, engine: flowEngine }),
       "projects.archive": createProjectsArchiveHandler({ engine: flowEngine,
         projectsRoot: options.workspace?.projectsRoot ?? join(stateDir, "projects") }),
@@ -774,7 +816,8 @@ export async function startHost(options: {
       "budgets.set": budgetsSetHandler,
       "autonomy.set": setAutonomyHandler,
       "models.set": modelsSetHandler,
-      "approvals.decide": withKnowledgeEffects(dispatch === null ? approvalsDecideHandler : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: true })),
+      "approvals.decide": withKnowledgeEffects(withToolApprovalDecisions(dispatch === null ? approvalsDecideHandler
+        : createApprovalsDecideHandler({ dispatcher: dispatch, multiTeam: true }))),
         ...createKnowledgeHandlers({ multiTeam: true }),
       "conversations.create": conversationsCreateHandler, "chat.send": chatSendHandler,
       ...dispatchHandlers,
@@ -821,6 +864,7 @@ export async function startHost(options: {
       routes(app, guards);
       registerFlowRoutes(app, guards, { storage: storage! });
       registerGroupRoutes(app, guards, { raw: storage!.raw, clock });
+      registerIntegrationRoutes(app, guards, integrationStore, httpEffects, (projectId) => advanceProject(flowEngine, projectId));
       applyLibraryListScope(app, storage!.raw);
       registerLibraryRoutes(app, guards, { raw: storage!.raw });
       registerKnowledgeRoutes(app, guards, { raw: approvalRaw, knowledge, store: artifacts.store, tasks: createArtifactTaskRefs(approvalRaw) });
@@ -855,6 +899,7 @@ export async function startHost(options: {
           ...MONITOR_COMMANDS,
           ...RULE_COMMANDS,
           ...INTEGRATION_COMMANDS,
+          ...INTEGRATION_CONFIG_COMMANDS,
           ...NOTIFICATION_COMMANDS,
           ...STANDING_COMMANDS,
           ...LIBRARY_COMMANDS,

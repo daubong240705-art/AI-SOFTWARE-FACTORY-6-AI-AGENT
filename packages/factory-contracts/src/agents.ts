@@ -21,7 +21,7 @@ export const agentAutonomySchema = z.enum(["L0", "L1", "L2", "L3", "L4"]);
 export const agentTagSchema = z.string().regex(/^[a-z0-9][a-z0-9.-]{0,39}$/);
 /** Syntax only (`knowledge.search`, `knowledge.*`, `ext.playwright.*`). The Host checks that the tool exists. */
 export const toolPatternSchema = z.string().max(120)
-  .regex(/^[a-z][a-z0-9-]*(?:\.(?:[a-z0-9][a-z0-9_-]*))*(?:\.\*)?$/);
+  .regex(/^(?:[a-z][a-z0-9-]*(?:\.[a-z0-9][a-z0-9_-]*)*(?:\.\*)?|(?:ext|http)\.[a-z0-9][a-z0-9-]{1,29}\.[A-Za-z0-9_-]{1,64})$/);
 const modelNameSchema = z.string().min(1).max(256).regex(/^[^\s\p{Cc}]+$/u);
 const uniqueBy = <T>(key: (value: T) => string) => (values: T[]) => new Set(values.map(key)).size === values.length;
 
@@ -30,8 +30,7 @@ export const agentSkillRefSchema = z.strictObject({
   /** A pinned version, or "latest" (resolved and pinned per attempt). */
   version: z.union([revisionSchema, z.literal("latest")]),
 });
-/** `ask` (approval before the call) arrives in U2; U1 stores allow/deny only. */
-export const agentToolGrantSchema = z.strictObject({ tool: toolPatternSchema, mode: z.enum(["allow", "deny"]) });
+export const agentToolGrantSchema = z.strictObject({ tool: toolPatternSchema, mode: z.enum(["allow", "ask", "deny"]) });
 
 export const agentConfigSchema = z.strictObject({
   name: labelSchema.max(80),

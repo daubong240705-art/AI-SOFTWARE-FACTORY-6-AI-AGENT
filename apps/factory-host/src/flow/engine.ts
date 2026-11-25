@@ -17,6 +17,7 @@ import { executeWork, syncWork, type NodeOutcome } from "./work.js";
 export interface FlowEngineDeps {
   raw: Database; hub: EventHub; clock: Clock; dispatcher?: Dispatcher; newId: () => string;
   upload?: Pick<UploadDeps, "store" | "config" | "afterRegister">;
+  httpAction?: { effects: import("../integrations/http-effects.js").HttpEffects; store: import("../integrations/store.js").IntegrationStore };
 }
 type TimerKind = "wait" | "node-timeout" | "run-timeout" | "retry-backoff" | "approval-timeout";
 interface TimerRow { project_id: string; run_id: string; node_id: string; iteration: number; kind: TimerKind; due_at: string }

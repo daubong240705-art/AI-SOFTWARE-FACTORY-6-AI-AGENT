@@ -1,10 +1,11 @@
 import { sanitizeAgentText } from "../mcp/security.js";
 import type { ToolResult } from "../mcp/tools.js";
 import { remoteToolPattern, validHeaderValue, type McpServerConfig } from "./config.js";
+import { scrub } from "../integrations/http.js";
 
 export interface ExternalDefinition { name: string; description: string; inputSchema: Record<string, unknown> }
 export interface ExternalStatus { name: string; origin: string; state: "ready" | "unreachable" | "disabled" | "circuit-open"; tools: number; lastCheckedAt: string | null }
-export interface ClientDeps { fetch?: typeof fetch; now?: () => number; env?: Readonly<Record<string, string | undefined>> }
+export interface ClientDeps { fetch?: typeof fetch; now?: () => number; env?: Readonly<Record<string, string | undefined>>; headers?: () => Record<string, string> }
 class ExternalError extends Error {
   constructor(message: "external tool unavailable" | "external tool timed out" | "external tool refused" = "external tool unavailable") { super(message); }
 }
@@ -27,8 +28,8 @@ export function createMcpClient(config: McpServerConfig, deps: ClientDeps = {}) 
   const active = new Set<AbortController>(); const secrets = new Set<string>();
   const headersFor = (): Record<string, string> => {
     const headers: Record<string, string> = {};
-    for (const [name, value] of Object.entries(config.headers ?? {})) {
-      const resolved = value.startsWith("env:") ? env[value.slice(4)] : value;
+    for (const [name, value] of Object.entries(deps.headers?.() ?? config.headers ?? {})) {
+      const resolved = !deps.headers && value.startsWith("env:") ? env[value.slice(4)] : value;
       if (resolved === undefined || !validHeaderValue(resolved)) throw new ExternalError();
       if (resolved) {
         secrets.add(resolved);
@@ -40,19 +41,15 @@ export function createMcpClient(config: McpServerConfig, deps: ClientDeps = {}) 
     return headers;
   };
   const clean = (text: string): string => {
-    for (const secret of [...secrets].sort((a, b) => b.length - a.length)) text = text.split(secret).join("[redacted]");
-    return text.split(/\r?\n/).map(sanitizeAgentText).join("\n");
+    return scrub(text, [...secrets]).split(/\r?\n/).map(sanitizeAgentText).join("\n");
   };
   const redactSchema = (value: unknown): unknown => {
-    if (typeof value === "string") {
-      for (const secret of [...secrets].sort((a, b) => b.length - a.length)) value = (value as string).split(secret).join("[redacted]");
-      return value;
-    }
+    if (typeof value === "string") return scrub(value, [...secrets]);
     if (Array.isArray(value)) return value.map(redactSchema);
     if (object(value)) return Object.fromEntries(Object.entries(value).map(([key, child]) => [redactSchema(key) as string, redactSchema(child)]));
     return value;
   };
-  const disabled = (): boolean => { try { headersFor(); return false; } catch { return true; } };
+  const disabled = (): boolean => { if (deps.headers) return false; try { headersFor(); return false; } catch { return true; } };
   async function request(method: string, params: unknown, controller: AbortController, notification = false): Promise<unknown> {
     const id = ++nextId;
     const headers = { ...headersFor(), "Content-Type": "application/json", Accept: "application/json, text/event-stream",
@@ -161,10 +158,11 @@ export function createMcpClient(config: McpServerConfig, deps: ClientDeps = {}) 
       }).finally(() => { listing = undefined; });
       return listing;
     },
-    async callTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+    async callTool(name: string, args: Record<string, unknown>, beforeSend?: () => void): Promise<ToolResult> {
       try {
         if (!remoteToolPattern.test(name) || Buffer.byteLength(JSON.stringify(args)) > 16384) throw new ExternalError("external tool refused");
         const result = await operation(async (controller) => {
+          beforeSend?.();
           const value = await request("tools/call", { name, arguments: args }, controller);
           if (!object(value) || !Array.isArray(value.content) || (value.isError !== undefined && typeof value.isError !== "boolean")) throw new ExternalError();
           const text = value.content.map((item: unknown) => object(item) && item.type === "text" && typeof item.text === "string" ? item.text : "[non-text content omitted]").join("\n");

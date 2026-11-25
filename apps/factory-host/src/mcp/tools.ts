@@ -38,7 +38,8 @@ export function cleanDecisionRequest(input: unknown): DecisionRequestInput {
 export interface McpDeps {
   standing?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   external?: ExternalTools;
-  toolPolicy?: (grant: TokenGrant) => { allows(name: string): boolean };
+  toolPolicy?: (grant: TokenGrant) => { allows(name: string): boolean; mode?(name: string): "allow" | "ask" | "deny"; explicit?(name: string): boolean };
+  approveTool?: (grant: TokenGrant, name: string, args: unknown) => string | null;
   skills?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   briefing?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
   requests?: { call(grant: TokenGrant, name: string, input: unknown): ToolResult };
@@ -54,9 +55,12 @@ const result = (text: string, isError = false): ToolResult => ({ content: [{ typ
 
 const coreTools = new Set(["task.progress", "criterion.report", "output.register", "decision.request", "skill.get"]);
 export function toolAllowed(deps: McpDeps, grant: TokenGrant, name: string): boolean {
-  if ((name.startsWith("ext.") || name === "notify.send-internal") && deps.toolPolicy === undefined) return false;
-  if (coreTools.has(name) || deps.toolPolicy === undefined) return true;
-  try { return deps.toolPolicy(grant).allows(name); }
+  if ((/^(ext|http)\./.test(name) || name === "notify.send-internal") && deps.toolPolicy === undefined) return false;
+  if (deps.toolPolicy === undefined) return true;
+  try {
+    const policy = deps.toolPolicy(grant);
+    return (coreTools.has(name) && !policy.explicit?.(name)) || policy.allows(name);
+  }
   catch { return false; }
 }
 
@@ -90,8 +94,13 @@ export function createMcpTools(deps: McpDeps, options: { maxProgressPerAttempt?:
   const criterionCalls = new Map<string, number>(); const maxCriteria = 64;
   return { call(grant, name, args) {
     try {
-      if (name.startsWith("ext.")) return deps.external?.call(grant, name, args) ?? result("tool is not available", true);
+      if (/^(ext|http)\./.test(name)) return deps.external?.call(grant, name, args) ?? result("tool is not available", true);
       if (!toolAllowed(deps, grant, name)) return result("tool is not available", true);
+      if (deps.toolPolicy?.(grant).mode?.(name) === "ask") {
+        if (!deps.approveTool) return result("tool is not available", true);
+        const waiting = deps.approveTool(grant, name, args);
+        if (waiting) return result(waiting, true);
+      }
       if (name === "notify.send-internal") return deps.standing?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "skill.get") return deps.skills?.call(grant, name, args) ?? result("tool is not available", true);
       if (name === "project.briefing") return deps.briefing?.call(grant,name,args) ?? result("tool is not available",true);
