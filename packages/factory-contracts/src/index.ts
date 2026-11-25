@@ -34,3 +34,4 @@ export * from "./flow-convert.js";
 export * from "./flow-api.js";
 export * from "./groups.js";
 export * from "./trace.js";
+export * from "./setup.js";
