@@ -12,11 +12,12 @@ import { attentionHash } from '../Attention';
 import { viewHash, type View } from '../shell/navigation';
 import { GroupConfirmation, GroupEditor, MoveGroupDialog, MoveProjectDialog } from './GroupDialogs';
 import { GroupLibrary } from './GroupLibrary';
+import { Connections } from '../integrations/IntegrationsPage';
 import { GroupSettings } from './GroupSettings';
 import { useGroupLabels, useGroups } from './GroupsContext';
 import { subtreeIds } from './tree';
 
-const tabs = ['overview', 'children', 'settings', 'library'] as const;
+const tabs = ['overview', 'children', 'settings', 'library', 'integrations'] as const;
 const section = 'min-w-0 rounded-xl border border-border bg-card/60 p-4';
 type Dialog = 'edit' | 'move' | 'archive' | 'delete' | 'child' | { projectId: string; name: string } | { childId: string };
 
@@ -48,6 +49,7 @@ function Overview({ rollup, approvalId }: { rollup: GroupDetail['rollup']; appro
 
 export default function GroupPage({ id, store, onNavigate, onNewProject }: { id: string; store: Store; onNavigate: (view: View) => void; onNewProject: (groupId: string) => void }) {
   const t = useGroupLabels();
+  const translate = useT();
   const { api, list, refreshKey, refresh } = useGroups();
   const read = useCallback((signal: AbortSignal) => api.getGroup(id, signal), [api, id]);
   const readLibrary = useCallback((signal: AbortSignal) => api.getScopedLibrary({ groupId: id }, signal), [api, id]);
@@ -93,7 +95,7 @@ export default function GroupPage({ id, store, onNavigate, onNewProject }: { id:
     </header>
     <ReadFeedback error={detail.error} loading={detail.loading} retry={refresh} />
     <Tabs value={tab} onValueChange={setTab}>
-      <TabsList aria-label={group.name} className="h-auto flex-wrap justify-start">{tabs.map(value => <TabsTrigger key={value} value={value}>{t(value)}</TabsTrigger>)}</TabsList>
+      <TabsList aria-label={group.name} className="h-auto flex-wrap justify-start">{tabs.map(value => <TabsTrigger key={value} value={value}>{value === 'integrations' ? translate('integrationsUi.title') : t(value)}</TabsTrigger>)}</TabsList>
       <TabsContent value="overview"><Overview rollup={rollup} approvalId={approval?.id} /></TabsContent>
       <TabsContent value="children" className="space-y-4">
         <section className={section}><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{t('projects')}</h2>
@@ -115,6 +117,7 @@ export default function GroupPage({ id, store, onNavigate, onNewProject }: { id:
       </TabsContent>
       <TabsContent value="settings" forceMount hidden={tab !== 'settings'}><GroupSettings detail={detail.data} blocked={blocked} /></TabsContent>
       <TabsContent value="library"><GroupLibrary groupId={id} library={library.data} loading={library.loading} error={library.error} /></TabsContent>
+      <TabsContent value="integrations"><Connections groupId={id} /></TabsContent>
     </Tabs>
     {dialog === 'edit' && <GroupEditor group={group} close={close} blocked={blocked} readError={detail.error} />}
     {dialog === 'child' && <GroupEditor parentId={group.id} close={close} onCreated={childId => onNavigate(`group:${childId}`)} />}

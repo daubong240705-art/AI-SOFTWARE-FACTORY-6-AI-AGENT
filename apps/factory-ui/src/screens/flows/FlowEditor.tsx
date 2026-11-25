@@ -147,7 +147,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
             onDragStart={event => { event.dataTransfer.setData(nodeDragType, type); event.dataTransfer.effectAllowed = 'copy'; }} onClick={() => add(type)}
             className="flex items-start gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-sm hover:border-border hover:bg-muted/60 disabled:opacity-50">
             <Icon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" /><span><span className="block font-medium">{label(`node.${type}`)}</span>
-            <span className="block text-xs text-muted-foreground">{label(`help.${type}`)}</span>{(type === 'parallel' || type === 'orchestrate') && <Badge variant="outline" className="mt-1 text-[9px]">{label('unsupportedNode')}</Badge>}</span>
+            <span className="block text-xs text-muted-foreground">{label(`help.${type}`)}</span>{type === 'parallel' && <Badge variant="outline" className="mt-1 text-[9px]">{label('unsupportedNode')}</Badge>}</span>
           </button>;
         })}</div>
         <Button className="w-full" size="sm" variant="outline" disabled={!writable || pendingJson > 0} onClick={() => { setSettings(true); setPanel('inspector'); setSelection(null); }}><Settings2 aria-hidden="true" />{label('settings')}</Button>
@@ -168,7 +168,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
           <TabsContent value="inspector" className="space-y-3">
             {previewVersion !== null || archived ? <p className="text-sm text-muted-foreground">{label('readOnly')}</p> : <fieldset disabled={write.busy} className="min-w-0 space-y-3">
               <PendingJson.Provider key={draft?.revision ?? flow.revision} value={setPendingJson}>
-                {settings ? <FlowSettings definition={definition} setDefinition={replace} /> : selectedNode ? <NodeInspector key={selectedNode.id} node={selectedNode} definition={definition} roster={roster} setNode={node => update(current => ({ ...current, nodes: current.nodes.map(item => item.id === node.id ? node : item) }))} />
+                {settings ? <FlowSettings definition={definition} setDefinition={replace} /> : selectedNode ? <NodeInspector key={selectedNode.id} api={api} projectId={projectId} node={selectedNode} definition={definition} roster={roster} setNode={node => update(current => ({ ...current, nodes: current.nodes.map(item => item.id === node.id ? node : item) }))} />
                   : selection?.kind === 'edge' ? <EdgeInspector selection={selection.id} definition={definition} setDefinition={replace} /> : <p className="text-sm text-muted-foreground">{label('selectHint')}</p>}
               </PendingJson.Provider>
               {selection && <Button size="sm" variant="outline" disabled={pendingJson > 0 || (selection.kind === 'node' && definition.nodes.length < 2)} onClick={remove}><Trash2 aria-hidden="true" />{label('remove')}</Button>}

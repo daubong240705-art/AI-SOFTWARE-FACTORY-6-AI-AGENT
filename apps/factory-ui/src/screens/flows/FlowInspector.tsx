@@ -1,11 +1,13 @@
 import { useMemo } from 'react';
 import { FLOW_NODE_PORTS, jsonSubsetSchema, type FlowDefinition, type FlowNode, type ProjectAgentsResponse } from '@factory/contracts';
 import type { FlowIssue } from '@/api/flowModels';
+import type { ApiClient } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { AgentField, ConditionFields, EnumField, MappingField, NumField, SelectorList, StringsField, TextField, Toggle, defaultCondition, initialSelector, pathsFor } from './FlowFields';
 import { Choice, Field, JsonField, useFlowLabels } from './shared';
 import type { Selection } from './FlowCanvas';
-import { actionKinds, unsupported } from './nodeTypes';
+import { actionKinds, unsupported, unsupportedAction } from './nodeTypes';
+import { HttpActionFields } from './HttpActionFields';
 
 function CommonFields({ node, set }: { node: FlowNode; set: (patch: Partial<FlowNode>) => void }) {
   const label = useFlowLabels();
@@ -20,7 +22,7 @@ function CommonFields({ node, set }: { node: FlowNode; set: (patch: Partial<Flow
   </div>;
 }
 
-export function NodeInspector({ node, definition, roster, setNode }: { node: FlowNode; definition: FlowDefinition; roster?: ProjectAgentsResponse | undefined; setNode: (node: FlowNode) => void }) {
+export function NodeInspector({ api, projectId, node, definition, roster, setNode }: { api: ApiClient; projectId: string; node: FlowNode; definition: FlowDefinition; roster?: ProjectAgentsResponse | undefined; setNode: (node: FlowNode) => void }) {
   const label = useFlowLabels();
   const paths = useMemo(() => pathsFor(definition), [definition]);
   const set = (patch: Partial<FlowNode>) => setNode({ ...node, ...patch } as FlowNode);
@@ -45,9 +47,14 @@ export function NodeInspector({ node, definition, roster, setNode }: { node: Flo
       <Toggle name={label('field.outputSchema')} checked={!!node.outputSchema} set={enabled => set({ outputSchema: enabled ? { type: 'object', properties: {} } : undefined })} />
       {node.outputSchema && <JsonField title={label('field.outputSchema')} value={node.outputSchema} parse={raw => jsonSubsetSchema.parse(raw)} onChange={outputSchema => set({ outputSchema })} />}
     </>}
-    {node.type === 'action' && <><Field label={label('field.action')}>{props => <Choice {...props} value={node.action} onChange={event => set({ action: event.target.value as typeof node.action })}>
-      {actionKinds.map((kind, index) => <option key={kind} value={kind}>{kind}{index > 1 ? ` (${label('unsupportedNode')})` : ''}</option>)}</Choice>}</Field>
-      <MappingField name="params" value={node.params} paths={paths} scalar set={params => set({ params })} /></>}
+    {node.type === 'action' && <><Field label={label('field.action')}>{props => <Choice {...props} value={node.action} onChange={event => {
+      const action = event.target.value as typeof node.action;
+      const params = action === 'http.request' ? Object.fromEntries(Object.entries(node.params).filter(([key]) => ['integration', 'operation', 'args'].includes(key))) : node.params;
+      set({ action, params });
+    }}>
+      {actionKinds.map(kind => <option key={kind} value={kind}>{kind}{unsupportedAction(kind) ? ` (${label('unsupportedNode')})` : ''}</option>)}</Choice>}</Field>
+      {node.action === 'http.request' ? <HttpActionFields api={api} projectId={projectId} params={node.params} paths={paths} set={params => set({ params })} />
+        : <MappingField name="params" value={node.params} paths={paths} scalar set={params => set({ params })} />}</>}
     {node.type === 'condition' && <div className="grid gap-3">{node.rules.map((rule, index) => <fieldset key={index} className="grid gap-2 rounded-lg border p-2"><legend className="px-1 text-xs">{label('rule')} {index + 1}</legend>
       <ConditionFields value={rule.when} paths={paths} set={when => set({ rules: node.rules.map((item, at) => at === index ? { ...item, when } : item) })} />
       <TextField name="port" value={rule.port} set={port => set({ rules: node.rules.map((item, at) => at === index ? { ...item, port } : item) })} />

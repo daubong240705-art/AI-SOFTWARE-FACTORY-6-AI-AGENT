@@ -17,10 +17,12 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { Reveal } from '@/components/motion/Reveal';
 import { GroupEditor } from './groups/GroupDialogs';
 import { useGroupLabels, useGroups } from './groups/GroupsContext';
+import { IntegrationProject } from './integrations/shared';
 
 const compactQuery = '(max-width: 1179px)';
 const WorldPage = lazy(() => import('./world/WorldPage'));
 const GroupPage = lazy(() => import('./groups/GroupPage'));
+const HttpEffects = lazy(() => import('./integrations/HttpEffects'));
 function useCompact() {
   const [compact, setCompact] = useState(() => typeof matchMedia === 'function' && matchMedia(compactQuery).matches);
   useEffect(() => {
@@ -33,7 +35,7 @@ function useCompact() {
   return compact;
 }
 
-export function AppShell({ store, libraryPage }: { store: Store; libraryPage?: ReactNode }) {
+export function AppShell({ store, libraryPage, integrationsPage }: { store: Store; libraryPage?: ReactNode; integrationsPage?: ReactNode }) {
   const t = useT(); const state = store.useStoreSelector(value => ({ projects: value.projects, selectedProjectId: value.selectedProjectId, announcement: value.announcement }), shallowSelectionEqual);
   const { view, tab, settingsSection, navigate } = useNavigation();
   const groupLabel = useGroupLabels();
@@ -71,7 +73,7 @@ export function AppShell({ store, libraryPage }: { store: Store; libraryPage?: R
   function openTask(projectId: string, taskId: string) { setInitialTask({ projectId, taskId }); navigate(`project:${projectId}`, 'board'); setExpanded(false); }
   const navigation = <Sidebar store={store} view={view} collapsed={collapsed && !compact} compact={compact} expanded={expanded} onNavigate={go} onCollapse={() => compact ? setExpanded(false) : setCollapsed(value => !value)}
     onNewProject={() => createProject(null)} onNewGroup={() => { setExpanded(false); setCreatingGroup(true); }} />;
-  const pageName = groupId ? group?.name ?? groupLabel('projectGroup') : selected?.name ?? t(view === 'needs-attention' ? 'nav.attention' : view === 'library' ? 'nav.library' : view === 'world' ? 'nav.world' : view === 'system' ? 'systemUi.title' : 'nav.overview');
+  const pageName = groupId ? group?.name ?? groupLabel('projectGroup') : selected?.name ?? t(view === 'needs-attention' ? 'nav.attention' : view === 'library' ? 'nav.library' : view === 'integrations' ? 'integrationsUi.title' : view === 'world' ? 'nav.world' : view === 'system' ? 'systemUi.title' : 'nav.overview');
   return <div className={`app${collapsed && !compact ? ' sidebar-collapsed' : ''}`}>
     <a className="skip-link" href="#factory-main" onClick={event => { event.preventDefault(); main.current?.focus(); }}>{t('nav.skip')}</a>
     <TooltipProvider>{!compact && navigation}<TopBar store={store} compact={compact} expanded={expanded} onToggle={() => setExpanded(value => !value)} onCreate={create} onProject={id => go(`project:${id}`)} onTask={openTask} />
@@ -81,10 +83,15 @@ export function AppShell({ store, libraryPage }: { store: Store; libraryPage?: R
       {view === 'overview' ? <Overview store={store} onOpenProject={id => go(`project:${id}`)} onProject={id => { setChatProject(id); go(`project:${id}`); }} onCreate={create} onAttention={item => { navigate('needs-attention'); history.replaceState(null, '', attentionHash(item?.key)); }} focusComposer={focusComposer} onTask={openTask} />
         : view === 'needs-attention' ? <Attention store={store} />
         : view === 'library' ? <Suspense fallback={<LoadingState />}>{libraryPage}</Suspense>
+        : view === 'integrations' ? <Suspense fallback={<LoadingState />}>{integrationsPage}</Suspense>
         : view === 'world' ? <Suspense fallback={<LoadingState />}><WorldPage store={store} projects={state.projects} onNavigate={go} onTask={openTask} /></Suspense>
         : view === 'system' ? <System store={store} />
         : groupId ? <Suspense fallback={<LoadingState />}><GroupPage key={groupId} id={groupId} store={store} onNavigate={go} onNewProject={createProject} /></Suspense>
-        : selected && state.selectedProjectId === selected.id ? <ProjectView key={selected.id} store={store} project={selected} tab={tab} settingsSection={settingsSection} onTabChange={(next, section) => navigate(view, next, section)} newTaskRequest={newTaskRequest?.projectId === selected.id ? newTaskRequest.sequence : 0} onNewTaskOpened={() => setNewTaskRequest(null)} openChat={chatProject === selected.id} onChatOpened={() => setChatProject(null)} initialTaskId={initialTask?.projectId === selected.id ? initialTask.taskId : undefined} />
+        : selected && state.selectedProjectId === selected.id ? <IntegrationProject.Provider value={selected.id}>
+          <div className="flex h-full min-h-0 flex-col"><div className="min-h-0 flex-1">
+            <ProjectView key={selected.id} store={store} project={selected} tab={tab} settingsSection={settingsSection} onTabChange={(next, section) => navigate(view, next, section)} newTaskRequest={newTaskRequest?.projectId === selected.id ? newTaskRequest.sequence : 0} onNewTaskOpened={() => setNewTaskRequest(null)} openChat={chatProject === selected.id} onChatOpened={() => setChatProject(null)} initialTaskId={initialTask?.projectId === selected.id ? initialTask.taskId : undefined} />
+          </div>{tab === 'settings' && <Suspense fallback={null}><HttpEffects key={selected.id} projectId={selected.id} /></Suspense>}</div>
+        </IntegrationProject.Provider>
         : view.startsWith('project:') && !selected ? <ProjectLinkState key={view} store={store} projectId={view.slice(8)} onOverview={() => go('overview')} /> : <LoadingState />}
       </Reveal>
     </main>

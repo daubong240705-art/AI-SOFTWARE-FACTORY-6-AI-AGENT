@@ -3,7 +3,7 @@ import { defaultSettingsSection, settingsSections, type SettingsSection } from '
 export type { SettingsSection } from '../project-settings/sections';
 
 export type ProjectTab = 'overview' | 'agents' | 'flows' | 'office' | 'board' | 'knowledge' | 'code' | 'settings';
-export type View = 'overview' | 'needs-attention' | 'library' | 'world' | 'system' | `project:${string}` | `group:${string}`;
+export type View = 'overview' | 'needs-attention' | 'library' | 'integrations' | 'world' | 'system' | `project:${string}` | `group:${string}`;
 const tabs: ProjectTab[] = ['overview', 'agents', 'flows', 'office', 'board', 'knowledge', 'code', 'settings'];
 export type FlowRoute = { kind: 'flows' | 'runs'; id: string };
 export function flowRoute(hash: string): FlowRoute | null {
@@ -41,6 +41,7 @@ export function viewHash(view: View, tab: ProjectTab = 'overview', section?: Set
 export function parseHash(hash: string): View {
   if (hash === '#/system') return 'system';
   if (hash === '#/library') return 'library';
+  if (hash === '#/integrations') return 'integrations';
   if (hash === '#/attention' || hash.startsWith('#/attention/')) return 'needs-attention';
   if (hash === '#/world' || hash.startsWith('#/world?')) return 'world';
   const group = /^#\/g\/([^/]+)$/.exec(hash)?.[1];
