@@ -1,0 +1,295 @@
+{
+  "schema": 2,
+  "key": "game-publish",
+  "title": "Publish lại bản hiện tại",
+  "description": "Kiểm tra và duyệt trước khi đóng gói bản tích hợp hiện tại lên Portal.",
+  "inputs": [
+    {
+      "name": "portalIntegrationId",
+      "type": "string",
+      "required": true
+    }
+  ],
+  "nodes": [
+    {
+      "id": "start",
+      "title": "Bắt đầu",
+      "type": "trigger",
+      "trigger": {
+        "kind": "manual"
+      }
+    },
+    {
+      "id": "release",
+      "title": "Kiểm tra bản phát hành",
+      "type": "agent",
+      "agent": {
+        "role": "Release Manager"
+      },
+      "timeoutMinutes": 45,
+      "onError": "port",
+      "task": {
+        "title": "Kiểm tra bản phát hành",
+        "instructions": "Dùng game-release-checklist để kiểm tra bản tích hợp, dist/, manifest, thumbnail và tar.gz dưới 50 MiB. Chạy smoke test bản hiện tại; không thêm mục changelog trùng. Không publish. Trả verdict và notes gồm mã commit đã kiểm, kết quả và rủi ro.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Chỉ báo ready nếu mọi mục bắt buộc đạt."
+        ],
+        "inputs": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "blocked"
+            ]
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "verdict",
+          "notes"
+        ]
+      }
+    },
+    {
+      "id": "release-gate",
+      "title": "Bản phát hành đã sẵn sàng?",
+      "type": "condition",
+      "rules": [
+        {
+          "when": {
+            "path": "nodes.release.output.verdict",
+            "op": "eq",
+            "value": "ready"
+          },
+          "port": "pass"
+        }
+      ]
+    },
+    {
+      "id": "approve-publish",
+      "title": "Publish lên Portal?",
+      "type": "approval",
+      "approver": "operator",
+      "prompt": "Chỉ duyệt nếu bản tích hợp vẫn là ứng viên đã kiểm tra. Duyệt sẽ tạo phiên bản Portal mới.\n\n{{nodes.release.output.notes}}",
+      "timeoutMinutes": 1440
+    },
+    {
+      "id": "publish",
+      "title": "Đóng gói và publish lên Portal",
+      "type": "action",
+      "onError": "port",
+      "timeoutMinutes": 30,
+      "action": "bundle.publish",
+      "params": {
+        "integrationId": "{{inputs.portalIntegrationId}}",
+        "operation": "publish",
+        "dir": "dist",
+        "ref": "integration",
+        "scripts": "[\"check\",\"test\",\"build\"]",
+        "query": "{\"commitSha\":\"{{bundle.commit}}\"}"
+      }
+    },
+    {
+      "id": "published",
+      "title": "Bản đã phát hành",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.publish.output.response.playPath",
+        "nodes.publish.output.response.version",
+        "nodes.publish.output.response.gameId",
+        "nodes.publish.output.commit"
+      ]
+    },
+    {
+      "id": "release-blocked",
+      "title": "Dừng: checklist chưa đạt",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.release.output.result"
+      ]
+    },
+    {
+      "id": "publish-stopped",
+      "title": "Dừng: chưa duyệt publish",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.release.output.notes"
+      ]
+    },
+    {
+      "id": "release-error",
+      "title": "Lỗi: Kiểm tra bản phát hành",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.release.output.error"
+      ]
+    },
+    {
+      "id": "publish-error",
+      "title": "Lỗi: Đóng gói và publish lên Portal",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.publish.output.error"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-out-release",
+      "from": {
+        "node": "start",
+        "port": "out"
+      },
+      "to": {
+        "node": "release"
+      }
+    },
+    {
+      "id": "release-out-release-gate",
+      "from": {
+        "node": "release",
+        "port": "out"
+      },
+      "to": {
+        "node": "release-gate"
+      }
+    },
+    {
+      "id": "release-gate-pass-approve-publish",
+      "from": {
+        "node": "release-gate",
+        "port": "pass"
+      },
+      "to": {
+        "node": "approve-publish"
+      }
+    },
+    {
+      "id": "release-gate-else-release-blocked",
+      "from": {
+        "node": "release-gate",
+        "port": "else"
+      },
+      "to": {
+        "node": "release-blocked"
+      }
+    },
+    {
+      "id": "approve-publish-approved-publish",
+      "from": {
+        "node": "approve-publish",
+        "port": "approved"
+      },
+      "to": {
+        "node": "publish"
+      }
+    },
+    {
+      "id": "approve-publish-rejected-publish-stopped",
+      "from": {
+        "node": "approve-publish",
+        "port": "rejected"
+      },
+      "to": {
+        "node": "publish-stopped"
+      }
+    },
+    {
+      "id": "approve-publish-timeout-publish-stopped",
+      "from": {
+        "node": "approve-publish",
+        "port": "timeout"
+      },
+      "to": {
+        "node": "publish-stopped"
+      }
+    },
+    {
+      "id": "publish-out-published",
+      "from": {
+        "node": "publish",
+        "port": "out"
+      },
+      "to": {
+        "node": "published"
+      }
+    },
+    {
+      "id": "release-error-release-error",
+      "from": {
+        "node": "release",
+        "port": "error"
+      },
+      "to": {
+        "node": "release-error"
+      }
+    },
+    {
+      "id": "publish-error-publish-error",
+      "from": {
+        "node": "publish",
+        "port": "error"
+      },
+      "to": {
+        "node": "publish-error"
+      }
+    }
+  ],
+  "settings": {
+    "concurrency": "queue"
+  },
+  "layout": {
+    "start": {
+      "x": 80,
+      "y": 100
+    },
+    "release": {
+      "x": 360,
+      "y": 100
+    },
+    "release-error": {
+      "x": 500,
+      "y": 290
+    },
+    "release-gate": {
+      "x": 640,
+      "y": 100
+    },
+    "release-blocked": {
+      "x": 780,
+      "y": 290
+    },
+    "approve-publish": {
+      "x": 920,
+      "y": 100
+    },
+    "publish-stopped": {
+      "x": 1060,
+      "y": 290
+    },
+    "publish": {
+      "x": 1200,
+      "y": 100
+    },
+    "publish-error": {
+      "x": 1340,
+      "y": 290
+    },
+    "published": {
+      "x": 1480,
+      "y": 100
+    }
+  }
+}

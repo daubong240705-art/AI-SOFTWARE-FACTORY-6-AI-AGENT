@@ -1,0 +1,242 @@
+{
+  "schema": 2,
+  "key": "game-playtest",
+  "title": "Playtest và cân bằng",
+  "description": "Chạy bot có seed, đọc số liệu cân bằng và lưu báo cáo; không phát hành.",
+  "inputs": [
+    {
+      "name": "matches",
+      "type": "number",
+      "required": false,
+      "default": 50
+    }
+  ],
+  "nodes": [
+    {
+      "id": "start",
+      "title": "Bắt đầu",
+      "type": "trigger",
+      "trigger": {
+        "kind": "manual"
+      }
+    },
+    {
+      "id": "simulate",
+      "title": "Chạy các ván bot có seed",
+      "type": "agent",
+      "agent": {
+        "role": "QA Engineer"
+      },
+      "timeoutMinutes": 75,
+      "onError": "port",
+      "task": {
+        "title": "Chạy các ván bot có seed",
+        "instructions": "Dùng game-playtest để chạy {{inputs.matches}} ván bot. Chỉ chấp nhận số nguyên 1–500; nếu không hợp lệ, giải thích thay vì tự đổi số ván. Ghi số ván thật, tỷ lệ thắng từng chỗ, hòa, độ dài, seed lỗi và các ván chạm giới hạn. Không sửa mã.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Trả report có số liệu, mẫu số và giới hạn của mẫu."
+        ],
+        "inputs": []
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "report": {
+            "type": "string",
+            "maxLength": 12000
+          }
+        },
+        "required": [
+          "report"
+        ]
+      }
+    },
+    {
+      "id": "analyse",
+      "title": "Phân tích cân bằng",
+      "type": "agent",
+      "agent": {
+        "role": "Game Designer"
+      },
+      "timeoutMinutes": 30,
+      "onError": "port",
+      "task": {
+        "title": "Phân tích cân bằng",
+        "instructions": "Dùng game-playtest để tổng hợp các số liệu QA và nêu tối đa ba đề xuất cân bằng có chỉ số theo dõi. Phân biệt lỗi, ván chạm giới hạn và hòa. Không sửa game và không publish.\nViết nội dung cho người vận hành bằng tiếng Việt.",
+        "acceptance": [
+          "Trả report Markdown gồm số liệu gốc và phân tích."
+        ],
+        "inputs": [
+          "nodes.simulate.output.report"
+        ]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "report": {
+            "type": "string",
+            "maxLength": 12000
+          }
+        },
+        "required": [
+          "report"
+        ]
+      }
+    },
+    {
+      "id": "save-report",
+      "title": "Lưu báo cáo playtest",
+      "type": "action",
+      "action": "artifact.save",
+      "onError": "port",
+      "params": {
+        "title": "Báo cáo playtest và cân bằng",
+        "content": "{{nodes.analyse.output.report}}"
+      }
+    },
+    {
+      "id": "report",
+      "title": "Báo cáo đã lưu",
+      "type": "output",
+      "target": "artifact",
+      "from": [
+        "nodes.save-report.artifacts"
+      ]
+    },
+    {
+      "id": "simulate-error",
+      "title": "Lỗi: Chạy các ván bot có seed",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.simulate.output.error"
+      ]
+    },
+    {
+      "id": "analyse-error",
+      "title": "Lỗi: Phân tích cân bằng",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.analyse.output.error"
+      ]
+    },
+    {
+      "id": "save-report-error",
+      "title": "Lỗi: Lưu báo cáo playtest",
+      "type": "output",
+      "target": "deliver",
+      "from": [
+        "nodes.save-report.output.error"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-out-simulate",
+      "from": {
+        "node": "start",
+        "port": "out"
+      },
+      "to": {
+        "node": "simulate"
+      }
+    },
+    {
+      "id": "simulate-out-analyse",
+      "from": {
+        "node": "simulate",
+        "port": "out"
+      },
+      "to": {
+        "node": "analyse"
+      }
+    },
+    {
+      "id": "analyse-out-save-report",
+      "from": {
+        "node": "analyse",
+        "port": "out"
+      },
+      "to": {
+        "node": "save-report"
+      }
+    },
+    {
+      "id": "save-report-out-report",
+      "from": {
+        "node": "save-report",
+        "port": "out"
+      },
+      "to": {
+        "node": "report"
+      }
+    },
+    {
+      "id": "simulate-error-simulate-error",
+      "from": {
+        "node": "simulate",
+        "port": "error"
+      },
+      "to": {
+        "node": "simulate-error"
+      }
+    },
+    {
+      "id": "analyse-error-analyse-error",
+      "from": {
+        "node": "analyse",
+        "port": "error"
+      },
+      "to": {
+        "node": "analyse-error"
+      }
+    },
+    {
+      "id": "save-report-error-save-report-error",
+      "from": {
+        "node": "save-report",
+        "port": "error"
+      },
+      "to": {
+        "node": "save-report-error"
+      }
+    }
+  ],
+  "settings": {
+    "concurrency": "queue"
+  },
+  "layout": {
+    "start": {
+      "x": 80,
+      "y": 100
+    },
+    "simulate": {
+      "x": 360,
+      "y": 100
+    },
+    "simulate-error": {
+      "x": 500,
+      "y": 290
+    },
+    "analyse": {
+      "x": 640,
+      "y": 100
+    },
+    "analyse-error": {
+      "x": 780,
+      "y": 290
+    },
+    "save-report": {
+      "x": 920,
+      "y": 100
+    },
+    "save-report-error": {
+      "x": 1060,
+      "y": 290
+    },
+    "report": {
+      "x": 1200,
+      "y": 100
+    }
+  }
+}

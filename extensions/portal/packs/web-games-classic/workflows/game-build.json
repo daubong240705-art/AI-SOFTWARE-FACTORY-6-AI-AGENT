@@ -1,0 +1,388 @@
+{
+  "key": "game-build",
+  "revision": 4,
+  "title": "Build or change a web game",
+  "parameters": [
+    {
+      "name": "mode",
+      "type": "enum",
+      "values": [
+        "create",
+        "update",
+        "fix",
+        "improve"
+      ],
+      "default": "create"
+    },
+    {
+      "name": "request",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "name": "touchRules",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "touchUi",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "runDesign",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "runRules",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "runArt",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "runClient",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "name": "qa",
+      "type": "enum",
+      "values": [
+        "full",
+        "quick"
+      ],
+      "default": "full"
+    }
+  ],
+  "phases": [
+    "design",
+    "build",
+    "verify"
+  ],
+  "stages": [
+    {
+      "key": "reproduce",
+      "phase": "design",
+      "title": "Reproduce the reported bug",
+      "requiredCapabilities": [
+        "test.gameplay"
+      ],
+      "optional": true,
+      "includeIf": {
+        "all": [
+          {
+            "param": "mode",
+            "op": "eq",
+            "value": "fix"
+          },
+          {
+            "param": "runClient",
+            "op": "eq",
+            "value": true
+          }
+        ]
+      },
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "A test under tests/regression/ reproduces the reported bug and fails on the current code; report the test command, its nonzero exit code and quote the failing output."
+      ]
+    },
+    {
+      "key": "design",
+      "phase": "design",
+      "title": "Specify the game and shared types",
+      "requiredCapabilities": [
+        "game.design"
+      ],
+      "optional": true,
+      "includeIf": {
+        "all": [
+          {
+            "param": "mode",
+            "op": "ne",
+            "value": "fix"
+          },
+          {
+            "param": "runDesign",
+            "op": "eq",
+            "value": true
+          }
+        ]
+      },
+      "review": "human-final",
+      "inputs": [],
+      "outputs": [
+        {
+          "kind": "requirements",
+          "mustReach": "approved"
+        }
+      ],
+      "sideEffect": "code",
+      "acceptance": [
+        "docs/spec.md exists, is under 80 lines and defines core rules, win/draw/lose conditions, player counts, screens, controls and bot behaviour with a numbered list of every test case.",
+        "src/types.ts exports the JSON-compatible State and Action types used by rules and client; game.json metadata, player limits and bot support match docs/spec.md.",
+        "docs/spec.md has a Look and feel section: world, mood in three words, palette direction and the one memorable element.",
+        "docs/README.md (under 40 lines: name, one-sentence pitch, players and bot, rules summary, controls, look and feel) is registered with output.register (kind requirements, text/markdown, abstractL0 = the one-sentence pitch); the operator reviews it before rules and art start.",
+        "docs/spec.md has a Motion section: a table with every visible event (move, card played or drawn, dice rolled, chips placed, turn change, illegal move, win/draw/loss) and its effect from src/client/motion.ts (pop, flyFrom, flip, rollDice, rattle, countdown, tickNumber, confetti, shake) with a duration; random outcomes get a suspense phase of 0.8 to 2.5 s before the result shows.",
+        "game.json id and name are unchanged from the starter commit (the operator's name), and docs/README.md and docs/spec.md use exactly that name as the title."
+      ]
+    },
+    {
+      "key": "rules",
+      "phase": "build",
+      "title": "Implement deterministic rules and bots",
+      "requiredCapabilities": [
+        "game.rules"
+      ],
+      "optional": true,
+      "parallelGroup": "build",
+      "includeIf": {
+        "all": [
+          {
+            "param": "touchRules",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "param": "mode",
+            "op": "ne",
+            "value": "fix"
+          },
+          {
+            "param": "runRules",
+            "op": "eq",
+            "value": true
+          }
+        ]
+      },
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "src/rules.ts implements every rule in docs/spec.md through the pure deterministic RulesModule contract, with JSON state and seeded RNG state only.",
+        "npm test exits 0 with tests for each win and draw condition and at least five distinct illegal actions.",
+        "When game.json has bot: true, the bot returns a legal action for 200 deterministic seeds from varied mid-game positions (one bot call per seed, not full games; at most 30 seconds in total); report the seed range and passing test name.",
+        "npm run check exits 0."
+      ]
+    },
+    {
+      "key": "art",
+      "phase": "build",
+      "title": "Create the SVG assets and responsive theme",
+      "requiredCapabilities": [
+        "game.ui"
+      ],
+      "optional": true,
+      "parallelGroup": "build",
+      "includeIf": {
+        "all": [
+          {
+            "param": "touchUi",
+            "op": "eq",
+            "value": true
+          },
+          {
+            "param": "mode",
+            "op": "ne",
+            "value": "fix"
+          },
+          {
+            "param": "runArt",
+            "op": "eq",
+            "value": true
+          }
+        ]
+      },
+      "review": "human-final",
+      "inputs": [],
+      "outputs": [
+        {
+          "kind": "media",
+          "mustReach": "approved"
+        }
+      ],
+      "sideEffect": "code",
+      "acceptance": [
+        "assets/thumb.svg exists and game.json references its built path thumb.svg.",
+        "src/client/theme.css covers every screen of docs/spec.md at 360 px and 1280 px width, with accessible contrast and touch targets of at least 44 px.",
+        "All art is original SVG and CSS, and no external font, image or other external resource is referenced.",
+        "src/client/theme.css starts with the art brief of skills/game-art-direction (world, mood, 4-6 palette variables, memorable element); every asset uses that palette, one stroke scale and one light direction, and every game state has a visible style that does not rely on colour alone.",
+        "docs/ui-sample.html shows the main screen mid-match with the real theme.css and assets; PNG screenshots docs/ui-sample-1280.png and docs/ui-sample-390.png made with headless Chrome are each registered with output.register (kind media, image/png) for the operator to review."
+      ]
+    },
+    {
+      "key": "client",
+      "phase": "build",
+      "title": "Integrate the SDK client and address QA rework",
+      "requiredCapabilities": [
+        "game.client"
+      ],
+      "optional": false,
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "The page renders SDK room state, turn, seats, result, disconnected opponents and errors, and sends moves and rematch through connectGame without computing rules itself. The whole page fits the game frame without scrolling at 1280x720 and 390x844: compact header, and a board whose cell size comes from the available width and height (for example the smaller of both divided by the number of cells), never a fixed pixel size.",
+        "npm run check, npm test and npm run build each exit 0 (report the three exit codes), and dist/ holds game.json, its HTML entry, self-contained ESM rules.js and every referenced asset, with main.js and theme.css loaded by relative paths.",
+        "Every row of the Motion table in docs/spec.md is implemented with src/client/motion.ts: moved cards, pieces and chips fly from where they were, random results show their suspense phase first, numbers count instead of jumping, opponent and bot moves animate too; effects end at rest, never block input over 150 ms and are instant under prefers-reduced-motion."
+      ],
+      "includeIf": {
+        "param": "runClient",
+        "op": "eq",
+        "value": true
+      }
+    },
+    {
+      "key": "qa",
+      "phase": "verify",
+      "title": "Verify gameplay, bundle and multiplayer in the browser",
+      "requiredCapabilities": [
+        "test.e2e"
+      ],
+      "optional": false,
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "In the browser at 1280x720 and 390x844, opened at `<ready URL>/?autoplay=bot` and measured INSIDE the game iframe (never the host page): no console errors, the iframe document does not scroll and the whole board is visible; at 1280x720 the bot match is played to the end.",
+        "A bot-versus-bot simulation ends every match without an illegal move: fastest bot level, at most 200 moves per match (a capped match with only legal moves counts as finished), up to 20 seeds and stop adding seeds at 30 seconds (at least 5); report the seeds that ran.",
+        "multiplayer: two browser contexts play one human-versus-human match to the end and stay in sync after every move, a move on the wrong turn is rejected with the state unchanged, and reloading one context returns it to the same room and seat; or \"n/a\" with the reason for a game without multiplayer.",
+        "Motion: after a move document.getAnimations().length is above 0 and returns to 0 within 3 s; a random result (dice, draw) is not shown sooner than 800 ms after the action; with reduced motion emulated no animation runs."
+      ],
+      "includeIf": {
+        "param": "qa",
+        "op": "eq",
+        "value": "full"
+      }
+    },
+    {
+      "key": "qa-quick",
+      "phase": "verify",
+      "title": "Quickly verify checks and browser gameplay",
+      "requiredCapabilities": [
+        "test.e2e"
+      ],
+      "optional": true,
+      "includeIf": {
+        "param": "qa",
+        "op": "eq",
+        "value": "quick"
+      },
+      "review": "automatic",
+      "inputs": [],
+      "outputs": [],
+      "sideEffect": "code",
+      "acceptance": [
+        "In the browser at 1280x720 and 390x844, opened at `<ready URL>/?autoplay=bot` and measured INSIDE the game iframe (never the host page): no console errors, the iframe document does not scroll and the whole board is visible; at 1280x720 the bot match is played to the end.",
+        "A bot-versus-bot simulation ends every match without an illegal move: fastest bot level, at most 200 moves per match (a capped match with only legal moves counts as finished), up to 10 seeds and stop adding seeds at 30 seconds (at least 5); report the seeds that ran.",
+        "No file outside tests/ and .factory/ was changed by QA; report the changed paths (or none).",
+        "After a move document.getAnimations().length is above 0 and returns to 0 within 3 s."
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "reproduce",
+      "to": "client",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "design",
+      "to": "rules",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "design",
+      "to": "art",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "rules",
+      "to": "client",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "art",
+      "to": "client",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "client",
+      "to": "qa",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "qa",
+      "to": "client",
+      "type": "rework",
+      "when": {
+        "fact": "review.verdict",
+        "op": "eq",
+        "value": "changes-requested"
+      },
+      "maxLoops": 3
+    },
+    {
+      "from": "rules",
+      "to": "qa",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "art",
+      "to": "qa",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "client",
+      "to": "qa-quick",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "rules",
+      "to": "qa-quick",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "art",
+      "to": "qa-quick",
+      "type": "finish-to-start"
+    },
+    {
+      "from": "qa-quick",
+      "to": "client",
+      "type": "rework",
+      "when": {
+        "fact": "review.verdict",
+        "op": "eq",
+        "value": "changes-requested"
+      },
+      "maxLoops": 3
+    }
+  ],
+  "joins": [
+    {
+      "group": "build",
+      "policy": "all"
+    }
+  ],
+  "gates": [],
+  "allowedPatches": {},
+  "autonomy": {
+    "default": "L2"
+  },
+  "timeouts": {
+    "stallAfterMinutes": 180,
+    "maxDurationMinutes": 1440
+  }
+}
