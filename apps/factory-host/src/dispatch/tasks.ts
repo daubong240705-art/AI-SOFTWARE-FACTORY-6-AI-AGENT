@@ -4,6 +4,7 @@ import { getTask } from "../work/service.js";
 import type { AttemptRecord } from "./types.js";
 import { workflowChanged } from "../flow/lifecycle.js";
 import { requestTaskTransition } from "../requests/lifecycle.js";
+import { tracesFor } from "../trace/recorder.js";
 
 export class TaskMoveError extends Error {
   constructor(readonly code: string) { super(code); this.name = "TaskMoveError"; }
@@ -37,6 +38,7 @@ export function moveTask(raw: Database, projectId: string, taskId: string, to: T
         .run(now ?? new Date().toISOString(), projectId, taskId);
     }
     requestTaskTransition(raw, projectId, taskId, to);
+    tracesFor(raw)?.entity(projectId, { kind: "task", ref: taskId }, now);
     workflowChanged(raw, projectId);
     return getTask(raw, projectId, taskId) as Task;
   }).immediate();

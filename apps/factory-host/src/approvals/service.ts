@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { Database } from "better-sqlite3";
+import { tracesFor } from "../trace/recorder.js";
 import { type Approval, type ApprovalState, type Command, type EntityRef } from "@factory/contracts";
 import { listTaskArtifacts, setTaskArtifactStatus } from "../artifacts/service.js";
 import { CommandError } from "../commands/errors.js";
@@ -124,6 +125,7 @@ export function requestAgentDecision(deps: { raw: Database; hub?: EventHub; now:
     raw.prepare(`INSERT INTO task_holds (project_id,task_id,kind,reason,ref_kind,ref_id,since,needs_action)
       VALUES (?,?,'decision',?,'approval',?,?,1)`).run(projectId, taskId, `Waiting for your decision: ${request.subject.trim()}`, id, now.toISOString());
     raw.prepare("UPDATE tasks SET revision = revision + 1 WHERE project_id = ? AND id = ?").run(projectId, taskId);
+    tracesFor(raw)?.entity(projectId, { kind: "approval", ref: id }, now.toISOString(), { kind: "attempt", ref: attemptId });
     publish(deps.hub, projectId, effect(id, 1));
     publish(deps.hub, projectId, { kind: "task", id: taskId, revision: getTask(raw, projectId, taskId)!.revision });
     return { approvalId: id };
@@ -170,6 +172,7 @@ export function requestTaskReview(deps: { raw: Database; now: () => Date; newId:
       publicApprovalText(`Review ${task.code}: ${task.title}`).trim().slice(0, 160), summary, JSON.stringify(reviewOptions),
       "The task stays in review and tasks that depend on it wait.", computeReviewDigest(raw, projectId, taskId),
       now.toISOString(), new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString());
+    tracesFor(raw)?.entity(projectId, { kind: "approval", ref: id }, now.toISOString(), { kind: "attempt", ref: attemptId });
     publish(deps.hub, projectId, effect(id, 1));
     return id;
   })();

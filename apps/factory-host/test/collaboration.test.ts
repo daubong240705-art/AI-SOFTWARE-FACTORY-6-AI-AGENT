@@ -16,6 +16,7 @@ import { ensureLocalNode, LOCAL_NODE_ID } from "../src/dispatch/node.js";
 import { RuntimeRegistry, type RuntimeEvent } from "../src/dispatch/runtime.js";
 import { moveTask } from "../src/dispatch/tasks.js";
 import { EventHub } from "../src/events/hub.js";
+import { TraceEventHub, TraceRecorder, spanId } from "../src/trace/recorder.js";
 import { createFlowHandlers, registerFlowEngine } from "../src/flow/index.js";
 import { getRun, latestNodes } from "../src/flow/store.js";
 import { createMcpHandler } from "../src/mcp/rpc.js";
@@ -30,14 +31,15 @@ import { idFactory, MIGRATIONS_DIR } from "./helpers.js";
 type Script = (grant: TokenGrant) => AsyncIterable<RuntimeEvent>;
 type Reply = { isError: boolean; data: Record<string, unknown> };
 
-function fixture(t: TestContext) {
+function fixture(t: TestContext, tracing = false) {
   const storage = openStorage(":memory:");
   const { raw } = storage;
   for (const file of readdirSync(MIGRATIONS_DIR).filter((name) => name.endsWith(".sql")).sort())
     raw.exec(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
   const newId = idFactory();
   const clock = () => new Date();
-  const hub = new EventHub(raw, { clock, newId });
+  const trace = tracing ? new TraceRecorder(raw, clock) : undefined;
+  const hub = trace ? new TraceEventHub(raw, trace, { clock, newId }) : new EventHub(raw, { clock, newId });
   const projectId = newId();
   const scripts = new Map<string, Script>();
   const scriptErrors: unknown[] = [];
@@ -185,7 +187,7 @@ test("directory follows all assignment scopes and reflects active attempt load",
 });
 
 test("assignment restrictions, duplicates, and dependency cycles are enforced by MCP", async (t) => {
-  const fx = fixture(t);
+  const fx = fixture(t, true);
   const lead = fx.agent("Lead");
   const worker = fx.agent("Worker", { canAssign: "project", maxDepth: 2 });
   const other = fx.agent("Other worker");
@@ -198,6 +200,8 @@ test("assignment restrictions, duplicates, and dependency cycles are enforced by
   const first = (await fx.request(grant, "task.create", assignment(worker, "Build widgets"))).taskId as string;
   assert.equal(fx.task(first).state, "ready");
   assert.equal(fx.task(first).parentTaskId, grant.taskId);
+  assert.deepEqual(fx.raw.prepare("SELECT parent_id FROM trace_spans WHERE project_id=? AND kind='task' AND ref=?").get(fx.projectId, first),
+    { parent_id: spanId("task", grant.taskId) });
   assert.deepEqual(await fx.request(grant, "task.create", assignment(worker, "BUILD widgets!")), { taskId: first, duplicate_of: first });
   const second = (await fx.request(grant, "task.create", assignment(other, "Build widgets", { force: true, parent: false }))).taskId as string;
   assert.equal(fx.task(second).parentTaskId, null);

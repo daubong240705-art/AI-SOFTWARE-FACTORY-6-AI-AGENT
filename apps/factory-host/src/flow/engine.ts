@@ -8,6 +8,8 @@ import type { Dispatcher } from "../dispatch/dispatcher.js";
 import { moveTask } from "../dispatch/tasks.js";
 import type { EventHub } from "../events/hub.js";
 import type { Clock } from "../ids.js";
+import { tracesFor } from "../trace/recorder.js";
+import { nodeRef } from "../trace/sources.js";
 import { getTask } from "../work/service.js";
 import { registerWorkflowLifecycle, withoutWorkflowAdvancement } from "./lifecycle.js";
 import { boundedJson, decode, definitionOf, emit, flowByKey, getRun, getVersion, latestNodes, runRef, type FlowRow, type NodeRow, type RunRow, type VersionRow } from "./store.js";
@@ -53,6 +55,7 @@ function setNode(deps: FlowEngineDeps, run: RunRow, row: NodeRow, patch: Partial
     WHERE project_id=? AND run_id=? AND node_id=? AND iteration=? AND attempt_no=?`).run(row.state, row.port, row.input_json, row.output_json,
     row.error, row.task_id, row.approval_id, row.child_run_id, row.pinned, row.started_at, row.ended_at,
     run.project_id, run.id, row.node_id, row.iteration, row.attempt_no);
+  tracesFor(deps.raw)?.entity(run.project_id, { kind: "node-run", ref: nodeRef({ ...row, run_id: run.id }) });
   nodeChanged(deps, run);
 }
 function addNode(deps: FlowEngineDeps, run: RunRow, nodeId: string, iteration = 1, attempt = 1, round = 1): NodeRow {
@@ -60,6 +63,7 @@ function addNode(deps: FlowEngineDeps, run: RunRow, nodeId: string, iteration = 
     output_json: null, error: null, task_id: null, approval_id: null, child_run_id: null, pinned: 0, started_at: null, ended_at: null };
   deps.raw.prepare(`INSERT INTO flow_node_runs(project_id,run_id,node_id,iteration,attempt_no,state,input_json) VALUES(?,?,?,?,?,'pending',?)`)
     .run(run.project_id, run.id, nodeId, iteration, attempt, row.input_json);
+  tracesFor(deps.raw)?.entity(run.project_id, { kind: "node-run", ref: nodeRef({ ...row, run_id: run.id }) });
   nodeChanged(deps, run);
   return row;
 }
@@ -293,7 +297,10 @@ function runNode(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition, item: F
     case "output": result = ok(null, Object.fromEntries(item.from.map((path) => [path, readPath(ctx, path) ?? null]))); break;
     default: {
       const missing = new Set<string>();
-      try { result = deps.raw.transaction(() => executeWork(deps, run, def, item, row, ctx, fired, missing))(); }
+      try {
+        const trace = tracesFor(deps.raw), execute = deps.raw.transaction(() => executeWork(deps, run, def, item, row, ctx, fired, missing));
+        result = trace ? trace.withinNode(run.project_id, { ...row, run_id: run.id }, execute) : execute();
+      }
       catch (error) {
         if (!(error instanceof CommandError)) throw error;
         result = { kind: "failed", error: error.message };

@@ -10,6 +10,7 @@ import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
 import { projectsCreateHandler } from "../projects/service.js";
 import type { Storage } from "../storage/database.js";
+import { requestFor, tracesFor } from "../trace/recorder.js";
 import { CommandError } from "./errors.js";
 
 export interface HandlerContext { raw: Database; hub: EventHub; clock: Clock; newId: () => string; actorId: string; actorIsOperator?: boolean }
@@ -86,6 +87,8 @@ export function createCommandPipeline(options: {
         let effects: EntityRef[] = [];
         let events: FactoryEvent["payload"][] = [];
         let error: ApiError | undefined;
+        const trace = tracesFor(raw);
+        const requestTrace = trace?.begin(command.projectId, command.commandId, requestFor(command, actorIsOperator));
         // The indexed handler and command share the same discriminant.
         const handler = handlers[command.type] as ((ctx: HandlerContext, command: Command) => HandlerResult) | undefined;
         if (!handler) {
@@ -97,7 +100,8 @@ export function createCommandPipeline(options: {
               throw new CommandError("conflict", "Dự án đã được lưu trữ.", "refresh");
             if (command.type === "projects.archive" && externallyOwned)
               throw new CommandError("conflict", "Lưu trữ dự án cần một giao dịch độc lập.", "refresh");
-            const handled = raw.transaction(() => handler(context, command))();
+            const invoke = raw.transaction(() => handler(context, command));
+            const handled = trace ? trace.within(requestTrace, invoke) : invoke();
             effects = handled.effects;
             events = handled.events ?? [];
             afterCommit = handled.afterCommit;
@@ -111,6 +115,8 @@ export function createCommandPipeline(options: {
           commandId: command.commandId, projectId: command.projectId,
           state: error ? "rejected" : "completed", effects, ...(error ? { error } : {}),
         });
+        trace?.effects(command.projectId, requestTrace, effects);
+        trace?.finish(requestTrace, Boolean(error));
         const body = error ? failure(error, command.commandId)
           : successResponseSchema.parse({ apiVersion: API_VERSION, ok: true, receipt });
         raw.prepare(`INSERT INTO command_receipts
