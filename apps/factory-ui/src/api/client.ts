@@ -16,6 +16,9 @@ import { extractionModels, mediaTypeForFile } from './documents';
 import { systemModels } from './systemModels';
 import { folderBrowseModel } from './folderModels';
 import { modelSettingsResponse } from './modelSettings';
+import { traceModels } from './traceModels';
+import { setupModels } from './setupModels';
+import type { SetupCommandType } from './commands';
 export type { FolderListing } from './folderModels';
 export type { SystemHealth, SystemCapabilities, SystemBackup } from './systemModels';
 export type { AutonomyResponse, AutonomyTeam, StandingApproval, StandingApprovalsResponse } from './settingsModels';
@@ -176,6 +179,17 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listProjectFlows: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/flows`, flowModels.list, undefined, false, signal),
     getFlow: (id: string, flowId: string, signal?: AbortSignal) => request(`${projectPath(id)}/flows/${encodeURIComponent(flowId)}`, flowModels.detail, undefined, false, signal),
     getFlowRun: (id: string, runId: string, signal?: AbortSignal) => request(`${projectPath(id)}/flow-runs/${encodeURIComponent(runId)}`, flowModels.run, undefined, false, signal),
+    getProjectMonitor: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/monitor`, traceModels.monitor, undefined, false, signal),
+    listTraces: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/traces`, traceModels.list, undefined, false, signal),
+    getTrace: (id: string, traceId: string, signal?: AbortSignal) => request(`${projectPath(id)}/traces/${encodeURIComponent(traceId)}`, traceModels.detail, undefined, false, signal),
+    getArtifactTrace: (id: string, artifactId: string, version?: number, signal?: AbortSignal) => request(`${projectPath(id)}/artifacts/${encodeURIComponent(artifactId)}/trace${version === undefined ? '' : `?version=${encodeURIComponent(version)}`}`, traceModels.artifact, undefined, false, signal),
+    listSetupProposals: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/setup-proposals`, setupModels.list, undefined, false, signal),
+    getSetupProposal: (id: string, proposalId: string, signal?: AbortSignal) => request(`${projectPath(id)}/setup-proposals/${encodeURIComponent(proposalId)}`, setupModels.detail, undefined, false, signal),
+    sendSetupCommand: async (command: Extract<Command, { type: SetupCommandType }>) => {
+      const parsed = commandSchema.parse(command);
+      if (!csrfToken) csrfToken = (await request('/auth/session', auth)).csrfToken;
+      return request('/commands', successResponseSchema, parsed, true);
+    },
     sendFlowCommand: async (command: Command) => {
       const parsed = commandSchema.safeParse(command);
       if (!parsed.success) throw new ApiClientError('bad-response');
@@ -239,11 +253,11 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     getTeam: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/team`, team, undefined, false, signal),
     listTasks: (id: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks`, tasks, undefined, false, signal),
     listAttempts: (id: string, taskId: string, signal?: AbortSignal) => request(`${projectPath(id)}/tasks/${encodeURIComponent(taskId)}/attempts`, readModels.attempts, undefined, false, signal),
-    listProjectAttempts: (id: string, options: { since?: string; limit?: number } = {}) => {
+    listProjectAttempts: (id: string, options: { since?: string; limit?: number } = {}, signal?: AbortSignal) => {
       const query = new URLSearchParams();
       if (options.since !== undefined) query.set('since', options.since);
       if (options.limit !== undefined) query.set('limit', String(options.limit));
-      return request(`${projectPath(id)}/attempts${query.size ? `?${query}` : ''}`, readModels.projectAttempts);
+      return request(`${projectPath(id)}/attempts${query.size ? `?${query}` : ''}`, readModels.projectAttempts, undefined, false, signal);
     },
     listAttemptEvents: (id: string, attemptId: string, options: { afterSeq?: number; limit?: number } = {}, signal?: AbortSignal) => {
       const query = new URLSearchParams();
@@ -261,7 +275,7 @@ export function createApiClient({ baseUrl = '', fetchImpl = globalThis.fetch, on
     listKnowledgeArtifacts: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     listDocuments: (id: string, options: KnowledgePage = {}) => request(`${projectPath(id)}/knowledge/artifacts${knowledgeQuery(options)}`, readModels.knowledgeList),
     knowledgeGroups: (id: string) => request(`${projectPath(id)}/knowledge/groups`, readModels.knowledgeGroups),
-    getKnowledgeArtifact: (id: string, artifactId: string) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact),
+    getKnowledgeArtifact: (id: string, artifactId: string, signal?: AbortSignal) => request(`${projectPath(id)}/knowledge/artifacts/${encodeURIComponent(artifactId)}`, readModels.knowledgeArtifact, undefined, false, signal),
     getExtraction: (id: string, artifactId: string, version: number) => request(extractionPath(id, artifactId, version), extractionModels.detail),
     getExtractionText: (id: string, artifactId: string, version: number, from = 0, limit = 8000) => request(`${extractionPath(id, artifactId, version)}/text?${new URLSearchParams({ from: String(from), limit: String(Math.min(20000, limit)) })}`, extractionModels.text),
     retryExtraction: (id: string, artifactId: string, version: number) => request(`${extractionPath(id, artifactId, version)}/retry`, ok, {}),

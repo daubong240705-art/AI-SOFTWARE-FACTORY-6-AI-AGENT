@@ -3,6 +3,11 @@ import { LIBRARY_SCOPE_ID, SYSTEM_SCOPE_ID } from '@factory/contracts';
 import type { IntegrationSpec } from '@factory/contracts';
 
 type Of<T extends Command['type']> = Extract<Command, { type: T }>;
+export type SetupCommandType = Extract<Command['type'], `setup.${string}`>;
+export function setupCommand<Type extends SetupCommandType>(type: Type, projectId: string, payload: Of<Type>['payload']) {
+  return build(type, projectId, payload);
+}
+
 function build<T extends Command['type']>(type: T, projectId: string, payload: Of<T>['payload']): Of<T> {
   return commandSchema.parse({ apiVersion: API_VERSION, commandId: crypto.randomUUID(), projectId, type, payload }) as Of<T>;
 }
