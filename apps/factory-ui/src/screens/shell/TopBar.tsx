@@ -34,7 +34,7 @@ export function TopBar({ store, compact, expanded, onToggle, onCreate, onProject
       {compact && <Button data-testid="sidebar-toggle" variant="ghost" size="icon" aria-label={t('shell.toggleProjects')} aria-expanded={expanded} aria-controls="factory-navigation" onClick={onToggle}><Menu /></Button>}
       <div className="relative min-w-0 flex-1 sm:max-w-[min(56vw,960px)]">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-        <Input ref={search} readOnly aria-label={t('shell.searchTasks')} aria-haspopup="dialog" aria-expanded={open} placeholder={t('shell.searchPlaceholder')} className="h-9 cursor-text border-border bg-transparent pr-14 pl-9 shadow-none dark:bg-transparent max-sm:pr-2" onClick={() => setOpen(true)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(true); } }} />
+        <Input ref={search} readOnly aria-label={t('shell.searchTasks')} aria-haspopup="dialog" aria-expanded={open} placeholder={t('shell.searchPlaceholder')} className="h-9 cursor-text border-border bg-transparent pr-20 pl-9 text-ellipsis shadow-none dark:bg-transparent max-sm:pr-2" onClick={() => setOpen(true)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setOpen(true); } }} />
         <Kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 border border-border bg-transparent font-mono max-sm:hidden">Ctrl K</Kbd>
       </div>
       <div className="flex-1 max-sm:hidden" />
