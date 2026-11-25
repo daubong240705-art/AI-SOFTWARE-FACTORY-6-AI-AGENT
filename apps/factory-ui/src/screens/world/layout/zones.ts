@@ -94,7 +94,9 @@ export type Part = { shape: Shape; position: [number, number, number]; scale: [n
 export type Label = { text: string; key: string; position: [number, number, number]; width: number; height: number; yaw: number; floor: boolean; color: string; mount?: string };
 export type ArtKind = 'design' | 'rules' | 'art' | 'client' | 'qa' | 'lead' | 'owner' | 'sticky' | 'sign';
 export type ArtPanel = { kind: ArtKind; position: [number, number, number]; width: number; height: number; yaw: number; text?: string; mount?: string };
-export function environmentModel() {
+export const studioFurniture = furnitureFootprints.filter(item => !desks.some(desk => desk !== ownerDesk && desk !== loungeDesk && (item.id === desk.id || item.id === `${desk.id}-chair`)));
+
+export function environmentModel(shared = false) {
   let mount: string | undefined;
   const parts: Part[] = [], labels: Label[] = [], artwork: ArtPanel[] = [];
   const shadows: { position: Point; size: Point }[] = [];
@@ -145,6 +147,7 @@ export function environmentModel() {
   }
   mount = undefined;
   for (const [index, d] of desks.entries()) {
+    if (shared && d !== ownerDesk && d !== loungeDesk) continue;
     const [x, z] = d.position, owner = d.id === 'owner';
     const kind: ArtKind = owner ? 'owner' : d.id.startsWith('qa') ? 'qa' : d.id.startsWith('design') ? 'design' : d.id.startsWith('rules') ? 'rules' : d.id.startsWith('art') ? 'art' : d.id.startsWith('client') ? 'client' : 'lead';
     const tint = ({ owner: palette.apricot, qa: palette.lavender, design: palette.butter, rules: palette.mint, art: palette.rose, client: palette.sky, lead: palette.sage } as const)[kind];
@@ -284,11 +287,13 @@ export function environmentModel() {
   }
   // Mounted signs have no posts in the walking lanes.
   // The office door plate replaces the former wall-wide owner sign.
-  sign(zones[1].name, 7, 2.93, -13.71, 4.4, palette.sage);
+  if (!shared) sign(zones[1].name, 7, 2.93, -13.71, 4.4, palette.sage);
   sign(zones[4].name, 13.5, 3.05, 1.75, 4.5, palette.butter);
-  sign('Annex', -17.68, 2.85, 2.8, 3, palette.sage, Math.PI / 2);
+  if (!shared) sign('Annex', -17.68, 2.85, 2.8, 3, palette.sage, Math.PI / 2);
   sign('Lounge', -17.68, 2.85, 10.6, 3, palette.rose, Math.PI / 2);
-  add('cylinder', palette.sage, [34, -0.25, -16], [20, 0.5, 20]); add('cylinder', palette.rug, [34, 0.015, -16], [12, 0.035, 12]);
-  for (let i = 1; i < courtyardPath.length; i++) { const a = courtyardPath[i - 1]!, b = courtyardPath[i]!; box(palette.rug, [(a[0] + b[0]) / 2, -0.03, (a[1] + b[1]) / 2], [2, 0.12, Math.hypot(b[0] - a[0], b[1] - a[1]) + 0.5], Math.atan2(b[0] - a[0], b[1] - a[1])); }
+  if (!shared) {
+    add('cylinder', palette.sage, [34, -0.25, -16], [20, 0.5, 20]); add('cylinder', palette.rug, [34, 0.015, -16], [12, 0.035, 12]);
+    for (let i = 1; i < courtyardPath.length; i++) { const a = courtyardPath[i - 1]!, b = courtyardPath[i]!; box(palette.rug, [(a[0] + b[0]) / 2, -0.03, (a[1] + b[1]) / 2], [2, 0.12, Math.hypot(b[0] - a[0], b[1] - a[1]) + 0.5], Math.atan2(b[0] - a[0], b[1] - a[1])); }
+  }
   return { parts: [...parts, ...chairmanParts()], labels, shadows, artwork };
 }

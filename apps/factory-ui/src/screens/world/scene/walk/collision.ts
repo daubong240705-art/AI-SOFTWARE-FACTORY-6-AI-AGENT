@@ -1,26 +1,16 @@
 import { walkFixtures } from './sceneryModel';
 import { furnitureFootprints, navigationBounds, type Footprint } from '../../layout/zones';
-import { roomDepth, roomNorth, roomWidth, type Room } from '../../layout/campus';
 
 export type WalkPoint = { x: number; z: number };
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /** Circle vs oriented furniture, with small swept steps to prevent tunnelling while running. */
-export function resolveWalkMove(from: WalkPoint, delta: WalkPoint, radius = 0.35, footprints: readonly Footprint[] = [...furnitureFootprints, ...walkFixtures], rooms: readonly Room[] = []): WalkPoint {
+export function resolveWalkMove(from: WalkPoint, delta: WalkPoint, radius = 0.35, footprints: readonly Footprint[] = [...furnitureFootprints, ...walkFixtures], south = navigationBounds.z[1] as number): WalkPoint {
   const next = { ...from };
   const steps = Math.max(1, Math.ceil(Math.hypot(delta.x, delta.z) / 0.09));
   const bound = () => {
-    const rects = [[navigationBounds.x[0], navigationBounds.x[1], navigationBounds.z[0], navigationBounds.z[1]], ...(rooms.length ? [
-      [17 - radius, 24, -2.9, .9], [22.5, 26, -2.9, Math.max(...rooms.map(room => room.z)) + 2],
-      ...rooms.map(room => [room.x - roomWidth / 2 - .5, room.x + roomWidth / 2 + .5, roomNorth(room) + .15, room.z + roomDepth / 2 - .15]),
-    ] : [])];
-    let closest = { x: next.x, z: next.z }; let distance = Infinity;
-    for (const [west, east, north, south] of rects) {
-      const x = clamp(next.x, west! + radius, east! - radius), z = clamp(next.z, north! + radius, south! - radius);
-      const gap = (x - next.x) ** 2 + (z - next.z) ** 2;
-      if (gap < distance) { closest = { x, z }; distance = gap; }
-    }
-    Object.assign(next, closest);
+    next.x = clamp(next.x, navigationBounds.x[0] + radius, navigationBounds.x[1] - radius);
+    next.z = clamp(next.z, navigationBounds.z[0] + radius, south - radius);
   };
   for (let step = 0; step < steps; step++) {
     next.x += delta.x / steps; next.z += delta.z / steps; bound();

@@ -5,7 +5,9 @@ import type { Interaction, Office } from '../../../api/officeModels';
 import { desksFor, nodeProgress, type ProjectAttempt } from '../../office/liveModel';
 import { deriveWorld, projectBuildings } from './deriveWorld';
 import { diffWorld, createWorldSeen } from './events';
-import { agentStation, campusFootprints, campusRooms, roomDesk, roomNorth, roomStations } from '../layout/campus';
+import { agentStation, campusFootprints, deskFloorNorth, roomDesk, roomDestination, studioMeeting } from '../layout/campus';
+import { studioNavigation } from '../layout/studioNavigation';
+import { intersectsFootprint } from '../layout/waypoints';
 import { resolveWalkMove } from '../scene/walk/collision';
 import type { WorldInputs } from './types';
 
@@ -38,14 +40,14 @@ test('each project owns one character per active agent and multiple attempts sta
   assert.deepEqual(model.projects.map(item => item.id), ['first', 'second']);
   assert.deepEqual(model.agents.map(item => [item.seatId, item.projectId, item.runs.length]), [['one', 'first', 2], ['two', 'first', 0], ['three', 'second', 0]]);
   assert.deepEqual(deriveWorld(state, assign).assign, assign);
-  assert.notDeepEqual(roomDesk(model.agents[0]!.room, model.agents[0]!).position, roomDesk(model.agents[2]!.room, model.agents[2]!).position);
+  assert.notDeepEqual(roomDesk(model.agents[0]!).position, roomDesk(model.agents[2]!).position);
+  assert.equal(model.agents[0]!.projectColor, model.agents[1]!.projectColor);
+  assert.notEqual(model.agents[0]!.projectColor, model.agents[2]!.projectColor);
 });
 
-test('U9 ancestry yields one building per root, with a shared building for ungrouped projects', () => {
+test('project ancestry remains available for the project picker', () => {
   const buildings = projectBuildings([project('first'), project('second'), project('archived', 'archived')], { groups: [group('root', null), group('child', 'root')], membership: { first: 'child' } });
   assert.deepEqual(buildings.map(item => [item.name, item.rooms.map(room => room.id)]), [['root', ['first']], [null, ['second']]]);
-  const rooms = campusRooms(buildings);
-  assert.notEqual(rooms[0]?.z, rooms[1]?.z);
 });
 
 test('first exchange read does not replay old handoffs; new real exchanges are emitted once', () => {
@@ -71,37 +73,50 @@ test('workflow progress counts latest node iterations and excludes terminal runs
   assert.deepEqual(deriveWorld(state).model.workflows.map(item => item.run.id), ['run']);
 });
 
-test('the room board attracts idle agents with ready workflow work and yields to review or handoff', () => {
+test('idle agents stay seated; working workflow agents can visit the board or meeting table', () => {
   const state = inputs();
   const run: FlowRunSummary = { id: 'run', projectId: 'first', flowId: 'flow', flowTitle: 'Work', version: 1, test: false, state: 'running', stateReason: null, revision: 1, trigger: 'manual', createdAt: now, startedAt: now, endedAt: null };
   state.tasks.first = [task('work', 'ready', 'one'), task('review', 'in-review', 'two')];
   state.flows = { first: { ok: true, apiVersion: 1, flows: [], runs: [run] } };
   state.runDetails = { run: { run, inputs: {}, definition: { schema: 2, key: 'work', title: 'Work', description: '', inputs: [], nodes: [], edges: [], settings: { concurrency: 'allow' }, layout: {} },
     nodeRuns: [{ nodeId: 'node', taskId: 'work', iteration: 1, attemptNo: 1, state: 'ready', port: null, startedAt: null, endedAt: null, error: null, approvalId: null, childRunId: null, output: null, pinned: false }] } };
-  assert.deepEqual(deriveWorld(state).model.agents.map(item => agentStation(item, Date.parse(now))), ['board', 'approval', 'rest']);
-  state.interactions.first = interactions([handoff('handoff')]);
-  assert.deepEqual(deriveWorld(state).model.agents.map(item => agentStation(item, Date.parse(now))), ['meeting', 'approval', 'rest']);
+  assert.deepEqual(deriveWorld(state).model.agents.map(item => agentStation(item, Date.parse(now))), ['desk', 'desk', 'desk']);
   state.attempts = { first: [attempt('start', 'work', 'one')] };
-  assert.equal(agentStation(deriveWorld(state).model.agents[0]!, Date.parse(now) + 30000), 'desk');
+  assert.equal(agentStation(deriveWorld(state).model.agents[0]!, Date.parse(now)), 'board');
+  state.interactions.first = interactions([handoff('handoff')]);
+  assert.deepEqual(deriveWorld(state).model.agents.map(item => agentStation(item, Date.parse(now))), ['meeting', 'desk', 'desk']);
+  assert.equal(agentStation(deriveWorld(state).model.agents[0]!, Date.parse(now) + 30000), 'board');
 });
 
-test('walk mode crosses the east doorway and respects approval desk furniture', () => {
+test('walk mode crosses into the desk area, clamps at the exterior, and respects studio furniture', () => {
   const model = deriveWorld(inputs()).model;
-  const { rooms } = model;
-  const crossing = resolveWalkMove({ x: 16.5, z: -1 }, { x: 14, z: 0 }, .35, [], rooms);
-  assert.ok(crossing.x > 29);
-  const approval = roomStations(rooms[0]!).approval;
-  const step = resolveWalkMove({ x: approval[0], z: approval[1] - 3 }, { x: 0, z: 3 }, .35, campusFootprints(rooms, []), rooms);
-  assert.ok(step.z <= approval[1] - .95);
+  const { floorSouth } = model;
+  const crossing = resolveWalkMove({ x: 0, z: 12 }, { x: 0, z: floorSouth }, .35, [], floorSouth);
+  assert.equal(crossing.z, floorSouth - .35);
+  const [x, z] = studioMeeting;
+  const step = resolveWalkMove({ x, z: z - 3 }, { x: 0, z: 3 }, .35, campusFootprints(0), floorSouth);
+  assert.ok(step.z <= z - 1.65);
 });
 
-test('large project rosters expand the room instead of hiding agents', () => {
+test('65+ agents share one floor with a clear tile route from every desk to both stations', () => {
   const state = inputs();
   state.rosters!.first!.agents = Array.from({ length: 65 }, (_, index) => agent(`staff-${index}`));
   const { model } = deriveWorld(state);
-  const room = model.rooms.find(item => item.id === 'first')!;
   const staff = model.agents.filter(item => item.projectId === 'first');
   assert.equal(staff.filter(item => !item.overflow).length, 65);
-  assert.equal(new Set(staff.map(item => roomDesk(room, item).id)).size, 65);
-  assert.ok(staff.every(item => roomDesk(room, item).position[1] > roomNorth(room)));
+  assert.equal(new Set(model.agents.map(item => roomDesk(item).position.join(','))).size, 66);
+  assert.ok(model.floorSouth > deriveWorld(inputs()).model.floorSouth);
+  const furniture = campusFootprints(model.agents.length);
+  const route = studioNavigation(model.floorSouth, furniture);
+  for (const item of model.agents) for (const station of ['meeting', 'board'] as const) {
+    const desk = roomDestination(item, 'desk'), destination = roomDestination(item, station);
+    const path = route(desk, destination);
+    assert.deepEqual(path[0], desk, item.seatId);
+    assert.deepEqual(path.at(-1), destination);
+    for (const [index, [x, , z]] of path.entries()) {
+      assert.ok(x >= -17.5 && x <= 17.5 && z > deskFloorNorth && z < model.floorSouth);
+      const next = path[index + 1];
+      if (next) assert.ok(!furniture.some(obstacle => intersectsFootprint([x, z], [next[0], next[2]], obstacle)));
+    }
+  }
 });

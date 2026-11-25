@@ -10,9 +10,9 @@ import type { Point } from '../../layout/zones';
 import { chairmanChair } from '../../layout/chairman';
 import { resolveWalkMove } from './collision';
 import { campusFootprints } from '../../layout/campus';
-import { furnitureFootprints } from '../../layout/zones';
+import { studioFurniture } from '../../layout/zones';
 import { walkFixtures } from './sceneryModel';
-import { obstructionDistance } from './obstructions';
+import { obstructionDistance, setObstructionFloor } from './obstructions';
 import { useWalkPresence } from './awareness';
 import { tone } from '../toys/sound';
 import type { WalkState, WalkTarget } from './state';
@@ -42,8 +42,9 @@ export function WalkRig(props: Props) {
   const state = props.state, presence = useWalkPresence();
   const stepDistance = useRef(0), lastStep = useRef(0);
   const latest = useRef(props); latest.current = props;
-  const rooms = props.model.rooms;
-  const campus = useMemo(() => [...furnitureFootprints, ...walkFixtures, ...campusFootprints(rooms, props.model.agents)], [rooms, props.model.agents]);
+  const { floorSouth, agents } = props.model;
+  useEffect(() => setObstructionFloor(floorSouth), [floorSouth]);
+  const campus = useMemo(() => [...studioFurniture, ...walkFixtures, ...campusFootprints(agents.length)], [agents.length]);
   const camera = useMemo(() => new THREE.PerspectiveCamera(60, 1, 0.06, 180), []);
   const keys = useRef(new Set<string>()), drag = useRef(false), velocity = useRef(0), jump = useRef(0), travel = useRef(0), started = useRef(0), sampled = useRef(0);
   const root = useRef<THREE.Group>(null), avatar = useRef<THREE.Group>(null), hand = useRef<THREE.Group>(null), toolNode = useRef<THREE.Group>(null);
@@ -146,7 +147,7 @@ export function WalkRig(props: Props) {
       }
       if (distance < 0.85) { const push = (0.85 - distance) * 3 * dt; dx += (distance > 0.001 ? x / distance : 1) * push; dz += (distance > 0.001 ? z / distance : 0) * push; }
     }
-    const next = walk.seated ? { x: chairmanChair[0], z: chairmanChair[1] } : resolveWalkMove({ x: walk.position[0], z: walk.position[2] }, { x: dx, z: dz }, .35, campus, rooms);
+    const next = walk.seated ? { x: chairmanChair[0], z: chairmanChair[1] } : resolveWalkMove({ x: walk.position[0], z: walk.position[2] }, { x: dx, z: dz }, .35, campus, floorSouth);
     const moved = Math.hypot(next.x - walk.position[0], next.z - walk.position[2]);
     travel.current += moved * 8;
     if (active && length && jump.current === 0 && moved > 0.002) {

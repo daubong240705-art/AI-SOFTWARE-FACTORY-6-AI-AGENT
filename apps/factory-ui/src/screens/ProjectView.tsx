@@ -14,7 +14,6 @@ import { ProjectTasks } from './ProjectTasks';
 import { ProjectOverview } from './ProjectOverview';
 import { ProjectDocuments } from './monitor/ProjectDocuments';
 import { ProjectSettingsPage } from './project-settings/ProjectSettingsPage';
-import { ProjectOffice } from './office/ProjectOffice';
 import { LoadingState } from '@/components/LoadingState';
 import { useNavigation, type ProjectTab, type SettingsSection } from './shell/navigation';
 import { Page } from '../components/Page';
@@ -26,6 +25,7 @@ const tabIcons = { overview: LayoutGrid, agents: Bot, flows: Workflow, monitor: 
 const tabs = ['overview', 'agents', 'flows', 'monitor', 'office', 'board', 'knowledge'] as const;
 const ProjectAgents = lazy(() => import('./agents/ProjectAgents').then(module => ({ default: module.ProjectAgents })));
 const ProjectFlows = lazy(() => import('./flows/ProjectFlows'));
+const ProjectOffice = lazy(() => import('./office/ProjectOffice').then(module => ({ default: module.ProjectOffice })));
 const ProjectObservability = lazy(() => import('./monitor/ProjectObservability'));
 const ArtifactDetail = lazy(() => import('./monitor/ArtifactDetail'));
 const FlowSetupAction = lazy(() => import('./setup/FlowSetupAction'));
@@ -108,7 +108,7 @@ export function ProjectView({ store, project, tab, onTabChange, openChat = false
           <div className="min-h-0 flex-1"><ProjectFlows key={project.id} projectId={project.id} route={navigation.flowRoute} store={store} onOpenTask={openTask} /></div>
         </div></Suspense>}
         {active === 'monitor' && <Suspense fallback={<LoadingState />}><ProjectObservability key={navigation.traceId ?? project.id} projectId={project.id} traceId={navigation.traceId} store={store} onOpenTask={openTask} /></Suspense>}
-        {active === 'office' && <ProjectOffice key={project.id} store={store} projectId={project.id} onOpenTab={select} />}
+        {active === 'office' && <Suspense fallback={<LoadingState />}><ProjectOffice key={project.id} store={store} projectId={project.id} onOpenTab={select} /></Suspense>}
         {active === 'board' && <ProjectTasks store={store} projectId={project.id} selectedTask={selected} onOpenTask={openTask} onCloseTask={() => setSelected(null)} newTaskOpen={creating} onCloseNewTask={() => setCreating(false)} newTaskId={`${id}-new-task`} />}
         {active === 'settings' && <ProjectSettingsPage key={project.id} store={store} projectId={project.id} section={legacySection ?? settingsSection ?? navigation.settingsSection} onSection={section => select('settings', section)} />}
         {active === 'knowledge' && (navigation.artifact ? <Suspense fallback={<LoadingState />}><ArtifactDetail key={`${navigation.artifact.id}:${navigation.artifact.version}`} store={store} projectId={project.id} target={navigation.artifact} /></Suspense> : <ProjectDocuments key={project.id} store={store} projectId={project.id} />)}

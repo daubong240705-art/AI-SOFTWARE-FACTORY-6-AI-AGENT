@@ -183,7 +183,7 @@ export const extra = {
     option: { fail: 'Fail', continue: 'Continue', port: 'Use error port', manual: 'Manual', chat: 'Chat', schedule: 'Schedule', webhook: 'Webhook', event: 'Event', api: 'API', 'task.created': 'Task created', 'task.done': 'Task done', 'artifact.approved': 'Artifact approved', 'run.completed': 'Run completed', agent: 'Agent', role: 'Role', tags: 'Tags', team: 'Team', 'least-busy': 'Least busy', 'round-robin': 'Round robin', none: 'None', human: 'Human', eq: 'Equals', ne: 'Does not equal', lt: 'Less than', lte: 'At most', gt: 'Greater than', gte: 'At least', in: 'In list', all: 'All', any: 'Any', quorum: 'Quorum', list: 'List', object: 'Object', operator: 'Operator', 'relation:approves': 'Approval relation', for: 'Duration', until: 'Until date/time', published: 'Latest published', specific: 'Specific version', artifact: 'Artifact', knowledge: 'Knowledge', deliver: 'Deliver', allow: 'Allow parallel runs', queue: 'Queue', skip: 'Skip if busy', string: 'Text', number: 'Number', bool: 'Boolean', boolean: 'Boolean', enum: 'Options', true: 'True', false: 'False' },
   },
   agentsAdmin: {
-    title: 'Agents & Teams', agents: 'Agents', counts: '{total} agents · {active} active · {teams} teams',
+    title: 'Agents & Teams', agents: 'Agents', counts: '{total} agents · {active} active agents · {teams} teams',
     create: 'Create agent', fromTemplate: 'Create from template', edit: 'Edit', clone: 'Clone', makeLead: 'Make project Lead', saveAsTemplate: 'Save as template', upgradeFromTemplate: 'Upgrade from template (r{revision})',
     pause: 'Pause', activate: 'Activate', archive: 'Archive', delete: 'Delete', lead: 'Lead', actions: 'Actions for {name}',
     status: { active: 'Active', paused: 'Paused', archived: 'Archived', 'pending-approval': 'Pending approval', all: 'All' },
@@ -195,7 +195,10 @@ export const extra = {
     default: 'Default', none: 'None', invalid: 'Check this value and its limits.', invalidForm: 'Check the highlighted fields before saving.',
     errors: { olderHost: 'This Host does not support agent administration yet.', conflict: 'Someone changed this item. Reload it before saving again.', missing: 'This item no longer exists.', unsupported: 'This operation is not supported yet. The api-agent adapter arrives in U3.', unknown: 'The operation did not finish. Reload to check the current state.' },
     tabs: { profile: 'Profile', runtime: 'Runtime', capabilities: 'Capabilities', collaboration: 'Collaboration', history: 'History' },
-    editorHelp: 'Configure the agent’s profile, runtime, tools, and collaboration permissions.',
+    editorHelp: 'Start with the basics. Fine-tune how this agent works under Advanced.',
+    shortDescription: 'Short description', mainInstructions: 'Main instructions', applyTemplate: 'Apply template',
+    advanced: { title: 'Advanced', skills: 'Skills & Tools', permissions: 'Permissions & Delegation', limits: 'Limits & Budget', other: 'Other', summaryFields: 'Profile text' },
+    mascot: { label: 'Mascot', auto: 'By role', full: 'Remove a tag to choose a custom mascot.', species: { cat: 'Cat', 'glasses-cat': 'Cat with glasses', bear: 'Bear', rabbit: 'Rabbit', penguin: 'Penguin', raccoon: 'Raccoon', chick: 'Chick', fox: 'Fox', deer: 'Deer', owl: 'Owl', whale: 'Whale', octopus: 'Octopus', shark: 'Shark', unicorn: 'Unicorn', dragon: 'Dragon', 'wizard-cat': 'Wizard cat', blob: 'Blob' } },
     fields: { name: 'Name', role: 'Role', description: 'Description', goals: 'Goals', instructions: 'Instructions', workRules: 'Work rules', tags: 'Tags', adapter: 'Adapter', model: 'Model', effort: 'Effort', permission: 'Permission', maxConcurrent: 'Concurrent attempts (1–8)', timeoutMinutes: 'Timeout (minutes)', skills: 'Skills', tools: 'Tools', canAssign: 'Can assign tasks to', canProposeAgents: 'Can propose agents', maxDepth: 'Maximum delegation depth', maxOpenSubtasks: 'Maximum open subtasks', autonomy: 'Autonomy', perTaskTokens: 'Tokens per task (optional)', monthlyTokens: 'Tokens per month (optional)', note: 'Revision note (optional)' },
     permission: { 'workspace-write': 'Workspace write', autonomous: 'Autonomous' },
     effort: { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra high' },
@@ -220,7 +223,7 @@ export const extra = {
   },
   worldUi: {
     expandHotbar: 'Expand hotbar', collapseHotbar: 'Collapse hotbar', chairmanDoorPlate: 'Chủ tịch / Chairman',
-    campus: { shared: 'Shared campus', meeting: 'Meeting table', approval: 'Approval desk', board: 'Workflow board', library: 'Library shelf', rest: 'Rest area', nodeCount: '{done}/{total} nodes complete', more: '+{count} more', projects: 'Project rooms', enter: 'Go to room', loading: 'Loading station…' },
+    campus: { shared: 'Shared studio', meeting: 'Meeting table', approval: 'Approval desk', board: 'Workflow board', library: 'Library shelf', rest: 'Rest area', nodeCount: '{done}/{total} nodes complete', more: '+{count} more', projects: 'Highlight project', allProjects: 'All projects', loading: 'Loading station…' },
     neon: 'Factory',
     chairman: { fullPage: 'Open full page', seated: 'Seated · Click objects · Esc to stand', tabs: { assign: 'Assign / Ask Lead', attention: 'Needs attention', create: 'Create project or task', projects: 'Projects', agents: 'Agents', knowledge: 'Documents', flows: 'Workflows', chat: 'Chat with Lead', activity: 'Recent activity' } },
     walk: { bump: 'Oops!', boss: 'Boss is here!', spin: 'E — Spin OIIA', title: 'Walk', owner: 'Sit at the executive desk', open: 'E — Open {name}', click: 'Click to look · Drag if pointer lock is unavailable', minimap: 'Studio mini-map', activity: 'Activity column', paused: 'Movement paused · Close the panel to resume', controls: 'WASD / arrows · Shift run · Space hop · C first/third person · Wheel zoom · E interact · 1–7 tools · V / Esc iso' },
@@ -237,7 +240,7 @@ export const extra = {
     title: 'Studio world', map: 'Studio map', toolbar: 'World options',
     mapHint: 'Drag to pan and scroll to zoom. Arrow keys pan, plus and minus zoom, 0 opens the overview, Shift+1–6 focus zones, 1–9 pick a hotbar slot, Escape stops following.',
     home: 'Overview', dragHint: 'Drag to pan · scroll to zoom',
-    zones: { A: 'Chairman’s office', B: 'Workshop', C: 'Collaborate', D: 'Testing', E: 'Gallery', F: 'Courtyard' },
+    zones: { A: 'Chairman’s office', B: 'Desks', C: 'Meeting', D: 'Approvals', E: 'Lounge', F: 'Workflow' },
     scene: {
       owner: 'You', empty: 'Empty space', comingSoon: 'Coming soon', backlog: 'To do', working: 'In progress', review: 'Review', error: 'Blocked', done: 'Done',
       zones: { A: 'Chairman’s office', B: 'Production workshop', C: 'Collaboration table', D: 'Testing room', E: 'Gallery', F: 'Courtyard' },

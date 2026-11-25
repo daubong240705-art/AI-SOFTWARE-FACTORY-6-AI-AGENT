@@ -10,7 +10,6 @@ import type { Project } from '@factory/contracts';
 import { Mascot } from '@/components/mascot/Mascot';
 import { Button } from '@/components/ui/button';
 import { useT } from '@/i18n';
-import type { Handoff } from './data/types';
 import { DockedPane } from '../DockedPane';
 import './world.css';
 import type { Store } from '@/state/store';
@@ -47,7 +46,7 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
   const inbox = store.useStoreSelector(state => state.globalInbox); const attention = attentionItems(inbox).length;
   const [selected, setSelected] = useState<string | null>(() => chairmanTabFromHash() ? 'owner' : null); const [following, setFollowing] = useState(false);
   const [selectedTask, setSelectedTask] = useState<{ projectId: string; taskId: string } | null>(null);
-  const courier = useRef<((handoff: Handoff) => void) | null>(null);
+  const [highlight, setHighlight] = useState<string | null>(null);
   const locations = useRef(new Map<string, readonly [number, number, number]>());
   const scope = useRef(0); const previousBaseline = useRef(data.baseline);
   if (previousBaseline.current && !data.baseline) scope.current++; previousBaseline.current = data.baseline;
@@ -111,12 +110,14 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
     }
     change({ view: walking ? 'iso' : 'walk', lineup: false });
   };
-  const openRoom = useCallback((id: string, enter = false) => {
-    data.setFocusProjectId(id);
-    const room = data.model.rooms.find(item => item.id === id);
-    if (room && walking && enter) { walk.current.position = [room.x - 10.6, 0, room.z + 1.8]; walk.current.target = null; }
-    if (room && !walking) camera.focusPoint([room.x, room.z], 41);
-  }, [camera, data.model.rooms, data.setFocusProjectId, walking]);
+  const highlightProject = useCallback((id: string) => {
+    setHighlight(id || null);
+    data.setFocusProjectId(id || null);
+    const agent = data.model.agents.find(item => item.projectId === id);
+    const desk = agent && deskForAgent(agent);
+    if (!walking && desk) camera.focusPoint(desk.seat, 34);
+    if (!walking && !id) camera.home();
+  }, [camera, data.model.agents, data.setFocusProjectId, walking]);
   const onWalkInteract = useCallback((target: WalkTarget) => {
     if (target.kind === 'agent') select(target.id);
     else if (target.kind === 'owner') openOffice('chair');
@@ -125,10 +126,9 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
     else if (target.kind === 'run' && target.projectId) openFlowRoute(target.projectId, { kind: 'runs', id: target.id });
     else if (target.kind === 'library') onNavigate('library');
     else if (target.kind === 'approval') onNavigate('needs-attention');
-    else if (target.kind === 'board') { openRoom(target.id); openOffice('flows'); }
-    else if (target.kind === 'project') openRoom(target.id);
+    else if (target.kind === 'board') { data.setFocusProjectId(target.id); openOffice('flows'); }
     else if (target.kind === 'cat') { toys.spin(false, true); if (toys.snapshot().sound && !still && preferences.effects !== 'off') tone('oiia'); }
-  }, [select, openOffice, openTask, openRoom, onNavigate, still, preferences.effects]);
+  }, [select, openOffice, openTask, data.setFocusProjectId, onNavigate, still, preferences.effects]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable="true"]')) return;
@@ -160,15 +160,15 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
       <div ref={mapRef} className="world-map" role="region" tabIndex={0} aria-label={t('worldUi.map')} aria-describedby={hintId}>
         <p id={hintId} className="sr-only">{t('worldUi.mapHint')}</p>
         <SceneErrorBoundary key={attempt} onError={onError}><Suspense fallback={<div className="world-loading" role="status"><Mascot seat="Lead" state="thinking" animated={false} /><span>{t('worldUi.loading')}</span></div>}>
-          <WorldCanvas onOfficeOpen={openOffice} onWalkExit={walkExit} walking={walking} walk={walk} paused={panelOpen} onWalkInteract={onWalkInteract} events={data.events} scopeKey={scope.current} locations={locations} courier={courier} onTask={openTask} onEventsConsumed={data.consumeEvents} model={data.model} baseline={data.baseline} lineup={!walking && preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={toySelect} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
+          <WorldCanvas onOfficeOpen={openOffice} onWalkExit={walkExit} walking={walking} walk={walk} paused={panelOpen} onWalkInteract={onWalkInteract} events={data.events} scopeKey={scope.current} locations={locations} onTask={openTask} onEventsConsumed={data.consumeEvents} model={data.model} highlight={highlight} baseline={data.baseline} lineup={!walking && preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={toySelect} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
         </Suspense></SceneErrorBoundary>
         {walking && <WalkOverlay state={walk} positions={positions} paused={panelOpen} agents={data.model.agents} />}
       </div>
       <WorldHotbar walking={walking} collapsed={preferences.hotbarCollapsed} onCollapse={hotbarCollapsed => change({ hotbarCollapsed })} />
       <div className="world-left"><WorldToolbar canWalk={canWalk} walking={walking} onWalk={toggleWalk} showActivity={showWalkActivity} onActivity={() => setShowWalkActivity(value => !value)} onChairman={() => { if (walking) change({ view: 'iso' }); openOwner(); }} onNavigate={onNavigate} preferences={preferences} onChange={patch => { if (patch.lineup && walking) patch = { ...patch, view: 'iso' }; if (patch.lineup) { camera.follow(null); setSelected(null); setSelectedTask(null); } change(patch); }} />
-        <div className="world-focus world-control"><label className="flex min-w-0 flex-1 items-center gap-2">{t('worldUi.campus.projects')} <Choice className="min-w-0 flex-1 truncate bg-transparent" value={data.focusProjectId ?? ''} disabled={!data.model.projects.length} onValueChange={selectedValue => openRoom(selectedValue)}>{!data.model.projects.length && <ChoiceOption value="">—</ChoiceOption>}{data.model.buildings.map(building => <ChoiceGroup key={building.id} label={building.name ?? t('worldUi.campus.shared')}>{building.rooms.map(project => <ChoiceOption key={project.id} value={project.id}>{project.name}</ChoiceOption>)}</ChoiceGroup>)}</Choice></label>{data.focusProjectId && <Button type="button" size="sm" variant="ghost" onClick={() => openRoom(data.focusProjectId!, true)}>{t('worldUi.campus.enter')}</Button>}</div>
+        <div className="world-focus world-control"><label className="flex min-w-0 flex-1 items-center gap-2">{t('worldUi.campus.projects')} <Choice className="min-w-0 flex-1 truncate bg-transparent" value={highlight ?? ''} disabled={!data.model.projects.length} onValueChange={highlightProject}><ChoiceOption value="">{t('worldUi.campus.allProjects')}</ChoiceOption>{data.model.buildings.map(building => <ChoiceGroup key={building.id} label={building.name ?? t('worldUi.campus.shared')}>{building.rooms.map(project => <ChoiceOption key={project.id} value={project.id}>{project.name}</ChoiceOption>)}</ChoiceGroup>)}</Choice></label></div>
         {!!activeSources.length && <div className="world-control flex flex-wrap items-center gap-2 p-2 text-sm"><span role="status">{t('worldUi.sourceError')}</span><Button size="sm" variant="outline" onClick={() => data.refresh(activeSources.map(([key]) => key))}>{t('errors.retry')}</Button></div>}
-        <WorldRoster agents={data.model.agents} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} onTask={openTask} /></div>
+        <WorldRoster agents={data.model.agents} highlight={highlight} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} onTask={openTask} /></div>
       {(!walking || showWalkActivity) && !(selected || selectedTask) && (() => { const focus = data.model.focusProjectId;
         const state = data.sources[`interactions:${focus}`]?.state;
         return <WorldActivity office={focus ? data.interactions[focus] : undefined} projectName={data.model.projects.find(project => project.id === focus)?.name ?? null}

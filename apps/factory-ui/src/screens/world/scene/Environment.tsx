@@ -3,7 +3,7 @@ import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { environmentModel, type Label, type Part } from '../layout/zones';
-import { layout } from '../layout/waypoints';
+import type { studioNavigation } from '../layout/studioNavigation';
 import { environmentGeometries, geometryForPart } from './EnvironmentGeometry';
 import { makeArtwork } from './EnvironmentArt';
 
@@ -11,7 +11,7 @@ function matrix(p: Part) {
   return new THREE.Matrix4().compose(new THREE.Vector3(...p.position), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), p.yaw), new THREE.Vector3(...p.scale));
 }
 function makeEnvironment() {
-  const model = environmentModel();
+  const model = environmentModel(true);
   const gradient = new THREE.DataTexture(new Uint8Array([115, 195, 255]), 3, 1, THREE.RedFormat);
   gradient.unpackAlignment = 1;
   gradient.minFilter = THREE.NearestFilter; gradient.magFilter = THREE.NearestFilter; gradient.needsUpdate = true;
@@ -88,20 +88,23 @@ function Artwork({ panels, gradient }: { panels: ReturnType<typeof environmentMo
   }, [panels, gradient, invalidate]);
   return group ? <primitive object={group} /> : null;
 }
-function GraphOverlay() {
+function GraphOverlay({ graph }: { graph: ReturnType<typeof studioNavigation> }) {
   const [object, setObject] = useState<THREE.LineSegments | null>(null);
   const invalidate = useThree(s => s.invalidate);
   useEffect(() => {
-    const byId = new Map(layout.nodes.map(n => [n.id, n]));
-    const vertices = layout.edges.flatMap(([a, b]) => { const from = byId.get(a)!, to = byId.get(b)!; return [from.position[0], 0.065, from.position[1], to.position[0], 0.065, to.position[1]]; });
+    const vertices = graph.edges.flatMap((neighbors, index) => neighbors.flatMap(neighbor => {
+      if (neighbor <= index) return [];
+      const from = graph.points[index]!, to = graph.points[neighbor]!;
+      return [from[0], .065, from[1], to[0], .065, to[1]];
+    }));
     const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
     const material = new THREE.LineBasicMaterial({ color: '#AF496B', transparent: true, opacity: 0.8 });
     const lines = new THREE.LineSegments(geometry, material); lines.raycast = () => {}; setObject(lines); invalidate();
     return () => { geometry.dispose(); material.dispose(); };
-  }, [invalidate]);
+  }, [graph, invalidate]);
   return object ? <primitive object={object} /> : null;
 }
-export function Environment() {
+export function Environment({ graph }: { graph: ReturnType<typeof studioNavigation> }) {
   const [resource, setResource] = useState<ReturnType<typeof makeEnvironment> | null>(null);
   const invalidate = useThree(s => s.invalidate);
   useEffect(() => {
@@ -110,5 +113,5 @@ export function Environment() {
     return created.dispose;
   }, [invalidate]);
   const debug = new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('worldDebug') === '1';
-  return resource ? <><primitive object={resource.group} /><Labels labels={resource.labels} /><Artwork panels={resource.artwork} gradient={resource.gradient} />{debug && <GraphOverlay />}</> : null;
+  return resource ? <><primitive object={resource.group} /><Labels labels={resource.labels} /><Artwork panels={resource.artwork} gradient={resource.gradient} />{debug && <GraphOverlay graph={graph} />}</> : null;
 }

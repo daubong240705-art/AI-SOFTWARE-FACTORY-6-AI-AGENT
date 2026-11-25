@@ -3,16 +3,15 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { OrthographicCamera, Vector3, MathUtils } from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { cameraBounds, cameraPresets, fitZoom, isoDistance, type ZoneKey } from '../layout/camera';
-import { ownerDesk, zones, type Point } from '../layout/zones';
+import { ownerDesk, type Point } from '../layout/zones';
 import { useCameraBridge, type CameraApi, type CameraState } from '../cameraContext';
 import { toys } from './toys/store';
 import { useWorldMotion } from './Ticker';
-import { roomDepth, roomWidth, type Room } from '../layout/campus';
 export type WorldLocations = RefObject<Map<string, readonly [number, number, number]>>;
 export type Locate = (kind: 'agent' | 'owner' | 'zone' | 'card', id?: string) => { x: number; y: number } | null;
-export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, locations, enabled = true, returnPoint, rooms }: {
+export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, locations, enabled = true, returnPoint, floorSouth }: {
   enabled?: boolean; returnPoint?: RefObject<import('./walk/state').WalkState>;
-  rooms: readonly Room[];
+  floorSouth: number;
   agentPositions: RefObject<Map<string, Point>>; locations: WorldLocations;
   mapRef: RefObject<HTMLDivElement | null>; still: boolean;
   onState: (state: CameraState) => void; onLocate: (locate: Locate | null) => void;
@@ -25,7 +24,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
   const motion = useWorldMotion();
   const viewport = useRef(size); viewport.current = size;
   const stillRef = useRef(still); stillRef.current = still;
-  const campus = useRef(rooms); campus.current = rooms;
+  const south = useRef(floorSouth); south.current = floorSouth;
   const engine = useRef<{ controls: MapControls; api: CameraApi } | null>(null);
   const animate = useRef<(now: number, delta: number) => void>(() => {});
   useEffect(() => {
@@ -39,8 +38,8 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
     const offset = new Vector3().setScalar(isoDistance / Math.sqrt(3));
     const cancel = () => { tween = null; getter = null; release?.(); release = null; };
     const clamp = () => {
-      const maxX = Math.max(cameraBounds.x[1], ...campus.current.map(room => room.x + roomWidth / 2));
-      const maxZ = Math.max(cameraBounds.z[1], ...campus.current.map(room => room.z + roomDepth / 2));
+      const maxX = cameraBounds.x[1];
+      const maxZ = south.current + 1;
       controls.target.set(MathUtils.clamp(controls.target.x, cameraBounds.x[0], maxX), 0, MathUtils.clamp(controls.target.z, cameraBounds.z[0], maxZ));
       camera.position.copy(controls.target).add(offset); camera.lookAt(controls.target);
       camera.zoom = MathUtils.clamp(camera.zoom, controls.minZoom, controls.maxZoom);
@@ -64,7 +63,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
     const api: CameraApi = {
       focusZone(key) { const [x, z, zoom] = cameraPresets[key]; move([x, z], zoom * scale()); },
       focusPoint(point, zoom) { move(point, zoom === undefined ? camera.zoom : zoom * scale()); },
-      home() { move([0, 0], fitZoom(viewport.current.width, viewport.current.height)); },
+      home() { move([0, (south.current - 14) / 2], fitZoom(viewport.current.width, viewport.current.height, south.current)); },
       follow(next) { if (!enabledRef.current) return; cancel(); getter = next; if (next && !stillRef.current) release = motion.request('live'); report(); invalidate(); },
     };
     const changed = () => { clamp(); report(); invalidate(); };
@@ -97,7 +96,8 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
     map?.addEventListener('keydown', keydown); gl.domElement.addEventListener('pointerdown', focusMap);
     onLocate((kind, id) => {
       const object = locations.current.get(`${kind}:${id}`);
-      const point = kind === 'owner' ? ownerDesk.position : kind === 'agent' ? agentPositions.current.get(id ?? '') : kind === 'zone' ? zones.find(z => z.id === id)?.anchor : object ? [object[0], object[2]] : null; if (!point) return null;
+      const preset = kind === 'zone' ? cameraPresets[id as ZoneKey] : undefined;
+      const point = kind === 'owner' ? ownerDesk.position : kind === 'agent' ? agentPositions.current.get(id ?? '') : preset ? [preset[0], preset[1]] : object ? [object[0], object[2]] : null; if (!point) return null;
       const p = new Vector3(point[0], object?.[1] ?? (kind === 'agent' ? 1 : kind === 'owner' ? 0.9 : 0.05), point[1]).project(get().camera);
       if (p.z < -1 || p.z > 1) return null;
       const rect = gl.domElement.getBoundingClientRect(); return { x: rect.left + (p.x + 1) * rect.width / 2, y: rect.top + (1 - p.y) * rect.height / 2 };
@@ -122,10 +122,9 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
   }, [enabled, register, returnPoint, invalidate]);
   useEffect(() => {
     const e = engine.current; if (!e || !(camera instanceof OrthographicCamera)) return;
-    // Fit the isometric projection of the complete bounds [-18,44] × [-26,14].
-    e.controls.minZoom = Math.min(size.width / 74, size.height / 44) * 0.9;
+    e.controls.minZoom = fitZoom(size.width, size.height, floorSouth) * 0.75;
     e.api.home();
-  }, [camera, size.width, size.height]);
+  }, [camera, size.width, size.height, floorSouth]);
   useEffect(() => { invalidate(); }, [still, invalidate]);
   useFrame((_, delta) => {
     if (!enabled) return;

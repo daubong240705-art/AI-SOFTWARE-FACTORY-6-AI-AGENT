@@ -4,10 +4,10 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 
 const emptyOption = 'choice:empty';
 
-type OptionProps = { value: string | number; disabled?: boolean; children: ReactNode };
+type OptionProps = { value: string | number; disabled?: boolean; textValue?: string; children: ReactNode };
 
-export function ChoiceOption({ value, children, disabled }: OptionProps) {
-  return <SelectItem value={value === '' ? emptyOption : String(value)} data-value={String(value)} disabled={disabled}>{children}</SelectItem>;
+export function ChoiceOption({ value, children, disabled, textValue }: OptionProps) {
+  return <SelectItem value={value === '' ? emptyOption : String(value)} data-value={String(value)} disabled={disabled} {...(textValue ? { textValue } : {})}>{children}</SelectItem>;
 }
 
 export function ChoiceGroup({ label, children }: { label: string; children: ReactNode }) {

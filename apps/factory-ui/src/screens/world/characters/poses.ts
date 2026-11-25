@@ -79,7 +79,7 @@ export function blendPose(from: PoseFrame, to: PoseFrame, amount: number): PoseF
 export type Waypoint = readonly [x: number, z: number] | readonly [x: number, y: number, z: number] | { readonly x: number; readonly z: number; readonly y?: number };
 export type HopPath = readonly Waypoint[];
 export type HopSample = { position: [number, number, number]; yaw: number; squash: number; done: boolean };
-export type HopMotion = { duration: number; sample: (elapsed: number) => HopSample };
+export type HopMotion = { duration: number; sample: (elapsed: number, out?: HopSample) => HopSample };
 function xyz(point: Waypoint): [number, number, number] {
   if ('x' in point) return [point.x, point.y ?? 0, point.z];
   return point.length === 2 ? [point[0], 0, point[1]] : [point[0], point[1], point[2]];
@@ -91,16 +91,22 @@ export function hopAlong(path: HopPath, speed: number): HopMotion {
   if (points.some(point => point.some(value => !Number.isFinite(value)))) throw new RangeError('Hop waypoints must be finite');
   const lengths = points.slice(1).map((point, i) => Math.hypot(point[0] - points[i]![0], point[1] - points[i]![1], point[2] - points[i]![2]));
   const distance = lengths.reduce((total, length) => total + length, 0); const duration = distance / speed;
-  return { duration, sample(elapsed) {
+  return { duration, sample(elapsed, out = { position: [0, 0, 0], yaw: 0, squash: 1, done: false }) {
     if (!Number.isFinite(elapsed)) throw new RangeError('Hop elapsed time must be finite');
-    if (!points.length) return { position: [0, 0, 0], yaw: 0, squash: 1, done: true };
-    if (elapsed >= duration || distance === 0) return { position: [...points[points.length - 1]!], yaw: 0, squash: 1, done: true };
+    if (elapsed >= duration || distance === 0) {
+      const last = points[points.length - 1];
+      out.position[0] = last?.[0] ?? 0; out.position[1] = last?.[1] ?? 0; out.position[2] = last?.[2] ?? 0;
+      out.yaw = 0; out.squash = 1; out.done = true; return out;
+    }
     let remaining = Math.max(0, elapsed) * speed; let index = 0;
     while (index < lengths.length - 1 && remaining >= lengths[index]!) { remaining -= lengths[index]!; index += 1; }
     const a = points[index]!; const b = points[index + 1]!; const length = lengths[index] ?? 0; const p = length ? remaining / length : 1;
     const hops = Math.max(1, Math.ceil(length / 0.55)); const hopPhase = positiveMod(p * hops, 1);
     const lift = Math.sin(hopPhase * Math.PI); const landing = Math.exp(-(((hopPhase - 0.96) / 0.07) ** 2));
-    return { position: [a[0] + (b[0] - a[0]) * p, a[1] + (b[1] - a[1]) * p + lift * 0.12, a[2] + (b[2] - a[2]) * p],
-      yaw: Math.atan2(b[0] - a[0], b[2] - a[2]), squash: 1 + lift * 0.04 - landing * 0.07, done: false };
+    out.position[0] = a[0] + (b[0] - a[0]) * p;
+    out.position[1] = a[1] + (b[1] - a[1]) * p + lift * 0.12;
+    out.position[2] = a[2] + (b[2] - a[2]) * p;
+    out.yaw = Math.atan2(b[0] - a[0], b[2] - a[2]); out.squash = 1 + lift * 0.04 - landing * 0.07; out.done = false;
+    return out;
   } };
 }

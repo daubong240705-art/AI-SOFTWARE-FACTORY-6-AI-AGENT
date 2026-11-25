@@ -1,4 +1,5 @@
 import { Choice, ChoiceOption } from '@/components/ui/choice';
+import { AgentChoiceLabel } from '@/components/mascot/AgentMascot';
 import { useEffect, useMemo, useState } from 'react';
 import dagre from '@dagrejs/dagre';
 import { Background, Controls, MarkerType, Position, ReactFlow, useReactFlow, type Edge, type Node } from '@xyflow/react';
@@ -60,7 +61,7 @@ export function RelationsPanel({ projectId, data, submit, refreshing }: { projec
 function AgentChoice({ agents, selected, label, disabled, invalid, change }: { agents: AgentSummary[]; selected: string; label: string; disabled: boolean; invalid: boolean; change: (id: string) => void }) {
   const t = useT();
   return <Choice data-testid="relation-agent" aria-label={label} aria-invalid={invalid} disabled={disabled} value={selected} onValueChange={selectedValue => change(selectedValue)}>
-    <ChoiceOption value="">—</ChoiceOption>{selected && !agents.some(agent => agent.id === selected) && <ChoiceOption value={selected}>{t('flowsUi.missingAgent')}</ChoiceOption>}{agents.map(agent => <ChoiceOption key={agent.id} value={agent.id}>{agent.name}</ChoiceOption>)}
+    <ChoiceOption value="">—</ChoiceOption>{selected && !agents.some(agent => agent.id === selected) && <ChoiceOption value={selected}>{t('flowsUi.missingAgent')}</ChoiceOption>}{agents.map(agent => <ChoiceOption key={agent.id} value={agent.id} textValue={agent.name}><AgentChoiceLabel agent={agent} /></ChoiceOption>)}
   </Choice>;
 }
 
@@ -81,7 +82,7 @@ function RelationGraph({ agents, relations }: { agents: AgentSummary[]; relation
     dagre.layout(graph);
     const nodes: Node[] = members.map(agent => {
       const { x, y } = graph.node(agent.id);
-      return { id: agent.id, position: { x: x - width / 2, y: y - height / 2 }, data: { label: <span className="block truncate" title={agent.name}>{agent.name}</span> }, width, height, sourcePosition: Position.Right, targetPosition: Position.Left, style: { borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-card)', color: 'var(--color-foreground)', padding: 10 } };
+      return { id: agent.id, position: { x: x - width / 2, y: y - height / 2 }, data: { label: <span className="flex min-w-0 justify-center" title={agent.name}><AgentChoiceLabel agent={agent} /></span> }, width, height, sourcePosition: Position.Right, targetPosition: Position.Left, style: { borderRadius: 8, border: '1px solid var(--color-border)', background: 'var(--color-card)', color: 'var(--color-foreground)', padding: 10 } };
     });
     return { nodes, links };
   }, [agents, relations]);

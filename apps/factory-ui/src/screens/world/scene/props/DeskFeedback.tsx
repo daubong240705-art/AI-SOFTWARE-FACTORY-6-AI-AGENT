@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { WorldAgent } from '../../data/types';
@@ -10,14 +10,18 @@ const lampColor = { working: '#E0A458', waiting: '#F2B8A9', problem: '#F05252', 
 function feedback(count: number) {
   const plane = new THREE.PlaneGeometry(1, 1), sphere = new THREE.SphereGeometry(0.13, 8, 6);
   const material = new THREE.MeshBasicMaterial({ color: 'white' });
-  const group = new THREE.Group(), object = new THREE.Object3D();
+  const group = new THREE.Group(), object = new THREE.Object3D(), tint = new THREE.Color();
+  const sweeps: { index: number; x: number; z: number }[] = [];
   const screens = new THREE.InstancedMesh(plane, material, count * 2), lamps = new THREE.InstancedMesh(sphere, material, count);
   const tracks = new THREE.InstancedMesh(plane, material, count), bars = new THREE.InstancedMesh(plane, material, count);
   group.add(screens, lamps, tracks, bars); group.traverse(o => { o.raycast = () => {}; });
   const put = (mesh: THREE.InstancedMesh, i: number, x: number, y: number, z: number, w: number, h: number, color: string, yaw: number) => {
-    object.position.set(x, y, z); object.scale.set(w, h, 1); object.rotation.set(0, yaw, 0); object.updateMatrix(); mesh.setMatrixAt(i, object.matrix); mesh.setColorAt(i, new THREE.Color(color));
+    object.position.set(x, y, z); object.scale.set(w, h, 1); object.rotation.set(0, yaw, 0); object.updateMatrix(); mesh.setMatrixAt(i, object.matrix); mesh.setColorAt(i, tint.set(color));
   };
-  function paint(agents: readonly WorldAgent[], t: number) {
+  const bar = (index: number, x: number, z: number, offset: number, amount: number) => put(bars, index, x + Math.cos(Math.PI / 4) * offset + Math.sin(Math.PI / 4) * progressFillOffset, 1.65, z - Math.sin(Math.PI / 4) * offset + Math.sin(Math.PI / 4) * progressFillOffset, Math.max(.001, amount * 1.24), .065, '#BDE3D2', Math.PI / 4);
+  bars.frustumCulled = false;
+  function paint(agents: readonly WorldAgent[]) {
+    sweeps.length = 0;
     let visible = 0; const night = daylight(new Date()) === 'night';
     agents.forEach((agent, i) => {
       const desk = deskForAgent(agent); if (!desk) return;
@@ -28,23 +32,26 @@ function feedback(count: number) {
       if (!working && percent == null) return;
       const amount = percent == null ? 0.3 : Math.max(0, Math.min(100, percent)) / 100;
       put(tracks, visible, desk.position[0], 1.65, desk.position[1], 1.3, 0.1, '#4A3B2F', Math.PI / 4);
-      const offset = percent == null ? Math.sin(t / 0.65) * 0.4 : (amount - 1) * 0.62;
-      put(bars, visible++, desk.position[0] + Math.cos(Math.PI / 4) * offset + Math.sin(Math.PI / 4) * progressFillOffset, 1.65, desk.position[1] - Math.sin(Math.PI / 4) * offset + Math.sin(Math.PI / 4) * progressFillOffset, Math.max(0.001, amount * 1.24), 0.065, '#BDE3D2', Math.PI / 4);
+      if (percent == null) sweeps.push({ index: visible, x: desk.position[0], z: desk.position[1] });
+      bar(visible++, desk.position[0], desk.position[1], percent == null ? 0 : (amount - 1) * .62, amount);
     });
     screens.count = agents.length * 2; lamps.count = agents.length; tracks.count = bars.count = visible;
     for (const mesh of [screens, lamps, tracks, bars]) { mesh.instanceMatrix.needsUpdate = true; if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true; mesh.computeBoundingSphere(); }
   }
-  return { group, paint, dispose() { plane.dispose(); sphere.dispose(); material.dispose(); for (const mesh of [screens, lamps, tracks, bars]) mesh.dispose(); } };
+  return { group, paint, animate(time: number) {
+    const offset = Math.sin(time / .65) * .4;
+    for (const item of sweeps) bar(item.index, item.x, item.z, offset, .3);
+    bars.instanceMatrix.needsUpdate = true;
+  }, dispose() { plane.dispose(); sphere.dispose(); material.dispose(); for (const mesh of [screens, lamps, tracks, bars]) mesh.dispose(); } };
 }
 /** Four draws for the entire team, including both monitors and progress bars. */
 export function DeskFeedback({ agents, still }: { agents: readonly WorldAgent[]; still: boolean }) {
   const [resource, setResource] = useState<ReturnType<typeof feedback> | null>(null);
-  const latest = useRef(agents); latest.current = agents;
   const motion = useWorldMotion(), invalidate = useThree(s => s.invalidate);
   const sweep = agents.some(a => a.status === 'working' && a.runs[0]?.progress?.percent == null);
   useEffect(() => { const value = feedback(agents.length); setResource(value); return value.dispose; }, [agents.length]);
-  useEffect(() => { resource?.paint(agents, 0); invalidate(); }, [resource, agents, still, invalidate]);
+  useEffect(() => { resource?.paint(agents); invalidate(); }, [resource, agents, still, invalidate]);
   useEffect(() => { if (sweep && !still) return motion.request('ambient'); }, [sweep, still, motion]);
-  useFrame(() => { if (resource && sweep && !still) resource.paint(latest.current, performance.now() / 1000); });
+  useFrame(() => { if (resource && sweep && !still) resource.animate(performance.now() / 1000); });
   return resource ? <primitive object={resource.group} /> : null;
 }

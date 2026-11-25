@@ -15,6 +15,7 @@ import { bundleDefaults, nodeIcons, nodeKinds, newNode } from './nodeTypes';
 import { useT } from '@/i18n';
 import { FlowInsights } from './FlowInsights';
 import { FlowError, NodePicker, PendingJson, timestamp, useFlowEvents, useFlowLabels, useFlowWrite, useRead } from './shared';
+import { AgentMascotProvider } from '@/components/mascot/AgentMascot';
 import { RunDialog } from './RunDialog';
 import { guardFlowDraft } from '../shell/navigation';
 import { autoLayout, definitionToGraph, isLoopReturn, nodeWidth, resolveLayout } from './graphModel';
@@ -190,7 +191,7 @@ export function FlowEditor({ api, projectId, flowId, onBack }: { api: ApiClient;
           <TabsContent value="inspector" className="space-y-3">
             {previewVersion !== null || archived ? <p className="text-sm text-muted-foreground">{label('readOnly')}</p> : <fieldset disabled={write.busy} className="min-w-0 space-y-3">
               <PendingJson.Provider key={draft?.revision ?? flow.revision} value={setPendingJson}>
-                {settings ? <FlowSettings definition={definition} setDefinition={replace} /> : selectedNode ? <NodeInspector key={selectedNode.id} api={api} projectId={projectId} node={selectedNode} definition={definition} roster={roster} setNode={node => update(current => ({ ...current, nodes: current.nodes.map(item => item.id === node.id ? node : item) }))} />
+                {settings ? <FlowSettings definition={definition} setDefinition={replace} /> : selectedNode ? <AgentMascotProvider api={api} agents={roster?.agents}><NodeInspector key={selectedNode.id} api={api} projectId={projectId} node={selectedNode} definition={definition} roster={roster} setNode={node => update(current => ({ ...current, nodes: current.nodes.map(item => item.id === node.id ? node : item) }))} /></AgentMascotProvider>
                   : selection?.kind === 'edge' ? <EdgeInspector selection={selection.id} definition={definition} setDefinition={replace} /> : <p className="text-sm text-muted-foreground">{label('selectHint')}</p>}
               </PendingJson.Provider>
               {selection && <Button data-testid="flow-remove" size="sm" variant="outline" disabled={pendingJson > 0 || (selection.kind === 'node' && definition.nodes.length < 2)} onClick={remove}><Trash2 aria-hidden="true" />{label('remove')}</Button>}

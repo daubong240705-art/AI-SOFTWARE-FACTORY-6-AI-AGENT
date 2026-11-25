@@ -5,17 +5,16 @@ export function assignDesks(items: {
 }[], previous: Assignments = {}): Assignments {
   const out: Assignments = {};
   const used = new Set<number>();
-  const lead = items.find(item => item.podKey === 'lead');
-  if (lead) { out[lead.seatId] = { podKey: 'lead', slotIndex: 0, overflow: false }; used.add(0); }
   for (const item of items) {
     const p = previous[item.seatId];
-    if (!out[item.seatId] && p && !p.overflow && p.slotIndex > 0 && p.slotIndex <= items.length && !used.has(p.slotIndex)) {
+    if (p && !p.overflow && p.slotIndex >= 0 && p.slotIndex < items.length && !used.has(p.slotIndex)) {
       out[item.seatId] = { ...p, podKey: item.podKey };
       used.add(p.slotIndex);
     }
   }
-  let next = 1;
-  for (const item of items) if (!out[item.seatId]) {
+  let next = 0;
+  const ordered = [...items.filter(item => item.podKey === 'lead'), ...items.filter(item => item.podKey !== 'lead')];
+  for (const item of ordered) if (!out[item.seatId]) {
     while (used.has(next)) next++;
     out[item.seatId] = { podKey: item.podKey, slotIndex: next++, overflow: false };
   }

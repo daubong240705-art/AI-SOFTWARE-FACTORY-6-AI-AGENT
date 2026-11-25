@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { Ray, Vector3 } from 'three';
-import { obstructionDistance } from './obstructions';
+import { obstructionDistance, setObstructionFloor } from './obstructions';
+import { deskFloorSouth } from '../../layout/campus';
 import { resolveWalkMove } from './collision';
 import { furnitureFootprints, navigationBounds, type Footprint } from '../../layout/zones';
 const desk: Footprint = { id: 'desk', position: [0, 0], half: [1, 0.5], yaw: 0 };
@@ -19,19 +20,20 @@ const doorway = resolveWalkMove({ x: -8, z: -2 }, { x: 0, z: 2 }, 0.35, furnitur
 assert(Math.abs(doorway.z) < 0.01, 'main cross-zone opening remains passable');
 console.log('Walk collision: desk slide, swept moves, rotated desk, bounds, doorway PASS');
 
+const south = deskFloorSouth(65);
+setObstructionFloor(south);
 const wallRay = new Ray(new Vector3(-16, 1.3, -2), new Vector3(-1, 0, 0));
 assert(obstructionDistance(wallRay, 4) < 2, 'camera boom is pulled in before the west wall');
 assert(obstructionDistance(new Ray(new Vector3(0, 1.3, -1), new Vector3(1, 0, 0)), 2) === 2, 'camera boom stays extended in open aisle');
 console.log('Walk camera: wall obstruction and clear aisle PASS');
 
-// W-20: close the room at eye height without obstructing the existing exit lanes.
 const eastWall = new Ray(new Vector3(16, 1.9, 4), new Vector3(1, 0, 0));
-const southWall = new Ray(new Vector3(0, 1.9, 12.5), new Vector3(0, 0, 1));
+const southWall = new Ray(new Vector3(0, 1.9, south - 1.5), new Vector3(0, 0, 1));
 assert(obstructionDistance(eastWall, 4) < 2, 'camera cannot pass through east glazing');
 assert(obstructionDistance(southWall, 4) < 2, 'camera cannot pass through south glazing');
-assert.equal(obstructionDistance(new Ray(new Vector3(16, 1.9, -1), new Vector3(1, 0, 0)), 3), 3, 'Courtyard doorway stays open');
-for (const x of [-8, 8]) assert.equal(obstructionDistance(new Ray(new Vector3(x, 1.9, 12), new Vector3(0, 0, 1)), 3), 3, 'south walking lane stays open');
+assert.ok(obstructionDistance(new Ray(new Vector3(16, 1.9, -1), new Vector3(1, 0, 0)), 3) < 2, 'east exterior is closed');
+assert.equal(obstructionDistance(new Ray(new Vector3(0, 1.9, 12), new Vector3(0, 0, 1)), 3), 3, 'no interior wall at the former south boundary');
 assert(obstructionDistance(new Ray(new Vector3(0, 2, 0), new Vector3(0, 1, 0)), 3) < 1.7, 'ceiling retracts upward camera boom');
 const cooler = resolveWalkMove({ x: 17, z: 11.8 }, { x: 0, z: 1.3 });
 assert(cooler.z < 12.5, 'water cooler has a collision footprint');
-console.log('W-20 camera/furnishings: front walls, glass, ceiling, three open doorways, cooler collision PASS');
+console.log('Studio camera/furnishings: exterior walls, ceiling, open interior, cooler collision PASS');
