@@ -4,19 +4,39 @@ section: reference
 order: 3
 ---
 
-## Check the environment
+`factory doctor` checks required Host components and optional capabilities. The check code tells you which part of the setup to investigate.
+
+## When to use it
+
+Run it after installation or configuration changes, or when a model, runtime, or extension does not work.
+
+![System Setup with individual doctor codes and statuses](/images/docs/system.png)
+
+*The UI shows explanations and fixes alongside the codes.*
+
+## Read a result
+
+1. Run `factory doctor` or open **System** → **Setup**.
+2. Read the explanation for the failing code. Fix required failures first; handle optional checks when you need the corresponding capability.
+3. Rerun `factory doctor` or choose **Check again**. For scripts, use `factory doctor --json`.
 
 | Code | What to check |
 | --- | --- |
-| `D-NODE` / `D-UI` | Rerun the installer if Node is older than 22.20 or the UI build is missing. |
-| `D-STATE` | Use a writable local drive that supports SQLite WAL mode. |
-| `D-GIT` / `D-PORT` | Install Git, or free up or change the port in use. |
-| `D-MODEL` / `D-CA` | Check the gateway, API key, network, TLS, and CA file path. |
-| `D-CODEX` / `D-CLAUDE` | If you use an optional CLI, check that it is installed and that you are signed in. |
-| `D-BWRAP` | Check bubblewrap if you run OpenCode or process documents. |
-| `D-LAN` / `D-BACKUP` | Check the LAN sign-in token or backup schedule. |
-| `D-EXT` | Check the extension path, manifest, and packs. |
+| `D-NODE`, `D-UI` | Node is at least 22.20; the compiled UI exists. |
+| `D-STATE` | State is writable and supports SQLite WAL. |
+| `D-GIT`, `D-PORT` | Git is installed; the configured port is available. |
+| `D-MODEL`, `D-CA` | Gateway, credentials, DNS, TLS, and CA file. |
+| `D-CODEX`, `D-CLAUDE`, `D-BWRAP` | CLI sign-in or bubblewrap for the capability in use. |
+| `D-LAN`, `D-BACKUP` | LAN sign-in and a recent backup. |
+| `D-EXT` | Enabled extensions, manifests, and packs. |
 
-## Test a live model
+> **Note:** `factory doctor --model` sends a small live request. It can verify a model omitted from `GET /models`.
 
-`factory doctor --model` sends a small request to the model provider. Use it when the gateway supports a model that is not listed by `GET /models`, or when you need to verify the connection with a live request.
+## Common mistakes
+
+- Treating every optional failure as a startup blocker.
+- Repeating a live model test when the diagnostic already identifies a local CA or configuration problem.
+
+## Next steps
+
+[Find fixes by code](./troubleshooting.md) or [see CLI commands](./cli.md).

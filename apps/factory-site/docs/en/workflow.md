@@ -4,14 +4,29 @@ section: concepts
 order: 4
 ---
 
-## Nodes and ports
+Workflow v2 is a validated graph. Each edge connects a named output port to another node. Edit a draft and publish it when ready; each normal run pins its definition and inputs.
 
-A workflow is a validated graph. An edge connects a named output port to a destination node. Trigger starts the graph; Agent delegates work; Condition selects a branch; Loop repeats within a bound; and Output collects results. An Approval can route `approved`, `rejected`, and `timeout` differently.
+## When to use it
 
-## Draft, publish, and run
+Use a graph when routes matter. For example, a checklist agent can hand its result to an **Approval**: `approved` leads to a signed-off output, while `rejected` and `timeout` lead to a separate result.
 
-Edit a draft and publish it to create a version. A run pins its definition and inputs. The engine persists node state, waits, and timers, so it can check outstanding work after a restart and resume without assuming interrupted attempts succeeded.
+![Workflow canvas with connected steps, Add nodes, and Inspector](/images/docs/workflow-canvas.png)
 
-## Test with mock agents
+*The Inspector shows the selected node or edge; Issues shows validation problems.*
 
-Save a valid draft, choose **Test run**, enable **Mock agents**, and supply inputs. Mock agents do not consume model tokens. You can pin specific node data to test a path. Choose a flow without external writes for your first test; mock agents do not imply that every Action is disabled.
+## Read a graph and its run
+
+1. Open a definition in **Workflows**. Start at **Trigger** and follow **Next** (`out`). An **Agent** delegates work; an **Action** performs a declared operation; **Output** collects the result.
+2. Trace every branch. **Condition** selects a route, **Loop** repeats within a bound, and **Approval** routes a decision or timeout. Check **Issues** for unreachable nodes or missing connections.
+3. Check **Versions** to distinguish a published version from the draft. Open a run and inspect what it used. If the Host restarts, it checks outstanding work rather than assuming an interrupted attempt succeeded.
+
+> **Warning:** **Mock agents (no tokens)** replaces model calls for agents; it does not disable every Action. Test a graph without external writes first.
+
+## Common mistakes
+
+- Saving a draft and assuming **Run** picks up the edit before **Publish**.
+- Routing rejection or timeout to the same successful output as approval.
+
+## Next steps
+
+[Build a draft graph](./create-workflow.md) or [follow a run](./trace.md).

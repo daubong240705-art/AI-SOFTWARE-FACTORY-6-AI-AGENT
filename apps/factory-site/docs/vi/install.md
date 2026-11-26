@@ -4,22 +4,38 @@ section: start
 order: 2
 ---
 
-## Chuẩn bị
+Cài Factory trên máy Linux x64 do bạn quản lý. Host có thể khởi động khi chưa cấu hình nhà cung cấp model, nhưng chat với Lead và agent dùng API cần model.
 
-Dùng Linux x64 với `git`; `sudo` chỉ dùng để cài gói hệ thống. WSL2 có trong bộ cài nhưng chưa được kiểm đầy đủ; không cài dưới `/mnt`. Bộ cài tải Node.js 22 đã ghim và kiểm SHA-256. Host không cần model provider để khởi động, nhưng Lead chat dùng model đã cấu hình.
+## Khi nào nên dùng
 
-## Cài và chạy
+Dùng các bước này để cài Host mới hoặc sửa bản cài thiếu giao diện. Bạn cần Git và `sudo` để cài gói hệ thống. Bộ cài tải bản Node.js 22 đã ghim và kiểm tra mã băm.
 
-```bash
-git clone https://github.com/daubong240705-art/AI-SOFTWARE-FACTORY-6-AI-AGENT.git factory
-cd factory
-bash scripts/install.sh --yes
-export PATH="$HOME/.local/bin:$PATH"
-factory setup
-factory doctor
-factory start
-```
+## Cài đặt và khởi động
 
-Mở [Factory trên máy bạn](http://127.0.0.1:8787/). `factory setup` hỏi về model provider, API key, model, cổng, địa chỉ nghe và agent CLI. `factory doctor` kiểm các mục đó và chỉ cách sửa. Nếu gặp lỗi, tra [mã doctor](./doctor.md).
+1. Nếu chưa có mã nguồn Factory, clone repo rồi chạy bộ cài từ thư mục gốc:
 
-> `--dry-run` chỉ mô tả các bước, `--no-service` bỏ đăng ký dịch vụ người dùng. Bộ cài không ghi đè `factory.env` có sẵn.
+   ```bash
+   git clone https://github.com/daubong240705-art/AI-SOFTWARE-FACTORY-6-AI-AGENT.git factory
+   cd factory
+   bash scripts/install.sh --yes
+   export PATH="$HOME/.local/bin:$PATH"
+   ```
+
+2. Chạy `factory setup` để cấu hình nhà cung cấp model, cổng, địa chỉ lắng nghe và các CLI agent tùy chọn. Nhập thông tin bí mật ngay trên máy.
+3. Chạy `factory doctor` và sửa lỗi bắt buộc. Chạy `factory start`, sau đó mở địa chỉ cục bộ của Host theo cổng đã cấu hình (mặc định `8787`).
+4. Mở **Hệ thống** → **Thiết lập** và chọn **Kiểm tra lại** sau khi sửa lỗi.
+
+![Mục Thiết lập trong Hệ thống với các kiểm tra bắt buộc và tùy chọn](/images/docs/system.png)
+
+*Thiết lập liệt kê tình trạng Host, model, CLI agent và mạng.*
+
+> **Lưu ý:** `--dry-run` xem trước các bước; `--no-service` bỏ qua đăng ký dịch vụ người dùng. Bộ cài giữ nguyên `factory.env` đã có.
+
+## Lỗi thường gặp
+
+- Cài trong `/mnt` khi dùng WSL2. Hãy dùng hệ thống tệp Linux cục bộ; WSL2 chưa được kiểm thử đầy đủ.
+- Thấy **Sẵn sàng** rồi cho rằng mọi runtime tùy chọn đều dùng được. Hãy xem mục kiểm tra của runtime bạn định chọn.
+
+## Bước tiếp theo
+
+[Tạo dự án](./quickstart.md) hoặc [xử lý lỗi thiết lập](./troubleshooting.md).

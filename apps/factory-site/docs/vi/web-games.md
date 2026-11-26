@@ -4,14 +4,30 @@ section: guides
 order: 4
 ---
 
-## Chuẩn bị dự án
+Đưa một game theo lượt tự thiết kế, dành cho hai đến bốn người, từ brief đã chốt qua QA đến bước người vận hành duyệt phát hành lên Portal.
 
-Làm theo [thiết lập Portal / Web Games](./portal.md) để có Portal đang chạy, Integration đúng phạm vi và dự án dùng Team template Web Games. Bắt đầu bằng một cơ chế chơi theo lượt, ít màn hình và đồ họa gốc.
+## Khi nào nên dùng
 
-## Từ brief tới QA
+Dùng `game-new` cho game mới. Thực hiện [thiết lập Portal](./portal.md) trước để có đội Web Games, workspace Git và kết nối đúng phạm vi.
 
-Nhập và Publish `game-new`. Điền `title`, `players` (ví dụ `2-4`), `brief` Markdown đã chốt và `portalIntegrationId`; `briefArtifactId` là tùy chọn. Luồng đi qua thiết kế, đối chiếu brief, luật, art và client với review theo vai trò, rồi QA. QA không đạt thì phân loại và sửa tối đa ba vòng; không được bỏ qua cổng QA.
+## Từ brief đến phát hành
 
-## Duyệt để Publish
+1. Trong **Workflow** → **Nhập từ template**, nhập template Web Games có key `game-new`. Kiểm tra draft và chọn **Publish**. Chốt luật chơi và tiêu chí nghiệm thu trước khi chạy.
+2. Chọn **Chạy** và điền `title`, `players` (ví dụ `2-4`), `brief` Markdown đã chốt và `portalIntegrationId`. Chỉ điền `briefArtifactId` nếu có artifact; ID này không thay cho nội dung brief.
+3. Theo dõi thiết kế, đối chiếu brief, luật, hình ảnh, mã client và QA trên run. Nếu QA không đạt và xác định được nhóm lỗi, workflow có thể sửa tối đa ba vòng. Duyệt soạn brief sửa tiếp không có nghĩa là cho phép phát hành.
+4. Trong **Cần xử lý**, mở câu hỏi phát hành. Kiểm tra QA và commit tích hợp. Chỉ duyệt bản đã đạt có `dist/game.json` với `id` trùng tên thư mục dự án gốc. Kiểm tra đường dẫn chơi, version và commit được trả về.
 
-Khi checklist phát hành sẵn sàng, mở **Cần xử lý** và kiểm commit tích hợp, kết quả QA và ứng viên. Chọn **Duyệt** để gửi bundle có `dist/game.json`; dùng ID trùng tên thư mục dự án gốc, không lấy tên worktree. Kiểm đường dẫn chơi, version và commit trả về. Nếu kết quả chưa rõ, kiểm `versions` trên Portal rồi đối soát effect; không chạy lại ngay.
+![Run tạo game với các node triển khai và kiểm tra](/images/docs/workflow-run.png)
+
+*Mở các node liên quan để kiểm tra bằng chứng từng giai đoạn trước khi duyệt phát hành.*
+
+> **Cảnh báo:** Nếu chưa rõ kết quả phát hành, đối chiếu `versions` trên Portal theo ID game và commit, rồi đối soát trước khi thử lại.
+
+## Lỗi thường gặp
+
+- Dùng tên thư mục worktree làm ID game.
+- Dán token Portal vào brief hoặc coi duyệt sửa lỗi QA là duyệt phát hành.
+
+## Bước tiếp theo
+
+[Xem cách phê duyệt hoạt động](./approvals.md) hoặc [kiểm tra phạm vi kết nối Portal](./portal.md).

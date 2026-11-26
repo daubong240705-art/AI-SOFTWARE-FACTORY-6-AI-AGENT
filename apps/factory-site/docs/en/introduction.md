@@ -4,16 +4,33 @@ section: start
 order: 1
 ---
 
-Factory coordinates an AI team on your machine. Discuss the work with a Lead, agree on a plan, then follow the workflow and make decisions where human approval is needed.
+Factory coordinates an AI team on your machine. Agree on the work with a Lead, follow the workflow, and make the decisions that need human judgment.
 
-## What runs where?
+## When to use it
 
-The Host validates commands, stores state in SQLite, and dispatches work to runtimes. The web UI reads Host state and live events. Attempts that change code can use isolated Git worktrees.
+Use Factory for work with several handoffs or review gates. For example, Software Team turns a brief into acceptance criteria, implements and tests a change, and waits for your sign-off without deploying.
 
-![Workflow canvas](../../images/workflow.png)
+![Overview with a request composer, pending decisions, and projects](/images/docs/overview.png)
 
-## Where to start
+*Overview gives you a starting point for a request, project, or decision.*
 
-Read [Installation](./install.md), then [create your first project](./quickstart.md). Learn how [Lead chat](./lead-chat.md) starts a [Workflow v2](./workflow.md) run.
+## Find your way around
 
-> The model proposes; the Host checks schemas and policy. Chat does not grant approval on its own.
+1. Open **Overview** to choose a project or send a request in that project's context.
+2. In the project, open **Office** to see the Lead and current work, or **Board** to see individual tasks by status.
+3. Open **Workflows** to see the graph and recent runs. Use **Needs attention** for human decisions.
+
+![Project office showing the Lead desk and active workflows](/images/docs/office.png)
+
+*Office shows the team and active work for one project.*
+
+> **Note:** The Host validates commands, stores state in SQLite, and dispatches work. The UI displays Host state and events. Code-changing attempts can use isolated Git worktrees.
+
+## Common mistakes
+
+- Confusing a task with a workflow run. One run can create several tasks.
+- Treating a chat reply as approval. The Host checks commands and policy separately.
+
+## Next steps
+
+[Install Factory](./install.md) and [create your first project](./quickstart.md).

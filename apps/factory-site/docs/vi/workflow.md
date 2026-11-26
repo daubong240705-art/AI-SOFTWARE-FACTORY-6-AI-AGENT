@@ -4,14 +4,29 @@ section: concepts
 order: 4
 ---
 
-## Node và port
+Workflow v2 là một sơ đồ được kiểm tra hợp lệ. Mỗi cạnh nối một cổng ra có tên với node tiếp theo. Bạn sửa draft rồi publish khi sẵn sàng; mỗi run thông thường giữ nguyên định nghĩa và đầu vào đã dùng.
 
-Workflow là đồ thị node và edge. Edge nối một port đầu ra có tên tới node đích. Ví dụ, nối port `out` của Trigger tới Agent; nối `approved`, `rejected` và `timeout` của Approval tới các nhánh khác nhau. Condition rẽ nhánh, Loop lặp có giới hạn, Output thu kết quả.
+## Khi nào nên dùng
 
-## Draft, Publish và Run
+Dùng sơ đồ khi cần các nhánh khác nhau. Ví dụ, agent lập checklist chuyển kết quả đến **Approval**: `approved` đi tới kết quả đã duyệt, còn `rejected` và `timeout` đi tới kết quả riêng.
 
-Draft để sửa; Publish tạo version để chạy. Run giữ định nghĩa và đầu vào đã chọn. Engine lưu trạng thái node, thời điểm chờ và task; có thể tạm dừng, tiếp tục hoặc hủy theo trạng thái run. Khi Host khởi động lại, engine kiểm lại công việc đang chờ từ trạng thái đã lưu.
+![Canvas workflow với các bước nối nhau, danh sách node và khung chi tiết](/images/docs/workflow-canvas.png)
 
-## Chạy thử với mock agent
+*Chọn một node hoặc đường nối để xem chi tiết; tab Lỗi hiển thị vấn đề cần sửa.*
 
-Lưu Draft hợp lệ, chọn **Chạy thử**, bật **Mock agent** rồi điền đầu vào. Mock agent không tốn token model; dùng Pinned data khi cần giả lập đầu ra cụ thể. Không coi việc bật mock agent là cách vô hiệu mọi Action: chọn flow không có tác động bên ngoài khi thử.
+## Đọc sơ đồ và run
+
+1. Mở một định nghĩa trong **Workflow**. Bắt đầu từ **Trigger** và đi theo cổng **Tiếp** (`out`). **Agent** giao việc, **Action** thực hiện thao tác đã khai báo và **Output** thu kết quả.
+2. Đọc từng nhánh. **Condition** chọn đường đi, **Loop** lặp trong giới hạn và **Approval** rẽ nhánh theo quyết định hoặc hết hạn. Xem **Lỗi** để tìm node không tới được hoặc đường nối thiếu.
+3. Xem **Version** để phân biệt bản đã publish với draft. Mở run để xem bản đã dùng. Khi khởi động lại, Host kiểm tra việc còn dang dở thay vì giả định attempt bị gián đoạn đã thành công.
+
+> **Cảnh báo:** **Mock agent (không tốn token)** thay lời gọi model của agent, không tắt mọi Action. Hãy thử sơ đồ không ghi ra hệ thống ngoài trước.
+
+## Lỗi thường gặp
+
+- Lưu draft rồi dùng **Chạy** và mong bản sửa có hiệu lực trước khi **Publish**.
+- Nối nhánh từ chối hoặc hết hạn tới cùng kết quả thành công như nhánh duyệt.
+
+## Bước tiếp theo
+
+[Tạo sơ đồ thử](./create-workflow.md) hoặc [theo dõi một run](./trace.md).

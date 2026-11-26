@@ -4,14 +4,30 @@ section: guides
 order: 4
 ---
 
-## Set up the project
+Take an original turn-based game for two to four players from a confirmed brief to QA and a human-approved Portal release.
 
-Follow the [Portal / Web Games setup guide](./portal.md) to get a running Portal instance, a properly scoped integration, and a project that uses the Web Games team template. Start with a turn-based game mechanic, a few screens, and original artwork.
+## When to use it
 
-## From brief to QA
+Use `game-new` for a new game. Complete [Portal setup](./portal.md) first so the project has the Web Games team, a Git workspace, and a scoped connection.
 
-Import and publish `game-new`. Fill in `title`, `players` (for example, `2-4`), the agreed Markdown `brief`, and `portalIntegrationId`. The `briefArtifactId` input is optional. The workflow covers design, a check against the brief, rules, art, and client implementation, with role-based reviews before QA. If QA fails, triage and fix issues for up to three rounds. Do not bypass the QA gate.
+## From brief to release
 
-## Approve the release
+1. In **Workflows** → **Import from template**, import the Web Games template with key `game-new`. Review it and choose **Publish**, then agree on rules and acceptance criteria before starting work.
+2. Choose **Run** and supply `title`, `players` (for example `2-4`), the agreed Markdown `brief`, and `portalIntegrationId`. Include `briefArtifactId` only if you have one; it does not replace the brief.
+3. Follow design, brief review, rules, art, client work, and QA in the run. For a classified QA failure, the workflow can attempt up to three repair rounds. A later approval to prepare a repair brief is not permission to release.
+4. In **Needs attention**, open the publishing question. Check QA and the integration commit. Approve only a passing candidate with `dist/game.json` and an `id` matching the original project directory name. Verify the returned play path, version, and commit.
 
-When the release checklist is ready, open **Needs attention** and review the integration commit, QA results, and release candidate. Choose **Approve** to submit the bundle containing `dist/game.json`. Use an ID that matches the original project directory name, not the worktree name. Check the returned play URL, version, and commit. If the result is unclear, check `versions` on Portal and reconcile the recorded effect before rerunning anything.
+![New game workflow run with implementation and review nodes](/images/docs/workflow-run.png)
+
+*Open the relevant nodes to check the evidence for each stage before approving release.*
+
+> **Warning:** If publishing has an unknown outcome, check Portal `versions` against the game ID and commit and reconcile the effect before retrying.
+
+## Common mistakes
+
+- Using the worktree name as the game ID.
+- Pasting the Portal token into the brief or treating QA repair as release approval.
+
+## Next steps
+
+[Review the approval model](./approvals.md) or [check Portal connection scope](./portal.md).

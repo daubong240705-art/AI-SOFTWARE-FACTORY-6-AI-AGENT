@@ -4,17 +4,30 @@ section: extensions
 order: 2
 ---
 
-## Bắt đầu từ mẫu
+Pack phân phối vai trò trong đội, skill, hồ sơ và workflow template. Hãy bắt đầu từ pack mẫu có sẵn thay vì tự dựng cấu trúc.
 
-Sao chép `packs/_template` thành thư mục pack mới; đổi key, metadata và cấu hình vai trò trong `pack.json`. Thêm skill, hồ sơ và workflow phù hợp. Với Workflow v2, đặt `flows/<key>.json` có `schema: 2` và `key` trùng tên file. Không cần kê file v2 trong manifest; nếu trùng key với v1, v2 được ưu tiên.
+## Khi nào nên dùng
 
-## Kiểm và nhập
+Viết pack khi nhiều dự án cần cùng đội và workflow ban đầu. Nếu chỉ cần dùng chung checklist, dùng [Thư viện](./library.md).
 
-Từ `apps/factory-host`, build rồi chạy validator:
+## Viết, kiểm tra và nhập pack
 
-```bash
-npm run build
-npm run pack:check -- ../../packs/my-team
-```
+1. Sao chép `packs/_template` sang thư mục như `packs/my-team`. Đặt key riêng trong `pack.json`, rồi sửa thông tin hiển thị, vai trò và tham chiếu skill hoặc hồ sơ.
+2. Đặt workflow v2 trong `flows/<key>.json`, với `schema: 2` và key trùng tên tệp. Tệp v2 không cần khai báo trong manifest. Bắt đầu với sơ đồ không ghi ra hệ thống ngoài.
+3. Từ `apps/factory-host`, chạy `npm run build` rồi `npm run pack:check -- ../../packs/my-team`. Sửa lỗi và khởi động lại Host để nạp pack.
+4. Tạo dự án từ **Team template** của bạn. Dùng **Workflow** → **Nhập từ template**, xem draft, chạy thử rồi **Publish**.
 
-Host đọc pack lúc khởi động. Chọn Team template hoặc nhập Workflow template vào dự án rồi kiểm cấu hình và Publish. Allowlist của pack chỉ thu hẹp quyền tool; không cấp thêm quyền ngoài chính sách Host.
+![Trang Workflow có nút nhập template và các định nghĩa đã nhập](/images/docs/workflow-list.png)
+
+*Nhập template tạo draft trong dự án chứ chưa publish.*
+
+> **Lưu ý:** Nếu v1 và v2 trùng key, trình nhập ưu tiên v2. Danh sách tool được phép trong pack chỉ có thể thu hẹp quyền của Host.
+
+## Lỗi thường gặp
+
+- Đặt tên tệp khác key định nghĩa.
+- Mong khởi động lại Host sẽ publish draft hoặc cấp tool bị chính sách Host chặn.
+
+## Bước tiếp theo
+
+[Chạy thử workflow](./create-workflow.md) hoặc [chẩn đoán template bị thiếu](./troubleshooting.md).

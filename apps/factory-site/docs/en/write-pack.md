@@ -4,17 +4,30 @@ section: extensions
 order: 2
 ---
 
-## Start from the template
+A pack distributes team roles, skills, profiles, and workflow templates. Start from the repository's template instead of assembling the layout from scratch.
 
-Copy `packs/_template` to a new pack directory, then update the key, metadata, and role configuration in `pack.json`. Add the skills, profiles, and workflows you need. For Workflow v2, create `flows/<key>.json` with `schema: 2` and a `key` that matches the filename. You do not need to list v2 files in the manifest. If v1 and v2 share a key, v2 takes precedence.
+## When to use it
 
-## Validate and import
+Write a pack when several projects need the same starting team and workflow. Use the [Library](./library.md) for a standalone reusable checklist.
 
-From `apps/factory-host`, build and run the validator:
+## Author, validate, and import
 
-```bash
-npm run build
-npm run pack:check -- ../../packs/my-team
-```
+1. Copy `packs/_template` to a directory such as `packs/my-team`. Give `pack.json` a unique key and update its metadata, roles, and skill or profile references.
+2. Put Workflow v2 definitions in `flows/<key>.json` with `schema: 2` and a key matching the filename. V2 files do not need manifest entries. Start with a graph that has no external writes.
+3. From `apps/factory-host`, run `npm run build` and `npm run pack:check -- ../../packs/my-team`. Fix validation errors and restart the Host to load the pack.
+4. Create a project from your **Team template**. Use **Workflows** → **Import from template**, inspect the draft, test it, then **Publish**.
 
-The Host reads packs at startup. Select a team template or import a workflow template into your project, then check the configuration and publish. A pack's allowlist can only narrow tool permissions; it cannot grant permissions beyond Host policy.
+![Workflows page showing import controls and workflow definitions](/images/docs/workflow-list.png)
+
+*Importing a template creates a project draft, not a published version.*
+
+> **Note:** If v1 and v2 share a key, the current importer prefers v2. A pack allowlist can narrow but not expand Host permissions.
+
+## Common mistakes
+
+- Naming the file differently from the definition key.
+- Expecting a restart to publish an imported draft or authorize a tool that Host policy denies.
+
+## Next steps
+
+[Test the graph](./create-workflow.md) or [diagnose missing templates](./troubleshooting.md).

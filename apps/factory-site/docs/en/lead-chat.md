@@ -4,14 +4,30 @@ section: concepts
 order: 5
 ---
 
-## Discuss, decide, run
+Lead chat follows “agree first, run after”: discuss, decide explicitly, record a versioned brief, then start the workflow. The Host validates the proposed action, workflow, and inputs.
 
-Describe the outcome, constraints, and acceptance criteria. The Lead can offer alternatives. Confirm explicitly, for example, “Go with option two; start implementing.” The Host checks the confirmation, project, workflow, and inputs before starting work.
+## When to use it
 
-## Decision brief
+Use chat when the work needs clarification. For `Recipe Box`, agree on the empty-state text, the two acceptance tests, and the no-deployment constraint.
 
-The versioned brief records the decision from the conversation and supplies the workflow input. Check which version a run used when reviewing its results.
+![Overview request composer with a project selector](/images/docs/overview.png)
 
-## Classic mode
+*Check the project context first; inside the project, use Ask Lead.*
 
-Ordinary chat remains discussion. Explicit delegation can propose tasks for the task board instead of starting a workflow. Changing modes does not rewrite existing work or bypass approval.
+## Turn an agreement into a run
+
+1. Open **Ask Lead** in the project. Ensure the Lead model is configured and **Software Delivery** is published if following the [quickstart](./quickstart.md).
+2. Ask: “Propose the smallest change that shows ‘No recipes yet’ on an empty list. Preserve the populated list and test both states. Don't start yet.” Discuss the plan until the scope is clear.
+3. Confirm in your own words: “I approve that plan. Start Software Delivery with those acceptance criteria. Do not deploy.” Check the **Decision brief** version and open the workflow run from the reply.
+4. If no run appeared, check the project, publication state, and required inputs before confirming again. Review the outcome against the brief the run actually used.
+
+> **Note:** Under **How to work with Lead**, classic mode keeps discussion separate from explicit delegation, which can propose tasks for **Board**. Switching modes does not bypass approval.
+
+## Common mistakes
+
+- Saying “looks good” while still comparing options, without identifying what to run.
+- Using chat confirmation to try to clear a downstream approval.
+
+## Next steps
+
+[Watch the run and handle sign-off](./run-approve.md).
