@@ -24,3 +24,4 @@ dist/
 # Source art of the mascot set (large PNGs). Only the cropped SVGs used by the UI are tracked,
 # in apps/factory-ui/src/assets/mascot/original.
 /mascot/
+/*.zip
