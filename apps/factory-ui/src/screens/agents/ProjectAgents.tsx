@@ -32,7 +32,10 @@ export function ProjectAgents({ projectId, linkedAgentId = null }: { projectId: 
   const [setupOpen, setSetupOpen] = useState(false);
   const [api] = useState(() => createApiClient({ baseUrl }));
   const [filter, setFilter] = useState<typeof filters[number]>('all');
-  const [dialog, setDialog] = useState<DialogState | null>(null);
+  const [dialog, setDialog] = useState<DialogState | null>(() => history.state?.createAgentFor === projectId ? { kind: 'new' } : null);
+  useEffect(() => {
+    if (history.state?.createAgentFor === projectId) history.replaceState({ ...history.state, createAgentFor: null }, '');
+  }, [projectId]);
   const [refreshKey, refresh] = useReducer((value: number) => value + 1, 0);
   const [eventKey, reconnect] = useReducer((value: number) => value + 1, 0);
   const read = useCallback((signal: AbortSignal) => api.listProjectAgents(projectId, signal), [api, projectId]);

@@ -4,9 +4,9 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { useT } from '@/i18n';
 import type { FallbackReason } from './debugHook';
 
-export function WorldFallback({ reason, projects, onSwitch, onRetry }: {
+export function WorldFallback({ reason, projects, onSwitch, onRetry, children }: {
   reason: FallbackReason; projects: readonly Project[];
-  onSwitch: () => void; onRetry: () => void;
+  onSwitch: () => void; onRetry: () => void; children?: ReactNode;
 }) {
   const t = useT();
   return <div className="world-fallback">
@@ -19,6 +19,8 @@ export function WorldFallback({ reason, projects, onSwitch, onRetry }: {
       </div>
       {(reason === 'reduced-motion' || reason === 'preference') && <Button size="sm" className="mt-4" onClick={onSwitch}>{t(reason === 'reduced-motion' ? 'worldUi.openStill' : 'worldUi.open3d')}</Button>}
       {reason === 'error' && <Button size="sm" className="mt-4" onClick={onRetry}>{t('worldUi.retry')}</Button>}
+      {children && <div className="world-fallback-controls">{children}</div>}
     </section>
   </div>;
 }
+import type { ReactNode } from 'react';

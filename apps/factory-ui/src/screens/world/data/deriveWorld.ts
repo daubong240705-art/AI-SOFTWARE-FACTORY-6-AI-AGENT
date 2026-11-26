@@ -53,8 +53,27 @@ export function deriveWorld(inputs: WorldInputs, previous: Assignments = {}): { 
   const generatedAt = inputs.serverNow ?? inputs.activity?.generatedAt ?? '';
   const projects = (inputs.projects ?? []).filter(project => project.disposition !== 'archived').sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
   const hotProjects = projects.filter(project => inputs.rosters?.[project.id]?.agents.some(agent => agent.status === 'active' && agent.live > 0));
-  const focusProjectId = (projects.some(project => project.id === inputs.focusProjectId) ? inputs.focusProjectId : null) ?? hotProjects[0]?.id ?? projects[0]?.id ?? null;
+  const activityTimes = new Map<string, number>();
+  const touch = (id: string, at: string | null | undefined) => {
+    if (!at) return;
+    const time = Date.parse(at);
+    if (time > (activityTimes.get(id) ?? -Infinity)) activityTimes.set(id, time);
+  };
+  for (const project of projects) {
+    for (const attempt of inputs.attempts?.[project.id] ?? []) {
+      touch(project.id, attempt.startedAt); touch(project.id, attempt.endedAt);
+    }
+    for (const item of inputs.interactions[project.id]?.items ?? []) touch(project.id, item.at);
+  }
+  for (const team of inputs.activity?.teams ?? []) for (const seat of team.seats) for (const run of seat.runs) {
+    touch(run.projectId, run.startedAt); touch(run.projectId, run.progress?.at);
+  }
+  const hotIds = new Set(hotProjects.map(project => project.id));
+  const recentProjects = [...projects].sort((left, right) => (activityTimes.get(right.id) ?? -Infinity) - (activityTimes.get(left.id) ?? -Infinity)
+    || Number(hotIds.has(right.id)) - Number(hotIds.has(left.id)));
+  const focusProjectId = (projects.some(project => project.id === inputs.focusProjectId) ? inputs.focusProjectId : null) ?? recentProjects[0]?.id ?? null;
   const rows: Omit<WorldAgent, 'slotIndex' | 'overflow'>[] = [];
+  const progressByAttempt = new Map(inputs.activity?.teams.flatMap(team => team.seats.flatMap(seat => seat.runs.map(run => [run.attemptId, run.progress] as const))));
   const buildings = projectBuildings(projects, inputs.groups);
   for (const [index, project] of projects.entries()) {
     const roster = inputs.rosters?.[project.id]; if (!roster) continue;
@@ -62,6 +81,7 @@ export function deriveWorld(inputs: WorldInputs, previous: Assignments = {}): { 
     const desks = desksFor(roster, inputs.tasks[project.id] ?? [], inputs.attempts?.[project.id] ?? [], inbox, inputs.activity, Date.parse(generatedAt))
       .filter(desk => desk.agent.status === 'active');
     const teamOrder = [...new Set(desks.filter(desk => !desk.agent.isLead).map(desk => desk.team?.id))];
+    const tasksById = new Map((inputs.tasks[project.id] ?? []).map(item => [item.id, item]));
     const lastHandoff = new Map<string, string>();
     for (const item of inputs.interactions[project.id]?.items ?? []) {
       if (!['handoff', 'request'].includes(item.kind) || item.from.kind !== 'seat' || item.to?.kind !== 'seat') continue;
@@ -72,17 +92,29 @@ export function deriveWorld(inputs: WorldInputs, previous: Assignments = {}): { 
       return detail ? latestNodeRuns(detail).filter(node => node.state === 'ready' || node.state === 'running' || node.state === 'waiting').map(node => node.taskId) : [];
     }));
     for (const desk of desks) {
-      const { agent, live, task } = desk;
+      const { agent, task } = desk;
+      const live = [...desk.live].sort((left, right) => (left.startedAt ?? '').localeCompare(right.startedAt ?? '') || left.id.localeCompare(right.id));
       const pending = (inbox?.approvals ?? []).filter(item => item.taskId !== null && (item.taskId === task?.id || live.some(attempt => item.taskId === attempt.taskId)) && (item.state === 'pending' || item.state === 'requested'));
       const needsYou: WorldAgent['needsYou'] = pending.map(item => ({ approvalId: item.id, kind: item.kind, taskId: item.taskId!, code: task?.code ?? '' }));
       if (task && !needsYou.length && inbox?.startGates.some(item => item.taskId === task.id)) needsYou.push({ approvalId: task.id, kind: 'start-gate', taskId: task.id, code: task.code });
       const runs: WorldAgent['runs'] = live.map(attempt => ({
         projectId: project.id, projectName: project.name, taskId: attempt.taskId, code: attempt.taskCode, title: attempt.taskTitle,
-        attemptId: attempt.id, attemptState: attempt.state, nodeId: attempt.nodeId ?? null, startedAt: attempt.startedAt, progress: attempt === live[0] ? desk.progress : null,
+        attemptId: attempt.id, attemptState: attempt.state, nodeId: attempt.nodeId ?? null, startedAt: attempt.startedAt, progress: progressByAttempt.get(attempt.id) ?? null,
       }));
-      rows.push({ podKey: agent.isLead ? 'lead' : ordinaryPods[teamOrder.indexOf(desk.team?.id) % ordinaryPods.length]!, desk, projectColor: projectColor(index), collaborationAt: lastHandoff.get(agent.id) ?? null, workflowTask: !!task && workflowTasks.has(task.id), projectId: project.id, seatId: agent.id, ownerSeatId: agent.id, seatName: agent.name, slot: 0, teamId: project.id, teamName: project.name,
-        paused: desk.status === 'paused',
-        name: agent.name, role: agent.role, isLead: agent.isLead, slots: 1, status: desk.status === 'paused' ? 'idle' : desk.status, pose: poses[desk.status], runs, queued: 0, needsYou, lastFinished: null });
+      const slots = inputs.capacities?.[agent.id] ?? 1;
+      for (let slot = 0; slot < slots; slot++) {
+        const run = runs[slot];
+        const seatNeeds = run ? needsYou.filter(need => need.taskId === run.taskId) : slot === 0 ? needsYou.filter(need => !live.some(attempt => attempt.taskId === need.taskId)) : [];
+        const runTask = run && tasksById.get(run.taskId);
+        const status = desk.status === 'paused' ? 'paused' : seatNeeds.length || run?.attemptState === 'waiting-input' || runTask && (runTask.state === 'in-review' || runTask.state === 'awaiting-go' || runTask.holds.some(hold => hold.needsAction)) ? 'waiting'
+          : run ? 'working' : slot === 0 && !live.length && (desk.status === 'waiting' || desk.status === 'problem' || !inputs.attempts?.[project.id] && desk.status === 'working') ? desk.status : 'idle';
+        const reviewTask = runTask || (!run && slot === 0 && task ? tasksById.get(task.id) : undefined);
+        rows.push({ podKey: agent.isLead ? 'lead' : ordinaryPods[teamOrder.indexOf(desk.team?.id) % ordinaryPods.length]!, desk, projectColor: projectColor(index), collaborationAt: lastHandoff.get(agent.id) ?? null,
+          workflowTask: !!run && workflowTasks.has(run.taskId), reviewTask: reviewTask?.state === 'in-review', projectId: project.id,
+          seatId: slot === 0 ? agent.id : `${agent.id}:slot:${slot + 1}`, ownerSeatId: agent.id, seatName: agent.name, slot, teamId: project.id, teamName: project.name,
+          paused: desk.status === 'paused', name: slot === 0 ? agent.name : `${agent.name} · ${slot + 1}`, role: agent.role, isLead: agent.isLead, slots,
+          status: status === 'paused' ? 'idle' : status, pose: poses[status], runs: run ? [run] : [], queued: 0, needsYou: seatNeeds, lastFinished: null });
+      }
     }
   }
   const assign = assignDesks(rows, previous);
@@ -113,7 +145,7 @@ export function deriveWorld(inputs: WorldInputs, previous: Assignments = {}): { 
     };
   }
   const workflows = focusProjectId ? stations[focusProjectId]?.workflows : undefined;
-  return { assign, model: { generatedAt, agents, projects, hotProjects, focusProjectId, buildings, floorSouth: deskFloorSouth(agents.length),
+  return { assign, model: { generatedAt, agents, projects, hotProjects, recentProjects, ...(inputs.groups ? { groups: inputs.groups } : {}), focusProjectId, buildings, floorSouth: deskFloorSouth(agents.length),
     workflows: workflows ?? [], workflowLoaded: !!workflows, stations, tasks: { columns: taskColumns, overflow }, handoffs,
     loaded: { activity: !!inputs.projects && projects.every(project => inputs.rosters?.[project.id]), projects: !!inputs.projects,
       interactions: focusProjectId && inputs.interactions[focusProjectId] && inputs.rosters?.[focusProjectId] ? [focusProjectId] : [] } } };

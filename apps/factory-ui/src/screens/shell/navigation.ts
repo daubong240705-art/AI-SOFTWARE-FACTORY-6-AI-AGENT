@@ -23,6 +23,12 @@ export function traceHash(projectId: string, traceId: string) {
 export function agentHash(projectId: string, agentId: string) {
   return `${viewHash(`project:${projectId}`, 'agents')}/${encodeURIComponent(agentId)}`;
 }
+export function openAgentCreate(projectId: string) {
+  const hash = viewHash(`project:${projectId}`, 'agents');
+  if (!allowHash(hash)) return;
+  location.hash = hash;
+  history.replaceState({ ...history.state, createAgentFor: projectId }, '', hash);
+}
 export function artifactHash(projectId: string, artifact: { id: string; version?: number }) {
   return `${viewHash(`project:${projectId}`, 'knowledge')}/${encodeURIComponent(artifact.id)}${artifact.version === undefined ? '' : `/${artifact.version}`}`;
 }

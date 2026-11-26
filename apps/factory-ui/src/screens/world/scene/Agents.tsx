@@ -11,8 +11,9 @@ import * as THREE from 'three';
 import { CharacterRig, hopAlong, phaseForSeat, specForRole, type HopMotion } from '../characters';
 import type { WorldAgent } from '../data/types';
 import { deskForAgent } from '../agentPresentation';
-import { agentStation, clampDeskZ, clampStudioX, roomDestination, type Position } from '../layout/campus';
-import type { studioNavigation } from '../layout/studioNavigation';
+import { agentStation, deskDestination, type Position } from '../layout/campus';
+import type { Station } from '../layout/roleOffice';
+import { pathsConflict, type studioNavigation } from '../layout/studioNavigation';
 import { ownerDesk, type Point } from '../layout/zones';
 import { useWorldMotion } from './Ticker';
 import type { AgentDebug, SceneDebug } from '../debugHook';
@@ -23,7 +24,7 @@ import { Aura, auraFor, type EffectsLevel } from './effects/Aura';
 
 export type AgentPositions = MutableRefObject<Map<string, Point>>;
 export type AgentHover = { seatId: string; x: number; y: number } | null;
-type Placement = { pose: WorldAgent['pose']; position: Position; trip: HopMotion | null; started: number };
+type Placement = { pose: WorldAgent['pose']; position: Position; trip: HopMotion | null; started: number; path?: Position[] };
 const ignore = () => {};
 const nameTagHeight = 1.9; // Clears the above-right pose bubbles while remaining centred on the rig.
 function NameTag({ name, project, color }: { name: string; project: string; color: string }) {
@@ -59,10 +60,10 @@ function HitTarget({ position, owner = false, onSelect, onHover, walkId }: { pos
     <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
   </mesh>;
 }
-export function Agents({ events, agents, floorSouth, route, highlight, baseline, quality, still, hidden, selected, positions, debug, onSelect, onHover, attention, effects = 'full' }: {
+export function Agents({ events, agents, stations, route, highlight, baseline, quality, still, hidden, selected, positions, debug, onSelect, onHover, attention, effects = 'full' }: {
   effects?: EffectsLevel;
   events: readonly WorldEvent[]; agents: readonly WorldAgent[]; baseline: boolean; quality: WorldQuality; still: boolean; hidden: boolean; selected: string | null;
-  floorSouth: number; route: ReturnType<typeof studioNavigation>; highlight: string | null;
+  stations: readonly Station[]; route: ReturnType<typeof studioNavigation>; highlight: string | null;
   positions: AgentPositions; debug: MutableRefObject<SceneDebug>; onSelect: (id: string) => void; onOwner: () => void; onHover: (hover: AgentHover) => void; attention: number;
 }) {
   const toyState = useToys();
@@ -82,26 +83,34 @@ export function Agents({ events, agents, floorSouth, route, highlight, baseline,
       const now = performance.now(), serverNow = Date.now(); const next = new Map<string, Placement>();
       const sameFloor = previousRoute.current === route;
       previousRoute.current = route;
-      const visits = { meeting: new Set<number>(), board: new Set<number>() };
+      const occupied = new Map<string, string>();
+      const moving: Position[][] = [];
+      const animate = baseline && !still && !hidden && sameFloor;
+      const key = (position: Position) => `${position[0]},${position[2]}`;
+      if (sameFloor) for (const [id, old] of current.current) {
+        occupied.set(key(old.position), id);
+        if (animate && old.trip && old.path) {
+          occupied.set(key(old.path[0]!), id);
+          moving.push(old.path);
+        }
+      }
       drawnAgents.forEach(agent => {
-        const old = current.current.get(agent.seatId);
-        let station = agentStation(agent, serverNow);
-        if (station !== 'desk') {
-          const slot = agent.slotIndex % 20;
-          if (visits[station].has(slot)) station = 'desk';
-          else visits[station].add(slot);
+        const old = sameFloor ? current.current.get(agent.seatId) : undefined;
+        if (animate && old?.trip) { next.set(agent.seatId, { ...old, pose: agent.pose }); return; }
+        const spots = stations.find(item => item.id === agentStation(agent, serverNow))?.spots ?? [];
+        const spot = (old && spots.find(([x, z]) => x === old.position[0] && z === old.position[2])) ?? spots.find(([x, z]) => !occupied.has(`${x},${z}`));
+        let position: Position = old && spot ? [spot[0], .04, spot[1]] : deskDestination(agent);
+        let trip: HopMotion | null = null;
+        let path: Position[] | undefined;
+        if (animate && old && key(position) !== key(old.position)) {
+          const candidate = route(old.position, position);
+          if (candidate.length && !moving.some(active => pathsConflict(candidate, active))) {
+            path = candidate; moving.push(path); trip = hopAlong(path, 3.2);
+          }
+          else position = old.position;
         }
-        const position = roomDestination(agent, station);
-        const animate = baseline && !still && !hidden && sameFloor;
-        let trip = animate ? old?.trip ?? null : null;
-        let started = old?.started ?? now;
-        if (animate && old && position.some((value, index) => value !== old.position[index])) {
-          const actual = groups.current.get(agent.seatId)?.position;
-          const path = route(actual ? [actual.x, actual.y, actual.z] : old.position, position);
-          trip = path.length ? hopAlong(path, 3.2) : null;
-          started = now;
-        }
-        next.set(agent.seatId, { pose: agent.pose, position, trip, started });
+        occupied.set(key(position), agent.seatId);
+        next.set(agent.seatId, { pose: agent.pose, position, trip, started: now, ...(path ? { path } : {}) });
         if (!trip || !positions.current.has(agent.seatId)) positions.current.set(agent.seatId, [position[0], position[2]]);
       });
       const changed = next.size !== current.current.size || [...next].some(([id, value]) => {
@@ -114,7 +123,7 @@ export function Agents({ events, agents, floorSouth, route, highlight, baseline,
     update();
     const timer = setInterval(update, 250);
     return () => clearInterval(timer);
-  }, [drawnAgents, baseline, still, hidden, positions, invalidate, route]);
+  }, [drawnAgents, baseline, still, hidden, positions, invalidate, route, stations]);
   useEffect(() => { if (!hidden && !still && [...placements.values()].some(p => p.trip)) return motion.request('live'); }, [placements, hidden, still, motion]);
   useEffect(() => { if (hidden) { setHovered(null); onHover(null); } }, [hidden, onHover]);
   useEffect(() => { const ids = new Set(agents.filter(a => !a.overflow).map(a => a.seatId)); for (const id of positions.current.keys()) if (!ids.has(id)) positions.current.delete(id); }, [agents, positions]);
@@ -151,7 +160,7 @@ export function Agents({ events, agents, floorSouth, route, highlight, baseline,
       const trip = placement.trip;
       if (trip && !still && !hidden) {
         const sample = trip.sample((now - placement.started) / 1000, scratch.sample);
-        group.position.set(clampStudioX(sample.position[0]), sample.position[1], clampDeskZ(sample.position[2], floorSouth)); group.rotation.y = sample.done ? 0 : sample.yaw - Math.PI / 4; group.scale.y = sample.squash;
+        group.position.set(...sample.position); group.rotation.y = sample.done ? 0 : sample.yaw - Math.PI / 4; group.scale.y = sample.squash;
         const point = positions.current.get(id) as [number, number] | undefined;
         if (point) { point[0] = group.position.x; point[1] = group.position.z; }
         if (sample.done) { placement.trip = null; finished = true; }
@@ -192,7 +201,7 @@ export function Agents({ events, agents, floorSouth, route, highlight, baseline,
 
   }, -1);
   return <group visible={!hidden}>
-    <DeskFeedback agents={drawnAgents} still={still || hidden} />
+    <DeskFeedback agents={drawnAgents.filter(agent => !agent.compact)} still={still || hidden} />
     {agents.filter(a => !a.overflow && deskForAgent(a)).map(agent => {
       const placement = placements.get(agent.seatId); if (!placement) return null;
       const toy = toyState.active.find(e => e.worker === agent.seatId);

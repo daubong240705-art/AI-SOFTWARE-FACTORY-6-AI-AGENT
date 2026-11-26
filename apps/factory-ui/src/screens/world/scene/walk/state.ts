@@ -1,4 +1,4 @@
-export type WalkTarget = { kind: 'agent' | 'owner' | 'office' | 'task' | 'run' | 'library' | 'approval' | 'project' | 'board' | 'cat'; id: string; name?: string; projectId?: string; distance?: number };
+export type WalkTarget = { kind: 'agent' | 'owner' | 'office' | 'task' | 'run' | 'library' | 'approval' | 'project' | 'pod' | 'board' | 'cat'; id: string; name?: string; projectId?: string; distance?: number };
 export type WalkState = {
   position: [number, number, number]; yaw: number; pitch: number; firstPerson: boolean;
   /** Third-person boom distance, adjusted by the mouse wheel in Walk mode. */

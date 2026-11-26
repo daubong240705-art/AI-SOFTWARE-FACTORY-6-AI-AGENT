@@ -1,11 +1,10 @@
-import { Choice, ChoiceGroup, ChoiceOption } from '@/components/ui/choice';
 import { WalkOverlay } from './scene/walk/WalkOverlay';
 import { initialWalk, type WalkTarget } from './scene/walk/state';
 import { toys } from './scene/toys/store';
 import { tone } from './scene/toys/sound';
 import { WorldHotbar } from './WorldHotbar';
 import { playToy } from './scene/toys/playToy';
-import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Project } from '@factory/contracts';
 import { Mascot } from '@/components/mascot/Mascot';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,7 @@ import { DockedPane } from '../DockedPane';
 import './world.css';
 import type { Store } from '@/state/store';
 import type { View } from '../shell/navigation';
-import { openFlowRoute } from '../shell/navigation';
+import { openAgentCreate, openFlowRoute } from '../shell/navigation';
 import { attentionItems } from '../shell/attention';
 import { attentionHash } from '../Attention';
 import { useWorldCapability } from './capability';
@@ -37,19 +36,60 @@ import { chairmanTabFromHash, chairmanTabs, type ChairmanTab } from './panels/ch
 import { chairmanChair, chairmanExit } from './layout/chairman';
 import { TaskPanel } from './panels/TaskPanel';
 import { agentStatusKey, deskForAgent } from './agentPresentation';
+import { readScope, resolveScope, saveScope, scopeFloor, scopeGroups, type WorldScope } from './data/scope';
+import { WorldOtherGroups, WorldScopePicker } from './WorldScope';
+import { shareEqual } from './data/shareEqual';
 
 type Props = { store: Store; projects: readonly Project[]; onNavigate: (view: View) => void; onTask: (projectId: string, taskId: string) => void };
 const WorldCanvas = lazy(() => import('./scene/WorldCanvas'));
 export default function WorldPage(props: Props) { return <CameraRigProvider><WorldStudio {...props} /></CameraRigProvider>; }
 function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
   const data = useWorldData(); const camera = useCameraRig();
+  const [choice, setChoice] = useState(readScope);
+  const [expanded, setExpanded] = useState<string | null>(() => choice?.projectId ?? null);
+  const [pickProject, setPickProject] = useState(false);
+  const projectPickerId = useId();
+  const groups = useMemo(() => scopeGroups(data.model), [data.model.groups, data.model.projects, data.model.recentProjects, data.model.agents]);
+  const activeScope = resolveScope(groups, choice);
+  const group = groups.options.find(option => option.id === activeScope.groupId)!;
+  const groupsReady = !!data.model.groups || data.sources.groups?.state === 'error';
+  const floor = useMemo(() => scopeFloor(data.model, groupsReady ? group : { ...group, projects: [] }, expanded), [data.model.agents, data.model.projects, groupsReady, group, expanded]);
+  const lastOffice = useRef(floor.office);
+  const office = lastOffice.current = shareEqual(lastOffice.current, floor.office);
+  const lastPods = useRef(floor.pods);
+  const pods = lastPods.current = shareEqual(lastPods.current, floor.pods);
+  const focusInScope = floor.projects.some(project => project.id === data.model.focusProjectId);
+  const scopeFocus = activeScope.projectId ?? data.model.recentProjects.find(project => floor.projects.some(item => item.id === project.id))?.id ?? null;
+  const model = useMemo(() => ({ ...data.model, ...(!focusInScope ? {
+    focusProjectId: null, workflows: [], workflowLoaded: false, tasks: { columns: { todo: [], doing: [], review: [], failed: [], done: [] }, overflow: { todo: 0, doing: 0, review: 0, failed: 0, done: 0 } }, handoffs: [],
+  } : {}), agents: floor.agents, projects: floor.projects, floorSouth: floor.floorSouth }), [data.model, floor, focusInScope]);
+  useEffect(() => {
+    if (!focusInScope && scopeFocus !== null) data.setFocusProjectId(scopeFocus);
+  }, [focusInScope, scopeFocus, data.setFocusProjectId]);
+  useEffect(() => {
+    if (choice || !data.model.loaded.projects || !group.projects.length || (!data.model.groups && data.sources.groups?.state !== 'error')) return;
+    const observed = data.model.projects.every(project => ['agents', 'attempts', 'interactions'].every(source => {
+      const state = data.sources[`${source}:${project.id}`]?.state;
+      return state === 'ok' || state === 'error';
+    }));
+    if (observed) setChoice({ groupId: activeScope.groupId, projectId: null });
+  }, [choice, data.model.loaded.projects, data.model.groups, data.model.projects, data.sources, group.projects.length, activeScope.groupId]);
+  const visibleSeats = useMemo(() => new Set(floor.agents.map(agent => agent.seatId)), [floor.agents]);
+  const events = useMemo(() => data.events.filter(event => event.type === 'poseChanged' ? visibleSeats.has(event.seatId) : event.handoff.projectId === model.focusProjectId
+    && [event.handoff.from, event.handoff.to].every(endpoint => endpoint.kind !== 'seat' || visibleSeats.has(endpoint.seatId))), [data.events, visibleSeats, model.focusProjectId]);
+  useEffect(() => {
+    const visible = new Set(events);
+    const omitted = data.events.filter(event => !visible.has(event));
+    if (omitted.length) data.consumeEvents(omitted.map(event => event.id));
+  }, [data.events, events, data.consumeEvents]);
   const inbox = store.useStoreSelector(state => state.globalInbox); const attention = attentionItems(inbox).length;
   const [selected, setSelected] = useState<string | null>(() => chairmanTabFromHash() ? 'owner' : null); const [following, setFollowing] = useState(false);
   const [selectedTask, setSelectedTask] = useState<{ projectId: string; taskId: string } | null>(null);
   const [highlight, setHighlight] = useState<string | null>(null);
   const locations = useRef(new Map<string, readonly [number, number, number]>());
-  const scope = useRef(0); const previousBaseline = useRef(data.baseline);
-  if (previousBaseline.current && !data.baseline) scope.current++; previousBaseline.current = data.baseline;
+  const baselineScope = useRef(0); const previousBaseline = useRef(data.baseline);
+  if (previousBaseline.current && !data.baseline) baselineScope.current++; previousBaseline.current = data.baseline;
+  const sceneKey = JSON.stringify([baselineScope.current, activeScope.groupId, activeScope.projectId]);
   const [hover, setHover] = useState<AgentHover>(null);
   const positions = useRef(new Map<string, Point>()); const sceneDebug = useRef(emptyScene());
   const mapRef = useRef<HTMLDivElement>(null); const cameraState = useRef<CameraState>(initialCamera);
@@ -77,17 +117,20 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
     : capability.reducedMotion && !walking && preferences.mode !== '3d' ? 'reduced-motion' : error ? 'error' : null;
   const still = preferences.still || capability.reducedMotion;
   useEffect(() => () => toys.clear(), []);
-  useEffect(() => { toys.clear(); }, [scope.current]);
+  useEffect(() => { toys.clear(); }, [sceneKey]);
   const onReady = useCallback(() => setReady(true), []);
   const onError = useCallback(() => { setReady(false); stats.current = emptyRender; setError(true); }, []);
   const onRender = useCallback((value: RenderStats) => { stats.current = value; }, []);
   const onLoading = useCallback(() => { setReady(false); stats.current = emptyRender; }, []);
   const select = useCallback((id: string) => {
-    const agent = data.model.agents.find(item => item.seatId === id); if (!agent) return;
+    const agent = floor.roster.find(item => item.seatId === id); if (!agent) return;
     setSelectedTask(null); setSelected(id); setHover(null); change({ lineup: false }); data.setFocusProjectId(agent.projectId);
-    const point = positions.current.get(id) ?? deskForAgent(agent)?.seat;
+    const pod = floor.pods.find(item => item.projectId === agent.projectId);
+    if (pod?.collapsed) setExpanded(pod.projectId);
+    const target = (pod?.collapsed ? scopeFloor(data.model, group, pod.projectId).agents : floor.agents).find(item => item.seatId === id);
+    const point = (!pod?.collapsed ? positions.current.get(id) : undefined) ?? (target ? deskForAgent(target)?.seat : undefined);
     if (point && !agent.overflow) camera.focusPoint(point, 70); else camera.follow(null);
-  }, [data.model.agents, data.setFocusProjectId, camera, change]);
+  }, [floor, data.model, group, data.setFocusProjectId, camera, change]);
   const toySelect = useCallback((id: string) => { const tool = toys.snapshot().tool; if (tool) playToy(id, tool, still || preferences.effects === 'off'); else select(id); }, [still, preferences.effects, select]);
   const walkExit = useCallback(() => change({ view: 'iso' }), [change]);
   const openOwner = useCallback(() => { setSelectedTask(null); setSelected('owner'); setHover(null); change({ lineup: false }); camera.focusPoint(ownerDesk.position, 70); }, [camera, change]);
@@ -99,7 +142,7 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
   }, [openOwner, chooseHubTab, walking]);
   const openTask = useCallback((projectId: string, taskId: string) => { setSelected(null); setSelectedTask({ projectId, taskId }); setHover(null); camera.follow(null); }, [camera]);
   useEffect(() => { if (reason && data.events.length) data.consumeEvents(data.events.map(event => event.id)); }, [reason, data.events, data.consumeEvents]);
-  useEffect(() => { if (selected && selected !== 'owner' && !selected.startsWith('team:') && !data.model.agents.some(agent => agent.seatId === selected)) { setSelected(null); camera.follow(null); } }, [data.model.agents, selected, camera]);
+  useEffect(() => { if (selected && selected !== 'owner' && !floor.roster.some(agent => agent.seatId === selected || `team:${agent.teamId}` === selected)) { setSelected(null); camera.follow(null); } }, [floor.roster, selected, camera]);
   const toggleWalk = () => {
     if (!canWalk || reason) return;
     if (!walking) {
@@ -110,14 +153,27 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
     }
     change({ view: walking ? 'iso' : 'walk', lineup: false });
   };
-  const highlightProject = useCallback((id: string) => {
-    setHighlight(id || null);
-    data.setFocusProjectId(id || null);
-    const agent = data.model.agents.find(item => item.projectId === id);
-    const desk = agent && deskForAgent(agent);
-    if (!walking && desk) camera.focusPoint(desk.seat, 34);
-    if (!walking && !id) camera.home();
-  }, [camera, data.model.agents, data.setFocusProjectId, walking]);
+  const changeScope = (next: WorldScope) => {
+    if (next.groupId === activeScope.groupId && next.projectId === activeScope.projectId) return;
+    setChoice(next); saveScope(next); setExpanded(next.projectId); setPickProject(false); setHighlight(null);
+    close(); setHover(null); positions.current.clear();
+    const nextGroup = groups.options.find(option => option.id === next.groupId);
+    data.setFocusProjectId(next.projectId ?? data.model.recentProjects.find(project => nextGroup?.projects.some(item => item.id === project.id))?.id ?? null);
+    if (walking) { walk.current.position = [0, 0, 20]; walk.current.target = null; }
+    else if (next.groupId !== activeScope.groupId) camera.home();
+  };
+  const addAgent = () => {
+    if (activeScope.projectId) openAgentCreate(activeScope.projectId);
+    else { setPickProject(true); document.getElementById(projectPickerId)?.focus(); }
+  };
+  const togglePod = useCallback((id: string) => {
+    if (!floor.pods.some(pod => pod.projectId === id)) return;
+    const next = expanded === id ? null : id;
+    setExpanded(next); setHighlight(next); setHover(null);
+    if (next) data.setFocusProjectId(next);
+    const pod = scopeFloor(data.model, group, next).pods.find(item => item.projectId === id);
+    if (!walking && pod?.anchor) camera.focusPoint(pod.anchor, 24);
+  }, [camera, data.model, data.setFocusProjectId, expanded, floor.pods, group, walking]);
   const onWalkInteract = useCallback((target: WalkTarget) => {
     if (target.kind === 'agent') select(target.id);
     else if (target.kind === 'owner') openOffice('chair');
@@ -127,8 +183,9 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
     else if (target.kind === 'library') onNavigate('library');
     else if (target.kind === 'approval') onNavigate('needs-attention');
     else if (target.kind === 'board') { data.setFocusProjectId(target.id); openOffice('flows'); }
+    else if (target.kind === 'pod') togglePod(target.id);
     else if (target.kind === 'cat') { toys.spin(false, true); if (toys.snapshot().sound && !still && preferences.effects !== 'off') tone('oiia'); }
-  }, [select, openOffice, openTask, data.setFocusProjectId, onNavigate, still, preferences.effects]);
+  }, [select, openOffice, openTask, data.setFocusProjectId, onNavigate, togglePod, still, preferences.effects]);
   useEffect(() => {
     const keydown = (event: KeyboardEvent) => {
       if (event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.target instanceof HTMLElement && event.target.closest('input,textarea,select,[contenteditable="true"]')) return;
@@ -138,17 +195,20 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
     document.addEventListener('keydown', keydown);
     return () => document.removeEventListener('keydown', keydown);
   });
-  const agent = data.model.agents.find(item => item.seatId === selected);
-  const hovered = hover ? data.model.agents.find(item => item.seatId === hover.seatId) : null;
-  const sourceError = data.sources.projects?.state === 'error' || Object.entries(data.sources).some(([key, value]) => key.startsWith('agents:') && value.state === 'error');
+  const agent = floor.roster.find(item => item.seatId === selected);
+  const hovered = hover ? floor.agents.find(item => item.seatId === hover.seatId) : null;
+  const sourceError = data.sources.projects?.state === 'error' || floor.projects.some(project => data.sources[`agents:${project.id}`]?.state === 'error');
+  const scopePicker = <WorldScopePicker groups={groups.options} group={group} scope={activeScope} onChange={changeScope} projectPickerId={projectPickerId} />;
+  const otherGroups = <WorldOtherGroups groups={groups.options} group={group} onChange={changeScope} />;
   const activeSources = Object.entries(data.sources).filter(([key, value]) => value.state === 'error' && (
     ['projects', 'groups'].includes(key) || data.model.projects.some(project => ['agents', 'attempts', 'tasks', 'interactions', 'inbox', 'flows'].some(source => key === `${source}:${project.id}`))
-    || data.model.workflows.some(item => key === `run:${item.run.id}`)));
+    || data.model.workflows.some(item => key === `run:${item.run.id}`)
+    || floor.roster.some(seat => seat.slot === 0 && key === `capacity:${seat.ownerSeatId}:${seat.desk.agent.configRevision}`)));
   useWorldDebug(() => ({ version: 1, view: walking && !reason ? 'walk' : 'iso', walk: walk.current, mode: reason ? 'fallback' : ready ? '3d' : 'loading', fallbackReason: reason,
     ready: !reason && ready, quality, still, render: reason ? emptyRender : stats.current, camera: cameraState.current, layout,
-    counts: { agents: data.model.agents.length, drawnAgents: reason || preferences.lineup ? 0 : data.model.agents.filter(item => !item.overflow && deskForAgent(item)).length, overflow: data.model.agents.filter(item => item.overflow).length, cards: sceneDebug.current.integration.cards, handoffsActive: sceneDebug.current.integration.handoffsActive, handoffsSeen: sceneDebug.current.integration.handoffsSeen },
-    focusProjectId: data.model.focusProjectId,
-    agents: data.model.agents.map(item => ({
+    counts: { agents: floor.roster.filter(item => item.slot === 0).length, seats: floor.roster.length, drawnAgents: reason || preferences.lineup ? 0 : floor.agents.length, overflow: floor.roster.length - floor.agents.length, cards: sceneDebug.current.integration.cards, handoffsActive: sceneDebug.current.integration.handoffsActive, handoffsSeen: sceneDebug.current.integration.handoffsSeen },
+    focusProjectId: model.focusProjectId,
+    agents: floor.agents.map(item => ({
       ...(sceneDebug.current.agents.find(row => row.seatId === item.seatId) ?? { seatId: item.seatId, ownerSeatId: item.ownerSeatId, slot: item.slot, name: item.name, pose: item.pose, podKey: item.podKey, deskId: deskForAgent(item)?.id ?? null, walking: false, wandering: false, activity: null }),
       status: item.status,
     })),
@@ -156,26 +216,30 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
     characters: reason ? emptyScene().characters : sceneDebug.current.characters, director: sceneDebug.current.director, props: reason || preferences.lineup ? [] : sceneDebug.current.props, baseline: data.baseline, sources: data.sources, selected: selectedTask ? `task:${selectedTask.taskId}` : selected,
     locate: (kind, id) => reason || preferences.lineup && kind !== 'zone' ? null : locate.current?.(kind, id) ?? null }));
   return <div data-testid="world-screen" className={`world-page${walking ? ' world-walking' : ''}${panelOpen ? ' world-panel-open' : ''}`}>
-    {reason ? <WorldFallback reason={reason} projects={projects} onSwitch={() => { setReady(false); change({ mode: '3d', ...(reason === 'reduced-motion' ? { still: true } : {}) }); }} onRetry={() => { setReady(false); setError(false); setAttempt(value => value + 1); }} /> : <>
+    {reason ? <WorldFallback reason={reason} projects={data.sources.projects?.state === 'error' && !data.model.loaded.projects ? projects : floor.projects} onSwitch={() => { setReady(false); change({ mode: '3d', ...(reason === 'reduced-motion' ? { still: true } : {}) }); }} onRetry={() => { setReady(false); setError(false); setAttempt(value => value + 1); }}>
+      {scopePicker}{otherGroups}
+      <Button size="sm" variant="outline" onClick={addAgent}>{t('worldUi.addAgent')}</Button>
+      {pickProject && <p role="status" className="text-sm text-muted-foreground">{t('worldUi.pickProject')}</p>}
+    </WorldFallback> : <>
       <div ref={mapRef} className="world-map" role="region" tabIndex={0} aria-label={t('worldUi.map')} aria-describedby={hintId}>
         <p id={hintId} className="sr-only">{t('worldUi.mapHint')}</p>
         <SceneErrorBoundary key={attempt} onError={onError}><Suspense fallback={<div className="world-loading" role="status"><Mascot seat="Lead" state="thinking" animated={false} /><span>{t('worldUi.loading')}</span></div>}>
-          <WorldCanvas onOfficeOpen={openOffice} onWalkExit={walkExit} walking={walking} walk={walk} paused={panelOpen} onWalkInteract={onWalkInteract} events={data.events} scopeKey={scope.current} locations={locations} onTask={openTask} onEventsConsumed={data.consumeEvents} model={data.model} highlight={highlight} baseline={data.baseline} lineup={!walking && preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={toySelect} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
+          <WorldCanvas onOfficeOpen={openOffice} onWalkExit={walkExit} walking={walking} walk={walk} paused={panelOpen} onWalkInteract={onWalkInteract} events={events} scopeKey={sceneKey} roomKey={JSON.stringify(activeScope.groupId)} locations={locations} onTask={openTask} onEventsConsumed={data.consumeEvents} model={model} office={office} pods={pods} highlight={activeScope.projectId ?? highlight} baseline={data.baseline} lineup={!walking && preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={toySelect} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
         </Suspense></SceneErrorBoundary>
-        {walking && <WalkOverlay state={walk} positions={positions} paused={panelOpen} agents={data.model.agents} />}
+        {walking && <WalkOverlay state={walk} positions={positions} paused={panelOpen} agents={floor.agents} />}
       </div>
       <WorldHotbar walking={walking} collapsed={preferences.hotbarCollapsed} onCollapse={hotbarCollapsed => change({ hotbarCollapsed })} />
       <div className="world-left"><WorldToolbar canWalk={canWalk} walking={walking} onWalk={toggleWalk} showActivity={showWalkActivity} onActivity={() => setShowWalkActivity(value => !value)} onChairman={() => { if (walking) change({ view: 'iso' }); openOwner(); }} onNavigate={onNavigate} preferences={preferences} onChange={patch => { if (patch.lineup && walking) patch = { ...patch, view: 'iso' }; if (patch.lineup) { camera.follow(null); setSelected(null); setSelectedTask(null); } change(patch); }} />
-        <div className="world-focus world-control"><label className="flex min-w-0 flex-1 items-center gap-2">{t('worldUi.campus.projects')} <Choice className="min-w-0 flex-1 truncate bg-transparent" value={highlight ?? ''} disabled={!data.model.projects.length} onValueChange={highlightProject}><ChoiceOption value="">{t('worldUi.campus.allProjects')}</ChoiceOption>{data.model.buildings.map(building => <ChoiceGroup key={building.id} label={building.name ?? t('worldUi.campus.shared')}>{building.rooms.map(project => <ChoiceOption key={project.id} value={project.id}>{project.name}</ChoiceOption>)}</ChoiceGroup>)}</Choice></label></div>
+        {scopePicker}{otherGroups}
         {!!activeSources.length && <div className="world-control flex flex-wrap items-center gap-2 p-2 text-sm"><span role="status">{t('worldUi.sourceError')}</span><Button size="sm" variant="outline" onClick={() => data.refresh(activeSources.map(([key]) => key))}>{t('errors.retry')}</Button></div>}
-        <WorldRoster agents={data.model.agents} highlight={highlight} error={sourceError} loading={!data.model.loaded.activity} selected={selected} onSelect={select} onOwner={openOwner} onTask={openTask} /></div>
-      {(!walking || showWalkActivity) && !(selected || selectedTask) && (() => { const focus = data.model.focusProjectId;
+        <WorldRoster agents={floor.roster} pods={pods} compact={floor.compact} onPod={togglePod} highlight={highlight ?? activeScope.projectId} error={sourceError} loading={!groupsReady || !data.model.loaded.projects || floor.projects.some(project => !data.sources[`agents:${project.id}`] || data.sources[`agents:${project.id}`]?.state === 'pending')} selected={selected} onSelect={select} onOwner={openOwner} onTask={openTask} onAdd={addAgent} pickProject={pickProject} /></div>
+      {(!walking || showWalkActivity) && !(selected || selectedTask) && (() => { const focus = model.focusProjectId;
         const state = data.sources[`interactions:${focus}`]?.state;
         return <WorldActivity office={focus ? data.interactions[focus] : undefined} projectName={data.model.projects.find(project => project.id === focus)?.name ?? null}
           loading={!!focus && (!state || state === 'pending')} error={state === 'error'} onTask={taskId => { if (focus) openTask(focus, taskId); }} />; })()}
       {agent && <AgentPanel key={agent.seatId} agent={agent} following={following} onFollow={() => camera.follow(following ? null : () => positions.current.get(agent.seatId) ?? deskForAgent(agent)?.seat ?? [0, 0])} onClose={close} onTask={openTask} onReview={need => { onNavigate('needs-attention'); history.replaceState(null, '', attentionHash(attentionItems(inbox).find(item => item.key === `approval:${need.approvalId}`)?.key ?? (need.kind === 'start-gate' ? `gate:${need.taskId}` : `approval:${need.approvalId}`))); }} onTeam={() => { setSelected(`team:${agent.teamId}`); }} />}
-      {selected?.startsWith('team:') && <DockedPane label={t('worldUi.team')} onClose={close} className="world-panel" fallbackFocus={() => mapRef.current}><Button variant="ghost" size="sm" onClick={close}>{t('worldUi.close')}</Button>{data.model.agents.filter(agent => `team:${agent.teamId}` === selected).map(agent => <Button key={agent.seatId} className="my-2 w-full" variant="outline" onClick={() => select(agent.seatId)}>{agent.name} · {agent.role}</Button>)}</DockedPane>}
-      {selectedTask && <DockedPane key={`task:${selectedTask.projectId}:${selectedTask.taskId}`} label={t('worldUi.taskDetails.title')} onClose={close} className="world-panel" fallbackFocus={() => mapRef.current}><div className="mb-3 flex justify-end"><Button variant="ghost" size="sm" onClick={close}>{t('worldUi.close')}</Button></div><TaskPanel store={store} projectId={selectedTask.projectId} taskId={selectedTask.taskId} agents={data.model.agents} onTask={onTask} onFollow={seatId => { const target = data.model.agents.find(item => item.seatId === seatId); if (target) { camera.follow(() => positions.current.get(seatId) ?? deskForAgent(target)?.seat ?? [0, 0]); setFollowing(true); } }} onReview={key => { onNavigate('needs-attention'); history.replaceState(null, '', attentionHash(key)); }} /></DockedPane>}
+      {selected?.startsWith('team:') && <DockedPane label={t('worldUi.team')} onClose={close} className="world-panel" fallbackFocus={() => mapRef.current}><Button variant="ghost" size="sm" onClick={close}>{t('worldUi.close')}</Button>{floor.roster.filter(agent => `team:${agent.teamId}` === selected).map(agent => <Button key={agent.seatId} className="my-2 w-full" variant="outline" onClick={() => select(agent.seatId)}>{agent.name} · {agent.role}</Button>)}</DockedPane>}
+      {selectedTask && <DockedPane key={`task:${selectedTask.projectId}:${selectedTask.taskId}`} label={t('worldUi.taskDetails.title')} onClose={close} className="world-panel" fallbackFocus={() => mapRef.current}><div className="mb-3 flex justify-end"><Button variant="ghost" size="sm" onClick={close}>{t('worldUi.close')}</Button></div><TaskPanel store={store} projectId={selectedTask.projectId} taskId={selectedTask.taskId} agents={floor.agents} onTask={onTask} onFollow={seatId => { const target = floor.agents.find(item => item.seatId === seatId); if (target) { camera.follow(() => positions.current.get(seatId) ?? deskForAgent(target)?.seat ?? [0, 0]); setFollowing(true); } }} onReview={key => { onNavigate('needs-attention'); history.replaceState(null, '', attentionHash(key)); }} /></DockedPane>}
       {selected === 'owner' && <OwnerPanel store={store} data={data} attention={attention} tab={hubTab} onTab={chooseHubTab} onClose={close} onNavigate={onNavigate} onTask={openTask} />}
       {!walking && hover && hovered && !preferences.lineup && <div id={tooltipId} role="tooltip" className="world-tooltip rounded-md border border-border bg-popover p-2 text-xs text-popover-foreground shadow-md" style={{ left: Math.max(8, Math.min(hover.x - (mapRef.current?.getBoundingClientRect().left ?? 0) + 14, (mapRef.current?.clientWidth ?? 800) - 230)), top: Math.max(8, Math.min(hover.y - (mapRef.current?.getBoundingClientRect().top ?? 0) + 14, (mapRef.current?.clientHeight ?? 600) - 100)) }}><strong>{hovered.name}</strong><p>{hovered.role}</p><p>{t(agentStatusKey(hovered))}</p>{hovered.runs[0] && <p>{hovered.runs[0].code}{hovered.runs[0].progress?.percent != null ? ` · ${hovered.runs[0].progress.percent}%` : ''}</p>}</div>}
     </>}

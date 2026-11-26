@@ -231,6 +231,8 @@ export const extra = {
     taskDetails: { title: 'Task details', openProject: 'Open in project', follow: 'Follow assignee', stage: 'Workflow stage', latestRun: 'Latest run', started: 'Started', ended: 'Ended', outcome: 'Outcome', summary: 'Final summary', noRuns: 'No runs yet.', unavailable: 'Task unavailable.', review: 'Open decision / review', noTasks: 'No tasks in this stage.', openTask: 'Open task', releaseTask: 'View release task', duration: 'Duration', seconds: 'sec', pass: 'Passed', fail: 'Failed', notReported: 'Not reported' },
     more: 'More options',
     roster: 'Staff roster', ownerDesk: 'Chairman’s office', team: 'Team', noAgents: 'No staff yet.', sourceError: 'Could not load data',
+    scope: { group: 'Group', project: 'Project', ungrouped: 'No group', others: 'Other groups', counts: '{agents} agents · {working} working · {waiting} waiting', allProjects: 'All projects', expandPod: 'Expand {project} pod', collapsePod: 'Collapse {project} pod', attempts: '{count} live attempts' },
+    rosterToggle: 'Show/hide roster', addAgent: 'Add agent', pickProject: 'Pick a project to add an agent.',
     close: 'Close', follow: 'Follow', unfollow: 'Stop following', projectOffice: 'Open project office',
     workingCount: 'Agents working', attentionCount: 'Items needing you',
     lineup: 'View characters', backStudio: 'Back to studio',

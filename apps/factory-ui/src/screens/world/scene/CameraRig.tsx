@@ -2,16 +2,16 @@ import { useEffect, useRef, type RefObject } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { OrthographicCamera, Vector3, MathUtils } from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { cameraBounds, cameraPresets, fitZoom, isoDistance, type ZoneKey } from '../layout/camera';
+import { cameraBounds, cameraPresets, fitTarget, fitZoom, isoDistance, type ZoneKey } from '../layout/camera';
 import { ownerDesk, type Point } from '../layout/zones';
 import { useCameraBridge, type CameraApi, type CameraState } from '../cameraContext';
 import { toys } from './toys/store';
 import { useWorldMotion } from './Ticker';
 export type WorldLocations = RefObject<Map<string, readonly [number, number, number]>>;
 export type Locate = (kind: 'agent' | 'owner' | 'zone' | 'card', id?: string) => { x: number; y: number } | null;
-export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, locations, enabled = true, returnPoint, floorSouth }: {
+export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, locations, enabled = true, returnPoint, floorSouth, roomKey, selected, lineup }: {
   enabled?: boolean; returnPoint?: RefObject<import('./walk/state').WalkState>;
-  floorSouth: number;
+  floorSouth: number; roomKey: string; selected: string | null; lineup: boolean;
   agentPositions: RefObject<Map<string, Point>>; locations: WorldLocations;
   mapRef: RefObject<HTMLDivElement | null>; still: boolean;
   onState: (state: CameraState) => void; onLocate: (locate: Locate | null) => void;
@@ -27,6 +27,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
   const south = useRef(floorSouth); south.current = floorSouth;
   const engine = useRef<{ controls: MapControls; api: CameraApi } | null>(null);
   const animate = useRef<(now: number, delta: number) => void>(() => {});
+  const previousRoom = useRef<string | null>(null);
   useEffect(() => {
     if (!(camera instanceof OrthographicCamera)) return;
     const controls = new MapControls(camera, gl.domElement); controls.enabled = enabledRef.current;
@@ -39,8 +40,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
     const cancel = () => { tween = null; getter = null; release?.(); release = null; };
     const clamp = () => {
       const maxX = cameraBounds.x[1];
-      const maxZ = south.current + 1;
-      controls.target.set(MathUtils.clamp(controls.target.x, cameraBounds.x[0], maxX), 0, MathUtils.clamp(controls.target.z, cameraBounds.z[0], maxZ));
+      controls.target.set(MathUtils.clamp(controls.target.x, cameraBounds.x[0], maxX), 0, MathUtils.clamp(controls.target.z, cameraBounds.north, south.current));
       camera.position.copy(controls.target).add(offset); camera.lookAt(controls.target);
       camera.zoom = MathUtils.clamp(camera.zoom, controls.minZoom, controls.maxZoom);
       camera.updateProjectionMatrix();
@@ -63,7 +63,7 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
     const api: CameraApi = {
       focusZone(key) { const [x, z, zoom] = cameraPresets[key]; move([x, z], zoom * scale()); },
       focusPoint(point, zoom) { move(point, zoom === undefined ? camera.zoom : zoom * scale()); },
-      home() { move([0, (south.current - 14) / 2], fitZoom(viewport.current.width, viewport.current.height, south.current)); },
+      home() { move(fitTarget(south.current), fitZoom(viewport.current.width, viewport.current.height, south.current)); },
       follow(next) { if (!enabledRef.current) return; cancel(); getter = next; if (next && !stillRef.current) release = motion.request('live'); report(); invalidate(); },
     };
     const changed = () => { clamp(); report(); invalidate(); };
@@ -122,9 +122,11 @@ export function CameraRig({ mapRef, still, onState, onLocate, agentPositions, lo
   }, [enabled, register, returnPoint, invalidate]);
   useEffect(() => {
     const e = engine.current; if (!e || !(camera instanceof OrthographicCamera)) return;
-    e.controls.minZoom = fitZoom(size.width, size.height, floorSouth) * 0.75;
-    e.api.home();
-  }, [camera, size.width, size.height, floorSouth]);
+    e.controls.minZoom = fitZoom(size.width, size.height, floorSouth) * 0.85;
+    const changedRoom = previousRoom.current !== roomKey;
+    previousRoom.current = roomKey;
+    if (!lineup && (changedRoom || !selected)) e.api.home();
+  }, [camera, size.width, size.height, floorSouth, roomKey, lineup]);
   useEffect(() => { invalidate(); }, [still, invalidate]);
   useFrame((_, delta) => {
     if (!enabled) return;
