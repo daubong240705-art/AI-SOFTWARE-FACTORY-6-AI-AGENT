@@ -4,7 +4,7 @@ import { ArrowUpRight, Check, Copy, ImageOff } from 'lucide-react';
 export type Lang = 'vi' | 'en';
 export const text = (lang: Lang, vi: string, en: string) => lang === 'vi' ? vi : en;
 export const repo = 'https://github.com/daubong240705-art/AI-SOFTWARE-FACTORY-6-AI-AGENT';
-export const demo = 'http://192.168.1.14:8790/';
+export const demo = import.meta.env.VITE_DEMO_URL ?? 'http://127.0.0.1:8787/';
 
 export function Mochi({ role = 'LEAD', className = '' }: { role?: string; className?: string }) {
   return <img src={`/mascot/${role}.svg`} className={`mochi ${className}`} alt="" aria-hidden="true" />;
