@@ -3,6 +3,7 @@ import type { Interaction, Office } from '@/api/officeModels';
 import type { FlowRunDetail, FlowRunSummary, GroupsResponse, Project, Task } from '@factory/contracts';
 import type { AgentProjectResponse } from '@/api/agentModels';
 import type { Desk, FlowList, ProjectAttempt, ProjectInbox, nodeProgress } from '../../office/liveModel';
+import type { Point } from '../layout/zones';
 export type PodKey = 'lead' | 'a' | 'b' | 'c' | 'd' | 'east' | 'annex';
 export type WorldAgent = {
   projectId: string;
@@ -10,6 +11,7 @@ export type WorldAgent = {
   projectColor: string;
   collaborationAt: string | null;
   workflowTask: boolean;
+  reviewTask?: boolean;
   seatId: string;
   ownerSeatId: string;
   seatName: string;
@@ -31,6 +33,7 @@ export type WorldAgent = {
   lastFinished: ActivitySeat['lastFinished'];
   overflow: boolean;
   compact?: boolean;
+  officePosition?: Point;
 };
 export type TaskCard = {
   id: string;
@@ -90,6 +93,7 @@ export type WorldInputs = {
   interactions: Record<string, Office | undefined>;
   tasks: Record<string, Task[]>;
   rosters?: Record<string, AgentProjectResponse>;
+  capacities?: Record<string, number>;
   attempts?: Record<string, ProjectAttempt[]>;
   inboxes?: Record<string, ProjectInbox>;
   flows?: Record<string, FlowList>;

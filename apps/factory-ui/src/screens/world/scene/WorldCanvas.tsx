@@ -12,8 +12,8 @@ import { Lineup, lineupDimensions } from './Lineup';
 import { Agents, type AgentHover, type AgentPositions } from './Agents';
 import type { WorldModel } from '../data/types';
 import { ownerDesk } from '../layout/zones';
-import { campusFootprints } from '../layout/campus';
-import { podFootprints, type WorldPod } from '../data/scope';
+import type { WorldPod } from '../data/scope';
+import type { RoleOffice } from '../layout/roleOffice';
 import { studioNavigation } from '../layout/studioNavigation';
 import { deskForAgent } from '../agentPresentation';
 import { useCameraRig } from '../cameraContext';
@@ -34,7 +34,7 @@ import type { ChairmanTab } from '../panels/chairmanTabs';
 
 type Props = {
   onWalkExit: () => void; walking: boolean; walk: RefObject<WalkState>; paused: boolean; onWalkInteract: (target: WalkTarget) => void;
-  model: WorldModel; pods: readonly WorldPod[]; compact: boolean; baseline: boolean; events: readonly WorldEvent[]; locations: WorldLocations; scopeKey: string; lineup: boolean; selected: string | null; attention: number;
+  model: WorldModel; office: RoleOffice; pods: readonly WorldPod[]; baseline: boolean; events: readonly WorldEvent[]; locations: WorldLocations; scopeKey: string; roomKey: string; lineup: boolean; selected: string | null; attention: number;
   highlight: string | null;
   positions: AgentPositions; sceneDebug: MutableRefObject<SceneDebug>;
   onSelect: (id: string) => void; onTask: (projectId: string, taskId: string) => void; onEventsConsumed: (ids: readonly string[]) => void; onOwner: () => void; onHover: (hover: AgentHover) => void; onOfficeOpen?: (tab: ChairmanTab | 'chair') => void; approvalPulse?: number; phonePulse?: number;
@@ -87,15 +87,14 @@ function Cast({ props, quality, graph }: { props: Props; quality: WorldQuality; 
   useFrame(() => { props.sceneDebug.current.characters = characterStats(); });
   return <CharacterAnimator still={props.still}>
     <Studio effects={props.effects} key={props.scopeKey} model={props.model} events={props.events} quality={quality} still={props.still} hidden={props.lineup} positions={props.positions} locations={props.locations} debug={props.sceneDebug} consumeEvents={props.onEventsConsumed} onTask={props.onTask} onOfficeOpen={props.onOfficeOpen ?? (() => {})} attention={props.attention} approvalPulse={props.approvalPulse ?? 0} phonePulse={props.phonePulse ?? 0} />
-    <Campus model={props.model} pods={props.pods} compact={props.compact} highlight={props.highlight} hidden={props.lineup} onOpen={props.onWalkInteract} />
-    <Agents key={props.scopeKey} events={props.events} agents={props.model.agents} floorSouth={props.model.floorSouth} route={graph} highlight={props.highlight} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} effects={props.effects} />
+    <Campus model={props.model} office={props.office} pods={props.pods} highlight={props.highlight} hidden={props.lineup} onOpen={props.onWalkInteract} />
+    <Agents key={props.scopeKey} events={props.events} agents={props.model.agents} stations={props.office.stations} route={graph} highlight={props.highlight} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} effects={props.effects} />
     {props.lineup && <Lineup origin={[0, 4]} quality={quality} still={props.still} locale={i18n.locale} />}
   </CharacterAnimator>;
 }
 function WorldCanvas(props: Props) {
-  const { floorSouth } = props.model;
-  const furniture = useMemo(() => [...campusFootprints(0), ...podFootprints(props.pods)], [props.pods]);
-  const graph = useMemo(() => studioNavigation(floorSouth, furniture), [floorSouth, furniture]);
+  const { furniture } = props.office;
+  const graph = useMemo(() => studioNavigation(props.office), [props.office]);
   const { quality, fps, measure, setSoftware, software } = useWorldQuality(props.qualityPreference);
   useEffect(() => props.onQuality(quality), [quality, props.onQuality]);
   const bumps = useRef(new Map<string, number>());
@@ -113,7 +112,7 @@ function WorldCanvas(props: Props) {
     <Ticker interactive={props.walking} quality={quality} still={props.still} onMeasure={measure}>
       <ToyPrewarm />
       <SceneLifecycle onReady={props.onReady} onLoading={props.onLoading} onError={props.onError} onRender={props.onRender} fps={fps} />
-      <CameraRig enabled={!props.walking} floorSouth={props.model.floorSouth} returnPoint={props.walk} agentPositions={props.positions} locations={props.locations} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
+      <CameraRig enabled={!props.walking} floorSouth={props.model.floorSouth} roomKey={props.roomKey} selected={props.selected} lineup={props.lineup} returnPoint={props.walk} agentPositions={props.positions} locations={props.locations} mapRef={props.mapRef} still={props.still} onState={props.onCamera} onLocate={props.onLocate} />
       <group visible={!props.lineup}><Environment graph={graph} /></group>
       {props.walking && <WalkScenery quality={quality} floorSouth={props.model.floorSouth} />}
       <Cast props={props} quality={quality} graph={graph} />

@@ -8,12 +8,12 @@ import { createWorldSeen, diffWorld, type WorldEvent } from './events';
 import type { Assignments, WorldInputs, WorldModel } from './types';
 
 export type WorldDataApi = Pick<ApiClient, 'getOrgActivity' | 'listProjects' | 'getProjectInteractions' | 'listTasks'
-  | 'listProjectAgents' | 'listProjectAttempts' | 'listProjectFlows' | 'getFlowRun' | 'getInbox'> & {
+  | 'listProjectAgents' | 'getAgent' | 'listProjectAttempts' | 'listProjectFlows' | 'getFlowRun' | 'getInbox'> & {
   listGroups: (signal: AbortSignal) => Promise<GroupsResponse>;
 };
 export type WorldSource = {state: 'ok' | 'error' | 'pending'; at: number};
 export type WorldSnapshot = {baseline: boolean; model: WorldModel; events: WorldEvent[]; sources: Record<string, WorldSource>; interactions: WorldInputs['interactions']};
-const emptyInputs = () => ({ interactions: {}, tasks: {}, rosters: {}, attempts: {}, inboxes: {}, flows: {}, runDetails: {} }) satisfies WorldInputs;
+const emptyInputs = () => ({ interactions: {}, tasks: {}, rosters: {}, capacities: {}, attempts: {}, inboxes: {}, flows: {}, runDetails: {} }) satisfies WorldInputs;
 export const emptyWorldSnapshot = (): WorldSnapshot => ({baseline: false, model: deriveWorld(emptyInputs()).model, events: [], sources: {}, interactions: {}});
 
 /** Browser-independent polling coordinator. All time and visibility can be injected. */
@@ -28,7 +28,7 @@ export function createWorldDataController(api: WorldDataApi, options: {
   const clock: PollClock = options.clock ?? {set: (fn, ms) => setTimeout(fn, ms), clear: id => clearTimeout(id as ReturnType<typeof setTimeout>), random: Math.random};
   let stopped = false;
   let snapshot = emptyWorldSnapshot();
-  const inputs: WorldInputs & Required<Pick<WorldInputs, 'rosters' | 'attempts' | 'inboxes' | 'flows' | 'runDetails'>> = emptyInputs();
+  const inputs: WorldInputs & Required<Pick<WorldInputs, 'rosters' | 'capacities' | 'attempts' | 'inboxes' | 'flows' | 'runDetails'>> = emptyInputs();
   inputs.focusProjectId = options.focusProjectId ?? null;
   let assignment: Assignments = {};
   let previous: WorldModel | null = null;
@@ -116,6 +116,15 @@ export function createWorldDataController(api: WorldDataApi, options: {
     const currentRuns = new Set(detailed.map(run => run.id));
     for (const id of Object.keys(inputs.runDetails)) if (!currentRuns.has(id)) delete inputs.runDetails[id];
     for (const run of detailed) jobs.push(read(`run:${run.id}`, run.projectId === focus ? 6500 : 30000, signal => api.getFlowRun(run.projectId, run.id, signal), value => { inputs.runDetails[run.id] = value; }));
+    const activeAgents = new Set<string>();
+    for (const { id } of projects) for (const agent of inputs.rosters[id]?.agents ?? []) {
+      if (agent.status !== 'active' && agent.status !== 'paused') continue;
+      activeAgents.add(agent.id);
+      jobs.push(read(`capacity:${agent.id}:${agent.configRevision}`, Infinity, signal => api.getAgent(id, agent.id, signal), value => {
+        inputs.capacities[agent.id] = value.config.runtime.maxConcurrent;
+      }));
+    }
+    for (const id of Object.keys(inputs.capacities)) if (!activeAgents.has(id)) delete inputs.capacities[id];
     poller.sync(jobs);
   }
   function startBaselineTimer() {

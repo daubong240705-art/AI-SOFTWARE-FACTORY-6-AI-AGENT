@@ -3,7 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { WorldAgent } from '../../data/types';
 import { deskForAgent } from '../../agentPresentation';
-import { monitorFaceOffset, monitorFeedbackOffset, progressFillOffset, monitorYaw } from '../../layout/zones';
+import { progressFillOffset } from '../../layout/zones';
+import { officeMonitorYaw } from '../../layout/campus';
 import { useWorldMotion } from '../Ticker';
 import { daylight } from './state';
 const lampColor = { working: '#E0A458', waiting: '#F2B8A9', problem: '#F05252', done: '#82BF91', queued: '#4A3B2F', idle: '#4A3B2F' };
@@ -26,8 +27,8 @@ function feedback(count: number) {
     agents.forEach((agent, i) => {
       const desk = deskForAgent(agent); if (!desk) return;
       const working = agent.status === 'working';
-      [desk.monitor, desk.sideMonitor].forEach((p, index) => put(screens, i * 2 + index, p[0] + Math.sin(monitorYaw) * (monitorFaceOffset + monitorFeedbackOffset), index ? 1.07 : 1.08, p[1] + Math.cos(monitorYaw) * (monitorFaceOffset + monitorFeedbackOffset), index ? 0.56 : 0.7, index ? 0.28 : 0.32, working && index === 0 ? '#BDE3D2' : '#425555', monitorYaw));
-      put(lamps, i, desk.position[0] + 0.65, 1.26, desk.position[1] + 0.18, night ? 1.1 : 1, night ? 1.1 : 1, night && agent.status === 'idle' ? '#E0C18B' : lampColor[agent.status], 0);
+      [desk.monitor, desk.sideMonitor].forEach((p, index) => put(screens, i * 2 + index, p[0] + Math.sin(officeMonitorYaw) * .05, index ? .86 : .87, p[1] + Math.cos(officeMonitorYaw) * .05, index ? .49 : .61, index ? .19 : .23, working && index === 0 ? '#BDE3D2' : '#425555', officeMonitorYaw));
+      put(lamps, i, desk.position[0] + 0.65, .79, desk.position[1] + 0.18, night ? 1.1 : 1, night ? 1.1 : 1, night && agent.status === 'idle' ? '#E0C18B' : lampColor[agent.status], 0);
       const percent = agent.runs[0]?.progress?.percent;
       if (!working && percent == null) return;
       const amount = percent == null ? 0.3 : Math.max(0, Math.min(100, percent)) / 100;

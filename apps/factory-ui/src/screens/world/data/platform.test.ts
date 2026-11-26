@@ -5,9 +5,10 @@ import type { Interaction, Office } from '../../../api/officeModels';
 import { desksFor, nodeProgress, type ProjectAttempt } from '../../office/liveModel';
 import { deriveWorld, projectBuildings } from './deriveWorld';
 import { diffWorld, createWorldSeen } from './events';
-import { agentStation, campusFootprints, deskFloorNorth, roomDesk, roomDestination, studioMeeting } from '../layout/campus';
-import { liveAttemptCount, podFootprints, resolveScope, scopeFloor, scopeGroups } from './scope';
-import { studioNavigation } from '../layout/studioNavigation';
+import { agentStation, deskDestination, deskFloorNorth, roomDesk, type Position } from '../layout/campus';
+import { deskDepth, deskWidth, layoutRoleOffice, zoneForRole } from '../layout/roleOffice';
+import { resolveScope, scopeFloor, scopeGroups } from './scope';
+import { pathsConflict, studioNavigation } from '../layout/studioNavigation';
 import { intersectsFootprint } from '../layout/waypoints';
 import { resolveWalkMove } from '../scene/walk/collision';
 import type { WorldInputs } from './types';
@@ -34,27 +35,35 @@ test('Office orders the lead, teams, then names and projects status from real wo
   assert.equal(desks[2]?.task?.id, 'check');
 });
 
-test('each project owns one character per active agent and multiple attempts stay with that character', () => {
+test('runtime capacity determines seat count; attempts and state belong to individual seats', () => {
   const state = inputs();
-  const withCapacity = { ...agent('one', { live: 2 }), maxConcurrent: 4 };
-  const idleWithCapacity = { ...agent('two'), maxConcurrent: 3 };
-  state.rosters!.first!.agents = [withCapacity, idleWithCapacity];
-  state.attempts = { first: [attempt('first-run', 'task', 'one'), attempt('other-run', 'other', 'one')] };
+  state.rosters!.first!.agents = [agent('one', { live: 2 }), agent('two')];
+  state.capacities = { one: 4, two: 3 };
+  state.attempts = { first: [attempt('other-run', 'other', 'one', 'waiting-input'), attempt('first-run', 'task', 'one')] };
   const { model, assign } = deriveWorld(state);
   assert.deepEqual(model.projects.map(item => item.id), ['first', 'second']);
-  assert.deepEqual(model.agents.map(item => [item.seatId, item.projectId, item.runs.length]), [['one', 'first', 2], ['two', 'first', 0], ['three', 'second', 0]]);
+  const one = model.agents.filter(item => item.ownerSeatId === 'one');
+  assert.deepEqual(one.map(item => [item.name, item.status, item.runs[0]?.attemptId]), [
+    ['one', 'working', 'first-run'], ['one · 2', 'waiting', 'other-run'], ['one · 3', 'idle', undefined], ['one · 4', 'idle', undefined],
+  ]);
   assert.deepEqual(deriveWorld(state, assign).assign, assign);
-  assert.notDeepEqual(roomDesk(model.agents[0]!).position, roomDesk(model.agents[2]!).position);
-  assert.equal(model.agents[0]!.projectColor, model.agents[1]!.projectColor);
-  assert.notEqual(model.agents[0]!.projectColor, model.agents[2]!.projectColor);
+  assert.equal(one[0]!.projectColor, one[3]!.projectColor);
+  assert.notEqual(one[0]!.projectColor, model.agents.at(-1)!.projectColor);
   const groups = scopeGroups(model);
-  const { roster, agents } = scopeFloor(model, groups.options[0]!, null, null);
-  assert.deepEqual(agents.map(item => [item.seatId, liveAttemptCount(item)]), [['one', 2], ['two', 0], ['three', 0]]);
-  assert.equal(roster.length, 3);
-  assert.ok(roster.every(item => item.slot === 0));
+  const { roster, agents } = scopeFloor(model, groups.options[0]!, null);
+  assert.equal(agents.length, 8);
+  assert.equal(roster.length, 8);
+  assert.equal(groups.options[0]!.agents, 3);
+  const neighboringDesks = agents.filter(item => item.ownerSeatId === 'one').map(item => roomDesk(item).position);
+  for (let index = 1; index < neighboringDesks.length; index++) {
+    const before = neighboringDesks[index - 1]!, after = neighboringDesks[index]!;
+    assert.ok(before[0] === after[0] || before[1] === after[1]);
+  }
+  const resized = deriveWorld({ ...state, capacities: { ...state.capacities, one: 2 } }, assign).model;
+  assert.deepEqual(resized.agents.filter(item => item.ownerSeatId === 'one').map(item => item.seatId), one.slice(0, 2).map(item => item.seatId));
 });
 
-test('World scopes default to recent activity and include only the selected group, descendants or project', () => {
+test('World scopes default to recent activity and keep the selected group and descendants in view', () => {
   const state = inputs();
   state.groups = { groups: [group('Game', null), group('Sub', 'Game'), group('Elsewhere', null)], membership: { first: 'Game', second: 'Sub', archived: 'Elsewhere' } };
   state.projects!.push(project('shared'), project('other'));
@@ -70,10 +79,9 @@ test('World scopes default to recent activity and include only the selected grou
   assert.deepEqual(resolveScope(groups, null), { groupId: 'Sub', projectId: null });
   assert.deepEqual(resolveScope(groups, { groupId: 'Game', projectId: 'other' }), { groupId: 'Game', projectId: null });
   assert.deepEqual([root.agents, root.working, root.waiting], [3, 1, 1]);
-  assert.deepEqual(scopeFloor(model, root, null, null).agents.map(item => item.seatId), ['one', 'two', 'three']);
-  assert.deepEqual(scopeFloor(model, root, 'second', null).agents.map(item => item.seatId), ['three']);
-  assert.deepEqual(scopeFloor(model, child, null, null).agents.map(item => item.seatId), ['three']);
-  assert.deepEqual(scopeFloor(model, ungrouped, null, null).agents.map(item => item.seatId), ['shared-agent']);
+  assert.deepEqual(scopeFloor(model, root, null).agents.map(item => item.seatId), ['one', 'two', 'three']);
+  assert.deepEqual(scopeFloor(model, child, null).agents.map(item => item.seatId), ['three']);
+  assert.deepEqual(scopeFloor(model, ungrouped, null).agents.map(item => item.seatId), ['shared-agent']);
 });
 
 test('compact pods keep the full roster and expand only the requested project', () => {
@@ -82,18 +90,18 @@ test('compact pods keep the full roster and expand only the requested project', 
   state.rosters!.second!.agents = Array.from({ length: 5 }, (_, index) => agent(`second-${index}`, { projectId: 'second' }));
   const { model } = deriveWorld(state);
   const ungrouped = scopeGroups(model).options[0]!;
-  const layout = scopeFloor(model, ungrouped, null, null);
+  const layout = scopeFloor(model, ungrouped, null);
   assert.equal(layout.roster.length, 37);
   assert.deepEqual(layout.pods.map(pod => [pod.name, pod.collapsed, pod.remaining]), [['first', true, 28], ['second', true, 1]]);
   assert.equal(layout.agents.length, 8);
-  assert.equal(podFootprints(layout.pods).length, 2);
-  const expanded = scopeFloor(model, ungrouped, null, 'first');
+  assert.equal(layout.office.furniture.length, 8);
+  const expanded = scopeFloor(model, ungrouped, 'first');
   assert.deepEqual(expanded.pods.map(pod => [pod.collapsed, pod.remaining]), [[false, 0], [true, 1]]);
   assert.equal(expanded.agents.length, 36);
-  assert.equal(podFootprints(expanded.pods).length, 33);
+  assert.equal(expanded.office.furniture.length, 36);
   assert.equal(new Set(expanded.agents.map(item => item.slotIndex)).size, 36);
   assert.ok(expanded.agents.every(item => roomDesk(item).position[1] < expanded.floorSouth));
-  const atThreshold = scopeFloor({ ...model, agents: model.agents.slice(0, 36) }, ungrouped, null, null);
+  const atThreshold = scopeFloor({ ...model, agents: model.agents.slice(0, 36) }, ungrouped, null);
   assert.equal(atThreshold.compact, false);
   assert.equal(atThreshold.agents.length, 36);
 });
@@ -126,50 +134,96 @@ test('workflow progress counts latest node iterations and excludes terminal runs
   assert.deepEqual(deriveWorld(state).model.workflows.map(item => item.run.id), ['run']);
 });
 
-test('idle agents stay seated; working workflow agents can visit the board or meeting table', () => {
+test('idle agents stay seated; review, workflow and handoff activity choose the right station', () => {
   const state = inputs();
   const run: FlowRunSummary = { id: 'run', projectId: 'first', flowId: 'flow', flowTitle: 'Work', version: 1, test: false, state: 'running', stateReason: null, revision: 1, trigger: 'manual', createdAt: now, startedAt: now, endedAt: null };
   state.tasks.first = [task('work', 'ready', 'one'), task('review', 'in-review', 'two')];
   state.flows = { first: { ok: true, apiVersion: 1, flows: [], runs: [run] } };
   state.runDetails = { run: { run, inputs: {}, definition: { schema: 2, key: 'work', title: 'Work', description: '', inputs: [], nodes: [], edges: [], settings: { concurrency: 'allow' }, layout: {} },
     nodeRuns: [{ nodeId: 'node', taskId: 'work', iteration: 1, attemptNo: 1, state: 'ready', port: null, startedAt: null, endedAt: null, error: null, approvalId: null, childRunId: null, output: null, pinned: false }] } };
-  assert.deepEqual(deriveWorld(state).model.agents.map(item => agentStation(item, Date.parse(now))), ['desk', 'desk', 'desk']);
+  assert.deepEqual(deriveWorld(state).model.agents.map(item => agentStation(item, Date.parse(now))), ['desk', 'bench', 'desk']);
   state.attempts = { first: [attempt('start', 'work', 'one')] };
   assert.equal(agentStation(deriveWorld(state).model.agents[0]!, Date.parse(now)), 'board');
   state.interactions.first = interactions([handoff('handoff')]);
-  assert.deepEqual(deriveWorld(state).model.agents.map(item => agentStation(item, Date.parse(now))), ['meeting', 'desk', 'desk']);
+  assert.deepEqual(deriveWorld(state).model.agents.map(item => agentStation(item, Date.parse(now))), ['meeting', 'bench', 'desk']);
   assert.equal(agentStation(deriveWorld(state).model.agents[0]!, Date.parse(now) + 30000), 'board');
 });
 
 test('walk mode crosses into the desk area, clamps at the exterior, and respects studio furniture', () => {
-  const model = deriveWorld(inputs()).model;
-  const { floorSouth } = model;
+  const state = inputs(); state.rosters!.first!.agents[0]!.isLead = true;
+  const { office } = layoutRoleOffice(deriveWorld(state).model.agents);
+  const { floorSouth } = office;
   const crossing = resolveWalkMove({ x: 0, z: 12 }, { x: 0, z: floorSouth }, .35, [], floorSouth);
   assert.equal(crossing.z, floorSouth - .35);
-  const [x, z] = studioMeeting;
-  const step = resolveWalkMove({ x, z: z - 3 }, { x: 0, z: 3 }, .35, campusFootprints(0), floorSouth);
-  assert.ok(step.z <= z - 1.65);
+  const [x, z] = office.stations.find(item => item.id === 'meeting')!.position;
+  const step = resolveWalkMove({ x, z: z - 2.5 }, { x: 0, z: 2.5 }, .35, office.furniture, floorSouth);
+  assert.ok(step.z <= z - 1.65 + 1e-8);
 });
 
-test('65+ agents share one floor with a clear tile route from every desk to both stations', () => {
+test('role keywords select distinct zones and only occupied zones appear', () => {
+  assert.equal(zoneForRole('Release Manager', true), 'lead');
+  assert.equal(zoneForRole('DevOps — Release'), 'release');
+  assert.equal(zoneForRole('DevOps'), 'engineering');
+  assert.equal(zoneForRole('Rules / client'), 'engineering');
+  assert.equal(zoneForRole('Back-end / front-end engineer'), 'engineering');
+  assert.equal(zoneForRole('Thiết kế UX'), 'design');
+  assert.equal(zoneForRole('Game artist'), 'design');
+  assert.equal(zoneForRole('Code Reviewer'), 'qa');
+  assert.equal(zoneForRole('Tester'), 'qa');
+  assert.equal(zoneForRole('Team Lead'), 'lead');
+  assert.equal(zoneForRole('Research'), 'common');
+  const { office } = layoutRoleOffice(deriveWorld(inputs()).model.agents);
+  assert.deepEqual(office.zones.map(item => item.role), ['common']);
+  assert.deepEqual(office.stations, []);
+});
+
+test('65+ seats have at most three desks per row, clear row/zone gaps, and no overlaps', () => {
   const state = inputs();
-  state.rosters!.first!.agents = Array.from({ length: 65 }, (_, index) => agent(`staff-${index}`));
-  const { model } = deriveWorld(state);
-  const staff = model.agents.filter(item => item.projectId === 'first');
-  assert.equal(staff.filter(item => !item.overflow).length, 65);
-  assert.equal(new Set(model.agents.map(item => roomDesk(item).position.join(','))).size, 66);
-  assert.ok(model.floorSouth > deriveWorld(inputs()).model.floorSouth);
-  const furniture = campusFootprints(model.agents.length);
-  const route = studioNavigation(model.floorSouth, furniture);
-  for (const item of model.agents) for (const station of ['meeting', 'board'] as const) {
-    const desk = roomDestination(item, 'desk'), destination = roomDestination(item, station);
+  const roles = ['Lead', 'Design', 'DevOps', 'QA', 'Release', 'Research'];
+  state.rosters!.first!.agents = Array.from({ length: 65 }, (_, index) => agent(`staff-${index}`, { role: roles[index % roles.length]! }));
+  const { agents, office } = layoutRoleOffice(deriveWorld(state).model.agents);
+  const { furniture, floorSouth, walkways } = office;
+  assert.equal(agents.length, 66);
+  assert.equal(office.zones.length, 6);
+  assert.ok(floorSouth > layoutRoleOffice(deriveWorld(inputs()).model.agents).office.floorSouth);
+  for (const zone of office.zones) {
+    const rows = new Map<number, number>();
+    for (const seat of agents.filter(item => zoneForRole(item.role, item.isLead) === zone.role)) {
+      const { position: [, z], seat: [, seatZ], monitor: [, monitorZ] } = roomDesk(seat);
+      assert.ok(z > zone.north && seatZ < zone.south && monitorZ < z && seatZ > z);
+      rows.set(z, (rows.get(z) ?? 0) + 1);
+    }
+    assert.ok([...rows.values()].every(count => count <= 3));
+    const sorted = [...rows.keys()].sort((left, right) => left - right);
+    assert.ok(sorted.slice(1).every((z, index) => z - sorted[index]! - deskDepth >= deskDepth));
+    for (const other of office.zones.filter(item => item !== zone)) {
+      assert.ok(Math.abs(zone.x - other.x) - 9.4 >= deskDepth || Math.max(zone.north - other.south, other.north - zone.south) >= deskDepth);
+    }
+  }
+  for (const [index, item] of agents.entries()) for (const other of agents.slice(index + 1)) {
+    const here = roomDesk(item), there = roomDesk(other);
+    assert.ok(Math.abs(here.position[0] - there.position[0]) >= deskWidth || Math.abs(here.position[1] - there.position[1]) >= deskDepth);
+    assert.ok(Math.hypot(here.seat[0] - there.seat[0], here.seat[1] - there.seat[1]) >= deskWidth);
+  }
+  const route = studioNavigation(office);
+  for (const item of agents) for (const station of office.stations) for (const [x, z] of station.spots) {
+    const desk = deskDestination(item), destination: Position = [x, .04, z];
     const path = route(desk, destination);
     assert.deepEqual(path[0], desk, item.seatId);
     assert.deepEqual(path.at(-1), destination);
     for (const [index, [x, , z]] of path.entries()) {
-      assert.ok(x >= -17.5 && x <= 17.5 && z > deskFloorNorth && z < model.floorSouth);
+      assert.ok(x >= -17.5 && x <= 17.5 && z > deskFloorNorth && z < floorSouth);
       const next = path[index + 1];
-      if (next) assert.ok(!furniture.some(obstacle => intersectsFootprint([x, z], [next[0], next[2]], obstacle)));
+      if (!next) continue;
+      assert.ok(!furniture.some(obstacle => intersectsFootprint([x, z], [next[0], next[2]], obstacle)));
+      assert.ok(walkways.some(([first, last]) => [[x, z], [next[0], next[2]]].every(point => point.every((value, axis) => value >= Math.min(first[axis]!, last[axis]!) && value <= Math.max(first[axis]!, last[axis]!)))));
     }
   }
+});
+
+test('crossing walks wait while disjoint aisle routes can run together', () => {
+  const path: Position[] = [[0, .04, 0], [5, .04, 0]];
+  assert.equal(pathsConflict(path, [[1, .04, -2], [1, .04, 2]]), true);
+  assert.equal(pathsConflict(path, [[1, .04, 1], [4, .04, 1]]), true);
+  assert.equal(pathsConflict(path, [[1, .04, 2], [4, .04, 2]]), false);
 });

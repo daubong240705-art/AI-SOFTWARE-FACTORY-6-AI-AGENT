@@ -18,7 +18,7 @@ export type WorldDebugSnapshot = Readonly<{
   view: 'iso' | 'walk'; walk: import('./scene/walk/state').WalkState;
   version: 1; mode: 'loading' | '3d' | 'fallback'; fallbackReason: FallbackReason | null;
   camera: CameraState; layout: typeof layout; locate: (kind: 'agent' | 'owner' | 'zone' | 'card', id?: string) => { x: number; y: number } | null;
-  counts: { agents: number; drawnAgents: number; overflow: number } & Pick<IntegrationStats, 'cards' | 'handoffsActive' | 'handoffsSeen'>;
+  counts: { agents: number; seats: number; drawnAgents: number; overflow: number } & Pick<IntegrationStats, 'cards' | 'handoffsActive' | 'handoffsSeen'>;
   focusProjectId: string | null; agents: AgentDebug[];
   characters: SceneDebug['characters']; director: SceneDebug['director']; props: readonly string[]; sources: Record<string, WorldSource>; baseline: boolean; selected: string | null;
   ready: boolean; quality: 'high' | 'low'; still: boolean; render: RenderStats;

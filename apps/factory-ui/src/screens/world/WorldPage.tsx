@@ -36,7 +36,7 @@ import { chairmanTabFromHash, chairmanTabs, type ChairmanTab } from './panels/ch
 import { chairmanChair, chairmanExit } from './layout/chairman';
 import { TaskPanel } from './panels/TaskPanel';
 import { agentStatusKey, deskForAgent } from './agentPresentation';
-import { podCenter, readScope, resolveScope, saveScope, scopeFloor, scopeGroups, type WorldScope } from './data/scope';
+import { readScope, resolveScope, saveScope, scopeFloor, scopeGroups, type WorldScope } from './data/scope';
 import { WorldOtherGroups, WorldScopePicker } from './WorldScope';
 import { shareEqual } from './data/shareEqual';
 
@@ -46,14 +46,16 @@ export default function WorldPage(props: Props) { return <CameraRigProvider><Wor
 function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
   const data = useWorldData(); const camera = useCameraRig();
   const [choice, setChoice] = useState(readScope);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(() => choice?.projectId ?? null);
   const [pickProject, setPickProject] = useState(false);
   const projectPickerId = useId();
   const groups = useMemo(() => scopeGroups(data.model), [data.model.groups, data.model.projects, data.model.recentProjects, data.model.agents]);
   const activeScope = resolveScope(groups, choice);
   const group = groups.options.find(option => option.id === activeScope.groupId)!;
   const groupsReady = !!data.model.groups || data.sources.groups?.state === 'error';
-  const floor = useMemo(() => scopeFloor(data.model, groupsReady ? group : { ...group, projects: [] }, activeScope.projectId, expanded), [data.model.agents, data.model.projects, groupsReady, group, activeScope.projectId, expanded]);
+  const floor = useMemo(() => scopeFloor(data.model, groupsReady ? group : { ...group, projects: [] }, expanded), [data.model.agents, data.model.projects, groupsReady, group, expanded]);
+  const lastOffice = useRef(floor.office);
+  const office = lastOffice.current = shareEqual(lastOffice.current, floor.office);
   const lastPods = useRef(floor.pods);
   const pods = lastPods.current = shareEqual(lastPods.current, floor.pods);
   const focusInScope = floor.projects.some(project => project.id === data.model.focusProjectId);
@@ -125,10 +127,10 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
     setSelectedTask(null); setSelected(id); setHover(null); change({ lineup: false }); data.setFocusProjectId(agent.projectId);
     const pod = floor.pods.find(item => item.projectId === agent.projectId);
     if (pod?.collapsed) setExpanded(pod.projectId);
-    const target = (pod?.collapsed ? scopeFloor(data.model, group, activeScope.projectId, pod.projectId).agents : floor.agents).find(item => item.seatId === id);
+    const target = (pod?.collapsed ? scopeFloor(data.model, group, pod.projectId).agents : floor.agents).find(item => item.seatId === id);
     const point = (!pod?.collapsed ? positions.current.get(id) : undefined) ?? (target ? deskForAgent(target)?.seat : undefined);
     if (point && !agent.overflow) camera.focusPoint(point, 70); else camera.follow(null);
-  }, [floor, data.model, group, activeScope.projectId, data.setFocusProjectId, camera, change]);
+  }, [floor, data.model, group, data.setFocusProjectId, camera, change]);
   const toySelect = useCallback((id: string) => { const tool = toys.snapshot().tool; if (tool) playToy(id, tool, still || preferences.effects === 'off'); else select(id); }, [still, preferences.effects, select]);
   const walkExit = useCallback(() => change({ view: 'iso' }), [change]);
   const openOwner = useCallback(() => { setSelectedTask(null); setSelected('owner'); setHover(null); change({ lineup: false }); camera.focusPoint(ownerDesk.position, 70); }, [camera, change]);
@@ -153,12 +155,12 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
   };
   const changeScope = (next: WorldScope) => {
     if (next.groupId === activeScope.groupId && next.projectId === activeScope.projectId) return;
-    setChoice(next); saveScope(next); setExpanded(null); setPickProject(false); setHighlight(null);
+    setChoice(next); saveScope(next); setExpanded(next.projectId); setPickProject(false); setHighlight(null);
     close(); setHover(null); positions.current.clear();
     const nextGroup = groups.options.find(option => option.id === next.groupId);
     data.setFocusProjectId(next.projectId ?? data.model.recentProjects.find(project => nextGroup?.projects.some(item => item.id === project.id))?.id ?? null);
     if (walking) { walk.current.position = [0, 0, 20]; walk.current.target = null; }
-    else camera.focusPoint([0, 24], 16);
+    else if (next.groupId !== activeScope.groupId) camera.home();
   };
   const addAgent = () => {
     if (activeScope.projectId) openAgentCreate(activeScope.projectId);
@@ -169,9 +171,9 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
     const next = expanded === id ? null : id;
     setExpanded(next); setHighlight(next); setHover(null);
     if (next) data.setFocusProjectId(next);
-    const pod = scopeFloor(data.model, group, activeScope.projectId, next).pods.find(item => item.projectId === id);
-    if (!walking && pod) { const { x, z } = podCenter(pod); camera.focusPoint([x, z], 24); }
-  }, [activeScope.projectId, camera, data.model, data.setFocusProjectId, expanded, floor.pods, group, walking]);
+    const pod = scopeFloor(data.model, group, next).pods.find(item => item.projectId === id);
+    if (!walking && pod?.anchor) camera.focusPoint(pod.anchor, 24);
+  }, [camera, data.model, data.setFocusProjectId, expanded, floor.pods, group, walking]);
   const onWalkInteract = useCallback((target: WalkTarget) => {
     if (target.kind === 'agent') select(target.id);
     else if (target.kind === 'owner') openOffice('chair');
@@ -200,10 +202,11 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
   const otherGroups = <WorldOtherGroups groups={groups.options} group={group} onChange={changeScope} />;
   const activeSources = Object.entries(data.sources).filter(([key, value]) => value.state === 'error' && (
     ['projects', 'groups'].includes(key) || data.model.projects.some(project => ['agents', 'attempts', 'tasks', 'interactions', 'inbox', 'flows'].some(source => key === `${source}:${project.id}`))
-    || data.model.workflows.some(item => key === `run:${item.run.id}`)));
+    || data.model.workflows.some(item => key === `run:${item.run.id}`)
+    || floor.roster.some(seat => seat.slot === 0 && key === `capacity:${seat.ownerSeatId}:${seat.desk.agent.configRevision}`)));
   useWorldDebug(() => ({ version: 1, view: walking && !reason ? 'walk' : 'iso', walk: walk.current, mode: reason ? 'fallback' : ready ? '3d' : 'loading', fallbackReason: reason,
     ready: !reason && ready, quality, still, render: reason ? emptyRender : stats.current, camera: cameraState.current, layout,
-    counts: { agents: floor.roster.length, drawnAgents: reason || preferences.lineup ? 0 : floor.agents.length, overflow: floor.roster.length - floor.agents.length, cards: sceneDebug.current.integration.cards, handoffsActive: sceneDebug.current.integration.handoffsActive, handoffsSeen: sceneDebug.current.integration.handoffsSeen },
+    counts: { agents: floor.roster.filter(item => item.slot === 0).length, seats: floor.roster.length, drawnAgents: reason || preferences.lineup ? 0 : floor.agents.length, overflow: floor.roster.length - floor.agents.length, cards: sceneDebug.current.integration.cards, handoffsActive: sceneDebug.current.integration.handoffsActive, handoffsSeen: sceneDebug.current.integration.handoffsSeen },
     focusProjectId: model.focusProjectId,
     agents: floor.agents.map(item => ({
       ...(sceneDebug.current.agents.find(row => row.seatId === item.seatId) ?? { seatId: item.seatId, ownerSeatId: item.ownerSeatId, slot: item.slot, name: item.name, pose: item.pose, podKey: item.podKey, deskId: deskForAgent(item)?.id ?? null, walking: false, wandering: false, activity: null }),
@@ -221,7 +224,7 @@ function WorldStudio({ store, projects, onNavigate, onTask }: Props) {
       <div ref={mapRef} className="world-map" role="region" tabIndex={0} aria-label={t('worldUi.map')} aria-describedby={hintId}>
         <p id={hintId} className="sr-only">{t('worldUi.mapHint')}</p>
         <SceneErrorBoundary key={attempt} onError={onError}><Suspense fallback={<div className="world-loading" role="status"><Mascot seat="Lead" state="thinking" animated={false} /><span>{t('worldUi.loading')}</span></div>}>
-          <WorldCanvas onOfficeOpen={openOffice} onWalkExit={walkExit} walking={walking} walk={walk} paused={panelOpen} onWalkInteract={onWalkInteract} events={events} scopeKey={sceneKey} locations={locations} onTask={openTask} onEventsConsumed={data.consumeEvents} model={model} pods={pods} compact={floor.compact} highlight={highlight ?? activeScope.projectId} baseline={data.baseline} lineup={!walking && preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={toySelect} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
+          <WorldCanvas onOfficeOpen={openOffice} onWalkExit={walkExit} walking={walking} walk={walk} paused={panelOpen} onWalkInteract={onWalkInteract} events={events} scopeKey={sceneKey} roomKey={JSON.stringify(activeScope.groupId)} locations={locations} onTask={openTask} onEventsConsumed={data.consumeEvents} model={model} office={office} pods={pods} highlight={activeScope.projectId ?? highlight} baseline={data.baseline} lineup={!walking && preferences.lineup} selected={selected} attention={attention} positions={positions} sceneDebug={sceneDebug} onSelect={toySelect} onOwner={openOwner} onHover={setHover} mapRef={mapRef} onCamera={onCamera} onLocate={onLocate} qualityPreference={preferences.quality} still={still} effects={preferences.effects} onReady={onReady} onLoading={onLoading} onError={onError} onQuality={setQuality} onRender={onRender} />
         </Suspense></SceneErrorBoundary>
         {walking && <WalkOverlay state={walk} positions={positions} paused={panelOpen} agents={floor.agents} />}
       </div>
