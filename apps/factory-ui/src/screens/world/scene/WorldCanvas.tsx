@@ -13,6 +13,7 @@ import { Agents, type AgentHover, type AgentPositions } from './Agents';
 import type { WorldModel } from '../data/types';
 import { ownerDesk } from '../layout/zones';
 import { campusFootprints } from '../layout/campus';
+import { podFootprints, type WorldPod } from '../data/scope';
 import { studioNavigation } from '../layout/studioNavigation';
 import { deskForAgent } from '../agentPresentation';
 import { useCameraRig } from '../cameraContext';
@@ -33,7 +34,7 @@ import type { ChairmanTab } from '../panels/chairmanTabs';
 
 type Props = {
   onWalkExit: () => void; walking: boolean; walk: RefObject<WalkState>; paused: boolean; onWalkInteract: (target: WalkTarget) => void;
-  model: WorldModel; baseline: boolean; events: readonly WorldEvent[]; locations: WorldLocations; scopeKey: number; lineup: boolean; selected: string | null; attention: number;
+  model: WorldModel; pods: readonly WorldPod[]; compact: boolean; baseline: boolean; events: readonly WorldEvent[]; locations: WorldLocations; scopeKey: string; lineup: boolean; selected: string | null; attention: number;
   highlight: string | null;
   positions: AgentPositions; sceneDebug: MutableRefObject<SceneDebug>;
   onSelect: (id: string) => void; onTask: (projectId: string, taskId: string) => void; onEventsConsumed: (ids: readonly string[]) => void; onOwner: () => void; onHover: (hover: AgentHover) => void; onOfficeOpen?: (tab: ChairmanTab | 'chair') => void; approvalPulse?: number; phonePulse?: number;
@@ -86,14 +87,15 @@ function Cast({ props, quality, graph }: { props: Props; quality: WorldQuality; 
   useFrame(() => { props.sceneDebug.current.characters = characterStats(); });
   return <CharacterAnimator still={props.still}>
     <Studio effects={props.effects} key={props.scopeKey} model={props.model} events={props.events} quality={quality} still={props.still} hidden={props.lineup} positions={props.positions} locations={props.locations} debug={props.sceneDebug} consumeEvents={props.onEventsConsumed} onTask={props.onTask} onOfficeOpen={props.onOfficeOpen ?? (() => {})} attention={props.attention} approvalPulse={props.approvalPulse ?? 0} phonePulse={props.phonePulse ?? 0} />
-    <Campus model={props.model} highlight={props.highlight} hidden={props.lineup} onOpen={props.onWalkInteract} />
+    <Campus model={props.model} pods={props.pods} compact={props.compact} highlight={props.highlight} hidden={props.lineup} onOpen={props.onWalkInteract} />
     <Agents key={props.scopeKey} events={props.events} agents={props.model.agents} floorSouth={props.model.floorSouth} route={graph} highlight={props.highlight} baseline={props.baseline} quality={quality} still={props.still} hidden={props.lineup} selected={props.selected} positions={props.positions} debug={props.sceneDebug} onSelect={props.onSelect} onOwner={props.onOwner} onHover={props.onHover} attention={props.attention} effects={props.effects} />
     {props.lineup && <Lineup origin={[0, 4]} quality={quality} still={props.still} locale={i18n.locale} />}
   </CharacterAnimator>;
 }
 function WorldCanvas(props: Props) {
-  const { floorSouth, agents } = props.model;
-  const graph = useMemo(() => studioNavigation(floorSouth, campusFootprints(agents.length)), [floorSouth, agents.length]);
+  const { floorSouth } = props.model;
+  const furniture = useMemo(() => [...campusFootprints(0), ...podFootprints(props.pods)], [props.pods]);
+  const graph = useMemo(() => studioNavigation(floorSouth, furniture), [floorSouth, furniture]);
   const { quality, fps, measure, setSoftware, software } = useWorldQuality(props.qualityPreference);
   useEffect(() => props.onQuality(quality), [quality, props.onQuality]);
   const bumps = useRef(new Map<string, number>());
@@ -116,7 +118,7 @@ function WorldCanvas(props: Props) {
       {props.walking && <WalkScenery quality={quality} floorSouth={props.model.floorSouth} />}
       <Cast props={props} quality={quality} graph={graph} />
       {!props.walking && !props.lineup && <ReturnMarker state={props.walk} quality={quality} />}
-      {props.walking && <WalkRig onExit={props.onWalkExit} state={props.walk} positions={props.positions} model={props.model} paused={props.paused} still={props.still} quiet={props.still || props.effects === 'off'} quality={quality} onInteract={props.onWalkInteract} />}
+      {props.walking && <WalkRig onExit={props.onWalkExit} state={props.walk} positions={props.positions} model={props.model} furniture={furniture} paused={props.paused} still={props.still} quiet={props.still || props.effects === 'off'} quality={quality} onInteract={props.onWalkInteract} />}
     </Ticker>
     </WalkPresenceContext.Provider>
   </Canvas>;

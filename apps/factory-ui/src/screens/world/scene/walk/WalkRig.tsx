@@ -6,10 +6,9 @@ import { OperatorAvatar } from './OperatorAvatar';
 import { useWorldMotion } from '../Ticker';
 import { useCameraBridge } from '../../cameraContext';
 import type { WorldModel } from '../../data/types';
-import type { Point } from '../../layout/zones';
+import type { Footprint, Point } from '../../layout/zones';
 import { chairmanChair } from '../../layout/chairman';
 import { resolveWalkMove } from './collision';
-import { campusFootprints } from '../../layout/campus';
 import { studioFurniture } from '../../layout/zones';
 import { walkFixtures } from './sceneryModel';
 import { obstructionDistance, setObstructionFloor } from './obstructions';
@@ -21,7 +20,7 @@ import { useToys } from '../toys/useToys';
 import { playToy } from '../toys/playToy';
 import { detailedToys, lightToys, toyInk, toyOutlineInk, toyGlowInk, createWhipMaterials } from '../toys/models';
 
-type Props = { onExit: () => void; state: RefObject<WalkState>; positions: RefObject<Map<string, Point>>; model: WorldModel; paused: boolean; still: boolean; quiet: boolean; quality: 'high' | 'low'; onInteract: (target: WalkTarget) => void };
+type Props = { onExit: () => void; state: RefObject<WalkState>; positions: RefObject<Map<string, Point>>; model: WorldModel; furniture: Footprint[]; paused: boolean; still: boolean; quiet: boolean; quality: 'high' | 'low'; onInteract: (target: WalkTarget) => void };
 function editable(target: EventTarget | null) { return target instanceof HTMLElement && !!target.closest('input,textarea,select,[contenteditable="true"]'); }
 function targetFor(object: THREE.Object3D, instanceId: number | undefined): WalkTarget | null {
   let ancestor: THREE.Object3D | null = object;
@@ -42,9 +41,9 @@ export function WalkRig(props: Props) {
   const state = props.state, presence = useWalkPresence();
   const stepDistance = useRef(0), lastStep = useRef(0);
   const latest = useRef(props); latest.current = props;
-  const { floorSouth, agents } = props.model;
+  const { floorSouth } = props.model;
   useEffect(() => setObstructionFloor(floorSouth), [floorSouth]);
-  const campus = useMemo(() => [...studioFurniture, ...walkFixtures, ...campusFootprints(agents.length)], [agents.length]);
+  const campus = useMemo(() => [...studioFurniture, ...walkFixtures, ...props.furniture], [props.furniture]);
   const camera = useMemo(() => new THREE.PerspectiveCamera(60, 1, 0.06, 180), []);
   const keys = useRef(new Set<string>()), drag = useRef(false), velocity = useRef(0), jump = useRef(0), travel = useRef(0), started = useRef(0), sampled = useRef(0);
   const root = useRef<THREE.Group>(null), avatar = useRef<THREE.Group>(null), hand = useRef<THREE.Group>(null), toolNode = useRef<THREE.Group>(null);

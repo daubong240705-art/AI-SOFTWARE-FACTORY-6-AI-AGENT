@@ -53,7 +53,25 @@ export function deriveWorld(inputs: WorldInputs, previous: Assignments = {}): { 
   const generatedAt = inputs.serverNow ?? inputs.activity?.generatedAt ?? '';
   const projects = (inputs.projects ?? []).filter(project => project.disposition !== 'archived').sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
   const hotProjects = projects.filter(project => inputs.rosters?.[project.id]?.agents.some(agent => agent.status === 'active' && agent.live > 0));
-  const focusProjectId = (projects.some(project => project.id === inputs.focusProjectId) ? inputs.focusProjectId : null) ?? hotProjects[0]?.id ?? projects[0]?.id ?? null;
+  const activityTimes = new Map<string, number>();
+  const touch = (id: string, at: string | null | undefined) => {
+    if (!at) return;
+    const time = Date.parse(at);
+    if (time > (activityTimes.get(id) ?? -Infinity)) activityTimes.set(id, time);
+  };
+  for (const project of projects) {
+    for (const attempt of inputs.attempts?.[project.id] ?? []) {
+      touch(project.id, attempt.startedAt); touch(project.id, attempt.endedAt);
+    }
+    for (const item of inputs.interactions[project.id]?.items ?? []) touch(project.id, item.at);
+  }
+  for (const team of inputs.activity?.teams ?? []) for (const seat of team.seats) for (const run of seat.runs) {
+    touch(run.projectId, run.startedAt); touch(run.projectId, run.progress?.at);
+  }
+  const hotIds = new Set(hotProjects.map(project => project.id));
+  const recentProjects = [...projects].sort((left, right) => (activityTimes.get(right.id) ?? -Infinity) - (activityTimes.get(left.id) ?? -Infinity)
+    || Number(hotIds.has(right.id)) - Number(hotIds.has(left.id)));
+  const focusProjectId = (projects.some(project => project.id === inputs.focusProjectId) ? inputs.focusProjectId : null) ?? recentProjects[0]?.id ?? null;
   const rows: Omit<WorldAgent, 'slotIndex' | 'overflow'>[] = [];
   const buildings = projectBuildings(projects, inputs.groups);
   for (const [index, project] of projects.entries()) {
@@ -113,7 +131,7 @@ export function deriveWorld(inputs: WorldInputs, previous: Assignments = {}): { 
     };
   }
   const workflows = focusProjectId ? stations[focusProjectId]?.workflows : undefined;
-  return { assign, model: { generatedAt, agents, projects, hotProjects, focusProjectId, buildings, floorSouth: deskFloorSouth(agents.length),
+  return { assign, model: { generatedAt, agents, projects, hotProjects, recentProjects, ...(inputs.groups ? { groups: inputs.groups } : {}), focusProjectId, buildings, floorSouth: deskFloorSouth(agents.length),
     workflows: workflows ?? [], workflowLoaded: !!workflows, stations, tasks: { columns: taskColumns, overflow }, handoffs,
     loaded: { activity: !!inputs.projects && projects.every(project => inputs.rosters?.[project.id]), projects: !!inputs.projects,
       interactions: focusProjectId && inputs.interactions[focusProjectId] && inputs.rosters?.[focusProjectId] ? [focusProjectId] : [] } } };

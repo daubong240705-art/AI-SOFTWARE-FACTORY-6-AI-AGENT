@@ -10,6 +10,7 @@ import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { CharacterRig, hopAlong, phaseForSeat, specForRole, type HopMotion } from '../characters';
 import type { WorldAgent } from '../data/types';
+import { liveAttemptCount } from '../data/scope';
 import { deskForAgent } from '../agentPresentation';
 import { agentStation, clampDeskZ, clampStudioX, roomDestination, type Position } from '../layout/campus';
 import type { studioNavigation } from '../layout/studioNavigation';
@@ -26,7 +27,7 @@ export type AgentHover = { seatId: string; x: number; y: number } | null;
 type Placement = { pose: WorldAgent['pose']; position: Position; trip: HopMotion | null; started: number };
 const ignore = () => {};
 const nameTagHeight = 1.9; // Clears the above-right pose bubbles while remaining centred on the rig.
-function NameTag({ name, project, color }: { name: string; project: string; color: string }) {
+function NameTag({ name, project, color, attempts }: { name: string; project: string; color: string; attempts: number }) {
   const [screen, setScreen] = useState<ScreenTexture | null>(null);
   const invalidate = useThree(state => state.invalidate);
   useEffect(() => {
@@ -40,12 +41,16 @@ function NameTag({ name, project, color }: { name: string; project: string; colo
       if (!active) return;
       ctx.fillStyle = '#FFF8E7'; ctx.beginPath(); ctx.roundRect(2, 2, 508, 124, 20); ctx.fill();
       ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(22, 68, 468, 44, 13); ctx.fill();
-      ctx.fillStyle = '#4A3B2F'; ctx.font = '600 36px "Inter Variable", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(name, 256, 38, 480);
+      ctx.fillStyle = '#4A3B2F'; ctx.font = '600 36px "Inter Variable", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(name, attempts > 1 ? 204 : 256, 38, attempts > 1 ? 375 : 480);
       ctx.font = '500 28px "Inter Variable", sans-serif'; ctx.fillText(project, 256, 90, 440);
+      if (attempts > 1) {
+        ctx.fillStyle = '#4A3B2F'; ctx.beginPath(); ctx.roundRect(400, 14, 94, 45, 14); ctx.fill();
+        ctx.fillStyle = '#FFF8E7'; ctx.fillText(`×${attempts}`, 447, 37, 78);
+      }
     });
     draw(); void document.fonts.load('600 36px "Inter Variable"').then(() => { if (active) draw(); }).catch(() => {});
     return () => { active = false; screen.cancel(); };
-  }, [name, project, color, screen]);
+  }, [name, project, color, attempts, screen]);
   return screen ? <sprite position={[0, nameTagHeight, 0]} scale={[2, 0.375, 1]} raycast={ignore}><spriteMaterial ref={material => { if (material) screen.attach(material); }} map={screen.texture} transparent depthWrite={false} /></sprite> : null;
 }
 
@@ -192,9 +197,10 @@ export function Agents({ events, agents, floorSouth, route, highlight, baseline,
 
   }, -1);
   return <group visible={!hidden}>
-    <DeskFeedback agents={drawnAgents} still={still || hidden} />
+    <DeskFeedback agents={drawnAgents.filter(agent => !agent.compact)} still={still || hidden} />
     {agents.filter(a => !a.overflow && deskForAgent(a)).map(agent => {
       const placement = placements.get(agent.seatId); if (!placement) return null;
+      const attempts = liveAttemptCount(agent);
       const toy = toyState.active.find(e => e.worker === agent.seatId);
       const toyMotion = !still && !hidden && effects !== 'off' && !toy?.quiet;
       return <group key={agent.seatId}>
@@ -206,7 +212,7 @@ export function Agents({ events, agents, floorSouth, route, highlight, baseline,
           </WorkerAwareness>
           {catAudience.has(agent.seatId) && agent.status === 'idle' && !still && !hidden && effects !== 'off' && <CatClap />}
           {!hidden && <Aura agent={{ ...agent, pose: placement.pose }} boost={toyMotion && (toy?.tool === 'coffee' || toy?.tool === 'whip' && agent.status === 'working') ? 1 : 0} level={effects} quality={quality} still={still || hidden} floorOffset={-placement.position[1]} />}
-          {tags.has(agent.seatId) && <NameTag name={agent.name} project={agent.teamName ?? ''} color={agent.projectColor} />}
+          {(tags.has(agent.seatId) || attempts > 1) && <NameTag name={agent.name} project={agent.teamName ?? ''} color={agent.projectColor} attempts={attempts} />}
           {!hidden && <HitTarget walkId={agent.seatId} position={[0, 0.55, 0]} onSelect={() => onSelect(agent.seatId)} onHover={event => { setHovered(event ? agent.seatId : null); onHover(event ? { seatId: agent.seatId, x: event.clientX, y: event.clientY } : null); }} />}
         </group>
       </group>;

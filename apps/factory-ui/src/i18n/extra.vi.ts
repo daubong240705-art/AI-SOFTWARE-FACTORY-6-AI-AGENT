@@ -233,6 +233,8 @@ export const extra: Translated<typeof en> = {
     taskDetails: { title: 'Chi tiết task', openProject: 'Mở trong dự án', follow: 'Theo dõi người làm', stage: 'Bước workflow', latestRun: 'Attempt mới nhất', started: 'Bắt đầu', ended: 'Kết thúc', outcome: 'Kết quả', summary: 'Tóm tắt cuối', noRuns: 'Chưa có attempt.', unavailable: 'Không tìm thấy task.', review: 'Mở quyết định / duyệt', noTasks: 'Bước này chưa có task.', openTask: 'Mở task', releaseTask: 'Xem task phát hành', duration: 'Thời gian', seconds: 'giây', pass: 'Đạt', fail: 'Không đạt', notReported: 'Chưa báo cáo' },
     more: 'Thêm tùy chọn',
     roster: 'Nhân viên', ownerDesk: 'Phòng chủ tịch', team: 'Team', noAgents: 'Chưa có nhân viên.', sourceError: 'Không tải được dữ liệu',
+    scope: { group: 'Group', project: 'Dự án', ungrouped: 'Chưa có group', others: 'Group khác', counts: '{agents} agent · {working} đang chạy · {waiting} đang chờ', allProjects: 'Tất cả dự án', expandPod: 'Mở pod {project}', collapsePod: 'Thu gọn pod {project}', attempts: '{count} attempt đang hoạt động' },
+    rosterToggle: 'Hiện/ẩn danh sách', addAgent: 'Thêm agent', pickProject: 'Chọn một dự án để thêm agent.',
     close: 'Đóng', follow: 'Theo dõi', unfollow: 'Thôi theo dõi', projectOffice: 'Mở văn phòng dự án',
     workingCount: 'Nhân viên đang làm', attentionCount: 'Mục cần bạn xử lý',
     lineup: 'Xem bộ nhân vật', backStudio: 'Về studio',

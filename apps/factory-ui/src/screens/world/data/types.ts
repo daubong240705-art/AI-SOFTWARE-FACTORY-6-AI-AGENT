@@ -30,6 +30,7 @@ export type WorldAgent = {
   needsYou: ActivitySeat['needsYou'];
   lastFinished: ActivitySeat['lastFinished'];
   overflow: boolean;
+  compact?: boolean;
 };
 export type TaskCard = {
   id: string;
@@ -67,6 +68,8 @@ export type WorldModel = {
   };
   agents: WorldAgent[];
   hotProjects: Project[];
+  recentProjects: Project[];
+  groups?: GroupsResponse;
   projects: Project[];
   buildings: { id: string; name: string | null; rooms: Project[] }[];
   floorSouth: number;

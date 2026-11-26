@@ -2,17 +2,18 @@ import type { WorldAgent } from '../data/types';
 import { palette, type DeskAnchor, type Footprint, type Point } from './zones';
 
 export const deskFloorNorth = 14;
-const columns = 12;
+export const desksPerRow = 12;
+export const podColumns = 4;
 const rowPitch = 3.2;
 const rowOffset = (row: number) => row * rowPitch + Math.floor(row / 2) * .85;
-export const deskFloorSouth = (count: number) => 24 + rowOffset(Math.max(0, Math.ceil(count / columns) - 1)) + rowPitch;
+export const deskFloorSouth = (count: number) => 24 + rowOffset(Math.max(0, Math.ceil(count / desksPerRow) - 1)) + rowPitch;
 export const studioMeeting: Point = [-8, 18];
 export const studioBoard: Point = [8, 16];
 
 export function roomDesk(agent: Pick<WorldAgent, 'slotIndex' | 'seatId'>): DeskAnchor {
-  const column = agent.slotIndex % columns;
+  const column = agent.slotIndex % desksPerRow;
   const x = -14.9 + column * 2.48 + Math.floor(column / 3) * .85;
-  const z = 24 + rowOffset(Math.floor(agent.slotIndex / columns));
+  const z = 24 + rowOffset(Math.floor(agent.slotIndex / desksPerRow));
   return { id: `desk:${agent.seatId}`, position: [x, z], yaw: 0, stand: [x, z - 1.8], seat: [x, z - .94], monitor: [x - .16, z + .24], sideMonitor: [x - .62, z + .02] };
 }
 
@@ -20,7 +21,7 @@ const projectColors = [palette.sky, palette.rose, palette.sage, palette.butter, 
 export const projectColor = (index: number) => projectColors[index % projectColors.length] ?? palette.sky;
 
 export function agentStation(agent: WorldAgent, now: number): 'desk' | 'meeting' | 'board' {
-  if (agent.status !== 'working') return 'desk';
+  if (agent.compact || agent.status !== 'working') return 'desk';
   const sinceHandoff = agent.collaborationAt ? now - Date.parse(agent.collaborationAt) : Infinity;
   if (sinceHandoff >= -5000 && sinceHandoff < 25000) return 'meeting';
   return agent.workflowTask ? 'board' : 'desk';

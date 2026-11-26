@@ -6,6 +6,7 @@ import { desksFor, nodeProgress, type ProjectAttempt } from '../../office/liveMo
 import { deriveWorld, projectBuildings } from './deriveWorld';
 import { diffWorld, createWorldSeen } from './events';
 import { agentStation, campusFootprints, deskFloorNorth, roomDesk, roomDestination, studioMeeting } from '../layout/campus';
+import { liveAttemptCount, podFootprints, resolveScope, scopeFloor, scopeGroups } from './scope';
 import { studioNavigation } from '../layout/studioNavigation';
 import { intersectsFootprint } from '../layout/waypoints';
 import { resolveWalkMove } from '../scene/walk/collision';
@@ -35,6 +36,9 @@ test('Office orders the lead, teams, then names and projects status from real wo
 
 test('each project owns one character per active agent and multiple attempts stay with that character', () => {
   const state = inputs();
+  const withCapacity = { ...agent('one', { live: 2 }), maxConcurrent: 4 };
+  const idleWithCapacity = { ...agent('two'), maxConcurrent: 3 };
+  state.rosters!.first!.agents = [withCapacity, idleWithCapacity];
   state.attempts = { first: [attempt('first-run', 'task', 'one'), attempt('other-run', 'other', 'one')] };
   const { model, assign } = deriveWorld(state);
   assert.deepEqual(model.projects.map(item => item.id), ['first', 'second']);
@@ -43,6 +47,55 @@ test('each project owns one character per active agent and multiple attempts sta
   assert.notDeepEqual(roomDesk(model.agents[0]!).position, roomDesk(model.agents[2]!).position);
   assert.equal(model.agents[0]!.projectColor, model.agents[1]!.projectColor);
   assert.notEqual(model.agents[0]!.projectColor, model.agents[2]!.projectColor);
+  const groups = scopeGroups(model);
+  const { roster, agents } = scopeFloor(model, groups.options[0]!, null, null);
+  assert.deepEqual(agents.map(item => [item.seatId, liveAttemptCount(item)]), [['one', 2], ['two', 0], ['three', 0]]);
+  assert.equal(roster.length, 3);
+  assert.ok(roster.every(item => item.slot === 0));
+});
+
+test('World scopes default to recent activity and include only the selected group, descendants or project', () => {
+  const state = inputs();
+  state.groups = { groups: [group('Game', null), group('Sub', 'Game'), group('Elsewhere', null)], membership: { first: 'Game', second: 'Sub', archived: 'Elsewhere' } };
+  state.projects!.push(project('shared'), project('other'));
+  state.groups.membership.other = 'Elsewhere';
+  state.rosters!.shared = { ...state.rosters!.first!, agents: [agent('shared-agent', { projectId: 'shared' })] };
+  state.attempts = { first: [attempt('earlier', 'earlier-task', 'one')], second: [{ ...attempt('recent', 'recent-task', 'three', 'waiting-input'), startedAt: new Date(Date.parse(now) + 1000).toISOString() }] };
+  const { model } = deriveWorld(state);
+  const groups = scopeGroups(model);
+  const root = groups.options.find(option => option.id === 'Game')!;
+  const child = groups.options.find(option => option.id === 'Sub')!;
+  const ungrouped = groups.options.find(option => option.id === null)!;
+  assert.equal(child.name, 'Game / Sub');
+  assert.deepEqual(resolveScope(groups, null), { groupId: 'Sub', projectId: null });
+  assert.deepEqual(resolveScope(groups, { groupId: 'Game', projectId: 'other' }), { groupId: 'Game', projectId: null });
+  assert.deepEqual([root.agents, root.working, root.waiting], [3, 1, 1]);
+  assert.deepEqual(scopeFloor(model, root, null, null).agents.map(item => item.seatId), ['one', 'two', 'three']);
+  assert.deepEqual(scopeFloor(model, root, 'second', null).agents.map(item => item.seatId), ['three']);
+  assert.deepEqual(scopeFloor(model, child, null, null).agents.map(item => item.seatId), ['three']);
+  assert.deepEqual(scopeFloor(model, ungrouped, null, null).agents.map(item => item.seatId), ['shared-agent']);
+});
+
+test('compact pods keep the full roster and expand only the requested project', () => {
+  const state = inputs();
+  state.rosters!.first!.agents = Array.from({ length: 32 }, (_, index) => agent(`first-${index}`));
+  state.rosters!.second!.agents = Array.from({ length: 5 }, (_, index) => agent(`second-${index}`, { projectId: 'second' }));
+  const { model } = deriveWorld(state);
+  const ungrouped = scopeGroups(model).options[0]!;
+  const layout = scopeFloor(model, ungrouped, null, null);
+  assert.equal(layout.roster.length, 37);
+  assert.deepEqual(layout.pods.map(pod => [pod.name, pod.collapsed, pod.remaining]), [['first', true, 28], ['second', true, 1]]);
+  assert.equal(layout.agents.length, 8);
+  assert.equal(podFootprints(layout.pods).length, 2);
+  const expanded = scopeFloor(model, ungrouped, null, 'first');
+  assert.deepEqual(expanded.pods.map(pod => [pod.collapsed, pod.remaining]), [[false, 0], [true, 1]]);
+  assert.equal(expanded.agents.length, 36);
+  assert.equal(podFootprints(expanded.pods).length, 33);
+  assert.equal(new Set(expanded.agents.map(item => item.slotIndex)).size, 36);
+  assert.ok(expanded.agents.every(item => roomDesk(item).position[1] < expanded.floorSouth));
+  const atThreshold = scopeFloor({ ...model, agents: model.agents.slice(0, 36) }, ungrouped, null, null);
+  assert.equal(atThreshold.compact, false);
+  assert.equal(atThreshold.agents.length, 36);
 });
 
 test('project ancestry remains available for the project picker', () => {

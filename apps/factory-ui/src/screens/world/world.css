@@ -7,7 +7,12 @@
 .world-page .world-left { top: var(--world-inset); left: var(--world-inset); width: min(340px, calc(100% - var(--world-inset) * 2)); max-height: calc(100% - var(--world-inset) * 2); align-items: stretch; gap: var(--world-gap); }
 .world-control, .world-toolbar-more, .world-panel.project-dock { box-sizing: border-box; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); color: var(--text); box-shadow: var(--world-shadow); }
 .world-control { width: 100%; min-height: var(--world-control-height); font-size: 13px; }
-.world-left .world-toolbar, .world-left .world-focus { position: relative; inset: auto; display: flex; flex: 0 0 var(--world-control-height); align-items: center; flex-wrap: nowrap; gap: var(--world-gap); height: var(--world-control-height); padding: 0 var(--world-gap); }
+.world-left .world-toolbar { position: relative; inset: auto; display: flex; flex: 0 0 var(--world-control-height); align-items: center; flex-wrap: nowrap; gap: var(--world-gap); height: var(--world-control-height); padding: 0 var(--world-gap); }
+.world-focus { display: grid; grid-template-columns: 1fr; flex: 0 0 auto; gap: 4px; padding: var(--world-gap); }
+.world-focus label { display: grid; grid-template-columns: 4em minmax(0, 1fr); text-align: start; }
+.world-other-groups { flex: 0 0 auto; }
+.world-other-groups ul { max-height: 8rem; overflow: auto; overscroll-behavior: contain; border-top: 1px solid var(--line); }
+.world-fallback-controls { display: grid; gap: var(--world-gap); margin-top: var(--world-gap); }
 .world-toolbar h1 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 0; }
 .world-toolbar > button, .world-focus button { flex-shrink: 0; height: 28px; min-width: 28px; border-radius: var(--radius-md); padding: 0 var(--world-gap); }
 .world-toolbar-more { position: absolute; top: calc(100% + var(--world-gap)); left: -1px; z-index: 5; width: calc(100% + 2px); display: flex; flex-wrap: wrap; gap: var(--world-gap); padding: var(--world-gap); }
@@ -17,7 +22,7 @@
 .world-left .world-roster { width: 100%; flex: 0 1 auto; padding: 0; }
 .world-roster-toggle { box-sizing: border-box; align-items: center; height: calc(var(--world-control-height) - 2px); min-height: calc(var(--world-control-height) - 2px); gap: var(--world-gap); padding: 0 var(--world-gap); }
 .world-roster-open { max-height: min(65vh, 520px); }
-.world-roster-open > div { border-top: 1px solid var(--line); }
+.world-roster-open > div:not(.world-roster-header) { border-top: 1px solid var(--line); }
 .world-page .world-panel.project-dock { top: var(--world-inset); right: var(--world-inset); bottom: var(--world-inset); width: min(370px, calc(100% - var(--world-inset) * 2)); padding: var(--space-lg); }
 .world-page .world-panel { min-width: 0; max-width: calc(100% - var(--world-inset) * 2); overflow-wrap: anywhere; }
 .world-panel .world-panel-content { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; margin: 0; padding: 0; }
