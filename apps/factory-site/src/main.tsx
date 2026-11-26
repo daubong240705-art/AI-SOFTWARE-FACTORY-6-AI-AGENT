@@ -49,6 +49,12 @@ function App() {
   }, [route, anchor]);
 
   return <>
+    <div className="dev-notice" role="note">
+      <strong>{text(lang, 'Đang phát triển', 'Work in progress')}</strong>{' '}
+      {text(lang,
+        'Factory vẫn đang trong quá trình phát triển và kiểm thử, còn nhiều lỗi và chưa sẵn sàng để dùng cho công việc thật.',
+        'Factory is still being developed and tested. It has many known bugs and is not ready for production use yet.')}
+    </div>
     <a className="skip-link" href={hash} onClick={(event) => { event.preventDefault(); main.current?.focus(); }}>{text(lang, 'Đến nội dung', 'Skip to content')}</a>
     <header className="site-header">
       <div className="wrap header-inner">

@@ -211,3 +211,14 @@ section[id], .prose [id] { scroll-margin-top: 6rem; }
   .try-hero { grid-template-columns: minmax(0, 1fr); }
   .try-hero .mochi { width: 4.5rem; }
 }
+
+.dev-notice {
+  background: #FFF1D6;
+  border-bottom: 1px solid #E8C98F;
+  color: #6B4A1E;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  padding: 0.55rem 1rem;
+  text-align: center;
+}
+.dev-notice strong { color: #8A5200; margin-right: 0.25rem; }
