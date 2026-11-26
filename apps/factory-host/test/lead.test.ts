@@ -78,15 +78,15 @@ function fixture(context: TestContext, maxHistoryMessages = 20) {
     assert.deepEqual(row, { state: "done" });
     return { ...identity, answer: answer() };
   }
-  function flow(key = "review-flow", publish = true) {
+  function flow(key = "review-flow", publish = true, wait = true) {
     const flowId = newId();
     const edge = (from: string, to: string) => ({ id: `${from}-${to}`, from: { node: from, port: "out" }, to: { node: to } });
     execute("flows.create", { flowId, definition: { schema: 2, key, title: "Quy trình mẫu", description: "Chờ rồi ghi kết quả",
       inputs: [{ name: "brief", type: "string", required: true }, { name: "briefArtifactId", type: "artifact", required: true }],
       nodes: [{ id: "start", title: "Start", type: "trigger", trigger: { kind: "manual" } },
-        { id: "wait", title: "Wait", type: "wait", wait: { for: 2 } },
-        { id: "done", title: "Done", type: "output", target: "artifact", from: ["nodes.wait.output"] }],
-      edges: [edge("start", "wait"), edge("wait", "done")] } });
+        ...(wait ? [{ id: "wait", title: "Wait", type: "wait", wait: { for: 2 } }] : []),
+        { id: "done", title: "Done", type: "output", target: "artifact", from: [wait ? "nodes.wait.output" : "inputs.brief"] }],
+      edges: wait ? [edge("start", "wait"), edge("wait", "done")] : [edge("start", "done")] } });
     if (publish) execute("flows.publish", { flowId, expectedRevision: 1 });
     return flowId;
   }
@@ -132,6 +132,54 @@ test("confirmed auto run stores brief, receipt, events and trace; newer decision
   assert.match(cancelled.answer.text, /Đã dừng/);
   assert.equal(getRun(fx.raw, fx.projectId, runCard.runId)?.state, "cancelled");
   assert.deepEqual(fx.warnings, []);
+});
+
+test("repeat confirmation versions the brief and links the active run instead of starting another", async context => {
+  const fx = fixture(context);
+  fx.flow();
+  const started = (await fx.send("chốt", run("review-flow"))).answer;
+  const repeated = (await fx.send("chốt", run("review-flow"))).answer;
+  assert.equal(fx.count("flow_runs"), 1);
+  assert.equal(fx.count("artifact_versions"), 2);
+  const original = started.leadCards?.find(card => card.kind === "brief");
+  assert.ok(original);
+  assert.deepEqual(repeated.leadCards?.find(card => card.kind === "brief"), { ...original, version: 2 });
+  assert.deepEqual(repeated.leadCards?.find(card => card.kind === "run"), started.leadCards?.find(card => card.kind === "run"));
+  assert.match(repeated.text, /Run hiện tại vẫn tiếp tục.*\[xem run\]/);
+});
+
+test("an explicit restart must cancel the active run before a new start", async context => {
+  const fx = fixture(context);
+  fx.flow();
+  const started = (await fx.send("chốt", run("review-flow"))).answer.leadCards?.find(card => card.kind === "run");
+  assert.ok(started);
+  const blocked = await fx.send("Chạy lại workflow", run("review-flow", "Chạy lại workflow"));
+  assert.match(blocked.answer.text, /Cần dừng run hiện tại trước khi chạy lại/);
+  assert.equal(fx.count("flow_runs"), 1);
+  assert.equal(getRun(fx.raw, fx.projectId, started.runId)?.state, "waiting");
+  const cancelled = await fx.send("Chạy lại workflow", block("cancel", { runId: started.runId, decision: { quote: "Chạy lại workflow" } }));
+  assert.match(cancelled.answer.text, /Đã dừng run/);
+  assert.equal(getRun(fx.raw, fx.projectId, started.runId)?.state, "cancelled");
+  const restarted = (await fx.send("chốt", run("review-flow"))).answer.leadCards?.find(card => card.kind === "run");
+  assert.ok(restarted);
+  assert.notEqual(restarted.runId, started.runId);
+  assert.equal(getRun(fx.raw, fx.projectId, restarted.runId)?.state, "waiting");
+  assert.equal(fx.count("flow_runs"), 2);
+});
+
+test("a just-completed run is reused for the same flow and brief topic unless explicitly rerun", async context => {
+  const fx = fixture(context);
+  fx.flow("quick-flow", true, false);
+  const started = (await fx.send("chốt", run("quick-flow"))).answer.leadCards?.find(card => card.kind === "run");
+  assert.equal(started?.state, "succeeded");
+  const repeated = await fx.send("chốt", run("quick-flow"));
+  assert.match(repeated.answer.text, /Run vừa chạy đã kết thúc/);
+  assert.deepEqual(repeated.answer.leadCards?.find(card => card.kind === "run"), started);
+  assert.equal(fx.count("flow_runs"), 1);
+  const restarted = (await fx.send("Rerun quick-flow", run("quick-flow", "Rerun quick-flow"))).answer.leadCards?.find(card => card.kind === "run");
+  assert.equal(restarted?.state, "succeeded");
+  assert.notEqual(restarted.runId, started.runId);
+  assert.equal(fx.count("flow_runs"), 2);
 });
 
 test("a decision quote must be in the latest message; an unpublished workflow cannot start", async context => {

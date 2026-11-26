@@ -1,4 +1,4 @@
-import { messageSchema, type FactoryEvent, type LeadCard } from "@factory/contracts";
+import { messageSchema, type FactoryEvent } from "@factory/contracts";
 import { appendMessage, getConversation, listPendingTurns, setTurnState, type LeadTurn } from "../chat/service.js";
 import type { EventHub } from "../events/hub.js";
 import { createIdGenerator, systemClock, type Clock } from "../ids.js";
@@ -215,7 +215,7 @@ export function createLeadRunner(deps: {
         recordUsage(raw, { id: newId(), projectId: turn.projectId, taskId, attemptId: null,
           conversationId: conversation.id, provider: result.provider, model: result.model, effort: config.effort,
           usage: result.usage, estimatedTokens: built.estimateTokens, recordedAt: now });
-        let actionResult: { text: string; cards: LeadCard[] } | undefined;
+        let actionResult: ReturnType<typeof applyLeadAction> | undefined;
         let duplicateNote: string | null = null;
         const tasks = (brief?: { artifactId: string; version: number }) => {
           if (!parsed.plan) return [];
@@ -242,7 +242,7 @@ export function createLeadRunner(deps: {
               return changed.length ? { kind: "tasks", tasks: changed.map(({ id, title }) => ({ id, title })) } : null;
             },
           });
-          acceptedAction ||= actionResult.cards.some((card) => card.kind === "run");
+          acceptedAction ||= actionResult.startedRun === true;
         } else changed = tasks();
         const { message: stored } = appendMessage(raw, { projectId: turn.projectId, conversationId: conversation.id,
           id: newId(), speaker: "agent", agentId: conversation.agentId,

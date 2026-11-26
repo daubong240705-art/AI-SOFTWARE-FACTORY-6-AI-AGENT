@@ -858,6 +858,7 @@ export function createStore(options: StoreOptions = {}) {
     listAttempts: api.listAttempts, listAttemptEvents: api.listAttemptEvents,
     listTaskArtifacts: api.listTaskArtifacts, listTaskApprovals: api.listTaskApprovals,
     getArtifactContent: api.getArtifactContent, getTeam: api.getTeam,
+    listProjectAgents: api.listProjectAgents, getAgent: api.getAgent,
     rawDocumentUrl: api.rawDocumentUrl,
     fetchRawDocument: api.fetchRawDocument,
     getExtraction: api.getExtraction,

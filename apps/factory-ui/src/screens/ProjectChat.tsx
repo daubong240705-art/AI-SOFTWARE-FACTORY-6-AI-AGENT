@@ -21,6 +21,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { readableText } from './attention/presentation';
 import { LeadChatCard, useLeadRunUpdates } from './LeadChatCard';
+import { resolveLeadId } from './projectChatLead';
 
 type Draft = { text: string; intent: 'discuss' | 'delegate' };
 const drafts = new WeakMap<Store, Map<string, Draft>>();
@@ -39,23 +40,35 @@ function ChatHeader({ onClose }: { onClose?: (() => void) | undefined }) {
 export function ProjectChat({ store, projectId, onClose, onOpenTask }: { store: Store; projectId: string; onClose?: (() => void) | undefined; onOpenTask?: ((id: string) => void) | undefined }) {
   const t = useT();
   const [command, setCommand] = useState<Command | null>(null);
-  const state = store.useStoreSelector(value => ({ team: value.team, conversations: value.conversations, session: value.session, pending: command ? value.pending[command.commandId] : undefined, conversationError: value.errors.conversations, teamError: value.errors.team }), shallowSelectionEqual);
+  const state = store.useStoreSelector(value => ({ team: value.team, conversations: value.conversations, session: value.session, pending: command ? value.pending[command.commandId] : undefined, conversationError: value.errors.conversations }), shallowSelectionEqual);
   const lead = state.team?.seats.find(seat => seat.isLead);
   const conversation = state.conversations.find(item => item.agentId === lead?.id && item.workItemId === null) ?? state.conversations[0];
   const [busy, setBusy] = useState(false);
+  const [startError, setStartError] = useState<'noLead' | 'startFailed' | null>(null);
   const inFlight = useRef(false);
   const pending = state.pending;
-  async function execute(created: Command, retry = false) {
+  async function start() {
     if (inFlight.current) return;
-    inFlight.current = true; setBusy(true);
+    inFlight.current = true; setBusy(true); setStartError(null);
     try {
-      const result = await (retry ? store.retry(created.commandId) : store.send(created));
-      if (result && store.getState().session === 'authenticated') { await store.loadConversations(); setCommand(null); }
-      else if (store.getState().pending[created.commandId]?.error?.code === 'conflict') await store.loadConversations();
+      let created = command;
+      if (!created) {
+        const leadId = await resolveLeadId(store, projectId, lead?.id);
+        if (!leadId) { setStartError('noLead'); return; }
+        created = conversationsCreate({ projectId, seatId: leadId, title: 'Lead' });
+      }
+      const current = store.getState();
+      if (created.projectId !== projectId || current.selectedProjectId !== projectId || current.session !== 'authenticated' || current.conversations.length) return;
+      if (!command) setCommand(created);
+      const result = await store.send(created);
+      if (result || store.getState().pending[created.commandId]?.error?.code === 'conflict') await store.loadConversations();
+      if (!store.getState().conversations.length) setStartError('startFailed');
+    } catch {
+      setStartError('startFailed');
     } finally { inFlight.current = false; setBusy(false); }
   }
   if (conversation) return <ConversationChat key={`${projectId}:${conversation.id}`} store={store} projectId={projectId} conversation={conversation} onClose={onClose} onOpenTask={onOpenTask} />;
-  return <div className="flex h-full min-h-0 flex-col"><ChatHeader onClose={onClose} /><div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center"><MascotEmpty seat="Lead" size={64} fallback={<><MessageCircle className="size-6 text-muted-foreground" aria-hidden="true" /><p className="text-sm text-muted-foreground">{t('empty.conversations')}</p></>}><p className="text-sm text-muted-foreground">{t('empty.conversations')}</p><p className="text-sm text-muted-foreground">{t('chatUi.greeting')}</p></MascotEmpty>{state.conversationError && <ErrorNotice error={state.conversationError} />}{state.teamError && <ErrorNotice error={state.teamError} />}{state.team && !lead && <p role="alert" className="text-sm text-need">{t('chatUi.noLead')}</p>}{pending?.error && <ErrorNotice error={pending.error} />}{pending?.status === 'failed' && command ? <Button variant="outline" disabled={busy || state.session !== 'authenticated'} onClick={() => { void execute(command, true); }}>{t('errors.retry')}</Button> : <Button disabled={!state.team || !lead || busy || state.session !== 'authenticated'} onClick={() => { if (!lead || inFlight.current) return; const created = conversationsCreate({ projectId, seatId: lead.id, title: 'Lead' }); setCommand(created); void execute(created); }}>{t('chatUi.start')}</Button>}</div></div>;
+  return <div className="flex h-full min-h-0 flex-col"><ChatHeader onClose={onClose} /><div className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center"><MascotEmpty seat="Lead" size={64} fallback={<><MessageCircle className="size-6 text-muted-foreground" aria-hidden="true" /><p className="text-sm text-muted-foreground">{t('empty.conversations')}</p></>}><p className="text-sm text-muted-foreground">{t('empty.conversations')}</p><p className="text-sm text-muted-foreground">{t('chatUi.greeting')}</p></MascotEmpty>{state.conversationError && <ErrorNotice error={state.conversationError} />}{startError && <p role="alert" className="text-sm text-need">{t(`chatUi.${startError}`)}</p>}{pending?.error && <ErrorNotice error={pending.error} />}<Button variant={startError ? 'outline' : 'default'} disabled={busy || state.session !== 'authenticated'} onClick={() => { void start(); }}>{t(startError ? 'errors.retry' : 'chatUi.start')}</Button></div></div>;
 }
 
 /** One decision for the whole plan: accept (or decline) every proposed task in code order. */

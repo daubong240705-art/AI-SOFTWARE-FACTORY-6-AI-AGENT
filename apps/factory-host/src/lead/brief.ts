@@ -5,11 +5,13 @@ import { redactLeadText } from "./history.js";
 
 export const decisionText = (value: string): string => value.trim().replace(/\s+/gu, " ").toLowerCase();
 const safeText = (value: string) => redactLeadText(value).replace(/[\p{Cc}\p{Cf}]+/gu, " ").trim();
+const briefTitle = (value: string) => safeText(value) || "Bản chốt";
+export const leadBriefTopic = (title: string): string => decisionText(briefTitle(title));
 export const markdownText = (value: string): string => safeText(value)
   .replace(/[&<>\\`*_{}\[\]()!~#|]/g, "\\$&");
 
 export function writeLeadBrief(deps: UploadDeps, turn: LeadTurn, brief: LeadBrief) {
-  const title = safeText(brief.title) || "Bản chốt";
+  const title = briefTitle(brief.title);
   const topic = decisionText(title);
   const decisionLines = brief.decisions.map(({ decision, reason }) => `${markdownText(decision)} — ${markdownText(reason)}`);
   const section = (heading: string, items: string[]) => `## ${heading}\n\n${items.length ? items.map((item) => `- ${item}`).join("\n") : "- Không có."}`;

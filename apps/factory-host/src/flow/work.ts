@@ -360,6 +360,27 @@ export function executeWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefiniti
   }
 }
 
+function downstreamAgentTitles(def: FlowDefinition, nodeId: string): string[] {
+  const nodes = new Map(def.nodes.map((node) => [node.id, node]));
+  const queue = [nodeId];
+  const seen = new Set(queue);
+  const titles: string[] = [];
+  for (const id of queue) {
+    const node = nodes.get(id);
+    if (id !== nodeId && node?.type === "agent") {
+      titles.push(node.title);
+      if (titles.length === 8) break;
+    }
+    for (const edge of def.edges) {
+      if (edge.from.node !== id || edge.loopBack || !["out", "pass", "approved", "done", "item"].includes(edge.from.port)
+        || seen.has(edge.to.node)) continue;
+      seen.add(edge.to.node);
+      queue.push(edge.to.node);
+    }
+  }
+  return titles;
+}
+
 export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition, item: FlowNode, row: NodeRow): NodeOutcome | null {
   if (item.type === "action" && item.action === "bundle.publish") {
     const effect = deps.bundleAction?.latest(run.project_id, httpCaller(run, row));
@@ -438,8 +459,13 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
       const reviewer = choose(deps.raw, run.project_id, item.review.agent);
       if (!reviewer) return { kind: "failed", error: "no agent matches reviewer" };
       try {
+        const later = downstreamAgentTitles(def, item.id);
         makeTask(deps, run, row, reviewer, { title: `Review: ${task.title}`, parent: task.id, role: "subtask",
-          brief: `Review ${task.title}. Report {"verdict":"accepted"} or {"verdict":"changes-requested"} using task.result.`,
+          brief: [`Review workflow step: ${item.title}`, `Instructions summary:\n${Array.from(item.task.instructions).slice(0, 600).join("")}`,
+            `Acceptance criteria:\n${task.acceptance.map((criterion) => `- ${criterion}`).join("\n")}`,
+            `Out of scope — handled by later steps: ${later.join("; ") || "None"}`,
+            "Judge only this step's acceptance criteria. Report problems that belong to later steps as notes, not as changes-requested.",
+            'Report {"verdict":"accepted"} or {"verdict":"changes-requested"} using task.result.'].join("\n\n"),
           acceptance: ["Báo kết luận phản biện"], inputs: output.artifacts.map(({ artifactId, version }) => ({ artifactId, version })) });
       } catch (error) {
         if (error instanceof CommandError) return { kind: "failed", error: error.message };
