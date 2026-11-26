@@ -10,6 +10,7 @@ import { moveTask } from "../dispatch/tasks.js";
 import { isTerminalTask } from "../collab/policy.js";
 import { createNotification, notificationKey } from "../notify/service.js";
 import { getTask, tasksCreateHandler } from "../work/service.js";
+import { enqueueIntegration } from "../integration/service.js";
 import { withoutWorkflowAdvancement } from "./lifecycle.js";
 import { advanceRun, arm, insertRun, runOutputs, type FlowEngineDeps } from "./engine.js";
 import { matchesSchema, readPath, render } from "./expressions.js";
@@ -411,6 +412,7 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
         "SELECT 1 FROM collab_orchestrators WHERE project_id=? AND task_id=? AND failure_pending=1").get(run.project_id, task.id)) return null;
     if (task.state === "in-review") {
       const completed = moveTask(deps.raw, run.project_id, task.id, "done");
+      enqueueIntegration(deps.raw, { projectId: run.project_id, taskId: task.id, now: deps.clock().toISOString() });
       emit(deps.hub, run.project_id, run.id, { kind: "task", id: task.id, revision: completed.revision });
     } else if (task.state !== "done") return null;
     const { result } = taskOutput(deps, run.project_id, task.id, true);
@@ -524,7 +526,10 @@ export function completeFlowTask(deps: FlowEngineDeps, input: { projectId: strin
   if (!flowTask && !assignment) return false;
   if (assignment && assignment.kind !== "delegation" && !latestTaskResult(deps.raw, input.projectId, input.taskId)) return false;
   return deps.hub.transaction(() => {
-    const current = moveTask(deps.raw, input.projectId, input.taskId, "done", { now: deps.clock().toISOString() });
+    const now = deps.clock().toISOString();
+    const current = moveTask(deps.raw, input.projectId, input.taskId, "done", { now });
+    // Authors' work joins factory/integration so the next step (and its reviewer) builds on it; reviews change no code.
+    if (flowTask?.role !== "subtask") enqueueIntegration(deps.raw, { projectId: input.projectId, taskId: input.taskId, now });
     emit(deps.hub, input.projectId, input.taskId, { kind: "task", id: input.taskId, revision: current.revision });
     return true;
   });

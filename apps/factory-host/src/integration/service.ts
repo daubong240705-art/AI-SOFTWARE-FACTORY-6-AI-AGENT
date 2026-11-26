@@ -31,7 +31,11 @@ export function enqueueIntegration(raw: Database, input: { projectId: string; ta
 export function integrationBlocked(raw: Database, projectId: string, taskId: string): boolean {
   return Boolean(raw.prepare(`SELECT 1 FROM task_dependencies d JOIN integration_merges m
     ON m.project_id=d.project_id AND m.task_id=d.depends_on_task_id
-    WHERE d.project_id=? AND d.task_id=? AND m.state IN ('pending','conflict') LIMIT 1`).get(projectId, taskId));
+    WHERE d.project_id=? AND d.task_id=? AND m.state IN ('pending','conflict') LIMIT 1`).get(projectId, taskId))
+    // A workflow step waits until earlier steps of the same run are merged, so it starts from their work.
+    || Boolean(raw.prepare(`SELECT 1 FROM flow_tasks f JOIN flow_tasks g ON g.project_id=f.project_id AND g.run_id=f.run_id
+      JOIN integration_merges m ON m.project_id=g.project_id AND m.task_id=g.task_id
+      WHERE f.project_id=? AND f.task_id=? AND g.task_id<>f.task_id AND m.state IN ('pending','conflict') LIMIT 1`).get(projectId, taskId));
 }
 
 // Claims are shared by dispatchers and connections to the same Host database, acquired
