@@ -62,6 +62,10 @@
         "agent": {
           "role": "Game Lead"
         }
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -87,6 +91,10 @@
         "agent": {
           "role": "Code Reviewer"
         }
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -112,6 +120,10 @@
         "agent": {
           "role": "Game Designer"
         }
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -137,6 +149,10 @@
         "agent": {
           "role": "Code Reviewer"
         }
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -200,6 +216,10 @@
           "reasons",
           "bugs"
         ]
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -257,6 +277,10 @@
           "area",
           "notes"
         ]
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -318,6 +342,10 @@
         "agent": {
           "role": "Code Reviewer"
         }
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -345,6 +373,10 @@
         "agent": {
           "role": "Code Reviewer"
         }
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -409,6 +441,10 @@
           "reasons",
           "bugs"
         ]
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -475,6 +511,10 @@
         "required": [
           "report"
         ]
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -535,6 +575,10 @@
           "verdict",
           "notes"
         ]
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {

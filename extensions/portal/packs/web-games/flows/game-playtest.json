@@ -48,6 +48,10 @@
         "required": [
           "report"
         ]
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
@@ -80,6 +84,10 @@
         "required": [
           "report"
         ]
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {

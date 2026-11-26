@@ -55,6 +55,10 @@
           "verdict",
           "notes"
         ]
+      },
+      "retry": {
+        "max": 2,
+        "backoffSeconds": 120
       }
     },
     {
