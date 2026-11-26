@@ -35,8 +35,10 @@ function App() {
   }, [lang]);
 
   useEffect(() => {
-    if (!isDocs) document.title = text(lang, isTry ? 'Dùng thử · Factory' : 'Factory — Đội AI trên máy của bạn', isTry ? 'Try Factory · Factory' : 'Factory — Your AI team, on your machine');
-  }, [isDocs, isTry, lang]);
+    if (isDocs) return;
+    document.title = landing ? text(lang, 'Factory — Đội AI trên máy của bạn', 'Factory — Your AI team, on your machine') :
+      isTry ? text(lang, 'Dùng thử · Factory', 'Try Factory · Factory') : text(lang, 'Không tìm thấy trang · Factory', 'Page not found · Factory');
+  }, [isDocs, isTry, landing, lang]);
 
   useEffect(() => {
     const changedPage = previousRoute.current !== '' && previousRoute.current !== route;
@@ -55,7 +57,7 @@ function App() {
         <nav id="site-nav" className={menu ? 'site-nav open' : 'site-nav'} aria-label={text(lang, 'Điều hướng chính', 'Main navigation')} onClick={(event) => { if ((event.target as HTMLElement).closest('a')) setMenu(false); }}>
           <a href="#/#features">{text(lang, 'Tính năng', 'Features')}</a>
           <a href="#/#how">{text(lang, 'Cách hoạt động', 'How it works')}</a>
-          <a href="#/docs/introduction" aria-current={isDocs ? 'page' : undefined}>Docs</a>
+          <a href="#/docs/introduction" aria-current={isDocs ? 'page' : undefined}>{text(lang, 'Tài liệu', 'Docs')}</a>
           <External href={repo}>GitHub</External>
           <a className="nav-try" href="#/try" aria-current={isTry ? 'page' : undefined}>{text(lang, 'Dùng thử', 'Try it')}</a>
         </nav>
@@ -70,7 +72,7 @@ function App() {
       <div className="wrap footer-inner">
         <a className="brand" href="#/"><Mochi />Factory<span>.</span></a>
         <p>{text(lang, 'Đội AI của bạn. Trên máy của bạn.', 'Your AI team. On your machine.')}</p>
-        <div><a href="#/docs/introduction">Docs</a><External href={`${repo}/blob/main/LICENSE`}>MIT</External><External href={repo}>GitHub</External></div>
+        <div><a href="#/docs/introduction">{text(lang, 'Tài liệu', 'Docs')}</a><External href={`${repo}/blob/main/LICENSE`}>MIT</External><External href={repo}>GitHub</External></div>
       </div>
     </footer>
   </>;

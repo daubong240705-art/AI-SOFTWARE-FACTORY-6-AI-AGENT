@@ -9,7 +9,7 @@ const features = [
   [ShieldCheck, 'Phê duyệt & chính sách', 'Approvals & policies', 'Giới hạn tool và ngân sách; giữ quyền quyết định ở các bước quan trọng.', 'Limit tools and budgets; retain control over consequential decisions.', 'mint'],
   [Activity, 'Trace & Hiệu quả', 'Trace & Insights', 'Xem bằng chứng từ request đến artifact. Dùng Insights để đề xuất Draft.', 'Follow evidence from request to artifact. Use Insights to propose a Draft.', 'blue'],
   [FolderTree, 'Group lồng nhau', 'Nested groups', 'Tổ chức dự án, dùng chung Thư viện, kế thừa mặc định và chia sẻ ngân sách.', 'Organize projects, share a library, inherit defaults and share budgets.', 'peach'],
-  [Blocks, 'Extension tùy chọn', 'Opt-in extensions', 'Nhập pack theo nhu cầu, từ team phần mềm đến xưởng Web Games.', 'Import the packs you need, from software teams to the Web Games studio.', 'mint'],
+  [Blocks, 'Tiện ích mở rộng', 'Extensions', 'Nhập pack khi cần.', 'Import packs as needed.', 'mint'],
 ] as const;
 
 const steps = [
@@ -20,18 +20,6 @@ const steps = [
   [GitPullRequest, 'Review / QA', 'Review / QA', 'Kiểm tra bằng chứng', 'Check the evidence'],
   [ShieldCheck, 'Bạn duyệt', 'Your approval', 'Quyết định tiếp hay dừng', 'Decide whether to proceed'],
   [ArrowRight, 'Publish', 'Publish', 'Khi workflow có bước này', 'If the workflow includes it'],
-] as const;
-
-const roles = [
-  ['LEAD', 'Game Lead', 'Chốt hướng đi', 'Agree on direction'], ['BA', 'Game Designer', 'Thiết kế lối chơi', 'Design the gameplay'],
-  ['BE', 'Rules Engineer', 'Luật, bot và test', 'Rules, bots and tests'], ['FE', 'Client Engineer', 'Client, SDK và nhập liệu', 'Client, SDK and input'],
-  ['PLUM', 'UI Artist', 'CSS, SVG và thumbnail', 'CSS, SVG and thumbnails'], ['TEST', 'QA Engineer', 'Chơi thử và kiểm hồi quy', 'Playtest and check regressions'],
-  ['MINT', 'Code Reviewer', 'Phản biện diff', 'Review the diff'], ['DEVOPS', 'Release Manager', 'Kiểm trước phát hành', 'Check before release'],
-] as const;
-
-const gameSteps = [
-  ['Thiết kế & đối chiếu brief', 'Design & brief check'], ['Luật, art & client qua review', 'Rules, art & client through review'],
-  ['QA & sửa có giới hạn', 'QA & bounded repair'], ['Kiểm tra phát hành', 'Release checks'], ['Duyệt → Publish lên Portal', 'Approve → Publish to Portal'],
 ] as const;
 
 const comparisons = [

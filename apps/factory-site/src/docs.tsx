@@ -5,7 +5,7 @@ import { CodeBlock, text, type Lang } from './shared';
 
 const sections = [
   ['start', 'Bắt đầu', 'Getting started'], ['concepts', 'Khái niệm', 'Concepts'], ['guides', 'Hướng dẫn', 'Guides'],
-  ['extensions', 'Extension', 'Extensions'], ['reference', 'Tham chiếu', 'Reference'],
+  ['extensions', 'Tiện ích mở rộng', 'Extensions'], ['reference', 'Tham chiếu', 'Reference'],
 ] as const;
 
 type Page = { slug: string; lang: Lang; title: string; section: string; order: number; body: string };
@@ -50,6 +50,7 @@ function isHeading(token: { type: string; depth?: number }): token is Tokens.Hea
 export function Docs({ slug, lang }: { slug: string; lang: Lang }) {
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const docsLabel = text(lang, 'Tài liệu', 'Docs');
   const ordered = pages.filter((page) => page.lang === 'vi').sort((left, right) =>
     sections.findIndex(([section]) => section === left.section) - sections.findIndex(([section]) => section === right.section) || left.order - right.order,
   ).map((page) => pages.find((candidate) => candidate.slug === page.slug && candidate.lang === lang) ?? page);
@@ -66,7 +67,8 @@ export function Docs({ slug, lang }: { slug: string; lang: Lang }) {
     return [heading, id];
   }));
 
-  useEffect(() => { document.title = `${page?.title ?? 'Docs'} · Factory`; }, [page?.title]);
+  const title = page?.title ?? text(lang, 'Không tìm thấy tài liệu', 'Document not found');
+  useEffect(() => { document.title = `${title} · Factory`; }, [title]);
   useEffect(() => {
     const anchor = location.hash.slice(1).split('#', 2)[1];
     if (anchor) document.getElementById(anchor)?.scrollIntoView();
@@ -74,7 +76,7 @@ export function Docs({ slug, lang }: { slug: string; lang: Lang }) {
 
   return <div className="wrap docs-layout">
     <aside className="docs-sidebar">
-      <div className="docs-brand"><BookOpen size={19} aria-hidden="true" /> Docs</div>
+      <div className="docs-brand"><BookOpen size={19} aria-hidden="true" />{docsLabel}</div>
       <button type="button" className="docs-menu" aria-expanded={menuOpen} aria-controls="docs-side-content" onClick={() => setMenuOpen(!menuOpen)}><BookOpen size={19} aria-hidden="true" />{text(lang, 'Danh mục tài liệu', 'Browse docs')}</button>
       <div className={menuOpen ? 'docs-side-content open' : 'docs-side-content'} id="docs-side-content">
       <label className="docs-search"><Search size={17} aria-hidden="true" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={text(lang, 'Tìm theo tiêu đề…', 'Search titles…')} aria-label={text(lang, 'Tìm theo tiêu đề tài liệu', 'Search documentation titles')} /></label>
@@ -90,8 +92,8 @@ export function Docs({ slug, lang }: { slug: string; lang: Lang }) {
       </div>
     </aside>
     {page ? <article className="docs-article" lang={page.lang}>
-      <header className="docs-title"><p className="eyebrow">Docs / {sections.find(([section]) => section === page.section)?.[page.lang === 'vi' ? 1 : 2]}</p><h1>{page.title}</h1></header>
-      {page.lang !== lang && <aside className="callout" lang={lang}><Info size={20} aria-hidden="true" /><p>This page is currently available in Vietnamese only.</p></aside>}
+      <header className="docs-title"><p className="eyebrow" lang={lang}>{docsLabel} / {sections.find(([section]) => section === page.section)?.[lang === 'vi' ? 1 : 2]}</p><h1>{title}</h1></header>
+      {page.lang !== lang && <aside className="callout" lang={lang}><Info size={20} aria-hidden="true" /><p>{text(lang, 'Trang này chưa có bản dịch.', 'This page is not yet available in English.')}</p></aside>}
       <div className="prose">{tokens.map((token, tokenIndex) => {
         if (isHeading(token)) {
           const Heading = `h${token.depth}` as 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
@@ -107,7 +109,7 @@ export function Docs({ slug, lang }: { slug: string; lang: Lang }) {
           <span>{position === 0 ? <><ArrowLeft size={15} aria-hidden="true" />{text(lang, 'Trang trước', 'Previous')}</> : <>{text(lang, 'Trang sau', 'Next')}<ArrowRight size={15} aria-hidden="true" /></>}</span><strong lang={neighbor.lang}>{neighbor.title}</strong>
         </a> : <span key={position} />)}
       </nav>
-    </article> : <div className="not-found"><h1>{text(lang, 'Không tìm thấy tài liệu', 'Document not found')}</h1><a href={pageLink('introduction')}>{text(lang, 'Đọc giới thiệu', 'Read the introduction')}</a></div>}
+    </article> : <div className="not-found"><h1>{title}</h1><a href={pageLink('introduction')}>{text(lang, 'Đọc giới thiệu', 'Read the introduction')}</a></div>}
     {page && headingIds.size > 0 && <nav className="docs-toc" aria-label={text(lang, 'Trên trang này', 'On this page')}>
       <h2>{text(lang, 'Trên trang này', 'On this page')}</h2><ul>{Array.from(headingIds, ([heading, id]) => <li key={id} className={heading.depth > 2 ? 'subheading' : undefined}>
         <a lang={page.lang} href={pageLink(slug, id)}>{heading.text.replace(/`/g, '')}</a></li>)}</ul>
