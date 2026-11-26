@@ -34,8 +34,11 @@ marked.use({ renderer: {
     return url ? `<a href="${escape(url)}"${title ? ` title="${escape(title)}"` : ''}>${label}</a>` : label;
   },
   image({ href, title, text: alt }) {
-    const image = /^(?:\.\.\/|\.\/)*images\/([a-z0-9.-]+\.(?:png|jpe?g|webp|svg))$/i.exec(href);
-    return image ? `<img src="/images/${escape(image[1])}" alt="${escape(alt)}" loading="lazy"${title ? ` title="${escape(title)}"` : ''}>` : escape(alt);
+    const image = /^(?:\/|(?:\.\.\/|\.\/)*)images\/((?:docs\/)?[a-z0-9][a-z0-9.-]*\.(?:png|jpe?g|webp|svg))$/i.exec(href);
+    if (!image) return escape(alt);
+    const url = `/images/${escape(image[1])}`;
+    const size = image[1].startsWith('docs/') ? ' width="1440" height="900"' : '';
+    return `<a class="docs-image" href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${escape(alt)}" loading="lazy"${size}${title ? ` title="${escape(title)}"` : ''}></a>`;
   },
 } });
 
