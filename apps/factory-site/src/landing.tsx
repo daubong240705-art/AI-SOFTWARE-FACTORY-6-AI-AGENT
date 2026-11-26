@@ -94,18 +94,17 @@ export function Landing({ lang }: { lang: Lang }) {
 }
 
 export function Try({ lang }: { lang: Lang }) {
-  const token = import.meta.env.VITE_DEMO_TOKEN?.trim();
   const activities = [
     [FolderTree, 'Mở dự án Recipe Box', 'Open the Recipe Box project', 'Xem agent và workflow đã được chuẩn bị.', 'Explore its preconfigured agents and workflows.'],
-    [Settings2, 'Chạy thử với mock agent', 'Test a workflow with mock agents', 'Trong Workflow, chọn Chạy thử và bật Mock agent.', 'In Workflow, choose Test run and turn on Mock agents.'],
+    [Settings2, 'Chạy thử với mock agent', 'Test a workflow with mock agents', 'Trong Workflow, chọn Chạy thử và bật Mock agent (không tốn token).', 'In Workflows, choose Test run and turn on Mock agents (no tokens).'],
     [ShieldCheck, 'Duyệt trong Cần xử lý', 'Approve in Needs attention', 'Mở yêu cầu đang chờ, đọc bằng chứng rồi chọn Duyệt.', 'Open a pending request, read the evidence, then approve.'],
     [Activity, 'Xem Văn phòng và Trace', 'Explore Office and Trace', 'Xem agent đang làm gì, rồi mở Trace để theo dõi từng bước.', 'See what agents are doing, then open Trace to follow each step.'],
   ] as const;
   return <div className="wrap try-page">
     <section className="try-hero"><div><p className="eyebrow"><Sparkles size={16} aria-hidden="true" /> Factory Demo</p><h1>{text(lang, 'Dùng thử Factory', 'Try Factory')}</h1>
-      <p>{text(lang, 'Bản demo công khai dùng mock agent, không gọi model thật. Dữ liệu được đặt lại định kỳ; đừng nhập secret hay dữ liệu thật.', 'The public demo uses mock agents and does not call real models. Data is reset regularly; do not enter secrets or real data.')}</p></div><Mochi /></section>
-    <section className="demo-connect" aria-labelledby="demo-heading"><div><h2 id="demo-heading">{text(lang, 'Kết nối demo', 'Connect to the demo')}</h2><p>{text(lang, 'Địa chỉ này chỉ truy cập được từ mạng có đường tới máy demo.', 'This private-network address is reachable only from a network that can access the demo host.')}</p><External className="button primary" href={demo}>{demo}</External></div>
-      <div><h3>{text(lang, 'Token đăng nhập demo', 'Demo sign-in token')}</h3>{token ? <CodeBlock value={token} lang={lang} label="Token" /> : <p>{text(lang, 'hỏi người quản trị', 'ask the administrator')}</p>}</div></section>
+      <p>{text(lang, 'Demo chỉ truy cập được trong mạng nội bộ, trừ khi người vận hành công bố demo. Hãy dùng mock agent để thử mà không gọi model thật. Không nhập secret hay dữ liệu thật.', 'The demo is available on the local network only unless the operator publishes it. Use mock agents to try workflows without calling a real model. Do not enter secrets or real data.')}</p></div><Mochi /></section>
+    <section className="demo-connect" aria-labelledby="demo-heading"><div><h2 id="demo-heading">{text(lang, 'Kết nối demo', 'Connect to the demo')}</h2><p>{text(lang, 'Nếu không mở được demo, hãy hỏi người vận hành về quyền truy cập.', 'If you cannot reach the demo, ask the operator for access.')}</p><External className="button primary" href={demo}>{text(lang, 'Mở demo', 'Open demo')}</External></div>
+      <div><h3>{text(lang, 'Đăng nhập', 'Sign in')}</h3><p>{text(lang, 'Nếu demo yêu cầu đăng nhập, hãy hỏi người vận hành.', 'If the demo requires sign-in, ask the operator.')}</p></div></section>
     <section className="try-steps"><p className="eyebrow">{text(lang, 'Gợi ý', 'Suggested steps')}</p><h2>{text(lang, 'Bốn việc nên thử', 'Four things to try')}</h2><ol className="feature-grid">{activities.map(([Icon, vi, en, bodyVi, bodyEn], index) => <li className="tile" key={en}><span className="tile-icon mint"><Icon size={22} aria-hidden="true" /></span><span className="try-number" aria-hidden="true">0{index + 1}</span><h3>{text(lang, vi, en)}</h3><p>{text(lang, bodyVi, bodyEn)}</p></li>)}</ol></section>
   </div>;
 }

@@ -16,6 +16,6 @@ The static server defaults to `0.0.0.0:8810`. Override `HOST` and `PORT` for you
 
 ## Demo and documentation
 
-Optionally set `VITE_DEMO_TOKEN` when building to show the **public demo** token. Vite embeds it in the client bundle; never use a private credential or a real Factory instance's token here. Without it, the demo page tells visitors to ask the administrator.
+The demo is local-network only unless the operator publishes it. Direct visitors to the operator for sign-in; do not embed credentials in the site build.
 
 Add documentation to `docs/vi/` and matching translations to `docs/en/`. Keep the same slug, section and order across languages; use `title`, `section`, and `order` frontmatter. Link to other pages with relative `.md` links and reference local screenshots under `images/`. Raw HTML is omitted. Copied Inter font licensing is in `public/fonts/Inter-LICENSE.txt`.
