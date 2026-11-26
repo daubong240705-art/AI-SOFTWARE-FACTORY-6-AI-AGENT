@@ -461,7 +461,8 @@ export function syncWork(deps: FlowEngineDeps, run: RunRow, def: FlowDefinition,
       try {
         const later = downstreamAgentTitles(def, item.id);
         makeTask(deps, run, row, reviewer, { title: `Review: ${task.title}`, parent: task.id, role: "subtask",
-          brief: [`Review workflow step: ${item.title}`, `Instructions summary:\n${Array.from(item.task.instructions).slice(0, 600).join("")}`,
+          brief: [`Review workflow step: ${item.title}`, `Task given to the author (rendered, with the run inputs such as the operator-confirmed brief):\n${Array.from(task.brief ?? "").slice(0, 4000).join("")}`,
+            "The brief in the task above is the plan the operator confirmed in the Lead chat; its knowledge document may still show status draft. Do not reject because of that status.",
             `Acceptance criteria:\n${task.acceptance.map((criterion) => `- ${criterion}`).join("\n")}`,
             `Out of scope — handled by later steps: ${later.join("; ") || "None"}`,
             "Judge only this step's acceptance criteria. Report problems that belong to later steps as notes, not as changes-requested.",

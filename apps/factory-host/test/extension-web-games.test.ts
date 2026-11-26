@@ -167,7 +167,7 @@ test("game-new reaches its first Approval only after review, QA and release chec
   assert.ok(rules?.type === "agent");
   buildNew(run, reviewBrief => {
     assert.ok(reviewBrief.includes(rules.title));
-    assert.ok(reviewBrief.includes(Array.from(rules.task.instructions).slice(0, 600).join("")));
+    assert.match(reviewBrief, /Task given to the author \(rendered/); assert.match(reviewBrief, /operator confirmed in the Lead chat/);
     for (const criterion of rules.task.acceptance) assert.ok(reviewBrief.includes(criterion), criterion);
     assert.match(reviewBrief, /Out of scope — handled by later steps: Vẽ tài sản và định hướng giao diện; Dựng client bằng SDK; Chơi thử và kiểm tra chất lượng; Kiểm tra bản phát hành/);
     assert.doesNotMatch(reviewBrief, /Phân loại lỗi|Sửa giao diện và điều khiển/);
